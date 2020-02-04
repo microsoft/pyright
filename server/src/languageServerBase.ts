@@ -20,7 +20,7 @@ import {
 } from './common/diagnostic';
 import './common/extensions';
 import { combinePaths, getDirectoryPath, normalizePath, convertUriToPath, convertPathToUri } from './common/pathUtils';
-import { commandAddMissingOptionalToParam, commandCreateTypeStub, commandOrderImports } from '../../common/commands';
+import { CommandId } from './definitions/commands';
 import { CompletionItemData } from './languageService/completionProvider';
 
 export interface ServerSettings {
@@ -266,7 +266,7 @@ export abstract class LanguageServerBase {
             this._recordUserInteractionTime();
 
             const sortImportsCodeAction = CodeAction.create(
-                'Organize Imports', Command.create('Organize Imports', commandOrderImports),
+                'Organize Imports', Command.create('Organize Imports', CommandId.orderImports),
                 CodeActionKind.SourceOrganizeImports);
             const codeActions: CodeAction[] = [sortImportsCodeAction];
 
@@ -287,16 +287,16 @@ export abstract class LanguageServerBase {
                 const diags = workspace.serviceInstance.getDiagnosticsForRange(filePath, range);
                 const typeStubDiag = diags.find(d => {
                     const actions = d.getActions();
-                    return actions && actions.find(a => a.action === commandCreateTypeStub);
+                    return actions && actions.find(a => a.action === CommandId.createTypeStub);
                 });
 
                 if (typeStubDiag) {
                     const action = typeStubDiag.getActions()!.find(
-                        a => a.action === commandCreateTypeStub) as CreateTypeStubFileAction;
+                        a => a.action === CommandId.createTypeStub) as CreateTypeStubFileAction;
                     if (action) {
                         const createTypeStubAction = CodeAction.create(
                             `Create Type Stub For ‘${action.moduleName}’`,
-                            Command.create('Create Type Stub', commandCreateTypeStub,
+                            Command.create('Create Type Stub', CommandId.createTypeStub,
                                 workspace.rootPath, action.moduleName),
                             CodeActionKind.QuickFix);
                         codeActions.push(createTypeStubAction);
@@ -305,16 +305,16 @@ export abstract class LanguageServerBase {
 
                 const addOptionalDiag = diags.find(d => {
                     const actions = d.getActions();
-                    return actions && actions.find(a => a.action === commandAddMissingOptionalToParam);
+                    return actions && actions.find(a => a.action === CommandId.addMissingOptionalToParam);
                 });
 
                 if (addOptionalDiag) {
                     const action = addOptionalDiag.getActions()!.find(
-                        a => a.action === commandAddMissingOptionalToParam) as AddMissingOptionalToParamAction;
+                        a => a.action === CommandId.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
                     if (action) {
                         const addMissingOptionalAction = CodeAction.create(
                             `Add 'Optional' to type annotation`,
-                            Command.create(`Add 'Optional' to type annotation`, commandAddMissingOptionalToParam,
+                            Command.create(`Add 'Optional' to type annotation`, CommandId.addMissingOptionalToParam,
                                 action.offsetOfTypeNode),
                             CodeActionKind.QuickFix);
                         codeActions.push(addMissingOptionalAction);
@@ -592,8 +592,8 @@ export abstract class LanguageServerBase {
     }
 
     private async _executeCommand(cmdParams: ExecuteCommandParams): Promise<any> {
-        if (cmdParams.command === commandOrderImports ||
-            cmdParams.command === commandAddMissingOptionalToParam) {
+        if (cmdParams.command === CommandId.orderImports ||
+            cmdParams.command === CommandId.addMissingOptionalToParam) {
 
             if (cmdParams.arguments && cmdParams.arguments.length >= 1) {
                 const docUri = cmdParams.arguments[0];
@@ -618,7 +618,7 @@ export abstract class LanguageServerBase {
             }
         }
 
-        if (cmdParams.command === commandCreateTypeStub) {
+        if (cmdParams.command === CommandId.createTypeStub) {
             if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
                 const workspaceRoot = cmdParams.arguments[0];
                 const importName = cmdParams.arguments[1];

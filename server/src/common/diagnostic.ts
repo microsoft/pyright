@@ -8,7 +8,7 @@
  */
 
 import { Position, Range } from 'vscode-languageserver';
-import { CommandId } from '../../../common/commands';
+import { CommandId } from '../definitions/commands';
 
 export const enum DiagnosticCategory {
     Error,

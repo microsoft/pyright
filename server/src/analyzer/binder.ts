@@ -48,7 +48,7 @@ import { Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { CommandId } from '../../../common/commands';
+import { CommandId } from '../definitions/commands';
 
 export const enum NameBindingType {
     // With "nonlocal" keyword
