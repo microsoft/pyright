@@ -42,7 +42,7 @@ export class ImportResolver {
     private _cachedTypeshedStdLibPath: string | undefined;
     private _cachedTypeshedThirdPartyPath: string | undefined;
 
-    public readonly fileSystem: VirtualFileSystem;
+    readonly fileSystem: VirtualFileSystem;
 
     constructor(fs: VirtualFileSystem, configOptions: ConfigOptions) {
         this.fileSystem = fs;

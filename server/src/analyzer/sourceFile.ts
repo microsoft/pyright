@@ -140,14 +140,10 @@ export class SourceFile {
     private _typingModulePath?: string;
     private _collectionsModulePath?: string;
 
-    public readonly fileSystem: VirtualFileSystem;
+    readonly fileSystem: VirtualFileSystem;
 
-    constructor(
-        fs: VirtualFileSystem,
-        filePath: string,
-        isTypeshedStubFile: boolean,
-        isThirdPartyImport: boolean,
-        console?: ConsoleInterface) {
+    constructor(fs: VirtualFileSystem, filePath: string, isTypeshedStubFile: boolean,
+        isThirdPartyImport: boolean, console?: ConsoleInterface) {
 
         this.fileSystem = fs;
         this._console = console || new StandardConsole();
@@ -765,7 +761,7 @@ export class SourceFile {
     }
 
     private _buildFileInfo(configOptions: ConfigOptions, fileContents: string,
-            importLookup: ImportLookup, builtinsScope?: Scope) {
+        importLookup: ImportLookup, builtinsScope?: Scope) {
 
         assert(this._parseResults !== undefined);
         const analysisDiagnostics = new TextRangeDiagnosticSink(this._parseResults!.tokenizerOutput.lines);

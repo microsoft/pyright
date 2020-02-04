@@ -120,8 +120,8 @@ export interface SortedArray<T> extends Array<T> {
 }
 
 /**
-     * Returns a new sorted array.
-     */
+ * Returns a new sorted array.
+ */
 export function cloneAndSort<T>(array: readonly T[], comparer?: Comparer<T>): SortedReadonlyArray<T> {
     return (array.length === 0 ? array : array.slice().sort(comparer)) as SortedReadonlyArray<T>;
 }
