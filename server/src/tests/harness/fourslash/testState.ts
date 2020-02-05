@@ -386,7 +386,8 @@ export class TestState {
                 for (const range of ranges) {
                     const rangeSpan =  TextRange.fromBounds(range.pos, range.end);
                     const matches = actual.filter(d => {
-                        const diagnosticSpan = TextRange.fromBounds(convertPositionToOffset(d.range.start, lines)!, convertPositionToOffset(d.range.end, lines)!);
+                        const diagnosticSpan = TextRange.fromBounds(convertPositionToOffset(d.range.start, lines)!,
+                            convertPositionToOffset(d.range.end, lines)!);
                         return this._deepEqual(diagnosticSpan, rangeSpan); });
 
                     if (matches.length === 0) {
@@ -398,7 +399,7 @@ export class TestState {
                         const name = this.getMarkerName(range.marker!);
                         const message = map[name].message;
 
-                        if (matches.filter(d => message == d.message).length === 0) {
+                        if (matches.filter(d => message == d.message).length !== 1) {
                             this._raiseError(`message doesn't match: ${ message } of ${ name } - ${ stringify(range) }, actual: ${ stringify(matches) }`);
                         }
                     }
