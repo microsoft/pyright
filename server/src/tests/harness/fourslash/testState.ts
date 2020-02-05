@@ -93,8 +93,11 @@ export class TestState {
         this.program = program;
         this._files.push(...Object.keys(files));
 
-        // Open the first file by default
-        this.openFile(0);
+        if (this._files.length > 0)
+        {
+            // Open the first file by default
+            this.openFile(0);
+        }
     }
 
     // Entry points from fourslash.ts
