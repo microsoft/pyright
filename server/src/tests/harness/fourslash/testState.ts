@@ -8,6 +8,7 @@
  */
 
 import * as path from "path";
+import * as assert from 'assert'
 import Char from "typescript-char";
 import { ImportResolver } from "../../../analyzer/importResolver";
 import { Program } from "../../../analyzer/program";
@@ -15,7 +16,7 @@ import { ConfigOptions } from "../../../common/configOptions";
 import { NullConsole } from "../../../common/console";
 import { Comparison, isNumber, isString } from "../../../common/core";
 import * as debug from "../../../common/debug";
-import { Diagnostic, DiagnosticCategory } from "../../../common/diagnostic";
+import { DiagnosticCategory } from "../../../common/diagnostic";
 import { combinePaths, comparePaths, getBaseFileName, normalizePath, normalizeSlashes } from "../../../common/pathUtils";
 import { convertOffsetToPosition, convertPositionToOffset } from "../../../common/positionUtils";
 import { getStringComparer } from "../../../common/stringUtils";
@@ -25,7 +26,6 @@ import { createFromFileSystem } from "../vfs/factory";
 import * as vfs from "../vfs/filesystem";
 import { CompilerSettings, FourSlashData, FourSlashFile, GlobalMetadataOptionNames, Marker, MultiMap, pythonSettingFilename, Range, TestCancellationToken } from "./fourSlashTypes";
 import { stringify } from "../utils"
-import { stableSort } from "../../../common/collectionUtils";
 
 export interface TextChange {
     span: TextRange;
@@ -375,32 +375,31 @@ export class TestState {
             });
 
             const result = resultPerFile.get(file)!;
-            for (const [category, ranges] of rangesPerCategory.entries()) {
+            for (const [category, expected] of rangesPerCategory.entries()) {
                 const lines = result.parseResults!.tokenizerOutput.lines;
-                const expected = ranges;
-                const actual = category == "error" ? result.errors : category == "warning" ? result.warnings : this._raiseError(`unexpected category ${ category }`);
+                const actual = category === "error" ? result.errors : category === "warning" ? result.warnings : this._raiseError(`unexpected category ${ category }`);
 
-                if (expected.length != actual.length) {
-                    throw new Error(`contains unexpected result - expected: ${ stringify(expected) }, actual: ${ actual }`);
+                if (expected.length !== actual.length) {
+                    this._raiseError(`contains unexpected result - expected: ${ stringify(expected) }, actual: ${ actual }`);
                 }
 
-                const rangeOrdered = stableSort(expected.map(r => [r, TextRange.fromBounds(r.pos, r.end)] as [Range, TextRange]), (a, b) => a[1].start - b[1].start);
-                const diagnosticOrdered = stableSort(actual.map(d => [d, TextRange.fromBounds(convertPositionToOffset(d.range.start, lines)!, convertPositionToOffset(d.range.end, lines)!)] as [Diagnostic, TextRange]), (a, b) => a[1].start - b[1].start);
+                for (const range of ranges) {
+                    const rangeSpan =  TextRange.fromBounds(range.pos, range.end);
+                    const matches = actual.filter(d => {
+                        const diagnosticSpan = TextRange.fromBounds(convertPositionToOffset(d.range.start, lines)!, convertPositionToOffset(d.range.end, lines)!);
+                        return this._deepEqual(diagnosticSpan, rangeSpan); });
 
-                for (let i = 0; i < rangeOrdered.length; i++) {
-                    const [range, rangeSpan] = rangeOrdered[i];
-                    const [diagnostic, diagnosticSpan] = diagnosticOrdered[i];
-
-                    if (rangeSpan.start !== diagnosticSpan.start || rangeSpan.length !== diagnosticSpan.length) {
-                        throw new Error(`can't find expected range: ${ stringify(range) } from diagnostics ${ stringify(diagnosticOrdered) }`);
+                    if (matches.length === 0) {
+                        this._raiseError(`doesn't contain expected range: ${ stringify(range) }`);
                     }
 
                     // if map is provided, check messasge as well
                     if (map) {
                         const name = this.getMarkerName(range.marker!);
                         const message = map[name].message;
-                        if (message != diagnostic.message) {
-                            throw new Error(`message doesn't match: ${ message } of ${ name } - ${ stringify(range) }, actual: ${ stringify(diagnostic) }`);
+
+                        if (matches.filter(d => message == d.message).length === 0) {
+                            this._raiseError(`message doesn't match: ${ message } of ${ name } - ${ stringify(range) }, actual: ${ stringify(matches) }`);
                         }
                     }
                 }
@@ -700,5 +699,16 @@ export class TestState {
     private _updatePosition(position: number, editStart: number, editEnd: number, { length }: string): number {
         // If inside the edit, return -1 to mark as invalid
         return position <= editStart ? position : position < editEnd ? -1 : position + length - + (editEnd - editStart);
+    }
+
+    private _deepEqual(a: any, e: any) {
+        try {
+            // NOTE: find better way.
+            assert.deepStrictEqual(a, e);
+        } catch {
+            return false;
+        }
+
+        return true;
     }
 }
