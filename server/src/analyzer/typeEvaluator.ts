@@ -63,6 +63,7 @@ import { addDefaultFunctionParameters, addTypeVarsToListIfUnique,
     transformTypeObjectToClass, TypedDictEntry } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 import { Parser, ParseOptions } from '../parser/parser';
+import { CommandId } from '../definitions/commands';
 
 interface TypeResult {
     type: Type;
@@ -6194,7 +6195,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                         if (isNoneWithoutOptional) {
                             const addOptionalAction: AddMissingOptionalToParamAction = {
-                                action: 'pyright.addoptionalforparam',
+                                action: CommandId.addMissingOptionalToParam,
                                 offsetOfTypeNode: param.typeAnnotation.start + 1
                             };
                             if (diag) {

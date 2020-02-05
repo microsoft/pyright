@@ -339,6 +339,11 @@ export class AnalyzerService {
         configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
         configOptions.useLibraryCodeForTypes = !!commandLineOptions.useLibraryCodeForTypes;
 
+        // If there was no typings path specified, use a default path.
+        if (configOptions.typingsPath === undefined) {
+            configOptions.typingsPath = normalizePath(combinePaths(configOptions.projectRoot, 'typings'));
+        }
+
         // Do some sanity checks on the specified settings and report missing
         // or inconsistent information.
         if (configOptions.venvPath) {

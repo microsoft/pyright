@@ -1,14 +1,14 @@
 /*
-* stringUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Utility methods for manipulating and comparing strings.
-*/
+ * stringUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Utility methods for manipulating and comparing strings.
+ */
 
 import leven from 'leven';
-import { Comparison, compareComparableValues } from './core';
+import { compareComparableValues, Comparison } from './core';
 
 // Determines how closely a typed string matches a symbol
 // name. An exact match returns 1. A match that differs
@@ -58,7 +58,7 @@ export function hashString(contents: string) {
     let hash = 0;
 
     for (let i = 0; i < contents.length; i++) {
-        hash = (hash << 5) - hash + contents.charCodeAt(i) | 0;
+        hash = ((hash << 5) - hash + contents.charCodeAt(i)) | 0;
     }
     return hash;
 }
@@ -76,10 +76,13 @@ export function hashString(contents: string) {
  * lowercase (such as `áºž` (German sharp capital s)).
  */
 export function compareStringsCaseInsensitive(a: string | undefined, b: string | undefined): Comparison {
-    return a === b ? Comparison.EqualTo :
-        a === undefined ? Comparison.LessThan :
-            b === undefined ? Comparison.GreaterThan :
-                compareComparableValues(a.toUpperCase(), b.toUpperCase());
+    return a === b
+        ? Comparison.EqualTo
+        : a === undefined
+        ? Comparison.LessThan
+        : b === undefined
+        ? Comparison.GreaterThan
+        : compareComparableValues(a.toUpperCase(), b.toUpperCase());
 }
 
 /**
@@ -119,5 +122,5 @@ export function equateStringsCaseInsensitive(a: string, b: string) {
  * integer value of each code-point.
  */
 export function equateStringsCaseSensitive(a: string, b: string) {
-    return compareStringsCaseSensitive(a, b) == Comparison.EqualTo;
+    return compareStringsCaseSensitive(a, b) === Comparison.EqualTo;
 }

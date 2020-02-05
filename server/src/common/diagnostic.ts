@@ -6,7 +6,8 @@
 *
 * Class that represents errors and warnings.
 */
-import { Range } from "./textRange";
+import { CommandId } from '../definitions/commands';
+import { Range } from './textRange';
 
 export const enum DiagnosticCategory {
     Error,
@@ -19,12 +20,12 @@ export interface DiagnosticAction {
 }
 
 export interface CreateTypeStubFileAction extends DiagnosticAction {
-    action: 'pyright.createtypestub';
+    action: CommandId.createTypeStub;
     moduleName: string;
 }
 
 export interface AddMissingOptionalToParamAction extends DiagnosticAction {
-    action: 'pyright.addoptionalforparam';
+    action: CommandId.addMissingOptionalToParam;
     offsetOfTypeNode: number;
 }
 

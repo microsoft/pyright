@@ -49,6 +49,7 @@ import { Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { CommandId } from '../definitions/commands';
 
 export const enum NameBindingType {
     // With "nonlocal" keyword
@@ -209,7 +210,7 @@ export class Binder extends ParseTreeWalker {
                     if (diagnostic) {
                         // Add a diagnostic action for resolving this diagnostic.
                         const createTypeStubAction: CreateTypeStubFileAction = {
-                            action: 'pyright.createtypestub',
+                            action: CommandId.createTypeStub,
                             moduleName: importResult.importName
                         };
                         diagnostic.addAction(createTypeStubAction);

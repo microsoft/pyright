@@ -68,11 +68,11 @@ export function isArray(value: any): value is readonly {}[] {
  * Tests whether a value is string
  */
 export function isString(text: unknown): text is string {
-    return typeof text === "string";
+    return typeof text === 'string';
 }
 
 export function isNumber(x: unknown): x is number {
-    return typeof x === "number";
+    return typeof x === 'number';
 }
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
