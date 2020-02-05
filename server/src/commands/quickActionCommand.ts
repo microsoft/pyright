@@ -5,7 +5,6 @@
  */
 
 import { ExecuteCommandParams, TextEdit } from 'vscode-languageserver';
-import { convertRange } from '../common/diagnostic';
 import { convertUriToPath } from '../common/pathUtils';
 import { LanguageServerBase } from '../languageServerBase';
 import { ServerCommand } from './commandController';
@@ -27,7 +26,7 @@ export class QuickActionCommand implements ServerCommand {
             const edits: TextEdit[] = [];
             editActions.forEach(editAction => {
                 edits.push({
-                    range: convertRange(editAction.range),
+                    range: editAction.range,
                     newText: editAction.replacementText
                 });
             });

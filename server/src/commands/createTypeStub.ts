@@ -58,7 +58,7 @@ export class CreateTypeStubCommand implements ServerCommand {
     // stubs for a specified target library.
     private _createTypeStubService(importName: string): AnalyzerService {
         this._ls.connection.console.log('Starting type stub service instance');
-        const service = new AnalyzerService('Type stub', this._ls.connection.console);
+        const service = new AnalyzerService('Type stub', this._ls.fs, this._ls.connection.console);
 
         service.setMaxAnalysisDuration({
             openFilesTimeInMs: 500,

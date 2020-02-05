@@ -19,9 +19,11 @@ import * as process from 'process';
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
 import { NullConsole } from './common/console';
-import { DiagnosticCategory, DiagnosticTextRange } from './common/diagnostic';
+import { DiagnosticCategory } from './common/diagnostic';
+import { Range } from './common/textRange';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
+import { createFromRealFileSystem } from './common/vfs';
 
 const toolName = 'pyright';
 
@@ -43,7 +45,7 @@ interface PyrightJsonDiagnostic {
     file: string;
     severity: 'error' | 'warning';
     message: string;
-    range: DiagnosticTextRange;
+    range: Range;
 }
 
 interface PyrightJsonSummary {
@@ -149,8 +151,8 @@ function processArgs() {
     const watch = args.watch !== undefined;
     options.watch = watch;
 
-    const service = new AnalyzerService('<default>', args.outputjson ?
-        new NullConsole() : undefined);
+    const output = args.outputjson ? new NullConsole() : undefined;
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(output), output);
 
     service.setCompletionCallback(results => {
         if (results.fatalErrorOccurred) {
@@ -207,8 +209,8 @@ function processArgs() {
         if (!watch) {
             process.exit(
                 errorCount > 0 ?
-                ExitStatus.ErrorsReported :
-                ExitStatus.NoErrors);
+                    ExitStatus.ErrorsReported :
+                    ExitStatus.NoErrors);
         } else {
             console.log('Watching for file changes...');
         }
@@ -253,7 +255,7 @@ function printVersion() {
 }
 
 function reportDiagnosticsAsJson(fileDiagnostics: FileDiagnostics[], filesInProgram: number,
-        timeInSec: number): DiagnosticResult {
+    timeInSec: number): DiagnosticResult {
 
     const report: PyrightJsonResults = {
         version: getVersionString(),
@@ -316,7 +318,7 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
                 let message = '  ';
                 if (diag.range) {
                     message += chalk.yellow(`${ diag.range.start.line + 1 }`) + ':' +
-                        chalk.yellow(`${ diag.range.start.column + 1 }`) + ' - ';
+                        chalk.yellow(`${ diag.range.start.character + 1 }`) + ' - ';
                 }
 
                 message += diag.category === DiagnosticCategory.Error ?

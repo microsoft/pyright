@@ -1,14 +1,14 @@
 /*
-* tokenizer.test.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Based on code from vscode-python repository:
-*  https://github.com/Microsoft/vscode-python
-*
-* Unit tests for Python tokenizer.
-*/
+ * tokenizer.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Based on code from vscode-python repository:
+ *  https://github.com/Microsoft/vscode-python
+ *
+ * Unit tests for Python tokenizer.
+ */
 
 import * as assert from 'assert';
 

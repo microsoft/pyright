@@ -17,11 +17,13 @@ import { CommandController, ServerCommand } from './commands/commandController';
 import { Commands } from './commands/commands';
 import { CommandLineOptions } from './common/commandLineOptions';
 import {
-    AddMissingOptionalToParamAction, convertRange, CreateTypeStubFileAction,
-    Diagnostic as AnalyzerDiagnostic, DiagnosticCategory, DiagnosticTextPosition, DiagnosticTextRange
+    AddMissingOptionalToParamAction, CreateTypeStubFileAction,
+    Diagnostic as AnalyzerDiagnostic, DiagnosticCategory
 } from './common/diagnostic';
 import './common/extensions';
 import { combinePaths, convertPathToUri, convertUriToPath, getDirectoryPath, normalizePath } from './common/pathUtils';
+import { Position, Range } from './common/textRange';
+import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 import { CompletionItemData } from './languageService/completionProvider';
 import { WorkspaceMap } from './workspaceMap';
 
@@ -46,8 +48,10 @@ export abstract class LanguageServerBase {
     // Create a connection for the server. The connection uses Node's IPC as a transport
     connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
     workspaceMap: WorkspaceMap;
+    // File system abstraction.
+    fs: VirtualFileSystem;
 
-    // Command controller
+    // Command controller.
     private controller: ServerCommand;
     // Create a simple text document manager. The text document manager
     // supports full document sync only.
@@ -58,14 +62,16 @@ export abstract class LanguageServerBase {
     // Tracks whether we're currently displaying progress.
     private _isDisplayingProgress = false;
 
-    constructor(private _productName: string, rootDirectory?: string, controller?: ServerCommand) {
-        this.connection.console.log(`${_productName} language server starting`);
+    constructor(private _productName: string, rootDirectory?: string) {
+        this.connection.console.log(`${ _productName } language server starting`);
+        // virtual file system to be used. initialized to real file system by default. but can't be overritten
+        this.fs = createFromRealFileSystem(this.connection.console);
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = rootDirectory ? rootDirectory : getDirectoryPath(__dirname);
         // Create workspace map.
         this.workspaceMap = new WorkspaceMap(this);
         // Create command controller.
-        this.controller = controller || new CommandController(this);
+        this.controller = new CommandController(this);
         // Make the text document manager listen on the connection
         // for open, change and close text document events.
         this._documents.listen(this.connection);
@@ -94,8 +100,8 @@ export abstract class LanguageServerBase {
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
     createAnalyzerService(name: string): AnalyzerService {
-        this.connection.console.log(`Starting service instance "${name}"`);
-        const service = new AnalyzerService(name, this.connection.console);
+        this.connection.console.log(`Starting service instance "${ name }"`);
+        const service = new AnalyzerService(name, this.fs, this.connection.console);
 
         // Don't allow the analysis engine to go too long without
         // reporting results. This will keep it responsive.
@@ -210,14 +216,14 @@ export abstract class LanguageServerBase {
             const filePath = convertUriToPath(params.textDocument.uri);
             const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
             if (!workspace.disableLanguageServices) {
-                const range: DiagnosticTextRange = {
+                const range: Range = {
                     start: {
                         line: params.range.start.line,
-                        column: params.range.start.character
+                        character: params.range.start.character
                     },
                     end: {
                         line: params.range.end.line,
-                        column: params.range.end.character
+                        character: params.range.end.character
                     }
                 };
 
@@ -267,9 +273,9 @@ export abstract class LanguageServerBase {
 
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
@@ -281,15 +287,15 @@ export abstract class LanguageServerBase {
                 return undefined;
             }
             return locations.map(loc =>
-                Location.create(convertPathToUri(loc.path), convertRange(loc.range)));
+                Location.create(convertPathToUri(loc.path), loc.range));
         });
 
         this.connection.onReferences(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
@@ -302,7 +308,7 @@ export abstract class LanguageServerBase {
                 return undefined;
             }
             return locations.map(loc =>
-                Location.create(convertPathToUri(loc.path), convertRange(loc.range)));
+                Location.create(convertPathToUri(loc.path), loc.range));
         });
 
         this.connection.onDocumentSymbol(params => {
@@ -336,9 +342,9 @@ export abstract class LanguageServerBase {
         this.connection.onHover(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
@@ -359,16 +365,16 @@ export abstract class LanguageServerBase {
                     kind: MarkupKind.Markdown,
                     value: markupString
                 },
-                range: convertRange(hoverResults.range)
+                range: hoverResults.range
             };
         });
 
         this.connection.onSignatureHelp(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
@@ -403,9 +409,9 @@ export abstract class LanguageServerBase {
         this.connection.onCompletion(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
@@ -442,9 +448,9 @@ export abstract class LanguageServerBase {
         this.connection.onRenameRequest(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const position: DiagnosticTextPosition = {
+            const position: Position = {
                 line: params.position.line,
-                column: params.position.character
+                character: params.position.character
             };
 
             const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
@@ -468,7 +474,7 @@ export abstract class LanguageServerBase {
                 }
 
                 const textEdit: TextEdit = {
-                    range: convertRange(editAction.range),
+                    range: editAction.range,
                     newText: editAction.replacementText
                 };
                 edits.changes![uri].push(textEdit);
@@ -609,10 +615,10 @@ export abstract class LanguageServerBase {
             let source = this._productName;
             const rule = diag.getRule();
             if (rule) {
-                source = `${source} (${rule})`;
+                source = `${ source } (${ rule })`;
             }
 
-            const vsDiag = Diagnostic.create(convertRange(diag.range), diag.message, severity,
+            const vsDiag = Diagnostic.create(diag.range, diag.message, severity,
                 undefined, source);
 
             if (diag.category === DiagnosticCategory.UnusedCode) {
@@ -624,8 +630,7 @@ export abstract class LanguageServerBase {
             if (relatedInfo.length > 0) {
                 vsDiag.relatedInformation = relatedInfo.map(info => {
                     return DiagnosticRelatedInformation.create(
-                        Location.create(convertPathToUri(info.filePath),
-                            convertRange(info.range)),
+                        Location.create(convertPathToUri(info.filePath), info.range),
                         info.message
                     );
                 });

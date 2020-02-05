@@ -1,11 +1,11 @@
 /*
-* testUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Utility functions that are common to a bunch of the tests.
-*/
+ * testUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Utility functions that are common to a bunch of the tests.
+ */
 
 import * as assert from 'assert';
 import * as fs from 'fs';
@@ -20,6 +20,7 @@ import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '..
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { ParseOptions, Parser, ParseResults } from '../parser/parser';
+import { createFromRealFileSystem } from '../common/vfs';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed
 // directory to be located when running within the jest environment. This
@@ -131,7 +132,7 @@ export function typeAnalyzeSampleFiles(fileNames: string[],
 
     // Always enable "test mode".
     configOptions.internalTestMode = true;
-    const importResolver = new ImportResolver(configOptions);
+    const importResolver = new ImportResolver(createFromRealFileSystem(), configOptions);
 
     const program = new Program(importResolver, configOptions);
     const filePaths = fileNames.map(name => resolveSampleFilePath(name));
