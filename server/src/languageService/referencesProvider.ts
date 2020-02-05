@@ -14,7 +14,7 @@ import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { DiagnosticTextPosition, DocumentTextRange } from '../common/diagnostic';
+import { Position, DocumentRange } from '../common/textRange';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
@@ -24,7 +24,7 @@ export interface ReferencesResult {
     requiresGlobalSearch: boolean;
     nodeAtOffset: ParseNode;
     declarations: Declaration[];
-    locations: DocumentTextRange[];
+    locations: DocumentRange[];
 }
 
 class FindReferencesTreeWalker extends ParseTreeWalker {
@@ -93,7 +93,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
 
 export class ReferencesProvider {
     static getReferencesForPosition(parseResults: ParseResults, filePath: string,
-            position: DiagnosticTextPosition, includeDeclaration: boolean,
+            position: Position, includeDeclaration: boolean,
             evaluator: TypeEvaluator): ReferencesResult | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);

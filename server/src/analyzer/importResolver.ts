@@ -8,17 +8,18 @@
 * runtime rules of Python.
 */
 
-import * as fs from 'fs';
-
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
-import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
+import {
+    combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
     getFileExtension, getFileSystemEntries, getPathComponents, isDirectory,
-    isFile, stripFileExtension, stripTrailingDirectorySeparator } from '../common/pathUtils';
+    isFile, stripFileExtension, stripTrailingDirectorySeparator
+} from '../common/pathUtils';
 import { versionToString } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as PythonPathUtils from './pythonPathUtils';
 import { isDunderName } from './symbolNameUtils';
+import { VirtualFileSystem } from '../common/vfs';
 
 export interface ImportedModuleDescriptor {
     leadingDots: number;
@@ -41,7 +42,10 @@ export class ImportResolver {
     private _cachedTypeshedStdLibPath: string | undefined;
     private _cachedTypeshedThirdPartyPath: string | undefined;
 
-    constructor(configOptions: ConfigOptions) {
+    readonly fileSystem: VirtualFileSystem;
+
+    constructor(fs: VirtualFileSystem, configOptions: ConfigOptions) {
+        this.fileSystem = fs;
         this._configOptions = configOptions;
     }
 
@@ -53,7 +57,7 @@ export class ImportResolver {
     // Resolves the import and returns the path if it exists, otherwise
     // returns undefined.
     resolveImport(sourceFilePath: string, execEnv: ExecutionEnvironment,
-            moduleDescriptor: ImportedModuleDescriptor): ImportResult {
+        moduleDescriptor: ImportedModuleDescriptor): ImportResult {
 
         const importName = this._formatImportName(moduleDescriptor);
         const importFailureInfo: string[] = [];
@@ -109,7 +113,7 @@ export class ImportResolver {
                 }
 
                 if (localImport && (bestResultSoFar === undefined ||
-                        localImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length)) {
+                    localImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length)) {
                     bestResultSoFar = localImport;
                 }
             }
@@ -157,7 +161,7 @@ export class ImportResolver {
                         }
 
                         if (bestResultSoFar === undefined ||
-                                thirdPartyImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length) {
+                            thirdPartyImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length) {
                             bestResultSoFar = thirdPartyImport;
                         }
                     }
@@ -190,7 +194,7 @@ export class ImportResolver {
     }
 
     getCompletionSuggestions(sourceFilePath: string, execEnv: ExecutionEnvironment,
-            moduleDescriptor: ImportedModuleDescriptor, similarityLimit: number): string[] {
+        moduleDescriptor: ImportedModuleDescriptor, similarityLimit: number): string[] {
 
         const importFailureInfo: string[] = [];
         const suggestions: string[] = [];
@@ -316,7 +320,7 @@ export class ImportResolver {
     }
 
     private _lookUpResultsInCache(execEnv: ExecutionEnvironment, importName: string,
-            importedSymbols: string[] | undefined) {
+        importedSymbols: string[] | undefined) {
 
         const cacheForExecEnv = this._cachedImportResults.get(execEnv.root);
         if (!cacheForExecEnv) {
@@ -332,7 +336,7 @@ export class ImportResolver {
     }
 
     private _addResultsToCache(execEnv: ExecutionEnvironment, importName: string,
-            importResult: ImportResult, importedSymbols: string[] | undefined) {
+        importResult: ImportResult, importedSymbols: string[] | undefined) {
 
         let cacheForExecEnv = this._cachedImportResults.get(execEnv.root);
         if (!cacheForExecEnv) {
@@ -346,7 +350,7 @@ export class ImportResolver {
     }
 
     private _getModuleNameFromPath(containerPath: string, filePath: string,
-            stripTopContainerDir = false): string | undefined {
+        stripTopContainerDir = false): string | undefined {
 
         containerPath = ensureTrailingDirectorySeparator(containerPath);
         let filePathWithoutExtension = stripFileExtension(filePath);
@@ -378,21 +382,21 @@ export class ImportResolver {
     }
 
     private _getPythonSearchPaths(execEnv: ExecutionEnvironment,
-            importFailureInfo: string[]) {
+        importFailureInfo: string[]) {
 
         const cacheKey = execEnv.venv ? execEnv.venv : '<default>';
 
         // Find the site packages for the configured virtual environment.
         if (!this._cachedPythonSearchPaths.has(cacheKey)) {
             this._cachedPythonSearchPaths.set(cacheKey, PythonPathUtils.findPythonSearchPaths(
-                this._configOptions, execEnv.venv, importFailureInfo) || []);
+                this.fileSystem, this._configOptions, execEnv.venv, importFailureInfo) || []);
         }
 
         return this._cachedPythonSearchPaths.get(cacheKey)!;
     }
 
     private _findTypeshedPath(execEnv: ExecutionEnvironment, moduleDescriptor: ImportedModuleDescriptor,
-            importName: string, isStdLib: boolean, importFailureInfo: string[]): ImportResult | undefined {
+        importName: string, isStdLib: boolean, importFailureInfo: string[]): ImportResult | undefined {
 
         importFailureInfo.push(`Looking for typeshed ${ isStdLib ? 'stdlib' : 'third_party' } path`);
 
@@ -409,7 +413,7 @@ export class ImportResolver {
             const pythonVersionString = minorVersion > 0 ? versionToString(0x300 + minorVersion) :
                 minorVersion === 0 ? '3' : '2and3';
             const testPath = combinePaths(typeshedPath, pythonVersionString);
-            if (fs.existsSync(testPath)) {
+            if (this.fileSystem.existsSync(testPath)) {
                 const importInfo = this._resolveAbsoluteImport(testPath, moduleDescriptor,
                     importName, importFailureInfo);
                 if (importInfo && importInfo.isImportFound) {
@@ -430,8 +434,8 @@ export class ImportResolver {
     }
 
     private _getCompletionSuggestionsTypeshedPath(execEnv: ExecutionEnvironment,
-            moduleDescriptor: ImportedModuleDescriptor, isStdLib: boolean,
-            suggestions: string[], similarityLimit: number) {
+        moduleDescriptor: ImportedModuleDescriptor, isStdLib: boolean,
+        suggestions: string[], similarityLimit: number) {
 
         const importFailureInfo: string[] = [];
         const typeshedPath = this._getTypeshedPath(isStdLib, execEnv, importFailureInfo);
@@ -447,7 +451,7 @@ export class ImportResolver {
             const pythonVersionString = minorVersion > 0 ? versionToString(0x300 + minorVersion) :
                 minorVersion === 0 ? '3' : '2and3';
             const testPath = combinePaths(typeshedPath, pythonVersionString);
-            if (fs.existsSync(testPath)) {
+            if (this.fileSystem.existsSync(testPath)) {
                 this._getCompletionSuggestionsAbsolute(testPath, moduleDescriptor,
                     suggestions, similarityLimit);
             }
@@ -461,7 +465,7 @@ export class ImportResolver {
     }
 
     private _getTypeshedPath(isStdLib: boolean, execEnv: ExecutionEnvironment,
-            importFailureInfo: string[]) {
+        importFailureInfo: string[]) {
 
         // See if we have it cached.
         if (isStdLib) {
@@ -480,14 +484,14 @@ export class ImportResolver {
         // python search paths, then in the typeshed-fallback directory.
         if (this._configOptions.typeshedPath) {
             const possibleTypeshedPath = this._configOptions.typeshedPath;
-            if (fs.existsSync(possibleTypeshedPath) && isDirectory(possibleTypeshedPath)) {
+            if (this.fileSystem.existsSync(possibleTypeshedPath) && isDirectory(this.fileSystem, possibleTypeshedPath)) {
                 typeshedPath = possibleTypeshedPath;
             }
         } else {
             const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
             for (const searchPath of pythonSearchPaths) {
                 const possibleTypeshedPath = combinePaths(searchPath, 'typeshed');
-                if (fs.existsSync(possibleTypeshedPath) && isDirectory(possibleTypeshedPath)) {
+                if (this.fileSystem.existsSync(possibleTypeshedPath) && isDirectory(this.fileSystem, possibleTypeshedPath)) {
                     typeshedPath = possibleTypeshedPath;
                     break;
                 }
@@ -496,12 +500,12 @@ export class ImportResolver {
 
         // If typeshed directory wasn't found in other locations, use the fallback.
         if (!typeshedPath) {
-            typeshedPath = PythonPathUtils.getTypeShedFallbackPath() || '';
+            typeshedPath = PythonPathUtils.getTypeShedFallbackPath(this.fileSystem.getModulePath()) || '';
         }
 
         typeshedPath = PythonPathUtils.getTypeshedSubdirectory(typeshedPath, isStdLib);
 
-        if (!fs.existsSync(typeshedPath) || !isDirectory(typeshedPath)) {
+        if (!this.fileSystem.existsSync(typeshedPath) || !isDirectory(this.fileSystem, typeshedPath)) {
             return undefined;
         }
 
@@ -516,8 +520,8 @@ export class ImportResolver {
     }
 
     private _resolveRelativeImport(sourceFilePath: string,
-            moduleDescriptor: ImportedModuleDescriptor, importName: string,
-            importFailureInfo: string[]): ImportResult | undefined {
+        moduleDescriptor: ImportedModuleDescriptor, importName: string,
+        importFailureInfo: string[]): ImportResult | undefined {
 
         importFailureInfo.push('Attempting to resolve relative import');
 
@@ -542,8 +546,8 @@ export class ImportResolver {
     }
 
     private _getCompletionSuggestionsRelative(sourceFilePath: string,
-            moduleDescriptor: ImportedModuleDescriptor, suggestions: string[],
-            similarityLimit: number) {
+        moduleDescriptor: ImportedModuleDescriptor, suggestions: string[],
+        similarityLimit: number) {
 
         // Determine which search path this file is part of.
         let curDir = getDirectoryPath(sourceFilePath);
@@ -562,8 +566,8 @@ export class ImportResolver {
     // Follows import resolution algorithm defined in PEP-420:
     // https://www.python.org/dev/peps/pep-0420/
     private _resolveAbsoluteImport(rootPath: string, moduleDescriptor: ImportedModuleDescriptor,
-            importName: string, importFailureInfo: string[], allowPartial = false,
-            allowPydFile = false, allowStubsFolder = false): ImportResult | undefined {
+        importName: string, importFailureInfo: string[], allowPartial = false,
+        allowPydFile = false, allowStubsFolder = false): ImportResult | undefined {
 
         importFailureInfo.push(`Attempting to resolve using root path '${ rootPath }'`);
 
@@ -582,14 +586,14 @@ export class ImportResolver {
             const pyiFilePath = pyFilePath + 'i';
             const pydFilePath = pyFilePath + 'd';
 
-            if (fs.existsSync(pyiFilePath) && isFile(pyiFilePath)) {
+            if (this.fileSystem.existsSync(pyiFilePath) && isFile(this.fileSystem, pyiFilePath)) {
                 importFailureInfo.push(`Resolved import with file '${ pyiFilePath }'`);
                 resolvedPaths.push(pyiFilePath);
                 isStubFile = true;
-            } else if (fs.existsSync(pyFilePath) && isFile(pyFilePath)) {
+            } else if (this.fileSystem.existsSync(pyFilePath) && isFile(this.fileSystem, pyFilePath)) {
                 importFailureInfo.push(`Resolved import with file '${ pyFilePath }'`);
                 resolvedPaths.push(pyFilePath);
-            } else if (allowPydFile && fs.existsSync(pydFilePath) && isFile(pydFilePath)) {
+            } else if (allowPydFile && this.fileSystem.existsSync(pydFilePath) && isFile(this.fileSystem, pydFilePath)) {
                 importFailureInfo.push(`Resolved import with file '${ pydFilePath }'`);
                 resolvedPaths.push(pydFilePath);
                 isPydFile = true;
@@ -612,14 +616,14 @@ export class ImportResolver {
                     // the string '-stubs' to its top-level directory name. We'll
                     // look there first.
                     const stubsDirPath = dirPath + '-stubs';
-                    foundDirectory = fs.existsSync(stubsDirPath) && isDirectory(stubsDirPath);
+                    foundDirectory = this.fileSystem.existsSync(stubsDirPath) && isDirectory(this.fileSystem, stubsDirPath);
                     if (foundDirectory) {
                         dirPath = stubsDirPath;
                     }
                 }
 
                 if (!foundDirectory) {
-                    foundDirectory = fs.existsSync(dirPath) && isDirectory(dirPath);
+                    foundDirectory = this.fileSystem.existsSync(dirPath) && isDirectory(this.fileSystem, dirPath);
                 }
 
                 if (foundDirectory) {
@@ -635,14 +639,14 @@ export class ImportResolver {
                     const pyiFilePath = pyFilePath + 'i';
                     let foundInit = false;
 
-                    if (fs.existsSync(pyiFilePath) && isFile(pyiFilePath)) {
+                    if (this.fileSystem.existsSync(pyiFilePath) && isFile(this.fileSystem, pyiFilePath)) {
                         importFailureInfo.push(`Resolved import with file '${ pyiFilePath }'`);
                         resolvedPaths.push(pyiFilePath);
                         if (isLastPart) {
                             isStubFile = true;
                         }
                         foundInit = true;
-                    } else if (fs.existsSync(pyFilePath) && isFile(pyFilePath)) {
+                    } else if (this.fileSystem.existsSync(pyFilePath) && isFile(this.fileSystem, pyFilePath)) {
                         importFailureInfo.push(`Resolved import with file '${ pyFilePath }'`);
                         resolvedPaths.push(pyFilePath);
                         foundInit = true;
@@ -661,16 +665,16 @@ export class ImportResolver {
                 const pyiFilePath = pyFilePath + 'i';
                 const pydFilePath = pyFilePath + 'd';
 
-                if (fs.existsSync(pyiFilePath) && isFile(pyiFilePath)) {
+                if (this.fileSystem.existsSync(pyiFilePath) && isFile(this.fileSystem, pyiFilePath)) {
                     importFailureInfo.push(`Resolved import with file '${ pyiFilePath }'`);
                     resolvedPaths.push(pyiFilePath);
                     if (isLastPart) {
                         isStubFile = true;
                     }
-                } else if (fs.existsSync(pyFilePath) && isFile(pyFilePath)) {
+                } else if (this.fileSystem.existsSync(pyFilePath) && isFile(this.fileSystem, pyFilePath)) {
                     importFailureInfo.push(`Resolved import with file '${ pyFilePath }'`);
                     resolvedPaths.push(pyFilePath);
-                } else if (allowPydFile && fs.existsSync(pydFilePath) && isFile(pydFilePath)) {
+                } else if (allowPydFile && this.fileSystem.existsSync(pydFilePath) && isFile(this.fileSystem, pydFilePath)) {
                     importFailureInfo.push(`Resolved import with file '${ pydFilePath }'`);
                     resolvedPaths.push(pydFilePath);
                     if (isLastPart) {
@@ -718,8 +722,8 @@ export class ImportResolver {
     }
 
     private _getCompletionSuggestionsAbsolute(rootPath: string,
-            moduleDescriptor: ImportedModuleDescriptor, suggestions: string[],
-            similarityLimit: number) {
+        moduleDescriptor: ImportedModuleDescriptor, suggestions: string[],
+        similarityLimit: number) {
 
         // Starting at the specified path, walk the file system to find the
         // specified module.
@@ -746,7 +750,7 @@ export class ImportResolver {
                 }
 
                 dirPath = combinePaths(dirPath, nameParts[i]);
-                if (!fs.existsSync(dirPath) || !isDirectory(dirPath)) {
+                if (!this.fileSystem.existsSync(dirPath) || !isDirectory(this.fileSystem, dirPath)) {
                     break;
                 }
             }
@@ -754,9 +758,9 @@ export class ImportResolver {
     }
 
     private _addFilteredSuggestions(dirPath: string, filter: string, suggestions: string[],
-            similarityLimit: number) {
+        similarityLimit: number) {
 
-        const entries = getFileSystemEntries(dirPath);
+        const entries = getFileSystemEntries(this.fileSystem, dirPath);
 
         entries.files.forEach(file => {
             const fileWithoutExtension = stripFileExtension(file);
@@ -765,7 +769,7 @@ export class ImportResolver {
             if (fileExtension === '.py' || fileExtension === '.pyi' || fileExtension === '.pyd') {
                 if (fileWithoutExtension !== '__init__') {
                     if (!filter || StringUtils.computeCompletionSimilarity(
-                                filter, fileWithoutExtension) >= similarityLimit) {
+                        filter, fileWithoutExtension) >= similarityLimit) {
 
                         this._addUniqueSuggestion(fileWithoutExtension, suggestions);
                     }
@@ -826,7 +830,7 @@ export class ImportResolver {
         const implicitImportMap = new Map<string, ImplicitImport>();
 
         // Enumerate all of the files and directories in the path.
-        const entries = getFileSystemEntries(dirPath);
+        const entries = getFileSystemEntries(this.fileSystem, dirPath);
 
         // Add implicit file-based modules.
         for (const fileName of entries.files) {
@@ -857,10 +861,10 @@ export class ImportResolver {
             let isStubFile = false;
             let path = '';
 
-            if (fs.existsSync(pyiFilePath) && isFile(pyiFilePath)) {
+            if (this.fileSystem.existsSync(pyiFilePath) && isFile(this.fileSystem, pyiFilePath)) {
                 isStubFile = true;
                 path = pyiFilePath;
-            } else if (fs.existsSync(pyFilePath) && isFile(pyFilePath)) {
+            } else if (this.fileSystem.existsSync(pyFilePath) && isFile(this.fileSystem, pyFilePath)) {
                 path = pyFilePath;
             }
 

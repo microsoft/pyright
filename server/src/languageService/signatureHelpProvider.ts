@@ -13,7 +13,7 @@ import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { FunctionType } from '../analyzer/types';
-import { DiagnosticTextPosition } from '../common/diagnostic';
+import { Position } from '../common/textRange';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { ParseResults } from '../parser/parser';
 
@@ -36,9 +36,9 @@ export interface SignatureHelpResults {
 }
 
 export class SignatureHelpProvider {
-    static getSignatureHelpForPosition(parseResults: ParseResults, position: DiagnosticTextPosition,
-            evaluator: TypeEvaluator):
-                SignatureHelpResults | undefined {
+    static getSignatureHelpForPosition(parseResults: ParseResults, position: Position,
+        evaluator: TypeEvaluator):
+        SignatureHelpResults | undefined {
 
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {

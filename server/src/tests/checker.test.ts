@@ -1,11 +1,11 @@
 /*
-* checker.test.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Unit tests for pyright type checker and type analyzer.
-*/
+ * checker.test.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Unit tests for pyright type checker and type analyzer.
+ */
 
 import * as assert from 'assert';
 
@@ -434,42 +434,6 @@ test('NamedTuples1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples1.py']);
 
     validateResults(analysisResults, 6);
-});
-
-test('DataClass1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass1.py']);
-
-    validateResults(analysisResults, 2);
-});
-
-test('DataClass3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass3.py']);
-
-    validateResults(analysisResults, 1);
-});
-
-test('DataClass4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass4.py']);
-
-    validateResults(analysisResults, 5);
-});
-
-test('DataClass5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass5.py']);
-
-    validateResults(analysisResults, 2);
-});
-
-test('DataClass6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass6.py']);
-
-    validateResults(analysisResults, 2);
-});
-
-test('DataClass7', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass7.py']);
-
-    validateResults(analysisResults, 2);
 });
 
 test('AbstractClass1', () => {

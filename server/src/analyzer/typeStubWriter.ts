@@ -8,13 +8,13 @@
 * and analyzed python source file.
 */
 
-import * as fs from 'fs';
-
-import { ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentNode,
+import {
+    ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentNode,
     ClassNode, DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode,
     ImportFromNode, ImportNode, ModuleNameNode, NameNode, ParameterCategory, ParameterNode,
     ParseNode, ParseNodeType, StatementListNode, StringNode, TryNode,
-    TypeAnnotationNode, WhileNode, WithNode } from '../parser/parseNodes';
+    TypeAnnotationNode, WhileNode, WithNode
+} from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -27,14 +27,14 @@ import { ClassType, isNoneOrNever, TypeCategory } from './types';
 import * as TypeUtils from './typeUtils';
 
 class TrackedImport {
-    constructor(public importName: string) {}
+    constructor(public importName: string) { }
 
     isAccessed = false;
 }
 
 class TrackedImportAs extends TrackedImport {
     constructor(importName: string, public alias: string | undefined,
-            public symbol: Symbol) {
+        public symbol: Symbol) {
 
         super(importName);
     }
@@ -55,7 +55,7 @@ class TrackedImportFrom extends TrackedImport {
     }
 
     addSymbol(symbol: Symbol | undefined, name: string,
-            alias: string | undefined, isAccessed = false) {
+        alias: string | undefined, isAccessed = false) {
 
         if (!this.symbols.find(s => s.name === name)) {
             this.symbols.push({
@@ -70,8 +70,8 @@ class TrackedImportFrom extends TrackedImport {
 
 class ImportSymbolWalker extends ParseTreeWalker {
     constructor(
-            private _accessedImportedSymbols: Map<string, boolean>,
-            private _treatStringsAsSymbols: boolean) {
+        private _accessedImportedSymbols: Map<string, boolean>,
+        private _treatStringsAsSymbols: boolean) {
 
         super();
     }
@@ -116,7 +116,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     private _accessedImportedSymbols = new Map<string, boolean>();
 
     constructor(private _typingsPath: string, private _sourceFile: SourceFile,
-            private _evaluator: TypeEvaluator) {
+        private _evaluator: TypeEvaluator) {
         super();
 
         // As a heuristic, we'll include all of the import statements
@@ -556,7 +556,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     }
 
     private _printExpression(node: ExpressionNode, isType = false,
-            treatStringsAsSymbols = false): string {
+        treatStringsAsSymbols = false): string {
 
         const importSymbolWalker = new ImportSymbolWalker(
             this._accessedImportedSymbols,
@@ -640,6 +640,6 @@ export class TypeStubWriter extends ParseTreeWalker {
         finalText += this._printTrackedImports();
         finalText += this._typeStubText;
 
-        fs.writeFileSync(this._typingsPath, finalText, { encoding: 'utf8' });
+        this._sourceFile.fileSystem.writeFileSync(this._typingsPath, finalText, 'utf8');
     }
 }
