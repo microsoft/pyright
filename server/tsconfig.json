@@ -11,7 +11,8 @@
 		"sourceMap": true,
 		"lib" : [ "es2016" ],
 		"outDir": "../client/server",
-		"composite": true
+		"composite": true,
+		"declaration": true
 	},
 	"exclude": [
 		"node_modules"
