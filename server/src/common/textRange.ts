@@ -23,6 +23,16 @@ export namespace TextRange {
         return { start, length };
     }
 
+    export function fromBounds(start: number, end: number): TextRange {
+        if (start < 0) {
+            throw new Error('start must be non-negative');
+        }
+        if (start > end) {
+            throw new Error('end must be greater than or equal to start');
+        }
+        return create(start, end - start);
+    }
+
     export function getEnd(range: TextRange): number {
         return range.start + range.length;
     }
@@ -49,4 +59,66 @@ export namespace TextRange {
             }
         }
     }
+}
+
+export interface Position {
+    // Both line and column are zero-based
+    line: number;
+    character: number;
+}
+
+export interface Range {
+    start: Position;
+    end: Position;
+}
+
+// Represents a range within a particular document.
+export interface DocumentRange {
+    path: string;
+    range: Range;
+}
+
+export function comparePositions(a: Position, b: Position) {
+    if (a.line < b.line) {
+        return -1;
+    } else if (a.line > b.line) {
+        return 1;
+    } else if (a.character < b.character) {
+        return -1;
+    } else if (a.character > b.character) {
+        return 1;
+    }
+    return 0;
+}
+
+export function getEmptyPosition(): Position {
+    return {
+        line: 0,
+        character: 0
+    };
+}
+
+export function doRangesOverlap(a: Range, b: Range) {
+    if (comparePositions(b.start, a.end) >= 0) {
+        return false;
+    } else if (comparePositions(a.start, b.end) >= 0) {
+        return false;
+    }
+    return true;
+}
+
+export function doesRangeContain(range: Range, position: Position) {
+    return comparePositions(range.start, position) >= 0 &&
+        comparePositions(range.end, position) <= 0;
+}
+
+export function rangesAreEqual(a: Range, b: Range) {
+    return comparePositions(a.start, b.start) === 0 && comparePositions(a.end, b.end) === 0;
+}
+
+export function getEmptyRange(): Range {
+    return {
+        start: getEmptyPosition(),
+        end: getEmptyPosition()
+    };
 }
