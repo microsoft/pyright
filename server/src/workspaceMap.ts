@@ -7,7 +7,6 @@
 import { LanguageServerBase, WorkspaceServiceInstance } from './languageServerBase';
 
 export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
-    private _workspaceMap = new Map<string, WorkspaceServiceInstance>();
     private _defaultWorkspacePath = '<default>';
 
     constructor(private _ls: LanguageServerBase) {
@@ -18,7 +17,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         let bestRootPath: string | undefined;
         let bestInstance: WorkspaceServiceInstance | undefined;
 
-        this._workspaceMap.forEach(workspace => {
+        this.forEach(workspace => {
             if (workspace.rootPath) {
                 // Is the file is under this workspace folder?
                 if (filePath.startsWith(workspace.rootPath)) {
@@ -37,12 +36,12 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         // If there were multiple workspaces or we couldn't find any,
         // create a default one to use for this file.
         if (bestInstance === undefined) {
-            let defaultWorkspace = this._workspaceMap.get(this._defaultWorkspacePath);
+            let defaultWorkspace = this.get(this._defaultWorkspacePath);
             if (!defaultWorkspace) {
                 // If there is only one workspace, use that one.
-                const workspaceNames = [...this._workspaceMap.keys()];
+                const workspaceNames = [...this.keys()];
                 if (workspaceNames.length === 1) {
-                    return this._workspaceMap.get(workspaceNames[0])!;
+                    return this.get(workspaceNames[0])!;
                 }
 
                 // Create a default workspace for files that are outside
@@ -54,7 +53,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
                     serviceInstance: this._ls.createAnalyzerService(this._defaultWorkspacePath),
                     disableLanguageServices: false
                 };
-                this._workspaceMap.set(this._defaultWorkspacePath, defaultWorkspace);
+                this.set(this._defaultWorkspacePath, defaultWorkspace);
                 this._ls.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();
             }
 
