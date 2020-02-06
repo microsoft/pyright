@@ -6,21 +6,23 @@
  * Various debug helper methods to show user friendly debugging info
 */
 
-import { AnyFunction, compareValues, hasProperty } from "./core";
-import { stableSort } from "./collectionUtils";
+import { stableSort } from './collectionUtils';
+import { AnyFunction, compareValues, hasProperty } from './core';
 
-export function assert(expression: boolean, message?: string, verboseDebugInfo?: string | (() => string), stackCrawlMark?: AnyFunction): void {
+export function assert(expression: boolean, message?: string,
+    verboseDebugInfo?: string | (() => string), stackCrawlMark?: AnyFunction): void {
+
     if (!expression) {
         if (verboseDebugInfo) {
-            message += "\r\nVerbose Debug Information: " + (typeof verboseDebugInfo === "string" ? verboseDebugInfo : verboseDebugInfo());
+            message += '\r\nVerbose Debug Information: ' + (typeof verboseDebugInfo === 'string' ? verboseDebugInfo : verboseDebugInfo());
         }
-        fail(message ? "False expression: " + message : "False expression.", stackCrawlMark || assert);
+        fail(message ? 'False expression: ' + message : 'False expression.', stackCrawlMark || assert);
     }
 }
 
 export function fail(message?: string, stackCrawlMark?: AnyFunction): never {
     // debugger;
-    const e = new Error(message ? `Debug Failure. ${ message }` : "Debug Failure.");
+    const e = new Error(message ? `Debug Failure. ${ message }` : 'Debug Failure.');
     if ((Error as any).captureStackTrace) {
         (Error as any).captureStackTrace(e, stackCrawlMark || fail);
     }
@@ -28,7 +30,7 @@ export function fail(message?: string, stackCrawlMark?: AnyFunction): never {
 }
 
 export function assertDefined<T>(value: T | null | undefined, message?: string): T {
-    if (value === undefined || value === null) return fail(message);
+    if (value === undefined || value === null) { return fail(message); }
     return value;
 }
 
@@ -39,22 +41,20 @@ export function assertEachDefined<T, A extends readonly T[]>(value: A, message?:
     return value;
 }
 
-export function assertNever(member: never, message = "Illegal value:", stackCrawlMark?: AnyFunction): never {
+export function assertNever(member: never, message = 'Illegal value:', stackCrawlMark?: AnyFunction): never {
     const detail = JSON.stringify(member);
     return fail(`${ message } ${ detail }`, stackCrawlMark || assertNever);
 }
 
 export function getFunctionName(func: AnyFunction) {
-    if (typeof func !== "function") {
-        return "";
-    }
-    else if (hasProperty(func, "name")) {
+    if (typeof func !== 'function') {
+        return '';
+    } else if (hasProperty(func, 'name')) {
         return (func as any).name;
-    }
-    else {
+    } else {
         const text = Function.prototype.toString.call(func);
         const match = /^function\s+([\w$]+)\s*\(/.exec(text);
-        return match ? match[1] : "";
+        return match ? match[1] : '';
     }
 }
 
@@ -64,25 +64,24 @@ export function getFunctionName(func: AnyFunction) {
 export function formatEnum(value = 0, enumObject: any, isFlags?: boolean) {
     const members = getEnumMembers(enumObject);
     if (value === 0) {
-        return members.length > 0 && members[0][0] === 0 ? members[0][1] : "0";
+        return members.length > 0 && members[0][0] === 0 ? members[0][1] : '0';
     }
     if (isFlags) {
-        let result = "";
+        let result = '';
         let remainingFlags = value;
         for (const [enumValue, enumName] of members) {
             if (enumValue > value) {
                 break;
             }
             if (enumValue !== 0 && enumValue & value) {
-                result = `${ result }${ result ? "|" : "" }${ enumName }`;
+                result = `${ result }${ result ? '|' : '' }${ enumName }`;
                 remainingFlags &= ~enumValue;
             }
         }
         if (remainingFlags === 0) {
             return result;
         }
-    }
-    else {
+    } else {
         for (const [enumValue, enumName] of members) {
             if (enumValue === value) {
                 return enumName;
@@ -94,9 +93,9 @@ export function formatEnum(value = 0, enumObject: any, isFlags?: boolean) {
 
 function getEnumMembers(enumObject: any) {
     const result: [number, string][] = [];
-    for (const name in enumObject) {
+    for (const name of Object.keys(enumObject)) {
         const value = enumObject[name];
-        if (typeof value === "number") {
+        if (typeof value === 'number') {
             result.push([value, name]);
         }
     }

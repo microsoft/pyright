@@ -5,21 +5,21 @@
  *
  * Various common types for fourslash test framework
  */
-import * as debug from "../../../common/debug";
+import * as debug from '../../../common/debug';
 
 /** setting file name */
-export const pythonSettingFilename = "python.json";
+export const pythonSettingFilename = 'python.json';
 
 /** well known global option names */
 export const enum GlobalMetadataOptionNames {
-    projectRoot = "projectroot",
-    ignoreCase = "ignorecase"
+    projectRoot = 'projectroot',
+    ignoreCase = 'ignorecase'
 }
 
 /** Any option name not belong to this will become global option */
 export const enum MetadataOptionNames {
-    fileName = "filename",
-    reserved = "reserved"
+    fileName = 'filename',
+    reserved = 'reserved'
 }
 
 /** List of allowed file metadata names */
@@ -102,7 +102,7 @@ export class TestCancellationToken implements HostCancellationToken {
     private static readonly notCanceled = -1;
     private numberOfCallsBeforeCancellation = TestCancellationToken.notCanceled;
 
-    public isCancellationRequested(): boolean {
+    isCancellationRequested(): boolean {
         if (this.numberOfCallsBeforeCancellation < 0) {
             return false;
         }
@@ -115,12 +115,12 @@ export class TestCancellationToken implements HostCancellationToken {
         return true;
     }
 
-    public setCancelled(numberOfCalls = 0): void {
+    setCancelled(numberOfCalls = 0): void {
         debug.assert(numberOfCalls >= 0);
         this.numberOfCallsBeforeCancellation = numberOfCalls;
     }
 
-    public resetCancelled(): void {
+    resetCancelled(): void {
         this.numberOfCallsBeforeCancellation = TestCancellationToken.notCanceled;
     }
 }

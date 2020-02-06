@@ -20,10 +20,10 @@ import {
 } from './common/diagnostic';
 import './common/extensions';
 import { combinePaths, convertPathToUri, convertUriToPath, getDirectoryPath, normalizePath } from './common/pathUtils';
+import { Position, Range } from './common/textRange';
+import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 import { CommandId } from './definitions/commands';
 import { CompletionItemData } from './languageService/completionProvider';
-import { Range, Position } from './common/textRange';
-import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 
 export interface ServerSettings {
     venvPath?: string;

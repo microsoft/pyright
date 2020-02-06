@@ -14,8 +14,8 @@ test('UtilsContainsDefault', () => {
 });
 
 test('UtilsContainsComparer', () => {
-    const data = [new D(1, "A"), new D(2, "B"), new D(3, "C"), new D(4, "D")]
-    assert(utils.contains(data, new D(1, "D"), (a, b) => a.Value == b.Value));
+    const data = [new D(1, 'A'), new D(2, 'B'), new D(3, 'C'), new D(4, 'D')];
+    assert(utils.contains(data, new D(1, 'D'), (a, b) => a.value === b.value));
 });
 
 test('UtilsAppend', () => {
@@ -45,47 +45,47 @@ test('UtilsFindNoMatch', () => {
 
 test('UtilsFindMatchSimple', () => {
     const data = [1];
-    assert.equal(utils.find(data, e => e == 1), 1);
+    assert.equal(utils.find(data, e => e === 1), 1);
 });
 
 test('UtilsFindMatch', () => {
-    const data = [new D(1, "Hello")];
-    assert.equal(utils.find(data, e => e.Value == 1), data[0]);
+    const data = [new D(1, 'Hello')];
+    assert.equal(utils.find(data, e => e.value === 1), data[0]);
 });
 
 test('UtilsFindMatchCovariant', () => {
-    const item1 = new D(1, "Hello");
-    const item2 = new D(2, "Hello2");
+    const item1 = new D(1, 'Hello');
+    const item2 = new D(2, 'Hello2');
     const data: B[] = [new B(0), item1, item2, new B(3)];
-    assert.equal(utils.find(data, (e: D) => e.Value == 2), item2);
+    assert.equal(utils.find(data, (e: D) => e.value === 2), item2);
 });
 
 test('UtilsStableSort', () => {
-    const data = [new D(2, "Hello3"), new D(1, "Hello1"), new D(2, "Hello4"), new D(1, "Hello2")];
-    const sorted = utils.stableSort(data, (a, b) => compareValues(a.Value, b.Value));
+    const data = [new D(2, 'Hello3'), new D(1, 'Hello1'), new D(2, 'Hello4'), new D(1, 'Hello2')];
+    const sorted = utils.stableSort(data, (a, b) => compareValues(a.value, b.value));
 
     const result: string[] = [];
-    sorted.forEach(e => result.push(e.Name));
+    sorted.forEach(e => result.push(e.name));
 
-    assert.deepEqual(result, ["Hello1", "Hello2", "Hello3", "Hello4"])
+    assert.deepEqual(result, ['Hello1', 'Hello2', 'Hello3', 'Hello4']);
 });
 
 test('UtilsBinarySearch', () => {
-    const data = [new D(1, "Hello3"), new D(2, "Hello1"), new D(3, "Hello4"), new D(4, "Hello2")];
-    const index = utils.binarySearch(data, new D(3, "Unused"), v => v.Value, compareValues, 0);
+    const data = [new D(1, 'Hello3'), new D(2, 'Hello1'), new D(3, 'Hello4'), new D(4, 'Hello2')];
+    const index = utils.binarySearch(data, new D(3, 'Unused'), v => v.value, compareValues, 0);
 
     assert.equal(index, 2);
 });
 
 test('UtilsBinarySearchMiss', () => {
-    const data = [new D(1, "Hello3"), new D(2, "Hello1"), new D(4, "Hello4"), new D(5, "Hello2")];
-    const index = utils.binarySearch(data, new D(3, "Unused"), v => v.Value, compareValues, 0);
+    const data = [new D(1, 'Hello3'), new D(2, 'Hello1'), new D(4, 'Hello4'), new D(5, 'Hello2')];
+    const index = utils.binarySearch(data, new D(3, 'Unused'), v => v.value, compareValues, 0);
 
     assert.equal(~index, 2);
 });
 
 test('isArray1', () => {
-    const data = [new D(1, "Hello3")];
+    const data = [new D(1, 'Hello3')];
     assert(isArray(data));
 });
 
@@ -130,18 +130,18 @@ test('flatten', () => {
 });
 
 class B {
-    Value: number;
+    value: number;
 
     constructor(value: number) {
-        this.Value = value;
+        this.value = value;
     }
 }
 
 class D extends B {
-    Name: string;
+    name: string;
 
     constructor(value: number, name: string) {
         super(value);
-        this.Name = name;
+        this.name = name;
     }
 }

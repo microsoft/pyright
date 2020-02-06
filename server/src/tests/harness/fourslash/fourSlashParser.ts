@@ -2,13 +2,13 @@
  * fourSlashParser.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
- * 
+ *
  * Parse fourslash markup code and return parsed content with marker/range data
  */
 
-import { contains } from "../../../common/collectionUtils";
-import { combinePaths, isRootedDiskPath, normalizeSlashes } from "../../../common/pathUtils";
-import { fileMetadataNames, FourSlashData, FourSlashFile, Marker, MetadataOptionNames, Range } from "./fourSlashTypes";
+import { contains } from '../../../common/collectionUtils';
+import { combinePaths, isRootedDiskPath, normalizeSlashes } from '../../../common/pathUtils';
+import { fileMetadataNames, FourSlashData, FourSlashFile, Marker, MetadataOptionNames, Range } from './fourSlashTypes';
 
 /**
  * Parse given fourslash markup code and return content with markup/range data
@@ -33,7 +33,7 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
     // Split up the input file by line
     // Note: IE JS engine incorrectly handles consecutive delimiters here when using RegExp split, so
     // we have to string-based splitting instead and try to figure out the delimiting chars
-    const lines = contents.split("\n");
+    const lines = contents.split('\n');
     let i = 0;
 
     const markerPositions = new Map<string, Marker>();
@@ -46,7 +46,7 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
     let currentFileOptions: { [s: string]: string } = {};
 
     function nextFile() {
-        if (currentFileContent === undefined) return;
+        if (currentFileContent === undefined) { return; }
 
         const file = parseFileContent(currentFileContent, currentFileName, markerPositions, markers, ranges);
         file.fileOptions = currentFileOptions;
@@ -61,18 +61,16 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
 
     for (let line of lines) {
         i++;
-        if (line.length > 0 && line.charAt(line.length - 1) === "\r") {
+        if (line.length > 0 && line.charAt(line.length - 1) === '\r') {
             line = line.substr(0, line.length - 1);
         }
 
-        if (line.substr(0, 4) === "////") {
+        if (line.substr(0, 4) === '////') {
             const text = line.substr(4);
-            currentFileContent = currentFileContent === undefined ? text : currentFileContent + "\n" + text;
-        }
-        else if (line.substr(0, 3) === "///" && currentFileContent !== undefined) {
-            throw new Error("Three-slash line in the middle of four-slash region at line " + i);
-        }
-        else if (line.substr(0, 2) === "//") {
+            currentFileContent = currentFileContent === undefined ? text : currentFileContent + '\n' + text;
+        } else if (line.substr(0, 3) === '///' && currentFileContent !== undefined) {
+            throw new Error(`Three-slash line in the middle of four-slash region at line ${ i }`);
+        } else if (line.substr(0, 2) === '//') {
             // Comment line, check for global/file @options and record them
             const match = optionRegex.exec(line.substr(2));
             if (match) {
@@ -84,15 +82,14 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
                         throw new Error(`Global option '${ key }' already exists`);
                     }
                     globalOptions[key] = value;
-                }
-                else {
+                } else {
                     switch (key) {
-                        case MetadataOptionNames.fileName:
-                            {
+                        case MetadataOptionNames.fileName: {
                                 // Found an @FileName directive, if this is not the first then create a new subfile
                                 nextFile();
                                 const normalizedPath = normalizeSlashes(value);
-                                currentFileName = isRootedDiskPath(normalizedPath) ? normalizedPath : combinePaths(normalizedBasePath, normalizedPath);
+                                currentFileName = isRootedDiskPath(normalizedPath) ? normalizedPath :
+                                    combinePaths(normalizedBasePath, normalizedPath);
                                 currentFileOptions[key] = value;
                                 break;
                             }
@@ -102,10 +99,10 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
                     }
                 }
             }
-        }
-        // Previously blank lines between fourslash content caused it to be considered as 2 files,
-        // Remove this behavior since it just causes errors now
-        else if (line !== "") {
+        } else if (line !== '') {
+            // Previously blank lines between fourslash content caused it to be considered as 2 files,
+            // Remove this behavior since it just causes errors now
+            //
             // Code line, terminate current subfile if there is one
             nextFile();
         }
@@ -138,22 +135,23 @@ const enum State {
 }
 
 function reportError(fileName: string, line: number, col: number, message: string) {
-    const errorMessage = fileName + "(" + line + "," + col + "): " + message;
+    const errorMessage = `${ fileName }(${ line },${ col }): ${ message }`;
     throw new Error(errorMessage);
 }
 
-function recordObjectMarker(fileName: string, location: LocationInformation, text: string, markerMap: Map<string, Marker>, markers: Marker[]): Marker | undefined {
+function recordObjectMarker(fileName: string, location: LocationInformation,
+    text: string, markerMap: Map<string, Marker>, markers: Marker[]): Marker | undefined {
+
     let markerValue: any;
     try {
         // Attempt to parse the marker value as JSON
-        markerValue = JSON.parse("{ " + text + " }");
-    }
-    catch (e) {
-        reportError(fileName, location.sourceLine, location.sourceColumn, "Unable to parse marker text " + e.message);
+        markerValue = JSON.parse('{ ' + text + ' }');
+    } catch (e) {
+        reportError(fileName, location.sourceLine, location.sourceColumn, `Unable to parse marker text ${ e.message }`);
     }
 
     if (markerValue === undefined) {
-        reportError(fileName, location.sourceLine, location.sourceColumn, "Object markers can not be empty");
+        reportError(fileName, location.sourceLine, location.sourceColumn, 'Object markers can not be empty');
         return undefined;
     }
 
@@ -173,7 +171,9 @@ function recordObjectMarker(fileName: string, location: LocationInformation, tex
     return marker;
 }
 
-function recordMarker(fileName: string, location: LocationInformation, name: string, markerMap: Map<string, Marker>, markers: Marker[]): Marker | undefined {
+function recordMarker(fileName: string, location: LocationInformation,
+    name: string, markerMap: Map<string, Marker>, markers: Marker[]): Marker | undefined {
+
     const marker: Marker = {
         fileName,
         position: location.position
@@ -181,25 +181,26 @@ function recordMarker(fileName: string, location: LocationInformation, name: str
 
     // Verify markers for uniqueness
     if (markerMap.has(name)) {
-        const message = "Marker '" + name + "' is duplicated in the source file contents.";
+        const message = 'Marker \'' + name + '\' is duplicated in the source file contents.';
         reportError(marker.fileName, location.sourceLine, location.sourceColumn, message);
         return undefined;
-    }
-    else {
+    } else {
         markerMap.set(name, marker);
         markers.push(marker);
         return marker;
     }
 }
 
-function parseFileContent(content: string, fileName: string, markerMap: Map<string, Marker>, markers: Marker[], ranges: Range[]): FourSlashFile {
+function parseFileContent(content: string, fileName: string,
+    markerMap: Map<string, Marker>, markers: Marker[], ranges: Range[]): FourSlashFile {
+
     content = chompLeadingSpace(content);
 
     // Any slash-star comment with a character not in this string is not a marker.
-    const validMarkerChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$1234567890_";
+    const validMarkerChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz$1234567890_';
 
     /// The file content (minus metacharacters) so far
-    let output = "";
+    let output = '';
 
     /// The current marker (or maybe multi-line comment?) we're parsing, possibly
     let openMarker: LocationInformation | undefined;
@@ -224,7 +225,8 @@ function parseFileContent(content: string, fileName: string, markerMap: Map<stri
     let column = 1;
 
     const flush = (lastSafeCharIndex: number | undefined) => {
-        output = output + content.substr(lastNormalCharPosition, lastSafeCharIndex === undefined ? undefined : lastSafeCharIndex - lastNormalCharPosition);
+        output = output + content.substr(lastNormalCharPosition, lastSafeCharIndex === undefined ? undefined
+            : lastSafeCharIndex - lastNormalCharPosition);
     };
 
     if (content.length > 0) {
@@ -233,31 +235,30 @@ function parseFileContent(content: string, fileName: string, markerMap: Map<stri
             const currentChar = content.charAt(i);
             switch (state) {
                 case State.none:
-                    if (previousChar === "[" && currentChar === "|") {
+                    if (previousChar === '[' && currentChar === '|') {
                         // found a range start
                         openRanges.push({
                             position: (i - 1) - difference,
                             sourcePosition: i - 1,
                             sourceLine: line,
-                            sourceColumn: column,
+                            sourceColumn: column
                         });
                         // copy all text up to marker position
                         flush(i - 1);
                         lastNormalCharPosition = i + 1;
                         difference += 2;
-                    }
-                    else if (previousChar === "|" && currentChar === "]") {
+                    } else if (previousChar === '|' && currentChar === ']') {
                         // found a range end
                         const rangeStart = openRanges.pop();
                         if (!rangeStart) {
-                            throw reportError(fileName, line, column, "Found range end with no matching start.");
+                            reportError(fileName, line, column, 'Found range end with no matching start.');
                         }
 
                         const range: Range = {
                             fileName,
-                            pos: rangeStart.position,
+                            pos: rangeStart!.position,
                             end: (i - 1) - difference,
-                            marker: rangeStart.marker
+                            marker: rangeStart!.marker
                         };
                         localRanges.push(range);
 
@@ -265,25 +266,23 @@ function parseFileContent(content: string, fileName: string, markerMap: Map<stri
                         flush(i - 1);
                         lastNormalCharPosition = i + 1;
                         difference += 2;
-                    }
-                    else if (previousChar === "/" && currentChar === "*") {
+                    } else if (previousChar === '/' && currentChar === '*') {
                         // found a possible marker start
                         state = State.inSlashStarMarker;
                         openMarker = {
                             position: (i - 1) - difference,
                             sourcePosition: i - 1,
                             sourceLine: line,
-                            sourceColumn: column,
+                            sourceColumn: column
                         };
-                    }
-                    else if (previousChar === "{" && currentChar === "|") {
+                    } else if (previousChar === '{' && currentChar === '|') {
                         // found an object marker start
                         state = State.inObjectMarker;
                         openMarker = {
                             position: (i - 1) - difference,
                             sourcePosition: i - 1,
                             sourceLine: line,
-                            sourceColumn: column,
+                            sourceColumn: column
                         };
                         flush(i - 1);
                     }
@@ -291,7 +290,7 @@ function parseFileContent(content: string, fileName: string, markerMap: Map<stri
 
                 case State.inObjectMarker:
                     // Object markers are only ever terminated by |} and have no content restrictions
-                    if (previousChar === "|" && currentChar === "}") {
+                    if (previousChar === '|' && currentChar === '}') {
                         // Record the marker
                         const objectMarkerNameText = content.substring(openMarker!.sourcePosition + 2, i - 1).trim();
                         const marker = recordObjectMarker(fileName, openMarker!, objectMarkerNameText, markerMap, markers);
@@ -311,7 +310,7 @@ function parseFileContent(content: string, fileName: string, markerMap: Map<stri
                     break;
 
                 case State.inSlashStarMarker:
-                    if (previousChar === "*" && currentChar === "/") {
+                    if (previousChar === '*' && currentChar === '/') {
                         // Record the marker
                         // start + 2 to ignore the */, -1 on the end to ignore the * (/ is next)
                         const markerNameText = content.substring(openMarker!.sourcePosition + 2, i - 1).trim();
@@ -329,12 +328,10 @@ function parseFileContent(content: string, fileName: string, markerMap: Map<stri
                         // Reset the state
                         openMarker = undefined;
                         state = State.none;
-                    }
-                    else if (validMarkerChars.indexOf(currentChar) < 0) {
-                        if (currentChar === "*" && i < content.length - 1 && content.charAt(i + 1) === "/") {
+                    } else if (validMarkerChars.indexOf(currentChar) < 0) {
+                        if (currentChar === '*' && i < content.length - 1 && content.charAt(i + 1) === '/') {
                             // The marker is about to be closed, ignore the 'invalid' char
-                        }
-                        else {
+                        } else {
                             // We've hit a non-valid marker character, so we were actually in a block comment
                             // Bail out the text we've gathered so far back into the output
                             flush(i);
@@ -347,11 +344,10 @@ function parseFileContent(content: string, fileName: string, markerMap: Map<stri
                     break;
             }
 
-            if (currentChar === "\n" && previousChar === "\r") {
+            if (currentChar === '\n' && previousChar === '\r') {
                 // Ignore trailing \n after a \r
                 continue;
-            }
-            else if (currentChar === "\n" || currentChar === "\r") {
+            } else if (currentChar === '\n' || currentChar === '\r') {
                 line++;
                 column = 1;
                 continue;
@@ -367,32 +363,32 @@ function parseFileContent(content: string, fileName: string, markerMap: Map<stri
 
     if (openRanges.length > 0) {
         const openRange = openRanges[0];
-        reportError(fileName, openRange.sourceLine, openRange.sourceColumn, "Unterminated range.");
+        reportError(fileName, openRange.sourceLine, openRange.sourceColumn, 'Unterminated range.');
     }
 
     if (openMarker) {
-        reportError(fileName, openMarker.sourceLine, openMarker.sourceColumn, "Unterminated marker.");
+        reportError(fileName, openMarker.sourceLine, openMarker.sourceColumn, 'Unterminated marker.');
     }
 
     // put ranges in the correct order
     localRanges = localRanges.sort((a, b) => a.pos < b.pos ? -1 : a.pos === b.pos && a.end > b.end ? -1 : 1);
-    localRanges.forEach((r) => { ranges.push(r); });
+    localRanges.forEach(r => { ranges.push(r); });
 
     return {
         content: output,
         fileOptions: {},
         version: 0,
-        fileName,
+        fileName
     };
 }
 
 function chompLeadingSpace(content: string) {
-    const lines = content.split("\n");
+    const lines = content.split('\n');
     for (const line of lines) {
-        if ((line.length !== 0) && (line.charAt(0) !== " ")) {
+        if ((line.length !== 0) && (line.charAt(0) !== ' ')) {
             return content;
         }
     }
 
-    return lines.map(s => s.substr(1)).join("\n");
+    return lines.map(s => s.substr(1)).join('\n');
 }

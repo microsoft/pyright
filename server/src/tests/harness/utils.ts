@@ -4,12 +4,12 @@
  * Licensed under the MIT license.
  */
 
-import { binarySearch, insertAt } from "../../common/collectionUtils";
-import { identity } from "../../common/core";
+import { binarySearch, insertAt } from '../../common/collectionUtils';
+import { identity } from '../../common/core';
 
 export interface SortOptions<T> {
     comparer: (a: T, b: T) => number;
-    sort: "insertion" | "comparison";
+    sort: 'insertion' | 'comparison';
 }
 
 export class SortedMap<K, V> {
@@ -21,8 +21,8 @@ export class SortedMap<K, V> {
     private _copyOnWrite = false;
 
     constructor(comparer: ((a: K, b: K) => number) | SortOptions<K>, iterable?: Iterable<[K, V]>) {
-        this._comparer = typeof comparer === "object" ? comparer.comparer : comparer;
-        this._order = typeof comparer === "object" && comparer.sort === "insertion" ? [] : undefined;
+        this._comparer = typeof comparer === 'object' ? comparer.comparer : comparer;
+        this._order = typeof comparer === 'object' && comparer.sort === 'insertion' ? [] : undefined;
         if (iterable) {
             const iterator = getIterator(iterable);
             try {
@@ -30,76 +30,74 @@ export class SortedMap<K, V> {
                     const [key, value] = i.value;
                     this.set(key, value);
                 }
-            }
-            finally {
+            } finally {
                 closeIterator(iterator);
             }
         }
     }
 
-    public get size() {
+    get size() {
         return this._keys.length;
     }
 
-    public get comparer() {
+    get comparer() {
         return this._comparer;
     }
 
-    public get [Symbol.toStringTag]() {
-        return "SortedMap";
+    get [Symbol.toStringTag]() {
+        return 'SortedMap';
     }
 
-    public has(key: K) {
+    has(key: K) {
         return binarySearch(this._keys, key, identity, this._comparer) >= 0;
     }
 
-    public get(key: K) {
+    get(key: K) {
         const index = binarySearch(this._keys, key, identity, this._comparer);
         return index >= 0 ? this._values[index] : undefined;
     }
 
-    public set(key: K, value: V) {
+    set(key: K, value: V) {
         const index = binarySearch(this._keys, key, identity, this._comparer);
         if (index >= 0) {
             this._values[index] = value;
-        }
-        else {
-            this.writePreamble();
+        } else {
+            this._writePreamble();
             insertAt(this._keys, ~index, key);
             insertAt(this._values, ~index, value);
-            if (this._order) insertAt(this._order, ~index, this._version);
-            this.writePostScript();
+            if (this._order) { insertAt(this._order, ~index, this._version); }
+            this._writePostScript();
         }
         return this;
     }
 
-    public delete(key: K) {
+    delete(key: K) {
         const index = binarySearch(this._keys, key, identity, this._comparer);
         if (index >= 0) {
-            this.writePreamble();
-            this.orderedRemoveItemAt(this._keys, index);
-            this.orderedRemoveItemAt(this._values, index);
-            if (this._order) this.orderedRemoveItemAt(this._order, index);
-            this.writePostScript();
+            this._writePreamble();
+            this._orderedRemoveItemAt(this._keys, index);
+            this._orderedRemoveItemAt(this._values, index);
+            if (this._order) { this._orderedRemoveItemAt(this._order, index); }
+            this._writePostScript();
             return true;
         }
         return false;
     }
 
-    public clear() {
+    clear() {
         if (this.size > 0) {
-            this.writePreamble();
+            this._writePreamble();
             this._keys.length = 0;
             this._values.length = 0;
-            if (this._order) this._order.length = 0;
-            this.writePostScript();
+            if (this._order) { this._order.length = 0; }
+            this._writePostScript();
         }
     }
 
-    public forEach(callback: (value: V, key: K, collection: this) => void, thisArg?: any) {
+    forEach(callback: (value: V, key: K, collection: this) => void, thisArg?: any) {
         const keys = this._keys;
         const values = this._values;
-        const indices = this.getIterationOrder();
+        const indices = this._getIterationOrder();
         const version = this._version;
         this._copyOnWrite = true;
         try {
@@ -107,23 +105,21 @@ export class SortedMap<K, V> {
                 for (const i of indices) {
                     callback.call(thisArg, values[i], keys[i], this);
                 }
-            }
-            else {
+            } else {
                 for (let i = 0; i < keys.length; i++) {
                     callback.call(thisArg, values[i], keys[i], this);
                 }
             }
-        }
-        finally {
+        } finally {
             if (version === this._version) {
                 this._copyOnWrite = false;
             }
         }
     }
 
-    public * keys() {
+    * keys() {
         const keys = this._keys;
-        const indices = this.getIterationOrder();
+        const indices = this._getIterationOrder();
         const version = this._version;
         this._copyOnWrite = true;
         try {
@@ -131,21 +127,19 @@ export class SortedMap<K, V> {
                 for (const i of indices) {
                     yield keys[i];
                 }
-            }
-            else {
+            } else {
                 yield* keys;
             }
-        }
-        finally {
+        } finally {
             if (version === this._version) {
                 this._copyOnWrite = false;
             }
         }
     }
 
-    public * values() {
+    * values() {
         const values = this._values;
-        const indices = this.getIterationOrder();
+        const indices = this._getIterationOrder();
         const version = this._version;
         this._copyOnWrite = true;
         try {
@@ -153,22 +147,20 @@ export class SortedMap<K, V> {
                 for (const i of indices) {
                     yield values[i];
                 }
-            }
-            else {
+            } else {
                 yield* values;
             }
-        }
-        finally {
+        } finally {
             if (version === this._version) {
                 this._copyOnWrite = false;
             }
         }
     }
 
-    public * entries() {
+    * entries() {
         const keys = this._keys;
         const values = this._values;
-        const indices = this.getIterationOrder();
+        const indices = this._getIterationOrder();
         const version = this._version;
         this._copyOnWrite = true;
         try {
@@ -176,38 +168,36 @@ export class SortedMap<K, V> {
                 for (const i of indices) {
                     yield [keys[i], values[i]] as [K, V];
                 }
-            }
-            else {
+            } else {
                 for (let i = 0; i < keys.length; i++) {
                     yield [keys[i], values[i]] as [K, V];
                 }
             }
-        }
-        finally {
+        } finally {
             if (version === this._version) {
                 this._copyOnWrite = false;
             }
         }
     }
 
-    public [Symbol.iterator]() {
+    [Symbol.iterator]() {
         return this.entries();
     }
 
-    private writePreamble() {
+    private _writePreamble() {
         if (this._copyOnWrite) {
             this._keys = this._keys.slice();
             this._values = this._values.slice();
-            if (this._order) this._order = this._order.slice();
+            if (this._order) { this._order = this._order.slice(); }
             this._copyOnWrite = false;
         }
     }
 
-    private writePostScript() {
+    private _writePostScript() {
         this._version++;
     }
 
-    private getIterationOrder() {
+    private _getIterationOrder() {
         if (this._order) {
             const order = this._order;
             return this._order
@@ -218,7 +208,7 @@ export class SortedMap<K, V> {
     }
 
     /** Remove an item by index from an array, moving everything to its right one space left. */
-    private orderedRemoveItemAt<T>(array: T[], index: number): void {
+    private _orderedRemoveItemAt<T>(array: T[], index: number): void {
         // This seems to be faster than either `array.splice(i, 1)` or `array.copyWithin(i, i+ 1)`.
         for (let i = index; i < array.length - 1; i++) {
             array[i] = array[i + 1];
@@ -238,7 +228,7 @@ export function nextResult<T>(iterator: Iterator<T>): IteratorResult<T> | undefi
 
 export function closeIterator<T>(iterator: Iterator<T>) {
     const fn = iterator.return;
-    if (typeof fn === "function") fn.call(iterator);
+    if (typeof fn === 'function') { fn.call(iterator); }
 }
 
 /**
@@ -257,10 +247,10 @@ export class Metadata {
         this._map = Object.create(parent ? parent._map : null);
     }
 
-    public get size(): number {
+    get size(): number {
         if (this._size === -1 || (this._parent && this._parent._version !== this._parentVersion)) {
             let size = 0;
-            for (const _ in this._map) size++;
+            for (const _ of Object.keys(this._map)) { size++; }
             this._size = size;
             if (this._parent) {
                 this._parentVersion = this._parent._version;
@@ -269,27 +259,27 @@ export class Metadata {
         return this._size;
     }
 
-    public get parent() {
+    get parent() {
         return this._parent;
     }
 
-    public has(key: string): boolean {
+    has(key: string): boolean {
         return this._map[Metadata._escapeKey(key)] !== undefined;
     }
 
-    public get(key: string): any {
+    get(key: string): any {
         const value = this._map[Metadata._escapeKey(key)];
         return value === Metadata._undefinedValue ? undefined : value;
     }
 
-    public set(key: string, value: any): this {
+    set(key: string, value: any): this {
         this._map[Metadata._escapeKey(key)] = value === undefined ? Metadata._undefinedValue : value;
         this._size = -1;
         this._version++;
         return this;
     }
 
-    public delete(key: string): boolean {
+    delete(key: string): boolean {
         const escapedKey = Metadata._escapeKey(key);
         if (this._map[escapedKey] !== undefined) {
             delete this._map[escapedKey];
@@ -300,24 +290,24 @@ export class Metadata {
         return false;
     }
 
-    public clear(): void {
+    clear(): void {
         this._map = Object.create(this._parent ? this._parent._map : null);
         this._size = -1;
         this._version++;
     }
 
-    public forEach(callback: (value: any, key: string, map: this) => void) {
-        for (const key in this._map) {
+    forEach(callback: (value: any, key: string, map: this) => void) {
+        for (const key of Object.keys(this._map)) {
             callback(this._map[key], Metadata._unescapeKey(key), this);
         }
     }
 
     private static _escapeKey(text: string) {
-        return (text.length >= 2 && text.charAt(0) === "_" && text.charAt(1) === "_" ? "_" + text : text);
+        return (text.length >= 2 && text.charAt(0) === '_' && text.charAt(1) === '_' ? '_' + text : text);
     }
 
     private static _unescapeKey(text: string) {
-        return (text.length >= 3 && text.charAt(0) === "_" && text.charAt(1) === "_" && text.charAt(2) === "_" ? text.slice(1) : text);
+        return (text.length >= 3 && text.charAt(0) === '_' && text.charAt(1) === '_' && text.charAt(2) === '_' ? text.slice(1) : text);
     }
 }
 
@@ -327,25 +317,25 @@ export function bufferFrom(input: string, encoding?: BufferEncoding): Buffer {
         ? Buffer.from(input, encoding) : new Buffer(input, encoding);
 }
 
-export const IOErrorMessages = Object.freeze({
-    EACCES: "access denied",
-    EIO: "an I/O error occurred",
-    ENOENT: "no such file or directory",
-    EEXIST: "file already exists",
-    ELOOP: "too many symbolic links encountered",
-    ENOTDIR: "no such directory",
-    EISDIR: "path is a directory",
-    EBADF: "invalid file descriptor",
-    EINVAL: "invalid value",
-    ENOTEMPTY: "directory not empty",
-    EPERM: "operation not permitted",
-    EROFS: "file system is read-only"
+export const IO_ERROR_MESSAGE = Object.freeze({
+    EACCES: 'access denied',
+    EIO: 'an I/O error occurred',
+    ENOENT: 'no such file or directory',
+    EEXIST: 'file already exists',
+    ELOOP: 'too many symbolic links encountered',
+    ENOTDIR: 'no such directory',
+    EISDIR: 'path is a directory',
+    EBADF: 'invalid file descriptor',
+    EINVAL: 'invalid value',
+    ENOTEMPTY: 'directory not empty',
+    EPERM: 'operation not permitted',
+    EROFS: 'file system is read-only'
 });
 
-export function createIOError(code: keyof typeof IOErrorMessages, details = "") {
-    const err: NodeJS.ErrnoException = new Error(`${ code }: ${ IOErrorMessages[code] } ${ details }`);
+export function createIOError(code: keyof typeof IO_ERROR_MESSAGE, details = '') {
+    const err: NodeJS.ErrnoException = new Error(`${ code }: ${ IO_ERROR_MESSAGE[code] } ${ details }`);
     err.code = code;
-    if (Error.captureStackTrace) Error.captureStackTrace(err, createIOError);
+    if (Error.captureStackTrace) { Error.captureStackTrace(err, createIOError); }
     return err;
 }
 

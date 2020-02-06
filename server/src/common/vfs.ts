@@ -10,8 +10,8 @@
 /* eslint-disable no-dupe-class-members */
 
 // * NOTE * except tests, this should be only file that import "fs"
-import * as fs from 'fs';
 import * as chokidar from 'chokidar';
+import * as fs from 'fs';
 import { ConsoleInterface, NullConsole } from './console';
 
 export type Listener = (eventName: 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir', path: string, stats?: Stats) => void;
@@ -63,27 +63,27 @@ class FileSystem implements VirtualFileSystem {
     constructor(private _console: ConsoleInterface) {
     }
 
-    public existsSync(path: string) { return fs.existsSync(path) }
-    public mkdirSync(path: string) { fs.mkdirSync(path); }
-    public chdir(path: string) { process.chdir(path); }
-    public readdirSync(path: string) { return fs.readdirSync(path); }
-    public readFileSync(path: string, encoding?: null): Buffer;
-    public readFileSync(path: string, encoding: string): string;
-    public readFileSync(path: string, encoding?: string | null): Buffer | string;
-    public readFileSync(path: string, encoding: string | null = null) { return fs.readFileSync(path, { encoding: encoding }); }
-    public writeFileSync(path: string, data: string | Buffer, encoding: string | null) { fs.writeFileSync(path, data, { encoding: encoding }); }
-    public statSync(path: string) { return fs.statSync(path); }
-    public unlinkSync(path: string) { return fs.unlinkSync(path); }
-    public realpathSync(path: string) { return fs.realpathSync(path); }
+    existsSync(path: string) { return fs.existsSync(path); }
+    mkdirSync(path: string) { fs.mkdirSync(path); }
+    chdir(path: string) { process.chdir(path); }
+    readdirSync(path: string) { return fs.readdirSync(path); }
+    readFileSync(path: string, encoding?: null): Buffer;
+    readFileSync(path: string, encoding: string): string;
+    readFileSync(path: string, encoding?: string | null): Buffer | string;
+    readFileSync(path: string, encoding: string | null = null) { return fs.readFileSync(path, { encoding }); }
+    writeFileSync(path: string, data: string | Buffer, encoding: string | null) { fs.writeFileSync(path, data, { encoding }); }
+    statSync(path: string) { return fs.statSync(path); }
+    unlinkSync(path: string) { fs.unlinkSync(path); }
+    realpathSync(path: string) { return fs.realpathSync(path); }
 
-    public getModulePath(): string {
+    getModulePath(): string {
         // The entry point to the tool should have set the __rootDirectory
         // global variable to point to the directory that contains the
         // typeshed-fallback directory.
         return (global as any).__rootDirectory;
     }
 
-    public createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher {
+    createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher {
         return this._createBaseFileSystemWatcher(paths).on(event, listener);
     }
 

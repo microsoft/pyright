@@ -2,25 +2,25 @@
  * testState.test.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
- * 
+ *
  * Tests and show how to use TestState in unit test
  */
 
 import * as assert from 'assert';
-import * as factory from "./harness/vfs/factory"
-import { normalizeSlashes, combinePaths, comparePathsCaseSensitive } from '../common/pathUtils';
-import { parseTestData } from './harness/fourslash/fourSlashParser';
-import { TestState } from './harness/fourslash/testState';
+import { combinePaths, comparePathsCaseSensitive, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
+import { parseTestData } from './harness/fourslash/fourSlashParser';
 import { Range } from './harness/fourslash/fourSlashTypes';
 import { runFourSlashTestContent } from './harness/fourslash/runner';
+import { TestState } from './harness/fourslash/testState';
+import * as factory from './harness/vfs/factory';
 
 test('Create', () => {
     const code = `
 // @filename: file1.py
 ////class A:
 ////    pass
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
     assert(state.activeFile === data.files[0]);
@@ -39,12 +39,12 @@ test('Multiple files', () => {
 // @filename: file3.py
 ////class C:
 ////    pass
-    `
+    `;
 
     const state = parseAndGetTestState(code).state;
 
-    assert.equal(state.fs.cwd(), normalizeSlashes("/"));
-    assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, "file1.py"))));
+    assert.equal(state.fs.cwd(), normalizeSlashes('/'));
+    assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'file1.py'))));
 });
 
 test('Configuration', () => {
@@ -54,7 +54,7 @@ test('Configuration', () => {
 ////   "include": [
 ////     "src"
 ////   ],
-////   
+////
 ////   "exclude": [
 ////     "**/node_modules",
 ////     "**/__pycache__",
@@ -62,21 +62,21 @@ test('Configuration', () => {
 ////     "src/web/node_modules",
 ////     "src/typestubs"
 ////   ],
-//// 
+////
 ////   "ignore": [
 ////     "src/oldstuff"
 ////   ],
-//// 
+////
 ////   "typingsPath": "src/typestubs",
 ////   "venvPath": "/home/foo/.venvs",
-//// 
+////
 ////   "reportTypeshedErrors": false,
 ////   "reportMissingImports": true,
 ////   "reportMissingTypeStubs": false,
-//// 
+////
 ////   "pythonVersion": "3.6",
 ////   "pythonPlatform": "Linux",
-//// 
+////
 ////   "executionEnvironments": [
 ////     {
 ////       "root": "src/web",
@@ -110,15 +110,15 @@ test('Configuration', () => {
 // @filename: file1.py
 ////class A:
 ////    pass
-    `
+    `;
 
     const state = parseAndGetTestState(code).state;
 
-    assert.equal(state.fs.cwd(), normalizeSlashes("/"));
-    assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, "file1.py"))));
+    assert.equal(state.fs.cwd(), normalizeSlashes('/'));
+    assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'file1.py'))));
 
-    assert.equal(state.configOptions.diagnosticSettings.reportMissingImports, "error");
-    assert.equal(state.configOptions.typingsPath, normalizeSlashes("src/typestubs"));
+    assert.equal(state.configOptions.diagnosticSettings.reportMissingImports, 'error');
+    assert.equal(state.configOptions.typingsPath, normalizeSlashes('src/typestubs'));
 });
 
 test('ProjectRoot', () => {
@@ -129,14 +129,14 @@ test('ProjectRoot', () => {
 // @filename: /root/file1.py
 ////class A:
 ////    pass
-    `
+    `;
 
     const state = parseAndGetTestState(code).state;
 
-    assert.equal(state.fs.cwd(), normalizeSlashes("/"));
-    assert(state.fs.existsSync(normalizeSlashes("/root/file1.py")));
+    assert.equal(state.fs.cwd(), normalizeSlashes('/'));
+    assert(state.fs.existsSync(normalizeSlashes('/root/file1.py')));
 
-    assert.equal(state.configOptions.projectRoot, normalizeSlashes("/root"));
+    assert.equal(state.configOptions.projectRoot, normalizeSlashes('/root'));
 });
 
 test('IgnoreCase', () => {
@@ -147,28 +147,28 @@ test('IgnoreCase', () => {
 // @filename: file1.py
 ////class A:
 ////    pass
-    `
+    `;
 
     const state = parseAndGetTestState(code).state;
 
-    assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, "FILE1.py"))));
+    assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'FILE1.py'))));
 });
 
 test('GoToMarker', () => {
     const code = `
 ////class A:
 ////    /*marker1*/pass
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
-    const marker = data.markerPositions.get("marker1");
+    const marker = data.markerPositions.get('marker1');
 
-    state.goToMarker("marker1");
-    assert.equal(state.lastKnownMarker, "marker1");
+    state.goToMarker('marker1');
+    assert.equal(state.lastKnownMarker, 'marker1');
     assert.equal(state.currentCaretPosition, marker!.position);
 
     state.goToMarker(marker);
-    assert.equal(state.lastKnownMarker, "marker1");
+    assert.equal(state.lastKnownMarker, 'marker1');
     assert.equal(state.currentCaretPosition, marker!.position);
     assert.equal(state.selectionEnd, -1);
 });
@@ -182,16 +182,16 @@ test('GoToEachMarker', () => {
 // @filename: file2.py
 ////class B:
 ////    /*marker2*/pass
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
-    const marker1 = data.markerPositions.get("marker1");
-    const marker2 = data.markerPositions.get("marker2");
+    const marker1 = data.markerPositions.get('marker1');
+    const marker2 = data.markerPositions.get('marker2');
 
     const results: number[] = [];
     state.goToEachMarker([marker1!, marker2!], m => {
         results.push(m.position);
-    })
+    });
 
     assert.deepEqual(results, [marker1!.position, marker2!.position]);
 
@@ -209,13 +209,14 @@ test('Markers', () => {
 // @filename: file2.py
 ////class B:
 ////    /*marker2*/pass
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
-    const marker1 = data.markerPositions.get("marker1");
+    const marker1 = data.markerPositions.get('marker1');
 
-    assert.deepEqual(state.getMarkerName(marker1!), "marker1");
-    assert.deepEqual(state.getMarkers().map(m => state.getMarkerName(m)).sort(compareStringsCaseSensitive), state.getMarkerNames().sort(comparePathsCaseSensitive));
+    assert.deepEqual(state.getMarkerName(marker1!), 'marker1');
+    assert.deepEqual(state.getMarkers().map(m => state.getMarkerName(m)).sort(
+        compareStringsCaseSensitive), state.getMarkerNames().sort(comparePathsCaseSensitive));
 });
 
 test('GoToPosition', () => {
@@ -223,10 +224,10 @@ test('GoToPosition', () => {
 // @filename: file1.py
 ////class A:
 ////    /*marker1*/pass
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
-    const marker1 = data.markerPositions.get("marker1");
+    const marker1 = data.markerPositions.get('marker1');
     state.goToPosition(marker1!.position);
 
     assert.equal(state.currentCaretPosition, marker1!.position);
@@ -240,17 +241,17 @@ test('select', () => {
 ////    class B:
 ////        def Test(self):
 ////            pass
-////    
+////
 ////    def Test2(self):
 ////        pass/*end*/
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
 
-    state.select("start", "end");
+    state.select('start', 'end');
 
-    assert.equal(state.currentCaretPosition, data.markerPositions.get("start")!.position);
-    assert.equal(state.selectionEnd, data.markerPositions.get("end")!.position);
+    assert.equal(state.currentCaretPosition, data.markerPositions.get('start')!.position);
+    assert.equal(state.selectionEnd, data.markerPositions.get('end')!.position);
 });
 
 test('selectAllInFile', () => {
@@ -260,16 +261,16 @@ test('selectAllInFile', () => {
 ////    class B:
 ////        def Test(self):
 ////            pass
-////    
+////
 ////    def Test2(self):
 ////        pass/*end*/
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
     state.selectAllInFile(data.files[0].fileName);
 
-    assert.equal(state.currentCaretPosition, data.markerPositions.get("start")!.position);
-    assert.equal(state.selectionEnd, data.markerPositions.get("end")!.position);
+    assert.equal(state.currentCaretPosition, data.markerPositions.get('start')!.position);
+    assert.equal(state.selectionEnd, data.markerPositions.get('end')!.position);
 });
 
 test('selectRange', () => {
@@ -279,10 +280,10 @@ test('selectRange', () => {
 ////    class B:
 ////        [|def Test(self):
 ////            pass|]
-////    
+////
 ////    def Test2(self):
 ////        pass
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
     const range = data.ranges[0];
@@ -301,10 +302,10 @@ test('selectLine', () => {
 ////    class B:
 ////[|        def Test(self):|]
 ////            pass
-////    
+////
 ////    def Test2(self):
 ////        pass
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
     const range = data.ranges[0];
@@ -322,10 +323,10 @@ test('goToEachRange', () => {
 ////    class B:
 ////        [|def Test(self):|]
 ////            pass
-////    
+////
 ////    def Test2(self):
 ////        [|pass|]
-    `
+    `;
 
     const { state } = parseAndGetTestState(code);
 
@@ -333,7 +334,7 @@ test('goToEachRange', () => {
     state.goToEachRange(r => {
         assert.equal(state.activeFile.fileName, r.fileName);
         results.push(r);
-    })
+    });
 
     assert.deepEqual(results, [state.getRanges()[0], state.getRanges()[1]]);
 });
@@ -349,7 +350,7 @@ test('getRangesInFile', () => {
 // @filename: file2.py
 ////    def Test2(self):
 ////        [|pass|]
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
 
@@ -367,13 +368,13 @@ test('rangesByText', () => {
 // @filename: file2.py
 ////    def Test2(self):
 ////        [|pass|]
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
     const map = state.getRangesByText();
 
-    assert.deepEqual(map.get("def Test(self):"), [data.ranges[0]]);
-    assert.deepEqual(map.get("pass"), [data.ranges[1]]);
+    assert.deepEqual(map.get('def Test(self):'), [data.ranges[0]]);
+    assert.deepEqual(map.get('pass'), [data.ranges[1]]);
 });
 
 test('moveCaretRight', () => {
@@ -383,13 +384,13 @@ test('moveCaretRight', () => {
 ////    class B:
 ////        /*position*/def Test(self):
 ////            pass
-////    
+////
 ////    def Test2(self):
 ////        pass
-    `
+    `;
 
     const { data, state } = parseAndGetTestState(code);
-    const marker = data.markerPositions.get("position")!;
+    const marker = data.markerPositions.get('position')!;
 
     state.goToBOF();
     assert.equal(state.currentCaretPosition, 0);
@@ -398,9 +399,9 @@ test('moveCaretRight', () => {
     assert.equal(state.currentCaretPosition, data.files[0].content.length);
 
     state.goToPosition(marker.position);
-    state.moveCaretRight("def".length);
+    state.moveCaretRight('def'.length);
 
-    assert.equal(state.currentCaretPosition, marker.position + "def".length);
+    assert.equal(state.currentCaretPosition, marker.position + 'def'.length);
     assert.equal(state.selectionEnd, -1);
 });
 
@@ -413,14 +414,14 @@ test('runFourSlashTestContent', () => {
 ////    class B:
 ////        /*position*/def Test(self):
 ////            pass
-////    
+////
 ////    def Test2(self):
 ////        pass
 
 helper.getMarkerByName("position");
-    `
+    `;
 
-    runFourSlashTestContent(normalizeSlashes("/"), "unused.py", code);
+    runFourSlashTestContent(normalizeSlashes('/'), 'unused.py', code);
 });
 
 test('VerifyDiagnosticsTest1', () => {
@@ -429,12 +430,12 @@ test('VerifyDiagnosticsTest1', () => {
 
 // @filename: dataclass1.py
 //// # This sample validates the Python 3.7 data class feature.
-//// 
+////
 //// from typing import NamedTuple, Optional
-//// 
+////
 //// class Other:
 ////     pass
-//// 
+////
 //// class DataTuple(NamedTuple):
 ////     def _m(self):
 ////         pass
@@ -442,25 +443,25 @@ test('VerifyDiagnosticsTest1', () => {
 ////     aid: Other
 ////     valll: str = ''
 ////     name: Optional[str] = None
-//// 
+////
 //// d1 = DataTuple(id=1, aid=Other())
 //// d2 = DataTuple(id=1, aid=Other(), valll='v')
 //// d3 = DataTuple(id=1, aid=Other(), name='hello')
 //// d4 = DataTuple(id=1, aid=Other(), name=None)
 //// id = d1.id
-//// 
+////
 //// # This should generate an error because the name argument
 //// # is the incorrect type.
 //// d5 = DataTuple(id=1, aid=Other(), name=[|{|"category": "error"|}3|])
-//// 
+////
 //// # This should generate an error because aid is a required
 //// # parameter and is missing an argument here.
 //// d6 = [|{|"category": "error"|}DataTuple(id=1, name=None|])
 
 helper.verifyDiagnostics();
-    `
+    `;
 
-    runFourSlashTestContent(factory.srcFolder, "unused.py", code);
+    runFourSlashTestContent(factory.srcFolder, 'unused.py', code);
 });
 
 test('VerifyDiagnosticsTest2', () => {
@@ -468,49 +469,49 @@ test('VerifyDiagnosticsTest2', () => {
 /// <reference path="fourslash.ts" />
 
 //// # This sample tests the handling of the @dataclass decorator.
-//// 
+////
 //// from dataclasses import dataclass, InitVar
-//// 
+////
 //// @dataclass
 //// class Bar():
 ////     bbb: int
 ////     ccc: str
 ////     aaa = 'string'
-//// 
+////
 //// bar1 = Bar(bbb=5, ccc='hello')
 //// bar2 = Bar(5, 'hello')
 //// bar3 = Bar(5, 'hello', 'hello2')
 //// print(bar3.bbb)
 //// print(bar3.ccc)
 //// print(bar3.aaa)
-//// 
+////
 //// # This should generate an error because ddd
 //// # isn't a declared value.
 //// bar = Bar(bbb=5, [|/*marker1*/ddd|]=5, ccc='hello')
-//// 
+////
 //// # This should generate an error because the
 //// # parameter types don't match.
 //// bar = Bar([|/*marker2*/'hello'|], 'goodbye')
-//// 
+////
 //// # This should generate an error because a parameter
 //// # is missing.
 //// bar = [|/*marker3*/Bar(2)|]
-//// 
+////
 //// # This should generate an error because there are
 //// # too many parameters.
 //// bar = Bar(2, 'hello', 'hello', [|/*marker4*/4|])
-//// 
-//// 
+////
+////
 //// @dataclass
 //// class Baz1():
 ////     bbb: int
 ////     aaa = 'string'
-//// 
+////
 ////     # This should generate an error because variables
 ////     # with no default cannot come after those with
 ////     # defaults.
 ////     [|/*marker5*/ccc|]: str
-//// 
+////
 //// @dataclass
 //// class Baz2():
 ////     aaa: str
@@ -523,14 +524,14 @@ helper.verifyDiagnostics({
     "marker4": { category: "error", message: "Expected 3 positional arguments" },
     "marker5": { category: "error", message: "Data fields without default value cannot appear after data fields with default values" },
 });
-    `
+    `;
 
-    runFourSlashTestContent(factory.srcFolder, "unused.py", code);
+    runFourSlashTestContent(factory.srcFolder, 'unused.py', code);
 });
 
 function parseAndGetTestState(code: string) {
-    const data = parseTestData(factory.srcFolder, code, "test.py");
-    const state = new TestState(normalizeSlashes("/"), data);
+    const data = parseTestData(factory.srcFolder, code, 'test.py');
+    const state = new TestState(normalizeSlashes('/'), data);
 
     return { data, state };
 }
