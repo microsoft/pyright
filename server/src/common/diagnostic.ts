@@ -6,7 +6,8 @@
 *
 * Class that represents errors and warnings.
 */
-import { CommandId } from '../definitions/commands';
+
+import { Commands } from '../commands/commands';
 import { Range } from './textRange';
 
 export const enum DiagnosticCategory {
@@ -20,12 +21,12 @@ export interface DiagnosticAction {
 }
 
 export interface CreateTypeStubFileAction extends DiagnosticAction {
-    action: CommandId.createTypeStub;
+    action: Commands.createTypeStub;
     moduleName: string;
 }
 
 export interface AddMissingOptionalToParamAction extends DiagnosticAction {
-    action: CommandId.addMissingOptionalToParam;
+    action: Commands.addMissingOptionalToParam;
     offsetOfTypeNode: number;
 }
 

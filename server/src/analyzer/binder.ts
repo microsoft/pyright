@@ -18,6 +18,7 @@
 
 import * as assert from 'assert';
 
+import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
 import { CreateTypeStubFileAction } from '../common/diagnostic';
 import { getEmptyRange } from '../common/textRange';
@@ -49,7 +50,6 @@ import { Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { CommandId } from '../definitions/commands';
 
 export const enum NameBindingType {
     // With "nonlocal" keyword
@@ -210,7 +210,7 @@ export class Binder extends ParseTreeWalker {
                     if (diagnostic) {
                         // Add a diagnostic action for resolving this diagnostic.
                         const createTypeStubAction: CreateTypeStubFileAction = {
-                            action: CommandId.createTypeStub,
+                            action: Commands.createTypeStub,
                             moduleName: importResult.importName
                         };
                         diagnostic.addAction(createTypeStubAction);
@@ -2121,7 +2121,7 @@ export class Binder extends ParseTreeWalker {
         let finalTypeNode: ExpressionNode | undefined;
 
         if (typeAnnotation) {
-            if (typeAnnotation.nodeType == ParseNodeType.Name) {
+            if (typeAnnotation.nodeType === ParseNodeType.Name) {
                 // We need to make an assumption in this code that the symbol "Final"
                 // will resolve to typing.Final. This is because of the poor way
                 // the "Final" support was specified. We need to evaluate it
@@ -2404,4 +2404,3 @@ export class YieldFinder extends ParseTreeWalker {
         return false;
     }
 }
-
