@@ -20,9 +20,9 @@ import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
 import { NullConsole } from './common/console';
 import { DiagnosticCategory } from './common/diagnostic';
-import { Range } from './common/textRange';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
+import { Range } from './common/textRange';
 import { createFromRealFileSystem } from './common/vfs';
 
 const toolName = 'pyright';

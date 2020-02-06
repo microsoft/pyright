@@ -4,15 +4,15 @@
  * Licensed under the MIT license.
  */
 
-import * as pathModule from "path";
-import * as os from "os";
+import * as os from 'os';
+import * as pathModule from 'path';
 
-import { compareStringsCaseSensitive, compareStringsCaseInsensitive } from "../../common/stringUtils";
-import { directoryExists, FileSystemEntries, combinePaths, fileExists, getFileSize, resolvePaths } from "../../common/pathUtils";
-import { createFromRealFileSystem } from '../../common/vfs';
 import { NullConsole } from '../../common/console';
+import { combinePaths, directoryExists, fileExists, FileSystemEntries, getFileSize, resolvePaths } from '../../common/pathUtils';
+import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../common/stringUtils';
+import { createFromRealFileSystem } from '../../common/vfs';
 
-export const Host: TestHost = createHost();
+export const HOST: TestHost = createHost();
 
 // eslint-disable-next-line @typescript-eslint/interface-name-prefix
 export interface TestHost {
@@ -35,7 +35,7 @@ function createHost(): TestHost {
     // NodeJS detects "\uFEFF" at the start of the string and *replaces* it with the actual
     // byte order mark from the specified encoding. Using any other byte order mark does
     // not actually work.
-    const byteOrderMarkIndicator = "\uFEFF";
+    const byteOrderMarkIndicator = '\uFEFF';
     const vfs = createFromRealFileSystem(new NullConsole());
 
     const useCaseSensitiveFileNames = isFileSystemCaseSensitive();
@@ -43,7 +43,7 @@ function createHost(): TestHost {
     function isFileSystemCaseSensitive(): boolean {
         // win32\win64 are case insensitive platforms
         const platform = os.platform();
-        if (platform === "win32") {
+        if (platform === 'win32') {
             return false;
         }
         // If this file exists under a different case, we must be case-insensitve.
@@ -51,7 +51,7 @@ function createHost(): TestHost {
 
         /** Convert all lowercase chars to uppercase, and vice-versa */
         function swapCase(s: string): string {
-            return s.replace(/\w/g, (ch) => {
+            return s.replace(/\w/g, ch => {
                 const up = ch.toUpperCase();
                 return ch === up ? ch.toLowerCase() : up;
             });
@@ -67,8 +67,7 @@ function createHost(): TestHost {
                 const stat = vfs.statSync(pathToFile);
                 if (options.recursive && stat.isDirectory()) {
                     paths = paths.concat(filesInFolder(pathToFile));
-                }
-                else if (stat.isFile() && (!spec || file.match(spec))) {
+                } else if (stat.isFile() && (!spec || file.match(spec))) {
                     paths.push(pathToFile);
                 }
             }
@@ -81,27 +80,25 @@ function createHost(): TestHost {
 
     function getAccessibleFileSystemEntries(dirname: string): FileSystemEntries {
         try {
-            const entries: string[] = vfs.readdirSync(dirname || ".").sort(useCaseSensitiveFileNames ? compareStringsCaseSensitive : compareStringsCaseInsensitive);
+            const entries: string[] = vfs.readdirSync(dirname || '.').sort(
+                useCaseSensitiveFileNames ? compareStringsCaseSensitive : compareStringsCaseInsensitive);
             const files: string[] = [];
             const directories: string[] = [];
             for (const entry of entries) {
-                if (entry === "." || entry === "..") continue;
+                if (entry === '.' || entry === '..') { continue; }
                 const name = combinePaths(dirname, entry);
                 try {
                     const stat = vfs.statSync(name);
-                    if (!stat) continue;
+                    if (!stat) { continue; }
                     if (stat.isFile()) {
                         files.push(entry);
-                    }
-                    else if (stat.isDirectory()) {
+                    } else if (stat.isDirectory()) {
                         directories.push(entry);
                     }
-                }
-                catch { /*ignore*/ }
+                } catch { /*ignore*/ }
             }
             return { files, directories };
-        }
-        catch (e) {
+        } catch (e) {
             return { files: [], directories: [] };
         }
     }
@@ -121,18 +118,18 @@ function createHost(): TestHost {
                 buffer[i] = buffer[i + 1];
                 buffer[i + 1] = temp;
             }
-            return buffer.toString("utf16le", 2);
+            return buffer.toString('utf16le', 2);
         }
         if (len >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
             // Little endian UTF-16 byte order mark detected
-            return buffer.toString("utf16le", 2);
+            return buffer.toString('utf16le', 2);
         }
         if (len >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
             // UTF-8 byte order mark detected
-            return buffer.toString("utf8", 3);
+            return buffer.toString('utf8', 3);
         }
         // Default is UTF-8 with no byte order mark
-        return buffer.toString("utf8");
+        return buffer.toString('utf8');
     }
 
     function writeFile(fileName: string, data: string, writeByteOrderMark?: boolean): void {
@@ -141,19 +138,19 @@ function createHost(): TestHost {
             data = byteOrderMarkIndicator + data;
         }
 
-        vfs.writeFileSync(fileName, data, "utf8");
+        vfs.writeFileSync(fileName, data, 'utf8');
     }
 
     return {
         useCaseSensitiveFileNames: () => useCaseSensitiveFileNames,
         getFileSize: (path: string) => getFileSize(vfs, path),
         readFile: path => readFile(path),
-        writeFile: (path, content) => writeFile(path, content),
+        writeFile: (path, content) => { writeFile(path, content); },
         fileExists: path => fileExists(vfs, path),
         directoryExists: path => directoryExists(vfs, path),
         listFiles,
-        log: s => console.log(s),
-        getWorkspaceRoot: () => resolvePaths(__dirname, "../../.."),
-        getAccessibleFileSystemEntries,
+        log: s => { console.log(s); },
+        getWorkspaceRoot: () => resolvePaths(__dirname, '../../..'),
+        getAccessibleFileSystemEntries
     };
 }

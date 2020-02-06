@@ -16,7 +16,7 @@ import { ExtensionContext, commands, TextEditor, Range, Position, TextEditorEdit
 import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind,
 	TextEdit } from 'vscode-languageclient';
 import { ProgressReporting } from './progress';
-import { CommandId } from '../../server/src/definitions/commands';
+import { Commands } from '../../server/src/commands/commands';
 
 export function activate(context: ExtensionContext) {
 	const bundlePath = context.asAbsolutePath(path.join('server', 'server.bundle.js'));
@@ -59,7 +59,7 @@ export function activate(context: ExtensionContext) {
 	context.subscriptions.push(progressReporting);
 
 	// Register our custom commands.
-	const textEditorCommands = [CommandId.orderImports, CommandId.addMissingOptionalToParam];
+	const textEditorCommands = [Commands.orderImports, Commands.addMissingOptionalToParam];
 	textEditorCommands.forEach(commandName => {
 		context.subscriptions.push(commands.registerTextEditorCommand(commandName,
 		(editor: TextEditor, edit: TextEditorEdit, ...args: any[]) => {
@@ -86,7 +86,7 @@ export function activate(context: ExtensionContext) {
 		}));
 	});
 
-	const genericCommands = [ CommandId.createTypeStub, ];
+	const genericCommands = [ Commands.createTypeStub, ];
 	genericCommands.forEach(command => {
 		context.subscriptions.push(commands.registerCommand(command, (...args: any[]) => {
 			languageClient.sendRequest('workspace/executeCommand', { command, arguments: args });

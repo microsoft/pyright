@@ -6,7 +6,7 @@
  * Various helper functions around collection/array
  */
 
-import { Comparison, equateValues, compareValues, isArray } from "./core";
+import { compareValues, Comparison, equateValues, isArray } from './core';
 
 export const emptyArray: never[] = [] as never[];
 export type EqualityComparer<T> = (a: T, b: T) => boolean;
@@ -35,14 +35,15 @@ export interface Push<T> {
  * @param value The value to append to the array. If `value` is `undefined`, nothing is
  * appended.
  */
-export function append<TArray extends any[] | undefined, TValue extends NonNullable<TArray>[number] | undefined>(to: TArray, value: TValue): [undefined, undefined] extends [TArray, TValue] ? TArray : NonNullable<TArray>[number][];
+export function append<TArray extends any[] | undefined, TValue extends NonNullable<TArray>[number] | undefined>(
+    to: TArray, value: TValue): [undefined, undefined] extends [TArray, TValue] ? TArray : NonNullable<TArray>[number][];
 export function append<T>(to: T[], value: T | undefined): T[];
 export function append<T>(to: T[] | undefined, value: T): T[];
 export function append<T>(to: T[] | undefined, value: T | undefined): T[] | undefined;
 export function append<T>(to: Push<T>, value: T | undefined): void;
 export function append<T>(to: T[], value: T | undefined): T[] | undefined {
-    if (value === undefined) return to;
-    if (to === undefined) return [value];
+    if (value === undefined) { return to; }
+    if (to === undefined) { return [value]; }
     to.push(value);
     return to;
 }
@@ -81,8 +82,8 @@ function toOffset(array: readonly any[], offset: number) {
 export function addRange<T>(to: T[], from: readonly T[] | undefined, start?: number, end?: number): T[];
 export function addRange<T>(to: T[] | undefined, from: readonly T[] | undefined, start?: number, end?: number): T[] | undefined;
 export function addRange<T>(to: T[] | undefined, from: readonly T[] | undefined, start?: number, end?: number): T[] | undefined {
-    if (from === undefined || from.length === 0) return to;
-    if (to === undefined) return from.slice(start, end);
+    if (from === undefined || from.length === 0) { return to; }
+    if (to === undefined) { return from.slice(start, end); }
     start = start === undefined ? 0 : toOffset(from, start);
     end = end === undefined ? from.length : toOffset(from, end);
     for (let i = start; i < end && i < from.length; i++) {
@@ -96,11 +97,9 @@ export function addRange<T>(to: T[] | undefined, from: readonly T[] | undefined,
 export function insertAt<T>(array: T[], index: number, value: T) {
     if (index === 0) {
         array.unshift(value);
-    }
-    else if (index === array.length) {
+    } else if (index === array.length) {
         array.push(value);
-    }
-    else {
+    } else {
         for (let i = array.length; i > index; i--) {
             array[i] = array[i - 1];
         }
@@ -112,11 +111,11 @@ export function insertAt<T>(array: T[], index: number, value: T) {
 export type Comparer<T> = (a: T, b: T) => Comparison;
 
 export interface SortedReadonlyArray<T> extends ReadonlyArray<T> {
-    " __sortedArrayBrand": any;
+    ' __sortedArrayBrand': any;
 }
 
 export interface SortedArray<T> extends Array<T> {
-    " __sortedArrayBrand": any;
+    ' __sortedArrayBrand': any;
 }
 
 /**
@@ -151,11 +150,10 @@ function stableSortIndices<T>(array: readonly T[], indices: number[], comparer: 
 export function map<T, U>(array: readonly T[], f: (x: T, i: number) => U): U[];
 export function map<T, U>(array: readonly T[] | undefined, f: (x: T, i: number) => U): U[] | undefined;
 export function map<T, U>(array: readonly T[] | undefined, f: (x: T, i: number) => U): U[] | undefined {
-    let result: U[] | undefined;
     if (array) {
         return array.map(f);
     }
-    return result;
+    return undefined;
 }
 
 export function some<T>(array: readonly T[] | undefined): array is readonly T[];
@@ -164,8 +162,7 @@ export function some<T>(array: readonly T[] | undefined, predicate?: (value: T) 
     if (array) {
         if (predicate) {
             return array.some(predicate);
-        }
-        else {
+        } else {
             return array.length > 0;
         }
     }
@@ -196,7 +193,9 @@ export function every<T>(array: readonly T[], callback: (element: T, index: numb
  * @param keyComparer A callback used to compare two keys in a sorted array.
  * @param offset An offset into `array` at which to start the search.
  */
-export function binarySearch<T, U>(array: readonly T[], value: T, keySelector: (v: T) => U, keyComparer: Comparer<U>, offset?: number): number {
+export function binarySearch<T, U>(array: readonly T[], value: T,
+    keySelector: (v: T) => U, keyComparer: Comparer<U>, offset?: number): number {
+
     return binarySearchKey(array, keySelector(value), keySelector, keyComparer, offset);
 }
 
@@ -210,7 +209,9 @@ export function binarySearch<T, U>(array: readonly T[], value: T, keySelector: (
  * @param keyComparer A callback used to compare two keys in a sorted array.
  * @param offset An offset into `array` at which to start the search.
  */
-export function binarySearchKey<T, U>(array: readonly T[], key: U, keySelector: (v: T) => U, keyComparer: Comparer<U>, offset?: number): number {
+export function binarySearchKey<T, U>(array: readonly T[], key: U,
+    keySelector: (v: T) => U, keyComparer: Comparer<U>, offset?: number): number {
+
     if (!some(array)) {
         return -1;
     }
@@ -246,8 +247,7 @@ export function flatten<T>(array: T[][] | readonly (T | readonly T[] | undefined
         if (v) {
             if (isArray(v)) {
                 addRange(result, v);
-            }
-            else {
+            } else {
                 result.push(v);
             }
         }

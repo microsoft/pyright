@@ -21,14 +21,14 @@ import {
     getFileName, getFileSpec, getFileSystemEntries, isDirectory,
     normalizePath, stripFileExtension
 } from '../common/pathUtils';
+import { DocumentRange, Position, Range } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
+import { FileWatcher, VirtualFileSystem } from '../common/vfs';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import * as PythonPathUtils from './pythonPathUtils';
-import { Position, Range, DocumentRange } from '../common/textRange';
-import { VirtualFileSystem, FileWatcher } from '../common/vfs';
 
 export { MaxAnalysisTime } from './program';
 

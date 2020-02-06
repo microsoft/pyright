@@ -8,32 +8,32 @@ import * as assert from 'assert';
 import * as debug from '../common/debug';
 
 test('DebugAssertTrue', () => {
-    assert.doesNotThrow(() => debug.assert(true, "doesn't throw"));
+    assert.doesNotThrow(() => { debug.assert(true, 'doesn\'t throw'); });
 });
 
 test('DebugAssertFalse', () => {
     assert.throws(
-        () => debug.assert(false, "should throw"),
+        () => { debug.assert(false, 'should throw'); },
         (err: any) => err instanceof Error,
-        "unexpected");
+        'unexpected');
 });
 
 test('DebugAssertDetailInfo', () => {
     // let assert to show more detail info which will get collected when
     // assert raised
-    const detailInfo = "Detail Info";
+    const detailInfo = 'Detail Info';
     assert.throws(
-        () => debug.assert(false, "should throw", () => detailInfo),
+        () => { debug.assert(false, 'should throw', () => detailInfo); },
         (err: any) => err instanceof Error && err.message.includes(detailInfo),
-        "unexpected");
+        'unexpected');
 });
 
 test('DebugAssertStackTrace', () => {
     // let assert to control what callstack to put in exception stack
     assert.throws(
-        () => debug.assert(false, "should throw", undefined, assert.throws),
-        (err: any) => err instanceof Error && !err.message.includes("assert.throws"),
-        "unexpected");
+        () => { debug.assert(false, 'should throw', undefined, assert.throws); },
+        (err: any) => err instanceof Error && !err.message.includes('assert.throws'),
+        'unexpected');
 });
 
 test('DebugAssertUndefined', () => {
@@ -41,7 +41,7 @@ test('DebugAssertUndefined', () => {
     assert.throws(
         () => debug.assertDefined(unused),
         (err: any) => err instanceof Error,
-        "unexpected");
+        'unexpected');
 });
 
 test('DebugAssertDefined', () => {
@@ -55,7 +55,7 @@ test('DebugAssertEachUndefined', () => {
     assert.throws(
         () => debug.assertEachDefined(unused),
         (err: any) => err instanceof Error,
-        "unexpected");
+        'unexpected');
 });
 
 test('DebugAssertEachDefined', () => {
@@ -81,17 +81,17 @@ test('DebugAssertNever', () => {
             }
         },
         (err: any) => err instanceof Error,
-        "unexpected");
+        'unexpected');
 });
 
 test('DebugGetFunctionName', () => {
     // helper method to add better message in exception
-    assert(debug.getFunctionName(assert.throws) === "throws");
+    assert(debug.getFunctionName(assert.throws) === 'throws');
 });
 
 test('DebugFormatEnum', () => {
     // helper method to add better message in exception around enum
     // const enum require --preserveConstEnums flag to work properly
     enum MyEnum { A, B, C }
-    assert(debug.formatEnum(MyEnum.A, MyEnum, false) === "A");
+    assert(debug.formatEnum(MyEnum.A, MyEnum, false) === 'A');
 });

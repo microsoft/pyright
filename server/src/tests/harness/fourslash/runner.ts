@@ -2,30 +2,30 @@
  * runner.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
- * 
+ *
  * Provide APIs to run fourslash tests from provided fourslash markup contents
  */
 
-import * as ts from "typescript";
-import { combinePaths } from "../../../common/pathUtils";
-import * as host from "../host";
-import { parseTestData } from "./fourSlashParser";
-import { TestState } from "./testState";
+import * as ts from 'typescript';
+import { combinePaths } from '../../../common/pathUtils';
+import * as host from '../host';
+import { parseTestData } from './fourSlashParser';
+import { TestState } from './testState';
 
-/** 
+/**
  * run given fourslash test file
- * 
+ *
  * @param basePath this is used as a base path of the virtual file system the test will run upon
  * @param fileName this is the file path where fourslash test file will be read from
  */
 export function runFourSlashTest(basePath: string, fileName: string) {
-    const content = (host.Host.readFile(fileName)!);
+    const content = (host.HOST.readFile(fileName)!);
     runFourSlashTestContent(basePath, fileName, content);
 }
 
 /**
  * run given fourslash markup content
- * 
+ *
  * @param basePath  this is used as a base path of the virtual file system the test will run upon
  * @param fileName this will be used as a filename of the given `content` in the virtual file system
  *                 if fourslash markup `content` doesn't have explicit `@filename` option
@@ -33,8 +33,8 @@ export function runFourSlashTest(basePath: string, fileName: string) {
  */
 export function runFourSlashTestContent(basePath: string, fileName: string, content: string) {
     // give file paths an absolute path for the virtual file system
-    const absoluteBasePath = combinePaths("/", basePath);
-    const absoluteFileName = combinePaths("/", fileName);
+    const absoluteBasePath = combinePaths('/', basePath);
+    const absoluteFileName = combinePaths('/', fileName);
 
     // parse out the files and their metadata
     const testData = parseTestData(absoluteBasePath, content, absoluteFileName);
@@ -54,6 +54,7 @@ function runCode(code: string, state: TestState): void {
 ${ code }
 })`;
 
+    // tslint:disable-next-line: no-eval
     const f = eval(wrappedCode);
     f(state);
 }

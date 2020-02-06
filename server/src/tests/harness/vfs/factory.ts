@@ -6,15 +6,15 @@
  * Provides a factory to create virtual file system backed by a real file system with some path remapped
  */
 
-import { combinePaths, getDirectoryPath, normalizeSlashes, resolvePaths } from "../../../common/pathUtils";
-import { TestHost } from "../host";
-import { bufferFrom } from "../utils";
-import { FileSystem, FileSystemOptions, FileSystemResolver, ModulePath, Mount, S_IFDIR, S_IFREG } from "./filesystem";
+import { combinePaths, getDirectoryPath, normalizeSlashes, resolvePaths } from '../../../common/pathUtils';
+import { TestHost } from '../host';
+import { bufferFrom } from '../utils';
+import { FileSystem, FileSystemOptions, FileSystemResolver, MODULE_PATH, Mount, S_IFDIR, S_IFREG } from './filesystem';
 
 export class TextDocument {
-    public readonly meta: Map<string, string>;
-    public readonly file: string;
-    public readonly text: string;
+    readonly meta: Map<string, string>;
+    readonly file: string;
+    readonly text: string;
 
     constructor(file: string, text: string, meta?: Map<string, string>) {
         this.file = file;
@@ -28,8 +28,8 @@ export interface FileSystemCreateOptions extends FileSystemOptions {
     documents?: readonly TextDocument[];
 }
 
-export const typeshedFolder = combinePaths(ModulePath, normalizeSlashes("typeshed-fallback"));
-export const srcFolder = normalizeSlashes("/.src");
+export const typeshedFolder = combinePaths(MODULE_PATH, normalizeSlashes('typeshed-fallback'));
+export const srcFolder = normalizeSlashes('/.src');
 
 /**
  * Create a virtual file system from a physical file system using the following path mappings:
@@ -44,10 +44,12 @@ export const srcFolder = normalizeSlashes("/.src");
  * @param cwd initial current working directory in this virtual file system
  * @param time initial time in this virtual file system
  * @param meta initial metadata in this virtual file system
- * 
+ *
  * all `FileSystemCreateOptions` are optional
  */
-export function createFromFileSystem(host: TestHost, ignoreCase: boolean, { documents, files, cwd, time, meta }: FileSystemCreateOptions = {}) {
+export function createFromFileSystem(host: TestHost, ignoreCase: boolean,
+    { documents, files, cwd, time, meta }: FileSystemCreateOptions = {}) {
+
     const fs = getBuiltLocal(host, meta ? meta[typeshedFolder] : undefined, ignoreCase).shadow();
     if (meta) {
         for (const key of Object.keys(meta)) {
@@ -64,12 +66,12 @@ export function createFromFileSystem(host: TestHost, ignoreCase: boolean, { docu
     if (documents) {
         for (const document of documents) {
             fs.mkdirpSync(getDirectoryPath(document.file));
-            fs.writeFileSync(document.file, document.text, "utf8");
-            fs.filemeta(document.file).set("document", document);
+            fs.writeFileSync(document.file, document.text, 'utf8');
+            fs.filemeta(document.file).set('document', document);
             // Add symlinks
-            const symlink = document.meta.get("symlink");
+            const symlink = document.meta.get('symlink');
             if (symlink) {
-                for (const link of symlink.split(",").map(link => link.trim())) {
+                for (const link of symlink.split(',').map(link => link.trim())) {
                     fs.mkdirpSync(getDirectoryPath(link));
                     fs.symlinkSync(resolvePaths(fs.cwd(), document.file), link);
                 }
@@ -87,14 +89,14 @@ let localCIFSCache: FileSystem | undefined;
 let localCSFSCache: FileSystem | undefined;
 
 function getBuiltLocal(host: TestHost, typeshedFolderPath: string | undefined, ignoreCase: boolean): FileSystem {
-    if (cacheKey?.host !== host || cacheKey.typeshedFolderPath != typeshedFolderPath) {
+    if (cacheKey?.host !== host || cacheKey.typeshedFolderPath !== typeshedFolderPath) {
         localCIFSCache = undefined;
         localCSFSCache = undefined;
         cacheKey = { host, typeshedFolderPath };
     }
     if (!localCIFSCache) {
         const resolver = createResolver(host);
-        typeshedFolderPath = typeshedFolderPath ?? resolvePaths(host.getWorkspaceRoot(), "../client/typeshed-fallback");
+        typeshedFolderPath = typeshedFolderPath ?? resolvePaths(host.getWorkspaceRoot(), '../client/typeshed-fallback');
         localCIFSCache = new FileSystem(/*ignoreCase*/ true, {
             files: {
                 [typeshedFolder]: new Mount(typeshedFolderPath, resolver),
@@ -106,7 +108,7 @@ function getBuiltLocal(host: TestHost, typeshedFolderPath: string | undefined, i
         localCIFSCache.makeReadonly();
     }
 
-    if (ignoreCase) return localCIFSCache;
+    if (ignoreCase) { return localCIFSCache; }
 
     if (!localCSFSCache) {
         localCSFSCache = localCIFSCache.shadow(/*ignoreCase*/ false);
@@ -125,16 +127,14 @@ function createResolver(host: TestHost): FileSystemResolver {
         statSync(path: string): { mode: number; size: number } {
             if (host.directoryExists(path)) {
                 return { mode: S_IFDIR | 0o777, size: 0 };
-            }
-            else if (host.fileExists(path)) {
+            } else if (host.fileExists(path)) {
                 return { mode: S_IFREG | 0o666, size: host.getFileSize(path) };
-            }
-            else {
-                throw new Error("ENOENT: path does not exist");
+            } else {
+                throw new Error('ENOENT: path does not exist');
             }
         },
         readFileSync(path: string): Buffer {
-            return bufferFrom!(host.readFile(path)!, "utf8") as Buffer;
+            return bufferFrom(host.readFile(path)!, 'utf8');
         }
     };
 }
