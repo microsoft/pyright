@@ -9,12 +9,13 @@
 
 import * as path from 'path';
 import Char from 'typescript-char';
+import { URI } from 'vscode-uri';
 import { some } from './collectionUtils';
 import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
 import * as debug from './debug';
-import { getStringComparer, equateStringsCaseInsensitive, equateStringsCaseSensitive, compareStringsCaseSensitive, compareStringsCaseInsensitive } from './stringUtils';
+import { compareStringsCaseInsensitive, compareStringsCaseSensitive, equateStringsCaseInsensitive,
+    equateStringsCaseSensitive, getStringComparer } from './stringUtils';
 import { VirtualFileSystem } from './vfs';
-import { URI } from 'vscode-uri';
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -503,8 +504,8 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
     const pathComponents = getPathComponents(absolutePath);
 
     const escapedSeparator = getRegexEscapedSeparator();
-    const doubleAsteriskRegexFragment = `(${escapedSeparator}[^${escapedSeparator}.][^${escapedSeparator}]*)*?`;
-    const reservedCharacterPattern = new RegExp(`[^\\w\\s${escapedSeparator}]`, "g");
+    const doubleAsteriskRegexFragment = `(${ escapedSeparator }[^${ escapedSeparator }.][^${ escapedSeparator }]*)*?`;
+    const reservedCharacterPattern = new RegExp(`[^\\w\\s${ escapedSeparator }]`, "g");
 
     // Strip the directory separator from the root component.
     if (pathComponents.length > 0) {
@@ -525,10 +526,11 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
             regExPattern += component.replace(
                 reservedCharacterPattern, match => {
                     if (match === '*') {
-                        return `[^${escapedSeparator}]*`;
+                        return `[^${ escapedSeparator }]*`;
                     } else if (match === '?') {
-                        return `[^${escapedSeparator}]`;
+                        return `[^${ escapedSeparator }]`;
                     } else {
+                        // escaping anything that is not reserved characters - word/space/separator
                         return '\\' + match;
                     }
                 });
@@ -580,7 +582,7 @@ export function getWildcardRoot(rootPath: string, fileSpec: string): string {
 export function getFileSpec(rootPath: string, fileSpec: string): FileSpec {
     let regExPattern = getWildcardRegexPattern(rootPath, fileSpec);
     const escapedSeparator = getRegexEscapedSeparator();
-    regExPattern = `^(${regExPattern})($|${escapedSeparator})`;
+    regExPattern = `^(${ regExPattern })($|${ escapedSeparator })`;
 
     const regExp = new RegExp(regExPattern);
     const wildcardRoot = getWildcardRoot(rootPath, fileSpec);
@@ -592,7 +594,8 @@ export function getFileSpec(rootPath: string, fileSpec: string): FileSpec {
 }
 
 export function getRegexEscapedSeparator() {
-    return path.sep === '/' ? '\\/' : '\\\\';
+    // we don't need to escape "/" in typescript regular expression
+    return path.sep === '/' ? '/' : '\\\\';
 }
 
 /**
@@ -612,10 +615,6 @@ export function isDiskPathRoot(path: string) {
 }
 
 //// Path Comparisons
-
-// check path for these segments: '', '.'. '..'
-const relativePathSegmentRegExp = /(^|\/)\.{0,2}($|\/)/;
-
 function comparePathsWorker(a: string, b: string, componentComparer: (a: string, b: string) => Comparison) {
     if (a === b) return Comparison.EqualTo;
     if (a === undefined) return Comparison.LessThan;
@@ -629,6 +628,10 @@ function comparePathsWorker(a: string, b: string, componentComparer: (a: string,
     if (result !== Comparison.EqualTo) {
         return result;
     }
+
+    // check path for these segments: '', '.'. '..'
+    const escapedSeparator = getRegexEscapedSeparator();
+    const relativePathSegmentRegExp = new RegExp(`(^|${escapedSeparator}).{0,2}($|${escapedSeparator})`);
 
     // NOTE: Performance optimization - shortcut if there are no relative path segments in
     //       the non-root portion of the path
@@ -731,5 +734,5 @@ export function convertUriToPath(uriString: string): string {
 }
 
 export function convertPathToUri(path: string): string {
-  return URI.file(path).toString();
+    return URI.file(path).toString();
 }
