@@ -184,7 +184,7 @@ test('comparePaths4', () => {
 });
 
 test('comparePaths5', () => {
-    assert.equal(comparePaths('/a/b/c/', '/a/b/c'), Comparison.GreaterThan);
+    assert.equal(comparePaths('/a/b/c/', '/a/b/c'), Comparison.EqualTo);
 });
 
 test('containsPath1', () => {

@@ -15,7 +15,7 @@
         "build:cli": "node ./copyTypeshedFallback.js && npm run eslint && webpack --config webpack.config-cli.js",
         "eslint": "eslint src/**/*.ts",
         "watch": "tsc --watch",
-        "test": "jest"
+        "test": "jest --detectOpenHandles --forceExit"
     },
     "dependencies": {
         "assert": "^2.0.0",
