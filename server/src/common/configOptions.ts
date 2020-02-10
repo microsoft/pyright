@@ -275,7 +275,7 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         enableTypeIgnoreComments: true,
         reportTypeshedErrors: 'none',
         reportMissingImports: 'error',
-        reportMissingTypeStubs: 'none',
+        reportMissingTypeStubs: 'warning',
         reportImportCycles: 'none',
         reportUnusedImport: 'none',
         reportUnusedClass: 'none',
