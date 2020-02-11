@@ -12,8 +12,8 @@
 
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { Position, DocumentRange, rangesAreEqual } from '../common/textRange';
 import { convertPositionToOffset } from '../common/positionUtils';
+import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
