@@ -5,24 +5,20 @@
 */
 
 import {
-    CodeAction, CodeActionKind, Command, ConfigurationItem,
-    createConnection, Diagnostic, DiagnosticRelatedInformation, DiagnosticSeverity,
-    DiagnosticTag, DocumentSymbol, ExecuteCommandParams, IConnection, InitializeResult,
-    IPCMessageReader, IPCMessageWriter, Location, MarkupKind, ParameterInformation,
-    RemoteConsole, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
+    CodeAction, CodeActionKind, CodeActionParams, Command,
+    ConfigurationItem, createConnection, Diagnostic, DiagnosticRelatedInformation,
+    DiagnosticSeverity, DiagnosticTag, DocumentSymbol, ExecuteCommandParams, IConnection,
+    InitializeResult, IPCMessageReader, IPCMessageWriter, Location, MarkupKind,
+    ParameterInformation, RemoteConsole, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 
 import { AnalyzerService } from './analyzer/service';
-import { CommandController, ServerCommand } from './commands/commandController';
-import { Commands } from './commands/commands';
 import { CommandLineOptions } from './common/commandLineOptions';
-import {
-    AddMissingOptionalToParamAction, CreateTypeStubFileAction,
-    Diagnostic as AnalyzerDiagnostic, DiagnosticCategory
-} from './common/diagnostic';
+import * as debug from './common/debug'
+import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import './common/extensions';
-import { combinePaths, convertPathToUri, convertUriToPath, getDirectoryPath, normalizePath } from './common/pathUtils';
-import { Position, Range } from './common/textRange';
+import { combinePaths, convertPathToUri, convertUriToPath, normalizePath } from './common/pathUtils';
+import { Position } from './common/textRange';
 import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 import { CompletionItemData } from './languageService/completionProvider';
 import { WorkspaceMap } from './workspaceMap';
@@ -51,8 +47,6 @@ export abstract class LanguageServerBase {
     // File system abstraction.
     fs: VirtualFileSystem;
 
-    // Command controller.
-    private controller: ServerCommand;
     // Create a simple text document manager. The text document manager
     // supports full document sync only.
     private _documents: TextDocuments = new TextDocuments();
@@ -62,16 +56,17 @@ export abstract class LanguageServerBase {
     // Tracks whether we're currently displaying progress.
     private _isDisplayingProgress = false;
 
-    constructor(private _productName: string, rootDirectory?: string) {
+    constructor(private _productName: string, rootDirectory: string) {
         this.connection.console.log(`${ _productName } language server starting`);
         // virtual file system to be used. initialized to real file system by default. but can't be overritten
         this.fs = createFromRealFileSystem(this.connection.console);
         // Stash the base directory into a global variable.
-        (global as any).__rootDirectory = rootDirectory ? rootDirectory : getDirectoryPath(__dirname);
+        debug.assertDefined(rootDirectory);
+        (global as any).__rootDirectory = rootDirectory;
+        this.connection.console.log(`Server root directory: ${ rootDirectory }`);
+
         // Create workspace map.
         this.workspaceMap = new WorkspaceMap(this);
-        // Create command controller.
-        this.controller = new CommandController(this);
         // Make the text document manager listen on the connection
         // for open, change and close text document events.
         this._documents.listen(this.connection);
@@ -81,6 +76,8 @@ export abstract class LanguageServerBase {
         this.connection.listen();
     }
 
+    protected abstract async executeCommand(cmdParams: ExecuteCommandParams): Promise<any>;
+    protected abstract async executeCodeAction(cmdParams: CodeActionParams): Promise<(Command | CodeAction)[] | undefined | null>;
     abstract async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
 
     // Provides access to logging to the client output window.
@@ -130,7 +127,7 @@ export abstract class LanguageServerBase {
 
                         const fileOrFiles = results.filesRequiringAnalysis !== 1 ? 'files' : 'file';
                         this.connection.sendNotification('pyright/reportProgress',
-                            `${results.filesRequiringAnalysis} ${fileOrFiles} to analyze`);
+                            `${ results.filesRequiringAnalysis } ${ fileOrFiles } to analyze`);
                     }
                 } else {
                     if (this._isDisplayingProgress) {
@@ -205,71 +202,10 @@ export abstract class LanguageServerBase {
             this.updateSettingsForAllWorkspaces();
         });
 
-        this.connection.onCodeAction(params => {
-            this._recordUserInteractionTime();
-
-            const sortImportsCodeAction = CodeAction.create(
-                'Organize Imports', Command.create('Organize Imports', Commands.orderImports),
-                CodeActionKind.SourceOrganizeImports);
-            const codeActions: CodeAction[] = [sortImportsCodeAction];
-
-            const filePath = convertUriToPath(params.textDocument.uri);
-            const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
-            if (!workspace.disableLanguageServices) {
-                const range: Range = {
-                    start: {
-                        line: params.range.start.line,
-                        character: params.range.start.character
-                    },
-                    end: {
-                        line: params.range.end.line,
-                        character: params.range.end.character
-                    }
-                };
-
-                const diags = workspace.serviceInstance.getDiagnosticsForRange(filePath, range);
-                const typeStubDiag = diags.find(d => {
-                    const actions = d.getActions();
-                    return actions && actions.find(a => a.action === Commands.createTypeStub);
-                });
-
-                if (typeStubDiag) {
-                    const action = typeStubDiag.getActions()!.find(
-                        a => a.action === Commands.createTypeStub) as CreateTypeStubFileAction;
-                    if (action) {
-                        const createTypeStubAction = CodeAction.create(
-                            `Create Type Stub For ‘${action.moduleName}’`,
-                            Command.create('Create Type Stub', Commands.createTypeStub,
-                                workspace.rootPath, action.moduleName),
-                            CodeActionKind.QuickFix);
-                        codeActions.push(createTypeStubAction);
-                    }
-                }
-
-                const addOptionalDiag = diags.find(d => {
-                    const actions = d.getActions();
-                    return actions && actions.find(a => a.action === Commands.addMissingOptionalToParam);
-                });
-
-                if (addOptionalDiag) {
-                    const action = addOptionalDiag.getActions()!.find(
-                        a => a.action === Commands.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
-                    if (action) {
-                        const addMissingOptionalAction = CodeAction.create(
-                            `Add 'Optional' to type annotation`,
-                            Command.create(`Add 'Optional' to type annotation`, Commands.addMissingOptionalToParam,
-                                action.offsetOfTypeNode),
-                            CodeActionKind.QuickFix);
-                        codeActions.push(addMissingOptionalAction);
-                    }
-                }
-            }
-
-            return codeActions;
-        });
+        this.connection.onCodeAction((params: CodeActionParams) => this.executeCodeAction(params));
 
         this.connection.onDefinition(params => {
-            this._recordUserInteractionTime();
+            this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
 
@@ -312,7 +248,7 @@ export abstract class LanguageServerBase {
         });
 
         this.connection.onDocumentSymbol(params => {
-            this._recordUserInteractionTime();
+            this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
 
@@ -493,7 +429,7 @@ export abstract class LanguageServerBase {
         });
 
         this.connection.onDidChangeTextDocument(params => {
-            this._recordUserInteractionTime();
+            this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
             const service = this.workspaceMap.getWorkspaceForFile(filePath).serviceInstance;
@@ -532,10 +468,6 @@ export abstract class LanguageServerBase {
         });
 
         this.connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => this.executeCommand(cmdParams));
-    }
-
-    protected executeCommand(cmdParams: ExecuteCommandParams): Promise<any> {
-        return this.controller.execute(cmdParams);
     }
 
     updateSettingsForAllWorkspaces(): void {
@@ -640,7 +572,7 @@ export abstract class LanguageServerBase {
         });
     }
 
-    private _recordUserInteractionTime() {
+    protected recordUserInteractionTime() {
         // Tell all of the services that the user is actively
         // interacting with one or more editors, so they should
         // back off from performing any work.
