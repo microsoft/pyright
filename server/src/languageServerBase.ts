@@ -14,7 +14,6 @@ import {
 
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
-import * as debug from './common/debug'
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import './common/extensions';
 import { combinePaths, convertPathToUri, convertUriToPath, normalizePath } from './common/pathUtils';
@@ -61,7 +60,6 @@ export abstract class LanguageServerBase {
         // virtual file system to be used. initialized to real file system by default. but can't be overritten
         this.fs = createFromRealFileSystem(this.connection.console);
         // Stash the base directory into a global variable.
-        debug.assertDefined(rootDirectory);
         (global as any).__rootDirectory = rootDirectory;
         this.connection.console.log(`Server root directory: ${ rootDirectory }`);
 
