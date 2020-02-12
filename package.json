@@ -14,13 +14,14 @@
     },
     "scripts": {
         "install:all": "npm install && cd server && npm install && cd ../client && npm install && cd ..",
-        "build": "npm run build:clientServerDebug && npm run build:cli",
+        "build": "npm run clean && npm run build:clientServerDebug && npm run build:cli",
         "build:client": "cd client && npm run build && cd ..",
         "build:clientServerDebug": "npm run build:serverDebug && npm run build:client",
         "build:serverProd": "cd server && npm run build:serverProd && cd ..",
         "build:serverDebug": "cd server && npm run build:serverDebug && cd ..",
         "build:cli": "cd server && npm run build:cli && cd ..",
-        "package": "npm run install:all && npm run build:serverProd && npm run build && cd client && npx vsce package && cd .."
+        "clean": "del-cli './client/server' && del-cli './client/out' && del-cli './dist'",
+        "package": "npm run install:all && npm run clean && npm run build:serverProd && npm run build && cd client && npx vsce package && cd .."
     },
     "devDependencies": {
         "@types/mocha": "^5.2.7",
@@ -28,6 +29,7 @@
         "@typescript-eslint/eslint-plugin": "^2.12.0",
         "@typescript-eslint/parser": "^2.12.0",
         "eslint": "^6.8.0",
+        "del-cli": "^3.0.0",
         "typescript": "^3.7.3"
     },
     "main": "index.js",
