@@ -18,8 +18,18 @@ class Server extends LanguageServerBase {
     private _controller: CommandController;
 
     constructor() {
-        debug.assert(fs.existsSync(path.join(__dirname, 'typeshed-fallback')), 'Unable to locate typeshed fallback folder.');
-        super('Pyright', getDirectoryPath(__dirname));
+        // pyright has "typeshed-fallback" under "client" and __dirname points to "client/server"
+        // make sure root directory point to "client", one level up from "client/server" where we can discover
+        // "typeshed-fallback" folder. in release, root is "extension" instead of "client" but
+        // folder structure is same (extension/server).
+        //
+        // root directory will be used for 2 different purposes.
+        // 1. to find "typeshed-fallback" folder.
+        // 2. to set "cwd" to run python to find search path.
+        const rootDirectory = getDirectoryPath(__dirname);
+        debug.assert(fs.existsSync(path.join(rootDirectory, 'typeshed-fallback')), `Unable to locate typeshed fallback folder at '${ rootDirectory }'`);
+        super('Pyright', rootDirectory);
+
         this._controller = new CommandController(this);
     }
 

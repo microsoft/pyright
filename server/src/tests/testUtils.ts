@@ -19,8 +19,8 @@ import { TestWalker } from '../analyzer/testWalker';
 import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
-import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { createFromRealFileSystem } from '../common/vfs';
+import { ParseOptions, Parser, ParseResults } from '../parser/parser';
 
 // This is a bit gross, but it's necessary to allow the fallback typeshed
 // directory to be located when running within the jest environment. This
