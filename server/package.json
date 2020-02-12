@@ -9,7 +9,7 @@
         "start:serverDebug": "npm i && npm run build:serverDebug",
         "start:serverProd": "npm i && npm run build:serverProd",
         "build": "npm run build:serverProd && npm run build:serverDebug && npm run build:cli",
-        "build:serverDebug": "tsc",
+        "build:serverDebug": "tsc && npm run installServer",
         "build:serverProd": "npm run installServer && webpack --config webpack.config-server.js",
         "installServer": "node ./customInstallServerIntoExtension.js ../client ./package.json ./tsconfig.json ./package-lock.json",
         "build:cli": "node ./copyTypeshedFallback.js && npm run eslint && webpack --config webpack.config-cli.js",
