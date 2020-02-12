@@ -4,8 +4,6 @@
  * Implements pyright language server.
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
 import { isArray } from 'util';
 import { CodeAction, CodeActionParams, Command, ExecuteCommandParams } from 'vscode-languageserver';
 import { CommandController } from './commands/commandController';
@@ -13,21 +11,26 @@ import * as debug from './common/debug';
 import { convertUriToPath, getDirectoryPath, normalizeSlashes } from './common/pathUtils';
 import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
+import { getTypeShedFallbackPath } from './analyzer/pythonPathUtils';
 
 class Server extends LanguageServerBase {
     private _controller: CommandController;
 
     constructor() {
-        // pyright has "typeshed-fallback" under "client" and __dirname points to "client/server"
-        // make sure root directory point to "client", one level up from "client/server" where we can discover
-        // "typeshed-fallback" folder. in release, root is "extension" instead of "client" but
-        // folder structure is same (extension/server).
-        //
-        // root directory will be used for 2 different purposes.
-        // 1. to find "typeshed-fallback" folder.
-        // 2. to set "cwd" to run python to find search path.
         const rootDirectory = getDirectoryPath(__dirname);
-        debug.assert(fs.existsSync(path.join(rootDirectory, 'typeshed-fallback')), `Unable to locate typeshed fallback folder at '${ rootDirectory }'`);
+
+        // Pyright has "typeshed-fallback" under "client". In the release version, __dirname
+        // points to "client/server", and in the debug version __dirname points to
+        // "client/server/src". Make sure root directory points to "client", one level up
+        // from "client/server" where we can discover "typeshed-fallback" folder. In release,
+        // root is "extension" instead of client" but folder structure is same (extension/server).
+        //
+        // The root directory will be used for two different purposes:
+        // 1. to find "typeshed-fallback" folder
+        // 2. to set "cwd" to run python to find search path
+        debug.assert(getTypeShedFallbackPath(rootDirectory) !== undefined,
+            `Unable to locate typeshed fallback folder at '${ rootDirectory }'`);
+
         super('Pyright', rootDirectory);
 
         this._controller = new CommandController(this);

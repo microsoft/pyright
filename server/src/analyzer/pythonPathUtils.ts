@@ -8,6 +8,8 @@
 */
 
 import * as child_process from 'child_process';
+import * as fs from 'fs';
+
 import { ConfigOptions } from '../common/configOptions';
 import {
     combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
@@ -18,11 +20,23 @@ import { VirtualFileSystem } from '../common/vfs';
 const cachedSearchPaths = new Map<string, string[]>();
 
 export function getTypeShedFallbackPath(moduleDirectory?: string) {
-    if (moduleDirectory) {
-        moduleDirectory = normalizePath(moduleDirectory);
-        return combinePaths(getDirectoryPath(
-            ensureTrailingDirectorySeparator(moduleDirectory)),
-            'typeshed-fallback');
+    if (!moduleDirectory) {
+        return undefined;
+    }
+
+    moduleDirectory = getDirectoryPath(ensureTrailingDirectorySeparator(
+        normalizePath(moduleDirectory)));
+
+    const typeshedPath = combinePaths(moduleDirectory, 'typeshed-fallback');
+    if (fs.existsSync(typeshedPath)) {
+        return typeshedPath;
+    }
+
+    // In the debug version of Pyright, the code is one level
+    // deeper, so we need to look one level up for the typeshed fallback.
+    const debugTypeshedPath = combinePaths(moduleDirectory, '../typeshed-fallback');
+    if (fs.existsSync(debugTypeshedPath)) {
+        return debugTypeshedPath;
     }
 
     return undefined;
