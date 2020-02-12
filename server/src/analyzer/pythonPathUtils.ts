@@ -8,22 +8,34 @@
 */
 
 import * as child_process from 'child_process';
+
 import { ConfigOptions } from '../common/configOptions';
-import * as consts from '../common/pathConsts';
-import {
-    combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
-    getFileSystemEntries, isDirectory, normalizePath
-} from '../common/pathUtils';
+import * as pathConsts from '../common/pathConsts';
+import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
+    getFileSystemEntries, isDirectory, normalizePath } from '../common/pathUtils';
 import { VirtualFileSystem } from '../common/vfs';
 
 const cachedSearchPaths = new Map<string, string[]>();
 
-export function getTypeShedFallbackPath(moduleDirectory?: string) {
-    if (moduleDirectory) {
-        moduleDirectory = normalizePath(moduleDirectory);
-        return combinePaths(getDirectoryPath(
-            ensureTrailingDirectorySeparator(moduleDirectory)),
-            consts.typeshedFallback);
+export function getTypeShedFallbackPath(fs: VirtualFileSystem) {
+    let moduleDirectory = fs.getModulePath();
+    if (!moduleDirectory) {
+        return undefined;
+    }
+
+    moduleDirectory = getDirectoryPath(ensureTrailingDirectorySeparator(
+        normalizePath(moduleDirectory)));
+
+    const typeshedPath = combinePaths(moduleDirectory, pathConsts.typeshedFallback);
+    if (fs.existsSync(typeshedPath)) {
+        return typeshedPath;
+    }
+
+    // In the debug version of Pyright, the code is one level
+    // deeper, so we need to look one level up for the typeshed fallback.
+    const debugTypeshedPath = combinePaths(moduleDirectory, '../' + pathConsts.typeshedFallback);
+    if (fs.existsSync(debugTypeshedPath)) {
+        return debugTypeshedPath;
     }
 
     return undefined;
@@ -50,14 +62,14 @@ export function findPythonSearchPaths(fs: VirtualFileSystem, configOptions: Conf
     }
 
     if (venvPath) {
-        let libPath = combinePaths(venvPath, consts.lib);
+        let libPath = combinePaths(venvPath, pathConsts.lib);
         if (fs.existsSync(libPath)) {
-            importFailureInfo.push(`Found path '${ libPath }'; looking for ${ consts.sitePackages }`);
+            importFailureInfo.push(`Found path '${ libPath }'; looking for ${ pathConsts.sitePackages }`);
         } else {
             importFailureInfo.push(`Did not find '${ libPath }'; trying 'Lib' instead`);
             libPath = combinePaths(venvPath, 'Lib');
             if (fs.existsSync(libPath)) {
-                importFailureInfo.push(`Found path '${ libPath }'; looking for ${ consts.sitePackages }`);
+                importFailureInfo.push(`Found path '${ libPath }'; looking for ${ pathConsts.sitePackages }`);
             } else {
                 importFailureInfo.push(`Did not find '${ libPath }'`);
                 libPath = '';
@@ -65,7 +77,7 @@ export function findPythonSearchPaths(fs: VirtualFileSystem, configOptions: Conf
         }
 
         if (libPath) {
-            const sitePackagesPath = combinePaths(libPath, consts.sitePackages);
+            const sitePackagesPath = combinePaths(libPath, pathConsts.sitePackages);
             if (fs.existsSync(sitePackagesPath)) {
                 importFailureInfo.push(`Found path '${ sitePackagesPath }'`);
                 return [sitePackagesPath];
@@ -79,7 +91,7 @@ export function findPythonSearchPaths(fs: VirtualFileSystem, configOptions: Conf
             for (let i = 0; i < entries.directories.length; i++) {
                 const dirName = entries.directories[i];
                 if (dirName.startsWith('python')) {
-                    const dirPath = combinePaths(libPath, dirName, consts.sitePackages);
+                    const dirPath = combinePaths(libPath, dirName, pathConsts.sitePackages);
                     if (fs.existsSync(dirPath)) {
                         importFailureInfo.push(`Found path '${ dirPath }'`);
                         return [dirPath];
@@ -90,7 +102,7 @@ export function findPythonSearchPaths(fs: VirtualFileSystem, configOptions: Conf
             }
         }
 
-        importFailureInfo.push(`Did not find '${ consts.sitePackages }'. Falling back on python interpreter.`);
+        importFailureInfo.push(`Did not find '${ pathConsts.sitePackages }'. Falling back on python interpreter.`);
     }
 
     // Fall back on the python interpreter.

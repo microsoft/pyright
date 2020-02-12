@@ -6,6 +6,7 @@
  * Entry point that will read all *.fourslash.ts files and
  * register jest tests for them and run
  */
+
 import * as path from 'path';
 import { normalizeSlashes } from '../common/pathUtils';
 import { runFourSlashTest } from './harness/fourslash/runner';
