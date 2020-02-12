@@ -8,7 +8,6 @@
 */
 
 import * as child_process from 'child_process';
-import * as fs from 'fs';
 
 import { ConfigOptions } from '../common/configOptions';
 import {
@@ -19,7 +18,7 @@ import { VirtualFileSystem } from '../common/vfs';
 
 const cachedSearchPaths = new Map<string, string[]>();
 
-export function getTypeShedFallbackPath(moduleDirectory?: string) {
+export function getTypeShedFallbackPath(fs: VirtualFileSystem, moduleDirectory?: string) {
     if (!moduleDirectory) {
         return undefined;
     }

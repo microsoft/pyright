@@ -18,20 +18,19 @@ class Server extends LanguageServerBase {
 
     constructor() {
         const rootDirectory = getDirectoryPath(__dirname);
+        super('Pyright', rootDirectory);
 
         // Pyright has "typeshed-fallback" under "client". In the release version, __dirname
         // points to "client/server", and in the debug version __dirname points to
-        // "client/server/src". Make sure root directory points to "client", one level up
-        // from "client/server" where we can discover "typeshed-fallback" folder. In release,
+        // "client/server/src". Make sure root directory points to "client"
+        // where we can discover "typeshed-fallback" folder. In release,
         // root is "extension" instead of client" but folder structure is same (extension/server).
         //
         // The root directory will be used for two different purposes:
         // 1. to find "typeshed-fallback" folder
         // 2. to set "cwd" to run python to find search path
-        debug.assert(getTypeShedFallbackPath(rootDirectory) !== undefined,
+        debug.assert(getTypeShedFallbackPath(this.fs, rootDirectory) !== undefined,
             `Unable to locate typeshed fallback folder at '${ rootDirectory }'`);
-
-        super('Pyright', rootDirectory);
 
         this._controller = new CommandController(this);
     }
