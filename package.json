@@ -21,7 +21,7 @@
         "build:serverDebug": "cd server && npm run build:serverDebug && cd ..",
         "build:cli": "cd server && npm run build:cli && cd ..",
         "clean": "del-cli './client/server' && del-cli './client/out' && del-cli './dist'",
-        "package": "npm run clean && npm run install:all && npm run build:serverProd && npm run build && cd client && npx vsce package && cd .."
+        "package": "npm run install:all && npm run clean && npm run build:serverProd && npm run build && cd client && npx vsce package && cd .."
     },
     "devDependencies": {
         "@types/mocha": "^5.2.7",
