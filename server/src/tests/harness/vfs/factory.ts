@@ -47,10 +47,10 @@ export const srcFolder = normalizeSlashes('/.src');
  *
  * all `FileSystemCreateOptions` are optional
  */
-export function createFromFileSystem(host: TestHost, ignoreCase: boolean,
+export function createFromFileSystem(host: TestHost, resolver: FileSystemResolver, ignoreCase: boolean,
     { documents, files, cwd, time, meta }: FileSystemCreateOptions = {}) {
 
-    const fs = getBuiltLocal(host, meta ? meta[typeshedFolder] : undefined, ignoreCase).shadow();
+    const fs = getBuiltLocal(host, resolver, meta ? meta[typeshedFolder] : undefined, ignoreCase).shadow();
     if (meta) {
         for (const key of Object.keys(meta)) {
             fs.meta.set(key, meta[key]);
@@ -88,14 +88,13 @@ let cacheKey: { host: TestHost; typeshedFolderPath: string | undefined } | undef
 let localCIFSCache: FileSystem | undefined;
 let localCSFSCache: FileSystem | undefined;
 
-function getBuiltLocal(host: TestHost, typeshedFolderPath: string | undefined, ignoreCase: boolean): FileSystem {
+function getBuiltLocal(host: TestHost, resolver: FileSystemResolver, typeshedFolderPath: string | undefined, ignoreCase: boolean): FileSystem {
     if (cacheKey?.host !== host || cacheKey.typeshedFolderPath !== typeshedFolderPath) {
         localCIFSCache = undefined;
         localCSFSCache = undefined;
         cacheKey = { host, typeshedFolderPath };
     }
     if (!localCIFSCache) {
-        const resolver = createResolver(host);
         typeshedFolderPath = typeshedFolderPath ?? resolvePaths(host.getWorkspaceRoot(), '../client/typeshed-fallback');
         localCIFSCache = new FileSystem(/*ignoreCase*/ true, {
             files: {
@@ -118,7 +117,7 @@ function getBuiltLocal(host: TestHost, typeshedFolderPath: string | undefined, i
     return localCSFSCache;
 }
 
-function createResolver(host: TestHost): FileSystemResolver {
+export function createResolver(host: TestHost): FileSystemResolver {
     return {
         readdirSync(path: string): string[] {
             const { files, directories } = host.getAccessibleFileSystemEntries(path);

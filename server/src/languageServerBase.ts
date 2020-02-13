@@ -17,6 +17,8 @@ import { CommandLineOptions } from './common/commandLineOptions';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import './common/extensions';
 import { combinePaths, convertPathToUri, convertUriToPath, normalizePath } from './common/pathUtils';
+import { ConfigOptions } from './common/configOptions';
+import { ImportResolver } from './analyzer/importResolver';
 import { Position } from './common/textRange';
 import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 import { CompletionItemData } from './languageService/completionProvider';
@@ -92,11 +94,15 @@ export abstract class LanguageServerBase {
         return this.connection.workspace.getConfiguration(item);
     }
 
+    protected createImportResolver(fs: VirtualFileSystem, options: ConfigOptions): ImportResolver {
+        return new ImportResolver(fs, options);
+    }
+    
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
     createAnalyzerService(name: string): AnalyzerService {
         this.connection.console.log(`Starting service instance "${ name }"`);
-        const service = new AnalyzerService(name, this.fs, this.connection.console);
+        const service = new AnalyzerService(name, this.fs, this.connection.console, this.createImportResolver);
 
         // Don't allow the analysis engine to go too long without
         // reporting results. This will keep it responsive.

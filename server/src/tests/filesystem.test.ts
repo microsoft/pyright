@@ -144,7 +144,8 @@ test('createFromFileSystem1', () => {
     const content = '# test';
 
     // file system will map physical file system to virtual one
-    const fs = factory.createFromFileSystem(host.HOST, false,
+    const resolver = factory.createResolver(host.HOST);
+    const fs = factory.createFromFileSystem(host.HOST, resolver, false,
         { documents: [new factory.TextDocument(filepath, content)], cwd: factory.srcFolder });
 
     // check existing typeshed folder on virtual path inherited from base snapshot from physical file system
@@ -156,14 +157,16 @@ test('createFromFileSystem1', () => {
 });
 
 test('createFromFileSystem2', () => {
-    const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ true, { cwd: factory.srcFolder });
+    const resolver = factory.createResolver(host.HOST);
+    const fs = factory.createFromFileSystem(host.HOST, resolver, /* ignoreCase */ true, { cwd: factory.srcFolder });
     const entries = fs.readdirSync(factory.typeshedFolder.toUpperCase());
     assert(entries.length > 0);
 });
 
 test('createFromFileSystemWithCustomTypeshedPath', () => {
     const invalidpath = normalizeSlashes(combinePaths(host.HOST.getWorkspaceRoot(), '../docs'));
-    const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ false, {
+    const resolver = factory.createResolver(host.HOST);
+    const fs = factory.createFromFileSystem(host.HOST, resolver, /* ignoreCase */ false, {
         cwd: factory.srcFolder, meta: { [factory.typeshedFolder]: invalidpath }
     });
 
@@ -172,7 +175,8 @@ test('createFromFileSystemWithCustomTypeshedPath', () => {
 });
 
 test('createFromFileSystemWithMetadata', () => {
-    const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ false, {
+    const resolver = factory.createResolver(host.HOST);
+    const fs = factory.createFromFileSystem(host.HOST, resolver, /* ignoreCase */ false, {
         cwd: factory.srcFolder, meta: { 'unused': 'unused' }
     });
 

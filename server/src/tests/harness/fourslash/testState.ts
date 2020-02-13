@@ -10,7 +10,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import Char from 'typescript-char';
-import { ImportResolver } from '../../../analyzer/importResolver';
+import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { Program } from '../../../analyzer/program';
 import { ConfigOptions } from '../../../common/configOptions';
 import { NullConsole } from '../../../common/console';
@@ -23,10 +23,11 @@ import { getStringComparer } from '../../../common/stringUtils';
 import { Position, TextRange } from '../../../common/textRange';
 import * as host from '../host';
 import { stringify } from '../utils';
-import { createFromFileSystem } from '../vfs/factory';
+import { createFromFileSystem, createResolver } from '../vfs/factory';
 import * as vfs from '../vfs/filesystem';
 import { CompilerSettings, FourSlashData, FourSlashFile, GlobalMetadataOptionNames, Marker,
     MultiMap, pythonSettingFilename, Range, TestCancellationToken } from './fourSlashTypes';
+import { AnalyzerService } from '../../../analyzer/service';
 
 export interface TextChange {
     span: TextRange;
@@ -52,7 +53,7 @@ export class TestState {
     // The file that's currently 'opened'
     activeFile!: FourSlashFile;
 
-    constructor(private _basePath: string, public testData: FourSlashData) {
+    constructor(private _basePath: string, public testData: FourSlashData, extraMountedPaths?: Map<string, string>, importResolverFactory?: ImportResolverFactory) {
         const strIgnoreCase = GlobalMetadataOptionNames.ignoreCase;
         const ignoreCase = testData.globalOptions[strIgnoreCase]?.toUpperCase() === 'TRUE';
 
@@ -76,10 +77,19 @@ export class TestState {
             }
         }
 
-        const fs = createFromFileSystem(host.HOST, ignoreCase, { cwd: _basePath, files, meta: testData.globalOptions });
+        const resolver = createResolver(host.HOST);
+        const fs = createFromFileSystem(host.HOST, resolver, ignoreCase, { cwd: _basePath, files, meta: testData.globalOptions });
+
+        if (extraMountedPaths) {
+            extraMountedPaths.forEach((physicalPath, virtualPath) => {
+                fs.mountSync(physicalPath, virtualPath, resolver);
+            });
+        }
+
+        importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;
 
         // this should be change to AnalyzerService rather than Program
-        const importResolver = new ImportResolver(fs, configOptions);
+        const importResolver = importResolverFactory(fs, configOptions);
         const program = new Program(importResolver, configOptions);
         program.setTrackedFiles(Object.keys(files));
 
