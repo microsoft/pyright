@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Defines well known consts and names
+ * Defines path-related constants.
  */
 
 export const typeshedFallback = 'typeshed-fallback';

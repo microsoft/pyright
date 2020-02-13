@@ -20,7 +20,7 @@ import { Commands } from '../../server/src/commands/commands';
 
 export function activate(context: ExtensionContext) {
 	const bundlePath = context.asAbsolutePath(path.join('server', 'server.bundle.js'));
-	const nonBundlePath = context.asAbsolutePath(path.join('server', 'server.js'));
+	const nonBundlePath = context.asAbsolutePath(path.join('server', 'src', 'server.js'));
 	const debugOptions = { execArgv: ["--nolazy", "--inspect=6600"] };
 	
 	// If the extension is launched in debug mode, then the debug server options are used.
