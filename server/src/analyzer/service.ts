@@ -26,7 +26,7 @@ import { Duration, timingStats } from '../common/timing';
 import { FileWatcher, VirtualFileSystem } from '../common/vfs';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
-import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
+import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import * as PythonPathUtils from './pythonPathUtils';
 
@@ -50,6 +50,7 @@ export class AnalyzerService {
     private _instanceName: string;
     private _program: Program;
     private _configOptions: ConfigOptions;
+    private _importResolverFactory: ImportResolverFactory;
     private _importResolver: ImportResolver;
     private _executionRootPath: string;
     private _typeStubTargetImportName: string | undefined;
@@ -68,11 +69,12 @@ export class AnalyzerService {
     private _requireTrackedFileUpdate = true;
     private _lastUserInteractionTime = Date.now();
 
-    constructor(instanceName: string, fs: VirtualFileSystem, console?: ConsoleInterface, configOptions?: ConfigOptions) {
+    constructor(instanceName: string, fs: VirtualFileSystem, console?: ConsoleInterface, importResolverFactory?: ImportResolverFactory, configOptions?: ConfigOptions) {
         this._instanceName = instanceName;
         this._console = console || new StandardConsole();
         this._configOptions = configOptions ?? new ConfigOptions(process.cwd());
-        this._importResolver = new ImportResolver(fs, this._configOptions);
+        this._importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;
+        this._importResolver = this._importResolverFactory(fs, this._configOptions);
         this._program = new Program(this._importResolver, this._configOptions, this._console);
         this._executionRootPath = '';
         this._typeStubTargetImportName = undefined;
@@ -83,6 +85,10 @@ export class AnalyzerService {
         this._removeConfigFileWatcher();
         this._clearReloadConfigTimer();
         this._clearReanalysisTimer();
+    }
+
+    static createImportResolver(fs: VirtualFileSystem, options: ConfigOptions): ImportResolver {
+        return new ImportResolver(fs, options);
     }
 
     setCompletionCallback(callback: AnalysisCompleteCallback | undefined): void {
@@ -815,7 +821,7 @@ export class AnalyzerService {
     private _applyConfigOptions() {
         // Allocate a new import resolver because the old one has information
         // cached based on the previous config options.
-        this._importResolver = new ImportResolver(this._fs, this._configOptions);
+        this._importResolver = this._importResolverFactory(this._fs, this._configOptions);
         this._program.setImportResolver(this._importResolver);
 
         this._updateSourceFileWatchers();

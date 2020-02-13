@@ -95,7 +95,7 @@ export class ImportResolver {
             // Look for it in the root directory of the execution environment.
             importFailureInfo.push(`Looking in root directory of execution environment ` +
                 `'${ execEnv.root }'`);
-            let localImport = this._resolveAbsoluteImport(
+            let localImport = this.resolveAbsoluteImport(
                 execEnv.root, moduleDescriptor, importName, importFailureInfo);
             if (localImport && localImport.isImportFound) {
                 return this._addResultsToCache(execEnv, importName, localImport,
@@ -105,7 +105,7 @@ export class ImportResolver {
 
             for (const extraPath of execEnv.extraPaths) {
                 importFailureInfo.push(`Looking in extraPath '${ extraPath }'`);
-                localImport = this._resolveAbsoluteImport(extraPath, moduleDescriptor,
+                localImport = this.resolveAbsoluteImport(extraPath, moduleDescriptor,
                     importName, importFailureInfo);
                 if (localImport && localImport.isImportFound) {
                     return this._addResultsToCache(execEnv, importName, localImport,
@@ -121,7 +121,7 @@ export class ImportResolver {
             // Check for a typings file.
             if (this._configOptions.typingsPath) {
                 importFailureInfo.push(`Looking in typingsPath '${ this._configOptions.typingsPath }'`);
-                const typingsImport = this._resolveAbsoluteImport(
+                const typingsImport = this.resolveAbsoluteImport(
                     this._configOptions.typingsPath, moduleDescriptor, importName, importFailureInfo);
                 if (typingsImport && typingsImport.isImportFound) {
                     // We will treat typings files as "local" rather than "third party".
@@ -149,17 +149,20 @@ export class ImportResolver {
                     // Allow partial resolution because some third-party packages
                     // use tricks to populate their package namespaces.
                     importFailureInfo.push(`Looking in python search path '${ searchPath }'`);
-                    const thirdPartyImport = this._resolveAbsoluteImport(
+                    const thirdPartyImport = this.resolveAbsoluteImport(
                         searchPath, moduleDescriptor, importName, importFailureInfo,
                         true, true, true);
                     if (thirdPartyImport) {
                         thirdPartyImport.importType = ImportType.ThirdParty;
 
-                        if (thirdPartyImport.isImportFound) {
+                        if (thirdPartyImport.isImportFound && thirdPartyImport.isStubFile) {
                             return this._addResultsToCache(execEnv, importName,
                                 thirdPartyImport, moduleDescriptor.importedSymbols);
                         }
 
+                        // We did not find it, or we did and it's not from a
+                        // stub, so give chance for resolveImportEx to find
+                        // one from a stub.
                         if (bestResultSoFar === undefined ||
                             thirdPartyImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length) {
                             bestResultSoFar = thirdPartyImport;
@@ -168,6 +171,12 @@ export class ImportResolver {
                 }
             } else {
                 importFailureInfo.push('No python interpreter search path');
+            }
+
+            const extraResults = this.resolveImportEx(sourceFilePath, execEnv, moduleDescriptor, importName, importFailureInfo);
+            if (extraResults !== undefined) {
+                return this._addResultsToCache(execEnv, importName, extraResults,
+                    moduleDescriptor.importedSymbols);
             }
 
             // We weren't able to find an exact match, so return the best
@@ -191,6 +200,15 @@ export class ImportResolver {
         };
 
         return this._addResultsToCache(execEnv, importName, notFoundResult, undefined);
+    }
+
+    // Intended to be overridden by subclasses to provide additional stub
+    // resolving capabilities. Return undefined if no stubs were found for
+    // this import.
+    protected resolveImportEx(sourceFilePath: string, execEnv: ExecutionEnvironment,
+        moduleDescriptor: ImportedModuleDescriptor, importName: string,
+        importFailureInfo: string[] = []): ImportResult | undefined {
+        return undefined;
     }
 
     getCompletionSuggestions(sourceFilePath: string, execEnv: ExecutionEnvironment,
@@ -414,7 +432,7 @@ export class ImportResolver {
                 minorVersion === 0 ? '3' : '2and3';
             const testPath = combinePaths(typeshedPath, pythonVersionString);
             if (this.fileSystem.existsSync(testPath)) {
-                const importInfo = this._resolveAbsoluteImport(testPath, moduleDescriptor,
+                const importInfo = this.resolveAbsoluteImport(testPath, moduleDescriptor,
                     importName, importFailureInfo);
                 if (importInfo && importInfo.isImportFound) {
                     importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
@@ -536,7 +554,7 @@ export class ImportResolver {
         }
 
         // Now try to match the module parts from the current directory location.
-        const absImport = this._resolveAbsoluteImport(curDir, moduleDescriptor,
+        const absImport = this.resolveAbsoluteImport(curDir, moduleDescriptor,
             importName, importFailureInfo);
         if (!absImport) {
             return undefined;
@@ -565,7 +583,7 @@ export class ImportResolver {
 
     // Follows import resolution algorithm defined in PEP-420:
     // https://www.python.org/dev/peps/pep-0420/
-    private _resolveAbsoluteImport(rootPath: string, moduleDescriptor: ImportedModuleDescriptor,
+    protected resolveAbsoluteImport(rootPath: string, moduleDescriptor: ImportedModuleDescriptor,
         importName: string, importFailureInfo: string[], allowPartial = false,
         allowPydFile = false, allowStubsFolder = false): ImportResult | undefined {
 
@@ -893,3 +911,5 @@ export class ImportResolver {
         return name + moduleDescriptor.nameParts.map(part => part).join('.');
     }
 }
+
+export type ImportResolverFactory = (fs: VirtualFileSystem, options: ConfigOptions) => ImportResolver;
