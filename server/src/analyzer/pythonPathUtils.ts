@@ -9,7 +9,7 @@
 
 import * as child_process from 'child_process';
 import { ConfigOptions } from '../common/configOptions';
-import * as consts from '../common/consts';
+import * as consts from '../common/pathConsts';
 import {
     combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath,
     getFileSystemEntries, isDirectory, normalizePath
@@ -23,7 +23,7 @@ export function getTypeShedFallbackPath(moduleDirectory?: string) {
         moduleDirectory = normalizePath(moduleDirectory);
         return combinePaths(getDirectoryPath(
             ensureTrailingDirectorySeparator(moduleDirectory)),
-            consts.TYPESHED_FALLBACK);
+            consts.typeshedFallback);
     }
 
     return undefined;
@@ -50,14 +50,14 @@ export function findPythonSearchPaths(fs: VirtualFileSystem, configOptions: Conf
     }
 
     if (venvPath) {
-        let libPath = combinePaths(venvPath, consts.LIB);
+        let libPath = combinePaths(venvPath, consts.lib);
         if (fs.existsSync(libPath)) {
-            importFailureInfo.push(`Found path '${ libPath }'; looking for ${ consts.SITE_PACKAGES }`);
+            importFailureInfo.push(`Found path '${ libPath }'; looking for ${ consts.sitePackages }`);
         } else {
             importFailureInfo.push(`Did not find '${ libPath }'; trying 'Lib' instead`);
             libPath = combinePaths(venvPath, 'Lib');
             if (fs.existsSync(libPath)) {
-                importFailureInfo.push(`Found path '${ libPath }'; looking for ${ consts.SITE_PACKAGES }`);
+                importFailureInfo.push(`Found path '${ libPath }'; looking for ${ consts.sitePackages }`);
             } else {
                 importFailureInfo.push(`Did not find '${ libPath }'`);
                 libPath = '';
@@ -65,7 +65,7 @@ export function findPythonSearchPaths(fs: VirtualFileSystem, configOptions: Conf
         }
 
         if (libPath) {
-            const sitePackagesPath = combinePaths(libPath, consts.SITE_PACKAGES);
+            const sitePackagesPath = combinePaths(libPath, consts.sitePackages);
             if (fs.existsSync(sitePackagesPath)) {
                 importFailureInfo.push(`Found path '${ sitePackagesPath }'`);
                 return [sitePackagesPath];
@@ -79,7 +79,7 @@ export function findPythonSearchPaths(fs: VirtualFileSystem, configOptions: Conf
             for (let i = 0; i < entries.directories.length; i++) {
                 const dirName = entries.directories[i];
                 if (dirName.startsWith('python')) {
-                    const dirPath = combinePaths(libPath, dirName, consts.SITE_PACKAGES);
+                    const dirPath = combinePaths(libPath, dirName, consts.sitePackages);
                     if (fs.existsSync(dirPath)) {
                         importFailureInfo.push(`Found path '${ dirPath }'`);
                         return [dirPath];
@@ -90,7 +90,7 @@ export function findPythonSearchPaths(fs: VirtualFileSystem, configOptions: Conf
             }
         }
 
-        importFailureInfo.push(`Did not find '${ consts.SITE_PACKAGES }'. Falling back on python interpreter.`);
+        importFailureInfo.push(`Did not find '${ consts.sitePackages }'. Falling back on python interpreter.`);
     }
 
     // Fall back on the python interpreter.

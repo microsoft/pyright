@@ -7,6 +7,7 @@
 * An object that tracks all of the source files being analyzed
 * and all of their recursive imports.
 */
+
 import * as assert from 'assert';
 import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
 

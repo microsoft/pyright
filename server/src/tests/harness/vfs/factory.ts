@@ -6,7 +6,7 @@
  * Provides a factory to create virtual file system backed by a real file system with some path remapped
  */
 
-import * as consts from '../../../common/consts';
+import * as consts from '../../../common/pathConsts';
 import { combinePaths, getDirectoryPath, normalizeSlashes, resolvePaths } from '../../../common/pathUtils';
 import { GlobalMetadataOptionNames } from '../fourslash/fourSlashTypes';
 import { TestHost } from '../host';
@@ -30,8 +30,8 @@ export interface FileSystemCreateOptions extends FileSystemOptions {
     documents?: readonly TextDocument[];
 }
 
-export const libFolder = combinePaths(MODULE_PATH, normalizeSlashes(combinePaths(consts.LIB, consts.SITE_PACKAGES)));
-export const typeshedFolder = combinePaths(MODULE_PATH, normalizeSlashes(consts.TYPESHED_FALLBACK));
+export const libFolder = combinePaths(MODULE_PATH, normalizeSlashes(combinePaths(consts.lib, consts.sitePackages)));
+export const typeshedFolder = combinePaths(MODULE_PATH, normalizeSlashes(consts.typeshedFallback));
 export const srcFolder = normalizeSlashes('/.src');
 
 /**
@@ -100,7 +100,7 @@ let localCSFSCache: FileSystem | undefined;
 function getBuiltLocal(host: TestHost, ignoreCase: boolean, mountPaths: Map<string, string>): FileSystem {
     // Ensure typeshed folder
     if (!mountPaths.has(typeshedFolder)) {
-        mountPaths.set(typeshedFolder, resolvePaths(host.getWorkspaceRoot(), '../client/' + consts.TYPESHED_FALLBACK));
+        mountPaths.set(typeshedFolder, resolvePaths(host.getWorkspaceRoot(), '../client/' + consts.typeshedFallback));
     }
 
     if (!canReuseCache(host, mountPaths)) {
