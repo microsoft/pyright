@@ -12,9 +12,10 @@ import * as path from 'path';
 import Char from 'typescript-char';
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { Program } from '../../../analyzer/program';
+import { AnalyzerService } from '../../../analyzer/service';
 import { ConfigOptions } from '../../../common/configOptions';
 import { NullConsole } from '../../../common/console';
-import { Comparison, isNumber, isString } from '../../../common/core';
+import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
 import * as debug from '../../../common/debug';
 import { DiagnosticCategory } from '../../../common/diagnostic';
 import { combinePaths, comparePaths, getBaseFileName, normalizePath, normalizeSlashes } from '../../../common/pathUtils';
@@ -23,11 +24,12 @@ import { getStringComparer } from '../../../common/stringUtils';
 import { Position, TextRange } from '../../../common/textRange';
 import * as host from '../host';
 import { stringify } from '../utils';
-import { createFromFileSystem, createResolver } from '../vfs/factory';
+import { createFromFileSystem } from '../vfs/factory';
 import * as vfs from '../vfs/filesystem';
-import { CompilerSettings, FourSlashData, FourSlashFile, GlobalMetadataOptionNames, Marker,
-    MultiMap, pythonSettingFilename, Range, TestCancellationToken } from './fourSlashTypes';
-import { AnalyzerService } from '../../../analyzer/service';
+import {
+    CompilerSettings, FourSlashData, FourSlashFile, GlobalMetadataOptionNames, Marker,
+    MetadataOptionNames, MultiMap, pythonSettingFilename, Range, TestCancellationToken
+} from './fourSlashTypes';
 
 export interface TextChange {
     span: TextRange;
@@ -53,13 +55,16 @@ export class TestState {
     // The file that's currently 'opened'
     activeFile!: FourSlashFile;
 
-    constructor(private _basePath: string, public testData: FourSlashData, extraMountedPaths?: Map<string, string>, importResolverFactory?: ImportResolverFactory) {
+    constructor(private _basePath: string, public testData: FourSlashData, mountPaths?: Map<string, string>,
+        importResolverFactory?: ImportResolverFactory) {
+
         const strIgnoreCase = GlobalMetadataOptionNames.ignoreCase;
         const ignoreCase = testData.globalOptions[strIgnoreCase]?.toUpperCase() === 'TRUE';
 
         this._cancellationToken = new TestCancellationToken();
         const configOptions = this._convertGlobalOptionsToConfigOptions(this.testData.globalOptions);
 
+        const sourceFiles = [];
         const files: vfs.FileSet = {};
         for (const file of testData.files) {
             // if one of file is configuration file, set config options from the given json
@@ -72,26 +77,24 @@ export class TestState {
                 }
 
                 configOptions.initializeFromJson(configJson, new NullConsole());
+                this._applyTestConfigOptions(configOptions);
             } else {
                 files[file.fileName] = new vfs.File(file.content, { meta: file.fileOptions, encoding: 'utf8' });
+
+                if (!toBoolean(file.fileOptions[MetadataOptionNames.library])) {
+                    sourceFiles.push(file.fileName);
+                }
             }
         }
 
-        const resolver = createResolver(host.HOST);
-        const fs = createFromFileSystem(host.HOST, resolver, ignoreCase, { cwd: _basePath, files, meta: testData.globalOptions });
-
-        if (extraMountedPaths) {
-            extraMountedPaths.forEach((physicalPath, virtualPath) => {
-                fs.mountSync(physicalPath, virtualPath, resolver);
-            });
-        }
+        const fs = createFromFileSystem(host.HOST, ignoreCase, { cwd: _basePath, files, meta: testData.globalOptions }, mountPaths);
 
         importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;
 
         // this should be change to AnalyzerService rather than Program
         const importResolver = importResolverFactory(fs, configOptions);
         const program = new Program(importResolver, configOptions);
-        program.setTrackedFiles(Object.keys(files));
+        program.setTrackedFiles(sourceFiles);
 
         // make sure these states are consistent between these objects.
         // later make sure we just hold onto AnalyzerService and get all these
@@ -100,7 +103,7 @@ export class TestState {
         this.configOptions = configOptions;
         this.importResolver = importResolver;
         this.program = program;
-        this._files.push(...Object.keys(files));
+        this._files = sourceFiles;
 
         if (this._files.length > 0) {
             // Open the first file by default
@@ -371,7 +374,7 @@ export class TestState {
 
         // expected number of files
         if (resultPerFile.size !== rangePerFile.size) {
-            this._raiseError(`actual and expected doesn't match - expected: ${ stringify(rangePerFile) }, actual: ${ stringify(rangePerFile) }`);
+            this._raiseError(`actual and expected doesn't match - expected: ${ stringify(resultPerFile) }, actual: ${ stringify(rangePerFile) }`);
         }
 
         for (const [file, ranges] of rangePerFile.entries()) {
@@ -394,11 +397,12 @@ export class TestState {
                 }
 
                 for (const range of ranges) {
-                    const rangeSpan =  TextRange.fromBounds(range.pos, range.end);
+                    const rangeSpan = TextRange.fromBounds(range.pos, range.end);
                     const matches = actual.filter(d => {
                         const diagnosticSpan = TextRange.fromBounds(convertPositionToOffset(d.range.start, lines)!,
                             convertPositionToOffset(d.range.end, lines)!);
-                        return this._deepEqual(diagnosticSpan, rangeSpan); });
+                        return this._deepEqual(diagnosticSpan, rangeSpan);
+                    });
 
                     if (matches.length === 0) {
                         this._raiseError(`doesn't contain expected range: ${ stringify(range) }`);
@@ -471,8 +475,18 @@ export class TestState {
 
         // add more global options as we need them
 
+        return this._applyTestConfigOptions(configOptions);
+    }
+
+    private _applyTestConfigOptions(configOptions: ConfigOptions) {
         // Always enable "test mode".
         configOptions.internalTestMode = true;
+
+        // run test in venv mode under root so that
+        // under test we can point to local lib folder
+        configOptions.venvPath = vfs.MODULE_PATH;
+        configOptions.defaultVenv = vfs.MODULE_PATH;
+
         return configOptions;
     }
 

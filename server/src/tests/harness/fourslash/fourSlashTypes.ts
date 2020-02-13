@@ -8,22 +8,23 @@
 import * as debug from '../../../common/debug';
 
 /** setting file name */
-export const pythonSettingFilename = 'python.json';
+export const pythonSettingFilename = 'mspythonconfig.json';
 
 /** well known global option names */
 export const enum GlobalMetadataOptionNames {
     projectRoot = 'projectroot',
-    ignoreCase = 'ignorecase'
+    ignoreCase = 'ignorecase',
+    typeshed = 'typeshed'
 }
 
 /** Any option name not belong to this will become global option */
 export const enum MetadataOptionNames {
     fileName = 'filename',
-    reserved = 'reserved'
+    library = 'library'
 }
 
 /** List of allowed file metadata names */
-export const fileMetadataNames = [MetadataOptionNames.fileName, MetadataOptionNames.reserved];
+export const fileMetadataNames = [MetadataOptionNames.fileName, MetadataOptionNames.library];
 
 /** all the necessary information to set the right compiler settings */
 export interface CompilerSettings {

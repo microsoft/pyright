@@ -12,13 +12,13 @@ import {
     ParameterInformation, RemoteConsole, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 
+import { ImportResolver } from './analyzer/importResolver';
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import './common/extensions';
 import { combinePaths, convertPathToUri, convertUriToPath, normalizePath } from './common/pathUtils';
 import { ConfigOptions } from './common/configOptions';
-import { ImportResolver } from './analyzer/importResolver';
 import { Position } from './common/textRange';
 import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 import { CompletionItemData } from './languageService/completionProvider';

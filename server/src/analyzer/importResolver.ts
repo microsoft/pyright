@@ -16,10 +16,10 @@ import {
 } from '../common/pathUtils';
 import { versionToString } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
+import { VirtualFileSystem } from '../common/vfs';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as PythonPathUtils from './pythonPathUtils';
 import { isDunderName } from './symbolNameUtils';
-import { VirtualFileSystem } from '../common/vfs';
 
 export interface ImportedModuleDescriptor {
     leadingDots: number;

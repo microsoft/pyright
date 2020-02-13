@@ -34,13 +34,13 @@
             "windows": {
                 "program": "${workspaceFolder}/node_modules/jest/bin/jest",
             }
-        }
+        },
         {
             "type": "node",
             "name": "fourslash current file",
             "request": "launch",
             "args": [
-                "fourslashrunner.test.ts",
+                "fourSlashRunner.test.ts",
                 "-t ${fileBasenameNoExtension}",
                 "--config",
                 "jest.config.js"

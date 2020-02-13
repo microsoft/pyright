@@ -15,21 +15,10 @@ import {
     changeAnyExtension, combinePathComponents, combinePaths,
     comparePaths, comparePathsCaseInsensitive,
     comparePathsCaseSensitive, containsPath, ensureTrailingDirectorySeparator, getAnyExtensionFromPath,
-    getBaseFileName,
-    getFileExtension,
-    getFileName,
-    getPathComponents,
-    getRegexEscapedSeparator,
-    getRelativePathFromDirectory,
-    getWildcardRegexPattern,
-    getWildcardRoot,
-    hasTrailingDirectorySeparator,
-    isRootedDiskPath,
-    normalizeSlashes,
-    reducePathComponents,
-    resolvePaths,
-    stripFileExtension,
-    stripTrailingDirectorySeparator
+    getBaseFileName, getFileExtension, getFileName, getPathComponents, getRegexEscapedSeparator,
+    getRelativePath, getRelativePathFromDirectory, getWildcardRegexPattern, getWildcardRoot,
+    hasTrailingDirectorySeparator, isRootedDiskPath, normalizeSlashes, reducePathComponents,
+    resolvePaths, stripFileExtension, stripTrailingDirectorySeparator
 } from '../common/pathUtils';
 
 test('getPathComponents1', () => {
@@ -117,14 +106,14 @@ test('stripFileExtension', () => {
 test('getWildcardRegexPattern1', () => {
     const pattern = getWildcardRegexPattern('/users/me', './blah/');
     const sep = getRegexEscapedSeparator();
-    assert.equal(pattern, `${sep}users${sep}me${sep}blah`);
+    assert.equal(pattern, `${ sep }users${ sep }me${ sep }blah`);
 });
 
 test('getWildcardRegexPattern2', () => {
     const pattern = getWildcardRegexPattern('/users/me', './**/*.py?/');
     const sep = getRegexEscapedSeparator();
 
-    assert.equal(pattern, `${sep}users${sep}me(${sep}[^${sep}.][^${sep}]*)*?${sep}[^${sep}]*\\.py[^${sep}]`);
+    assert.equal(pattern, `${ sep }users${ sep }me(${ sep }[^${ sep }.][^${ sep }]*)*?${ sep }[^${ sep }]*\\.py[^${ sep }]`);
 });
 
 test('getWildcardRoot1', () => {
@@ -277,4 +266,8 @@ test('isDiskPathRoot2', () => {
 
 test('isDiskPathRoot3', () => {
     assert(!isRootedDiskPath(normalizeSlashes('c:')));
+});
+
+test('getRelativePath', () => {
+    assert.equal(getRelativePath(normalizeSlashes('/a/b/c/d/e/f'), normalizeSlashes('/a/b/c')), normalizeSlashes('./d/e/f'));
 });

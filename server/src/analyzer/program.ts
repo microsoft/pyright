@@ -20,6 +20,7 @@ import {
     combinePaths, getDirectoryPath, getRelativePath, makeDirectories,
     normalizePath, stripFileExtension
 } from '../common/pathUtils';
+import { DocumentRange, doRangesOverlap, Position, Range } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/completionProvider';
 import { HoverResults } from '../languageService/hoverProvider';
@@ -34,7 +35,6 @@ import { SourceFile } from './sourceFile';
 import { SymbolTable } from './symbol';
 import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
 import { TypeStubWriter } from './typeStubWriter';
-import { Position, Range, DocumentRange, doRangesOverlap } from '../common/textRange';
 
 const _maxImportDepth = 256;
 
