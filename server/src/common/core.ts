@@ -95,3 +95,16 @@ export interface MapLike<T> {
 export function hasProperty(map: MapLike<any>, key: string): boolean {
     return hasOwnProperty.call(map, key);
 }
+
+/**
+ * Convert the given value to boolean
+ * @param trueOrFalse string value 'true' or 'false'
+ */
+export function toBoolean(trueOrFalse: string): boolean {
+    const normalized = trueOrFalse?.trim().toUpperCase();
+    if (normalized === 'TRUE') {
+        return true;
+    }
+
+    return false;
+}

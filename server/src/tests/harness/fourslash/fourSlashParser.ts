@@ -7,7 +7,9 @@
  */
 
 import { contains } from '../../../common/collectionUtils';
-import { combinePaths, isRootedDiskPath, normalizeSlashes } from '../../../common/pathUtils';
+import { toBoolean } from '../../../common/core';
+import { combinePaths, getRelativePath, isRootedDiskPath, normalizePath, normalizeSlashes } from '../../../common/pathUtils';
+import { libFolder } from '../vfs/factory';
 import { fileMetadataNames, FourSlashData, FourSlashFile, Marker, MetadataOptionNames, Range } from './fourSlashTypes';
 
 /**
@@ -48,6 +50,10 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
     function nextFile() {
         if (currentFileContent === undefined) { return; }
 
+        if (toBoolean(currentFileOptions[MetadataOptionNames.library])) {
+            currentFileName = normalizePath(combinePaths(libFolder, getRelativePath(currentFileName, normalizedBasePath)));
+        }
+
         const file = parseFileContent(currentFileContent, currentFileName, markerPositions, markers, ranges);
         file.fileOptions = currentFileOptions;
 
@@ -85,14 +91,14 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
                 } else {
                     switch (key) {
                         case MetadataOptionNames.fileName: {
-                                // Found an @FileName directive, if this is not the first then create a new subfile
-                                nextFile();
-                                const normalizedPath = normalizeSlashes(value);
-                                currentFileName = isRootedDiskPath(normalizedPath) ? normalizedPath :
-                                    combinePaths(normalizedBasePath, normalizedPath);
-                                currentFileOptions[key] = value;
-                                break;
-                            }
+                            // Found an @FileName directive, if this is not the first then create a new subfile
+                            nextFile();
+                            const normalizedPath = normalizeSlashes(value);
+                            currentFileName = isRootedDiskPath(normalizedPath) ? normalizedPath :
+                                combinePaths(normalizedBasePath, normalizedPath);
+                            currentFileOptions[key] = value;
+                            break;
+                        }
                         default:
                             // Add other fileMetadata flag
                             currentFileOptions[key] = value;

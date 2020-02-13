@@ -7,11 +7,11 @@
  */
 
 import * as ts from 'typescript';
+import { ImportResolverFactory } from '../../../analyzer/importResolver';
 import { combinePaths } from '../../../common/pathUtils';
 import * as host from '../host';
 import { parseTestData } from './fourSlashParser';
 import { TestState } from './testState';
-import { ImportResolverFactory } from '../../../analyzer/importResolver';
 
 /**
  * run given fourslash test file
@@ -19,9 +19,11 @@ import { ImportResolverFactory } from '../../../analyzer/importResolver';
  * @param basePath this is used as a base path of the virtual file system the test will run upon
  * @param fileName this is the file path where fourslash test file will be read from
  */
-export function runFourSlashTest(basePath: string, fileName: string, extraMountedPaths?: Map<string, string>, importResolverFactory?: ImportResolverFactory) {
+export function runFourSlashTest(basePath: string, fileName: string,
+    mountPaths?: Map<string, string>, importResolverFactory?: ImportResolverFactory) {
+
     const content = (host.HOST.readFile(fileName)!);
-    runFourSlashTestContent(basePath, fileName, content, extraMountedPaths, importResolverFactory);
+    runFourSlashTestContent(basePath, fileName, content, mountPaths, importResolverFactory);
 }
 
 /**
@@ -32,14 +34,16 @@ export function runFourSlashTest(basePath: string, fileName: string, extraMounte
  *                 if fourslash markup `content` doesn't have explicit `@filename` option
  * @param content  this is fourslash markup string
  */
-export function runFourSlashTestContent(basePath: string, fileName: string, content: string, extraMountedPaths?: Map<string, string>, importResolverFactory?: ImportResolverFactory) {
+export function runFourSlashTestContent(basePath: string, fileName: string, content: string,
+    mountPaths?: Map<string, string>, importResolverFactory?: ImportResolverFactory) {
+
     // give file paths an absolute path for the virtual file system
     const absoluteBasePath = combinePaths('/', basePath);
     const absoluteFileName = combinePaths('/', fileName);
 
     // parse out the files and their metadata
     const testData = parseTestData(absoluteBasePath, content, absoluteFileName);
-    const state = new TestState(absoluteBasePath, testData, extraMountedPaths, importResolverFactory);
+    const state = new TestState(absoluteBasePath, testData, mountPaths, importResolverFactory);
     const output = ts.transpileModule(content, { reportDiagnostics: true, compilerOptions: { target: ts.ScriptTarget.ES2015 } });
     if (output.diagnostics!.length > 0) {
         throw new Error(`Syntax error in ${ absoluteBasePath }: ${ output.diagnostics![0].messageText }`);
