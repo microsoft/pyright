@@ -33,7 +33,7 @@ export function getTypeShedFallbackPath(fs: VirtualFileSystem) {
 
     // In the debug version of Pyright, the code is one level
     // deeper, so we need to look one level up for the typeshed fallback.
-    const debugTypeshedPath = combinePaths(moduleDirectory, '../' + pathConsts.typeshedFallback);
+    const debugTypeshedPath = combinePaths(getDirectoryPath(moduleDirectory), pathConsts.typeshedFallback);
     if (fs.existsSync(debugTypeshedPath)) {
         return debugTypeshedPath;
     }
