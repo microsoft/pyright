@@ -264,7 +264,7 @@ export class Binder extends ParseTreeWalker {
         // to do more passes to resolve classes.
         this._addSymbolToCurrentScope(node.name.value, true);
 
-        this._createAssignmentTargetFlowNodes(node.name);
+        this._createAssignmentTargetFlowNodes(node.name, false, false);
 
         return false;
     }
@@ -392,7 +392,7 @@ export class Binder extends ParseTreeWalker {
             AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap);
         });
 
-        this._createAssignmentTargetFlowNodes(node.name);
+        this._createAssignmentTargetFlowNodes(node.name, false, false);
 
         // We'll walk the child nodes in a deferred manner, so don't walk them now.
         return false;
@@ -468,8 +468,7 @@ export class Binder extends ParseTreeWalker {
         this.walk(node.rightExpression);
         this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression);
 
-        this._createAssignmentTargetFlowNodes(node.leftExpression);
-        this.walk(node.leftExpression);
+        this._createAssignmentTargetFlowNodes(node.leftExpression, true, false);
 
         return false;
     }
@@ -510,8 +509,7 @@ export class Binder extends ParseTreeWalker {
             this._bindNameToScope(containerScope, node.name.value);
         }
 
-        this._createAssignmentTargetFlowNodes(node.name);
-        this.walk(node.name);
+        this._createAssignmentTargetFlowNodes(node.name, true, false);
 
         return false;
     }
@@ -523,7 +521,7 @@ export class Binder extends ParseTreeWalker {
         this._addInferredTypeAssignmentForVariable(node.destExpression, node.rightExpression);
 
         this._bindPossibleTupleNamedTarget(node.destExpression);
-        this._createAssignmentTargetFlowNodes(node.destExpression);
+        this._createAssignmentTargetFlowNodes(node.destExpression, false, false);
 
         return false;
     }
@@ -532,7 +530,7 @@ export class Binder extends ParseTreeWalker {
         node.expressions.forEach(expr => {
             this._bindPossibleTupleNamedTarget(expr);
             this.walk(expr);
-            this._createAssignmentTargetFlowNodes(expr, true);
+            this._createAssignmentTargetFlowNodes(expr, false, true);
         });
 
         return false;
@@ -561,8 +559,7 @@ export class Binder extends ParseTreeWalker {
         this._addAntecedent(preForLabel, this._currentFlowNode);
         this._currentFlowNode = preForLabel;
         this._addAntecedent(preElseLabel, this._currentFlowNode);
-        this._createAssignmentTargetFlowNodes(node.targetExpression);
-        this.walk(node.targetExpression);
+        this._createAssignmentTargetFlowNodes(node.targetExpression, true, false);
 
         this._bindLoopStatement(preForLabel, postForLabel, () => {
             this.walk(node.forSuite);
@@ -733,8 +730,8 @@ export class Binder extends ParseTreeWalker {
 
         if (node.name) {
             const symbol = this._bindNameToScope(this._currentScope, node.name.value);
-            this._createAssignmentTargetFlowNodes(node.name);
-            this.walk(node.name);
+            this._createAssignmentTargetFlowNodes(node.name, true, false);
+
             if (symbol) {
                 const declaration: VariableDeclaration = {
                     type: DeclarationType.Variable,
@@ -1245,8 +1242,7 @@ export class Binder extends ParseTreeWalker {
             if (item.target) {
                 this._bindPossibleTupleNamedTarget(item.target);
                 this._addInferredTypeAssignmentForVariable(item.target, item);
-                this._createAssignmentTargetFlowNodes(item.target);
-                this.walk(item.target);
+                this._createAssignmentTargetFlowNodes(item.target, true, false);
             }
         });
 
@@ -1381,8 +1377,7 @@ export class Binder extends ParseTreeWalker {
 
                     this.walk(compr.iterableExpression);
 
-                    this._createAssignmentTargetFlowNodes(compr.targetExpression);
-                    this.walk(compr.targetExpression);
+                    this._createAssignmentTargetFlowNodes(compr.targetExpression, true, false);
                 } else {
                     const trueLabel = this._createBranchLabel();
                     this._bindConditional(compr.testExpression, trueLabel, falseLabel);
@@ -1672,36 +1667,51 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    private _createAssignmentTargetFlowNodes(target: ExpressionNode, unbound = false) {
+    private _createAssignmentTargetFlowNodes(target: ExpressionNode, walkTargets: boolean, unbound: boolean) {
         switch (target.nodeType) {
             case ParseNodeType.Name:
             case ParseNodeType.MemberAccess: {
                 this._createFlowAssignment(target, unbound);
+                if (walkTargets) {
+                    this.walk(target);
+                }
                 break;
             }
 
             case ParseNodeType.Tuple: {
                 target.expressions.forEach(expr => {
-                    this._createAssignmentTargetFlowNodes(expr, unbound);
+                    this._createAssignmentTargetFlowNodes(expr, walkTargets, unbound);
                 });
                 break;
             }
 
             case ParseNodeType.TypeAnnotation: {
-                this._createAssignmentTargetFlowNodes(target.valueExpression, unbound);
+                this._createAssignmentTargetFlowNodes(target.valueExpression, false, unbound);
+                if (walkTargets) {
+                    this.walk(target);
+                }
                 break;
             }
 
             case ParseNodeType.Unpack: {
-                this._createAssignmentTargetFlowNodes(target.expression, unbound);
+                this._createAssignmentTargetFlowNodes(target.expression, false, unbound);
+                if (walkTargets) {
+                    this.walk(target);
+                }
                 break;
             }
 
             case ParseNodeType.List: {
                 target.entries.forEach(entry => {
-                    this._createAssignmentTargetFlowNodes(entry, unbound);
+                    this._createAssignmentTargetFlowNodes(entry, walkTargets, unbound);
                 });
                 break;
+            }
+
+            default: {
+                if (walkTargets) {
+                    this.walk(target);
+                }
             }
         }
     }
