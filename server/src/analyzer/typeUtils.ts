@@ -720,7 +720,21 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type,
 // _T1 with str and _T2 with int.
 export function buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeVarMap {
     const typeParameters = ClassType.getTypeParameters(classType);
-    return buildTypeVarMap(typeParameters, classType.typeArguments);
+    let typeArguments = classType.typeArguments;
+
+    // Handle the special case where the source is a Tuple with heterogenous
+    // type arguments. In this case, we'll create a union out of the heterogeneous
+    // types.
+    if (ClassType.isBuiltIn(classType, 'Tuple') && classType.typeArguments) {
+        if (classType.typeArguments.length > 1) {
+            const lastTypeArg = classType.typeArguments[classType.typeArguments.length - 1];
+            if (!isEllipsisType(lastTypeArg)) {
+                typeArguments = [combineTypes(classType.typeArguments)];
+            }
+        }
+    }
+
+    return buildTypeVarMap(typeParameters, typeArguments);
 }
 
 export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] | undefined): TypeVarMap {
