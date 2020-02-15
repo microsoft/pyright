@@ -1631,6 +1631,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             assignTypeToMemberVariable(target, type, false, srcExpr);
                         }
                     }
+
+                    // Assignments to instance or class variables through "self" or "cls" is not
+                    // allowed for protocol classes.
+                    if (ClassType.isProtocolClass(classTypeResults.classType)) {
+                        addError(
+                            `Assignment to instance or class variables not allowed within a Protocol class`,
+                            target.memberName);
+                    }
                 }
             }
         }
@@ -5863,6 +5871,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
                             if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
                                 classType.details.flags |= ClassTypeFlags.DataClass;
+                            }
+                        }
+
+                        if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V38) {
+                            if (ClassType.isBuiltIn(argType, 'Protocol')) {
+                                classType.details.flags |= ClassTypeFlags.ProtocolClass;
                             }
                         }
 

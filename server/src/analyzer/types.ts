@@ -184,7 +184,10 @@ export const enum ClassTypeFlags {
 
     // The class is decorated with a "@final" decorator
     // indicating that it cannot be subclassed.
-    Final                   = 1 << 10
+    Final                   = 1 << 10,
+
+    // The class derives directly from "Protocol".
+    ProtocolClass            = 1 << 11
 }
 
 interface ClassDetails {
@@ -326,6 +329,10 @@ export namespace ClassType {
 
     export function isFinal(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.Final);
+    }
+
+    export function isProtocolClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.ProtocolClass);
     }
 
     export function getDataClassParameters(classType: ClassType): FunctionParameter[] {
