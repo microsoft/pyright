@@ -7,7 +7,7 @@
 * Command identifier strings.
 */
 
-export enum Commands {
+export const enum Commands {
     createTypeStub = 'pyright.createtypestub',
     orderImports = 'pyright.organizeimports',
     addMissingOptionalToParam = 'pyright.addoptionalforparam'
