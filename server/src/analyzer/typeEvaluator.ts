@@ -7949,24 +7949,34 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         if (testExpression.nodeType === ParseNodeType.Call) {
-            // Look for "isinstance(X, Y)" or "issubclass(X, Y)".
-            if (testExpression.leftExpression.nodeType === ParseNodeType.Name &&
-                (testExpression.leftExpression.value === 'isinstance' ||
-                    testExpression.leftExpression.value === 'issubclass') &&
-                testExpression.arguments.length === 2) {
+            if (testExpression.leftExpression.nodeType === ParseNodeType.Name) {
+                // Look for "isinstance(X, Y)" or "issubclass(X, Y)".
+                if ((testExpression.leftExpression.value === 'isinstance' ||
+                        testExpression.leftExpression.value === 'issubclass') &&
+                    testExpression.arguments.length === 2) {
 
-                // Make sure the first parameter is a supported expression type
-                // and the second parameter is a valid class type or a tuple
-                // of valid class types.
-                const isInstanceCheck = testExpression.leftExpression.value === 'isinstance';
-                const arg0Expr = testExpression.arguments[0].valueExpression;
-                const arg1Expr = testExpression.arguments[1].valueExpression;
-                if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                    const arg1Type = getTypeOfExpression(arg1Expr).type;
-                    const classTypeList = getIsInstanceClassTypes(arg1Type);
-                    if (classTypeList) {
+                    // Make sure the first parameter is a supported expression type
+                    // and the second parameter is a valid class type or a tuple
+                    // of valid class types.
+                    const isInstanceCheck = testExpression.leftExpression.value === 'isinstance';
+                    const arg0Expr = testExpression.arguments[0].valueExpression;
+                    const arg1Expr = testExpression.arguments[1].valueExpression;
+                    if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
+                        const arg1Type = getTypeOfExpression(arg1Expr).type;
+                        const classTypeList = getIsInstanceClassTypes(arg1Type);
+                        if (classTypeList) {
+                            return (type: Type) => {
+                                return narrowTypeForIsInstance(type, classTypeList, isInstanceCheck, isPositiveTest);
+                            };
+                        }
+                    }
+                } else if (testExpression.leftExpression.value === 'callable' &&
+                    testExpression.arguments.length === 1) {
+
+                    const arg0Expr = testExpression.arguments[0].valueExpression;
+                    if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
                         return (type: Type) => {
-                            return narrowTypeForIsInstance(type, classTypeList, isInstanceCheck, isPositiveTest);
+                            return narrowTypeForCallable(type, isPositiveTest, testExpression);
                         };
                     }
                 }
@@ -8113,6 +8123,51 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Return the original type.
         return type;
+    }
+
+    // Attempts to narrow a type (make it more constrained) based on a
+    // call to "callable". For example, if the original type of expression "x" is
+    // Union[Callable[..., Any], Type[int], int], it would remove the "int" because
+    // it's not callable.
+    function narrowTypeForCallable(type: Type, isPositiveTest: boolean, errorNode: ExpressionNode): Type {
+        return doForSubtypes(type, subtype => {
+            switch (subtype.category) {
+                case TypeCategory.Function:
+                case TypeCategory.OverloadedFunction:
+                case TypeCategory.Class: {
+                    return isPositiveTest ? subtype : undefined;
+                }
+
+                case TypeCategory.Module: {
+                    return isPositiveTest ? undefined : subtype;
+                }
+
+                case TypeCategory.Object: {
+                    const classFromTypeObject = getClassFromPotentialTypeObject(subtype);
+                    if (classFromTypeObject && classFromTypeObject.category === TypeCategory.Class) {
+                        // It's a Type object, which is a class.
+                        return isPositiveTest ? subtype : undefined;
+                    }
+                    
+                    // See if the object is callable.
+                    const callMemberType = getTypeFromObjectMember(errorNode,
+                        subtype, '__call__', { method: 'get' }, new DiagnosticAddendum(),
+                        MemberAccessFlags.SkipForMethodLookup);
+                    if (!callMemberType) {
+                        return isPositiveTest ? undefined : subtype;
+                    } else {
+                        return isPositiveTest ? subtype : undefined;
+                    }
+                }
+
+                default: {
+                    // For all other types, we can't determine whether it's
+                    // callable or not, so we can't eliminate them.
+                    return subtype;
+                }
+            }
+        });
+
     }
 
     // Specializes the specified (potentially generic) class type using

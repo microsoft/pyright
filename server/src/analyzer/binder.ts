@@ -1657,10 +1657,16 @@ export class Binder extends ParseTreeWalker {
                             expression.leftExpression.value === 'issubclass') &&
                         expression.arguments.length === 2) {
 
-                    return this._isNarrowingExpression(expression.arguments[0].valueExpression,
-                        expressionList);
+                    return this._isNarrowingExpression(expression.arguments[0].valueExpression, expressionList);
                 }
-            }
+                
+                if (expression.leftExpression.nodeType === ParseNodeType.Name &&
+                        expression.leftExpression.value === 'callable' &&
+                        expression.arguments.length === 1) {
+
+                    return this._isNarrowingExpression(expression.arguments[0].valueExpression, expressionList);
+                }
+           }
         }
 
         return false;
