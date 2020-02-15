@@ -3824,7 +3824,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Run through all args and validate them against their matched parameter.
         // We'll do two passes. The first one will match any type arguments. The second
-        // will perform the actual validation.
+        // will perform the actual validation. We can skip the first pass if there
+        // are no type vars to match.
         if (validateArgTypeParams.some(arg => arg.requiresTypeVarMatching)) {
             useSpeculativeMode(() => {
                 validateArgTypeParams.forEach(argParam => {
@@ -3833,6 +3834,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 });
             });
+
+            // Lock the type var map so it cannot be modified and revalidate the
+            // arguments in a second pass.
+            typeVarMap.lock();
         }
 
         validateArgTypeParams.forEach(argParam => {
@@ -7473,6 +7478,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 const partialType = cachedEntry as PartialType;
+
                 if (partialType.speculativeModeId !== invalidSpeculativeModeId) {
                     if (!isSpeculativeMode()) {
                         return undefined;
@@ -9241,7 +9247,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // Assigns the source type to the dest type var in the type map. If an existing type is
     // already associated with that type var name, it attempts to either widen or narrow
     // the type (depending on the value of the canNarrowType parameter). The goal is to
-    // produce the narrowest type that meets all of the requirements.
+    // produce the narrowest type that meets all of the requirements. If the type var map
+    // has been "locked", it simply validates that the srcType is compatible (with no attempt
+    // to widen or narrow).
     function assignTypeToTypeVar(destType: TypeVarType, srcType: Type, canNarrowType: boolean,
             diag: DiagnosticAddendum, typeVarMap: TypeVarMap, flags = CanAssignFlags.Default,
             recursionCount = 0): boolean {
@@ -9277,7 +9285,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         
         // Handle the unconstrained (but possibly bound) case.
         let updatedType = srcType;
-        const curTypeIsNarrowable = typeVarMap.isNarrowable(destType.name);
+        const curTypeIsNarrowable = typeVarMap.isNarrowable(destType.name) && !typeVarMap.isLocked();
         const updatedTypeIsNarrowable = canNarrowType && curTypeIsNarrowable;
 
         if (curTypeVarMapping) {
@@ -9315,11 +9323,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             updatedType = curTypeVarMapping;
                         }
                     }
-                } else if (!canAssignType(srcType, curTypeVarMapping, new DiagnosticAddendum(),
+                } else {
+                    if (typeVarMap.isLocked()) {
+                        diag.addMessage(`Type '${ printType(curTypeVarMapping) }' cannot be assigned to ` +
+                            `type '${ printType(srcType) }'`);
+                        return false;
+                    }
+
+                    if (!canAssignType(srcType, curTypeVarMapping, new DiagnosticAddendum(),
                             typeVarMap, flags, recursionCount + 1)) {
 
-                    // Create a union, widening the type.
-                    updatedType = combineTypes([curTypeVarMapping, srcType]);
+                        // Create a union, widening the type.
+                        updatedType = combineTypes([curTypeVarMapping, srcType]);
+                    }
                 }
             }
         }
@@ -9335,7 +9351,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        typeVarMap.set(destType.name, updatedType, updatedTypeIsNarrowable);
+        if (!typeVarMap.isLocked()) {
+            typeVarMap.set(destType.name, updatedType, updatedTypeIsNarrowable);
+        }
 
         return true;
     }
@@ -9601,7 +9619,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         // of the way it's defined in enum.pyi. The type var _T must be
                         // manually set to the corresponding enum object type.
                         if (typeVarMap && ClassType.isBuiltIn(metaclass, 'EnumMeta')) {
-                            typeVarMap.set('_T', ObjectType.create(srcType), false);
+                            if (!typeVarMap.isLocked()) {
+                                typeVarMap.set('_T', ObjectType.create(srcType), false);
+                            }
                         }
 
                         return canAssignClass(destClassType, metaclass, diag,

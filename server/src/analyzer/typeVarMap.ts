@@ -10,10 +10,12 @@
 */
 
 import { Type } from "./types";
+import { assert } from "../common/debug";
 
 export class TypeVarMap {
     private _typeMap: Map<string, Type>;
     private _isNarrowableMap: Map<string, boolean>;
+    private _isLocked = false;
 
     constructor() {
         this._typeMap = new Map<string, Type>();
@@ -27,6 +29,8 @@ export class TypeVarMap {
             newTypeVarMap.set(name, value, this.isNarrowable(name));
         });
 
+        newTypeVarMap._isLocked = this._isLocked;
+
         return newTypeVarMap;
     }
 
@@ -38,7 +42,12 @@ export class TypeVarMap {
         return this._typeMap.get(name);
     }
 
+    forEach(callback: (value: Type, key: string) => void) {
+        return this._typeMap.forEach(callback);
+    }
+
     set(name: string, type: Type, isNarrowable: boolean) {
+        assert(!this._isLocked);
         this._typeMap.set(name, type);
         this._isNarrowableMap.set(name, isNarrowable);
     }
@@ -52,5 +61,15 @@ export class TypeVarMap {
 
         // Unless told otherwise, assume type is narrowable.
         return isNarrowable !== undefined ? isNarrowable : true;
+    }
+
+    lock() {
+        // Locks the type var map, preventing any further changes.
+        assert(!this._isLocked);
+        this._isLocked = true;
+    }
+
+    isLocked(): boolean {
+        return this._isLocked;
     }
 }

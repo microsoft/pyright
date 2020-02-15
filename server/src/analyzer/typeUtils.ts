@@ -652,9 +652,14 @@ export function stripFirstParameter(type: FunctionType): FunctionType {
     return type;
 }
 
-// Recursively finds all of the type arguments to the specified srcType.
+// Recursively finds all of the type arguments and sets them
+// to the specified srcType.
 export function setTypeArgumentsRecursive(destType: Type, srcType: Type,
         typeVarMap: TypeVarMap, recursionCount = 0) {
+
+    if (typeVarMap.isLocked()) {
+        return;
+    }
 
     switch (destType.category) {
         case TypeCategory.Union:
@@ -1183,11 +1188,9 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
                 ) !== undefined;
             }
 
-            if (ClassType.getTypeParameters(type).length === 0) {
-                return false;
-            }
-
-            return true;
+            // If there are any type parameters, we need to specialize
+            // since there are no corresponding type arguments.
+            return ClassType.getTypeParameters(type).length > 0;
         }
 
         case TypeCategory.Object: {
