@@ -7,7 +7,6 @@
 * Class that represents a single python source file.
 */
 
-import * as assert from 'assert';
 import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
 
 import {
@@ -16,6 +15,7 @@ import {
 } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
+import { assert } from '../common/debug';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
 import { getFileName, normalizeSlashes } from '../common/pathUtils';
@@ -23,6 +23,7 @@ import * as StringUtils from '../common/stringUtils';
 import { TextRange, getEmptyRange, Position, DocumentRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
+import { VirtualFileSystem } from '../common/vfs';
 import { CompletionItemData, CompletionProvider, ModuleSymbolMap } from '../languageService/completionProvider';
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentSymbolProvider } from '../languageService/documentSymbolProvider';
@@ -46,7 +47,6 @@ import { Scope } from './scope';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluator';
-import { VirtualFileSystem } from '../common/vfs';
 
 const _maxImportCyclesPerFile = 4;
 
@@ -674,7 +674,7 @@ export class SourceFile {
         assert(!this.isParseRequired());
         assert(this.isBindingRequired());
         assert(!this._isBindingInProgress);
-        assert(this._parseResults);
+        assert(this._parseResults !== undefined);
 
         try {
             // Perform name binding.
@@ -727,7 +727,7 @@ export class SourceFile {
         assert(!this.isBindingRequired());
         assert(!this._isBindingInProgress);
         assert(this.isCheckingRequired());
-        assert(this._parseResults);
+        assert(this._parseResults !== undefined);
 
         try {
             timingStats.typeCheckerTime.timeOperation(() => {

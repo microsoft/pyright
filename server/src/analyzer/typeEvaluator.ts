@@ -14,10 +14,9 @@
 * taken by the TypeScript compiler.
 */
 
-import * as assert from 'assert';
-
 import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
+import { assert, fail } from '../common/debug';
 import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { getEmptyRange } from '../common/textRange';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -721,7 +720,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         if (!typeResult) {
             // We shouldn't get here. If we do, report an error.
-            assert.fail(`Unhandled expression type '${ ParseTreeUtils.printExpression(node) }'`);
+            fail(`Unhandled expression type '${ ParseTreeUtils.printExpression(node) }'`);
             typeResult = { type: UnknownType.create(), node };
         }
 
@@ -1546,7 +1545,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const symbolWithScope = lookUpSymbolRecursive(nameNode, nameValue);
         if (!symbolWithScope) {
-            assert.fail(`Missing symbol '${ nameValue }'`);
+            fail(`Missing symbol '${ nameValue }'`);
             return;
         }
 
@@ -7115,7 +7114,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function evaluateTypeOfParameter(node: ParameterNode): void {
-        assert(node.name);
+        assert(node.name !== undefined);
 
         // We need to handle lambdas differently from functions because
         // the former never have parameter type annotations but can
@@ -7238,17 +7237,17 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             curNode = curNode.parent;
         }
 
-        assert.fail('Unexpected assignment target');
+        fail('Unexpected assignment target');
         return undefined;
     }
 
     function getTypeFromWildcardImport(flowNode: FlowWildcardImport, name: string): Type {
         const importInfo = AnalyzerNodeInfo.getImportInfo(flowNode.node.module);
-        assert(importInfo && importInfo.isImportFound);
+        assert(importInfo !== undefined && importInfo.isImportFound);
         assert(flowNode.node.isWildcardImport);
 
         const symbolWithScope = lookUpSymbolRecursive(flowNode.node, name);
-        assert(symbolWithScope);
+        assert(symbolWithScope !== undefined);
         const decls = symbolWithScope!.symbol.getDeclarations();
         const wildcardDecl = decls.find(decl => decl.node === flowNode.node);
 
@@ -7512,7 +7511,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     evaluateTypesForStatement(flowNode.node);
                     cachedType = readTypeCache(nodeForCacheLookup);
                     if (!cachedType) {
-                        assert.fail('evaluateAssignmentFlowNode failed to evaluate target');
+                        fail('evaluateAssignmentFlowNode failed to evaluate target');
                         cachedType = UnknownType.create();
                     }
                 }
@@ -7703,7 +7702,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
 
                     // We shouldn't get here.
-                    assert.fail('Unexpected flow node flags');
+                    fail('Unexpected flow node flags');
                     return setCacheEntry(curFlowNode, undefined, false);
                 }
             }
@@ -7818,7 +7817,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 // We shouldn't get here.
-                assert.fail('Unexpected flow node flags');
+                fail('Unexpected flow node flags');
                 return false;
             }
         }

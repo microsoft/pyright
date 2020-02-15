@@ -9,8 +9,7 @@
 * top-most built-in scope).
 */
 
-import * as assert from 'assert';
-
+import { fail } from '../common/debug';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 
 export const enum ScopeType {
@@ -79,7 +78,7 @@ export class Scope {
             curScope = curScope.parent;
         }
 
-        assert.fail('failed to find scope');
+        fail('failed to find scope');
         return this;
     }
 

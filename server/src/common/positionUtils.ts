@@ -8,10 +8,9 @@
 * line/column positions.
 */
 
-import * as assert from 'assert';
-
 import { Position, Range, TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
+import { assert } from './debug';
 
 // Translates a file offset into a line/column pair.
 export function convertOffsetToPosition(offset: number, lines: TextRangeCollection<TextRange>): Position {

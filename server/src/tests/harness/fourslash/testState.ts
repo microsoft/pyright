@@ -10,6 +10,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import Char from 'typescript-char';
+
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { Program } from '../../../analyzer/program';
 import { AnalyzerService } from '../../../analyzer/service';
@@ -408,7 +409,7 @@ export class TestState {
                         this._raiseError(`doesn't contain expected range: ${ stringify(range) }`);
                     }
 
-                    // if map is provided, check messasge as well
+                    // if map is provided, check message as well
                     if (map) {
                         const name = this.getMarkerName(range.marker!);
                         const message = map[name].message;
@@ -588,7 +589,7 @@ export class TestState {
     private _getOnlyRange() {
         const ranges = this.getRanges();
         if (ranges.length !== 1) {
-            this._raiseError('Exactly one range should be specified in the testfile.');
+            this._raiseError('Exactly one range should be specified in the test file.');
         }
 
         return ranges[0];

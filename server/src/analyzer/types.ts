@@ -7,8 +7,7 @@
 * Representation of types used during type analysis within Python.
 */
 
-import * as assert from 'assert';
-
+import { assert } from '../common/debug';
 import { ParameterCategory } from '../parser/parseNodes';
 import { FunctionDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';

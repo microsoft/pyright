@@ -7,8 +7,7 @@
 * Class that traverses a parse tree.
 */
 
-import * as assert from 'assert';
-
+import { fail } from '../common/debug';
 import { ArgumentNode, AssertNode, AssignmentExpressionNode, AssignmentNode,
     AugmentedAssignmentNode, AwaitNode, BinaryOperationNode, BreakNode, CallNode,
     ClassNode, ConstantNode, ContinueNode, DecoratorNode, DelNode,
@@ -428,7 +427,7 @@ export class ParseTreeWalker {
                 break;
 
             default:
-                assert.fail('Unexpected node type');
+                fail('Unexpected node type');
                 break;
         }
 

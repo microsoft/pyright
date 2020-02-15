@@ -7,7 +7,6 @@
  * Utility functions that are common to a bunch of the tests.
  */
 
-import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -17,6 +16,7 @@ import { ImportResolver } from '../analyzer/importResolver';
 import { Program } from '../analyzer/program';
 import { TestWalker } from '../analyzer/testWalker';
 import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { fail } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { createFromRealFileSystem } from '../common/vfs';
@@ -155,7 +155,7 @@ export function typeAnalyzeSampleFiles(fileNames: string[],
             };
             return analysisResult;
         } else {
-            assert.fail(`Source file not found for ${ filePaths[index] }`);
+            fail(`Source file not found for ${ filePaths[index] }`);
 
             const analysisResult: FileAnalysisResult = {
                 filePath: '',

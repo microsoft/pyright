@@ -16,10 +16,9 @@
 * This binder doesn't perform any static type checking.
 */
 
-import * as assert from 'assert';
-
 import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
+import { assert, fail } from '../common/debug';
 import { CreateTypeStubFileAction } from '../common/diagnostic';
 import { getEmptyRange } from '../common/textRange';
 import { DiagnosticRule } from '../common/diagnosticRules';
@@ -183,7 +182,7 @@ export class Binder extends ParseTreeWalker {
     visitModule(node: ModuleNode): boolean {
         // Tree walking should start with the children of
         // the node, so we should never get here.
-        assert.fail('We should never get here');
+        fail('We should never get here');
         return false;
     }
 

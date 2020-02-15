@@ -13,8 +13,7 @@
 * TypeScript compiler.
 */
 
-import * as assert from 'assert';
-
+import { assert } from '../common/debug';
 import { CallNode, ExpressionNode, ImportFromNode, MemberAccessNode, NameNode,
     ParseNodeType } from '../parser/parseNodes';
 

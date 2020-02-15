@@ -12,9 +12,8 @@
 * cannot (or should not be) performed lazily.
 */
 
-import * as assert from 'assert';
-
 import { DiagnosticLevel } from '../common/configOptions';
+import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';

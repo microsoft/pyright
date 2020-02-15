@@ -7,12 +7,13 @@
 * A persistent service that is able to analyze a collection of
 * Python files.
 */
-import * as assert from 'assert';
+
 import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
 
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
+import { assert } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
@@ -28,7 +29,7 @@ import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
-import * as PythonPathUtils from './pythonPathUtils';
+import { findPythonSearchPaths, getPythonPathFromPythonInterpreter } from './pythonPathUtils';
 
 export { MaxAnalysisTime } from './program';
 
@@ -367,7 +368,7 @@ export class AnalyzerService {
                         `in venv path ${ configOptions.venvPath }.`);
                 } else {
                     const importFailureInfo: string[] = [];
-                    if (PythonPathUtils.findPythonSearchPaths(this._fs, configOptions, undefined, importFailureInfo) === undefined) {
+                    if (findPythonSearchPaths(this._fs, configOptions, undefined, importFailureInfo) === undefined) {
                         this._console.log(
                             `site-packages directory cannot be located for venvPath ` +
                             `${ configOptions.venvPath } and venv ${ configOptions.defaultVenv }.`);
@@ -382,7 +383,7 @@ export class AnalyzerService {
             }
         } else {
             const importFailureInfo: string[] = [];
-            const pythonPaths = PythonPathUtils.getPythonPathFromPythonInterpreter(this._fs, configOptions.pythonPath, importFailureInfo);
+            const pythonPaths = getPythonPathFromPythonInterpreter(this._fs, configOptions.pythonPath, importFailureInfo);
             if (pythonPaths.length === 0) {
                 if (configOptions.verboseOutput) {
                     this._console.log(

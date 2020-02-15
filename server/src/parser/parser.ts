@@ -11,8 +11,7 @@
 * into an abstract syntax tree (AST).
 */
 
-import * as assert from 'assert';
-
+import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
 import { convertOffsetsToRange, convertPositionToOffset } from '../common/positionUtils';
@@ -879,7 +878,7 @@ export class Parser {
     // decorator: '@' dotted_name [ '(' [arglist] ')' ] NEWLINE
     private _parseDecorator(): DecoratorNode {
         const atOperator = this._getNextToken() as OperatorToken;
-        assert.equal(atOperator.operatorType, OperatorType.MatrixMultiply);
+        assert(atOperator.operatorType === OperatorType.MatrixMultiply);
 
         let callNameExpr: ExpressionNode | undefined;
         while (true) {
@@ -2265,7 +2264,7 @@ export class Parser {
     // testlist_comp: (test | star_expr) (comp_for | (',' (test | star_expr))* [','])
     private _parseTupleAtom(): ExpressionNode {
         const startParen = this._getNextToken();
-        assert.equal(startParen.type, TokenType.OpenParenthesis);
+        assert(startParen.type === TokenType.OpenParenthesis);
 
         const yieldExpr = this._tryParseYieldExpression();
         if (yieldExpr) {
@@ -2298,7 +2297,7 @@ export class Parser {
     // testlist_comp: (test | star_expr) (comp_for | (',' (test | star_expr))* [','])
     private _parseListAtom(): ListNode | ErrorNode {
         const startBracket = this._getNextToken();
-        assert.equal(startBracket.type, TokenType.OpenBracket);
+        assert(startBracket.type === TokenType.OpenBracket);
 
         const exprListResult = this._parseTestListWithComprehension();
         const closeBracket: Token | undefined = this._peekToken();
@@ -2345,7 +2344,7 @@ export class Parser {
     // setentry: test | star_expr
     private _parseDictionaryOrSetAtom(): DictionaryNode | SetNode {
         const startBrace = this._getNextToken();
-        assert.equal(startBrace.type, TokenType.OpenCurlyBrace);
+        assert(startBrace.type === TokenType.OpenCurlyBrace);
 
         const dictionaryEntries: DictionaryEntryNode[] = [];
         const setEntries: ExpressionNode[] = [];
@@ -3067,7 +3066,7 @@ export class Parser {
     private _getKeywordToken(keywordType: KeywordType): KeywordToken {
         const keywordToken = this._getNextToken() as KeywordToken;
         assert(keywordToken.type === TokenType.Keyword);
-        assert.equal(keywordToken.keywordType, keywordType);
+        assert(keywordToken.keywordType === keywordType);
         return keywordToken;
     }
 
