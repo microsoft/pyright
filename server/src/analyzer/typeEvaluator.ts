@@ -9033,6 +9033,32 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return typesAreConsistent;
         }
 
+        // Handle property classes. They are special because each property
+        // class has a different source ID, so they wouldn't otherwise match.
+        // We need to see if the return types of the properties match.
+        if (ClassType.isPropertyClass(destType) && ClassType.isPropertyClass(srcType)) {
+            let typesAreConsistent = true;
+
+            const fgetDest = destType.details.fields.get('fget');
+            const fgetSrc = srcType.details.fields.get('fget');
+            if (fgetDest && fgetSrc) {
+                const fgetDestType = getDeclaredTypeOfSymbol(fgetDest);
+                const fgetSrcType = getDeclaredTypeOfSymbol(fgetSrc);
+                if (fgetDestType && fgetSrcType &&
+                            fgetDestType.category === TypeCategory.Function &&
+                            fgetSrcType.category === TypeCategory.Function) {
+
+                    const fgetDestReturnType = getFunctionEffectiveReturnType(fgetDestType);
+                    const fgetSrcReturnType = getFunctionEffectiveReturnType(fgetSrcType);
+                    if (!canAssignType(fgetDestReturnType, fgetSrcReturnType, diag)) {
+                        typesAreConsistent = false;
+                    }
+                }
+            }
+
+            return typesAreConsistent;
+        }
+
         // Special-case conversion for the "numeric tower".
         if (ClassType.isBuiltIn(destType, 'float')) {
             if (ClassType.isBuiltIn(srcType, 'int')) {

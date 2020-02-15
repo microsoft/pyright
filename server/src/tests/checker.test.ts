@@ -882,6 +882,12 @@ test('Protocol2', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Protocol3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol3.py']);
+
+    validateResults(analysisResults, 1);
+});
+
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 
