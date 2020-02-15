@@ -3239,12 +3239,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                     errorNode);
                             }
                         }
-                    }
 
-                    type = validateCallArguments(errorNode, argList, functionType,
-                        new TypeVarMap(), skipUnknownArgCheck).returnType;
-                    if (!type) {
-                        type = UnknownType.create();
+                        type = convertClassToObject(castToType);
+                    } else {
+                        type = validateCallArguments(errorNode, argList, functionType,
+                            new TypeVarMap(), skipUnknownArgCheck).returnType;
+                        if (!type) {
+                            type = UnknownType.create();
+                        }
                     }
                 } else {
                     const exprString = ParseTreeUtils.printExpression(errorNode);
