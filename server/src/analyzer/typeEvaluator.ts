@@ -8978,8 +8978,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             destClassFields.forEach((symbol, name) => {
                 if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
-                    const memberInfo = lookUpClassMember(srcType, name, importLookup,
-                        ClassMemberLookupFlags.SkipInstanceVariables);
+                    const memberInfo = lookUpClassMember(srcType, name, importLookup);
                     if (!memberInfo) {
                         diag.addMessage(`'${ name }' is not present`);
                         typesAreConsistent = false;
