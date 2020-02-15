@@ -7,6 +7,7 @@
  */
 
 import * as ts from 'typescript';
+
 import { ImportResolverFactory } from '../../../analyzer/importResolver';
 import { combinePaths } from '../../../common/pathUtils';
 import * as host from '../host';

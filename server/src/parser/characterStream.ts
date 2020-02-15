@@ -11,6 +11,7 @@
 */
 
 import Char from 'typescript-char';
+
 import { isLineBreak, isWhiteSpace } from './characters';
 
 export class CharacterStream {

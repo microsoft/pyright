@@ -9,8 +9,8 @@
 * evaluator to "solve" for the type of each type variable.
 */
 
-import { Type } from "./types";
 import { assert } from "../common/debug";
+import { Type } from "./types";
 
 export class TypeVarMap {
     private _typeMap: Map<string, Type>;

@@ -13,8 +13,8 @@ import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { FunctionType } from '../analyzer/types';
-import { Position } from '../common/textRange';
 import { convertPositionToOffset } from '../common/positionUtils';
+import { Position } from '../common/textRange';
 import { ParseResults } from '../parser/parser';
 
 export interface ParamInfo {

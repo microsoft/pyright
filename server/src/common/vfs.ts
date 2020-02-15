@@ -12,6 +12,7 @@
 // * NOTE * except tests, this should be only file that import "fs"
 import * as chokidar from 'chokidar';
 import * as fs from 'fs';
+
 import { ConsoleInterface, NullConsole } from './console';
 
 export type Listener = (eventName: 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir', path: string, stats?: Stats) => void;

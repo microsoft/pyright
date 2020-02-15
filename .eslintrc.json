@@ -12,12 +12,14 @@
         "sourceType": "module"
     },
     "plugins": [
-        "@typescript-eslint/eslint-plugin"
+        "@typescript-eslint/eslint-plugin",
+        "simple-import-sort"
     ],
     "rules": {
         "no-constant-condition": 0,
         "no-inner-declarations": 0,
         "no-undef": 0,
+        "simple-import-sort/sort": "error",
         "@typescript-eslint/explicit-function-return-type": 0,
         "@typescript-eslint/ban-types": 0,
         "@typescript-eslint/camelcase": 0,

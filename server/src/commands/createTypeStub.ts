@@ -5,6 +5,7 @@
  */
 
 import { ExecuteCommandParams } from 'vscode-languageserver';
+
 import { AnalyzerService } from '../analyzer/service';
 import { convertPathToUri } from '../common/pathUtils';
 import { LanguageServerBase, WorkspaceServiceInstance } from '../languageServerBase';

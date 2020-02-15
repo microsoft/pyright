@@ -11,12 +11,11 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { commands, ExtensionContext, Position, Range, TextEditor, TextEditorEdit } from 'vscode';
+import { LanguageClient, LanguageClientOptions, ServerOptions, 	TextEdit,TransportKind } from 'vscode-languageclient';
 
-import { ExtensionContext, commands, TextEditor, Range, Position, TextEditorEdit } from 'vscode';
-import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind,
-	TextEdit } from 'vscode-languageclient';
-import { ProgressReporting } from './progress';
 import { Commands } from '../../server/src/commands/commands';
+import { ProgressReporting } from './progress';
 
 export function activate(context: ExtensionContext) {
 	const bundlePath = context.asAbsolutePath(path.join('server', 'server.bundle.js'));

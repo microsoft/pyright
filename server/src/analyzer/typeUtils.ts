@@ -9,13 +9,13 @@
 
 import { ParameterCategory } from '../parser/parseNodes';
 import { ImportLookup } from './analyzerFileInfo';
+import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import { AnyType, ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever,
     isTypeSame, maxTypeRecursionCount, ModuleType, NeverType, ObjectType,
     OverloadedFunctionType, SpecializedFunctionTypes, Type, TypeCategory,
     TypeVarType, UnknownType } from './types';
-import { DeclarationType } from './declaration';
 import { TypeVarMap } from './typeVarMap';
 
 export interface ClassMember {

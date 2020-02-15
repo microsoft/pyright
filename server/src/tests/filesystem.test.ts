@@ -3,10 +3,11 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Test and Show how to use virtual file system
+ * Test and show how to use virtual file system
  */
 
 import * as assert from 'assert';
+
 import { combinePaths, normalizeSlashes } from '../common/pathUtils';
 import * as host from './harness/host';
 import * as factory from './harness/vfs/factory';

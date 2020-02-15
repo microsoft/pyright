@@ -5,6 +5,7 @@
  */
 
 import * as assert from 'assert';
+
 import * as utils from '../common/collectionUtils';
 import { compareValues, isArray } from '../common/core';
 

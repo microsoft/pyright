@@ -27,6 +27,7 @@ import { AssertNode, AssignmentExpressionNode, AssignmentNode, AugmentedAssignme
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
+import { isFinalVariableDeclaration } from './declarationUtils';
 import { getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -40,7 +41,6 @@ import { ClassType, combineTypes, FunctionType, isAnyOrUnknown, isNoneOrNever, i
 import { containsUnknown, derivesFromClassRecursive, doForSubtypes,
     getDeclaredGeneratorReturnType, getDeclaredGeneratorYieldType, getSymbolFromBaseClasses,
     isNoReturnType, isProperty, specializeType, transformTypeObjectToClass } from './typeUtils';
-import { isFinalVariableDeclaration } from './declarationUtils';
 
 export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;

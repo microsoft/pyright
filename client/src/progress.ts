@@ -11,7 +11,7 @@
 import { Progress, ProgressLocation, window } from 'vscode';
 import { Disposable, LanguageClient } from 'vscode-languageclient';
 
-const AnalysisTimeoutInMs: number = 60000;
+const AnalysisTimeoutInMs = 60000;
 
 export class ProgressReporting implements Disposable {
     private _progress: Progress<{ message?: string; increment?: number }> | undefined;
@@ -21,7 +21,7 @@ export class ProgressReporting implements Disposable {
     constructor(languageClient: LanguageClient) {
         languageClient.onReady().then(() => {
             languageClient.onNotification('pyright/beginProgress', async () => {
-                let progressPromise = new Promise<void>(resolve => {
+                const progressPromise = new Promise<void>(resolve => {
                     this._resolveProgress = resolve;
                 });
 

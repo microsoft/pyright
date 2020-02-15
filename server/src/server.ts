@@ -6,6 +6,7 @@
 
 import { isArray } from 'util';
 import { CodeAction, CodeActionParams, Command, ExecuteCommandParams } from 'vscode-languageserver';
+
 import { CommandController } from './commands/commandController';
 import { convertUriToPath, getDirectoryPath, normalizeSlashes } from './common/pathUtils';
 import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';

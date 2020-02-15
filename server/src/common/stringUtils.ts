@@ -8,6 +8,7 @@
  */
 
 import leven from 'leven';
+
 import { compareComparableValues, Comparison } from './core';
 
 // Determines how closely a typed string matches a symbol

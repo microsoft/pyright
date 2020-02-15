@@ -8,6 +8,7 @@
  */
 
 import * as path from 'path';
+
 import { normalizeSlashes } from '../common/pathUtils';
 import { runFourSlashTest } from './harness/fourslash/runner';
 import * as host from './harness/host';

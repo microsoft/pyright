@@ -10,9 +10,9 @@
 
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
-import { Range } from '../common/textRange';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
+import { Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { ImportAsNode, ImportFromAsNode, ImportFromNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';

@@ -4,6 +4,8 @@
 * Implements common language server functionality.
 */
 
+import './common/extensions';
+
 import {
     CodeAction, CodeActionKind, CodeActionParams, Command,
     ConfigurationItem, createConnection, Diagnostic, DiagnosticRelatedInformation,
@@ -15,10 +17,9 @@ import {
 import { ImportResolver } from './analyzer/importResolver';
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions } from './common/commandLineOptions';
-import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
-import './common/extensions';
-import { combinePaths, convertPathToUri, convertUriToPath, normalizePath } from './common/pathUtils';
 import { ConfigOptions } from './common/configOptions';
+import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
+import { combinePaths, convertPathToUri, convertUriToPath, normalizePath } from './common/pathUtils';
 import { Position } from './common/textRange';
 import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 import { CompletionItemData } from './languageService/completionProvider';

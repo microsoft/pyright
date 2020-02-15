@@ -5,8 +5,9 @@
  */
 
 import * as assert from 'assert';
-import * as utils from '../common/stringUtils';
+
 import * as core from '../common/core';
+import * as utils from '../common/stringUtils';
 
 test('CoreCompareStringsCaseInsensitive1', () => {
     assert.equal(utils.compareStringsCaseInsensitive("Hello", "hello"), core.Comparison.EqualTo);

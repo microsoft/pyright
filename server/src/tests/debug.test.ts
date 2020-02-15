@@ -5,6 +5,7 @@
  */
 
 import * as assert from 'assert';
+
 import * as debug from '../common/debug';
 
 test('DebugAssertTrue', () => {

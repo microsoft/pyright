@@ -20,10 +20,10 @@ import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert, fail } from '../common/debug';
 import { CreateTypeStubFileAction } from '../common/diagnostic';
-import { getEmptyRange } from '../common/textRange';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
+import { getEmptyRange } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssertNode, AssignmentExpressionNode, AssignmentNode,
     AugmentedAssignmentNode, AwaitNode, BinaryOperationNode, BreakNode,

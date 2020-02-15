@@ -5,6 +5,7 @@
  */
 
 import { CodeAction, CodeActionKind, Command } from 'vscode-languageserver';
+
 import { Commands } from '../commands/commands';
 import { AddMissingOptionalToParamAction, CreateTypeStubFileAction } from '../common/diagnostic';
 import { Range } from '../common/textRange';

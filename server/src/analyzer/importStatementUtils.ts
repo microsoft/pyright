@@ -8,9 +8,9 @@
 * import statements in a python source file.
 */
 
-import { Position } from '../common/textRange';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
+import { Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode,
     ModuleNameNode, ModuleNode, ParseNodeType } from '../parser/parseNodes';

@@ -8,8 +8,8 @@
 */
 
 import { fail } from '../common/debug';
-import { Position } from '../common/textRange';
 import { convertPositionToOffset } from '../common/positionUtils';
+import { Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { ArgumentCategory, AssignmentExpressionNode, ClassNode, EvaluationScopeNode,

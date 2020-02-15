@@ -14,13 +14,13 @@ import {
     getDefaultDiagnosticSettings
 } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { assert } from '../common/debug';
+import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
 import { getFileName, normalizeSlashes } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
-import { TextRange, getEmptyRange, Position, DocumentRange } from '../common/textRange';
+import { DocumentRange,getEmptyRange, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
 import { VirtualFileSystem } from '../common/vfs';

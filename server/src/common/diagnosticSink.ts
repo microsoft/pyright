@@ -9,7 +9,7 @@
 
 import { Diagnostic, DiagnosticCategory } from './diagnostic';
 import { convertOffsetsToRange } from './positionUtils';
-import { TextRange, Range } from './textRange';
+import { Range,TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
 
 // Represents a collection of diagnostics within a file.

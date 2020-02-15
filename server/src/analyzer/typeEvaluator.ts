@@ -18,10 +18,10 @@ import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert, fail } from '../common/debug';
 import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
-import { getEmptyRange } from '../common/textRange';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
+import { getEmptyRange } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperationNode,
     CallNode, ClassNode, ConstantNode, DecoratorNode, DictionaryNode, ExceptNode, ExpressionNode,

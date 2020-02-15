@@ -13,7 +13,7 @@ import { AnalyzerService } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { NullConsole } from '../common/console';
-import { combinePaths, normalizeSlashes, normalizePath } from '../common/pathUtils';
+import { combinePaths, normalizePath,normalizeSlashes } from '../common/pathUtils';
 import { createFromRealFileSystem } from '../common/vfs';
 
 test('FindFilesWithConfigFile', () => {

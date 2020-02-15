@@ -3,7 +3,9 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  */
+
 import { sep } from 'path';
+
 import * as pu from '../../../common/pathUtils';
 import { createIOError } from '../utils';
 

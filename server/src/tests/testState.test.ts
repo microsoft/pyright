@@ -7,6 +7,7 @@
  */
 
 import * as assert from 'assert';
+
 import { combinePaths, comparePathsCaseSensitive, getFileName, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';
 import { parseTestData } from './harness/fourslash/fourSlashParser';
