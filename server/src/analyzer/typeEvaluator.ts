@@ -3233,7 +3233,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         }
                     }
 
-                    type = validateCallArguments(errorNode, argList, callType,
+                    type = validateCallArguments(errorNode, argList, functionType,
                         new TypeVarMap(), skipUnknownArgCheck).returnType;
                     if (!type) {
                         type = UnknownType.create();
