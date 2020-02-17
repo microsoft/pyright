@@ -9186,20 +9186,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        if ((flags & CanAssignFlags.EnforceInvariance) !== 0 && !ClassType.isSameGenericClass(srcType, destType)) {
-            const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
-            const srcErrorType = reportErrorsUsingObjType ? ObjectType.create(srcType) : srcType;
-            diag.addMessage(`'${ printType(srcErrorType) }' is incompatible with ` +
-                `'${ printType(destErrorType) }'`);
-            return false;
-        }
+        if ((flags & CanAssignFlags.EnforceInvariance) === 0 || ClassType.isSameGenericClass(srcType, destType)) {
+            const inheritanceChain: InheritanceChain = [];
+            if (ClassType.isDerivedFrom(srcType, destType, inheritanceChain)) {
+                assert(inheritanceChain.length > 0);
 
-        const inheritanceChain: InheritanceChain = [];
-        if (ClassType.isDerivedFrom(srcType, destType, inheritanceChain)) {
-            assert(inheritanceChain.length > 0);
-
-            return canAssignClassWithTypeArgs(destType, srcType, inheritanceChain,
-                diag, typeVarMap, recursionCount + 1);
+                return canAssignClassWithTypeArgs(destType, srcType, inheritanceChain,
+                    diag, typeVarMap, recursionCount + 1);
+            }
         }
 
         const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
