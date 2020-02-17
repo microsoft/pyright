@@ -6,7 +6,7 @@
 * for the VS Code Extension language server.
 */
 
-const path = require('path');
+const path = require('path'); // eslint-disable-line @typescript-eslint/no-var-requires
 
 module.exports = {
     context: path.resolve(__dirname),
