@@ -802,7 +802,7 @@ export class Checker extends ParseTreeWalker {
                 } else if (primaryType && !isProperty(primaryType)) {
                     if (primaryDecl.type === DeclarationType.Function || primaryDecl.type === DeclarationType.Class) {
                         const diag = this._evaluator.addError(
-                            `Declared ${ primaryDeclType } already exists for '${ name }'`,
+                            `Declared ${ primaryDeclType }already exists for '${ name }'`,
                             otherDecl.node
                         );
                         addPrimaryDeclInfo(diag);
