@@ -434,8 +434,8 @@ export namespace ClassType {
                 if (!symbol2) {
                     symbolsMatch = false;
                 } else {
-                    const symbol1Type = symbol1.getUndeclaredType() || UnknownType.create();
-                    const symbol2Type = symbol2.getUndeclaredType() || UnknownType.create();
+                    const symbol1Type = symbol1.getSynthesizedType() || UnknownType.create();
+                    const symbol2Type = symbol2.getSynthesizedType() || UnknownType.create();
                     if (!isTypeSame(symbol1Type, symbol2Type, recursionCount + 1)) {
                         symbolsMatch = false;
                     }

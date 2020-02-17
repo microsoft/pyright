@@ -67,7 +67,7 @@ export class Symbol {
     // Symbols that are completely synthesized (i.e. have no
     // corresponding declarations in the program) can have
     // a specified type.
-    private _undeclaredType?: Type;
+    private _synthesizedType?: Type;
 
     constructor(flags = SymbolFlags.ClassMember) {
         this.id = getUniqueSymbolId();
@@ -76,7 +76,7 @@ export class Symbol {
 
     static createWithType(flags: SymbolFlags, type: Type) {
         const newSymbol = new Symbol(flags);
-        newSymbol._undeclaredType = type;
+        newSymbol._synthesizedType = type;
         return newSymbol;
     }
 
@@ -175,8 +175,8 @@ export class Symbol {
     }
 
     hasTypedDeclarations() {
-        // We'll treat an undeclared type as an implicit declaration.
-        if (this._undeclaredType) {
+        // We'll treat an synthesized type as an implicit declaration.
+        if (this._synthesizedType) {
             return true;
         }
 
@@ -189,8 +189,8 @@ export class Symbol {
             decl => hasTypeForDeclaration(decl));
     }
 
-    getUndeclaredType() {
-        return this._undeclaredType;
+    getSynthesizedType() {
+        return this._synthesizedType;
     }
 }
 

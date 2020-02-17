@@ -1128,9 +1128,9 @@ export class CompletionProvider {
                 undefined, undefined, autoImportText, textEdit,
                 additionalTextEdits, symbol.id);
         } else {
-            // Does the symbol have no declaration but instead has an "undeclared" type?
-            const undeclaredType = symbol.getUndeclaredType();
-            if (undeclaredType) {
+            // Does the symbol have no declaration but instead has a synthesized type?
+            const synthesizedType = symbol.getSynthesizedType();
+            if (synthesizedType) {
                const itemKind: CompletionItemKind = CompletionItemKind.Variable;
                this._addNameToCompletionList(name, itemKind, priorWord, completionList,
                     undefined, undefined, undefined, textEdit,

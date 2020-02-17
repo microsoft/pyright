@@ -8779,9 +8779,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
-        const undeclaredType = symbol.getUndeclaredType();
-        if (undeclaredType) {
-            return undeclaredType;
+        const synthesizedType = symbol.getSynthesizedType();
+        if (synthesizedType) {
+            return synthesizedType;
         }
 
         const typedDecls = symbol.getTypedDeclarations();
