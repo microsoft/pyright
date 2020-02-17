@@ -135,6 +135,12 @@ export namespace ModuleType {
     }
 }
 
+export interface DataClassEntry {
+    name: string;
+    hasDefault: boolean;
+    type: Type;
+}
+
 export const enum ClassTypeFlags {
     None = 0,
 
@@ -200,7 +206,7 @@ interface ClassDetails {
     fields: SymbolTable;
     typeParameters: TypeVarType[];
     docString?: string;
-    dataClassParameters?: FunctionParameter[];
+    dataClassEntries?: DataClassEntry[];
 }
 
 export interface ClassType extends TypeBase {
@@ -335,8 +341,8 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.ProtocolClass);
     }
 
-    export function getDataClassParameters(classType: ClassType): FunctionParameter[] {
-        return classType.details.dataClassParameters || [];
+    export function getDataClassEntries(classType: ClassType): DataClassEntry[] {
+        return classType.details.dataClassEntries || [];
     }
 
     export function getTypeParameters(classType: ClassType) {
@@ -404,17 +410,16 @@ export namespace ClassType {
             }
         }
 
-        const dataClassParams1 = class1Details.dataClassParameters || [];
-        const dataClassParams2 = class2Details.dataClassParameters || [];
-        if (dataClassParams1.length !== dataClassParams2.length) {
+        const dataClassEntries1 = class1Details.dataClassEntries || [];
+        const dataClassEntries2 = class2Details.dataClassEntries || [];
+        if (dataClassEntries1.length !== dataClassEntries2.length) {
             return false;
         }
 
-        for (let i = 0; i < dataClassParams1.length; i++) {
-            if (dataClassParams1[i].category !== dataClassParams2[i].category ||
-                    dataClassParams1[i].name !== dataClassParams2[i].name ||
-                    dataClassParams1[i].hasDefault !== dataClassParams2[i].hasDefault ||
-                    !isTypeSame(dataClassParams1[i].type, dataClassParams2[i].type, recursionCount + 1)) {
+        for (let i = 0; i < dataClassEntries1.length; i++) {
+            if (dataClassEntries1[i].name !== dataClassEntries2[i].name ||
+                    dataClassEntries1[i].hasDefault !== dataClassEntries2[i].hasDefault ||
+                    !isTypeSame(dataClassEntries1[i].type, dataClassEntries2[i].type, recursionCount + 1)) {
 
                 return false;
             }

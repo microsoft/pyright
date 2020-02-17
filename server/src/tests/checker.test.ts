@@ -1115,3 +1115,10 @@ test('ParamName1', () => {
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramNames1.py'], configOptions);
     validateResults(analysisResults, 4, 0);
 });
+
+test('DataClass8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataClass8.py']);
+
+    validateResults(analysisResults, 0);
+});
+

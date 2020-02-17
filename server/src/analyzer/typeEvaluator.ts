@@ -28,7 +28,7 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperat
     ForNode, FunctionNode, ImportAsNode, ImportFromAsNode, ImportFromNode, IndexItemsNode,
     IndexNode, isExpressionNode, LambdaNode, ListComprehensionNode, ListNode, MemberAccessNode,
     NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType, SetNode,
-    SliceNode, StringListNode, TernaryNode, TupleNode, UnaryOperationNode, WithItemNode,
+    SliceNode, StringListNode, TernaryNode, TupleNode, TypeAnnotationNode,UnaryOperationNode, WithItemNode,
     YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { ParseOptions, Parser } from '../parser/parser';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
@@ -46,7 +46,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
-import { AnyType, ClassType, ClassTypeFlags, combineTypes, FunctionParameter,
+import { AnyType, ClassType, ClassTypeFlags, combineTypes, DataClassEntry,FunctionParameter,
     FunctionType, FunctionTypeFlags, InheritanceChain, isAnyOrUnknown, isNoneOrNever,
     isPossiblyUnbound, isSameWithoutLiteralValue, isTypeSame, isUnbound, LiteralValue,
     maxTypeRecursionCount, ModuleType, NeverType, NoneType, ObjectType,
@@ -1250,39 +1250,43 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         });
         initType.details.declaredReturnType = NoneType.create();
 
-        // Maintain a list of all dataclass parameters (including
+        // Maintain a list of all dataclass entries (including
         // those from inherited classes) plus a list of only those
-        // parameters added by this class.
-        const localDataClassParameters: FunctionParameter[] = [];
-        const fullDataClassParameters: FunctionParameter[] = [];
-        addInheritedDataClassParametersRecursive(classType, fullDataClassParameters);
+        // entries added by this class.
+        const localDataClassEntries: DataClassEntry[] = [];
+        const fullDataClassEntries: DataClassEntry[] = [];
+        addInheritedDataClassEntriesRecursive(classType, fullDataClassEntries);
+
+        // Maintain a list of "type evaluators".
+        type TypeEvaluator = () => Type;
+        const localEntryTypeEvaluator: { entry: DataClassEntry; evaluator: TypeEvaluator }[] = [];
 
         node.suite.statements.forEach(statementList => {
             if (statementList.nodeType === ParseNodeType.StatementList) {
                 statementList.statements.forEach(statement => {
                     let variableNameNode: NameNode | undefined;
-                    let variableType: Type | undefined;
+                    let variableTypeEvaluator: TypeEvaluator | undefined;
                     let hasDefaultValue = false;
 
                     if (statement.nodeType === ParseNodeType.Assignment) {
                         if (statement.leftExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.leftExpression;
-                            variableType = stripLiteralValue(
+                            variableTypeEvaluator = () => stripLiteralValue(
                                 getTypeOfExpression(statement.rightExpression).type);
                         } else if (statement.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
                             statement.leftExpression.valueExpression.nodeType === ParseNodeType.Name) {
 
                             variableNameNode = statement.leftExpression.valueExpression;
-                            variableType = convertClassToObject(
-                                getTypeOfExpression(statement.leftExpression.typeAnnotation, undefined,
-                                    EvaluatorFlags.ConvertEllipsisToAny).type);
+                            variableTypeEvaluator = () => convertClassToObject(
+                                getTypeOfExpression((statement.leftExpression as TypeAnnotationNode).typeAnnotation,
+                                    undefined, EvaluatorFlags.ConvertEllipsisToAny).type);
                         }
 
                         hasDefaultValue = true;
                     } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
                         if (statement.valueExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.valueExpression;
-                            variableType = convertClassToObject(
+                            variableTypeEvaluator = () => convertClassToObject(
                                 getTypeOfExpression(statement.typeAnnotation, undefined,
                                     EvaluatorFlags.ConvertEllipsisToAny |
                                         EvaluatorFlags.EvaluateStringLiteralAsType
@@ -1290,37 +1294,39 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         }
                     }
 
-                    if (variableNameNode && variableType) {
+                    if (variableNameNode && variableTypeEvaluator) {
                         const variableName = variableNameNode.value;
 
-                        // Add the new variable to the init function.
-                        const paramInfo: FunctionParameter = {
-                            category: ParameterCategory.Simple,
+                        // Create a new data class entry, but defer evaluation of the type until
+                        // we've compiled the full list of data class entries for this class. This
+                        // allows us to handle circular references in types.
+                        const dataClassEntry: DataClassEntry = {
                             name: variableName,
                             hasDefault: hasDefaultValue,
-                            type: variableType
+                            type: UnknownType.create()
                         };
+                        localEntryTypeEvaluator.push({ entry: dataClassEntry, evaluator: variableTypeEvaluator });
 
-                        // Add the new parameter to the local parameter list.
-                        let insertIndex = localDataClassParameters.findIndex(p => p.name === variableName);
+                        // Add the new entry to the local entry list.
+                        let insertIndex = localDataClassEntries.findIndex(e => e.name === variableName);
                         if (insertIndex >= 0) {
-                            localDataClassParameters[insertIndex] = paramInfo;
+                            localDataClassEntries[insertIndex] = dataClassEntry;
                         } else {
-                            localDataClassParameters.push(paramInfo);
+                            localDataClassEntries.push(dataClassEntry);
                         }
 
-                        // Add the new parameter to the full parameter list.
-                        insertIndex = fullDataClassParameters.findIndex(p => p.name === variableName);
+                        // Add the new entry to the full entry list.
+                        insertIndex = fullDataClassEntries.findIndex(p => p.name === variableName);
                         if (insertIndex >= 0) {
-                            fullDataClassParameters[insertIndex] = paramInfo;
+                            fullDataClassEntries[insertIndex] = dataClassEntry;
                         } else {
-                            fullDataClassParameters.push(paramInfo);
-                            insertIndex = fullDataClassParameters.length - 1;
+                            fullDataClassEntries.push(dataClassEntry);
+                            insertIndex = fullDataClassEntries.length - 1;
                         }
 
-                        // If we've already seen a variable with a default value defined,
-                        // all subsequent variables must also have default values.
-                        const firstDefaultValueIndex = fullDataClassParameters.findIndex(p => p.hasDefault);
+                        // If we've already seen a entry with a default value defined,
+                        // all subsequent entries must also have default values.
+                        const firstDefaultValueIndex = fullDataClassEntries.findIndex(p => p.hasDefault);
                         if (!hasDefaultValue && firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
                             addError(`Data fields without default value cannot appear after ` +
                                 `data fields with default values`, variableNameNode);
@@ -1330,11 +1336,27 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         });
 
-        classType.details.dataClassParameters = localDataClassParameters;
+        classType.details.dataClassEntries = localDataClassEntries;
+
+        // Now that the dataClassEntries field has been set with a complete list
+        // of local data class entries for this class, perform deferred type
+        // evaluations. This could involve circular type dependencies, so it's
+        // required that the list be complete (even if types are not yet accurate)
+        // before we perform the type evaluations.
+        localEntryTypeEvaluator.forEach(entryEvaluator => {
+            entryEvaluator.entry.type = entryEvaluator.evaluator();
+        });
 
         if (!skipSynthesizeInit) {
-            fullDataClassParameters.forEach(paramInfo => {
-                FunctionType.addParameter(initType, paramInfo);
+            fullDataClassEntries.forEach(entry => {
+                const functionParam: FunctionParameter = {
+                    category: ParameterCategory.Simple,
+                    name: entry.name,
+                    hasDefault: entry.hasDefault,
+                    type: entry.type
+                };
+
+                FunctionType.addParameter(initType, functionParam);
             });
 
             const symbolTable = classType.details.fields;
@@ -2006,29 +2028,29 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
     }
 
-    // Builds a sorted list of dataclass parameters that are inherited by
-    // the specified class. These parameters must be unique and in reverse-MRO
+    // Builds a sorted list of dataclass entries that are inherited by
+    // the specified class. These entries must be unique and in reverse-MRO
     // order.
-    function addInheritedDataClassParametersRecursive(classType: ClassType, params: FunctionParameter[]) {
+    function addInheritedDataClassEntriesRecursive(classType: ClassType, entries: DataClassEntry[]) {
         // Recursively call for reverse-MRO ordering.
         classType.details.baseClasses.forEach(baseClass => {
             if (baseClass.category === TypeCategory.Class) {
-                addInheritedDataClassParametersRecursive(baseClass, params);
+                addInheritedDataClassEntriesRecursive(baseClass, entries);
             }
         });
 
         classType.details.baseClasses.forEach(baseClass => {
             if (baseClass.category === TypeCategory.Class) {
-                const dataClassParams = ClassType.getDataClassParameters(baseClass);
+                const dataClassEntries = ClassType.getDataClassEntries(baseClass);
 
-                // Add the parameters to the end of the list, replacing same-named
-                // parameters if found.
-                dataClassParams.forEach(param => {
-                    const existingIndex = params.findIndex(p => p.name === param.name);
+                // Add the entries to the end of the list, replacing same-named
+                // entries if found.
+                dataClassEntries.forEach(entry => {
+                    const existingIndex = entries.findIndex(e => e.name === entry.name);
                     if (existingIndex >= 0) {
-                        params[existingIndex] = param;
+                        entries[existingIndex] = entry;
                     } else {
-                        params.push(param);
+                        entries.push(entry);
                     }
                 });
             }
