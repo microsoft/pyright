@@ -10,3 +10,4 @@ c = f"""{"\""}"""
 hello = 3
 d = f"{ f'{hello}' }"
 
+print(f"{'a' if 'b' != 'c' else 'd'}")

@@ -2751,8 +2751,9 @@ export class Parser {
                     }
                 } else if (curChar === '!') {
                     if (!ignoreSeparator) {
+                        // Allow !=, as per PEP 498
                         if (segmentExprLength === segmentValue.length - 1 ||
-                                segmentValue[segmentExprLength + 1] !== '!') {
+                                segmentValue[segmentExprLength + 1] !== '=') {
                             break;
                         }
                     }
