@@ -939,7 +939,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     // Try to get the __new__ method first. We skip the base "object",
                     // which typically provides the __new__ method. We'll fall back on
                     // the __init__ if there is no custom __new__.
-                    let methodType = getBoundMethod(subtype, '__new__', true);
+                    let methodType: FunctionType | OverloadedFunctionType | undefined;
+
+                    // Skip the __new__ lookup for data classes, which always have a
+                    // generic synthesized new method.
+                    if (!ClassType.isDataClass(subtype)) {
+                       methodType = getBoundMethod(subtype, '__new__', true);
+                    }
                     if (!methodType) {
                         methodType = getBoundMethod(subtype, '__init__', false);
                     }
