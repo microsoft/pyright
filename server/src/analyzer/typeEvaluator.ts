@@ -9082,6 +9082,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         });
 
+        // Now handle base classes of the dest protocol.
+        destType.details.baseClasses.forEach(baseClass => {
+            if (baseClass.category === TypeCategory.Class &&
+                !ClassType.isBuiltIn(baseClass, 'object') &&
+                !ClassType.isBuiltIn(baseClass, 'Protocol')) {
+
+                const specializedBaseClass = specializeForBaseClass(destType, baseClass, recursionCount + 1);
+                if (!canAssignClassToProtocol(specializedBaseClass, srcType, diag, typeVarMap, recursionCount + 1)) {
+                    typesAreConsistent = false;
+                }
+            }
+        });
+
         // If the dest protocol has type parameters, make sure the source type arguments match.
         if (typesAreConsistent && destType.details.typeParameters.length > 0) {
             // Create a specialized version of the protocol defined by the dest and
