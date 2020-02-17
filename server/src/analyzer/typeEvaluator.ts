@@ -9039,6 +9039,94 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return UnknownType.create();
     }
 
+    function canAssignClassToProtocol(destType: ClassType, srcType: ClassType, diag: DiagnosticAddendum,
+            typeVarMap: TypeVarMap | undefined, recursionCount: number): boolean {
+
+        const destClassFields = destType.details.fields;
+
+        // Some protocol definitions include recursive references to themselves.
+        // We need to protect against infinite recursion, so we'll check for that here.
+        if (isTypeSame(srcType, destType)) {
+            return true;
+        }
+
+        // Strip the type arguments off the dest protocol if they are provided.
+        const genericDestType = ClassType.cloneForSpecialization(destType, undefined);
+        const genericDestTypeVarMap = new TypeVarMap();
+
+        let typesAreConsistent = true;
+        const srcClassTypeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
+
+        destClassFields.forEach((symbol, name) => {
+            if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
+                const memberInfo = lookUpClassMember(srcType, name, importLookup);
+                if (!memberInfo) {
+                    diag.addMessage(`'${ name }' is not present`);
+                    typesAreConsistent = false;
+                } else {
+                    const declaredType = getDeclaredTypeOfSymbol(symbol);
+                    if (declaredType) {
+                        const srcMemberType = specializeType(
+                            getTypeOfMember(memberInfo), srcClassTypeVarMap, false,
+                            recursionCount + 1);
+
+                        if (!canAssignType(declaredType, srcMemberType,
+                                diag.createAddendum(), genericDestTypeVarMap, CanAssignFlags.Default,
+                                recursionCount + 1)) {
+
+                            diag.addMessage(`'${ name }' is an incompatible type`);
+                            typesAreConsistent = false;
+                        }
+                    }
+                }
+            }
+        });
+
+        // If the dest protocol has type parameters, make sure the source type arguments match.
+        if (typesAreConsistent && destType.details.typeParameters.length > 0) {
+            // Create a specialized version of the protocol defined by the dest and
+            // make sure the resulting type args can be assigned.
+            const specializedSrcProtocol = specializeType(genericDestType, genericDestTypeVarMap,
+                false, recursionCount + 1) as ClassType;
+            if (!verifyTypeArgumentsAssignable(destType, specializedSrcProtocol, diag, typeVarMap, recursionCount)) {
+                typesAreConsistent = false;
+            }
+        }
+
+        return typesAreConsistent;
+    }
+
+    function canAssignTypedDict(destType: ClassType, srcType: ClassType, diag: DiagnosticAddendum,
+        recursionCount: number) {
+        
+        let typesAreConsistent = true;
+        const destEntries = getTypedDictMembersForClass(destType);
+        const srcEntries = getTypedDictMembersForClass(srcType);
+
+        destEntries.forEach((destEntry, name) => {
+            const srcEntry = srcEntries.get(name);
+            if (!srcEntry) {
+                diag.addMessage(`'${ name }' is missing from ${ printType(srcType) }`);
+                typesAreConsistent = false;
+            } else {
+                if (destEntry.isRequired && !srcEntry.isRequired) {
+                    diag.addMessage(`'${ name }' is required in ${ printType(destType) }`);
+                    typesAreConsistent = false;
+                } else if (!destEntry.isRequired && srcEntry.isRequired) {
+                    diag.addMessage(`'${ name }' is not required in ${ printType(destType) }`);
+                    typesAreConsistent = false;
+                }
+
+                if (!isTypeSame(destEntry.valueType, srcEntry.valueType, recursionCount + 1)) {
+                    diag.addMessage(`'${ name }' is an incompatible type`);
+                    typesAreConsistent = false;
+                }
+            }
+        });
+
+        return typesAreConsistent;
+    }
+
     function canAssignClass(destType: ClassType, srcType: ClassType, diag: DiagnosticAddendum,
             typeVarMap: TypeVarMap | undefined, flags: CanAssignFlags, recursionCount: number,
             reportErrorsUsingObjType: boolean): boolean {
@@ -9046,89 +9134,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Is it a structural type (i.e. a protocol)? If so, we need to
         // perform a member-by-member check.
         if (ClassType.isProtocol(destType)) {
-            const destClassFields = destType.details.fields;
-
-            // Some protocol definitions include recursive references to themselves.
-            // We need to protect against infinite recursion, so we'll check for that here.
-            if (isTypeSame(srcType, destType)) {
-                return true;
-            }
-
-            // Strip the type arguments off the dest protocol if they are provided.
-            const genericDestType = ClassType.cloneForSpecialization(destType, undefined);
-            const genericDestTypeVarMap = new TypeVarMap();
-
-            let typesAreConsistent = true;
-            const srcClassTypeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
-
-            destClassFields.forEach((symbol, name) => {
-                if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
-                    const memberInfo = lookUpClassMember(srcType, name, importLookup);
-                    if (!memberInfo) {
-                        diag.addMessage(`'${ name }' is not present`);
-                        typesAreConsistent = false;
-                    } else {
-                        const declaredType = getDeclaredTypeOfSymbol(symbol);
-                        if (declaredType) {
-                            const srcMemberType = specializeType(
-                                getTypeOfMember(memberInfo), srcClassTypeVarMap, false,
-                                recursionCount + 1);
-
-                            if (!canAssignType(declaredType, srcMemberType,
-                                    diag.createAddendum(), genericDestTypeVarMap, CanAssignFlags.Default,
-                                    recursionCount + 1)) {
-
-                                diag.addMessage(`'${ name }' is an incompatible type`);
-                                typesAreConsistent = false;
-                            }
-                        }
-                    }
-                }
-            });
-
-            // If the dest protocol has type parameters, make sure the source type arguments match.
-            if (typesAreConsistent && destType.details.typeParameters.length > 0) {
-                // Create a specialized version of the protocol defined by the dest and
-                // make sure the resulting type args can be assigned.
-                const specializedSrcProtocol = specializeType(genericDestType, genericDestTypeVarMap,
-                    false, recursionCount + 1) as ClassType;
-                if (!verifyTypeArgumentsAssignable(destType, specializedSrcProtocol, diag, typeVarMap, recursionCount)) {
-                    typesAreConsistent = false;
-                }
-            }
-
-            return typesAreConsistent;
+            return canAssignClassToProtocol(destType, srcType, diag, typeVarMap, recursionCount);
         }
 
         // Handle typed dicts. They also use a form of structural typing for type
         // checking, as defined in PEP 589.
         if (ClassType.isTypedDictClass(destType) && ClassType.isTypedDictClass(srcType)) {
-            let typesAreConsistent = true;
-            const destEntries = getTypedDictMembersForClass(destType);
-            const srcEntries = getTypedDictMembersForClass(srcType);
-
-            destEntries.forEach((destEntry, name) => {
-                const srcEntry = srcEntries.get(name);
-                if (!srcEntry) {
-                    diag.addMessage(`'${ name }' is missing from ${ printType(srcType) }`);
-                    typesAreConsistent = false;
-                } else {
-                    if (destEntry.isRequired && !srcEntry.isRequired) {
-                        diag.addMessage(`'${ name }' is required in ${ printType(destType) }`);
-                        typesAreConsistent = false;
-                    } else if (!destEntry.isRequired && srcEntry.isRequired) {
-                        diag.addMessage(`'${ name }' is not required in ${ printType(destType) }`);
-                        typesAreConsistent = false;
-                    }
-
-                    if (!isTypeSame(destEntry.valueType, srcEntry.valueType, recursionCount + 1)) {
-                        diag.addMessage(`'${ name }' is an incompatible type`);
-                        typesAreConsistent = false;
-                    }
-                }
-            });
-
-            return typesAreConsistent;
+            return canAssignTypedDict(destType, srcType, diag, recursionCount);
         }
 
         // Handle property classes. They are special because each property
