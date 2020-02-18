@@ -796,10 +796,8 @@ export class SourceFile {
         }
     }
 
-    private _resolveImports(importResolver: ImportResolver,
-        moduleImports: ModuleImport[],
-        execEnv: ExecutionEnvironment):
-        [ImportResult[], ImportResult?, string?, string?] {
+    private _resolveImports(importResolver: ImportResolver, moduleImports: ModuleImport[],
+        execEnv: ExecutionEnvironment): [ImportResult[], ImportResult?, string?, string?] {
 
         const imports: ImportResult[] = [];
 

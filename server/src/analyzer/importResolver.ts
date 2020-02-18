@@ -823,7 +823,13 @@ export class ImportResolver {
     // Potentially modifies the ImportResult by removing some or all of the
     // implicit import entries. Only the imported symbols should be included.
     private _filterImplicitImports(importResult: ImportResult, importedSymbols: string[] | undefined): ImportResult {
-        if (importedSymbols === undefined || importedSymbols.length === 0) {
+        if (importedSymbols === undefined) {
+            const newImportResult = Object.assign({}, importResult);
+            newImportResult.implicitImports = [];
+            return newImportResult;
+        }
+
+        if (importedSymbols.length === 0) {
             return importResult;
         }
 
