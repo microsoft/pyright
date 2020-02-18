@@ -402,6 +402,12 @@ export class Tokenizer {
                 break;
             }
 
+            case Char.Backtick: {
+                this._tokens.push(Token.create(TokenType.Backtick,
+                    this._cs.position, 1, this._getComments()));
+                break;
+            }
+
             case Char.Semicolon: {
                 this._tokens.push(Token.create(TokenType.Semicolon,
                     this._cs.position, 1, this._getComments()));

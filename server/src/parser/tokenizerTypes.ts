@@ -35,7 +35,8 @@ export const enum TokenType {
     CloseCurlyBrace,
     Ellipsis,
     Dot,
-    Arrow
+    Arrow,
+    Backtick
 }
 
 export const enum NewLineType {

@@ -754,9 +754,10 @@ test('@ to operator token', () => {
 test('Unknown token', () => {
     const t = new Tokenizer();
     const results = t.tokenize('`$');
-    assert.equal(results.tokens.count, 1 + _implicitTokenCount);
+    assert.equal(results.tokens.count, 2 + _implicitTokenCount);
 
-    assert.equal(results.tokens.getItemAt(0).type, TokenType.Invalid);
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.Backtick);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.Invalid);
 });
 
 test('Hex number', () => {

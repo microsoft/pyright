@@ -514,6 +514,15 @@ export class Parser {
                     if (!symbolName) {
                         this._addError('Expected symbol name after "as"', this._peekToken());
                     }
+                } else {
+                    // Handle the python 2.x syntax in a graceful manner.
+                    const peekToken = this._peekToken();
+                    if (this._consumeTokenIfType(TokenType.Comma)) {
+                        this._addError(`Expected 'as' after exception type`, peekToken);
+
+                        // Parse the expression expected in python 2.x, but discard it.
+                        this._parseTestExpression(false);
+                    }
                 }
             }
 
@@ -758,7 +767,17 @@ export class Parser {
                 const paramNode = ParameterNode.create(firstToken, ParameterCategory.Simple);
                 return paramNode;
             }
-            this._addError('Expected parameter name', this._peekToken());
+
+            // Check for the Python 2.x parameter sublist syntax and handle it gracefully.
+            if (this._peekTokenType() === TokenType.OpenParenthesis) {
+                const sublistStart = this._getNextToken();
+                if (this._consumeTokensUntilType(TokenType.CloseParenthesis)) {
+                    this._getNextToken();
+                }
+                this._addError(`Sublist parameters are not supported in Python 3.x`, sublistStart);
+            } else {
+                this._addError('Expected parameter name', this._peekToken());
+            }
         }
 
         let paramType = ParameterCategory.Simple;
@@ -2145,6 +2164,23 @@ export class Parser {
 
         if (nextToken.type === TokenType.String) {
             return this._parseStringList();
+        }
+
+        if (nextToken.type === TokenType.Backtick) {
+            this._getNextToken();
+
+            // Atoms with backticks are no longer allowed in Python 3.x, but they
+            // were a thing in Python 2.x. We'll parse them to improve parse recovery
+            // and emit an error.
+            this._addError(
+                'Expressions surrounded by backticks are not supported in Python 3.x; use repr instead',
+                nextToken);
+            
+            const expressionNode = this._parseTestListAsExpression(ErrorExpressionCategory.MissingExpression,
+                'Expected expression');
+            
+            this._consumeTokenIfType(TokenType.Backtick);
+            return expressionNode;
         }
 
         if (nextToken.type === TokenType.OpenParenthesis) {
