@@ -28,8 +28,8 @@ import { ArgumentCategory, AssignmentNode, AugmentedAssignmentNode, BinaryOperat
     ForNode, FunctionNode, ImportAsNode, ImportFromAsNode, ImportFromNode, IndexItemsNode,
     IndexNode, isExpressionNode, LambdaNode, ListComprehensionNode, ListNode, MemberAccessNode,
     NameNode, ParameterCategory, ParameterNode, ParseNode, ParseNodeType, SetNode,
-    SliceNode, StringListNode, TernaryNode, TupleNode, TypeAnnotationNode,UnaryOperationNode, WithItemNode,
-    YieldFromNode, YieldNode } from '../parser/parseNodes';
+    SliceNode, StringListNode, TernaryNode, TupleNode, TypeAnnotationNode, UnaryOperationNode,
+    WithItemNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
 import { ParseOptions, Parser } from '../parser/parser';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, ImportLookupResult } from './analyzerFileInfo';
@@ -8802,11 +8802,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                     type = stripLiteralTypeArgsValue(type);
 
-                    // If the symbol is private or constant, we can retain the literal
-                    // value. Otherwise, strip them off to make the type less specific,
-                    // allowing other values to be assigned to it in subclasses.
-                    if (!isPrivate && !isConstant && !isFinalVar) {
-                        type = stripLiteralValue(type);
+                    if (decl.type === DeclarationType.Variable) {
+                        // If the symbol is private or constant, we can retain the literal
+                        // value. Otherwise, strip them off to make the type less specific,
+                        // allowing other values to be assigned to it in subclasses.
+                        if (!isPrivate && !isConstant && !isFinalVar) {
+                            type = stripLiteralValue(type);
+                        }
                     }
                     typesToCombine.push(type);
                 }
