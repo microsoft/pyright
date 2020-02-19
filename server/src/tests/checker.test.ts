@@ -960,6 +960,12 @@ test('TypedDict7', () => {
     validateResults(analysisResults, 0);
 });
 
+test('TypedDict8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict8.py']);
+
+    validateResults(analysisResults, 2);
+});
+
 test('TypeIgnore1', () => {
     const configOptions = new ConfigOptions('.');
 

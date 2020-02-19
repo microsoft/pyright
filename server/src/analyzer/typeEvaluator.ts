@@ -5056,30 +5056,44 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getTypeFromList(node: ListNode, expectedType?: Type): TypeResult {
+        // Define a local helper function that determines whether a
+        // type is a list and returns the list element type if it is.
+        const getListTypeArg = (potentialList: Type) => {
+            if (potentialList.category !== TypeCategory.Object) {
+                return undefined;
+            }
+
+            const classAlias = potentialList.classType.details.aliasClass || potentialList.classType;
+            if (!ClassType.isBuiltIn(classAlias, 'list') || !potentialList.classType.typeArguments) {
+                return undefined;
+            }
+
+            return potentialList.classType.typeArguments[0];
+        };
+
+        const expectedEntryType = expectedType ? getListTypeArg(expectedType) : undefined;
+
         let entryTypes = node.entries.map(entry => {
             if (entry.nodeType === ParseNodeType.ListComprehension) {
                 return getElementTypeFromListComprehension(entry);
             }
-            return getTypeOfExpression(entry).type;
+            return getTypeOfExpression(entry, expectedEntryType).type;
         });
 
         // If there is an expected type, see if we can match it.
         if (expectedType && entryTypes.length > 0) {
             const narrowedExpectedType = doForSubtypes(expectedType, subtype => {
-                if (subtype.category === TypeCategory.Object) {
-                    const classAlias = subtype.classType.details.aliasClass || subtype.classType;
-                    if (ClassType.isBuiltIn(classAlias, 'list') && subtype.classType.typeArguments) {
-                        const typeArg = subtype.classType.typeArguments[0];
-                        const typeVarMap = new TypeVarMap();
+                const listElementType = getListTypeArg(subtype);
+                if (listElementType) {
+                    const typeVarMap = new TypeVarMap();
 
-                        for (const entryType of entryTypes) {
-                            if (!canAssignType(typeArg, entryType, new DiagnosticAddendum(), typeVarMap)) {
-                                return undefined;
-                            }
+                    for (const entryType of entryTypes) {
+                        if (!canAssignType(listElementType, entryType, new DiagnosticAddendum(), typeVarMap)) {
+                            return undefined;
                         }
-
-                        return specializeType(subtype, typeVarMap);
                     }
+
+                    return specializeType(subtype, typeVarMap);
                 }
 
                 return undefined;
@@ -5094,7 +5108,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         let inferredEntryType: Type = AnyType.create();
         if (entryTypes.length > 0) {
-            if (getFileInfo(node).diagnosticSettings.strictListInference) {
+            // If there was an expected type or we're using strict list inference,
+            // combine the types into a union.
+            if (expectedType || getFileInfo(node).diagnosticSettings.strictListInference) {
                 inferredEntryType = combineTypes(entryTypes);
             } else {
                 // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
