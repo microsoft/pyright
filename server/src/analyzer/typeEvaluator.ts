@@ -2654,14 +2654,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function getTypeFromIndexWithBaseType(node: IndexNode, baseType: Type,
         usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
-        // Handle the special case where we're we're specializing a generic
-        // union of class types.
+        // Handle the special case where we're specializing a
+        // generic union of classes.
         if (baseType.category === TypeCategory.Union) {
             const typeParameters: TypeVarType[] = [];
             let isUnionOfClasses = true;
 
             baseType.subtypes.forEach(subtype => {
-                if (subtype.category === TypeCategory.Class || subtype.category === TypeCategory.TypeVar) {
+                if (subtype.category === TypeCategory.Class ||
+                    subtype.category === TypeCategory.TypeVar ||
+                    subtype.category === TypeCategory.Function ||
+                    subtype.category === TypeCategory.None) {
+
                     addTypeVarsToListIfUnique(typeParameters,
                         getTypeVarArgumentsRecursive(subtype));
                 } else {
@@ -2669,8 +2673,24 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             });
 
-            if (isUnionOfClasses) {
+            if (isUnionOfClasses && typeParameters.length > 0) {
                 const typeArgs = getTypeArgs(node.items, flags).map(t => t.type);
+                const typeVarMap = buildTypeVarMap(typeParameters, typeArgs);
+                const type = specializeType(baseType, typeVarMap);
+                return { type, node };
+            }
+        }
+
+        // Handle the special case where we're specializing a
+        // generic callable.
+        if (baseType.category === TypeCategory.Function) {
+            const typeParameters: TypeVarType[] = [];
+            addTypeVarsToListIfUnique(typeParameters,
+                getTypeVarArgumentsRecursive(baseType));
+
+            if (typeParameters.length > 0) {
+                const typeArgs = getTypeArgs(node.items, flags).map(
+                    t => convertClassToObject(t.type));
                 const typeVarMap = buildTypeVarMap(typeParameters, typeArgs);
                 const type = specializeType(baseType, typeVarMap);
                 return { type, node };
@@ -5394,9 +5414,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             addError(`Module not allowed in this context`, typeArgs[0].node);
         }
 
-        return combineTypes([
-            convertClassToObject(typeArgs[0].type),
-            NoneType.create()]);
+        return combineTypes([typeArgs[0].type, NoneType.create()]);
     }
 
     function cloneBuiltinTypeWithLiteral(node: ParseNode, builtInName: string, value: LiteralValue): Type {
@@ -5776,7 +5794,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const declaredType = getDeclaredTypeForExpression(node.leftExpression);
 
                 // Evaluate the type of the right-hand side.
-                // Don't specialize it in case it's a type alias with no specialized
+                // Don't specialize it in case it's a type alias with generic
                 // type arguments.
                 let flags: EvaluatorFlags = EvaluatorFlags.DoNotSpecialize;
                 if (fileInfo.isStubFile) {
