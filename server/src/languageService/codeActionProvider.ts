@@ -32,7 +32,7 @@ export class CodeActionProvider {
                     const createTypeStubAction = CodeAction.create(
                         `Create Type Stub For ‘${ action.moduleName }’`,
                         Command.create('Create Type Stub', Commands.createTypeStub,
-                            workspace.rootPath, action.moduleName),
+                            workspace.rootPath, action.moduleName, filePath),
                         CodeActionKind.QuickFix);
                     codeActions.push(createTypeStubAction);
                 }

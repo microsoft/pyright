@@ -6,7 +6,7 @@
 
 import { ExecuteCommandParams, ResponseError } from 'vscode-languageserver';
 
-import { LanguageServerBase } from '../languageServerBase';
+import { LanguageServerInterface } from '../languageServerBase';
 import { Commands } from './commands';
 import { CreateTypeStubCommand } from './createTypeStub';
 import { QuickActionCommand } from './quickActionCommand';
@@ -19,7 +19,7 @@ export class CommandController implements ServerCommand {
     private _createStub: CreateTypeStubCommand;
     private _quickAction: QuickActionCommand;
 
-    constructor(ls: LanguageServerBase) {
+    constructor(ls: LanguageServerInterface) {
         this._createStub = new CreateTypeStubCommand(ls);
         this._quickAction = new QuickActionCommand(ls);
     }

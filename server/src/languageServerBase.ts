@@ -11,17 +11,18 @@ import {
     ConfigurationItem, createConnection, Diagnostic, DiagnosticRelatedInformation,
     DiagnosticSeverity, DiagnosticTag, DocumentSymbol, ExecuteCommandParams, IConnection,
     InitializeResult, IPCMessageReader, IPCMessageWriter, Location, MarkupKind,
-    ParameterInformation, RemoteConsole, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
+    ParameterInformation, RemoteConsole, RemoteWindow, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 
 import { ImportResolver } from './analyzer/importResolver';
 import { AnalyzerService } from './analyzer/service';
-import { CommandLineOptions } from './common/commandLineOptions';
 import { ConfigOptions } from './common/configOptions';
+import { ConsoleInterface } from './common/console';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
-import { combinePaths, convertPathToUri, convertUriToPath, normalizePath } from './common/pathUtils';
+import { convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { Position } from './common/textRange';
 import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
+import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CompletionItemData } from './languageService/completionProvider';
 import { WorkspaceMap } from './workspaceMap';
 
@@ -42,49 +43,63 @@ export interface WorkspaceServiceInstance {
     disableLanguageServices: boolean;
 }
 
-export abstract class LanguageServerBase {
+export interface WindowInterface {
+    showErrorMessage(message: string): void;
+    showWarningMessage(message: string): void;
+    showInformationMessage(message: string): void;
+}
+
+export interface LanguageServerInterface {
+    getWorkspaceForFile(filePath: string): WorkspaceServiceInstance;
+    getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
+    reanalyze(): void;
+
+    readonly rootPath: string;
+    readonly console: ConsoleInterface;
+    readonly window: WindowInterface;
+    readonly fs: VirtualFileSystem;
+}
+
+export abstract class LanguageServerBase implements LanguageServerInterface {
     // Create a connection for the server. The connection uses Node's IPC as a transport
-    connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
-    workspaceMap: WorkspaceMap;
-    // File system abstraction.
-    fs: VirtualFileSystem;
+    private _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+    private _workspaceMap: WorkspaceMap;
 
     // Create a simple text document manager. The text document manager
     // supports full document sync only.
     private _documents: TextDocuments = new TextDocuments();
 
-    // Global root path - the basis for all global settings.
-    private _rootPath = '';
     // Tracks whether we're currently displaying progress.
     private _isDisplayingProgress = false;
 
+    // Global root path - the basis for all global settings.
+    rootPath = '';
+
+    // File system abstraction.
+    fs: VirtualFileSystem;
+
     constructor(private _productName: string, rootDirectory: string) {
-        this.connection.console.log(`${ _productName } language server starting`);
+        this._connection.console.log(`${ _productName } language server starting`);
         // virtual file system to be used. initialized to real file system by default. but can't be overritten
-        this.fs = createFromRealFileSystem(this.connection.console);
+        this.fs = createFromRealFileSystem(this._connection.console);
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = rootDirectory;
-        this.connection.console.log(`Server root directory: ${ rootDirectory }`);
+        this._connection.console.log(`Server root directory: ${ rootDirectory }`);
 
         // Create workspace map.
-        this.workspaceMap = new WorkspaceMap(this);
+        this._workspaceMap = new WorkspaceMap(this);
         // Make the text document manager listen on the connection
         // for open, change and close text document events.
-        this._documents.listen(this.connection);
+        this._documents.listen(this._connection);
         // Setup callbacks
         this._setupConnection();
         // Listen on the connection
-        this.connection.listen();
+        this._connection.listen();
     }
 
     protected abstract async executeCommand(cmdParams: ExecuteCommandParams): Promise<any>;
     protected abstract async executeCodeAction(cmdParams: CodeActionParams): Promise<(Command | CodeAction)[] | undefined | null>;
     abstract async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
-
-    // Provides access to logging to the client output window.
-    protected get console(): RemoteConsole {
-        return this.connection.console;
-    }
 
     protected getConfiguration(workspace: WorkspaceServiceInstance, section: string) {
         const scopeUri = workspace.rootUri ? workspace.rootUri : undefined;
@@ -92,18 +107,28 @@ export abstract class LanguageServerBase {
             scopeUri,
             section
         };
-        return this.connection.workspace.getConfiguration(item);
+        return this._connection.workspace.getConfiguration(item);
     }
 
     protected createImportResolver(fs: VirtualFileSystem, options: ConfigOptions): ImportResolver {
         return new ImportResolver(fs, options);
     }
-    
+
+    // Provides access to logging to the client output window.
+    get console(): RemoteConsole {
+        return this._connection.console;
+    }
+
+    // provides access to the client windows
+    get window(): RemoteWindow {
+        return this._connection.window;
+    }
+
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
     createAnalyzerService(name: string): AnalyzerService {
-        this.connection.console.log(`Starting service instance "${ name }"`);
-        const service = new AnalyzerService(name, this.fs, this.connection.console, this.createImportResolver);
+        this._connection.console.log(`Starting service instance "${ name }"`);
+        const service = new AnalyzerService(name, this.fs, this._connection.console, this.createImportResolver);
 
         // Don't allow the analysis engine to go too long without
         // reporting results. This will keep it responsive.
@@ -117,7 +142,7 @@ export abstract class LanguageServerBase {
                 const diagnostics = this._convertDiagnostics(fileDiag.diagnostics);
 
                 // Send the computed diagnostics to the client.
-                this.connection.sendDiagnostics({
+                this._connection.sendDiagnostics({
                     uri: convertPathToUri(fileDiag.filePath),
                     diagnostics
                 });
@@ -127,17 +152,17 @@ export abstract class LanguageServerBase {
                         // Display a progress spinner if we're checking the entire program.
                         if (!this._isDisplayingProgress) {
                             this._isDisplayingProgress = true;
-                            this.connection.sendNotification('pyright/beginProgress');
+                            this._connection.sendNotification('pyright/beginProgress');
                         }
 
                         const fileOrFiles = results.filesRequiringAnalysis !== 1 ? 'files' : 'file';
-                        this.connection.sendNotification('pyright/reportProgress',
+                        this._connection.sendNotification('pyright/reportProgress',
                             `${ results.filesRequiringAnalysis } ${ fileOrFiles } to analyze`);
                     }
                 } else {
                     if (this._isDisplayingProgress) {
                         this._isDisplayingProgress = false;
-                        this.connection.sendNotification('pyright/endProgress');
+                        this._connection.sendNotification('pyright/endProgress');
                     }
                 }
             });
@@ -146,17 +171,27 @@ export abstract class LanguageServerBase {
         return service;
     }
 
+    getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
+        return this._workspaceMap.getWorkspaceForFile(filePath);
+    }
+
+    reanalyze() {
+        this._workspaceMap.forEach(workspace => {
+            workspace.serviceInstance.invalidateAndForceReanalysis();
+        });
+    }
+
     private _setupConnection(): void {
         // After the server has started the client sends an initialize request. The server receives
         // in the passed params the rootPath of the workspace plus the client capabilities.
-        this.connection.onInitialize((params): InitializeResult => {
-            this._rootPath = params.rootPath || '';
+        this._connection.onInitialize((params): InitializeResult => {
+            this.rootPath = params.rootPath || '';
 
             // Create a service instance for each of the workspace folders.
             if (params.workspaceFolders) {
                 params.workspaceFolders.forEach(folder => {
                     const path = convertUriToPath(folder.uri);
-                    this.workspaceMap.set(path, {
+                    this._workspaceMap.set(path, {
                         workspaceName: folder.name,
                         rootPath: path,
                         rootUri: folder.uri,
@@ -165,7 +200,7 @@ export abstract class LanguageServerBase {
                     });
                 });
             } else if (params.rootPath) {
-                this.workspaceMap.set(params.rootPath, {
+                this._workspaceMap.set(params.rootPath, {
                     workspaceName: '',
                     rootPath: params.rootPath,
                     rootUri: '',
@@ -202,14 +237,14 @@ export abstract class LanguageServerBase {
             };
         });
 
-        this.connection.onDidChangeConfiguration(_ => {
-            this.connection.console.log(`Received updated settings`);
+        this._connection.onDidChangeConfiguration(_ => {
+            this._connection.console.log(`Received updated settings`);
             this.updateSettingsForAllWorkspaces();
         });
 
-        this.connection.onCodeAction((params: CodeActionParams) => this.executeCodeAction(params));
+        this._connection.onCodeAction((params: CodeActionParams) => this.executeCodeAction(params));
 
-        this.connection.onDefinition(params => {
+        this._connection.onDefinition(params => {
             this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
@@ -219,7 +254,7 @@ export abstract class LanguageServerBase {
                 character: params.position.character
             };
 
-            const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -231,7 +266,7 @@ export abstract class LanguageServerBase {
                 Location.create(convertPathToUri(loc.path), loc.range));
         });
 
-        this.connection.onReferences(params => {
+        this._connection.onReferences(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -239,7 +274,7 @@ export abstract class LanguageServerBase {
                 character: params.position.character
             };
 
-            const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -252,12 +287,12 @@ export abstract class LanguageServerBase {
                 Location.create(convertPathToUri(loc.path), loc.range));
         });
 
-        this.connection.onDocumentSymbol(params => {
+        this._connection.onDocumentSymbol(params => {
             this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return undefined;
             }
@@ -267,10 +302,10 @@ export abstract class LanguageServerBase {
             return symbolList;
         });
 
-        this.connection.onWorkspaceSymbol(params => {
+        this._connection.onWorkspaceSymbol(params => {
             const symbolList: SymbolInformation[] = [];
 
-            this.workspaceMap.forEach(workspace => {
+            this._workspaceMap.forEach(workspace => {
                 if (!workspace.disableLanguageServices) {
                     workspace.serviceInstance.addSymbolsForWorkspace(
                         symbolList, params.query);
@@ -280,7 +315,7 @@ export abstract class LanguageServerBase {
             return symbolList;
         });
 
-        this.connection.onHover(params => {
+        this._connection.onHover(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -288,7 +323,7 @@ export abstract class LanguageServerBase {
                 character: params.position.character
             };
 
-            const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
             const hoverResults = workspace.serviceInstance.getHoverForPosition(filePath, position);
             if (!hoverResults) {
                 return undefined;
@@ -310,7 +345,7 @@ export abstract class LanguageServerBase {
             };
         });
 
-        this.connection.onSignatureHelp(params => {
+        this._connection.onSignatureHelp(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -318,7 +353,7 @@ export abstract class LanguageServerBase {
                 character: params.position.character
             };
 
-            const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -347,7 +382,7 @@ export abstract class LanguageServerBase {
             };
         });
 
-        this.connection.onCompletion(params => {
+        this._connection.onCompletion(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -355,7 +390,7 @@ export abstract class LanguageServerBase {
                 character: params.position.character
             };
 
-            const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -374,10 +409,10 @@ export abstract class LanguageServerBase {
             return completions;
         });
 
-        this.connection.onCompletionResolve(params => {
+        this._connection.onCompletionResolve(params => {
             const completionItemData = params.data as CompletionItemData;
             if (completionItemData) {
-                const workspace = this.workspaceMap.get(completionItemData.workspacePath);
+                const workspace = this._workspaceMap.get(completionItemData.workspacePath);
                 if (workspace && completionItemData.filePath) {
                     workspace.serviceInstance.resolveCompletionItem(
                         completionItemData.filePath, params);
@@ -386,7 +421,7 @@ export abstract class LanguageServerBase {
             return params;
         });
 
-        this.connection.onRenameRequest(params => {
+        this._connection.onRenameRequest(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -394,7 +429,7 @@ export abstract class LanguageServerBase {
                 character: params.position.character
             };
 
-            const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -424,37 +459,37 @@ export abstract class LanguageServerBase {
             return edits;
         });
 
-        this.connection.onDidOpenTextDocument(params => {
+        this._connection.onDidOpenTextDocument(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
-            const service = this.workspaceMap.getWorkspaceForFile(filePath).serviceInstance;
+            const service = this._workspaceMap.getWorkspaceForFile(filePath).serviceInstance;
             service.setFileOpened(
                 filePath,
                 params.textDocument.version,
                 params.textDocument.text);
         });
 
-        this.connection.onDidChangeTextDocument(params => {
+        this._connection.onDidChangeTextDocument(params => {
             this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
-            const service = this.workspaceMap.getWorkspaceForFile(filePath).serviceInstance;
+            const service = this._workspaceMap.getWorkspaceForFile(filePath).serviceInstance;
             service.updateOpenFileContents(
                 filePath,
                 params.textDocument.version,
                 params.contentChanges[0].text);
         });
 
-        this.connection.onDidCloseTextDocument(params => {
+        this._connection.onDidCloseTextDocument(params => {
             const filePath = convertUriToPath(params.textDocument.uri);
-            const service = this.workspaceMap.getWorkspaceForFile(filePath).serviceInstance;
+            const service = this._workspaceMap.getWorkspaceForFile(filePath).serviceInstance;
             service.setFileClosed(filePath);
         });
 
-        this.connection.onInitialized(() => {
-            this.connection.workspace.onDidChangeWorkspaceFolders(event => {
+        this._connection.onInitialized(() => {
+            this._connection.workspace.onDidChangeWorkspaceFolders(event => {
                 event.removed.forEach(workspace => {
                     const rootPath = convertUriToPath(workspace.uri);
-                    this.workspaceMap.delete(rootPath);
+                    this._workspaceMap.delete(rootPath);
                 });
 
                 event.added.forEach(async workspace => {
@@ -466,17 +501,17 @@ export abstract class LanguageServerBase {
                         serviceInstance: this.createAnalyzerService(workspace.name),
                         disableLanguageServices: false
                     };
-                    this.workspaceMap.set(rootPath, newWorkspace);
+                    this._workspaceMap.set(rootPath, newWorkspace);
                     await this.updateSettingsForWorkspace(newWorkspace);
                 });
             });
         });
 
-        this.connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => this.executeCommand(cmdParams));
+        this._connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => this.executeCommand(cmdParams));
     }
 
     updateSettingsForAllWorkspaces(): void {
-        this.workspaceMap.forEach(workspace => {
+        this._workspaceMap.forEach(workspace => {
             this.updateSettingsForWorkspace(workspace).ignoreErrors();
         });
     }
@@ -490,58 +525,7 @@ export abstract class LanguageServerBase {
     updateOptionsAndRestartService(workspace: WorkspaceServiceInstance,
         serverSettings: ServerSettings, typeStubTargetImportName?: string) {
 
-        const commandLineOptions = new CommandLineOptions(workspace.rootPath, true);
-        commandLineOptions.checkOnlyOpenFiles = serverSettings.openFilesOnly;
-        commandLineOptions.useLibraryCodeForTypes = serverSettings.useLibraryCodeForTypes;
-
-        // Disable watching of source files in the VS Code extension if we're
-        // analyzing only open files. The file system watcher code has caused
-        // lots of problems across multiple platforms. It provides little or
-        // no benefit when we're in "openFilesOnly" mode.
-        commandLineOptions.watch = !commandLineOptions.checkOnlyOpenFiles;
-
-        if (serverSettings.venvPath) {
-            commandLineOptions.venvPath = combinePaths(workspace.rootPath || this._rootPath,
-                normalizePath(this._expandPathVariables(serverSettings.venvPath)));
-        }
-
-        if (serverSettings.pythonPath) {
-            // The Python VS Code extension treats the value "python" specially. This means
-            // the local python interpreter should be used rather than interpreting the
-            // setting value as a path to the interpreter. We'll simply ignore it in this case.
-            if (serverSettings.pythonPath.trim() !== 'python') {
-                commandLineOptions.pythonPath = combinePaths(workspace.rootPath || this._rootPath,
-                    normalizePath(this._expandPathVariables(serverSettings.pythonPath)));
-            }
-        }
-
-        if (serverSettings.typeshedPath) {
-            // Pyright supports only one typeshed path currently, whereas the
-            // official VS Code Python extension supports multiple typeshed paths.
-            // We'll use the first one specified and ignore the rest.
-            commandLineOptions.typeshedPath =
-                this._expandPathVariables(serverSettings.typeshedPath);
-        }
-
-        if (typeStubTargetImportName) {
-            commandLineOptions.typeStubTargetImportName = typeStubTargetImportName;
-        }
-
-        workspace.serviceInstance.setOptions(commandLineOptions);
-    }
-
-    // Expands certain predefined variables supported within VS Code settings.
-    // Ideally, VS Code would provide an API for doing this expansion, but
-    // it doesn't. We'll handle the most common variables here as a convenience.
-    private _expandPathVariables(value: string): string {
-        const regexp = /\$\{(.*?)\}/g;
-        return value.replace(regexp, (match: string, name: string) => {
-            const trimmedName = name.trim();
-            if (trimmedName === 'workspaceFolder') {
-                return this._rootPath;
-            }
-            return match;
-        });
+        AnalyzerServiceExecutor.runWithOptions(this.rootPath, workspace, serverSettings, typeStubTargetImportName);
     }
 
     private _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
@@ -581,7 +565,7 @@ export abstract class LanguageServerBase {
         // Tell all of the services that the user is actively
         // interacting with one or more editors, so they should
         // back off from performing any work.
-        this.workspaceMap.forEach(workspace => {
+        this._workspaceMap.forEach(workspace => {
             workspace.serviceInstance.recordUserInteractionTime();
         });
     }

@@ -62,7 +62,7 @@ class Server extends LanguageServerBase {
         this.recordUserInteractionTime();
 
         const filePath = convertUriToPath(params.textDocument.uri);
-        const workspace = this.workspaceMap.getWorkspaceForFile(filePath);
+        const workspace = this.getWorkspaceForFile(filePath);
         return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range);
     }
 }

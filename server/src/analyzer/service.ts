@@ -70,7 +70,9 @@ export class AnalyzerService {
     private _requireTrackedFileUpdate = true;
     private _lastUserInteractionTime = Date.now();
 
-    constructor(instanceName: string, fs: VirtualFileSystem, console?: ConsoleInterface, importResolverFactory?: ImportResolverFactory, configOptions?: ConfigOptions) {
+    constructor(instanceName: string, fs: VirtualFileSystem, console?: ConsoleInterface,
+        importResolverFactory?: ImportResolverFactory, configOptions?: ConfigOptions) {
+
         this._instanceName = instanceName;
         this._console = console || new StandardConsole();
         this._configOptions = configOptions ?? new ConfigOptions(process.cwd());
@@ -79,6 +81,10 @@ export class AnalyzerService {
         this._program = new Program(this._importResolver, this._configOptions, this._console);
         this._executionRootPath = '';
         this._typeStubTargetImportName = undefined;
+    }
+
+    clone(instanceName: string): AnalyzerService {
+        return new AnalyzerService(instanceName, this._fs, this._console, this._importResolverFactory, this._configOptions);
     }
 
     dispose() {
@@ -193,14 +199,6 @@ export class AnalyzerService {
         this._program.printDependencies(this._executionRootPath, verbose);
     }
 
-    test_getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
-        return this._getConfigOptions(commandLineOptions);
-    }
-
-    test_getFileNamesFromFileSpecs(): string[] {
-        return this._getFileNamesFromFileSpecs();
-    }
-
     getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[] {
         return this._program.getDiagnosticsForRange(filePath, this._configOptions, range);
     }
@@ -213,6 +211,27 @@ export class AnalyzerService {
         if (this._analyzeTimer) {
             this._scheduleReanalysis(false);
         }
+    }
+
+    // test only APIs
+    get test_ImportResolver() {
+        return this._importResolver;
+    }
+
+    get test_configOptions() {
+        return this._configOptions;
+    }
+
+    get test_program() {
+        return this._program;
+    }
+
+    test_getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
+        return this._getConfigOptions(commandLineOptions);
+    }
+
+    test_getFileNamesFromFileSpecs(): string[] {
+        return this._getFileNamesFromFileSpecs();
     }
 
     // Calculates the effective options based on the command-line options,
@@ -359,6 +378,10 @@ export class AnalyzerService {
                     `venvPath ${ configOptions.venvPath } is not a valid directory.`);
             }
 
+            // venvPath without defaultVenv means it won't do anything while resolveImport.
+            // so first, try to set defaultVenv from existing configOption if it is null. if both are null,
+            // then, resolveImport won't consider venv
+            configOptions.defaultVenv = configOptions.defaultVenv ?? this._configOptions.defaultVenv;
             if (configOptions.defaultVenv) {
                 const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.defaultVenv);
 
@@ -492,7 +515,7 @@ export class AnalyzerService {
     // This is called after a new type stub has been created. It allows
     // us to invalidate caches and force reanalysis of files that potentially
     // are affected by the appearance of a new type stub.
-    handlePostCreateTypeStub() {
+    invalidateAndForceReanalysis() {
         // Make sure the import resolver doesn't have invalid
         // cached entries.
         this._importResolver.invalidateCache();

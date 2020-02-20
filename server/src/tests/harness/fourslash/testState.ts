@@ -8,21 +8,24 @@
  */
 
 import * as assert from 'assert';
-import * as path from 'path';
 import Char from 'typescript-char';
+import { Command } from 'vscode-languageserver';
 
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { Program } from '../../../analyzer/program';
 import { AnalyzerService } from '../../../analyzer/service';
+import { CommandController } from '../../../commands/commandController';
 import { ConfigOptions } from '../../../common/configOptions';
-import { NullConsole } from '../../../common/console';
+import { ConsoleInterface, NullConsole } from '../../../common/console';
 import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
 import * as debug from '../../../common/debug';
 import { DiagnosticCategory } from '../../../common/diagnostic';
-import { combinePaths, comparePaths, getBaseFileName, normalizePath, normalizeSlashes } from '../../../common/pathUtils';
+import { combinePaths, comparePaths, convertPathToUri, getBaseFileName, normalizePath, normalizeSlashes } from '../../../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../../../common/positionUtils';
 import { getStringComparer } from '../../../common/stringUtils';
 import { Position, TextRange } from '../../../common/textRange';
+import { WorkspaceServiceInstance } from '../../../languageServerBase';
+import { CodeActionProvider } from '../../../languageService/codeActionProvider';
 import * as host from '../host';
 import { stringify } from '../utils';
 import { createFromFileSystem } from '../vfs/factory';
@@ -31,6 +34,7 @@ import {
     CompilerSettings, FourSlashData, FourSlashFile, GlobalMetadataOptionNames, Marker,
     MetadataOptionNames, MultiMap, pythonSettingFilename, Range, TestCancellationToken
 } from './fourSlashTypes';
+import { TestLanguageService } from './testLanguageService';
 
 export interface TextChange {
     span: TextRange;
@@ -41,10 +45,14 @@ export class TestState {
     private readonly _cancellationToken: TestCancellationToken;
     private readonly _files: string[] = [];
 
+    // indicate whether test is done or not
+    private readonly _testDoneCallback?: jest.DoneCallback;
+    private _markedDone = false;
+
     readonly fs: vfs.FileSystem;
-    readonly importResolver: ImportResolver;
-    readonly configOptions: ConfigOptions;
-    readonly program: Program;
+    readonly workspace: WorkspaceServiceInstance;
+    readonly console: ConsoleInterface;
+    readonly asyncTest: boolean;
 
     // The current caret position in the active file
     currentCaretPosition = 0;
@@ -56,11 +64,11 @@ export class TestState {
     // The file that's currently 'opened'
     activeFile!: FourSlashFile;
 
-    constructor(private _basePath: string, public testData: FourSlashData, mountPaths?: Map<string, string>,
-        importResolverFactory?: ImportResolverFactory) {
+    constructor(basePath: string, public testData: FourSlashData, cb?: jest.DoneCallback,
+        mountPaths?: Map<string, string>, importResolverFactory?: ImportResolverFactory) {
 
-        const strIgnoreCase = GlobalMetadataOptionNames.ignoreCase;
-        const ignoreCase = testData.globalOptions[strIgnoreCase]?.toUpperCase() === 'TRUE';
+        const nullConsole = new NullConsole();
+        const ignoreCase = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.ignoreCase]);
 
         this._cancellationToken = new TestCancellationToken();
         const configOptions = this._convertGlobalOptionsToConfigOptions(this.testData.globalOptions);
@@ -77,7 +85,7 @@ export class TestState {
                     throw new Error(`Failed to parse test ${ file.fileName }: ${ e.message }`);
                 }
 
-                configOptions.initializeFromJson(configJson, new NullConsole());
+                configOptions.initializeFromJson(configJson, nullConsole);
                 this._applyTestConfigOptions(configOptions);
             } else {
                 files[file.fileName] = new vfs.File(file.content, { meta: file.fileOptions, encoding: 'utf8' });
@@ -88,28 +96,54 @@ export class TestState {
             }
         }
 
-        const fs = createFromFileSystem(host.HOST, ignoreCase, { cwd: _basePath, files, meta: testData.globalOptions }, mountPaths);
-
-        importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;
-
-        // this should be change to AnalyzerService rather than Program
-        const importResolver = importResolverFactory(fs, configOptions);
-        const program = new Program(importResolver, configOptions);
-        program.setTrackedFiles(sourceFiles);
-
-        // make sure these states are consistent between these objects.
-        // later make sure we just hold onto AnalyzerService and get all these
-        // state from 1 analyzerService so that we always use same consistent states
-        this.fs = fs;
-        this.configOptions = configOptions;
-        this.importResolver = importResolver;
-        this.program = program;
+        this.console = nullConsole;
+        this.fs = createFromFileSystem(host.HOST, ignoreCase, { cwd: basePath, files, meta: testData.globalOptions }, mountPaths);
         this._files = sourceFiles;
+
+        const service = this._createAnalysisService(nullConsole,
+            importResolverFactory ?? AnalyzerService.createImportResolver, configOptions);
+
+        this.workspace = {
+            workspaceName: 'test workspace',
+            rootPath: this.fs.getModulePath(),
+            rootUri: convertPathToUri(this.fs.getModulePath()),
+            serviceInstance: service,
+            disableLanguageServices: false
+        };
 
         if (this._files.length > 0) {
             // Open the first file by default
-            this.openFile(0);
+            this.openFile(this._files[0]);
         }
+
+        this.asyncTest = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.asynctest]);
+        this._testDoneCallback = cb;
+    }
+
+    get importResolver(): ImportResolver {
+        return this.workspace.serviceInstance.test_ImportResolver;
+    }
+
+    get configOptions(): ConfigOptions {
+        return this.workspace.serviceInstance.test_configOptions;
+    }
+
+    get program(): Program {
+        return this.workspace.serviceInstance.test_program;
+    }
+
+    markTestDone(...args: any[]) {
+        if (this._markedDone) {
+            // test is already marked done
+            return;
+        }
+
+        // call callback to mark the test is done
+        if (this._testDoneCallback) {
+            this._testDoneCallback(...args);
+        }
+
+        this._markedDone = true;
     }
 
     // Entry points from fourslash.ts
@@ -347,30 +381,10 @@ export class TestState {
     }
 
     verifyDiagnostics(map?: { [marker: string]: { category: string; message: string } }): void {
-        while (this.program.analyze()) {
-            // Continue to call analyze until it completes. Since we're not
-            // specifying a timeout, it should complete the first time.
-        }
-
-        const sourceFiles = this._files.map(f => this.program.getSourceFile(f));
-        const results = sourceFiles.map((sourceFile, index) => {
-            if (sourceFile) {
-                const diagnostics = sourceFile.getDiagnostics(this.configOptions) || [];
-                const filePath = sourceFile.getFilePath();
-                const value = {
-                    filePath,
-                    parseResults: sourceFile.getParseResults(),
-                    errors: diagnostics.filter(diag => diag.category === DiagnosticCategory.Error),
-                    warnings: diagnostics.filter(diag => diag.category === DiagnosticCategory.Warning)
-                };
-                return [filePath, value] as [string, typeof value];
-            } else {
-                this._raiseError(`Source file not found for ${ this._files[index] }`);
-            }
-        });
+        this._analyze();
 
         // organize things per file
-        const resultPerFile = new Map<string, typeof results[0][1]>(results);
+        const resultPerFile = this._getDiagnosticsPerFile();
         const rangePerFile = this._createMultiMap<Range>(this.getRanges(), r => r.fileName);
 
         // expected number of files
@@ -421,6 +435,57 @@ export class TestState {
                 }
             }
         }
+    }
+
+    verifyCodeActions(map: { [marker: string]: { codeActions: { title: string; kind: string; command: Command }[] } }): void {
+        this._analyze();
+
+        for (const range of this.getRanges()) {
+            const name = this.getMarkerName(range.marker!);
+            for (const expected of map[name].codeActions) {
+                const actual = this._getCodeActions(range);
+
+                const command = {
+                    title: expected.command.title,
+                    command: expected.command.command,
+                    arguments: expected.command.arguments?.map(a => normalizeSlashes(a))
+                };
+
+                const matches = actual.filter(a => a.title === expected.title
+                    && a.kind! === expected.kind && this._deepEqual(a.command, command));
+
+                if (matches.length !== 1) {
+                    this._raiseError(`doesn't contain expected result: ${ stringify(expected) }, actual: ${ stringify(actual) }`);
+                }
+            }
+        }
+    }
+
+    async verifyCommand(command: Command, files: { [filePath: string]: string }): Promise<any> {
+        this._analyze();
+
+        const controller = new CommandController(new TestLanguageService(this.workspace, this.console, this.fs));
+        await controller.execute({ command: command.command, arguments: command.arguments });
+        await this._verifyFiles(files);
+
+        this.markTestDone();
+    }
+
+    async verifyInvokeCodeAction(map: { [marker: string]: { title: string; files: { [filePath: string]: string } } }): Promise<any> {
+        this._analyze();
+
+        for (const range of this.getRanges()) {
+            const name = this.getMarkerName(range.marker!);
+            const controller = new CommandController(new TestLanguageService(this.workspace, this.console, this.fs));
+
+            for (const codeAction of this._getCodeActions(range).filter(c => c.title === map[name].title)) {
+                await controller.execute({ command: codeAction.command!.command, arguments: codeAction.command?.arguments });
+            }
+
+            await this._verifyFiles(map[name].files);
+        }
+
+        this.markTestDone();
     }
 
     verifyCaretAtMarker(markerName = '') {
@@ -483,10 +548,18 @@ export class TestState {
         // Always enable "test mode".
         configOptions.internalTestMode = true;
 
+        // Always analyze all files
+        configOptions.checkOnlyOpenFiles = false;
+
         // run test in venv mode under root so that
         // under test we can point to local lib folder
         configOptions.venvPath = vfs.MODULE_PATH;
         configOptions.defaultVenv = vfs.MODULE_PATH;
+
+        // make sure we set typing path
+        if (configOptions.typingsPath === undefined) {
+            configOptions.typingsPath = normalizePath(combinePaths(vfs.MODULE_PATH, 'typings'));
+        }
 
         return configOptions;
     }
@@ -671,9 +744,6 @@ export class TestState {
     private _tryFindFileWorker(name: string): { readonly file: FourSlashFile | undefined; readonly availableNames: readonly string[] } {
         name = normalizePath(name);
 
-        // names are stored in the compiler with this relative path, this allows people to use goTo.file on just the fileName
-        name = name.indexOf(path.sep) === -1 ? combinePaths(this._basePath, name) : name;
-
         let file: FourSlashFile | undefined;
         const availableNames: string[] = [];
         this.testData.files.forEach(f => {
@@ -726,6 +796,47 @@ export class TestState {
         return position <= editStart ? position : position < editEnd ? -1 : position + length - + (editEnd - editStart);
     }
 
+    private _analyze() {
+        while (this.program.analyze()) {
+            // Continue to call analyze until it completes. Since we're not
+            // specifying a timeout, it should complete the first time.
+        }
+    }
+
+    private _getDiagnosticsPerFile() {
+        const sourceFiles = this._files.map(f => this.program.getSourceFile(f));
+        const results = sourceFiles.map((sourceFile, index) => {
+            if (sourceFile) {
+                const diagnostics = sourceFile.getDiagnostics(this.configOptions) || [];
+                const filePath = sourceFile.getFilePath();
+                const value = {
+                    filePath,
+                    parseResults: sourceFile.getParseResults(),
+                    errors: diagnostics.filter(diag => diag.category === DiagnosticCategory.Error),
+                    warnings: diagnostics.filter(diag => diag.category === DiagnosticCategory.Warning)
+                };
+                return [filePath, value] as [string, typeof value];
+            } else {
+                this._raiseError(`Source file not found for ${ this._files[index] }`);
+            }
+        });
+
+        return new Map<string, typeof results[0][1]>(results);
+    }
+
+    private _createAnalysisService(nullConsole: ConsoleInterface,
+        importResolverFactory: ImportResolverFactory, configOptions: ConfigOptions) {
+
+        // we do not initiate automatic analysis or file watcher in test.
+        const service = new AnalyzerService('test service', this.fs, nullConsole, importResolverFactory, configOptions);
+
+        // directly set files to track rather than using fileSpec from config
+        // to discover those files from file system
+        service.test_program.setTrackedFiles(this._files);
+
+        return service;
+    }
+
     private _deepEqual(a: any, e: any) {
         try {
             // NOTE: find better way.
@@ -735,5 +846,36 @@ export class TestState {
         }
 
         return true;
+    }
+
+    private async _waitForFile(filePath: string) {
+        while (!this.fs.existsSync(filePath)) {
+            await (new Promise(res => setTimeout(() => { res(); }, 200)));
+        }
+    }
+
+    private _getCodeActions(range: Range) {
+        const file = range.fileName;
+        const textRange = {
+            start: this._convertOffsetToPosition(file, range.pos),
+            end: this._convertOffsetToPosition(file, range.end)
+        };
+
+        return CodeActionProvider.getCodeActionsForPosition(this.workspace, file, textRange);
+    }
+
+    private async _verifyFiles(files: { [filePath: string]: string }) {
+        for (const filePath of Object.keys(files)) {
+            const expected = files[filePath];
+            const normalizedFilePath = normalizeSlashes(filePath);
+
+            // wait until the file exists
+            await this._waitForFile(normalizedFilePath);
+
+            const actual = this.fs.readFileSync(normalizedFilePath, 'utf8');
+            if (actual !== expected) {
+                this._raiseError(`doesn't contain expected result: ${ stringify(expected) }, actual: ${ stringify(actual) }`);
+            }
+        }
     }
 }
