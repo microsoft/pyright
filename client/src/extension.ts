@@ -18,6 +18,7 @@ import { Commands } from '../../server/src/commands/commands';
 import { ProgressReporting } from './progress';
 
 export function activate(context: ExtensionContext) {
+	console.log('Testing RichNav');
 	const bundlePath = context.asAbsolutePath(path.join('server', 'server.bundle.js'));
 	const nonBundlePath = context.asAbsolutePath(path.join('server', 'src', 'server.js'));
 	const debugOptions = { execArgv: ["--nolazy", "--inspect=6600"] };
