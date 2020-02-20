@@ -7,7 +7,6 @@
 * Global definitions of extension interfaces.
 */
 
-// tslint:disable-next-line:interface-name
 declare interface Promise<T> {
   // Catches task error and ignores them.
   ignoreErrors(): void;

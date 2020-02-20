@@ -295,7 +295,6 @@ test('Strings: unclosed sequence of quotes', () => {
 
 test('Strings: single quote escape', () => {
     const t = new Tokenizer();
-    // tslint:disable-next-line:quotemark
     const results = t.tokenize("'\\'quoted\\''");
     assert.equal(results.tokens.count, 1 + _implicitTokenCount);
 
@@ -334,7 +333,6 @@ test('Strings: triplicate double quote escape', () => {
 
 test('Strings: single quoted f-string', () => {
     const t = new Tokenizer();
-    // tslint:disable-next-line:quotemark
     const results = t.tokenize("a+f'quoted'");
     assert.equal(results.tokens.count, 3 + _implicitTokenCount);
     assert.equal(results.tokens.getItemAt(0).type, TokenType.Identifier);
@@ -366,7 +364,6 @@ test('Strings: double quoted f-string', () => {
 
 test('Strings: single quoted multiline f-string', () => {
     const t = new Tokenizer();
-    // tslint:disable-next-line:quotemark
     const results = t.tokenize("f'''quoted'''");
     assert.equal(results.tokens.count, 1 + _implicitTokenCount);
 
@@ -393,7 +390,6 @@ test('Strings: double quoted multiline f-string', () => {
 
 test('Strings: f-string with single right brace', () => {
     const t = new Tokenizer();
-    // tslint:disable-next-line:quotemark
     const results = t.tokenize("f'hello}'");
     assert.equal(results.tokens.count, 1 + _implicitTokenCount);
 
@@ -411,7 +407,6 @@ test('Strings: f-string with single right brace', () => {
 
 test('Strings: f-string with escape in expression', () => {
     const t = new Tokenizer();
-    // tslint:disable-next-line:quotemark
     const results = t.tokenize("f'hello { \\t }'");
     assert.equal(results.tokens.count, 1 + _implicitTokenCount);
 
@@ -429,7 +424,6 @@ test('Strings: f-string with escape in expression', () => {
 
 test('Strings: f-string with unterminated expression', () => {
     const t = new Tokenizer();
-    // tslint:disable-next-line:quotemark
     const results = t.tokenize("f'hello { a + b'");
     assert.equal(results.tokens.count, 1 + _implicitTokenCount);
 
@@ -446,7 +440,6 @@ test('Strings: f-string with unterminated expression', () => {
 
 test('Strings: escape at the end of single quoted string', () => {
     const t = new Tokenizer();
-    // tslint:disable-next-line:quotemark
     const results = t.tokenize("'quoted\\'\nx");
     assert.equal(results.tokens.count, 3 + _implicitTokenCount);
 

@@ -60,7 +60,6 @@ function runCode(code: string, state: TestState): void {
 ${ code }
 })`;
 
-    // tslint:disable-next-line: no-eval
     const f = eval(wrappedCode);
     f(state);
 }

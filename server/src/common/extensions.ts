@@ -9,8 +9,7 @@
 
 /* eslint-disable @typescript-eslint/no-empty-function */
 
-// Explicitly tells that promise should be run asynchonously.
+// Explicitly tells that promise should be run asynchronously.
 Promise.prototype.ignoreErrors = function <T>(this: Promise<T>) {
-  // tslint:disable-next-line:no-empty
   this.catch(() => { });
 };

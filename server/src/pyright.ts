@@ -8,11 +8,13 @@
 */
 
 // Add the start timer at the very top of the file, before we import other modules.
+
+/* eslint-disable */
 import { timingStats } from './common/timing';
+/* eslint-enable */
 
 import chalk from 'chalk';
 import * as commandLineArgs from 'command-line-args';
-// tslint:disable-next-line
 import { CommandLineOptions, OptionDefinition } from 'command-line-args';
 import * as process from 'process';
 
