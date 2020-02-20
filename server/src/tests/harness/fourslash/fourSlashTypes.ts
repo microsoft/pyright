@@ -14,7 +14,8 @@ export const pythonSettingFilename = 'mspythonconfig.json';
 export const enum GlobalMetadataOptionNames {
     projectRoot = 'projectroot',
     ignoreCase = 'ignorecase',
-    typeshed = 'typeshed'
+    typeshed = 'typeshed',
+    asynctest = 'asynctest'
 }
 
 /** Any option name not belong to this will become global option */
