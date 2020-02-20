@@ -9455,7 +9455,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             } else {
                 // Assign the type to the type var.
-                typeVarMap.set(destType.name, constrainedType, false);
+                if (!typeVarMap.isLocked()) {
+                    typeVarMap.set(destType.name, constrainedType, false);
+                }
             }
 
             return true;
