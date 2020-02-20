@@ -1135,7 +1135,7 @@ test('ParamName1', () => {
 });
 
 test('DataClass8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataClass8.py']);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass8.py']);
 
     validateResults(analysisResults, 0);
 });
