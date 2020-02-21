@@ -4,18 +4,25 @@
 import abc
 
 class InterfaceA(abc.ABC):
-  @abc.abstractmethod
-  def a(self) -> None: print('InterfaceA.a')
+	@abc.abstractmethod
+	def a(self) -> None:
+		print('InterfaceA.a')
 
 class MixinA(InterfaceA):
-  def a(self) -> None: print('MixinA.a')
+  	def a(self) -> None:
+	  	print('MixinA.a')
 
 class InterfaceAB(InterfaceA):
-  @abc.abstractmethod
-  def b(self) -> None: print('InterfaceAB.b')
+	@abc.abstractmethod
+  	def b(self) -> None:
+	  	print('InterfaceAB.b')
 
 class ClassAB(InterfaceAB, MixinA):
-  def b(self) -> None: print('ClassAB.b')
+  	def b(self) -> None:
+	  	print('ClassAB.b')
 
+# This should not generate an error, but it does.
+# This is because Pyright currently doesn't honor
+# true MRO when resolving methods.
 ab = ClassAB()
 ab.a()

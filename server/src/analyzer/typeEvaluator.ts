@@ -96,6 +96,14 @@ interface ClassMemberLookup {
     isClassMember: boolean;
 }
 
+// Used to determine whether an abstract method has been
+// overridden by a non-abstract method.
+interface AbstractMethod {
+    symbol: Symbol;
+    classType: Type;
+    isAbstract: boolean;
+}
+
 type TypeNarrowingCallback = (type: Type) => Type | undefined;
 
 export const enum EvaluatorFlags {
@@ -3199,11 +3207,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 } else if (ClassType.hasAbstractMethods(callType)) {
                     // If the class is abstract, it can't be instantiated.
-                    const symbolTable = new Map<string, ClassMember>();
+                    const symbolTable = new Map<string, AbstractMethod>();
                     getAbstractMethodsRecursive(callType, symbolTable);
 
                     const diagAddendum = new DiagnosticAddendum();
-                    const symbolTableKeys = [...symbolTable.keys()];
+                    const symbolTableKeys = [...symbolTable.keys()].filter(key => symbolTable.get(key)!.isAbstract);
                     const errorsToDisplay = 2;
 
                     symbolTableKeys.forEach((symbolName, index) => {
@@ -10203,14 +10211,21 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function doesClassHaveAbstractMethods(classType: ClassType): boolean {
-        const abstractMethods = new Map<string, ClassMember>();
-        getAbstractMethodsRecursive(classType, abstractMethods);
+        const symbolMap = new Map<string, AbstractMethod>();
+        getAbstractMethodsRecursive(classType, symbolMap);
 
-        return abstractMethods.size > 0;
+        let abstractMethodCount = 0;
+        symbolMap.forEach(entry => {
+            if (entry.isAbstract) {
+                abstractMethodCount++;
+            }
+        });
+
+        return abstractMethodCount > 0;
     }
 
     function getAbstractMethodsRecursive(classType: ClassType,
-        symbolTable: Map<string, ClassMember>, recursiveCount = 0) {
+        symbolTable: Map<string, AbstractMethod>, recursiveCount = 0) {
 
         // Protect against infinite recursion.
         if (recursiveCount > maxTypeRecursionCount) {
@@ -10224,6 +10239,28 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         });
 
+        // See if this class is introducing a new abstract method that has not been
+        // introduced previously or if it is overriding an abstract method with
+        // a non-abstract one.
+        classType.details.fields.forEach((symbol, symbolName) => {
+            // We do a quick-and-dirty evaluation of methods based on
+            // decorators to determine which ones are abstract. This allows
+            // us to avoid evaluating the full function types.
+            const decl = getLastTypedDeclaredForSymbol(symbol);
+            if (symbol.isClassMember() && decl && decl.type === DeclarationType.Function) {
+                const functionFlags = getFunctionFlagsFromDecorators(decl.node, true);
+                
+                if (!symbolTable.has(symbolName)) {
+                    const isAbstract = !!(functionFlags & FunctionTypeFlags.AbstractMethod);
+                    symbolTable.set(symbolName, {
+                        symbol,
+                        isAbstract,
+                        classType
+                    });
+                }
+            }
+        });
+
         // Recursively get abstract methods for subclasses. This is expensive,
         // so we'll check it only if one or more of the base classes is known
         // to have abstract methods.
@@ -10232,28 +10269,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 getAbstractMethodsRecursive(baseClass, symbolTable, recursiveCount + 1);
             }
         }
-
-        // Remove any entries that are overridden in this class with
-        // non-abstract methods.
-        classType.details.fields.forEach((symbol, symbolName) => {
-            // We do a quick-and-dirty evaluation of methods based on
-            // decorators to determine which ones are abstract. This allows
-            // us to avoid evaluating the full function types.
-            const decl = getLastTypedDeclaredForSymbol(symbol);
-            if (symbol.isClassMember() && decl && decl.type === DeclarationType.Function) {
-                const functionFlags = getFunctionFlagsFromDecorators(decl.node, true);
-
-                if (functionFlags & FunctionTypeFlags.AbstractMethod) {
-                    symbolTable.set(symbolName, {
-                        symbol,
-                        isInstanceMember: false,
-                        classType
-                    });
-                } else {
-                    symbolTable.delete(symbolName);
-                }
-            }
-        });
     }
 
     // Determines whether the specified keys and values can be assigned to
