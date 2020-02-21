@@ -12,7 +12,7 @@ import { convertUriToPath, getDirectoryPath, normalizeSlashes } from './common/p
 import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 
-class Server extends LanguageServerBase {
+class Server extends LanguageServerBase { 
     private _controller: CommandController;
 
     constructor() {
