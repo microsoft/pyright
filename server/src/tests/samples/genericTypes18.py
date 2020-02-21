@@ -44,3 +44,33 @@ def response2(query: str) -> Response3[datetime]:
     # This should generate an error because datetime doesn't support +
     return lambda x: x + 2
 
+
+Response4 = Union[S, int, str]
+
+class Foo1: pass
+class Foo2: pass
+class Foo3: pass
+T = TypeVar('T')
+
+Response5 = Union[T, Foo1, Foo2]
+
+# Test nested type aliases
+Response6 = Response5[Response4[Foo3]]
+
+def f6_1() -> Response6:
+    return Foo1()
+
+def f6_2() -> Response6:
+    return Foo2()
+
+def f6_3() -> Response6:
+    return Foo3()
+
+def f6_4() -> Response6:
+    return 3
+
+def f6_5() -> Response6:
+    # This should generate an error
+    return None
+
+

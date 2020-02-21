@@ -2663,12 +2663,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         usage: EvaluatorUsage, flags: EvaluatorFlags): TypeResult {
 
         // Handle the special case where we're specializing a
-        // generic union of classes.
-        if (baseType.category === TypeCategory.Union) {
+        // generic union of classes or callable.
+        if (baseType.category === TypeCategory.Union || baseType.category === TypeCategory.Function) {
             const typeParameters: TypeVarType[] = [];
             let isUnionOfClasses = true;
 
-            baseType.subtypes.forEach(subtype => {
+            doForSubtypes(baseType, subtype => {
                 if (subtype.category === TypeCategory.Class ||
                     subtype.category === TypeCategory.TypeVar ||
                     subtype.category === TypeCategory.Function ||
@@ -2679,24 +2679,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 } else {
                     isUnionOfClasses = false;
                 }
+                return undefined;
             });
 
             if (isUnionOfClasses && typeParameters.length > 0) {
-                const typeArgs = getTypeArgs(node.items, flags).map(t => t.type);
-                const typeVarMap = buildTypeVarMap(typeParameters, typeArgs);
-                const type = specializeType(baseType, typeVarMap);
-                return { type, node };
-            }
-        }
-
-        // Handle the special case where we're specializing a
-        // generic callable.
-        if (baseType.category === TypeCategory.Function) {
-            const typeParameters: TypeVarType[] = [];
-            addTypeVarsToListIfUnique(typeParameters,
-                getTypeVarArgumentsRecursive(baseType));
-
-            if (typeParameters.length > 0) {
                 const typeArgs = getTypeArgs(node.items, flags).map(
                     t => convertClassToObject(t.type));
                 const typeVarMap = buildTypeVarMap(typeParameters, typeArgs);
