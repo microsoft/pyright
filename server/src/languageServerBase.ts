@@ -10,8 +10,8 @@ import {
     CodeAction, CodeActionKind, CodeActionParams, Command,
     ConfigurationItem, createConnection, Diagnostic, DiagnosticRelatedInformation,
     DiagnosticSeverity, DiagnosticTag, DocumentSymbol, ExecuteCommandParams, IConnection,
-    InitializeResult, IPCMessageReader, IPCMessageWriter, Location, MarkupKind,
-    ParameterInformation, RemoteConsole, RemoteWindow, SignatureInformation, SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
+    InitializeResult, Location, MarkupKind, ParameterInformation, RemoteConsole, RemoteWindow, SignatureInformation,
+    SymbolInformation, TextDocuments, TextEdit, WorkspaceEdit
 } from 'vscode-languageserver';
 
 import { ImportResolver } from './analyzer/importResolver';
@@ -61,8 +61,8 @@ export interface LanguageServerInterface {
 }
 
 export abstract class LanguageServerBase implements LanguageServerInterface {
-    // Create a connection for the server. The connection uses Node's IPC as a transport
-    private _connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+    // Create a connection for the server. The connection type can be changed by the process's arguments
+    private _connection: IConnection = createConnection();
     private _workspaceMap: WorkspaceMap;
 
     // Create a simple text document manager. The text document manager
