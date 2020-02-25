@@ -200,6 +200,10 @@ export class ImportSorter {
             });
 
         let cumulativeText = `from ${moduleName} import `;
+        if (node.isWildcardImport) {
+            return cumulativeText + '*';
+        }
+
         const symbolText = symbols.join(', ');
         if (cumulativeText.length + symbolText.length <= _maxLineLength) {
             return cumulativeText + symbolText;
