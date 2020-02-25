@@ -10,7 +10,7 @@
  */
 
 import { Declaration, DeclarationType } from '../analyzer/declaration';
-import { convertDocStringToMarkdown } from '../analyzer/docStringUtils';
+import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { Type, TypeCategory, UnknownType } from '../analyzer/types';

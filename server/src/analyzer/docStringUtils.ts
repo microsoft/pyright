@@ -102,10 +102,3 @@ export function extractParameterDocumentation(functionDocString: string, paramNa
 
     return undefined;
 }
-
-export function convertDocStringToMarkdown(docString: string): string {
-    // For now, simply return the string. In the future, we may
-    // want to do more sophisticated parsing of the doc string
-    // to format code, etc.
-    return docString;
-}
