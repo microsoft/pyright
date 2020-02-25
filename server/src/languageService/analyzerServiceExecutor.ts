@@ -12,20 +12,30 @@ import { combinePaths, normalizePath } from '../common/pathUtils';
 import { ServerSettings, WorkspaceServiceInstance } from '../languageServerBase';
 
 export class AnalyzerServiceExecutor {
-    static runWithOptions(languageServiceRootPath: string, workspace: WorkspaceServiceInstance,
-        serverSettings: ServerSettings, typeStubTargetImportName?: string): void {
-
-        const commandLineOptions = GetCommandLineOptions(languageServiceRootPath, workspace.rootPath,
-            serverSettings, typeStubTargetImportName);
+    static runWithOptions(
+        languageServiceRootPath: string,
+        workspace: WorkspaceServiceInstance,
+        serverSettings: ServerSettings,
+        typeStubTargetImportName?: string
+    ): void {
+        const commandLineOptions = GetCommandLineOptions(
+            languageServiceRootPath,
+            workspace.rootPath,
+            serverSettings,
+            typeStubTargetImportName
+        );
 
         // setting option cause analyzer service to re-analyze everything
         workspace.serviceInstance.setOptions(commandLineOptions);
     }
 }
 
-function GetCommandLineOptions(languageServiceRootPath: string, workspaceRootPath: string,
-    serverSettings: ServerSettings, typeStubTargetImportName?: string) {
-
+function GetCommandLineOptions(
+    languageServiceRootPath: string,
+    workspaceRootPath: string,
+    serverSettings: ServerSettings,
+    typeStubTargetImportName?: string
+) {
     const commandLineOptions = new CommandLineOptions(workspaceRootPath, true);
     commandLineOptions.checkOnlyOpenFiles = serverSettings.openFilesOnly;
     commandLineOptions.useLibraryCodeForTypes = serverSettings.useLibraryCodeForTypes;
@@ -37,8 +47,10 @@ function GetCommandLineOptions(languageServiceRootPath: string, workspaceRootPat
     commandLineOptions.watch = !commandLineOptions.checkOnlyOpenFiles;
 
     if (serverSettings.venvPath) {
-        commandLineOptions.venvPath = combinePaths(workspaceRootPath || languageServiceRootPath,
-            normalizePath(_expandPathVariables(languageServiceRootPath, serverSettings.venvPath)));
+        commandLineOptions.venvPath = combinePaths(
+            workspaceRootPath || languageServiceRootPath,
+            normalizePath(_expandPathVariables(languageServiceRootPath, serverSettings.venvPath))
+        );
     }
 
     if (serverSettings.pythonPath) {
@@ -46,8 +58,10 @@ function GetCommandLineOptions(languageServiceRootPath: string, workspaceRootPat
         // the local python interpreter should be used rather than interpreting the
         // setting value as a path to the interpreter. We'll simply ignore it in this case.
         if (serverSettings.pythonPath.trim() !== 'python') {
-            commandLineOptions.pythonPath = combinePaths(workspaceRootPath || languageServiceRootPath,
-                normalizePath(_expandPathVariables(languageServiceRootPath, serverSettings.pythonPath)));
+            commandLineOptions.pythonPath = combinePaths(
+                workspaceRootPath || languageServiceRootPath,
+                normalizePath(_expandPathVariables(languageServiceRootPath, serverSettings.pythonPath))
+            );
         }
     }
 

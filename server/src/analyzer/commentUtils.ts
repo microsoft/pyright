@@ -1,21 +1,29 @@
 /*
-* commentUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Utility functions that parse comments and extract commands
-* or other directives from them.
-*/
+ * commentUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Utility functions that parse comments and extract commands
+ * or other directives from them.
+ */
 
-import { cloneDiagnosticSettings, DiagnosticLevel, DiagnosticSettings,
-    getBooleanDiagnosticSettings, getDiagLevelSettings, getStrictDiagnosticSettings } from '../common/configOptions';
+import {
+    cloneDiagnosticSettings,
+    DiagnosticLevel,
+    DiagnosticSettings,
+    getBooleanDiagnosticSettings,
+    getDiagLevelSettings,
+    getStrictDiagnosticSettings
+} from '../common/configOptions';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Token } from '../parser/tokenizerTypes';
 
-export function getFileLevelDirectives(tokens: TextRangeCollection<Token>,
-        defaultSettings: DiagnosticSettings, useStrict: boolean): DiagnosticSettings {
-
+export function getFileLevelDirectives(
+    tokens: TextRangeCollection<Token>,
+    defaultSettings: DiagnosticSettings,
+    useStrict: boolean
+): DiagnosticSettings {
     let settings = cloneDiagnosticSettings(defaultSettings);
 
     if (useStrict) {

@@ -1,16 +1,16 @@
 /*
-* typeVarMap.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Module that records the relationship between named TypeVars
-* (type variables) and their types. It is used by the type
-* evaluator to "solve" for the type of each type variable.
-*/
+ * typeVarMap.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Module that records the relationship between named TypeVars
+ * (type variables) and their types. It is used by the type
+ * evaluator to "solve" for the type of each type variable.
+ */
 
-import { assert } from "../common/debug";
-import { Type } from "./types";
+import { assert } from '../common/debug';
+import { Type } from './types';
 
 export class TypeVarMap {
     private _typeMap: Map<string, Type>;

@@ -1,14 +1,14 @@
 /*
-* tokenizer.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Based on code from vscode-python repository:
-*  https://github.com/Microsoft/vscode-python
-*
-* Converts a Python program text stream into a stream of tokens.
-*/
+ * tokenizer.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Based on code from vscode-python repository:
+ *  https://github.com/Microsoft/vscode-python
+ *
+ * Converts a Python program text stream into a stream of tokens.
+ */
 
 import Char from 'typescript-char';
 
@@ -16,47 +16,62 @@ import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { isBinary, isDecimal, isHex, isIdentifierChar, isIdentifierStartChar, isOctal } from './characters';
 import { CharacterStream } from './characterStream';
-import { Comment, DedentToken, IdentifierToken, IndentToken, KeywordToken,
-    KeywordType, NewLineToken, NewLineType, NumberToken, OperatorFlags, OperatorToken,
-    OperatorType, StringToken, StringTokenFlags, Token, TokenType } from './tokenizerTypes';
+import {
+    Comment,
+    DedentToken,
+    IdentifierToken,
+    IndentToken,
+    KeywordToken,
+    KeywordType,
+    NewLineToken,
+    NewLineType,
+    NumberToken,
+    OperatorFlags,
+    OperatorToken,
+    OperatorType,
+    StringToken,
+    StringTokenFlags,
+    Token,
+    TokenType
+} from './tokenizerTypes';
 
 const _keywords: { [key: string]: KeywordType } = {
-    'and': KeywordType.And,
-    'as': KeywordType.As,
-    'assert': KeywordType.Assert,
-    'async': KeywordType.Async,
-    'await': KeywordType.Await,
-    'break': KeywordType.Break,
-    'class': KeywordType.Class,
-    'continue': KeywordType.Continue,
-    '__debug__': KeywordType.Debug,
-    'def': KeywordType.Def,
-    'del': KeywordType.Del,
-    'elif': KeywordType.Elif,
-    'else': KeywordType.Else,
-    'except': KeywordType.Except,
-    'finally': KeywordType.Finally,
-    'for': KeywordType.For,
-    'from': KeywordType.From,
-    'global': KeywordType.Global,
-    'if': KeywordType.If,
-    'import': KeywordType.Import,
-    'in': KeywordType.In,
-    'is': KeywordType.Is,
-    'lambda': KeywordType.Lambda,
-    'nonlocal': KeywordType.Nonlocal,
-    'not': KeywordType.Not,
-    'or': KeywordType.Or,
-    'pass': KeywordType.Pass,
-    'raise': KeywordType.Raise,
-    'return': KeywordType.Return,
-    'try': KeywordType.Try,
-    'while': KeywordType.While,
-    'with': KeywordType.With,
-    'yield': KeywordType.Yield,
-    'False': KeywordType.False,
-    'None': KeywordType.None,
-    'True': KeywordType.True
+    and: KeywordType.And,
+    as: KeywordType.As,
+    assert: KeywordType.Assert,
+    async: KeywordType.Async,
+    await: KeywordType.Await,
+    break: KeywordType.Break,
+    class: KeywordType.Class,
+    continue: KeywordType.Continue,
+    __debug__: KeywordType.Debug,
+    def: KeywordType.Def,
+    del: KeywordType.Del,
+    elif: KeywordType.Elif,
+    else: KeywordType.Else,
+    except: KeywordType.Except,
+    finally: KeywordType.Finally,
+    for: KeywordType.For,
+    from: KeywordType.From,
+    global: KeywordType.Global,
+    if: KeywordType.If,
+    import: KeywordType.Import,
+    in: KeywordType.In,
+    is: KeywordType.Is,
+    lambda: KeywordType.Lambda,
+    nonlocal: KeywordType.Nonlocal,
+    not: KeywordType.Not,
+    or: KeywordType.Or,
+    pass: KeywordType.Pass,
+    raise: KeywordType.Raise,
+    return: KeywordType.Return,
+    try: KeywordType.Try,
+    while: KeywordType.While,
+    with: KeywordType.With,
+    yield: KeywordType.Yield,
+    False: KeywordType.False,
+    None: KeywordType.None,
+    True: KeywordType.True
 };
 
 const _operatorInfo: { [key: number]: OperatorFlags } = {
@@ -104,7 +119,7 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
     [OperatorType.NotIn]: OperatorFlags.Binary
 };
 
-const _byteOrderMarker = 0xFEFF;
+const _byteOrderMarker = 0xfeff;
 
 export interface TokenizerOutput {
     // List of all tokens.
@@ -229,8 +244,7 @@ export class Tokenizer {
         } else if (this._indentCount > 0) {
             // Compute the average number of spaces per indent
             // to estimate the predominant tab value.
-            let averageSpacePerIndent = Math.round(
-                this._indentSpacesTotal / this._indentCount);
+            let averageSpacePerIndent = Math.round(this._indentSpacesTotal / this._indentCount);
             if (averageSpacePerIndent < 1) {
                 averageSpacePerIndent = 1;
             } else if (averageSpacePerIndent > 8) {
@@ -249,7 +263,7 @@ export class Tokenizer {
             typeIgnoreAll: this._typeIgnoreAll,
             predominantEndOfLineSequence,
             predominantTabSequence,
-            predominantSingleQuoteCharacter: this._singleQuoteCount >= this._doubleQuoteCount ? '\'' : '"'
+            predominantSingleQuoteCharacter: this._singleQuoteCount >= this._doubleQuoteCount ? "'" : '"'
         };
     }
 
@@ -319,8 +333,7 @@ export class Tokenizer {
 
             case Char.CarriageReturn: {
                 const length = this._cs.nextChar === Char.LineFeed ? 2 : 1;
-                const newLineType = length === 2 ?
-                    NewLineType.CarriageReturnLineFeed : NewLineType.CarriageReturn;
+                const newLineType = length === 2 ? NewLineType.CarriageReturnLineFeed : NewLineType.CarriageReturn;
                 this._handleNewLine(length, newLineType);
                 return true;
             }
@@ -350,8 +363,7 @@ export class Tokenizer {
 
             case Char.OpenParenthesis: {
                 this._parenDepth++;
-                this._tokens.push(Token.create(TokenType.OpenParenthesis,
-                    this._cs.position, 1, this._getComments()));
+                this._tokens.push(Token.create(TokenType.OpenParenthesis, this._cs.position, 1, this._getComments()));
                 break;
             }
 
@@ -359,15 +371,13 @@ export class Tokenizer {
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
-                this._tokens.push(Token.create(TokenType.CloseParenthesis,
-                    this._cs.position, 1, this._getComments()));
+                this._tokens.push(Token.create(TokenType.CloseParenthesis, this._cs.position, 1, this._getComments()));
                 break;
             }
 
             case Char.OpenBracket: {
                 this._parenDepth++;
-                this._tokens.push(Token.create(TokenType.OpenBracket,
-                    this._cs.position, 1, this._getComments()));
+                this._tokens.push(Token.create(TokenType.OpenBracket, this._cs.position, 1, this._getComments()));
                 break;
             }
 
@@ -375,15 +385,13 @@ export class Tokenizer {
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
-                this._tokens.push(Token.create(TokenType.CloseBracket,
-                    this._cs.position, 1, this._getComments()));
+                this._tokens.push(Token.create(TokenType.CloseBracket, this._cs.position, 1, this._getComments()));
                 break;
             }
 
             case Char.OpenBrace: {
                 this._parenDepth++;
-                this._tokens.push(Token.create(TokenType.OpenCurlyBrace,
-                    this._cs.position, 1, this._getComments()));
+                this._tokens.push(Token.create(TokenType.OpenCurlyBrace, this._cs.position, 1, this._getComments()));
                 break;
             }
 
@@ -391,38 +399,34 @@ export class Tokenizer {
                 if (this._parenDepth > 0) {
                     this._parenDepth--;
                 }
-                this._tokens.push(Token.create(TokenType.CloseCurlyBrace,
-                    this._cs.position, 1, this._getComments()));
+                this._tokens.push(Token.create(TokenType.CloseCurlyBrace, this._cs.position, 1, this._getComments()));
                 break;
             }
 
             case Char.Comma: {
-                this._tokens.push(Token.create(TokenType.Comma,
-                    this._cs.position, 1, this._getComments()));
+                this._tokens.push(Token.create(TokenType.Comma, this._cs.position, 1, this._getComments()));
                 break;
             }
 
             case Char.Backtick: {
-                this._tokens.push(Token.create(TokenType.Backtick,
-                    this._cs.position, 1, this._getComments()));
+                this._tokens.push(Token.create(TokenType.Backtick, this._cs.position, 1, this._getComments()));
                 break;
             }
 
             case Char.Semicolon: {
-                this._tokens.push(Token.create(TokenType.Semicolon,
-                    this._cs.position, 1, this._getComments()));
+                this._tokens.push(Token.create(TokenType.Semicolon, this._cs.position, 1, this._getComments()));
                 break;
             }
 
             case Char.Colon: {
                 if (this._cs.nextChar === Char.Equal) {
-                    this._tokens.push(OperatorToken.create(this._cs.position,
-                        2, OperatorType.Walrus, this._getComments()));
+                    this._tokens.push(
+                        OperatorToken.create(this._cs.position, 2, OperatorType.Walrus, this._getComments())
+                    );
                     this._cs.advance(1);
                     break;
                 }
-                this._tokens.push(Token.create(TokenType.Colon,
-                    this._cs.position, 1, this._getComments()));
+                this._tokens.push(Token.create(TokenType.Colon, this._cs.position, 1, this._getComments()));
                 break;
             }
 
@@ -435,13 +439,11 @@ export class Tokenizer {
 
                 if (this._cs.currentChar === Char.Period) {
                     if (this._cs.nextChar === Char.Period && this._cs.lookAhead(2) === Char.Period) {
-                        this._tokens.push(Token.create(TokenType.Ellipsis,
-                            this._cs.position, 3, this._getComments()));
+                        this._tokens.push(Token.create(TokenType.Ellipsis, this._cs.position, 3, this._getComments()));
                         this._cs.advance(3);
                         return true;
                     }
-                    this._tokens.push(Token.create(TokenType.Dot,
-                        this._cs.position, 1, this._getComments()));
+                    this._tokens.push(Token.create(TokenType.Dot, this._cs.position, 1, this._getComments()));
                     break;
                 }
 
@@ -471,8 +473,7 @@ export class Tokenizer {
             // New lines are ignored within parentheses.
             // We'll also avoid adding multiple newlines in a row to simplify parsing.
             if (this._tokens.length === 0 || this._tokens[this._tokens.length - 1].type !== TokenType.NewLine) {
-                this._tokens.push(NewLineToken.create(this._cs.position,
-                    length, newLineType, this._getComments()));
+                this._tokens.push(NewLineToken.create(this._cs.position, length, newLineType, this._getComments()));
             }
         }
         if (newLineType === NewLineType.CarriageReturn) {
@@ -539,8 +540,7 @@ export class Tokenizer {
                 this._indentSpacesTotal += spaceCount;
 
                 this._indentAmounts.push(spaceCount);
-                this._tokens.push(IndentToken.create(this._cs.position, 0,
-                    spaceCount, this._getComments()));
+                this._tokens.push(IndentToken.create(this._cs.position, 0, spaceCount, this._getComments()));
             }
         } else {
             if (this._indentAmounts[this._indentAmounts.length - 1] < spaceCount) {
@@ -551,28 +551,29 @@ export class Tokenizer {
                 this._indentSpacesTotal += spaceCount - this._indentAmounts[this._indentAmounts.length - 1];
 
                 this._indentAmounts.push(spaceCount);
-                this._tokens.push(IndentToken.create(this._cs.position, 0,
-                    spaceCount, this._getComments()));
+                this._tokens.push(IndentToken.create(this._cs.position, 0, spaceCount, this._getComments()));
             } else {
                 // The Python spec says that dedent amounts need to match the indent
                 // amount exactly. An error is generated at runtime if it doesn't.
                 // We'll record that error condition within the token, allowing the
                 // parser to report it later.
                 const dedentPoints: number[] = [];
-                while (this._indentAmounts.length > 0 &&
-                        this._indentAmounts[this._indentAmounts.length - 1] > spaceCount) {
-                    dedentPoints.push(this._indentAmounts.length > 1 ?
-                        this._indentAmounts[this._indentAmounts.length - 2] : 0);
+                while (
+                    this._indentAmounts.length > 0 &&
+                    this._indentAmounts[this._indentAmounts.length - 1] > spaceCount
+                ) {
+                    dedentPoints.push(
+                        this._indentAmounts.length > 1 ? this._indentAmounts[this._indentAmounts.length - 2] : 0
+                    );
                     this._indentAmounts.pop();
                 }
 
                 dedentPoints.forEach((dedentAmount, index) => {
-                    const matchesIndent = index < dedentPoints.length - 1 ||
-                        dedentAmount === spaceCount;
-                    const actualDedentAmount = index < dedentPoints.length - 1 ?
-                        dedentAmount : spaceCount;
-                    this._tokens.push(DedentToken.create(this._cs.position, 0, actualDedentAmount,
-                        matchesIndent, this._getComments()));
+                    const matchesIndent = index < dedentPoints.length - 1 || dedentAmount === spaceCount;
+                    const actualDedentAmount = index < dedentPoints.length - 1 ? dedentAmount : spaceCount;
+                    this._tokens.push(
+                        DedentToken.create(this._cs.position, 0, actualDedentAmount, matchesIndent, this._getComments())
+                    );
                 });
             }
         }
@@ -589,11 +590,11 @@ export class Tokenizer {
         if (this._cs.position > start) {
             const value = this._cs.getText().substr(start, this._cs.position - start);
             if (_keywords[value] !== undefined) {
-                this._tokens.push(KeywordToken.create(start, this._cs.position - start,
-                    _keywords[value], this._getComments()));
+                this._tokens.push(
+                    KeywordToken.create(start, this._cs.position - start, _keywords[value], this._getComments())
+                );
             } else {
-                this._tokens.push(IdentifierToken.create(start, this._cs.position - start,
-                    value, this._getComments()));
+                this._tokens.push(IdentifierToken.create(start, this._cs.position - start, value, this._getComments()));
             }
             return true;
         }
@@ -670,7 +671,10 @@ export class Tokenizer {
                 mightBeFloatingPoint = true;
                 this._cs.moveNext();
             }
-            isDecimalInteger = this._cs.currentChar !== Char.Period && this._cs.currentChar !== Char.e && this._cs.currentChar !== Char.E;
+            isDecimalInteger =
+                this._cs.currentChar !== Char.Period &&
+                this._cs.currentChar !== Char.e &&
+                this._cs.currentChar !== Char.E;
         }
 
         // "0" (["_"] "0")*
@@ -679,7 +683,10 @@ export class Tokenizer {
             while (this._cs.currentChar === Char._0 || this._cs.currentChar === Char.Underscore) {
                 this._cs.moveNext();
             }
-            isDecimalInteger = this._cs.currentChar !== Char.Period && this._cs.currentChar !== Char.e && this._cs.currentChar !== Char.E;
+            isDecimalInteger =
+                this._cs.currentChar !== Char.Period &&
+                this._cs.currentChar !== Char.e &&
+                this._cs.currentChar !== Char.E;
         }
 
         if (isDecimalInteger) {
@@ -692,15 +699,19 @@ export class Tokenizer {
                     text += String.fromCharCode(this._cs.currentChar);
                     this._cs.moveNext();
                 }
-                this._tokens.push(NumberToken.create(start, text.length, value, true, isImaginary, this._getComments()));
+                this._tokens.push(
+                    NumberToken.create(start, text.length, value, true, isImaginary, this._getComments())
+                );
                 return true;
             }
         }
 
         // Floating point. Sign and leading digits were already skipped over.
         this._cs.position = start;
-        if (mightBeFloatingPoint ||
-            (this._cs.currentChar === Char.Period && this._cs.nextChar >= Char._0 && this._cs.nextChar <= Char._9)) {
+        if (
+            mightBeFloatingPoint ||
+            (this._cs.currentChar === Char.Period && this._cs.nextChar >= Char._0 && this._cs.nextChar <= Char._9)
+        ) {
             if (this._skipFloatingPointCandidate()) {
                 let text = this._cs.getText().substr(start, this._cs.position - start);
                 const value = parseFloat(text);
@@ -711,8 +722,16 @@ export class Tokenizer {
                         text += String.fromCharCode(this._cs.currentChar);
                         this._cs.moveNext();
                     }
-                    this._tokens.push(NumberToken.create(start, this._cs.position - start, value,
-                        false, isImaginary, this._getComments()));
+                    this._tokens.push(
+                        NumberToken.create(
+                            start,
+                            this._cs.position - start,
+                            value,
+                            false,
+                            isImaginary,
+                            this._getComments()
+                        )
+                    );
                     return true;
                 }
             }
@@ -899,7 +918,10 @@ export class Tokenizer {
         }
 
         if (this._cs.lookAhead(2) === Char.SingleQuote || this._cs.lookAhead(2) === Char.DoubleQuote) {
-            const prefix = this._cs.getText().substr(this._cs.position, 2).toLowerCase();
+            const prefix = this._cs
+                .getText()
+                .substr(this._cs.position, 2)
+                .toLowerCase();
             switch (prefix) {
                 case 'rf':
                 case 'fr':
@@ -973,12 +995,20 @@ export class Tokenizer {
 
         const end = this._cs.position;
 
-        this._tokens.push(StringToken.create(start, end - start, stringLiteralInfo.flags,
-            stringLiteralInfo.escapedValue, stringPrefixLength, this._getComments()));
+        this._tokens.push(
+            StringToken.create(
+                start,
+                end - start,
+                stringLiteralInfo.flags,
+                stringLiteralInfo.escapedValue,
+                stringPrefixLength,
+                this._getComments()
+            )
+        );
     }
 
     private _skipToEndOfStringLiteral(flags: StringTokenFlags): StringScannerOutput {
-        const quoteChar = (flags & StringTokenFlags.SingleQuote) ? Char.SingleQuote : Char.DoubleQuote;
+        const quoteChar = flags & StringTokenFlags.SingleQuote ? Char.SingleQuote : Char.DoubleQuote;
         const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
         let escapedValue = '';
 
@@ -1026,9 +1056,12 @@ export class Tokenizer {
             } else if (!isTriplicate && this._cs.currentChar === quoteChar) {
                 this._cs.moveNext();
                 break;
-            } else if (isTriplicate && this._cs.currentChar === quoteChar &&
-                    this._cs.nextChar === quoteChar && this._cs.lookAhead(2) === quoteChar) {
-
+            } else if (
+                isTriplicate &&
+                this._cs.currentChar === quoteChar &&
+                this._cs.nextChar === quoteChar &&
+                this._cs.lookAhead(2) === quoteChar
+            ) {
                 this._cs.advance(3);
                 break;
             } else {

@@ -1,26 +1,81 @@
 /*
-* parseTreeWalker.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Class that traverses a parse tree.
-*/
+ * parseTreeWalker.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Class that traverses a parse tree.
+ */
 
 import { fail } from '../common/debug';
-import { ArgumentNode, AssertNode, AssignmentExpressionNode, AssignmentNode,
-    AugmentedAssignmentNode, AwaitNode, BinaryOperationNode, BreakNode, CallNode,
-    ClassNode, ConstantNode, ContinueNode, DecoratorNode, DelNode,
-    DictionaryExpandEntryNode, DictionaryKeyEntryNode, DictionaryNode, EllipsisNode,
-    ErrorNode, ExceptNode, FormatStringNode, ForNode, FunctionNode, GlobalNode, IfNode,
-    ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode, IndexItemsNode,
-    IndexNode, LambdaNode, ListComprehensionForNode, ListComprehensionIfNode,
-    ListComprehensionNode, ListNode, MemberAccessNode, ModuleNameNode, ModuleNode, NameNode,
-    NonlocalNode, NumberNode, ParameterNode, ParseNode, ParseNodeArray, ParseNodeType,
-    PassNode, RaiseNode, ReturnNode, SetNode, SliceNode, StatementListNode,
-    StringListNode, StringNode, SuiteNode, TernaryNode, TryNode,
-    TupleNode, TypeAnnotationNode, UnaryOperationNode, UnpackNode,
-    WhileNode, WithItemNode, WithNode, YieldFromNode, YieldNode } from '../parser/parseNodes';
+import {
+    ArgumentNode,
+    AssertNode,
+    AssignmentExpressionNode,
+    AssignmentNode,
+    AugmentedAssignmentNode,
+    AwaitNode,
+    BinaryOperationNode,
+    BreakNode,
+    CallNode,
+    ClassNode,
+    ConstantNode,
+    ContinueNode,
+    DecoratorNode,
+    DelNode,
+    DictionaryExpandEntryNode,
+    DictionaryKeyEntryNode,
+    DictionaryNode,
+    EllipsisNode,
+    ErrorNode,
+    ExceptNode,
+    FormatStringNode,
+    ForNode,
+    FunctionNode,
+    GlobalNode,
+    IfNode,
+    ImportAsNode,
+    ImportFromAsNode,
+    ImportFromNode,
+    ImportNode,
+    IndexItemsNode,
+    IndexNode,
+    LambdaNode,
+    ListComprehensionForNode,
+    ListComprehensionIfNode,
+    ListComprehensionNode,
+    ListNode,
+    MemberAccessNode,
+    ModuleNameNode,
+    ModuleNode,
+    NameNode,
+    NonlocalNode,
+    NumberNode,
+    ParameterNode,
+    ParseNode,
+    ParseNodeArray,
+    ParseNodeType,
+    PassNode,
+    RaiseNode,
+    ReturnNode,
+    SetNode,
+    SliceNode,
+    StatementListNode,
+    StringListNode,
+    StringNode,
+    SuiteNode,
+    TernaryNode,
+    TryNode,
+    TupleNode,
+    TypeAnnotationNode,
+    UnaryOperationNode,
+    UnpackNode,
+    WhileNode,
+    WithItemNode,
+    WithNode,
+    YieldFromNode,
+    YieldNode
+} from '../parser/parseNodes';
 
 // To use this class, create a subclass and override the
 // visitXXX methods that you want to handle.
@@ -229,8 +284,7 @@ export class ParseTreeWalker {
 
             case ParseNodeType.Function:
                 if (this.visitFunction(node)) {
-                    return [...node.decorators, node.name, ...node.parameters,
-                        node.returnTypeAnnotation, node.suite];
+                    return [...node.decorators, node.name, ...node.parameters, node.returnTypeAnnotation, node.suite];
                 }
                 break;
 

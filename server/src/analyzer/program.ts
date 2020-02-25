@@ -1,12 +1,12 @@
 /*
-* program.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* An object that tracks all of the source files being analyzed
-* and all of their recursive imports.
-*/
+ * program.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * An object that tracks all of the source files being analyzed
+ * and all of their recursive imports.
+ */
 
 import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
 
@@ -17,8 +17,12 @@ import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import {
-    combinePaths, getDirectoryPath, getRelativePath, makeDirectories,
-    normalizePath, stripFileExtension
+    combinePaths,
+    getDirectoryPath,
+    getRelativePath,
+    makeDirectories,
+    normalizePath,
+    stripFileExtension
 } from '../common/pathUtils';
 import { DocumentRange, doRangesOverlap, Position, Range } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
@@ -82,8 +86,11 @@ export class Program {
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
 
-    constructor(initialImportResolver: ImportResolver, initialConfigOptions: ConfigOptions,
-        console?: ConsoleInterface) {
+    constructor(
+        initialImportResolver: ImportResolver,
+        initialConfigOptions: ConfigOptions,
+        console?: ConsoleInterface
+    ) {
         this._console = console || new StandardConsole();
         this._evaluator = createTypeEvaluator(this._lookUpImport);
         this._importResolver = initialImportResolver;
@@ -140,10 +147,11 @@ export class Program {
         let sourceFileCount = 0;
 
         this._sourceFileList.forEach(fileInfo => {
-            if (fileInfo.sourceFile.isParseRequired() ||
+            if (
+                fileInfo.sourceFile.isParseRequired() ||
                 fileInfo.sourceFile.isBindingRequired() ||
-                fileInfo.sourceFile.isCheckingRequired()) {
-
+                fileInfo.sourceFile.isCheckingRequired()
+            ) {
                 if ((!this._configOptions.checkOnlyOpenFiles && fileInfo.isTracked) || fileInfo.isOpenByClient) {
                     sourceFileCount++;
                 }
@@ -272,13 +280,10 @@ export class Program {
     analyze(maxTime?: MaxAnalysisTime, interactiveMode?: boolean): boolean {
         const elapsedTime = new Duration();
 
-        const openFiles = this._sourceFileList.filter(
-            sf => sf.isOpenByClient && sf.sourceFile.isCheckingRequired()
-        );
+        const openFiles = this._sourceFileList.filter(sf => sf.isOpenByClient && sf.sourceFile.isCheckingRequired());
 
         if (openFiles.length > 0) {
-            const effectiveMaxTime = maxTime ?
-                maxTime.openFilesTimeInMs : Number.MAX_VALUE;
+            const effectiveMaxTime = maxTime ? maxTime.openFilesTimeInMs : Number.MAX_VALUE;
 
             // Check the open files.
             for (const sourceFileInfo of openFiles) {
@@ -300,9 +305,11 @@ export class Program {
         if (!this._configOptions.checkOnlyOpenFiles) {
             // Do type analysis of remaining files.
             const allFiles = this._sourceFileList;
-            const effectiveMaxTime = maxTime ?
-                (interactiveMode ? maxTime.openFilesTimeInMs : maxTime.noOpenFilesTimeInMs) :
-                Number.MAX_VALUE;
+            const effectiveMaxTime = maxTime
+                ? interactiveMode
+                    ? maxTime.openFilesTimeInMs
+                    : maxTime.noOpenFilesTimeInMs
+                : Number.MAX_VALUE;
 
             // Now do type parsing and analysis of the remaining.
             for (const sourceFileInfo of allFiles) {
@@ -320,9 +327,11 @@ export class Program {
     // Prints import dependency information for each of the files in
     // the program, skipping any typeshed files.
     printDependencies(projectRootDir: string, verbose: boolean) {
-        const sortedFiles = this._sourceFileList.filter(s => !s.isTypeshedFile).sort((a, b) => {
-            return (a.sourceFile.getFilePath() < b.sourceFile.getFilePath()) ? 1 : -1;
-        });
+        const sortedFiles = this._sourceFileList
+            .filter(s => !s.isTypeshedFile)
+            .sort((a, b) => {
+                return a.sourceFile.getFilePath() < b.sourceFile.getFilePath() ? 1 : -1;
+            });
 
         const zeroImportFiles: SourceFile[] = [];
 
@@ -334,21 +343,23 @@ export class Program {
                 filePath = relPath;
             }
 
-            this._console.log(`${ filePath }`);
+            this._console.log(`${filePath}`);
 
-            this._console.log(` Imports     ${ sfInfo.imports.length } ` +
-                `file${ sfInfo.imports.length === 1 ? '' : 's' }`);
+            this._console.log(
+                ` Imports     ${sfInfo.imports.length} ` + `file${sfInfo.imports.length === 1 ? '' : 's'}`
+            );
             if (verbose) {
                 sfInfo.imports.forEach(importInfo => {
-                    this._console.log(`    ${ importInfo.sourceFile.getFilePath() }`);
+                    this._console.log(`    ${importInfo.sourceFile.getFilePath()}`);
                 });
             }
 
-            this._console.log(` Imported by ${ sfInfo.importedBy.length } ` +
-                `file${ sfInfo.importedBy.length === 1 ? '' : 's' }`);
+            this._console.log(
+                ` Imported by ${sfInfo.importedBy.length} ` + `file${sfInfo.importedBy.length === 1 ? '' : 's'}`
+            );
             if (verbose) {
                 sfInfo.importedBy.forEach(importInfo => {
-                    this._console.log(`    ${ importInfo.sourceFile.getFilePath() }`);
+                    this._console.log(`    ${importInfo.sourceFile.getFilePath()}`);
                 });
             }
 
@@ -359,10 +370,11 @@ export class Program {
 
         if (zeroImportFiles.length > 0) {
             this._console.log('');
-            this._console.log(`${ zeroImportFiles.length } file${ zeroImportFiles.length === 1 ? '' : 's' }` +
-                ` not explicitly imported`);
+            this._console.log(
+                `${zeroImportFiles.length} file${zeroImportFiles.length === 1 ? '' : 's'}` + ` not explicitly imported`
+            );
             zeroImportFiles.forEach(importFile => {
-                this._console.log(`    ${ importFile.getFilePath() }`);
+                this._console.log(`    ${importFile.getFilePath()}`);
             });
         }
     }
@@ -391,7 +403,7 @@ export class Program {
                 try {
                     makeDirectories(this._fs, typeStubDir, typingsPath);
                 } catch (e) {
-                    const errMsg = `Could not create directory for '${ typeStubDir }'`;
+                    const errMsg = `Could not create directory for '${typeStubDir}'`;
                     throw new Error(errMsg);
                 }
 
@@ -482,7 +494,7 @@ export class Program {
             symbolTable,
             docString
         };
-    }
+    };
 
     // Build a map of all modules within this program and the module-
     // level scope that contains the symbol table for the module.
@@ -553,9 +565,11 @@ export class Program {
     // it imports (recursively) and ensures that all such files. If any of these files
     // have already been checked (they and their recursive imports have completed the
     // check phase), they are not included in the results.
-    private _getImportsRecursive(file: SourceFileInfo, closureMap: Map<string, SourceFileInfo>,
-        recursionCount: number) {
-
+    private _getImportsRecursive(
+        file: SourceFileInfo,
+        closureMap: Map<string, SourceFileInfo>,
+        recursionCount: number
+    ) {
         // If the file is already in the closure map, we found a cyclical
         // dependency. Don't recur further.
         const filePath = file.sourceFile.getFilePath();
@@ -579,10 +593,11 @@ export class Program {
         }
     }
 
-    private _detectAndReportImportCycles(sourceFileInfo: SourceFileInfo,
+    private _detectAndReportImportCycles(
+        sourceFileInfo: SourceFileInfo,
         dependencyChain: SourceFileInfo[] = [],
-        dependencyMap = new Map<string, boolean>()): void {
-
+        dependencyMap = new Map<string, boolean>()
+    ): void {
         // Don't bother checking for typestub files or third-party files.
         if (sourceFileInfo.sourceFile.isStubFile() || sourceFileInfo.isThirdPartyImport) {
             return;
@@ -634,9 +649,7 @@ export class Program {
         firstSourceFile.sourceFile.addCircularDependency(circDep);
     }
 
-    private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo,
-        markMap: Map<string, boolean>) {
-
+    private _markFileDirtyRecursive(sourceFileInfo: SourceFileInfo, markMap: Map<string, boolean>) {
         const filePath = sourceFileInfo.sourceFile.getFilePath();
 
         // Don't mark it again if it's already been visited.
@@ -656,7 +669,9 @@ export class Program {
         this._sourceFileList.forEach(sourceFileInfo => {
             if ((!options.checkOnlyOpenFiles && sourceFileInfo.isTracked) || sourceFileInfo.isOpenByClient) {
                 const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
-                    options, sourceFileInfo.diagnosticsVersion);
+                    options,
+                    sourceFileInfo.diagnosticsVersion
+                );
                 if (diagnostics !== undefined) {
                     fileDiagnostics.push({
                         filePath: sourceFileInfo.sourceFile.getFilePath(),
@@ -665,8 +680,7 @@ export class Program {
 
                     // Update the cached diagnosticsVersion so we can determine
                     // whether there are any updates next time we call getDiagnostics.
-                    sourceFileInfo.diagnosticsVersion =
-                        sourceFileInfo.sourceFile.getDiagnosticVersion();
+                    sourceFileInfo.diagnosticsVersion = sourceFileInfo.sourceFile.getDiagnosticVersion();
                 }
             }
         });
@@ -690,9 +704,7 @@ export class Program {
         });
     }
 
-    getDefinitionsForPosition(filePath: string, position: Position):
-        DocumentRange[] | undefined {
-
+    getDefinitionsForPosition(filePath: string, position: Position): DocumentRange[] | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
@@ -703,9 +715,11 @@ export class Program {
         return sourceFileInfo.sourceFile.getDefinitionsForPosition(position, this._evaluator);
     }
 
-    getReferencesForPosition(filePath: string, position: Position,
-        includeDeclaration: boolean): DocumentRange[] | undefined {
-
+    getReferencesForPosition(
+        filePath: string,
+        position: Position,
+        includeDeclaration: boolean
+    ): DocumentRange[] | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
@@ -714,7 +728,10 @@ export class Program {
         this._bindFile(sourceFileInfo);
 
         const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
-            position, includeDeclaration, this._evaluator);
+            position,
+            includeDeclaration,
+            this._evaluator
+        );
 
         if (!referencesResult) {
             return undefined;
@@ -726,8 +743,7 @@ export class Program {
                 if (curSourceFileInfo !== sourceFileInfo) {
                     this._bindFile(curSourceFileInfo);
 
-                    curSourceFileInfo.sourceFile.addReferences(referencesResult,
-                        includeDeclaration, this._evaluator);
+                    curSourceFileInfo.sourceFile.addReferences(referencesResult, includeDeclaration, this._evaluator);
                 }
             }
         }
@@ -740,8 +756,7 @@ export class Program {
         if (sourceFileInfo) {
             this._bindFile(sourceFileInfo);
 
-            sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(
-                symbolList, this._evaluator);
+            sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(symbolList, this._evaluator);
         }
     }
 
@@ -755,14 +770,11 @@ export class Program {
         for (const sourceFileInfo of this._sourceFileList) {
             this._bindFile(sourceFileInfo);
 
-            sourceFileInfo.sourceFile.addSymbolsForDocument(
-                symbolList, this._evaluator, query);
+            sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator, query);
         }
     }
 
-    getHoverForPosition(filePath: string, position: Position):
-        HoverResults | undefined {
-
+    getHoverForPosition(filePath: string, position: Position): HoverResults | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
@@ -773,9 +785,7 @@ export class Program {
         return sourceFileInfo.sourceFile.getHoverForPosition(position, this._evaluator);
     }
 
-    getSignatureHelpForPosition(filePath: string, position: Position):
-        SignatureHelpResults | undefined {
-
+    getSignatureHelpForPosition(filePath: string, position: Position): SignatureHelpResults | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
@@ -783,13 +793,10 @@ export class Program {
 
         this._bindFile(sourceFileInfo);
 
-        return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
-            position, this._lookUpImport, this._evaluator);
+        return sourceFileInfo.sourceFile.getSignatureHelpForPosition(position, this._lookUpImport, this._evaluator);
     }
 
-    getCompletionsForPosition(filePath: string, position: Position,
-        workspacePath: string): CompletionList | undefined {
-
+    getCompletionsForPosition(filePath: string, position: Position, workspacePath: string): CompletionList | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
@@ -798,9 +805,14 @@ export class Program {
         this._bindFile(sourceFileInfo);
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
-            position, workspacePath, this._configOptions,
-            this._importResolver, this._lookUpImport, this._evaluator,
-            () => this._buildModuleSymbolsMap(sourceFileInfo));
+            position,
+            workspacePath,
+            this._configOptions,
+            this._importResolver,
+            this._lookUpImport,
+            this._evaluator,
+            () => this._buildModuleSymbolsMap(sourceFileInfo)
+        );
     }
 
     resolveCompletionItem(filePath: string, completionItem: CompletionItem) {
@@ -812,13 +824,16 @@ export class Program {
         this._bindFile(sourceFileInfo);
 
         sourceFileInfo.sourceFile.resolveCompletionItem(
-            this._configOptions, this._importResolver, this._lookUpImport, this._evaluator,
-            () => this._buildModuleSymbolsMap(sourceFileInfo), completionItem);
+            this._configOptions,
+            this._importResolver,
+            this._lookUpImport,
+            this._evaluator,
+            () => this._buildModuleSymbolsMap(sourceFileInfo),
+            completionItem
+        );
     }
 
-    performQuickAction(filePath: string, command: string,
-        args: any[]): TextEditAction[] | undefined {
-
+    performQuickAction(filePath: string, command: string, args: any[]): TextEditAction[] | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
@@ -826,20 +841,16 @@ export class Program {
 
         this._bindFile(sourceFileInfo);
 
-        return sourceFileInfo.sourceFile.performQuickAction(
-            command, args);
+        return sourceFileInfo.sourceFile.performQuickAction(command, args);
     }
 
-    renameSymbolAtPosition(filePath: string, position: Position,
-        newName: string): FileEditAction[] | undefined {
-
+    renameSymbolAtPosition(filePath: string, position: Position, newName: string): FileEditAction[] | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
 
-        const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
-            position, true, this._evaluator);
+        const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(position, true, this._evaluator);
 
         if (!referencesResult) {
             return undefined;
@@ -851,8 +862,7 @@ export class Program {
                 if (curSourceFileInfo !== sourceFileInfo) {
                     this._bindFile(curSourceFileInfo);
 
-                    curSourceFileInfo.sourceFile.addReferences(referencesResult,
-                        true, this._evaluator);
+                    curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator);
                 }
             }
         }
@@ -878,7 +888,7 @@ export class Program {
 
         // If a file is no longer tracked or opened, it can
         // be removed from the program.
-        for (let i = 0; i < this._sourceFileList.length;) {
+        for (let i = 0; i < this._sourceFileList.length; ) {
             const fileInfo = this._sourceFileList[i];
             if (!this._isFileNeeded(fileInfo)) {
                 fileDiagnostics.push({
@@ -975,33 +985,34 @@ export class Program {
         return false;
     }
 
-    private _isImportAllowed(importer: SourceFileInfo, importResult: ImportResult,
-        isImportStubFile: boolean): boolean {
-
+    private _isImportAllowed(importer: SourceFileInfo, importResult: ImportResult, isImportStubFile: boolean): boolean {
         let thirdPartyImportAllowed = this._configOptions.useLibraryCodeForTypes;
 
-        if (importResult.importType === ImportType.ThirdParty ||
-            (importer.isThirdPartyImport && importResult.importType === ImportType.Local)) {
-
+        if (
+            importResult.importType === ImportType.ThirdParty ||
+            (importer.isThirdPartyImport && importResult.importType === ImportType.Local)
+        ) {
             if (this._allowedThirdPartyImports) {
                 if (importResult.isRelative) {
                     // If it's a relative import, we'll allow it because the
                     // importer was already deemed to be allowed.
                     thirdPartyImportAllowed = true;
-                } else if (this._allowedThirdPartyImports.some((importName: string) => {
-                    // If this import name is the one that was explicitly
-                    // allowed or is a child of that import name,
-                    // it's considered allowed.
-                    if (importResult.importName === importName) {
-                        return true;
-                    }
+                } else if (
+                    this._allowedThirdPartyImports.some((importName: string) => {
+                        // If this import name is the one that was explicitly
+                        // allowed or is a child of that import name,
+                        // it's considered allowed.
+                        if (importResult.importName === importName) {
+                            return true;
+                        }
 
-                    if (importResult.importName.startsWith(importName + '.')) {
-                        return true;
-                    }
+                        if (importResult.importName.startsWith(importName + '.')) {
+                            return true;
+                        }
 
-                    return false;
-                })) {
+                        return false;
+                    })
+                ) {
                     thirdPartyImportAllowed = true;
                 }
             }
@@ -1018,9 +1029,7 @@ export class Program {
         return true;
     }
 
-    private _updateSourceFileImports(sourceFileInfo: SourceFileInfo,
-        options: ConfigOptions): SourceFileInfo[] {
-
+    private _updateSourceFileImports(sourceFileInfo: SourceFileInfo, options: ConfigOptions): SourceFileInfo[] {
         const filesAdded: SourceFileInfo[] = [];
 
         // Get the new list of imports and see if it changed from the last
@@ -1033,12 +1042,12 @@ export class Program {
             if (importResult.isImportFound) {
                 if (this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
                     if (importResult.resolvedPaths.length > 0) {
-                        const filePath = importResult.resolvedPaths[
-                            importResult.resolvedPaths.length - 1];
+                        const filePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
                         if (filePath) {
                             newImportPathMap.set(filePath, {
                                 isTypeshedFile: !!importResult.isTypeshedFile,
-                                isThirdPartyImport: importResult.importType === ImportType.ThirdParty ||
+                                isThirdPartyImport:
+                                    importResult.importType === ImportType.ThirdParty ||
                                     (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local)
                             });
                         }
@@ -1049,18 +1058,21 @@ export class Program {
                     if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
                         newImportPathMap.set(implicitImport.path, {
                             isTypeshedFile: !!importResult.isTypeshedFile,
-                            isThirdPartyImport: importResult.importType === ImportType.ThirdParty ||
+                            isThirdPartyImport:
+                                importResult.importType === ImportType.ThirdParty ||
                                 (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local)
                         });
                     }
                 });
             } else if (options.verboseOutput) {
                 if (!sourceFileInfo.isTypeshedFile || options.diagnosticSettings.reportTypeshedErrors) {
-                    this._console.log(`Could not import '${ importResult.importName }' ` +
-                        `in file '${ sourceFileInfo.sourceFile.getFilePath() }'`);
+                    this._console.log(
+                        `Could not import '${importResult.importName}' ` +
+                            `in file '${sourceFileInfo.sourceFile.getFilePath()}'`
+                    );
                     if (importResult.importFailureInfo) {
                         importResult.importFailureInfo.forEach(diag => {
-                            this._console.log(`  ${ diag }`);
+                            this._console.log(`  ${diag}`);
                         });
                     }
                 }
@@ -1074,7 +1086,8 @@ export class Program {
             // A previous import was removed.
             if (!newImportPathMap.has(oldFilePath)) {
                 importInfo.importedBy = importInfo.importedBy.filter(
-                    fi => fi.sourceFile.getFilePath() !== sourceFileInfo.sourceFile.getFilePath());
+                    fi => fi.sourceFile.getFilePath() !== sourceFileInfo.sourceFile.getFilePath()
+                );
             } else {
                 updatedImportMap.set(oldFilePath, importInfo);
             }
@@ -1091,8 +1104,11 @@ export class Program {
                 } else {
                     const sourceFile = new SourceFile(
                         this._fs,
-                        importPath, importInfo.isTypeshedFile,
-                        importInfo.isThirdPartyImport, this._console);
+                        importPath,
+                        importInfo.isTypeshedFile,
+                        importInfo.isThirdPartyImport,
+                        this._console
+                    );
                     importedFileInfo = {
                         sourceFile,
                         isTracked: false,
@@ -1127,8 +1143,7 @@ export class Program {
         sourceFileInfo.builtinsImport = undefined;
         const builtinsImport = sourceFileInfo.sourceFile.getBuiltinsImport();
         if (builtinsImport) {
-            const resolvedBuiltinsPath = builtinsImport.resolvedPaths[
-                builtinsImport.resolvedPaths.length - 1];
+            const resolvedBuiltinsPath = builtinsImport.resolvedPaths[builtinsImport.resolvedPaths.length - 1];
             sourceFileInfo.builtinsImport = this._sourceFileMap.get(resolvedBuiltinsPath);
         }
 

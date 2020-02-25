@@ -36,29 +36,44 @@ test('UtilsAppendUndefinedValue', () => {
 
 test('UtilsFindEmpty', () => {
     const data: number[] = [];
-    assert.equal(utils.find(data, e => true), undefined);
+    assert.equal(
+        utils.find(data, e => true),
+        undefined
+    );
 });
 
 test('UtilsFindNoMatch', () => {
     const data = [1];
-    assert.equal(utils.find(data, e => false), undefined);
+    assert.equal(
+        utils.find(data, e => false),
+        undefined
+    );
 });
 
 test('UtilsFindMatchSimple', () => {
     const data = [1];
-    assert.equal(utils.find(data, e => e === 1), 1);
+    assert.equal(
+        utils.find(data, e => e === 1),
+        1
+    );
 });
 
 test('UtilsFindMatch', () => {
     const data = [new D(1, 'Hello')];
-    assert.equal(utils.find(data, e => e.value === 1), data[0]);
+    assert.equal(
+        utils.find(data, e => e.value === 1),
+        data[0]
+    );
 });
 
 test('UtilsFindMatchCovariant', () => {
     const item1 = new D(1, 'Hello');
     const item2 = new D(2, 'Hello2');
     const data: B[] = [new B(0), item1, item2, new B(3)];
-    assert.equal(utils.find(data, (e: D) => e.value === 2), item2);
+    assert.equal(
+        utils.find(data, (e: D) => e.value === 2),
+        item2
+    );
 });
 
 test('UtilsStableSort', () => {
@@ -126,7 +141,11 @@ test('cloneAndSort', () => {
 });
 
 test('flatten', () => {
-    const data: number[][] = [[1, 2], [3, 4], [5, 6]];
+    const data: number[][] = [
+        [1, 2],
+        [3, 4],
+        [5, 6]
+    ];
     assert.deepEqual(utils.flatten(data), [1, 2, 3, 4, 5, 6]);
 });
 

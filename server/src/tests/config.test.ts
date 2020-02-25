@@ -13,11 +13,11 @@ import { AnalyzerService } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { NullConsole } from '../common/console';
-import { combinePaths, normalizePath,normalizeSlashes } from '../common/pathUtils';
+import { combinePaths, normalizePath, normalizeSlashes } from '../common/pathUtils';
 import { createFromRealFileSystem } from '../common/vfs';
 
 test('FindFilesWithConfigFile', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
+    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
     const service = new AnalyzerService('<default>', createFromRealFileSystem(), new NullConsole());
     const commandLineOptions = new CommandLineOptions(cwd, true);
     commandLineOptions.configFilePath = 'src/tests/samples/project1';
@@ -26,9 +26,11 @@ test('FindFilesWithConfigFile', () => {
     service.setOptions(commandLineOptions);
 
     // The config file specifies a single file spec (a directory).
-    assert.equal(configOptions.include.length, 1, `failed creating options from ${ cwd }`);
-    assert.equal(normalizeSlashes(configOptions.projectRoot),
-        normalizeSlashes(combinePaths(cwd, commandLineOptions.configFilePath)));
+    assert.equal(configOptions.include.length, 1, `failed creating options from ${cwd}`);
+    assert.equal(
+        normalizeSlashes(configOptions.projectRoot),
+        normalizeSlashes(combinePaths(cwd, commandLineOptions.configFilePath))
+    );
 
     const fileList = service.test_getFileNamesFromFileSpecs();
 
@@ -39,7 +41,7 @@ test('FindFilesWithConfigFile', () => {
 });
 
 test('FileSpecNotAnArray', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
+    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -53,7 +55,7 @@ test('FileSpecNotAnArray', () => {
 });
 
 test('FileSpecNotAString', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
+    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -67,7 +69,7 @@ test('FileSpecNotAString', () => {
 });
 
 test('SomeFileSpecsAreInvalid', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
+    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -78,10 +80,12 @@ test('SomeFileSpecsAreInvalid', () => {
 
     // The config file specifies four file specs in the include array
     // and one in the exclude array.
-    assert.equal(configOptions.include.length, 4, `failed creating options from ${ cwd }`);
+    assert.equal(configOptions.include.length, 4, `failed creating options from ${cwd}`);
     assert.equal(configOptions.exclude.length, 1);
-    assert.equal(normalizeSlashes(configOptions.projectRoot),
-        normalizeSlashes(combinePaths(cwd, commandLineOptions.configFilePath)));
+    assert.equal(
+        normalizeSlashes(configOptions.projectRoot),
+        normalizeSlashes(combinePaths(cwd, commandLineOptions.configFilePath))
+    );
 
     const fileList = service.test_getFileNamesFromFileSpecs();
 
@@ -90,7 +94,7 @@ test('SomeFileSpecsAreInvalid', () => {
 });
 
 test('ConfigBadJson', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
+    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -104,7 +108,7 @@ test('ConfigBadJson', () => {
 });
 
 test('FindExecEnv1', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
+    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
     const configOptions = new ConfigOptions(cwd);
 
     // Build a config option with three execution environments.
@@ -122,12 +126,11 @@ test('FindExecEnv1', () => {
     // a default environment with the root equal to that of the config.
     const file4 = '/nothing/bar.py';
     const defaultExecEnv = configOptions.findExecEnvironment(file4);
-    assert.equal(normalizeSlashes(defaultExecEnv.root),
-        normalizeSlashes(configOptions.projectRoot));
+    assert.equal(normalizeSlashes(defaultExecEnv.root), normalizeSlashes(configOptions.projectRoot));
 });
 
 test('PythonPlatform', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), "../server"))
+    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
     const nullConsole = new NullConsole();
     const configOptions = new ConfigOptions(cwd);
 

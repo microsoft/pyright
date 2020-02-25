@@ -1,15 +1,15 @@
 /*
-* textRangeCollection.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Based on code from vscode-python repository:
-*  https://github.com/Microsoft/vscode-python
-*
-* Class that maintains an ordered list of text ranges and allows
-* for indexing and fast lookups within this list.
-*/
+ * textRangeCollection.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Based on code from vscode-python repository:
+ *  https://github.com/Microsoft/vscode-python
+ *
+ * Class that maintains an ordered list of text ranges and allows
+ * for indexing and fast lookups within this list.
+ */
 
 import { TextRange } from './textRange';
 
@@ -107,9 +107,7 @@ export class TextRangeCollection<T extends TextRange> {
                 return mid;
             }
 
-            if (mid < this.count - 1 && TextRange.getEnd(item) <= position &&
-                    position < this._items[mid + 1].start) {
-
+            if (mid < this.count - 1 && TextRange.getEnd(item) <= position && position < this._items[mid + 1].start) {
                 return -1;
             }
 

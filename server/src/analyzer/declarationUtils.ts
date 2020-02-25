@@ -1,11 +1,11 @@
 /*
-* declarationUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Collection of static methods that operate on declarations.
-*/
+ * declarationUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Collection of static methods that operate on declarations.
+ */
 
 import { Declaration, DeclarationType } from './declaration';
 
@@ -37,8 +37,10 @@ export function areDeclarationsSame(decl1: Declaration, decl2: Declaration): boo
         return false;
     }
 
-    if (decl1.range.start.line !== decl2.range.start.line ||
-            decl1.range.start.character !== decl2.range.start.character) {
+    if (
+        decl1.range.start.line !== decl2.range.start.line ||
+        decl1.range.start.character !== decl2.range.start.character
+    ) {
         return false;
     }
 

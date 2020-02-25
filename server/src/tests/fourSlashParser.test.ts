@@ -30,7 +30,10 @@ test('GlobalOptions', () => {
     pass`;
 
     const data = parseTestData('.', code, 'test.py');
-    assertOptions(data.globalOptions, [['libpath', '../dist/lib'], ['pythonversion', '3.7']]);
+    assertOptions(data.globalOptions, [
+        ['libpath', '../dist/lib'],
+        ['pythonversion', '3.7']
+    ]);
 
     assert.equal(data.files.length, 1);
     assert.equal(data.files[0].fileName, 'test.py');
@@ -69,7 +72,10 @@ test('Extra file options', () => {
     assert.equal(data.files[0].fileName, normalizeSlashes('./file1.py'));
 
     assertOptions(data.globalOptions, []);
-    assertOptions(data.files[0].fileOptions, [['filename', 'file1.py'], ['library', 'false']]);
+    assertOptions(data.files[0].fileOptions, [
+        ['filename', 'file1.py'],
+        ['library', 'false']
+    ]);
 });
 
 test('Library options', () => {
@@ -215,8 +221,10 @@ test('Multiple Files', () => {
     assert.equal(data.files.length, 3);
 
     assert.equal(data.files.filter(f => f.fileName === normalizeSlashes('./src/A.py'))[0].content, getContent('A'));
-    assert.equal(data.files.filter(f => f.fileName ===
-        normalizeSlashes(combinePaths(factory.libFolder, 'src/B.py')))[0].content, getContent('B'));
+    assert.equal(
+        data.files.filter(f => f.fileName === normalizeSlashes(combinePaths(factory.libFolder, 'src/B.py')))[0].content,
+        getContent('B')
+    );
     assert.equal(data.files.filter(f => f.fileName === normalizeSlashes('./src/C.py'))[0].content, getContent('C'));
 });
 
@@ -290,10 +298,14 @@ test('fourSlashWithFileSystem', () => {
     `;
 
     const data = parseTestData('.', code, 'unused');
-    const documents = data.files.map(f => new factory.TextDocument(f.fileName, f.content,
-        new Map<string, string>(Object.entries(f.fileOptions))));
+    const documents = data.files.map(
+        f => new factory.TextDocument(f.fileName, f.content, new Map<string, string>(Object.entries(f.fileOptions)))
+    );
 
-    const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ false, { documents, cwd: normalizeSlashes('/') });
+    const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ false, {
+        documents,
+        cwd: normalizeSlashes('/')
+    });
 
     for (const file of data.files) {
         assert.equal(fs.readFileSync(file.fileName, 'utf8'), getContent(getBaseFileName(file.fileName, '.py', false)));
@@ -301,7 +313,7 @@ test('fourSlashWithFileSystem', () => {
 });
 
 function getContent(className: string) {
-    return `class ${ className }:
+    return `class ${className}:
     pass`;
 }
 
@@ -309,5 +321,6 @@ function assertOptions(actual: CompilerSettings, expected: [string, string][], m
     assert.deepEqual(
         Object.entries(actual).sort((x, y) => compareStringsCaseSensitive(x[0], y[0])),
         expected,
-        message);
+        message
+    );
 }

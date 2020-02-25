@@ -1,14 +1,14 @@
 /*
-* circularDependency.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* A list of file paths that are part of a circular dependency
-* chain (i.e. a chain of imports). Since these are circular, there
-* no defined "start", but this module helps normalize the start
-* by picking the alphabetically-first module in the cycle.
-*/
+ * circularDependency.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * A list of file paths that are part of a circular dependency
+ * chain (i.e. a chain of imports). Since these are circular, there
+ * no defined "start", but this module helps normalize the start
+ * by picking the alphabetically-first module in the cycle.
+ */
 
 export class CircularDependency {
     private _paths: string[] = [];
@@ -32,8 +32,7 @@ export class CircularDependency {
         });
 
         if (firstIndex !== 0) {
-            this._paths = this._paths.slice(firstIndex).concat(
-                this._paths.slice(0, firstIndex));
+            this._paths = this._paths.slice(firstIndex).concat(this._paths.slice(0, firstIndex));
         }
     }
 

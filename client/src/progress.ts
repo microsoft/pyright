@@ -1,12 +1,12 @@
 /*
-* progress.ts
-*
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-*
-* Provides a way for the pyright language server to report progress
-* back to the client and display it in the editor.
-*/
+ * progress.ts
+ *
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ *
+ * Provides a way for the pyright language server to report progress
+ * back to the client and display it in the editor.
+ */
 
 import { Progress, ProgressLocation, window } from 'vscode';
 import { Disposable, LanguageClient } from 'vscode-languageclient';
@@ -25,13 +25,16 @@ export class ProgressReporting implements Disposable {
                     this._resolveProgress = resolve;
                 });
 
-                window.withProgress({
-                    location: ProgressLocation.Window,
-                    title: ''
-                }, progress => {
-                    this._progress = progress;
-                    return progressPromise;
-                });
+                window.withProgress(
+                    {
+                        location: ProgressLocation.Window,
+                        title: ''
+                    },
+                    progress => {
+                        this._progress = progress;
+                        return progressPromise;
+                    }
+                );
 
                 this._primeTimeoutTimer();
             });

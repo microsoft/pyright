@@ -1,12 +1,12 @@
 /*
-* diagnosticRules.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Strings that represent each of the diagnostic rules
-* that can be enabled or disabled in the configuration.
-*/
+ * diagnosticRules.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Strings that represent each of the diagnostic rules
+ * that can be enabled or disabled in the configuration.
+ */
 
 export const enum DiagnosticRule {
     strictListInference = 'strictListInference',

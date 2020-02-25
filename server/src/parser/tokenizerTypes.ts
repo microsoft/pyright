@@ -1,15 +1,15 @@
 /*
-* tokenizerTypes.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Based on code from vscode-python repository:
-*  https://github.com/Microsoft/vscode-python
-*
-* Interface, enumeration and class definitions used within
-* the Python tokenizer.
-*/
+ * tokenizerTypes.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Based on code from vscode-python repository:
+ *  https://github.com/Microsoft/vscode-python
+ *
+ * Interface, enumeration and class definitions used within
+ * the Python tokenizer.
+ */
 
 import { TextRange } from '../common/textRange';
 
@@ -97,10 +97,10 @@ export const enum OperatorType {
 }
 
 export const enum OperatorFlags {
-    Unary       = 1 << 0,
-    Binary      = 1 << 1,
-    Assignment  = 1 << 2,
-    Comparison  = 1 << 3
+    Unary = 1 << 0,
+    Binary = 1 << 1,
+    Assignment = 1 << 2,
+    Comparison = 1 << 3
 }
 
 export const enum KeywordType {
@@ -143,21 +143,21 @@ export const enum KeywordType {
 }
 
 export const enum StringTokenFlags {
-    None            = 0,
+    None = 0,
 
     // Quote types
-    SingleQuote     = 1 << 0,
-    DoubleQuote     = 1 << 1,
-    Triplicate      = 1 << 2,
+    SingleQuote = 1 << 0,
+    DoubleQuote = 1 << 1,
+    Triplicate = 1 << 2,
 
     // String content format
-    Raw             = 1 << 3,
-    Unicode         = 1 << 4,
-    Bytes           = 1 << 5,
-    Format          = 1 << 6,
+    Raw = 1 << 3,
+    Unicode = 1 << 4,
+    Bytes = 1 << 5,
+    Format = 1 << 6,
 
     // Error conditions
-    Unterminated    = 1 << 16
+    Unterminated = 1 << 16
 }
 
 export interface Comment extends TextRange {
@@ -188,9 +188,7 @@ export interface TokenBase extends TextRange {
 export interface Token extends TokenBase {}
 
 export namespace Token {
-    export function create(type: TokenType, start: number, length: number,
-            comments: Comment[] | undefined) {
-
+    export function create(type: TokenType, start: number, length: number, comments: Comment[] | undefined) {
         const token: Token = {
             start,
             length,
@@ -208,9 +206,7 @@ export interface IndentToken extends Token {
 }
 
 export namespace IndentToken {
-    export function create(start: number, length: number, indentAmount: number,
-            comments: Comment[] | undefined) {
-
+    export function create(start: number, length: number, indentAmount: number, comments: Comment[] | undefined) {
         const token: IndentToken = {
             start,
             length,
@@ -230,9 +226,13 @@ export interface DedentToken extends Token {
 }
 
 export namespace DedentToken {
-    export function create(start: number, length: number, indentAmount: number,
-            matchesIndent: boolean, comments: Comment[] | undefined) {
-
+    export function create(
+        start: number,
+        length: number,
+        indentAmount: number,
+        matchesIndent: boolean,
+        comments: Comment[] | undefined
+    ) {
         const token: DedentToken = {
             start,
             length,
@@ -252,9 +252,7 @@ export interface NewLineToken extends Token {
 }
 
 export namespace NewLineToken {
-    export function create(start: number, length: number, newLineType: NewLineType,
-            comments: Comment[] | undefined) {
-
+    export function create(start: number, length: number, newLineType: NewLineType, comments: Comment[] | undefined) {
         const token: NewLineToken = {
             start,
             length,
@@ -273,9 +271,7 @@ export interface KeywordToken extends Token {
 }
 
 export namespace KeywordToken {
-    export function create(start: number, length: number, keywordType: KeywordType,
-            comments: Comment[] | undefined) {
-
+    export function create(start: number, length: number, keywordType: KeywordType, comments: Comment[] | undefined) {
         const token: KeywordToken = {
             start,
             length,
@@ -305,9 +301,14 @@ export interface StringToken extends Token {
 }
 
 export namespace StringToken {
-    export function create(start: number, length: number, flags: StringTokenFlags, escapedValue: string,
-            prefixLength: number, comments: Comment[] | undefined) {
-
+    export function create(
+        start: number,
+        length: number,
+        flags: StringTokenFlags,
+        escapedValue: string,
+        prefixLength: number,
+        comments: Comment[] | undefined
+    ) {
         const token: StringToken = {
             start,
             length,
@@ -315,7 +316,7 @@ export namespace StringToken {
             flags,
             escapedValue,
             prefixLength,
-            quoteMarkLength: (flags & StringTokenFlags.Triplicate) ? 3 : 1,
+            quoteMarkLength: flags & StringTokenFlags.Triplicate ? 3 : 1,
             comments
         };
 
@@ -331,9 +332,14 @@ export interface NumberToken extends Token {
 }
 
 export namespace NumberToken {
-    export function create(start: number, length: number, value: number, isInteger: boolean,
-            isImaginary: boolean, comments: Comment[] | undefined) {
-
+    export function create(
+        start: number,
+        length: number,
+        value: number,
+        isInteger: boolean,
+        isImaginary: boolean,
+        comments: Comment[] | undefined
+    ) {
         const token: NumberToken = {
             start,
             length,
@@ -354,9 +360,7 @@ export interface OperatorToken extends Token {
 }
 
 export namespace OperatorToken {
-    export function create(start: number, length: number, operatorType: OperatorType,
-            comments: Comment[] | undefined) {
-
+    export function create(start: number, length: number, operatorType: OperatorType, comments: Comment[] | undefined) {
         const token: OperatorToken = {
             start,
             length,
@@ -375,9 +379,7 @@ export interface IdentifierToken extends Token {
 }
 
 export namespace IdentifierToken {
-    export function create(start: number, length: number, value: string,
-            comments: Comment[] | undefined) {
-
+    export function create(start: number, length: number, value: string, comments: Comment[] | undefined) {
         const token: IdentifierToken = {
             start,
             length,

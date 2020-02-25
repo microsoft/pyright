@@ -1,12 +1,12 @@
 /*
-* stringTokenUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Methods that handle unescaping of escaped string token
-* literal values.
-*/
+ * stringTokenUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Methods that handle unescaping of escaped string token
+ * literal values.
+ */
 
 import Char from 'typescript-char';
 
@@ -124,7 +124,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         const char = String.fromCharCode(charCode);
         output.value += char;
         formatSegment.value += char;
-    }
+    };
 
     while (true) {
         let curChar = getEscapedCharacter();
@@ -378,7 +378,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 if (strChar === Char.EndOfText) {
                     break;
                 }
-                
+
                 if (strChar === Char.Backslash) {
                     appendOutputChar(strChar);
                     strOffset++;
@@ -386,11 +386,11 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                     appendOutputChar(strChar);
                     continue;
                 }
-                
+
                 if (strChar === Char.LineFeed || strChar === Char.CarriageReturn) {
                     break;
                 }
-                
+
                 if (strChar === quoteChar) {
                     if (!isTriplicate) {
                         strOffset++;

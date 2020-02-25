@@ -8,7 +8,14 @@ import * as os from 'os';
 import * as pathModule from 'path';
 
 import { NullConsole } from '../../common/console';
-import { combinePaths, directoryExists, fileExists, FileSystemEntries, getFileSize, resolvePaths } from '../../common/pathUtils';
+import {
+    combinePaths,
+    directoryExists,
+    fileExists,
+    FileSystemEntries,
+    getFileSize,
+    resolvePaths
+} from '../../common/pathUtils';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../common/stringUtils';
 import { createFromRealFileSystem } from '../../common/vfs';
 
@@ -25,9 +32,13 @@ export interface TestHost {
     getWorkspaceRoot(): string;
 
     writeFile(path: string, contents: string): void;
-    listFiles(path: string, filter?: RegExp, options?: {
-        recursive?: boolean;
-    }): string[];
+    listFiles(
+        path: string,
+        filter?: RegExp,
+        options?: {
+            recursive?: boolean;
+        }
+    ): string[];
     log(text: string): void;
 }
 
@@ -80,22 +91,29 @@ function createHost(): TestHost {
 
     function getAccessibleFileSystemEntries(dirname: string): FileSystemEntries {
         try {
-            const entries: string[] = vfs.readdirSync(dirname || '.').sort(
-                useCaseSensitiveFileNames ? compareStringsCaseSensitive : compareStringsCaseInsensitive);
+            const entries: string[] = vfs
+                .readdirSync(dirname || '.')
+                .sort(useCaseSensitiveFileNames ? compareStringsCaseSensitive : compareStringsCaseInsensitive);
             const files: string[] = [];
             const directories: string[] = [];
             for (const entry of entries) {
-                if (entry === '.' || entry === '..') { continue; }
+                if (entry === '.' || entry === '..') {
+                    continue;
+                }
                 const name = combinePaths(dirname, entry);
                 try {
                     const stat = vfs.statSync(name);
-                    if (!stat) { continue; }
+                    if (!stat) {
+                        continue;
+                    }
                     if (stat.isFile()) {
                         files.push(entry);
                     } else if (stat.isDirectory()) {
                         directories.push(entry);
                     }
-                } catch { /*ignore*/ }
+                } catch {
+                    /*ignore*/
+                }
             }
             return { files, directories };
         } catch (e) {
@@ -109,7 +127,7 @@ function createHost(): TestHost {
         }
         const buffer = vfs.readFileSync(fileName);
         let len = buffer.length;
-        if (len >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF) {
+        if (len >= 2 && buffer[0] === 0xfe && buffer[1] === 0xff) {
             // Big endian UTF-16 byte order mark detected. Since big endian is not supported by node.js,
             // flip all byte pairs and treat as little endian.
             len &= ~1; // Round down to a multiple of 2
@@ -120,11 +138,11 @@ function createHost(): TestHost {
             }
             return buffer.toString('utf16le', 2);
         }
-        if (len >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
+        if (len >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
             // Little endian UTF-16 byte order mark detected
             return buffer.toString('utf16le', 2);
         }
-        if (len >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
+        if (len >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
             // UTF-8 byte order mark detected
             return buffer.toString('utf8', 3);
         }
@@ -145,11 +163,15 @@ function createHost(): TestHost {
         useCaseSensitiveFileNames: () => useCaseSensitiveFileNames,
         getFileSize: (path: string) => getFileSize(vfs, path),
         readFile: path => readFile(path),
-        writeFile: (path, content) => { writeFile(path, content); },
+        writeFile: (path, content) => {
+            writeFile(path, content);
+        },
         fileExists: path => fileExists(vfs, path),
         directoryExists: path => directoryExists(vfs, path),
         listFiles,
-        log: s => { console.log(s); },
+        log: s => {
+            console.log(s);
+        },
         getWorkspaceRoot: () => resolvePaths(__dirname, '../../..'),
         getAccessibleFileSystemEntries
     };

@@ -41,7 +41,7 @@ export interface FileParseResult {
 }
 
 export function resolveSampleFilePath(fileName: string): string {
-    return path.resolve(path.dirname(module.filename), `./samples/${ fileName }`);
+    return path.resolve(path.dirname(module.filename), `./samples/${fileName}`);
 }
 
 export function readSampleFile(fileName: string): string {
@@ -50,21 +50,25 @@ export function readSampleFile(fileName: string): string {
     try {
         return fs.readFileSync(filePath, { encoding: 'utf8' });
     } catch {
-        console.error(`Could not read file "${ fileName }"`);
+        console.error(`Could not read file "${fileName}"`);
         return '';
     }
 }
 
-export function parseText(textToParse: string, diagSink: DiagnosticSink,
-    parseOptions: ParseOptions = new ParseOptions()): ParseResults {
-
+export function parseText(
+    textToParse: string,
+    diagSink: DiagnosticSink,
+    parseOptions: ParseOptions = new ParseOptions()
+): ParseResults {
     const parser = new Parser();
     return parser.parseSourceFile(textToParse, parseOptions, diagSink);
 }
 
-export function parseSampleFile(fileName: string, diagSink: DiagnosticSink,
-        execEnvironment = new ExecutionEnvironment('.')): FileParseResult {
-
+export function parseSampleFile(
+    fileName: string,
+    diagSink: DiagnosticSink,
+    execEnvironment = new ExecutionEnvironment('.')
+): FileParseResult {
     const text = readSampleFile(fileName);
     const parseOptions = new ParseOptions();
     if (fileName.endsWith('pyi')) {
@@ -78,9 +82,12 @@ export function parseSampleFile(fileName: string, diagSink: DiagnosticSink,
     };
 }
 
-export function buildAnalyzerFileInfo(filePath: string, fileContents: string,
-        parseResults: ParseResults, configOptions: ConfigOptions): AnalyzerFileInfo {
-
+export function buildAnalyzerFileInfo(
+    filePath: string,
+    fileContents: string,
+    parseResults: ParseResults,
+    configOptions: ConfigOptions
+): AnalyzerFileInfo {
     const analysisDiagnostics = new TextRangeDiagnosticSink(parseResults.tokenizerOutput.lines);
 
     const fileInfo: AnalyzerFileInfo = {
@@ -102,16 +109,13 @@ export function buildAnalyzerFileInfo(filePath: string, fileContents: string,
     return fileInfo;
 }
 
-export function bindSampleFile(fileName: string,
-        configOptions = new ConfigOptions('.')): FileAnalysisResult {
-
+export function bindSampleFile(fileName: string, configOptions = new ConfigOptions('.')): FileAnalysisResult {
     const diagSink = new DiagnosticSink();
     const filePath = resolveSampleFilePath(fileName);
     const execEnvironment = configOptions.findExecEnvironment(filePath);
     const parseInfo = parseSampleFile(fileName, diagSink, execEnvironment);
 
-    const fileInfo = buildAnalyzerFileInfo(filePath, parseInfo.fileContents,
-        parseInfo.parseResults, configOptions);
+    const fileInfo = buildAnalyzerFileInfo(filePath, parseInfo.fileContents, parseInfo.parseResults, configOptions);
     const binder = new Binder(fileInfo);
     binder.bindModule(parseInfo.parseResults.parseTree);
 
@@ -127,9 +131,10 @@ export function bindSampleFile(fileName: string,
     };
 }
 
-export function typeAnalyzeSampleFiles(fileNames: string[],
-        configOptions = new ConfigOptions('.')): FileAnalysisResult[] {
-
+export function typeAnalyzeSampleFiles(
+    fileNames: string[],
+    configOptions = new ConfigOptions('.')
+): FileAnalysisResult[] {
     // Always enable "test mode".
     configOptions.internalTestMode = true;
     const importResolver = new ImportResolver(createFromRealFileSystem(), configOptions);
@@ -155,7 +160,7 @@ export function typeAnalyzeSampleFiles(fileNames: string[],
             };
             return analysisResult;
         } else {
-            fail(`Source file not found for ${ filePaths[index] }`);
+            fail(`Source file not found for ${filePaths[index]}`);
 
             const analysisResult: FileAnalysisResult = {
                 filePath: '',
@@ -170,16 +175,16 @@ export function typeAnalyzeSampleFiles(fileNames: string[],
 
 export function printDiagnostics(fileResults: FileAnalysisResult) {
     if (fileResults.errors.length > 0) {
-        console.error(`Errors in ${ fileResults.filePath }:`);
+        console.error(`Errors in ${fileResults.filePath}:`);
         for (const diag of fileResults.errors) {
-            console.error(`  ${ diag.message }`);
+            console.error(`  ${diag.message}`);
         }
     }
 
     if (fileResults.warnings.length > 0) {
-        console.error(`Warnings in ${ fileResults.filePath }:`);
+        console.error(`Warnings in ${fileResults.filePath}:`);
         for (const diag of fileResults.warnings) {
-            console.error(`  ${ diag.message }`);
+            console.error(`  ${diag.message}`);
         }
     }
 }

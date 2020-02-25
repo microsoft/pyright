@@ -1,14 +1,14 @@
 /*
-* characters.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Based on code from vscode-python repository:
-*  https://github.com/Microsoft/vscode-python
-*
-* Utility routines used by tokenizer.
-*/
+ * characters.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Based on code from vscode-python repository:
+ *  https://github.com/Microsoft/vscode-python
+ *
+ * Utility routines used by tokenizer.
+ */
 
 import Char from 'typescript-char';
 
@@ -51,12 +51,16 @@ export function isIdentifierStartChar(ch: number) {
 
 export function isIdentifierChar(ch: number) {
     if (ch < _identifierCharFastTableSize) {
-        return _identifierCharFastTable[ch] === CharCategory.StartIdentifierChar ||
-            _identifierCharFastTable[ch] === CharCategory.IdentifierChar;
+        return (
+            _identifierCharFastTable[ch] === CharCategory.StartIdentifierChar ||
+            _identifierCharFastTable[ch] === CharCategory.IdentifierChar
+        );
     }
 
-    return _identifierCharMap[ch] === CharCategory.StartIdentifierChar ||
-        _identifierCharMap[ch] === CharCategory.IdentifierChar;
+    return (
+        _identifierCharMap[ch] === CharCategory.StartIdentifierChar ||
+        _identifierCharMap[ch] === CharCategory.IdentifierChar
+    );
 }
 
 export function isWhiteSpace(ch: number): boolean {
@@ -68,11 +72,11 @@ export function isLineBreak(ch: number): boolean {
 }
 
 export function isNumber(ch: number): boolean {
-    return ch >= Char._0 && ch <= Char._9 || ch === Char.Underscore;
+    return (ch >= Char._0 && ch <= Char._9) || ch === Char.Underscore;
 }
 
 export function isDecimal(ch: number): boolean {
-    return ch >= Char._0 && ch <= Char._9 || ch === Char.Underscore;
+    return (ch >= Char._0 && ch <= Char._9) || ch === Char.Underscore;
 }
 
 export function isHex(ch: number): boolean {
@@ -80,7 +84,7 @@ export function isHex(ch: number): boolean {
 }
 
 export function isOctal(ch: number): boolean {
-    return ch >= Char._0 && ch <= Char._7 || ch === Char.Underscore;
+    return (ch >= Char._0 && ch <= Char._7) || ch === Char.Underscore;
 }
 
 export function isBinary(ch: number): boolean {
@@ -89,21 +93,55 @@ export function isBinary(ch: number): boolean {
 
 // Underscore is explicitly allowed to start an identifier.
 // Characters with the Other_ID_Start property.
-const _specialStartIdentifierChars: unicode.UnicodeRangeTable = [Char.Underscore,
-    0x1885, 0x1886, 0x2118, 0x212E, 0x309B, 0x309C];
+const _specialStartIdentifierChars: unicode.UnicodeRangeTable = [
+    Char.Underscore,
+    0x1885,
+    0x1886,
+    0x2118,
+    0x212e,
+    0x309b,
+    0x309c
+];
 
-const _startIdentifierCharRanges = [_specialStartIdentifierChars, unicode.unicodeLu,
-    unicode.unicodeLl, unicode.unicodeLt, unicode.unicodeLo, unicode.unicodeLm, unicode.unicodeNl];
+const _startIdentifierCharRanges = [
+    _specialStartIdentifierChars,
+    unicode.unicodeLu,
+    unicode.unicodeLl,
+    unicode.unicodeLt,
+    unicode.unicodeLo,
+    unicode.unicodeLm,
+    unicode.unicodeNl
+];
 
 // Characters with the Other_ID_Start property.
-const _specialIdentifierChars: unicode.UnicodeRangeTable = [0x00B7, 0x0387, 0x1369,
-    0x136A, 0x136B, 0x136C, 0x136D, 0x136E, 0x136F, 0x1370, 0x1371, 0x19DA];
+const _specialIdentifierChars: unicode.UnicodeRangeTable = [
+    0x00b7,
+    0x0387,
+    0x1369,
+    0x136a,
+    0x136b,
+    0x136c,
+    0x136d,
+    0x136e,
+    0x136f,
+    0x1370,
+    0x1371,
+    0x19da
+];
 
-const _identifierCharRanges = [_specialIdentifierChars, unicode.unicodeMn, unicode.unicodeMc,
-    unicode.unicodeNd, unicode.unicodePc];
+const _identifierCharRanges = [
+    _specialIdentifierChars,
+    unicode.unicodeMn,
+    unicode.unicodeMc,
+    unicode.unicodeNd,
+    unicode.unicodePc
+];
 
-function _buildIdentifierLookupTableFromUnicodeRangeTable(table: unicode.UnicodeRangeTable,
-        category: CharCategory, fastTableOnly: boolean) {
+function _buildIdentifierLookupTableFromUnicodeRangeTable(
+    table: unicode.UnicodeRangeTable,
+    category: CharCategory,
+    fastTableOnly: boolean
+) {
     for (let entryIndex = 0; entryIndex < table.length; entryIndex++) {
         const entry = table[entryIndex];
         let rangeStart: number;
@@ -135,13 +173,11 @@ function _buildIdentifierLookupTable(fastTableOnly: boolean) {
     _identifierCharFastTable.fill(CharCategory.NotIdentifierChar);
 
     _identifierCharRanges.forEach(table => {
-        _buildIdentifierLookupTableFromUnicodeRangeTable(
-            table, CharCategory.IdentifierChar, fastTableOnly);
+        _buildIdentifierLookupTableFromUnicodeRangeTable(table, CharCategory.IdentifierChar, fastTableOnly);
     });
 
     _startIdentifierCharRanges.forEach(table => {
-        _buildIdentifierLookupTableFromUnicodeRangeTable(
-            table, CharCategory.StartIdentifierChar, fastTableOnly);
+        _buildIdentifierLookupTableFromUnicodeRangeTable(table, CharCategory.StartIdentifierChar, fastTableOnly);
     });
 }
 

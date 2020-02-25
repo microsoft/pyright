@@ -1,13 +1,13 @@
 /*
-* commandLineOptions.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Class that holds the command-line options (those that can be
-* passed into the main entry point of the command-line version
-* of the analyzer).
-*/
+ * commandLineOptions.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Class that holds the command-line options (those that can be
+ * passed into the main entry point of the command-line version
+ * of the analyzer).
+ */
 
 // Some options can be specified by command line.
 export class CommandLineOptions {

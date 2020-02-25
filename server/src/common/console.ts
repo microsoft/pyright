@@ -1,12 +1,12 @@
 /*
-* console.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Provides an abstraction for console logging and error-reporting
-* methods.
-*/
+ * console.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Provides an abstraction for console logging and error-reporting
+ * methods.
+ */
 
 export interface ConsoleInterface {
     log: (message: string) => void;

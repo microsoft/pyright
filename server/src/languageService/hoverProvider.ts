@@ -1,13 +1,13 @@
 /*
-* hoverProvider.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Logic that maps a position within a Python program file into
-* markdown text that is displayed when the user hovers over that
-* position within a smart editor.
-*/
+ * hoverProvider.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Logic that maps a position within a Python program file into
+ * markdown text that is displayed when the user hovers over that
+ * position within a smart editor.
+ */
 
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown } from '../analyzer/docStringUtils';
@@ -32,9 +32,11 @@ export interface HoverResults {
 }
 
 export class HoverProvider {
-    static getHoverForPosition(parseResults: ParseResults, position: Position,
-            evaluator: TypeEvaluator): HoverResults | undefined {
-
+    static getHoverForPosition(
+        parseResults: ParseResults,
+        position: Position,
+        evaluator: TypeEvaluator
+    ): HoverResults | undefined {
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;
@@ -84,36 +86,34 @@ export class HoverProvider {
         return results.parts.length > 0 ? results : undefined;
     }
 
-    private static _addResultsForDeclaration(parts: HoverTextPart[], declaration: Declaration,
-            node: NameNode, evaluator: TypeEvaluator): void {
-
+    private static _addResultsForDeclaration(
+        parts: HoverTextPart[],
+        declaration: Declaration,
+        node: NameNode,
+        evaluator: TypeEvaluator
+    ): void {
         const resolvedDecl = evaluator.resolveAliasDeclaration(declaration);
         if (!resolvedDecl) {
-            this._addResultsPart(parts, `(import) ` + node.value +
-                this._getTypeText(node, evaluator), true);
+            this._addResultsPart(parts, `(import) ` + node.value + this._getTypeText(node, evaluator), true);
             return;
         }
 
         switch (resolvedDecl.type) {
             case DeclarationType.Intrinsic: {
-                this._addResultsPart(parts, node.value +
-                    this._getTypeText(node, evaluator), true);
+                this._addResultsPart(parts, node.value + this._getTypeText(node, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
 
             case DeclarationType.Variable: {
-                const label = resolvedDecl.isConstant || resolvedDecl.isFinal ?
-                    'constant' : 'variable';
-                this._addResultsPart(parts, `(${ label }) ` + node.value +
-                    this._getTypeText(node, evaluator), true);
+                const label = resolvedDecl.isConstant || resolvedDecl.isFinal ? 'constant' : 'variable';
+                this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(node, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
 
             case DeclarationType.Parameter: {
-                this._addResultsPart(parts, '(parameter) ' + node.value +
-                    this._getTypeText(node, evaluator), true);
+                this._addResultsPart(parts, '(parameter) ' + node.value + this._getTypeText(node, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
@@ -129,12 +129,10 @@ export class HoverProvider {
                 let label = 'function';
                 if (resolvedDecl.isMethod) {
                     const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
-                    label = declaredType && isProperty(declaredType) ?
-                        'property' : 'method';
+                    label = declaredType && isProperty(declaredType) ? 'property' : 'method';
                 }
 
-                this._addResultsPart(parts, `(${ label }) ` + node.value +
-                    this._getTypeText(node, evaluator), true);
+                this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(node, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
             }

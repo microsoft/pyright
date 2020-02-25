@@ -14,9 +14,19 @@ import * as assert from 'assert';
 
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { Tokenizer } from '../parser/tokenizer';
-import { DedentToken, IdentifierToken, IndentToken, NewLineToken, NewLineType,
-    NumberToken, OperatorToken, OperatorType, StringToken,
-    StringTokenFlags, TokenType } from '../parser/tokenizerTypes';
+import {
+    DedentToken,
+    IdentifierToken,
+    IndentToken,
+    NewLineToken,
+    NewLineType,
+    NumberToken,
+    OperatorToken,
+    OperatorType,
+    StringToken,
+    StringTokenFlags,
+    TokenType
+} from '../parser/tokenizerTypes';
 import * as TestUtils from './testUtils';
 
 const _implicitTokenCount = 2;
@@ -162,14 +172,7 @@ test('PunctuationTokens', () => {
 
 test('IndentDedent', () => {
     const t = new Tokenizer();
-    const results = t.tokenize(
-        'test\n' +
-        '  i1\n' +
-        '  i2  # \n' +
-        '       # \n' +
-        '  \ti3\n' +
-        '\ti4\n' +
-        ' i1');
+    const results = t.tokenize('test\n' + '  i1\n' + '  i2  # \n' + '       # \n' + '  \ti3\n' + '\ti4\n' + ' i1');
     assert.equal(results.tokens.count, 15 + _implicitTokenCount);
 
     assert.equal(results.tokens.getItemAt(0).type, TokenType.Identifier);
@@ -233,7 +236,11 @@ test('Strings: unclosed', () => {
     const results = t.tokenize(' "string" """line1\n#line2"""\t\'un#closed');
     assert.equal(results.tokens.count, 3 + _implicitTokenCount);
 
-    const ranges = [[1, 8], [10, 18], [29, 10]];
+    const ranges = [
+        [1, 8],
+        [10, 18],
+        [29, 10]
+    ];
     for (let i = 0; i < ranges.length; i += 1) {
         assert.equal(results.tokens.getItemAt(i).start, ranges[i][0]);
         assert.equal(results.tokens.getItemAt(i).length, ranges[i][1]);
@@ -246,7 +253,10 @@ test('Strings: escaped across multiple lines', () => {
     const results = t.tokenize(' "a\\\nb" \'c\\\r\nb\'');
     assert.equal(results.tokens.count, 2 + _implicitTokenCount);
 
-    const ranges = [[1, 6], [8, 7]];
+    const ranges = [
+        [1, 6],
+        [8, 7]
+    ];
     for (let i = 0; i < ranges.length; i += 1) {
         assert.equal(results.tokens.getItemAt(i).start, ranges[i][0]);
         assert.equal(results.tokens.getItemAt(i).length, ranges[i][1]);
@@ -259,7 +269,10 @@ test('Strings: block next to regular, double-quoted', () => {
     const results = t.tokenize('"string""""s2"""');
     assert.equal(results.tokens.count, 2 + _implicitTokenCount);
 
-    const ranges = [[0, 8], [8, 8]];
+    const ranges = [
+        [0, 8],
+        [8, 8]
+    ];
     for (let i = 0; i < ranges.length; i += 1) {
         assert.equal(results.tokens.getItemAt(i).start, ranges[i][0]);
         assert.equal(results.tokens.getItemAt(i).length, ranges[i][1]);
@@ -272,7 +285,10 @@ test('Strings: block next to block, double-quoted', () => {
     const results = t.tokenize('""""""""');
     assert.equal(results.tokens.count, 2 + _implicitTokenCount);
 
-    const ranges = [[0, 6], [6, 2]];
+    const ranges = [
+        [0, 6],
+        [6, 2]
+    ];
     for (let i = 0; i < ranges.length; i += 1) {
         assert.equal(results.tokens.getItemAt(i).start, ranges[i][0]);
         assert.equal(results.tokens.getItemAt(i).length, ranges[i][1]);
@@ -303,7 +319,7 @@ test('Strings: single quote escape', () => {
     assert.equal(stringToken.flags, StringTokenFlags.SingleQuote);
     assert.equal(stringToken.length, 12);
     assert.equal(stringToken.prefixLength, 0);
-    assert.equal(stringToken.escapedValue, '\\\'quoted\\\'');
+    assert.equal(stringToken.escapedValue, "\\'quoted\\'");
 });
 
 test('Strings: double quote escape', () => {
@@ -325,8 +341,7 @@ test('Strings: triplicate double quote escape', () => {
 
     const stringToken = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote |
-        StringTokenFlags.Triplicate);
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Triplicate);
     assert.equal(stringToken.length, 16);
     assert.equal(stringToken.escapedValue, '\\"quoted\\"');
 });
@@ -369,8 +384,10 @@ test('Strings: single quoted multiline f-string', () => {
 
     const stringToken = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags,
-        StringTokenFlags.SingleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format);
+    assert.equal(
+        stringToken.flags,
+        StringTokenFlags.SingleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format
+    );
     assert.equal(stringToken.length, 13);
     assert.equal(stringToken.escapedValue, 'quoted');
 });
@@ -382,8 +399,10 @@ test('Strings: double quoted multiline f-string', () => {
 
     const stringToken = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags,
-        StringTokenFlags.DoubleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format);
+    assert.equal(
+        stringToken.flags,
+        StringTokenFlags.DoubleQuote | StringTokenFlags.Triplicate | StringTokenFlags.Format
+    );
     assert.equal(stringToken.length, 14);
     assert.equal(stringToken.escapedValue, 'quoted ');
 });
@@ -401,8 +420,10 @@ test('Strings: f-string with single right brace', () => {
     assert.equal(unescapedValue.unescapeErrors.length, 1);
     assert.equal(unescapedValue.unescapeErrors[0].offset, 5);
     assert.equal(unescapedValue.unescapeErrors[0].length, 1);
-    assert.equal(unescapedValue.unescapeErrors[0].errorType,
-        StringTokenUtils.UnescapeErrorType.SingleCloseBraceWithinFormatLiteral);
+    assert.equal(
+        unescapedValue.unescapeErrors[0].errorType,
+        StringTokenUtils.UnescapeErrorType.SingleCloseBraceWithinFormatLiteral
+    );
 });
 
 test('Strings: f-string with escape in expression', () => {
@@ -418,8 +439,10 @@ test('Strings: f-string with escape in expression', () => {
     assert.equal(unescapedValue.unescapeErrors.length, 1);
     assert.equal(unescapedValue.unescapeErrors[0].offset, 8);
     assert.equal(unescapedValue.unescapeErrors[0].length, 1);
-    assert.equal(unescapedValue.unescapeErrors[0].errorType,
-        StringTokenUtils.UnescapeErrorType.EscapeWithinFormatExpression);
+    assert.equal(
+        unescapedValue.unescapeErrors[0].errorType,
+        StringTokenUtils.UnescapeErrorType.EscapeWithinFormatExpression
+    );
 });
 
 test('Strings: f-string with unterminated expression', () => {
@@ -434,8 +457,10 @@ test('Strings: f-string with unterminated expression', () => {
     assert.equal(unescapedValue.formatStringSegments.length, 2);
     assert.equal(unescapedValue.unescapeErrors.length, 1);
     assert.equal(unescapedValue.unescapeErrors[0].offset, 7);
-    assert.equal(unescapedValue.unescapeErrors[0].errorType,
-        StringTokenUtils.UnescapeErrorType.UnterminatedFormatExpression);
+    assert.equal(
+        unescapedValue.unescapeErrors[0].errorType,
+        StringTokenUtils.UnescapeErrorType.UnterminatedFormatExpression
+    );
 });
 
 test('Strings: escape at the end of single quoted string', () => {
@@ -445,10 +470,9 @@ test('Strings: escape at the end of single quoted string', () => {
 
     const stringToken = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags,
-        StringTokenFlags.SingleQuote | StringTokenFlags.Unterminated);
+    assert.equal(stringToken.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Unterminated);
     assert.equal(stringToken.length, 9);
-    assert.equal(stringToken.escapedValue, 'quoted\\\'');
+    assert.equal(stringToken.escapedValue, "quoted\\'");
 
     assert.equal(results.tokens.getItemAt(1).type, TokenType.NewLine);
     assert.equal(results.tokens.getItemAt(2).type, TokenType.Identifier);
@@ -461,8 +485,7 @@ test('Strings: escape at the end of double quoted string', () => {
 
     const stringToken = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote |
-        StringTokenFlags.Unterminated);
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Unterminated);
     assert.equal(stringToken.length, 9);
     assert.equal(stringToken.escapedValue, 'quoted\\"');
 
@@ -477,32 +500,28 @@ test('Strings: b/u/r-string', () => {
 
     const stringToken0 = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken0.type, TokenType.String);
-    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote |
-        StringTokenFlags.Bytes);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Bytes);
     assert.equal(stringToken0.length, 4);
     assert.equal(stringToken0.escapedValue, 'b');
     assert.equal(stringToken0.prefixLength, 1);
 
     const stringToken1 = results.tokens.getItemAt(1) as StringToken;
     assert.equal(stringToken1.type, TokenType.String);
-    assert.equal(stringToken1.flags,
-        StringTokenFlags.SingleQuote | StringTokenFlags.Unicode);
+    assert.equal(stringToken1.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Unicode);
     assert.equal(stringToken1.length, 4);
     assert.equal(stringToken1.escapedValue, 'u');
     assert.equal(stringToken1.prefixLength, 1);
 
     const stringToken2 = results.tokens.getItemAt(2) as StringToken;
     assert.equal(stringToken2.type, TokenType.String);
-    assert.equal(stringToken2.flags, StringTokenFlags.DoubleQuote |
-        StringTokenFlags.Bytes | StringTokenFlags.Raw);
+    assert.equal(stringToken2.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Bytes | StringTokenFlags.Raw);
     assert.equal(stringToken2.length, 6);
     assert.equal(stringToken2.escapedValue, 'br');
     assert.equal(stringToken2.prefixLength, 2);
 
     const stringToken3 = results.tokens.getItemAt(3) as StringToken;
     assert.equal(stringToken3.type, TokenType.String);
-    assert.equal(stringToken3.flags, StringTokenFlags.SingleQuote |
-        StringTokenFlags.Unicode | StringTokenFlags.Raw);
+    assert.equal(stringToken3.flags, StringTokenFlags.SingleQuote | StringTokenFlags.Unicode | StringTokenFlags.Raw);
     assert.equal(stringToken3.length, 6);
     assert.equal(stringToken3.escapedValue, 'ur');
     assert.equal(stringToken3.prefixLength, 2);
@@ -510,24 +529,23 @@ test('Strings: b/u/r-string', () => {
 
 test('Strings: bytes string with non-ASCII', () => {
     const t = new Tokenizer();
-    const results = t.tokenize('B"Teßt" b\'\'\'Teñt\'\'\'');
+    const results = t.tokenize("B\"Teßt\" b'''Teñt'''");
     assert.equal(results.tokens.count, 2 + _implicitTokenCount);
 
     const stringToken0 = results.tokens.getItemAt(0) as StringToken;
-    const unescapedValue0 = StringTokenUtils.getUnescapedString(
-        stringToken0);
+    const unescapedValue0 = StringTokenUtils.getUnescapedString(stringToken0);
     assert.equal(stringToken0.type, TokenType.String);
-    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote |
-        StringTokenFlags.Bytes);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Bytes);
     assert.equal(unescapedValue0.nonAsciiInBytes, true);
     assert.equal(stringToken0.length, 7);
 
     const stringToken1 = results.tokens.getItemAt(1) as StringToken;
-    const unescapedValue1 = StringTokenUtils.getUnescapedString(
-        stringToken1);
+    const unescapedValue1 = StringTokenUtils.getUnescapedString(stringToken1);
     assert.equal(stringToken1.type, TokenType.String);
-    assert.equal(stringToken1.flags, StringTokenFlags.SingleQuote |
-        StringTokenFlags.Bytes | StringTokenFlags.Triplicate);
+    assert.equal(
+        stringToken1.flags,
+        StringTokenFlags.SingleQuote | StringTokenFlags.Bytes | StringTokenFlags.Triplicate
+    );
     assert.equal(unescapedValue1.nonAsciiInBytes, true);
     assert.equal(stringToken1.length, 11);
 });
@@ -540,8 +558,7 @@ test('Strings: raw strings with escapes', () => {
     const stringToken0 = results.tokens.getItemAt(0) as StringToken;
     const unescapedValue0 = StringTokenUtils.getUnescapedString(stringToken0);
     assert.equal(stringToken0.type, TokenType.String);
-    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote |
-        StringTokenFlags.Raw);
+    assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Raw);
     assert.equal(stringToken0.length, 5);
     assert.equal(stringToken0.escapedValue, '\\"');
     assert.equal(unescapedValue0.value, '\\"');
@@ -549,8 +566,7 @@ test('Strings: raw strings with escapes', () => {
     const stringToken1 = results.tokens.getItemAt(1) as StringToken;
     const unescapedValue1 = StringTokenUtils.getUnescapedString(stringToken1);
     assert.equal(stringToken1.type, TokenType.String);
-    assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote |
-        StringTokenFlags.Raw);
+    assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Raw);
     assert.equal(stringToken1.length, 10);
     assert.equal(stringToken1.escapedValue, '\\\r\n\\\n\\a');
     assert.equal(unescapedValue1.value, '\\\r\n\\\n\\a');
@@ -563,8 +579,7 @@ test('Strings: escape at the end of double quoted string', () => {
 
     const stringToken = results.tokens.getItemAt(0) as StringToken;
     assert.equal(stringToken.type, TokenType.String);
-    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote |
-        StringTokenFlags.Unterminated);
+    assert.equal(stringToken.flags, StringTokenFlags.DoubleQuote | StringTokenFlags.Unterminated);
     assert.equal(stringToken.length, 9);
     assert.equal(stringToken.escapedValue, 'quoted\\"');
 
@@ -599,12 +614,10 @@ test('Strings: invalid escape characters', () => {
     assert.equal(unescapedValue.unescapeErrors.length, 2);
     assert.equal(unescapedValue.unescapeErrors[0].offset, 0);
     assert.equal(unescapedValue.unescapeErrors[0].length, 2);
-    assert.equal(unescapedValue.unescapeErrors[0].errorType,
-        StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence);
+    assert.equal(unescapedValue.unescapeErrors[0].errorType, StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence);
     assert.equal(unescapedValue.unescapeErrors[1].offset, 4);
     assert.equal(unescapedValue.unescapeErrors[1].length, 2);
-    assert.equal(unescapedValue.unescapeErrors[1].errorType,
-        StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence);
+    assert.equal(unescapedValue.unescapeErrors[1].errorType, StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence);
 });
 
 test('Strings: good hex escapes', () => {
@@ -643,8 +656,7 @@ test('Strings: bad hex escapes', () => {
     assert.equal(results.tokens.count, 3 + _implicitTokenCount);
 
     const stringToken0 = results.tokens.getItemAt(0) as StringToken;
-    const unescapedValue0 = StringTokenUtils.getUnescapedString(
-        stringToken0);
+    const unescapedValue0 = StringTokenUtils.getUnescapedString(stringToken0);
     assert.equal(stringToken0.type, TokenType.String);
     assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote);
     assert.equal(unescapedValue0.unescapeErrors.length, 1);
@@ -652,8 +664,7 @@ test('Strings: bad hex escapes', () => {
     assert.equal(unescapedValue0.value, '\\x4g');
 
     const stringToken1 = results.tokens.getItemAt(1) as StringToken;
-    const unescapedValue1 = StringTokenUtils.getUnescapedString(
-        stringToken1);
+    const unescapedValue1 = StringTokenUtils.getUnescapedString(stringToken1);
     assert.equal(stringToken1.type, TokenType.String);
     assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote);
     assert.equal(unescapedValue1.unescapeErrors.length, 1);
@@ -661,8 +672,7 @@ test('Strings: bad hex escapes', () => {
     assert.equal(unescapedValue1.value, '\\u006');
 
     const stringToken2 = results.tokens.getItemAt(2) as StringToken;
-    const unescapedValue2 = StringTokenUtils.getUnescapedString(
-        stringToken2);
+    const unescapedValue2 = StringTokenUtils.getUnescapedString(stringToken2);
     assert.equal(stringToken2.type, TokenType.String);
     assert.equal(stringToken2.flags, StringTokenFlags.DoubleQuote);
     assert.equal(unescapedValue2.unescapeErrors.length, 1);
@@ -676,8 +686,7 @@ test('Strings: good name escapes', () => {
     assert.equal(results.tokens.count, 2 + _implicitTokenCount);
 
     const stringToken0 = results.tokens.getItemAt(0) as StringToken;
-    const unescapedValue0 = StringTokenUtils.getUnescapedString(
-        stringToken0);
+    const unescapedValue0 = StringTokenUtils.getUnescapedString(stringToken0);
     assert.equal(stringToken0.type, TokenType.String);
     assert.equal(stringToken0.flags, StringTokenFlags.DoubleQuote);
     assert.equal(stringToken0.length, 11);
@@ -685,8 +694,7 @@ test('Strings: good name escapes', () => {
     assert.equal(unescapedValue0.value, '-');
 
     const stringToken1 = results.tokens.getItemAt(1) as StringToken;
-    const unescapedValue1 = StringTokenUtils.getUnescapedString(
-        stringToken1);
+    const unescapedValue1 = StringTokenUtils.getUnescapedString(stringToken1);
     assert.equal(stringToken1.type, TokenType.String);
     assert.equal(stringToken1.flags, StringTokenFlags.DoubleQuote);
     assert.equal(stringToken1.length, 10);
@@ -770,7 +778,7 @@ test('Hex number', () => {
 
     assert.equal(results.tokens.getItemAt(2).type, TokenType.Number);
     assert.equal(results.tokens.getItemAt(2).length, 7);
-    assert.equal((results.tokens.getItemAt(2) as NumberToken).value, 0xFEAB);
+    assert.equal((results.tokens.getItemAt(2) as NumberToken).value, 0xfeab);
     assert.equal((results.tokens.getItemAt(2) as NumberToken).isInteger, true);
 
     assert.equal(results.tokens.getItemAt(3).type, TokenType.Number);
@@ -1042,7 +1050,8 @@ test('Simple expression, leading minus', () => {
 });
 
 test('Operators', () => {
-    const text = '< << <<= ' +
+    const text =
+        '< << <<= ' +
         '== != > >> >>= >= <=' +
         '+ - ~ %' +
         '* ** / // /= //=' +
@@ -1050,14 +1059,7 @@ test('Operators', () => {
         '& &= | |= ^ ^= ' +
         ':=';
     const results = new Tokenizer().tokenize(text);
-    const lengths = [
-        1, 2, 3,
-        2, 2, 1, 2, 3, 2, 2,
-        1, 1, 1, 1,
-        1, 2, 1, 2, 2, 3,
-        2, 2, 2, 2, 3,
-        1, 2, 1, 2, 1, 2,
-        2];
+    const lengths = [1, 2, 3, 2, 2, 1, 2, 3, 2, 2, 1, 1, 1, 1, 1, 2, 1, 2, 2, 3, 2, 2, 2, 2, 3, 1, 2, 1, 2, 1, 2, 2];
     const operatorTypes = [
         OperatorType.LessThan,
         OperatorType.LeftShift,
@@ -1090,15 +1092,19 @@ test('Operators', () => {
         OperatorType.BitwiseOrEqual,
         OperatorType.BitwiseXor,
         OperatorType.BitwiseXorEqual,
-        OperatorType.Walrus];
+        OperatorType.Walrus
+    ];
     assert.equal(results.tokens.count - _implicitTokenCount, lengths.length);
     assert.equal(results.tokens.count - _implicitTokenCount, operatorTypes.length);
     for (let i = 0; i < lengths.length; i += 1) {
         const t = results.tokens.getItemAt(i);
-        assert.equal(t.type, TokenType.Operator, `${ t.type } at ${ i } is not an operator`);
+        assert.equal(t.type, TokenType.Operator, `${t.type} at ${i} is not an operator`);
         assert.equal((t as OperatorToken).operatorType, operatorTypes[i]);
-        assert.equal(t.length, lengths[i],
-            `Length ${ t.length } at ${ i } (text ${ text.substr(t.start, t.length) }), expected ${ lengths[i] }`);
+        assert.equal(
+            t.length,
+            lengths[i],
+            `Length ${t.length} at ${i} (text ${text.substr(t.start, t.length)}), expected ${lengths[i]}`
+        );
     }
 });
 
@@ -1184,31 +1190,31 @@ test('Identifiers1', () => {
     assert.equal(token4.type, TokenType.Identifier);
 });
 
-test ('TypeIgnoreAll1', () => {
+test('TypeIgnoreAll1', () => {
     const t = new Tokenizer();
     const results = t.tokenize('\n#type:ignore\n"test"');
     assert.equal(results.typeIgnoreAll, true);
 });
 
-test ('TypeIgnoreAll2', () => {
+test('TypeIgnoreAll2', () => {
     const t = new Tokenizer();
     const results = t.tokenize('\n#    type:     ignore ssss\n');
     assert.equal(results.typeIgnoreAll, true);
 });
 
-test ('TypeIgnoreAll3', () => {
+test('TypeIgnoreAll3', () => {
     const t = new Tokenizer();
     const results = t.tokenize('\n#    type:     ignoressss\n');
     assert.equal(results.typeIgnoreAll, false);
 });
 
-test ('TypeIgnoreAll3', () => {
+test('TypeIgnoreAll3', () => {
     const t = new Tokenizer();
     const results = t.tokenize('\n"hello"\n# type: ignore\n');
     assert.equal(results.typeIgnoreAll, false);
 });
 
-test ('TypeIgnoreLine1', () => {
+test('TypeIgnoreLine1', () => {
     const t = new Tokenizer();
     const results = t.tokenize('\na = 3 # type: ignore\n"test" # type:ignore');
     assert.equal(Object.keys(results.typeIgnoreLines).length, 2);
@@ -1216,7 +1222,7 @@ test ('TypeIgnoreLine1', () => {
     assert.equal(results.typeIgnoreLines[2], true);
 });
 
-test ('TypeIgnoreLine2', () => {
+test('TypeIgnoreLine2', () => {
     const t = new Tokenizer();
     const results = t.tokenize('a = 3 # type: ignores\n"test" # type:ignore');
     assert.equal(Object.keys(results.typeIgnoreLines).length, 1);

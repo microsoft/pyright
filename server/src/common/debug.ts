@@ -4,17 +4,22 @@
  * Licensed under the MIT license.
  *
  * Various debug helper methods to show user friendly debugging info
-*/
+ */
 
 import { stableSort } from './collectionUtils';
 import { AnyFunction, compareValues, hasProperty } from './core';
 
-export function assert(expression: boolean, message?: string,
-    verboseDebugInfo?: string | (() => string), stackCrawlMark?: AnyFunction): void {
-
+export function assert(
+    expression: boolean,
+    message?: string,
+    verboseDebugInfo?: string | (() => string),
+    stackCrawlMark?: AnyFunction
+): void {
     if (!expression) {
         if (verboseDebugInfo) {
-            message += '\r\nVerbose Debug Information: ' + (typeof verboseDebugInfo === 'string' ? verboseDebugInfo : verboseDebugInfo());
+            message +=
+                '\r\nVerbose Debug Information: ' +
+                (typeof verboseDebugInfo === 'string' ? verboseDebugInfo : verboseDebugInfo());
         }
         fail(message ? 'False expression: ' + message : 'False expression.', stackCrawlMark || assert);
     }
@@ -22,7 +27,7 @@ export function assert(expression: boolean, message?: string,
 
 export function fail(message?: string, stackCrawlMark?: AnyFunction): never {
     // debugger;
-    const e = new Error(message ? `Debug Failure. ${ message }` : 'Debug Failure.');
+    const e = new Error(message ? `Debug Failure. ${message}` : 'Debug Failure.');
     if ((Error as any).captureStackTrace) {
         (Error as any).captureStackTrace(e, stackCrawlMark || fail);
     }
@@ -30,7 +35,9 @@ export function fail(message?: string, stackCrawlMark?: AnyFunction): never {
 }
 
 export function assertDefined<T>(value: T | null | undefined, message?: string): T {
-    if (value === undefined || value === null) { return fail(message); }
+    if (value === undefined || value === null) {
+        return fail(message);
+    }
     return value;
 }
 
@@ -43,7 +50,7 @@ export function assertEachDefined<T, A extends readonly T[]>(value: A, message?:
 
 export function assertNever(member: never, message = 'Illegal value:', stackCrawlMark?: AnyFunction): never {
     const detail = JSON.stringify(member);
-    return fail(`${ message } ${ detail }`, stackCrawlMark || assertNever);
+    return fail(`${message} ${detail}`, stackCrawlMark || assertNever);
 }
 
 export function getFunctionName(func: AnyFunction) {
@@ -74,7 +81,7 @@ export function formatEnum(value = 0, enumObject: any, isFlags?: boolean) {
                 break;
             }
             if (enumValue !== 0 && enumValue & value) {
-                result = `${ result }${ result ? '|' : '' }${ enumName }`;
+                result = `${result}${result ? '|' : ''}${enumName}`;
                 remainingFlags &= ~enumValue;
             }
         }

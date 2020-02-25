@@ -1,11 +1,11 @@
 /*
-* importResult.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Interface that describes the output of the import resolver.
-*/
+ * importResult.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Interface that describes the output of the import resolver.
+ */
 
 export const enum ImportType {
     BuiltIn,

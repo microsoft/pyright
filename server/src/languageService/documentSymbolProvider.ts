@@ -1,12 +1,12 @@
 /*
-* documentSymbolProvider.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Logic that enumerates all of the symbols within a specified
-* source file document.
-*/
+ * documentSymbolProvider.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Logic that enumerates all of the symbols within a specified
+ * source file document.
+ */
 
 import { DocumentSymbol, Location, SymbolInformation, SymbolKind } from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
@@ -34,9 +34,13 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
     private _query: string | undefined;
     private _evaluator: TypeEvaluator;
 
-    constructor(filePath: string, parseResults: ParseResults, symbolInfoResults: SymbolInformation[],
-        query: string | undefined, evaluator: TypeEvaluator) {
-
+    constructor(
+        filePath: string,
+        parseResults: ParseResults,
+        symbolInfoResults: SymbolInformation[],
+        query: string | undefined,
+        evaluator: TypeEvaluator
+    ) {
         super();
         this._filePath = filePath;
         this._parseResults = parseResults;
@@ -100,9 +104,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
         });
     }
 
-    private _addSymbolInformationFromDeclaration(name: string, declaration: Declaration,
-        containerName?: string) {
-
+    private _addSymbolInformationFromDeclaration(name: string, declaration: Declaration, containerName?: string) {
         if (declaration.path !== this._filePath) {
             return;
         }
@@ -179,8 +181,7 @@ function getSymbolKind(name: string, declaration: Declaration, evaluator: TypeEv
             if (name === '_') {
                 return;
             }
-            symbolKind = declaration.isConstant || declaration.isFinal ?
-                SymbolKind.Constant : SymbolKind.Variable;
+            symbolKind = declaration.isConstant || declaration.isFinal ? SymbolKind.Constant : SymbolKind.Variable;
             break;
 
         default:
@@ -191,10 +192,12 @@ function getSymbolKind(name: string, declaration: Declaration, evaluator: TypeEv
     return symbolKind;
 }
 
-function getDocumentSymbolsRecursive(node: AnalyzerNodeInfo.ScopedNode,
-    docSymbolResults: DocumentSymbol[], parseResults: ParseResults,
-    evaluator: TypeEvaluator) {
-
+function getDocumentSymbolsRecursive(
+    node: AnalyzerNodeInfo.ScopedNode,
+    docSymbolResults: DocumentSymbol[],
+    parseResults: ParseResults,
+    evaluator: TypeEvaluator
+) {
     const scope = AnalyzerNodeInfo.getScope(node);
     if (!scope) {
         return;
@@ -218,10 +221,13 @@ function getDocumentSymbolsRecursive(node: AnalyzerNodeInfo.ScopedNode,
     });
 }
 
-function getDocumentSymbolRecursive(name: string, declaration: Declaration,
-    evaluator: TypeEvaluator, parseResults: ParseResults,
-    docSymbolResults: DocumentSymbol[]) {
-
+function getDocumentSymbolRecursive(
+    name: string,
+    declaration: Declaration,
+    evaluator: TypeEvaluator,
+    parseResults: ParseResults,
+    docSymbolResults: DocumentSymbol[]
+) {
     if (declaration.type === DeclarationType.Alias) {
         return;
     }
@@ -235,14 +241,14 @@ function getDocumentSymbolRecursive(name: string, declaration: Declaration,
     let range = selectionRange;
     const children: DocumentSymbol[] = [];
 
-    if (declaration.type === DeclarationType.Class ||
-        declaration.type === DeclarationType.Function) {
-
+    if (declaration.type === DeclarationType.Class || declaration.type === DeclarationType.Function) {
         getDocumentSymbolsRecursive(declaration.node, children, parseResults, evaluator);
 
-        const nameRange = convertOffsetsToRange(declaration.node.start,
+        const nameRange = convertOffsetsToRange(
+            declaration.node.start,
             declaration.node.name.start + declaration.node.length,
-            parseResults.tokenizerOutput.lines);
+            parseResults.tokenizerOutput.lines
+        );
         range = nameRange;
     }
 
@@ -258,17 +264,22 @@ function getDocumentSymbolRecursive(name: string, declaration: Declaration,
 }
 
 export class DocumentSymbolProvider {
-    static addSymbolsForDocument(symbolList: SymbolInformation[], query: string | undefined,
-        filePath: string, parseResults: ParseResults, evaluator: TypeEvaluator) {
-
-        const symbolTreeWalker = new FindSymbolTreeWalker(filePath, parseResults,
-            symbolList, query, evaluator);
+    static addSymbolsForDocument(
+        symbolList: SymbolInformation[],
+        query: string | undefined,
+        filePath: string,
+        parseResults: ParseResults,
+        evaluator: TypeEvaluator
+    ) {
+        const symbolTreeWalker = new FindSymbolTreeWalker(filePath, parseResults, symbolList, query, evaluator);
         symbolTreeWalker.findSymbols();
     }
 
-    static addHierarchicalSymbolsForDocument(symbolList: DocumentSymbol[],
-        parseResults: ParseResults, evaluator: TypeEvaluator) {
-
+    static addHierarchicalSymbolsForDocument(
+        symbolList: DocumentSymbol[],
+        parseResults: ParseResults,
+        evaluator: TypeEvaluator
+    ) {
         getDocumentSymbolsRecursive(parseResults.parseTree, symbolList, parseResults, evaluator);
     }
 }

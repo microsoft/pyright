@@ -1,14 +1,14 @@
 /*
-* characterStream.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Based on code from vscode-python repository:
-*  https://github.com/Microsoft/vscode-python
-*
-* Class that represents a stream of characters.
-*/
+ * characterStream.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Based on code from vscode-python repository:
+ *  https://github.com/Microsoft/vscode-python
+ *
+ * Class that represents a stream of characters.
+ */
 
 import Char from 'typescript-char';
 

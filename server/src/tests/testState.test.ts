@@ -147,7 +147,7 @@ test('CustomTypeshedFolder', () => {
     // those virtual folder will mount to.
     const code = `
 // global options
-// @typeshed: ${ __dirname }
+// @typeshed: ${__dirname}
     `;
 
     // mount the folder this file is in as typeshed folder and check whether
@@ -232,8 +232,13 @@ test('Markers', () => {
     const marker1 = data.markerPositions.get('marker1');
 
     assert.deepEqual(state.getMarkerName(marker1!), 'marker1');
-    assert.deepEqual(state.getMarkers().map(m => state.getMarkerName(m)).sort(
-        compareStringsCaseSensitive), state.getMarkerNames().sort(comparePathsCaseSensitive));
+    assert.deepEqual(
+        state
+            .getMarkers()
+            .map(m => state.getMarkerName(m))
+            .sort(compareStringsCaseSensitive),
+        state.getMarkerNames().sort(comparePathsCaseSensitive)
+    );
 });
 
 test('GoToPosition', () => {
@@ -371,7 +376,10 @@ test('getRangesInFile', () => {
 
     const { data, state } = parseAndGetTestState(code);
 
-    assert.deepEqual(state.getRangesInFile(data.files[0].fileName), data.ranges.filter(r => r.fileName === data.files[0].fileName));
+    assert.deepEqual(
+        state.getRangesInFile(data.files[0].fileName),
+        data.ranges.filter(r => r.fileName === data.files[0].fileName)
+    );
 });
 
 test('rangesByText', () => {

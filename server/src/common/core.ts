@@ -21,32 +21,48 @@ export const enum Comparison {
 export type AnyFunction = (...args: never[]) => void;
 
 /** Do nothing and return false */
-export function returnFalse(): false { return false; }
+export function returnFalse(): false {
+    return false;
+}
 
 /** Do nothing and return true */
-export function returnTrue(): true { return true; }
+export function returnTrue(): true {
+    return true;
+}
 
 /** Do nothing and return undefined */
-export function returnUndefined(): undefined { return undefined; }
+export function returnUndefined(): undefined {
+    return undefined;
+}
 
 /** Returns its argument. */
-export function identity<T>(x: T) { return x; }
+export function identity<T>(x: T) {
+    return x;
+}
 
 /** Returns lower case string */
-export function toLowerCase(x: string) { return x.toLowerCase(); }
+export function toLowerCase(x: string) {
+    return x.toLowerCase();
+}
 
-export function equateValues<T>(a: T, b: T) { return a === b; }
+export function equateValues<T>(a: T, b: T) {
+    return a === b;
+}
 
 export type GetCanonicalFileName = (fileName: string) => string;
 
 export function compareComparableValues(a: string | undefined, b: string | undefined): Comparison;
 export function compareComparableValues(a: number | undefined, b: number | undefined): Comparison;
 export function compareComparableValues(a: string | number | undefined, b: string | number | undefined) {
-    return a === b ? Comparison.EqualTo :
-        a === undefined ? Comparison.LessThan :
-            b === undefined ? Comparison.GreaterThan :
-                a < b ? Comparison.LessThan :
-                    Comparison.GreaterThan;
+    return a === b
+        ? Comparison.EqualTo
+        : a === undefined
+        ? Comparison.LessThan
+        : b === undefined
+        ? Comparison.GreaterThan
+        : a < b
+        ? Comparison.LessThan
+        : Comparison.GreaterThan;
 }
 
 /**
