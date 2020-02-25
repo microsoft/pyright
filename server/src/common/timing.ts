@@ -1,12 +1,12 @@
 /*
-* timing.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* A simple duration class that can be used to record and report
-* durations at the millisecond level of resolution.
-*/
+ * timing.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * A simple duration class that can be used to record and report
+ * durations at the millisecond level of resolution.
+ */
 
 import { ConsoleInterface } from './console';
 
@@ -75,7 +75,7 @@ export class TimingStats {
     typeCheckerTime = new TimingStat();
 
     printSummary(console: ConsoleInterface) {
-        console.log(`Completed in ${ this.totalDuration.getDurationInSeconds() }sec`);
+        console.log(`Completed in ${this.totalDuration.getDurationInSeconds()}sec`);
     }
 
     printDetails(console: ConsoleInterface) {

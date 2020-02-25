@@ -17,7 +17,11 @@
 //// import [|/*marker*/testLi|]b
 
 const filename = helper.getMarkerByName('marker').fileName;
-const command = { title: 'Create Type Stub', command: Consts.Commands.createTypeStub, arguments: ['/', 'testLib', filename] };
+const command = {
+    title: 'Create Type Stub',
+    command: Consts.Commands.createTypeStub,
+    arguments: ['/', 'testLib', filename]
+};
 
 helper.verifyCommand(command, {
     ['/typings/testLib/__init__.pyi']: `"""

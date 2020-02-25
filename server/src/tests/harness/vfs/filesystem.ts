@@ -47,7 +47,9 @@ export class FileSystem {
     constructor(ignoreCase: boolean, options: FileSystemOptions = {}) {
         const { time = -1, files, meta } = options;
         this.ignoreCase = ignoreCase;
-        this.stringComparer = this.ignoreCase ? pathUtil.comparePathsCaseInsensitive : pathUtil.comparePathsCaseSensitive;
+        this.stringComparer = this.ignoreCase
+            ? pathUtil.comparePathsCaseInsensitive
+            : pathUtil.comparePathsCaseSensitive;
         this._time = time;
 
         if (meta) {
@@ -120,7 +122,9 @@ export class FileSystem {
      * no action if this file system is read-only.
      */
     snapshot() {
-        if (this.isReadonly) { return; }
+        if (this.isReadonly) {
+            return;
+        }
         const fs = new FileSystem(this.ignoreCase, { time: this._time });
         fs._lazy = this._lazy;
         fs._cwd = this._cwd;
@@ -138,8 +142,12 @@ export class FileSystem {
      * of the same data.
      */
     shadow(ignoreCase = this.ignoreCase) {
-        if (!this.isReadonly) { throw new Error('Cannot shadow a mutable file system.'); }
-        if (ignoreCase && !this.ignoreCase) { throw new Error('Cannot create a case-insensitive file system from a case-sensitive one.'); }
+        if (!this.isReadonly) {
+            throw new Error('Cannot shadow a mutable file system.');
+        }
+        if (ignoreCase && !this.ignoreCase) {
+            throw new Error('Cannot create a case-insensitive file system from a case-sensitive one.');
+        }
         const fs = new FileSystem(ignoreCase, { time: this._time });
         fs._shadowRoot = this;
         fs._cwd = this._cwd;
@@ -152,11 +160,19 @@ export class FileSystem {
      * @link http://pubs.opengroup.org/onlinepubs/9699919799/functions/time.html
      */
     time(value?: number | Date | (() => number | Date)): number {
-        if (value !== undefined && this.isReadonly) { throw createIOError('EPERM'); }
+        if (value !== undefined && this.isReadonly) {
+            throw createIOError('EPERM');
+        }
         let result = this._time;
-        if (typeof result === 'function') { result = result(); }
-        if (typeof result === 'object') { result = result.getTime(); }
-        if (result === -1) { result = Date.now(); }
+        if (typeof result === 'function') {
+            result = result();
+        }
+        if (typeof result === 'object') {
+            result = result.getTime();
+        }
+        if (result === -1) {
+            result = Date.now();
+        }
         if (value !== undefined) {
             this._time = value;
         }
@@ -169,7 +185,9 @@ export class FileSystem {
      */
     filemeta(path: string): Metadata {
         const { node } = this._walk(this._resolve(path));
-        if (!node) { throw createIOError('ENOENT'); }
+        if (!node) {
+            throw createIOError('ENOENT');
+        }
         return this._filemeta(node);
     }
 
@@ -187,10 +205,16 @@ export class FileSystem {
      * @link - http://pubs.opengroup.org/onlinepubs/9699919799/functions/getcwd.html
      */
     cwd() {
-        if (!this._cwd) { throw new Error('The current working directory has not been set.'); }
+        if (!this._cwd) {
+            throw new Error('The current working directory has not been set.');
+        }
         const { node } = this._walk(this._cwd);
-        if (!node) { throw createIOError('ENOENT'); }
-        if (!isDirectory(node)) { throw createIOError('ENOTDIR'); }
+        if (!node) {
+            throw createIOError('ENOENT');
+        }
+        if (!isDirectory(node)) {
+            throw createIOError('ENOTDIR');
+        }
         return this._cwd;
     }
 
@@ -200,11 +224,17 @@ export class FileSystem {
      * @link http://pubs.opengroup.org/onlinepubs/9699919799/functions/chdir.html
      */
     chdir(path: string) {
-        if (this.isReadonly) { throw createIOError('EPERM'); }
+        if (this.isReadonly) {
+            throw createIOError('EPERM');
+        }
         path = this._resolve(path);
         const { node } = this._walk(path);
-        if (!node) { throw createIOError('ENOENT'); }
-        if (!isDirectory(node)) { throw createIOError('ENOTDIR'); }
+        if (!node) {
+            throw createIOError('ENOENT');
+        }
+        if (!isDirectory(node)) {
+            throw createIOError('ENOTDIR');
+        }
         this._cwd = path;
     }
 
@@ -212,10 +242,16 @@ export class FileSystem {
      * Pushes the current directory onto the directory stack and changes the current working directory to the supplied path.
      */
     pushd(path?: string) {
-        if (this.isReadonly) { throw createIOError('EPERM'); }
-        if (path) { path = this._resolve(path); }
+        if (this.isReadonly) {
+            throw createIOError('EPERM');
+        }
+        if (path) {
+            path = this._resolve(path);
+        }
         if (this._cwd) {
-            if (!this._dirStack) { this._dirStack = []; }
+            if (!this._dirStack) {
+                this._dirStack = [];
+            }
             this._dirStack.push(this._cwd);
         }
         if (path && path !== this._cwd) {
@@ -227,7 +263,9 @@ export class FileSystem {
      * Pops the previous directory from the location stack and changes the current directory to that directory.
      */
     popd() {
-        if (this.isReadonly) { throw createIOError('EPERM'); }
+        if (this.isReadonly) {
+            throw createIOError('EPERM');
+        }
         const path = this._dirStack && this._dirStack.pop();
         if (path) {
             this.chdir(path);
@@ -268,7 +306,11 @@ export class FileSystem {
     }
 
     createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher {
-        return { close: () => { /* left empty */ } };
+        return {
+            close: () => {
+                /* left empty */
+            }
+        };
     }
 
     getModulePath(): string {
@@ -289,7 +331,9 @@ export class FileSystem {
                     if (!traversal.traverse || traversal.traverse(dirname, stats)) {
                         this._scan(dirname, stats, 'ancestors-or-self', traversal, noFollow, results);
                     }
-                } catch { /*ignored*/ }
+                } catch {
+                    /*ignored*/
+                }
             }
         }
         if (axis === 'descendants-or-self' || axis === 'descendants') {
@@ -299,7 +343,9 @@ export class FileSystem {
                         const childpath = pathUtil.combinePaths(path, file);
                         const stats = this._stat(this._walk(childpath, noFollow));
                         this._scan(childpath, stats, 'descendants-or-self', traversal, noFollow, results);
-                    } catch { /*ignored*/ }
+                    } catch {
+                        /*ignored*/
+                    }
                 }
             }
         }
@@ -313,12 +359,16 @@ export class FileSystem {
      * @param resolver An object used to resolve files in `source`.
      */
     mountSync(source: string, target: string, resolver: FileSystemResolver) {
-        if (this.isReadonly) { throw createIOError('EROFS'); }
+        if (this.isReadonly) {
+            throw createIOError('EROFS');
+        }
 
         source = validate(source, ValidationFlags.Absolute);
 
         const { parent, links, node: existingNode, basename } = this._walk(this._resolve(target), /*noFollow*/ true);
-        if (existingNode) { throw createIOError('EEXIST'); }
+        if (existingNode) {
+            throw createIOError('EEXIST');
+        }
 
         const time = this.time();
         const node = this._mknod(parent ? parent.dev : ++devCount, S_IFDIR, /*mode*/ 0o777, time);
@@ -342,7 +392,9 @@ export class FileSystem {
                 this.rmdirSync(path);
             }
         } catch (e) {
-            if (e.code === 'ENOENT') { return; }
+            if (e.code === 'ENOENT') {
+                return;
+            }
             throw e;
         }
     }
@@ -360,7 +412,9 @@ export class FileSystem {
             return 'throw';
         });
 
-        if (!result.node) { this._mkdir(result); }
+        if (!result.node) {
+            this._mkdir(result);
+        }
     }
 
     getFileListing(): string {
@@ -372,7 +426,9 @@ export class FileSystem {
                     const [name, node] = i.value;
                     const path = dirname ? pathUtil.combinePaths(dirname, name) : name;
                     const marker = pathUtil.comparePaths(this._cwd, path, this.ignoreCase) === 0 ? '*' : ' ';
-                    if (result) { result += '\n'; }
+                    if (result) {
+                        result += '\n';
+                    }
                     result += marker;
                     if (isDirectory(node)) {
                         result += pathUtil.ensureTrailingDirectorySeparator(path);
@@ -380,7 +436,7 @@ export class FileSystem {
                     } else if (isFile(node)) {
                         result += path;
                     } else if (isSymlink(node)) {
-                        result += `${ path } -> ${ node.symlink }`;
+                        result += `${path} -> ${node.symlink}`;
                     }
                 }
             } finally {
@@ -425,8 +481,12 @@ export class FileSystem {
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     utimesSync(path: string, atime: Date, mtime: Date) {
-        if (this.isReadonly) { throw createIOError('EROFS'); }
-        if (!isFinite(+atime) || !isFinite(+mtime)) { throw createIOError('EINVAL'); }
+        if (this.isReadonly) {
+            throw createIOError('EROFS');
+        }
+        if (!isFinite(+atime) || !isFinite(+mtime)) {
+            throw createIOError('EINVAL');
+        }
 
         const entry = this._walk(this._resolve(path));
         if (!entry || !entry.node) {
@@ -450,16 +510,18 @@ export class FileSystem {
 
     private _stat(entry: WalkResult) {
         const node = entry.node;
-        if (!node) { throw createIOError(`ENOENT`, entry.realpath); }
+        if (!node) {
+            throw createIOError(`ENOENT`, entry.realpath);
+        }
         return new Stats(
             node.dev,
             node.ino,
             node.mode,
             node.nlink,
-                /*rdev*/ 0,
-                /*size*/ isFile(node) ? this._getSize(node) : isSymlink(node) ? node.symlink.length : 0,
-                /*blksize*/ 4096,
-                /*blocks*/ 0,
+            /*rdev*/ 0,
+            /*size*/ isFile(node) ? this._getSize(node) : isSymlink(node) ? node.symlink.length : 0,
+            /*blksize*/ 4096,
+            /*blocks*/ 0,
             node.atimeMs,
             node.mtimeMs,
             node.ctimeMs,
@@ -476,8 +538,12 @@ export class FileSystem {
      */
     readdirSync(path: string) {
         const { node } = this._walk(this._resolve(path));
-        if (!node) { throw createIOError('ENOENT'); }
-        if (!isDirectory(node)) { throw createIOError('ENOTDIR'); }
+        if (!node) {
+            throw createIOError('ENOENT');
+        }
+        if (!isDirectory(node)) {
+            throw createIOError('ENOTDIR');
+        }
         return Array.from(this._getLinks(node).keys());
     }
 
@@ -489,13 +555,17 @@ export class FileSystem {
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     mkdirSync(path: string) {
-        if (this.isReadonly) { throw createIOError('EROFS'); }
+        if (this.isReadonly) {
+            throw createIOError('EROFS');
+        }
 
         this._mkdir(this._walk(this._resolve(path), /*noFollow*/ true));
     }
 
     private _mkdir({ parent, links, node: existingNode, basename }: WalkResult) {
-        if (existingNode) { throw createIOError('EEXIST'); }
+        if (existingNode) {
+            throw createIOError('EEXIST');
+        }
         const time = this.time();
         const node = this._mknod(parent ? parent.dev : ++devCount, S_IFDIR, /*mode*/ 0o777, time);
         this._addLink(parent, links, basename, node, time);
@@ -509,13 +579,21 @@ export class FileSystem {
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     rmdirSync(path: string) {
-        if (this.isReadonly) { throw createIOError('EROFS'); }
+        if (this.isReadonly) {
+            throw createIOError('EROFS');
+        }
         path = this._resolve(path);
 
         const { parent, links, node, basename } = this._walk(path, /*noFollow*/ true);
-        if (!parent) { throw createIOError('EPERM'); }
-        if (!isDirectory(node)) { throw createIOError('ENOTDIR'); }
-        if (this._getLinks(node).size !== 0) { throw createIOError('ENOTEMPTY'); }
+        if (!parent) {
+            throw createIOError('EPERM');
+        }
+        if (!isDirectory(node)) {
+            throw createIOError('ENOTDIR');
+        }
+        if (this._getLinks(node).size !== 0) {
+            throw createIOError('ENOTEMPTY');
+        }
 
         this._removeLink(parent, links, basename, node);
     }
@@ -528,15 +606,25 @@ export class FileSystem {
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     linkSync(oldpath: string, newpath: string) {
-        if (this.isReadonly) { throw createIOError('EROFS'); }
+        if (this.isReadonly) {
+            throw createIOError('EROFS');
+        }
 
         const { node } = this._walk(this._resolve(oldpath));
-        if (!node) { throw createIOError('ENOENT'); }
-        if (isDirectory(node)) { throw createIOError('EPERM'); }
+        if (!node) {
+            throw createIOError('ENOENT');
+        }
+        if (isDirectory(node)) {
+            throw createIOError('EPERM');
+        }
 
         const { parent, links, basename, node: existingNode } = this._walk(this._resolve(newpath), /*noFollow*/ true);
-        if (!parent) { throw createIOError('EPERM'); }
-        if (existingNode) { throw createIOError('EEXIST'); }
+        if (!parent) {
+            throw createIOError('EPERM');
+        }
+        if (existingNode) {
+            throw createIOError('EEXIST');
+        }
 
         this._addLink(parent, links, basename, node);
     }
@@ -549,12 +637,20 @@ export class FileSystem {
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     unlinkSync(path: string) {
-        if (this.isReadonly) { throw createIOError('EROFS'); }
+        if (this.isReadonly) {
+            throw createIOError('EROFS');
+        }
 
         const { parent, links, node, basename } = this._walk(this._resolve(path), /*noFollow*/ true);
-        if (!parent) { throw createIOError('EPERM'); }
-        if (!node) { throw createIOError('ENOENT'); }
-        if (isDirectory(node)) { throw createIOError('EISDIR'); }
+        if (!parent) {
+            throw createIOError('EPERM');
+        }
+        if (!node) {
+            throw createIOError('ENOENT');
+        }
+        if (isDirectory(node)) {
+            throw createIOError('EISDIR');
+        }
 
         this._removeLink(parent, links, basename, node);
     }
@@ -567,26 +663,44 @@ export class FileSystem {
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     renameSync(oldpath: string, newpath: string) {
-        if (this.isReadonly) { throw createIOError('EROFS'); }
+        if (this.isReadonly) {
+            throw createIOError('EROFS');
+        }
 
-        const { parent: oldParent, links: oldParentLinks, node, basename: oldBasename }
-            = this._walk(this._resolve(oldpath), /*noFollow*/ true);
+        const { parent: oldParent, links: oldParentLinks, node, basename: oldBasename } = this._walk(
+            this._resolve(oldpath),
+            /*noFollow*/ true
+        );
 
-        if (!oldParent) { throw createIOError('EPERM'); }
-        if (!node) { throw createIOError('ENOENT'); }
+        if (!oldParent) {
+            throw createIOError('EPERM');
+        }
+        if (!node) {
+            throw createIOError('ENOENT');
+        }
 
-        const { parent: newParent, links: newParentLinks, node: existingNode, basename: newBasename }
-            = this._walk(this._resolve(newpath), /*noFollow*/ true);
+        const { parent: newParent, links: newParentLinks, node: existingNode, basename: newBasename } = this._walk(
+            this._resolve(newpath),
+            /*noFollow*/ true
+        );
 
-        if (!newParent) { throw createIOError('EPERM'); }
+        if (!newParent) {
+            throw createIOError('EPERM');
+        }
 
         const time = this.time();
         if (existingNode) {
             if (isDirectory(node)) {
-                if (!isDirectory(existingNode)) { throw createIOError('ENOTDIR'); }
-                if (this._getLinks(existingNode).size > 0) { throw createIOError('ENOTEMPTY'); }
+                if (!isDirectory(existingNode)) {
+                    throw createIOError('ENOTDIR');
+                }
+                if (this._getLinks(existingNode).size > 0) {
+                    throw createIOError('ENOTEMPTY');
+                }
             } else {
-                if (isDirectory(existingNode)) { throw createIOError('EISDIR'); }
+                if (isDirectory(existingNode)) {
+                    throw createIOError('EISDIR');
+                }
             }
             this._removeLink(newParent, newParentLinks, newBasename, existingNode, time);
         }
@@ -602,11 +716,17 @@ export class FileSystem {
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     symlinkSync(target: string, linkpath: string) {
-        if (this.isReadonly) { throw createIOError('EROFS'); }
+        if (this.isReadonly) {
+            throw createIOError('EROFS');
+        }
 
         const { parent, links, node: existingNode, basename } = this._walk(this._resolve(linkpath), /*noFollow*/ true);
-        if (!parent) { throw createIOError('EPERM'); }
-        if (existingNode) { throw createIOError('EEXIST'); }
+        if (!parent) {
+            throw createIOError('EPERM');
+        }
+        if (existingNode) {
+            throw createIOError('EEXIST');
+        }
 
         const time = this.time();
         const node = this._mknod(parent.dev, S_IFLNK, /*mode*/ 0o666, time);
@@ -646,9 +766,15 @@ export class FileSystem {
     readFileSync(path: string, encoding?: string | null): string | Buffer;
     readFileSync(path: string, encoding: string | null = null) {
         const { node } = this._walk(this._resolve(path));
-        if (!node) { throw createIOError('ENOENT'); }
-        if (isDirectory(node)) { throw createIOError('EISDIR'); }
-        if (!isFile(node)) { throw createIOError('EBADF'); }
+        if (!node) {
+            throw createIOError('ENOENT');
+        }
+        if (isDirectory(node)) {
+            throw createIOError('EISDIR');
+        }
+        if (!isFile(node)) {
+            throw createIOError('EBADF');
+        }
 
         const buffer = this._getBuffer(node).slice();
         return encoding ? buffer.toString(encoding) : buffer;
@@ -660,10 +786,14 @@ export class FileSystem {
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
     writeFileSync(path: string, data: string | Buffer, encoding: string | null = null) {
-        if (this.isReadonly) { throw createIOError('EROFS'); }
+        if (this.isReadonly) {
+            throw createIOError('EROFS');
+        }
 
         const { parent, links, node: existingNode, basename } = this._walk(this._resolve(path), /*noFollow*/ false);
-        if (!parent) { throw createIOError('EPERM'); }
+        if (!parent) {
+            throw createIOError('EPERM');
+        }
 
         const time = this.time();
         let node = existingNode;
@@ -672,9 +802,15 @@ export class FileSystem {
             this._addLink(parent, links, basename, node, time);
         }
 
-        if (isDirectory(node)) { throw createIOError('EISDIR'); }
-        if (!isFile(node)) { throw createIOError('EBADF'); }
-        node.buffer = Buffer.isBuffer(data) ? data.slice() : bufferFrom('' + data, (encoding as BufferEncoding) || 'utf8');
+        if (isDirectory(node)) {
+            throw createIOError('EISDIR');
+        }
+        if (!isFile(node)) {
+            throw createIOError('EBADF');
+        }
+        node.buffer = Buffer.isBuffer(data)
+            ? data.slice()
+            : bufferFrom('' + data, (encoding as BufferEncoding) || 'utf8');
         node.size = node.buffer.byteLength;
         node.mtimeMs = time;
         node.ctimeMs = time;
@@ -686,9 +822,9 @@ export class FileSystem {
      */
     diff(base = this.shadowRoot, options: DiffOptions = {}) {
         const differences: FileSet = {};
-        const hasDifferences = base ?
-            FileSystem._rootDiff(differences, this, base, options) :
-            FileSystem._trackCreatedInodes(differences, this, this._getRootLinks());
+        const hasDifferences = base
+            ? FileSystem._rootDiff(differences, this, base, options)
+            : FileSystem._trackCreatedInodes(differences, this, this._getRootLinks());
         return hasDifferences ? differences : undefined;
     }
 
@@ -697,16 +833,23 @@ export class FileSystem {
      */
     static diff(changed: FileSystem, base: FileSystem, options: DiffOptions = {}) {
         const differences: FileSet = {};
-        return FileSystem._rootDiff(differences, changed, base, options) ?
-            differences :
-            undefined;
+        return FileSystem._rootDiff(differences, changed, base, options) ? differences : undefined;
     }
 
-    private static _diffWorker(container: FileSet, changed: FileSystem, changedLinks: ReadonlyMap<string, Inode> | undefined,
-        base: FileSystem, baseLinks: ReadonlyMap<string, Inode> | undefined, options: DiffOptions) {
-
-        if (changedLinks && !baseLinks) { return FileSystem._trackCreatedInodes(container, changed, changedLinks); }
-        if (baseLinks && !changedLinks) { return FileSystem._trackDeletedInodes(container, baseLinks); }
+    private static _diffWorker(
+        container: FileSet,
+        changed: FileSystem,
+        changedLinks: ReadonlyMap<string, Inode> | undefined,
+        base: FileSystem,
+        baseLinks: ReadonlyMap<string, Inode> | undefined,
+        options: DiffOptions
+    ) {
+        if (changedLinks && !baseLinks) {
+            return FileSystem._trackCreatedInodes(container, changed, changedLinks);
+        }
+        if (baseLinks && !changedLinks) {
+            return FileSystem._trackDeletedInodes(container, baseLinks);
+        }
         if (changedLinks && baseLinks) {
             let hasChanges = false;
             // track base items missing in changed
@@ -721,18 +864,29 @@ export class FileSystem {
                 const baseNode = baseLinks.get(basename);
                 if (baseNode) {
                     if (isDirectory(changedNode) && isDirectory(baseNode)) {
-                        return hasChanges = FileSystem._directoryDiff(container, basename,
-                            changed, changedNode, base, baseNode, options) || hasChanges;
+                        return (hasChanges =
+                            FileSystem._directoryDiff(
+                                container,
+                                basename,
+                                changed,
+                                changedNode,
+                                base,
+                                baseNode,
+                                options
+                            ) || hasChanges);
                     }
                     if (isFile(changedNode) && isFile(baseNode)) {
-                        return hasChanges = FileSystem._fileDiff(container, basename,
-                            changed, changedNode, base, baseNode, options) || hasChanges;
+                        return (hasChanges =
+                            FileSystem._fileDiff(container, basename, changed, changedNode, base, baseNode, options) ||
+                            hasChanges);
                     }
                     if (isSymlink(changedNode) && isSymlink(baseNode)) {
-                        return hasChanges = FileSystem._symlinkDiff(container, basename, changedNode, baseNode) || hasChanges;
+                        return (hasChanges =
+                            FileSystem._symlinkDiff(container, basename, changedNode, baseNode) || hasChanges);
                     }
                 }
-                return hasChanges = FileSystem._trackCreatedInode(container, basename, changed, changedNode) || hasChanges;
+                return (hasChanges =
+                    FileSystem._trackCreatedInode(container, basename, changed, changedNode) || hasChanges);
             });
             return hasChanges;
         }
@@ -740,38 +894,76 @@ export class FileSystem {
     }
 
     private static _rootDiff(container: FileSet, changed: FileSystem, base: FileSystem, options: DiffOptions) {
-        while (!changed._lazy.links && changed._shadowRoot) { changed = changed._shadowRoot; }
-        while (!base._lazy.links && base._shadowRoot) { base = base._shadowRoot; }
+        while (!changed._lazy.links && changed._shadowRoot) {
+            changed = changed._shadowRoot;
+        }
+        while (!base._lazy.links && base._shadowRoot) {
+            base = base._shadowRoot;
+        }
 
         // no difference if the file systems are the same reference
-        if (changed === base) { return false; }
+        if (changed === base) {
+            return false;
+        }
 
         // no difference if the root links are empty and unshadowed
-        if (!changed._lazy.links && !changed._shadowRoot && !base._lazy.links && !base._shadowRoot) { return false; }
+        if (!changed._lazy.links && !changed._shadowRoot && !base._lazy.links && !base._shadowRoot) {
+            return false;
+        }
 
         return FileSystem._diffWorker(container, changed, changed._getRootLinks(), base, base._getRootLinks(), options);
     }
 
-    private static _directoryDiff(container: FileSet, basename: string, changed: FileSystem,
-        changedNode: DirectoryInode, base: FileSystem, baseNode: DirectoryInode, options: DiffOptions) {
-
-        while (!changedNode.links && changedNode.shadowRoot) { changedNode = changedNode.shadowRoot; }
-        while (!baseNode.links && baseNode.shadowRoot) { baseNode = baseNode.shadowRoot; }
+    private static _directoryDiff(
+        container: FileSet,
+        basename: string,
+        changed: FileSystem,
+        changedNode: DirectoryInode,
+        base: FileSystem,
+        baseNode: DirectoryInode,
+        options: DiffOptions
+    ) {
+        while (!changedNode.links && changedNode.shadowRoot) {
+            changedNode = changedNode.shadowRoot;
+        }
+        while (!baseNode.links && baseNode.shadowRoot) {
+            baseNode = baseNode.shadowRoot;
+        }
 
         // no difference if the nodes are the same reference
-        if (changedNode === baseNode) { return false; }
+        if (changedNode === baseNode) {
+            return false;
+        }
 
         // no difference if both nodes are non shadowed and have no entries
-        if (isEmptyNonShadowedDirectory(changedNode) && isEmptyNonShadowedDirectory(baseNode)) { return false; }
+        if (isEmptyNonShadowedDirectory(changedNode) && isEmptyNonShadowedDirectory(baseNode)) {
+            return false;
+        }
 
         // no difference if both nodes are unpopulated and point to the same mounted file system
-        if (!changedNode.links && !baseNode.links &&
-            changedNode.resolver && changedNode.source !== undefined &&
-            baseNode.resolver === changedNode.resolver && baseNode.source === changedNode.source) { return false; }
+        if (
+            !changedNode.links &&
+            !baseNode.links &&
+            changedNode.resolver &&
+            changedNode.source !== undefined &&
+            baseNode.resolver === changedNode.resolver &&
+            baseNode.source === changedNode.source
+        ) {
+            return false;
+        }
 
         // no difference if both nodes have identical children
         const children: FileSet = {};
-        if (!FileSystem._diffWorker(children, changed, changed._getLinks(changedNode), base, base._getLinks(baseNode), options)) {
+        if (
+            !FileSystem._diffWorker(
+                children,
+                changed,
+                changed._getLinks(changedNode),
+                base,
+                base._getLinks(baseNode),
+                options
+            )
+        ) {
             return false;
         }
 
@@ -779,32 +971,57 @@ export class FileSystem {
         return true;
     }
 
-    private static _fileDiff(container: FileSet, basename: string, changed: FileSystem,
-        changedNode: FileInode, base: FileSystem, baseNode: FileInode, options: DiffOptions) {
-
-        while (!changedNode.buffer && changedNode.shadowRoot) { changedNode = changedNode.shadowRoot; }
-        while (!baseNode.buffer && baseNode.shadowRoot) { baseNode = baseNode.shadowRoot; }
+    private static _fileDiff(
+        container: FileSet,
+        basename: string,
+        changed: FileSystem,
+        changedNode: FileInode,
+        base: FileSystem,
+        baseNode: FileInode,
+        options: DiffOptions
+    ) {
+        while (!changedNode.buffer && changedNode.shadowRoot) {
+            changedNode = changedNode.shadowRoot;
+        }
+        while (!baseNode.buffer && baseNode.shadowRoot) {
+            baseNode = baseNode.shadowRoot;
+        }
 
         // no difference if the nodes are the same reference
-        if (changedNode === baseNode) { return false; }
+        if (changedNode === baseNode) {
+            return false;
+        }
 
         // no difference if both nodes are non shadowed and have no entries
-        if (isEmptyNonShadowedFile(changedNode) && isEmptyNonShadowedFile(baseNode)) { return false; }
+        if (isEmptyNonShadowedFile(changedNode) && isEmptyNonShadowedFile(baseNode)) {
+            return false;
+        }
 
         // no difference if both nodes are unpopulated and point to the same mounted file system
-        if (!changedNode.buffer && !baseNode.buffer &&
-            changedNode.resolver && changedNode.source !== undefined &&
-            baseNode.resolver === changedNode.resolver && baseNode.source === changedNode.source) { return false; }
+        if (
+            !changedNode.buffer &&
+            !baseNode.buffer &&
+            changedNode.resolver &&
+            changedNode.source !== undefined &&
+            baseNode.resolver === changedNode.resolver &&
+            baseNode.source === changedNode.source
+        ) {
+            return false;
+        }
 
         const changedBuffer = changed._getBuffer(changedNode);
         const baseBuffer = base._getBuffer(baseNode);
 
         // no difference if both buffers are the same reference
-        if (changedBuffer === baseBuffer) { return false; }
+        if (changedBuffer === baseBuffer) {
+            return false;
+        }
 
         // no difference if both buffers are identical
         if (Buffer.compare(changedBuffer, baseBuffer) === 0) {
-            if (!options.includeChangedFileWithSameContent) { return false; }
+            if (!options.includeChangedFileWithSameContent) {
+                return false;
+            }
             container[basename] = new SameFileContentFile(changedBuffer);
             return true;
         }
@@ -813,9 +1030,16 @@ export class FileSystem {
         return true;
     }
 
-    private static _symlinkDiff(container: FileSet, basename: string, changedNode: SymlinkInode, baseNode: SymlinkInode) {
+    private static _symlinkDiff(
+        container: FileSet,
+        basename: string,
+        changedNode: SymlinkInode,
+        baseNode: SymlinkInode
+    ) {
         // no difference if the nodes are the same reference
-        if (changedNode.symlink === baseNode.symlink) { return false; }
+        if (changedNode.symlink === baseNode.symlink) {
+            return false;
+        }
         container[basename] = new Symlink(changedNode.symlink);
         return true;
     }
@@ -833,18 +1057,30 @@ export class FileSystem {
         return true;
     }
 
-    private static _trackCreatedInodes(container: FileSet, changed: FileSystem, changedLinks: ReadonlyMap<string, Inode>) {
+    private static _trackCreatedInodes(
+        container: FileSet,
+        changed: FileSystem,
+        changedLinks: ReadonlyMap<string, Inode>
+    ) {
         // no difference if links are empty
-        if (!changedLinks.size) { return false; }
+        if (!changedLinks.size) {
+            return false;
+        }
 
-        changedLinks.forEach((node, basename) => { FileSystem._trackCreatedInode(container, basename, changed, node); });
+        changedLinks.forEach((node, basename) => {
+            FileSystem._trackCreatedInode(container, basename, changed, node);
+        });
         return true;
     }
 
     private static _trackDeletedInodes(container: FileSet, baseLinks: ReadonlyMap<string, Inode>) {
         // no difference if links are empty
-        if (!baseLinks.size) { return false; }
-        baseLinks.forEach((node, basename) => { container[basename] = isDirectory(node) ? new Rmdir() : new Unlink(); });
+        if (!baseLinks.size) {
+            return false;
+        }
+        baseLinks.forEach((node, basename) => {
+            container[basename] = isDirectory(node) ? new Rmdir() : new Unlink();
+        });
         return true;
     }
 
@@ -864,26 +1100,49 @@ export class FileSystem {
         };
     }
 
-    private _addLink(parent: DirectoryInode | undefined, links: SortedMap<string, Inode>, name: string, node: Inode, time = this.time()) {
+    private _addLink(
+        parent: DirectoryInode | undefined,
+        links: SortedMap<string, Inode>,
+        name: string,
+        node: Inode,
+        time = this.time()
+    ) {
         links.set(name, node);
         node.nlink++;
         node.ctimeMs = time;
-        if (parent) { parent.mtimeMs = time; }
-        if (!parent && !this._cwd) { this._cwd = name; }
+        if (parent) {
+            parent.mtimeMs = time;
+        }
+        if (!parent && !this._cwd) {
+            this._cwd = name;
+        }
     }
 
-    private _removeLink(parent: DirectoryInode | undefined, links: SortedMap<string, Inode>,
-        name: string, node: Inode, time = this.time()) {
-
+    private _removeLink(
+        parent: DirectoryInode | undefined,
+        links: SortedMap<string, Inode>,
+        name: string,
+        node: Inode,
+        time = this.time()
+    ) {
         links.delete(name);
         node.nlink--;
         node.ctimeMs = time;
-        if (parent) { parent.mtimeMs = time; }
+        if (parent) {
+            parent.mtimeMs = time;
+        }
     }
 
-    private _replaceLink(oldParent: DirectoryInode, oldLinks: SortedMap<string, Inode>,
-        oldName: string, newParent: DirectoryInode, newLinks: SortedMap<string, Inode>, newName: string, node: Inode, time: number) {
-
+    private _replaceLink(
+        oldParent: DirectoryInode,
+        oldLinks: SortedMap<string, Inode>,
+        oldName: string,
+        newParent: DirectoryInode,
+        newLinks: SortedMap<string, Inode>,
+        newName: string,
+        node: Inode,
+        time: number
+    ) {
         if (oldParent !== newParent) {
             this._removeLink(oldParent, oldLinks, oldName, node, time);
             this._addLink(newParent, newLinks, newName, node, time);
@@ -918,20 +1177,20 @@ export class FileSystem {
                     const stats = resolver.statSync(path);
                     switch (stats.mode & S_IFMT) {
                         case S_IFDIR: {
-                                const dir = this._mknod(node.dev, S_IFDIR, 0o777);
-                                dir.source = pathUtil.combinePaths(source, name);
-                                dir.resolver = resolver;
-                                this._addLink(node, links, name, dir);
-                                break;
-                            }
+                            const dir = this._mknod(node.dev, S_IFDIR, 0o777);
+                            dir.source = pathUtil.combinePaths(source, name);
+                            dir.resolver = resolver;
+                            this._addLink(node, links, name, dir);
+                            break;
+                        }
                         case S_IFREG: {
-                                const file = this._mknod(node.dev, S_IFREG, 0o666);
-                                file.source = pathUtil.combinePaths(source, name);
-                                file.resolver = resolver;
-                                file.size = stats.size;
-                                this._addLink(node, links, name, file);
-                                break;
-                            }
+                            const file = this._mknod(node.dev, S_IFREG, 0o666);
+                            file.source = pathUtil.combinePaths(source, name);
+                            file.resolver = resolver;
+                            file.size = stats.size;
+                            this._addLink(node, links, name, file);
+                            break;
+                        }
                     }
                 }
             } else if (this._shadowRoot && node.shadowRoot) {
@@ -961,7 +1220,9 @@ export class FileSystem {
                 shadowRoot: root
             };
 
-            if (isSymlink(root)) { (shadow as SymlinkInode).symlink = root.symlink; }
+            if (isSymlink(root)) {
+                (shadow as SymlinkInode).symlink = root.symlink;
+            }
             shadows.set(shadow.ino, shadow);
         }
 
@@ -981,10 +1242,18 @@ export class FileSystem {
     }
 
     private _getSize(node: FileInode): number {
-        if (node.buffer) { return node.buffer.byteLength; }
-        if (node.size !== undefined) { return node.size; }
-        if (node.source && node.resolver) { return node.size = node.resolver.statSync(node.source).size; }
-        if (this._shadowRoot && node.shadowRoot) { return node.size = this._shadowRoot._getSize(node.shadowRoot); }
+        if (node.buffer) {
+            return node.buffer.byteLength;
+        }
+        if (node.size !== undefined) {
+            return node.size;
+        }
+        if (node.source && node.resolver) {
+            return (node.size = node.resolver.statSync(node.source).size);
+        }
+        if (this._shadowRoot && node.shadowRoot) {
+            return (node.size = this._shadowRoot._getSize(node.shadowRoot));
+        }
         return 0;
     }
 
@@ -1014,10 +1283,21 @@ export class FileSystem {
      *
      * @link http://man7.org/linux/man-pages/man7/path_resolution.7.html
      */
-    private _walk(path: string, noFollow?: boolean,
-        onError?: (error: NodeJS.ErrnoException, fragment: WalkResult) => 'retry' | 'throw'): WalkResult;
-    private _walk(path: string, noFollow?: boolean, onError?: (error: NodeJS.ErrnoException, fragment: WalkResult) => 'stop' | 'retry' | 'throw'): WalkResult | undefined;
-    private _walk(path: string, noFollow?: boolean, onError?: (error: NodeJS.ErrnoException, fragment: WalkResult) => 'stop' | 'retry' | 'throw'): WalkResult | undefined {
+    private _walk(
+        path: string,
+        noFollow?: boolean,
+        onError?: (error: NodeJS.ErrnoException, fragment: WalkResult) => 'retry' | 'throw'
+    ): WalkResult;
+    private _walk(
+        path: string,
+        noFollow?: boolean,
+        onError?: (error: NodeJS.ErrnoException, fragment: WalkResult) => 'stop' | 'retry' | 'throw'
+    ): WalkResult | undefined;
+    private _walk(
+        path: string,
+        noFollow?: boolean,
+        onError?: (error: NodeJS.ErrnoException, fragment: WalkResult) => 'stop' | 'retry' | 'throw'
+    ): WalkResult | undefined {
         let links = this._getRootLinks();
         let parent: DirectoryInode | undefined;
         let components = pathUtil.getPathComponents(path);
@@ -1025,7 +1305,9 @@ export class FileSystem {
         let depth = 0;
         let retry = false;
         while (true) {
-            if (depth >= 40) { throw createIOError('ELOOP'); }
+            if (depth >= 40) {
+                throw createIOError('ELOOP');
+            }
             const lastStep = step === components.length - 1;
             const basename = components[step];
             const node = links.get(basename);
@@ -1033,7 +1315,9 @@ export class FileSystem {
                 return { realpath: pathUtil.combinePathComponents(components), basename, parent, links, node };
             }
             if (node === undefined) {
-                if (trapError(createIOError('ENOENT'), node)) { continue; }
+                if (trapError(createIOError('ENOENT'), node)) {
+                    continue;
+                }
                 return undefined;
             }
             if (isSymlink(node)) {
@@ -1054,7 +1338,9 @@ export class FileSystem {
                 retry = false;
                 continue;
             }
-            if (trapError(createIOError('ENOTDIR'), node)) { continue; }
+            if (trapError(createIOError('ENOTDIR'), node)) {
+                continue;
+            }
             return undefined;
         }
 
@@ -1062,7 +1348,9 @@ export class FileSystem {
             const realpath = pathUtil.combinePathComponents(components.slice(0, step + 1));
             const basename = components[step];
             const result = !retry && onError ? onError(error, { realpath, basename, parent, links, node }) : 'throw';
-            if (result === 'stop') { return false; }
+            if (result === 'stop') {
+                return false;
+            }
             if (result === 'retry') {
                 retry = true;
                 return true;
@@ -1076,7 +1364,10 @@ export class FileSystem {
      */
     private _resolve(path: string) {
         return this._cwd
-            ? pathUtil.resolvePaths(this._cwd, validate(path, ValidationFlags.RelativeOrAbsolute | ValidationFlags.AllowWildcard))
+            ? pathUtil.resolvePaths(
+                  this._cwd,
+                  validate(path, ValidationFlags.RelativeOrAbsolute | ValidationFlags.AllowWildcard)
+              )
             : validate(path, ValidationFlags.Absolute | ValidationFlags.AllowWildcard);
     }
 
@@ -1343,7 +1634,8 @@ interface WalkResult {
 }
 
 function normalizeFileSetEntry(value: FileSet[string]) {
-    if (value === undefined ||
+    if (
+        value === undefined ||
         value === null ||
         value instanceof Directory ||
         value instanceof File ||
@@ -1351,7 +1643,8 @@ function normalizeFileSetEntry(value: FileSet[string]) {
         value instanceof Symlink ||
         value instanceof Mount ||
         value instanceof Rmdir ||
-        value instanceof Unlink) {
+        value instanceof Unlink
+    ) {
         return value;
     }
     return typeof value === 'string' || Buffer.isBuffer(value) ? new File(value) : new Directory(value);
@@ -1369,22 +1662,22 @@ function formatPatchWorker(dirname: string, container: FileSet): string {
         const entry = normalizeFileSetEntry(container[name]);
         const file = dirname ? pathUtil.combinePaths(dirname, name) : name;
         if (entry === null || entry === undefined || entry instanceof Unlink || entry instanceof Rmdir) {
-            text += `//// [${ file }] unlink\r\n`;
+            text += `//// [${file}] unlink\r\n`;
         } else if (entry instanceof Rmdir) {
-            text += `//// [${ pathUtil.ensureTrailingDirectorySeparator(file) }] rmdir\r\n`;
+            text += `//// [${pathUtil.ensureTrailingDirectorySeparator(file)}] rmdir\r\n`;
         } else if (entry instanceof Directory) {
             text += formatPatchWorker(file, entry.files);
         } else if (entry instanceof SameFileContentFile) {
-            text += `//// [${ file }] file written with same contents\r\n`;
+            text += `//// [${file}] file written with same contents\r\n`;
         } else if (entry instanceof File) {
             const content = typeof entry.data === 'string' ? entry.data : entry.data.toString('utf8');
-            text += `//// [${ file }]\r\n${ content }\r\n\r\n`;
+            text += `//// [${file}]\r\n${content}\r\n\r\n`;
         } else if (entry instanceof Link) {
-            text += `//// [${ file }] link(${ entry.path })\r\n`;
+            text += `//// [${file}] link(${entry.path})\r\n`;
         } else if (entry instanceof Symlink) {
-            text += `//// [${ file }] symlink(${ entry.symlink })\r\n`;
+            text += `//// [${file}] symlink(${entry.symlink})\r\n`;
         } else if (entry instanceof Mount) {
-            text += `//// [${ file }] mount(${ entry.source })\r\n`;
+            text += `//// [${file}] mount(${entry.source})\r\n`;
         }
     }
     return text;
@@ -1411,11 +1704,34 @@ class Stats {
     birthtime: Date;
 
     constructor();
-    constructor(dev: number, ino: number, mode: number, nlink: number, rdev: number,
-        size: number, blksize: number, blocks: number, atimeMs: number, mtimeMs: number, ctimeMs: number, birthtimeMs: number);
-    constructor(dev = 0, ino = 0, mode = 0, nlink = 0, rdev = 0, size = 0,
-        blksize = 0, blocks = 0, atimeMs = 0, mtimeMs = 0, ctimeMs = 0, birthtimeMs = 0) {
-
+    constructor(
+        dev: number,
+        ino: number,
+        mode: number,
+        nlink: number,
+        rdev: number,
+        size: number,
+        blksize: number,
+        blocks: number,
+        atimeMs: number,
+        mtimeMs: number,
+        ctimeMs: number,
+        birthtimeMs: number
+    );
+    constructor(
+        dev = 0,
+        ino = 0,
+        mode = 0,
+        nlink = 0,
+        rdev = 0,
+        size = 0,
+        blksize = 0,
+        blocks = 0,
+        atimeMs = 0,
+        mtimeMs = 0,
+        ctimeMs = 0,
+        birthtimeMs = 0
+    ) {
         this.dev = dev;
         this.ino = ino;
         this.mode = mode;
@@ -1436,11 +1752,25 @@ class Stats {
         this.birthtime = new Date(this.birthtimeMs);
     }
 
-    isFile() { return (this.mode & S_IFMT) === S_IFREG; }
-    isDirectory() { return (this.mode & S_IFMT) === S_IFDIR; }
-    isSymbolicLink() { return (this.mode & S_IFMT) === S_IFLNK; }
-    isBlockDevice() { return (this.mode & S_IFMT) === S_IFBLK; }
-    isCharacterDevice() { return (this.mode & S_IFMT) === S_IFCHR; }
-    isFIFO() { return (this.mode & S_IFMT) === S_IFIFO; }
-    isSocket() { return (this.mode & S_IFMT) === S_IFSOCK; }
+    isFile() {
+        return (this.mode & S_IFMT) === S_IFREG;
+    }
+    isDirectory() {
+        return (this.mode & S_IFMT) === S_IFDIR;
+    }
+    isSymbolicLink() {
+        return (this.mode & S_IFMT) === S_IFLNK;
+    }
+    isBlockDevice() {
+        return (this.mode & S_IFMT) === S_IFBLK;
+    }
+    isCharacterDevice() {
+        return (this.mode & S_IFMT) === S_IFCHR;
+    }
+    isFIFO() {
+        return (this.mode & S_IFMT) === S_IFIFO;
+    }
+    isSocket() {
+        return (this.mode & S_IFMT) === S_IFSOCK;
+    }
 }

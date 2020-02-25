@@ -16,11 +16,17 @@
 //// import [|/*marker*/testLi|]b
 
 helper.verifyCodeActions({
-    'marker': {
-        codeActions: [{
-            title: 'Create Type Stub For ‘testLib’', kind: Consts.CodeActionKind.QuickFix, command: {
-                title: 'Create Type Stub', command: Consts.Commands.createTypeStub, arguments: ['\\', 'testLib', '\\.src\\test.py']
+    marker: {
+        codeActions: [
+            {
+                title: "Create Type Stub For 'testLib'",
+                kind: Consts.CodeActionKind.QuickFix,
+                command: {
+                    title: 'Create Type Stub',
+                    command: Consts.Commands.createTypeStub,
+                    arguments: ['\\', 'testLib', '\\.src\\test.py']
+                }
             }
-        }]
+        ]
     }
 });

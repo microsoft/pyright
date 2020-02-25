@@ -1,12 +1,12 @@
 /*
-* referencesProvider.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Logic that finds all of the references to a symbol specified
-* by a location within a file.
-*/
+ * referencesProvider.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Logic that finds all of the references to a symbol specified
+ * by a location within a file.
+ */
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
@@ -15,7 +15,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
-import { DocumentRange,Position } from '../common/textRange';
+import { DocumentRange, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -34,10 +34,13 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     private _includeDeclaration: boolean;
     private _evaluator: TypeEvaluator;
 
-    constructor(parseResults: ParseResults, filePath: string,
-            referencesResult: ReferencesResult, includeDeclaration: boolean,
-            evaluator: TypeEvaluator) {
-
+    constructor(
+        parseResults: ParseResults,
+        filePath: string,
+        referencesResult: ReferencesResult,
+        includeDeclaration: boolean,
+        evaluator: TypeEvaluator
+    ) {
         super();
         this._parseResults = parseResults;
         this._filePath = filePath;
@@ -68,7 +71,10 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
                         path: this._filePath,
                         range: {
                             start: convertOffsetToPosition(node.start, this._parseResults.tokenizerOutput.lines),
-                            end: convertOffsetToPosition(TextRange.getEnd(node), this._parseResults.tokenizerOutput.lines)
+                            end: convertOffsetToPosition(
+                                TextRange.getEnd(node),
+                                this._parseResults.tokenizerOutput.lines
+                            )
                         }
                     });
                 }
@@ -87,15 +93,19 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
         // The reference results declarations are already resolved, so we don't
         // need to call resolveAliasDeclaration on them.
         return this._referencesResult.declarations.some(decl =>
-            DeclarationUtils.areDeclarationsSame(decl, resolvedDecl));
+            DeclarationUtils.areDeclarationsSame(decl, resolvedDecl)
+        );
     }
 }
 
 export class ReferencesProvider {
-    static getReferencesForPosition(parseResults: ParseResults, filePath: string,
-            position: Position, includeDeclaration: boolean,
-            evaluator: TypeEvaluator): ReferencesResult | undefined {
-
+    static getReferencesForPosition(
+        parseResults: ParseResults,
+        filePath: string,
+        position: Position,
+        includeDeclaration: boolean,
+        evaluator: TypeEvaluator
+    ): ReferencesResult | undefined {
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;
@@ -133,7 +143,8 @@ export class ReferencesProvider {
         // Parameters are local to a scope, so they don't require a global search.
         // If it's a named argument referring to a parameter, we still need to perform
         // the global search.
-        const requiresGlobalSearch = symbolDeclType !== DeclarationType.Parameter ||
+        const requiresGlobalSearch =
+            symbolDeclType !== DeclarationType.Parameter ||
             (node.parent !== undefined && node.parent.nodeType === ParseNodeType.Argument);
 
         const results: ReferencesResult = {
@@ -143,19 +154,32 @@ export class ReferencesProvider {
             locations: []
         };
 
-        const refTreeWalker = new FindReferencesTreeWalker(parseResults,
-            filePath, results, includeDeclaration, evaluator);
+        const refTreeWalker = new FindReferencesTreeWalker(
+            parseResults,
+            filePath,
+            results,
+            includeDeclaration,
+            evaluator
+        );
         refTreeWalker.findReferences();
 
         return results;
     }
 
-    static addReferences(parseResults: ParseResults, filePath: string,
-            referencesResult: ReferencesResult, includeDeclaration: boolean,
-            evaluator: TypeEvaluator): void {
-
-        const refTreeWalker = new FindReferencesTreeWalker(parseResults,
-            filePath, referencesResult, includeDeclaration, evaluator);
+    static addReferences(
+        parseResults: ParseResults,
+        filePath: string,
+        referencesResult: ReferencesResult,
+        includeDeclaration: boolean,
+        evaluator: TypeEvaluator
+    ): void {
+        const refTreeWalker = new FindReferencesTreeWalker(
+            parseResults,
+            filePath,
+            referencesResult,
+            includeDeclaration,
+            evaluator
+        );
         refTreeWalker.findReferences();
     }
 }

@@ -15,7 +15,11 @@ import * as fs from 'fs';
 
 import { ConsoleInterface, NullConsole } from './console';
 
-export type Listener = (eventName: 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir', path: string, stats?: Stats) => void;
+export type Listener = (
+    eventName: 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir',
+    path: string,
+    stats?: Stats
+) => void;
 
 export interface FileWatcher {
     close(): void;
@@ -61,21 +65,38 @@ const _isMacintosh = process.platform === 'darwin';
 const _isLinux = process.platform === 'linux';
 
 class FileSystem implements VirtualFileSystem {
-    constructor(private _console: ConsoleInterface) {
-    }
+    constructor(private _console: ConsoleInterface) {}
 
-    existsSync(path: string) { return fs.existsSync(path); }
-    mkdirSync(path: string) { fs.mkdirSync(path); }
-    chdir(path: string) { process.chdir(path); }
-    readdirSync(path: string) { return fs.readdirSync(path); }
+    existsSync(path: string) {
+        return fs.existsSync(path);
+    }
+    mkdirSync(path: string) {
+        fs.mkdirSync(path);
+    }
+    chdir(path: string) {
+        process.chdir(path);
+    }
+    readdirSync(path: string) {
+        return fs.readdirSync(path);
+    }
     readFileSync(path: string, encoding?: null): Buffer;
     readFileSync(path: string, encoding: string): string;
     readFileSync(path: string, encoding?: string | null): Buffer | string;
-    readFileSync(path: string, encoding: string | null = null) { return fs.readFileSync(path, { encoding }); }
-    writeFileSync(path: string, data: string | Buffer, encoding: string | null) { fs.writeFileSync(path, data, { encoding }); }
-    statSync(path: string) { return fs.statSync(path); }
-    unlinkSync(path: string) { fs.unlinkSync(path); }
-    realpathSync(path: string) { return fs.realpathSync(path); }
+    readFileSync(path: string, encoding: string | null = null) {
+        return fs.readFileSync(path, { encoding });
+    }
+    writeFileSync(path: string, data: string | Buffer, encoding: string | null) {
+        fs.writeFileSync(path, data, { encoding });
+    }
+    statSync(path: string) {
+        return fs.statSync(path);
+    }
+    unlinkSync(path: string) {
+        fs.unlinkSync(path);
+    }
+    realpathSync(path: string) {
+        return fs.realpathSync(path);
+    }
 
     getModulePath(): string {
         // The entry point to the tool should have set the __rootDirectory

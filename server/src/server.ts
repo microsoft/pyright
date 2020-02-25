@@ -49,7 +49,7 @@ class Server extends LanguageServerBase {
                 serverSettings.disableLanguageServices = false;
             }
         } catch (error) {
-            this.console.log(`Error reading settings: ${ error }`);
+            this.console.log(`Error reading settings: ${error}`);
         }
         return serverSettings;
     }

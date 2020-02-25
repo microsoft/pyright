@@ -11,12 +11,21 @@ import * as path from 'path';
 import { ConsoleInterface } from '../../../common/console';
 import * as debug from '../../../common/debug';
 import { VirtualFileSystem } from '../../../common/vfs';
-import { LanguageServerInterface, ServerSettings, WindowInterface, WorkspaceServiceInstance } from '../../../languageServerBase';
+import {
+    LanguageServerInterface,
+    ServerSettings,
+    WindowInterface,
+    WorkspaceServiceInstance
+} from '../../../languageServerBase';
 
 export class TestLanguageService implements LanguageServerInterface {
     private readonly _workspace: WorkspaceServiceInstance;
 
-    constructor(workspace: WorkspaceServiceInstance, readonly console: ConsoleInterface, readonly fs: VirtualFileSystem) {
+    constructor(
+        workspace: WorkspaceServiceInstance,
+        readonly console: ConsoleInterface,
+        readonly fs: VirtualFileSystem
+    ) {
         this._workspace = workspace;
     }
 
@@ -38,7 +47,9 @@ export class TestLanguageService implements LanguageServerInterface {
         return settings;
     }
 
-    reanalyze(): void {        /* don't do anything */ }
+    reanalyze(): void {
+        /* don't do anything */
+    }
 
     readonly rootPath = path.sep;
     readonly window = new TestWindow();
@@ -46,11 +57,11 @@ export class TestLanguageService implements LanguageServerInterface {
 
 class TestWindow implements WindowInterface {
     showErrorMessage(message: string): void {
-        debug.fail('shouldn\'t be called');
+        debug.fail("shouldn't be called");
     }
 
     showWarningMessage(message: string): void {
-        debug.fail('shouldn\'t be called');
+        debug.fail("shouldn't be called");
     }
 
     showInformationMessage(message: string): void {

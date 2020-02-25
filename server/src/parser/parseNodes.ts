@@ -1,16 +1,24 @@
 /*
-* parseNodes.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Definition of parse nodes that make up the Python abstract
-* syntax tree (AST).
-*/
+ * parseNodes.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Definition of parse nodes that make up the Python abstract
+ * syntax tree (AST).
+ */
 
 import { TextRange } from '../common/textRange';
-import { IdentifierToken, KeywordToken, KeywordType,
-    NumberToken, OperatorType, StringToken, Token, TokenType } from './tokenizerTypes';
+import {
+    IdentifierToken,
+    KeywordToken,
+    KeywordType,
+    NumberToken,
+    OperatorType,
+    StringToken,
+    Token,
+    TokenType
+} from './tokenizerTypes';
 
 export const enum ParseNodeType {
     Error, // 0
@@ -172,9 +180,12 @@ export interface IfNode extends ParseNodeBase {
 }
 
 export namespace IfNode {
-    export function create(ifOrElifToken: Token, testExpression: ExpressionNode,
-            ifSuite: SuiteNode, elseSuite?: SuiteNode) {
-
+    export function create(
+        ifOrElifToken: Token,
+        testExpression: ExpressionNode,
+        ifSuite: SuiteNode,
+        elseSuite?: SuiteNode
+    ) {
         const node: IfNode = {
             start: ifOrElifToken.start,
             length: ifOrElifToken.length,
@@ -236,9 +247,12 @@ export interface ForNode extends ParseNodeBase {
 }
 
 export namespace ForNode {
-    export function create(forToken: Token, targetExpression: ExpressionNode,
-            iterableExpression: ExpressionNode, forSuite: SuiteNode) {
-
+    export function create(
+        forToken: Token,
+        targetExpression: ExpressionNode,
+        iterableExpression: ExpressionNode,
+        forSuite: SuiteNode
+    ) {
         const node: ForNode = {
             start: forToken.start,
             length: forToken.length,
@@ -588,18 +602,57 @@ export namespace StatementListNode {
     }
 }
 
-export type StatementNode = IfNode | WhileNode | ForNode | TryNode |
-    FunctionNode | ClassNode | WithNode | StatementListNode | ErrorNode;
+export type StatementNode =
+    | IfNode
+    | WhileNode
+    | ForNode
+    | TryNode
+    | FunctionNode
+    | ClassNode
+    | WithNode
+    | StatementListNode
+    | ErrorNode;
 
-export type SmallStatementNode = ExpressionNode | DelNode | PassNode |
-    ImportNode | GlobalNode | NonlocalNode | AssertNode;
+export type SmallStatementNode =
+    | ExpressionNode
+    | DelNode
+    | PassNode
+    | ImportNode
+    | GlobalNode
+    | NonlocalNode
+    | AssertNode;
 
-export type ExpressionNode = ErrorNode | UnaryOperationNode | BinaryOperationNode |
-    AssignmentNode | TypeAnnotationNode | AssignmentExpressionNode | AugmentedAssignmentNode |
-    AwaitNode | TernaryNode | UnpackNode | TupleNode | CallNode | ListComprehensionNode | IndexNode |
-    SliceNode | YieldNode | YieldFromNode | MemberAccessNode | LambdaNode | NameNode | ConstantNode |
-    EllipsisNode | NumberNode | StringNode | FormatStringNode | StringListNode | DictionaryNode |
-    DictionaryExpandEntryNode | ListNode | SetNode;
+export type ExpressionNode =
+    | ErrorNode
+    | UnaryOperationNode
+    | BinaryOperationNode
+    | AssignmentNode
+    | TypeAnnotationNode
+    | AssignmentExpressionNode
+    | AugmentedAssignmentNode
+    | AwaitNode
+    | TernaryNode
+    | UnpackNode
+    | TupleNode
+    | CallNode
+    | ListComprehensionNode
+    | IndexNode
+    | SliceNode
+    | YieldNode
+    | YieldFromNode
+    | MemberAccessNode
+    | LambdaNode
+    | NameNode
+    | ConstantNode
+    | EllipsisNode
+    | NumberNode
+    | StringNode
+    | FormatStringNode
+    | StringListNode
+    | DictionaryNode
+    | DictionaryExpandEntryNode
+    | ListNode
+    | SetNode;
 
 export function isExpressionNode(node: ParseNode) {
     switch (node.nodeType) {
@@ -645,9 +698,7 @@ export interface ErrorNode extends ParseNodeBase {
 }
 
 export namespace ErrorNode {
-    export function create(initialRange: TextRange, category: ErrorExpressionCategory,
-            child?: ExpressionNode) {
-
+    export function create(initialRange: TextRange, category: ErrorExpressionCategory, child?: ExpressionNode) {
         const node: ErrorNode = {
             start: initialRange.start,
             length: initialRange.length,
@@ -699,9 +750,7 @@ export interface BinaryOperationNode extends ParseNodeBase {
 }
 
 export namespace BinaryOperationNode {
-    export function create(leftExpression: ExpressionNode, rightExpression: ExpressionNode,
-            operator: OperatorType) {
-
+    export function create(leftExpression: ExpressionNode, rightExpression: ExpressionNode, operator: OperatorType) {
         const node: BinaryOperationNode = {
             start: leftExpression.start,
             length: leftExpression.length,
@@ -813,9 +862,12 @@ export interface AugmentedAssignmentNode extends ParseNodeBase {
 }
 
 export namespace AugmentedAssignmentNode {
-    export function create(leftExpression: ExpressionNode, rightExpression: ExpressionNode,
-            operator: OperatorType, destExpression: ExpressionNode) {
-
+    export function create(
+        leftExpression: ExpressionNode,
+        rightExpression: ExpressionNode,
+        operator: OperatorType,
+        destExpression: ExpressionNode
+    ) {
         const node: AugmentedAssignmentNode = {
             start: leftExpression.start,
             length: leftExpression.length,
@@ -868,9 +920,11 @@ export interface TernaryNode extends ParseNodeBase {
 }
 
 export namespace TernaryNode {
-    export function create(ifExpression: ExpressionNode, testExpression: ExpressionNode,
-            elseExpression: ExpressionNode) {
-
+    export function create(
+        ifExpression: ExpressionNode,
+        testExpression: ExpressionNode,
+        elseExpression: ExpressionNode
+    ) {
         const node: TernaryNode = {
             start: ifExpression.start,
             length: ifExpression.length,
@@ -1260,9 +1314,12 @@ export interface FormatStringNode extends ParseNodeBase {
 }
 
 export namespace FormatStringNode {
-    export function create(token: StringToken, unescapedValue: string, hasUnescapeErrors: boolean,
-            expressions: ExpressionNode[]) {
-
+    export function create(
+        token: StringToken,
+        unescapedValue: string,
+        hasUnescapeErrors: boolean,
+        expressions: ExpressionNode[]
+    ) {
         const node: FormatStringNode = {
             start: token.start,
             length: token.length,
@@ -1738,19 +1795,71 @@ export namespace RaiseNode {
     }
 }
 
-export type ParseNode = ErrorNode | ArgumentNode | AssertNode | AssignmentExpressionNode |
-    AssignmentNode | AugmentedAssignmentNode | AwaitNode | BinaryOperationNode |
-    BreakNode | CallNode | ClassNode | ConstantNode | ContinueNode |
-    DecoratorNode | DelNode | DictionaryNode | DictionaryEntryNode | DictionaryExpandEntryNode |
-    DictionaryKeyEntryNode | EllipsisNode | IfNode | ImportNode | ImportAsNode | ImportFromNode |
-    ImportFromAsNode | IndexNode | IndexItemsNode | ExceptNode | ForNode | FormatStringNode |
-    FunctionNode | GlobalNode | LambdaNode | ListNode | ListComprehensionNode | ListComprehensionForNode |
-    ListComprehensionIfNode | MemberAccessNode | ModuleNameNode | ModuleNode | NameNode |
-    NonlocalNode | NumberNode | ParameterNode | PassNode | RaiseNode | ReturnNode | SetNode |
-    SliceNode | StatementListNode | StringListNode | StringNode | SuiteNode |
-    TernaryNode | TupleNode | TryNode | TypeAnnotationNode |
-    UnaryOperationNode | UnpackNode | WhileNode | WithNode | WithItemNode |
-    YieldNode | YieldFromNode;
+export type ParseNode =
+    | ErrorNode
+    | ArgumentNode
+    | AssertNode
+    | AssignmentExpressionNode
+    | AssignmentNode
+    | AugmentedAssignmentNode
+    | AwaitNode
+    | BinaryOperationNode
+    | BreakNode
+    | CallNode
+    | ClassNode
+    | ConstantNode
+    | ContinueNode
+    | DecoratorNode
+    | DelNode
+    | DictionaryNode
+    | DictionaryEntryNode
+    | DictionaryExpandEntryNode
+    | DictionaryKeyEntryNode
+    | EllipsisNode
+    | IfNode
+    | ImportNode
+    | ImportAsNode
+    | ImportFromNode
+    | ImportFromAsNode
+    | IndexNode
+    | IndexItemsNode
+    | ExceptNode
+    | ForNode
+    | FormatStringNode
+    | FunctionNode
+    | GlobalNode
+    | LambdaNode
+    | ListNode
+    | ListComprehensionNode
+    | ListComprehensionForNode
+    | ListComprehensionIfNode
+    | MemberAccessNode
+    | ModuleNameNode
+    | ModuleNode
+    | NameNode
+    | NonlocalNode
+    | NumberNode
+    | ParameterNode
+    | PassNode
+    | RaiseNode
+    | ReturnNode
+    | SetNode
+    | SliceNode
+    | StatementListNode
+    | StringListNode
+    | StringNode
+    | SuiteNode
+    | TernaryNode
+    | TupleNode
+    | TryNode
+    | TypeAnnotationNode
+    | UnaryOperationNode
+    | UnpackNode
+    | WhileNode
+    | WithNode
+    | WithItemNode
+    | YieldNode
+    | YieldFromNode;
 
 export type EvaluationScopeNode = LambdaNode | FunctionNode | ModuleNode | ClassNode | ListComprehensionNode;
 export type ExecutionScopeNode = LambdaNode | FunctionNode | ModuleNode;

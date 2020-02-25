@@ -1,11 +1,11 @@
 /*
-* symbolUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Collection of functions that operate on Symbol objects.
-*/
+ * symbolUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Collection of functions that operate on Symbol objects.
+ */
 
 import { Declaration, DeclarationType } from './declaration';
 import { isFinalVariableDeclaration } from './declarationUtils';

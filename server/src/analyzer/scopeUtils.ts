@@ -1,12 +1,12 @@
 /*
-* scopeUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Static utility methods related to scopes and their related
-* symbol tables.
-*/
+ * scopeUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Static utility methods related to scopes and their related
+ * symbol tables.
+ */
 
 import { ParseNode } from '../parser/parseNodes';
 import { getScope } from './analyzerNodeInfo';

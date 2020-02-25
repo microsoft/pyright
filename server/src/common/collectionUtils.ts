@@ -11,7 +11,11 @@ import { compareValues, Comparison, equateValues, isArray } from './core';
 export const emptyArray: never[] = [] as never[];
 export type EqualityComparer<T> = (a: T, b: T) => boolean;
 
-export function contains<T>(array: readonly T[] | undefined, value: T, equalityComparer: EqualityComparer<T> = equateValues): boolean {
+export function contains<T>(
+    array: readonly T[] | undefined,
+    value: T,
+    equalityComparer: EqualityComparer<T> = equateValues
+): boolean {
     if (array) {
         for (const v of array) {
             if (equalityComparer(v, value)) {
@@ -36,20 +40,29 @@ export interface Push<T> {
  * appended.
  */
 export function append<TArray extends any[] | undefined, TValue extends NonNullable<TArray>[number] | undefined>(
-    to: TArray, value: TValue): [undefined, undefined] extends [TArray, TValue] ? TArray : NonNullable<TArray>[number][];
+    to: TArray,
+    value: TValue
+): [undefined, undefined] extends [TArray, TValue] ? TArray : NonNullable<TArray>[number][];
 export function append<T>(to: T[], value: T | undefined): T[];
 export function append<T>(to: T[] | undefined, value: T): T[];
 export function append<T>(to: T[] | undefined, value: T | undefined): T[] | undefined;
 export function append<T>(to: Push<T>, value: T | undefined): void;
 export function append<T>(to: T[], value: T | undefined): T[] | undefined {
-    if (value === undefined) { return to; }
-    if (to === undefined) { return [value]; }
+    if (value === undefined) {
+        return to;
+    }
+    if (to === undefined) {
+        return [value];
+    }
     to.push(value);
     return to;
 }
 
 /** Works like Array.prototype.find, returning `undefined` if no element satisfying the predicate is found. */
-export function find<T, U extends T>(array: readonly T[], predicate: (element: T, index: number) => element is U): U | undefined;
+export function find<T, U extends T>(
+    array: readonly T[],
+    predicate: (element: T, index: number) => element is U
+): U | undefined;
 export function find<T>(array: readonly T[], predicate: (element: T, index: number) => boolean): T | undefined;
 export function find<T>(array: readonly T[], predicate: (element: T, index: number) => boolean): T | undefined {
     for (let i = 0; i < array.length; i++) {
@@ -80,10 +93,24 @@ function toOffset(array: readonly any[], offset: number) {
  * @param end The offset in `from` at which to stop copying values (non-inclusive).
  */
 export function addRange<T>(to: T[], from: readonly T[] | undefined, start?: number, end?: number): T[];
-export function addRange<T>(to: T[] | undefined, from: readonly T[] | undefined, start?: number, end?: number): T[] | undefined;
-export function addRange<T>(to: T[] | undefined, from: readonly T[] | undefined, start?: number, end?: number): T[] | undefined {
-    if (from === undefined || from.length === 0) { return to; }
-    if (to === undefined) { return from.slice(start, end); }
+export function addRange<T>(
+    to: T[] | undefined,
+    from: readonly T[] | undefined,
+    start?: number,
+    end?: number
+): T[] | undefined;
+export function addRange<T>(
+    to: T[] | undefined,
+    from: readonly T[] | undefined,
+    start?: number,
+    end?: number
+): T[] | undefined {
+    if (from === undefined || from.length === 0) {
+        return to;
+    }
+    if (to === undefined) {
+        return from.slice(start, end);
+    }
     start = start === undefined ? 0 : toOffset(from, start);
     end = end === undefined ? from.length : toOffset(from, end);
     for (let i = start; i < end && i < from.length; i++) {
@@ -139,7 +166,7 @@ function indicesOf(array: readonly unknown[]): number[] {
 export function stableSort<T>(array: readonly T[], comparer: Comparer<T>): SortedReadonlyArray<T> {
     const indices = indicesOf(array);
     stableSortIndices(array, indices, comparer);
-    return indices.map(i => array[i]) as SortedArray<T> as SortedReadonlyArray<T>;
+    return (indices.map(i => array[i]) as SortedArray<T>) as SortedReadonlyArray<T>;
 }
 
 function stableSortIndices<T>(array: readonly T[], indices: number[], comparer: Comparer<T>) {
@@ -170,10 +197,10 @@ export function some<T>(array: readonly T[] | undefined, predicate?: (value: T) 
 }
 
 /**
-* Iterates through `array` by index and performs the callback on each element of array until the callback
-* returns a falsey value, then returns false.
-* If no such value is found, the callback is applied to each element of array and `true` is returned.
-*/
+ * Iterates through `array` by index and performs the callback on each element of array until the callback
+ * returns a falsey value, then returns false.
+ * If no such value is found, the callback is applied to each element of array and `true` is returned.
+ */
 export function every<T>(array: readonly T[], callback: (element: T, index: number) => boolean): boolean {
     if (array) {
         return array.every(callback);
@@ -193,9 +220,13 @@ export function every<T>(array: readonly T[], callback: (element: T, index: numb
  * @param keyComparer A callback used to compare two keys in a sorted array.
  * @param offset An offset into `array` at which to start the search.
  */
-export function binarySearch<T, U>(array: readonly T[], value: T,
-    keySelector: (v: T) => U, keyComparer: Comparer<U>, offset?: number): number {
-
+export function binarySearch<T, U>(
+    array: readonly T[],
+    value: T,
+    keySelector: (v: T) => U,
+    keyComparer: Comparer<U>,
+    offset?: number
+): number {
     return binarySearchKey(array, keySelector(value), keySelector, keyComparer, offset);
 }
 
@@ -209,9 +240,13 @@ export function binarySearch<T, U>(array: readonly T[], value: T,
  * @param keyComparer A callback used to compare two keys in a sorted array.
  * @param offset An offset into `array` at which to start the search.
  */
-export function binarySearchKey<T, U>(array: readonly T[], key: U,
-    keySelector: (v: T) => U, keyComparer: Comparer<U>, offset?: number): number {
-
+export function binarySearchKey<T, U>(
+    array: readonly T[],
+    key: U,
+    keySelector: (v: T) => U,
+    keyComparer: Comparer<U>,
+    offset?: number
+): number {
     if (!some(array)) {
         return -1;
     }

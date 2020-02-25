@@ -5,8 +5,17 @@
   "definitions": {
     "diagnostic": {
       "anyOf": [
-        { "type": "boolean" },
-        { "type": "string", "enum": [ "none", "warning", "error" ] }
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string",
+          "enum": [
+            "none",
+            "warning",
+            "error"
+          ]
+        }
       ]
     }
   },
@@ -93,7 +102,7 @@
     "enableTypeIgnoreComments": {
       "$id": "#/properties/enableTypeIgnoreComments",
       "type": "boolean",
-      "title": "Allow “# type: ignore” comments",
+      "title": "Allow \"# type: ignore\" comments",
       "default": "true"
     },
     "reportTypeshedErrors": {

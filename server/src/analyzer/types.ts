@@ -1,11 +1,11 @@
 /*
-* types.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Representation of types used during type analysis within Python.
-*/
+ * types.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Representation of types used during type analysis within Python.
+ */
 
 import { assert } from '../common/debug';
 import { ParameterCategory } from '../parser/parseNodes';
@@ -56,9 +56,19 @@ export const enum TypeCategory {
     TypeVar
 }
 
-export type Type = UnboundType | UnknownType | AnyType | NoneType | NeverType |
-    FunctionType | OverloadedFunctionType | ClassType |
-    ObjectType | ModuleType | UnionType | TypeVarType;
+export type Type =
+    | UnboundType
+    | UnknownType
+    | AnyType
+    | NoneType
+    | NeverType
+    | FunctionType
+    | OverloadedFunctionType
+    | ClassType
+    | ObjectType
+    | ModuleType
+    | UnionType
+    | TypeVarType;
 
 export type LiteralValue = number | boolean | string;
 
@@ -145,34 +155,34 @@ export const enum ClassTypeFlags {
     None = 0,
 
     // Class is defined in the "builtins" or "typings" file.
-    BuiltInClass            = 1 << 0,
+    BuiltInClass = 1 << 0,
 
     // Class requires special-case handling because it
     // exhibits non-standard behavior or is not defined
     // formally as a class. Examples include 'Optional'
     // and 'Union'.
-    SpecialBuiltIn          = 1 << 1,
+    SpecialBuiltIn = 1 << 1,
 
     // Introduced in Python 3.7 - class either derives directly
     // from NamedTuple or has a @dataclass class decorator.
-    DataClass               = 1 << 2,
+    DataClass = 1 << 2,
 
     // Flags that control whether methods should be
     // synthesized for a dataclass class.
-    SkipSynthesizedInit     = 1 << 3,
+    SkipSynthesizedInit = 1 << 3,
 
     // Introduced in PEP 589, TypedDict classes provide a way
     // to specify type hints for dictionaries with different
     // value types and a limited set of static keys.
-    TypedDictClass          = 1 << 4,
+    TypedDictClass = 1 << 4,
 
     // Used in conjunction with TypedDictClass, indicates that
     // the dictionary values can be omitted.
-    CanOmitDictValues       = 1 << 5,
+    CanOmitDictValues = 1 << 5,
 
     // The class has a metaclass of EnumMet or derives from
     // a class that has this metaclass.
-    EnumClass               = 1 << 6,
+    EnumClass = 1 << 6,
 
     // The class derives from a class that has the ABCMeta
     // metaclass. Such classes are allowed to contain
@@ -182,18 +192,18 @@ export const enum ClassTypeFlags {
     // The class has at least one abstract method or derives
     // from a base class that is abstract without providing
     // non-abstract overrides for all abstract methods.
-    HasAbstractMethods      = 1 << 8,
+    HasAbstractMethods = 1 << 8,
 
     // Derives from property class and has the semantics of
     // a property (with optional setter, deleter).
-    PropertyClass           = 1 << 9,
+    PropertyClass = 1 << 9,
 
     // The class is decorated with a "@final" decorator
     // indicating that it cannot be subclassed.
-    Final                   = 1 << 10,
+    Final = 1 << 10,
 
     // The class derives directly from "Protocol".
-    ProtocolClass            = 1 << 11
+    ProtocolClass = 1 << 11
 }
 
 interface ClassDetails {
@@ -224,9 +234,7 @@ export interface ClassType extends TypeBase {
 }
 
 export namespace ClassType {
-    export function create(name: string, flags: ClassTypeFlags,
-            typeSourceId: TypeSourceId, docString?: string) {
-
+    export function create(name: string, flags: ClassTypeFlags, typeSourceId: TypeSourceId, docString?: string) {
         const newClass: ClassType = {
             category: TypeCategory.Class,
             details: {
@@ -244,11 +252,12 @@ export namespace ClassType {
         return newClass;
     }
 
-    export function cloneForSpecialization(classType: ClassType,
-            typeArguments: Type[] | undefined, skipAbstractClassTest = false): ClassType {
-
-        const newClassType = create(classType.details.name,
-            classType.details.flags, classType.details.typeSourceId);
+    export function cloneForSpecialization(
+        classType: ClassType,
+        typeArguments: Type[] | undefined,
+        skipAbstractClassTest = false
+    ): ClassType {
+        const newClassType = create(classType.details.name, classType.details.flags, classType.details.typeSourceId);
         newClassType.details = classType.details;
         newClassType.typeArguments = typeArguments;
         if (skipAbstractClassTest) {
@@ -260,8 +269,7 @@ export namespace ClassType {
     // Specifies whether the class type is generic (unspecialized)
     // or specialized.
     export function isGeneric(classType: ClassType) {
-        return classType.details.typeParameters.length > 0 &&
-            classType.typeArguments === undefined;
+        return classType.details.typeParameters.length > 0 && classType.typeArguments === undefined;
     }
 
     export function isSpecialBuiltIn(classType: ClassType, className?: string) {
@@ -290,19 +298,20 @@ export namespace ClassType {
 
     export function isProtocol(classType: ClassType) {
         // Does the class directly 'derive' from "Protocol"?
-        return classType.details.baseClasses.find(baseClass => {
-            if (baseClass.category === TypeCategory.Class) {
-                if (isBuiltIn(baseClass, 'Protocol')) {
-                    return true;
+        return (
+            classType.details.baseClasses.find(baseClass => {
+                if (baseClass.category === TypeCategory.Class) {
+                    if (isBuiltIn(baseClass, 'Protocol')) {
+                        return true;
+                    }
                 }
-            }
-            return false;
-        }) !== undefined;
+                return false;
+            }) !== undefined
+        );
     }
 
     export function hasAbstractMethods(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.HasAbstractMethods) &&
-            !classType.skipAbstractClassTest;
+        return !!(classType.details.flags & ClassTypeFlags.HasAbstractMethods) && !classType.skipAbstractClassTest;
     }
 
     export function supportsAbstractMethods(classType: ClassType) {
@@ -367,10 +376,8 @@ export namespace ClassType {
 
         // If either or both have aliases (e.g. List -> list), use the
         // aliases for comparison purposes.
-        const class1Details = classType.details.aliasClass ?
-            classType.details.aliasClass.details : classType.details;
-        const class2Details = type2.details.aliasClass ?
-            type2.details.aliasClass.details : type2.details;
+        const class1Details = classType.details.aliasClass ? classType.details.aliasClass.details : classType.details;
+        const class2Details = type2.details.aliasClass ? type2.details.aliasClass.details : type2.details;
 
         if (class1Details === class2Details) {
             return true;
@@ -378,34 +385,34 @@ export namespace ClassType {
 
         // Compare most of the details fields. We intentionally skip the isAbstractClass
         // flag because it gets set dynamically.
-        if (class1Details.name !== class2Details.name ||
-                class1Details.flags !== class2Details.flags ||
-                class1Details.typeSourceId !== class2Details.typeSourceId ||
-                class1Details.baseClasses.length !== class2Details.baseClasses.length ||
-                class1Details.typeParameters.length !== class2Details.typeParameters.length) {
+        if (
+            class1Details.name !== class2Details.name ||
+            class1Details.flags !== class2Details.flags ||
+            class1Details.typeSourceId !== class2Details.typeSourceId ||
+            class1Details.baseClasses.length !== class2Details.baseClasses.length ||
+            class1Details.typeParameters.length !== class2Details.typeParameters.length
+        ) {
             return false;
         }
 
         for (let i = 0; i < class1Details.baseClasses.length; i++) {
-            if (!isTypeSame(class1Details.baseClasses[i], class2Details.baseClasses[i],
-                    recursionCount + 1)) {
-
+            if (!isTypeSame(class1Details.baseClasses[i], class2Details.baseClasses[i], recursionCount + 1)) {
                 return false;
             }
         }
 
         if (class1Details.metaClass || class2Details.metaClass) {
-            if (!class1Details.metaClass || !class2Details.metaClass ||
-                    !isTypeSame(class1Details.metaClass, class2Details.metaClass)) {
-
+            if (
+                !class1Details.metaClass ||
+                !class2Details.metaClass ||
+                !isTypeSame(class1Details.metaClass, class2Details.metaClass)
+            ) {
                 return false;
             }
         }
 
         for (let i = 0; i < class1Details.typeParameters.length; i++) {
-            if (!isTypeSame(class1Details.typeParameters[i], class2Details.typeParameters[i],
-                    recursionCount + 1)) {
-
+            if (!isTypeSame(class1Details.typeParameters[i], class2Details.typeParameters[i], recursionCount + 1)) {
                 return false;
             }
         }
@@ -417,10 +424,11 @@ export namespace ClassType {
         }
 
         for (let i = 0; i < dataClassEntries1.length; i++) {
-            if (dataClassEntries1[i].name !== dataClassEntries2[i].name ||
-                    dataClassEntries1[i].hasDefault !== dataClassEntries2[i].hasDefault ||
-                    !isTypeSame(dataClassEntries1[i].type, dataClassEntries2[i].type, recursionCount + 1)) {
-
+            if (
+                dataClassEntries1[i].name !== dataClassEntries2[i].name ||
+                dataClassEntries1[i].hasDefault !== dataClassEntries2[i].hasDefault ||
+                !isTypeSame(dataClassEntries1[i].type, dataClassEntries2[i].type, recursionCount + 1)
+            ) {
                 return false;
             }
         }
@@ -460,9 +468,11 @@ export namespace ClassType {
     // array to inheritanceChain, it will be filled in by
     // the call to include the chain of inherited classes starting
     // with type2 and ending with this type.
-    export function isDerivedFrom(subclassType: ClassType,
-            parentClassType: ClassType, inheritanceChain?: InheritanceChain): boolean {
-
+    export function isDerivedFrom(
+        subclassType: ClassType,
+        parentClassType: ClassType,
+        inheritanceChain?: InheritanceChain
+    ): boolean {
         // Is it the exact same class?
         if (isSameGenericClass(subclassType, parentClassType)) {
             if (inheritanceChain) {
@@ -537,55 +547,55 @@ export interface FunctionParameter {
 }
 
 export const enum FunctionTypeFlags {
-    None                    = 0,
+    None = 0,
 
     // Function is a __new__ method; first parameter is "cls"
-    ConstructorMethod       = 1 << 0,
+    ConstructorMethod = 1 << 0,
 
     // Function is decorated with @classmethod; first parameter is "cls";
     // can be bound to associated class
-    ClassMethod             = 1 << 1,
+    ClassMethod = 1 << 1,
 
     // Function is decorated with @staticmethod; cannot be bound to class
-    StaticMethod            = 1 << 2,
+    StaticMethod = 1 << 2,
 
     // Function is decorated with @abstractmethod
-    AbstractMethod          = 1 << 3,
+    AbstractMethod = 1 << 3,
 
     // Function contains "yield" or "yield from" statements
-    Generator               = 1 << 4,
+    Generator = 1 << 4,
 
     // Skip check that validates that all parameters without default
     // value expressions have corresponding arguments; used for
     // named tuples in some cases
-    DisableDefaultChecks    = 1 << 5,
+    DisableDefaultChecks = 1 << 5,
 
     // Method has no declaration in user code, it's synthesized; used
     // for implied methods such as those used in namedtuple, dataclass, etc.
-    SynthesizedMethod       = 1 << 6,
+    SynthesizedMethod = 1 << 6,
 
     // For some synthesized classes (in particular, NamedTuple), the
     // __init__ method is created with default parameters, so we will
     // skip the constructor check for these methods.
-    SkipConstructorCheck    = 1 << 7,
+    SkipConstructorCheck = 1 << 7,
 
     // Function is decorated with @overload
-    Overloaded              = 1 << 8,
+    Overloaded = 1 << 8,
 
     // Function is declared with async keyword
-    Async                   = 1 << 9,
+    Async = 1 << 9,
 
     // Indicates that return type should be wrapped in an awaitable type
-    WrapReturnTypeInAwait   = 1 << 10,
+    WrapReturnTypeInAwait = 1 << 10,
 
     // Function is declared within a type stub fille
-    StubDefinition          = 1 << 11,
+    StubDefinition = 1 << 11,
 
     // Function is decorated with @final
-    Final                   = 1 << 12,
+    Final = 1 << 12,
 
     // Function has one or more parameters that are missing type annotations
-    UnannotatedParams       = 1 << 13
+    UnannotatedParams = 1 << 13
 }
 
 interface FunctionDetails {
@@ -650,8 +660,7 @@ export namespace FunctionType {
         // If we strip off the first parameter, this is no longer an
         // instance method or class method.
         if (deleteFirstParam) {
-            newFunction.details.flags &= ~(FunctionTypeFlags.ConstructorMethod |
-                FunctionTypeFlags.ClassMethod);
+            newFunction.details.flags &= ~(FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.ClassMethod);
             newFunction.details.flags |= FunctionTypeFlags.StaticMethod;
             newFunction.ignoreFirstParamOfDeclaration = true;
         }
@@ -671,9 +680,10 @@ export namespace FunctionType {
     // Creates a shallow copy of the function type with new
     // specialized types. The clone shares the _functionDetails
     // with the object being cloned.
-    export function cloneForSpecialization(type: FunctionType,
-            specializedTypes: SpecializedFunctionTypes): FunctionType {
-
+    export function cloneForSpecialization(
+        type: FunctionType,
+        specializedTypes: SpecializedFunctionTypes
+    ): FunctionType {
         const newFunction = create(type.details.flags, type.details.docString);
         newFunction.details = type.details;
 
@@ -684,8 +694,13 @@ export namespace FunctionType {
     }
 
     export function isInstanceMethod(type: FunctionType): boolean {
-        return (type.details.flags & (FunctionTypeFlags.ConstructorMethod |
-            FunctionTypeFlags.StaticMethod | FunctionTypeFlags.ClassMethod)) === 0;
+        return (
+            (type.details.flags &
+                (FunctionTypeFlags.ConstructorMethod |
+                    FunctionTypeFlags.StaticMethod |
+                    FunctionTypeFlags.ClassMethod)) ===
+            0
+        );
     }
 
     export function isConstructorMethod(type: FunctionType): boolean {
@@ -758,8 +773,9 @@ export namespace FunctionType {
     }
 
     export function getSpecializedReturnType(type: FunctionType) {
-        return type.specializedTypes && type.specializedTypes.returnType ?
-            type.specializedTypes.returnType : type.details.declaredReturnType;
+        return type.specializedTypes && type.specializedTypes.returnType
+            ? type.specializedTypes.returnType
+            : type.details.declaredReturnType;
     }
 }
 
@@ -886,13 +902,11 @@ export namespace TypeVarType {
 }
 
 export function isNoneOrNever(type: Type): boolean {
-    return type.category === TypeCategory.None ||
-        type.category === TypeCategory.Never;
+    return type.category === TypeCategory.None || type.category === TypeCategory.Never;
 }
 
 export function isAnyOrUnknown(type: Type): boolean {
-    if (type.category === TypeCategory.Any ||
-            type.category === TypeCategory.Unknown) {
+    if (type.category === TypeCategory.Any || type.category === TypeCategory.Unknown) {
         return true;
     }
 
@@ -1005,9 +1019,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 return2Type = functionType2.specializedTypes.returnType;
             }
             if (return1Type || return2Type) {
-                if (!return1Type || !return2Type ||
-                        !isTypeSame(return1Type, return2Type, recursionCount + 1)) {
-
+                if (!return1Type || !return2Type || !isTypeSame(return1Type, return2Type, recursionCount + 1)) {
                     return false;
                 }
             }

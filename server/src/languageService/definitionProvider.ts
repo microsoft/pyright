@@ -1,14 +1,14 @@
 /*
-* definitionProvider.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Logic that maps a position within a Python program file into
-* a "definition" of the item that is referred to at that position.
-* For example, if the location is within an import name, the
-* definition is the top of the resolved import file.
-*/
+ * definitionProvider.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Logic that maps a position within a Python program file into
+ * a "definition" of the item that is referred to at that position.
+ * For example, if the location is within an import name, the
+ * definition is the top of the resolved import file.
+ */
 
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
@@ -18,9 +18,11 @@ import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export class DefinitionProvider {
-    static getDefinitionsForPosition(parseResults: ParseResults, position: Position,
-            evaluator: TypeEvaluator): DocumentRange[] | undefined {
-
+    static getDefinitionsForPosition(
+        parseResults: ParseResults,
+        position: Position,
+        evaluator: TypeEvaluator
+    ): DocumentRange[] | undefined {
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;

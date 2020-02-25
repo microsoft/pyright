@@ -1,19 +1,38 @@
 /*
-* typeStubWriter.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Logic to emit a type stub file for a corresponding parsed
-* and analyzed python source file.
-*/
+ * typeStubWriter.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Logic to emit a type stub file for a corresponding parsed
+ * and analyzed python source file.
+ */
 
 import {
-    ArgumentCategory, ArgumentNode, AssignmentNode, AugmentedAssignmentNode,
-    ClassNode, DecoratorNode, ExpressionNode, ForNode, FunctionNode, IfNode,
-    ImportFromNode, ImportNode, ModuleNameNode, NameNode, ParameterCategory, ParameterNode,
-    ParseNode, ParseNodeType, StatementListNode, StringNode, TryNode,
-    TypeAnnotationNode, WhileNode, WithNode
+    ArgumentCategory,
+    ArgumentNode,
+    AssignmentNode,
+    AugmentedAssignmentNode,
+    ClassNode,
+    DecoratorNode,
+    ExpressionNode,
+    ForNode,
+    FunctionNode,
+    IfNode,
+    ImportFromNode,
+    ImportNode,
+    ModuleNameNode,
+    NameNode,
+    ParameterCategory,
+    ParameterNode,
+    ParseNode,
+    ParseNodeType,
+    StatementListNode,
+    StringNode,
+    TryNode,
+    TypeAnnotationNode,
+    WhileNode,
+    WithNode
 } from '../parser/parseNodes';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -27,15 +46,13 @@ import { ClassType, isNoneOrNever, TypeCategory } from './types';
 import * as TypeUtils from './typeUtils';
 
 class TrackedImport {
-    constructor(public importName: string) { }
+    constructor(public importName: string) {}
 
     isAccessed = false;
 }
 
 class TrackedImportAs extends TrackedImport {
-    constructor(importName: string, public alias: string | undefined,
-        public symbol: Symbol) {
-
+    constructor(importName: string, public alias: string | undefined, public symbol: Symbol) {
         super(importName);
     }
 }
@@ -54,9 +71,7 @@ class TrackedImportFrom extends TrackedImport {
         super(importName);
     }
 
-    addSymbol(symbol: Symbol | undefined, name: string,
-        alias: string | undefined, isAccessed = false) {
-
+    addSymbol(symbol: Symbol | undefined, name: string, alias: string | undefined, isAccessed = false) {
         if (!this.symbols.find(s => s.name === name)) {
             this.symbols.push({
                 symbol,
@@ -69,10 +84,7 @@ class TrackedImportFrom extends TrackedImport {
 }
 
 class ImportSymbolWalker extends ParseTreeWalker {
-    constructor(
-        private _accessedImportedSymbols: Map<string, boolean>,
-        private _treatStringsAsSymbols: boolean) {
-
+    constructor(private _accessedImportedSymbols: Map<string, boolean>, private _treatStringsAsSymbols: boolean) {
         super();
     }
 
@@ -115,8 +127,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     private _trackedImportFrom = new Map<string, TrackedImportFrom>();
     private _accessedImportedSymbols = new Map<string, boolean>();
 
-    constructor(private _typingsPath: string, private _sourceFile: SourceFile,
-        private _evaluator: TypeEvaluator) {
+    constructor(private _typingsPath: string, private _sourceFile: SourceFile, private _evaluator: TypeEvaluator) {
         super();
 
         // As a heuristic, we'll include all of the import statements
@@ -149,16 +160,18 @@ export class TypeStubWriter extends ParseTreeWalker {
         this._emittedSuite = true;
         this._emitDocString = true;
         this._emitDecorators(node.decorators);
-        let line = `class ${ className }`;
+        let line = `class ${className}`;
         if (node.arguments.length > 0) {
-            line += `(${ node.arguments.map(arg => {
-                let argString = '';
-                if (arg.name) {
-                    argString = arg.name.value + '=';
-                }
-                argString += this._printExpression(arg.valueExpression);
-                return argString;
-            }).join(', ') })`;
+            line += `(${node.arguments
+                .map(arg => {
+                    let argString = '';
+                    if (arg.name) {
+                        argString = arg.name.value + '=';
+                    }
+                    argString += this._printExpression(arg.valueExpression);
+                    return argString;
+                })
+                .join(', ')})`;
         }
         line += ':';
         this._emitLine(line);
@@ -184,8 +197,8 @@ export class TypeStubWriter extends ParseTreeWalker {
             this._emitDocString = true;
             this._emitDecorators(node.decorators);
             let line = node.isAsync ? 'async ' : '';
-            line += `def ${ functionName }`;
-            line += `(${ node.parameters.map(param => this._printParameter(param)).join(', ') })`;
+            line += `def ${functionName}`;
+            line += `(${node.parameters.map(param => this._printParameter(param)).join(', ')})`;
 
             if (node.returnTypeAnnotation) {
                 line += ' -> ' + this._printExpression(node.returnTypeAnnotation, true);
@@ -357,14 +370,18 @@ export class TypeStubWriter extends ParseTreeWalker {
             node.list.forEach(imp => {
                 const moduleName = this._printModuleName(imp.module);
                 if (!this._trackedImportAs.has(moduleName)) {
-                    const symbolName = imp.alias ? imp.alias.value :
-                        (imp.module.nameParts.length > 0 ?
-                            imp.module.nameParts[0].value : '');
+                    const symbolName = imp.alias
+                        ? imp.alias.value
+                        : imp.module.nameParts.length > 0
+                        ? imp.module.nameParts[0].value
+                        : '';
                     const symbolInfo = currentScope.lookUpSymbolRecursive(symbolName);
                     if (symbolInfo) {
-                        const trackedImportAs = new TrackedImportAs(moduleName,
+                        const trackedImportAs = new TrackedImportAs(
+                            moduleName,
                             imp.alias ? imp.alias.value : undefined,
-                            symbolInfo.symbol);
+                            symbolInfo.symbol
+                        );
                         this._trackedImportAs.set(moduleName, trackedImportAs);
                     }
                 }
@@ -385,18 +402,20 @@ export class TypeStubWriter extends ParseTreeWalker {
             const moduleName = this._printModuleName(node.module);
             let trackedImportFrom = this._trackedImportFrom.get(moduleName);
             if (!trackedImportFrom) {
-                trackedImportFrom = new TrackedImportFrom(moduleName,
-                    node.isWildcardImport, node);
+                trackedImportFrom = new TrackedImportFrom(moduleName, node.isWildcardImport, node);
                 this._trackedImportFrom.set(moduleName, trackedImportFrom);
             }
 
             node.imports.forEach(imp => {
-                const symbolName = imp.alias ?
-                    imp.alias.value : imp.name.value;
+                const symbolName = imp.alias ? imp.alias.value : imp.name.value;
                 const symbolInfo = currentScope.lookUpSymbolRecursive(symbolName);
                 if (symbolInfo) {
-                    trackedImportFrom!.addSymbol(symbolInfo.symbol, imp.name.value,
-                        imp.alias ? imp.alias.value : undefined, false);
+                    trackedImportFrom!.addSymbol(
+                        symbolInfo.symbol,
+                        imp.name.value,
+                        imp.alias ? imp.alias.value : undefined,
+                        false
+                    );
                 }
             });
         }
@@ -445,18 +464,22 @@ export class TypeStubWriter extends ParseTreeWalker {
         decorators.forEach(decorator => {
             let line = '@' + this._printExpression(decorator.leftExpression);
             if (decorator.arguments) {
-                line += `(${ decorator.arguments.map(
-                    arg => this._printArgument(arg)).join(', ') })`;
+                line += `(${decorator.arguments.map(arg => this._printArgument(arg)).join(', ')})`;
             }
             this._emitLine(line);
         });
     }
 
     private _printHeaderDocString() {
-        return '"""' + this._lineEnd +
-            'This type stub file was generated by pyright.' + this._lineEnd +
-            '"""' + this._lineEnd +
-            this._lineEnd;
+        return (
+            '"""' +
+            this._lineEnd +
+            'This type stub file was generated by pyright.' +
+            this._lineEnd +
+            '"""' +
+            this._lineEnd +
+            this._lineEnd
+        );
         // this._emitLine('');
         // this._emitLine('from typing import Any, Optional');
         // this._emitLine('from typing import Any, List, Dict, Optional, Tuple, Type, Union');
@@ -555,17 +578,14 @@ export class TypeStubWriter extends ParseTreeWalker {
         return line + this._printExpression(node.valueExpression);
     }
 
-    private _printExpression(node: ExpressionNode, isType = false,
-        treatStringsAsSymbols = false): string {
-
-        const importSymbolWalker = new ImportSymbolWalker(
-            this._accessedImportedSymbols,
-            treatStringsAsSymbols);
+    private _printExpression(node: ExpressionNode, isType = false, treatStringsAsSymbols = false): string {
+        const importSymbolWalker = new ImportSymbolWalker(this._accessedImportedSymbols, treatStringsAsSymbols);
         importSymbolWalker.analyze(node);
 
-        return ParseTreeUtils.printExpression(node,
-            isType ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations :
-                ParseTreeUtils.PrintExpressionFlags.None);
+        return ParseTreeUtils.printExpression(
+            node,
+            isType ? ParseTreeUtils.PrintExpressionFlags.ForwardDeclarations : ParseTreeUtils.PrintExpressionFlags.None
+        );
     }
 
     private _printTrackedImports() {
@@ -579,9 +599,9 @@ export class TypeStubWriter extends ParseTreeWalker {
             }
 
             if (imp.isAccessed || this._includeAllImports) {
-                importStr += `import ${ imp.importName }`;
+                importStr += `import ${imp.importName}`;
                 if (imp.alias) {
-                    importStr += ` as ${ imp.alias }`;
+                    importStr += ` as ${imp.alias}`;
                 }
                 importStr += this._lineEnd;
                 lineEmitted = true;
@@ -597,13 +617,13 @@ export class TypeStubWriter extends ParseTreeWalker {
             });
 
             if (imp.isWildcardImport) {
-                importStr += `from ${ imp.importName } import *` + this._lineEnd;
+                importStr += `from ${imp.importName} import *` + this._lineEnd;
                 lineEmitted = true;
             }
 
-            const sortedSymbols = imp.symbols.
-                filter(s => s.isAccessed || this._includeAllImports).
-                sort((a, b) => {
+            const sortedSymbols = imp.symbols
+                .filter(s => s.isAccessed || this._includeAllImports)
+                .sort((a, b) => {
                     if (a.name < b.name) {
                         return -1;
                     } else if (a.name > b.name) {
@@ -613,15 +633,17 @@ export class TypeStubWriter extends ParseTreeWalker {
                 });
 
             if (sortedSymbols.length > 0) {
-                importStr += `from ${ imp.importName } import `;
+                importStr += `from ${imp.importName} import `;
 
-                importStr += sortedSymbols.map(symbol => {
-                    let symStr = symbol.name;
-                    if (symbol.alias) {
-                        symStr += ' as ' + symbol.alias;
-                    }
-                    return symStr;
-                }).join(', ');
+                importStr += sortedSymbols
+                    .map(symbol => {
+                        let symStr = symbol.name;
+                        if (symbol.alias) {
+                            symStr += ' as ' + symbol.alias;
+                        }
+                        return symStr;
+                    })
+                    .join(', ');
 
                 importStr += this._lineEnd;
                 lineEmitted = true;

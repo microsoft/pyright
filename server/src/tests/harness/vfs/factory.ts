@@ -11,7 +11,16 @@ import { combinePaths, getDirectoryPath, normalizeSlashes, resolvePaths } from '
 import { GlobalMetadataOptionNames } from '../fourslash/fourSlashTypes';
 import { TestHost } from '../host';
 import { bufferFrom } from '../utils';
-import { FileSet, FileSystem, FileSystemOptions, FileSystemResolver, MODULE_PATH, Mount, S_IFDIR, S_IFREG } from './filesystem';
+import {
+    FileSet,
+    FileSystem,
+    FileSystemOptions,
+    FileSystemResolver,
+    MODULE_PATH,
+    Mount,
+    S_IFDIR,
+    S_IFREG
+} from './filesystem';
 
 export class TextDocument {
     readonly meta: Map<string, string>;
@@ -30,8 +39,10 @@ export interface FileSystemCreateOptions extends FileSystemOptions {
     documents?: readonly TextDocument[];
 }
 
-export const libFolder = combinePaths(MODULE_PATH, normalizeSlashes(
-    combinePaths(pathConsts.lib, pathConsts.sitePackages)));
+export const libFolder = combinePaths(
+    MODULE_PATH,
+    normalizeSlashes(combinePaths(pathConsts.lib, pathConsts.sitePackages))
+);
 export const typeshedFolder = combinePaths(MODULE_PATH, normalizeSlashes(pathConsts.typeshedFallback));
 export const srcFolder = normalizeSlashes('/.src');
 
@@ -51,10 +62,12 @@ export const srcFolder = normalizeSlashes('/.src');
  *
  * all `FileSystemCreateOptions` are optional
  */
-export function createFromFileSystem(host: TestHost, ignoreCase: boolean,
+export function createFromFileSystem(
+    host: TestHost,
+    ignoreCase: boolean,
     { documents, files, cwd, time, meta }: FileSystemCreateOptions = {},
-    mountPaths: Map<string, string> = new Map<string, string>()) {
-
+    mountPaths: Map<string, string> = new Map<string, string>()
+) {
     const typeshedPath = meta ? meta[GlobalMetadataOptionNames.typeshed] : undefined;
     if (typeshedPath) {
         mountPaths.set(typeshedFolder, typeshedPath);
@@ -101,8 +114,10 @@ let localCSFSCache: FileSystem | undefined;
 function getBuiltLocal(host: TestHost, ignoreCase: boolean, mountPaths: Map<string, string>): FileSystem {
     // Ensure typeshed folder
     if (!mountPaths.has(typeshedFolder)) {
-        mountPaths.set(typeshedFolder, resolvePaths(host.getWorkspaceRoot(), '../client/' +
-            pathConsts.typeshedFallback));
+        mountPaths.set(
+            typeshedFolder,
+            resolvePaths(host.getWorkspaceRoot(), '../client/' + pathConsts.typeshedFallback)
+        );
     }
 
     if (!canReuseCache(host, mountPaths)) {
@@ -114,7 +129,7 @@ function getBuiltLocal(host: TestHost, ignoreCase: boolean, mountPaths: Map<stri
     if (!localCIFSCache) {
         const resolver = createResolver(host);
         const files: FileSet = { [srcFolder]: {} };
-        mountPaths.forEach((v, k) => files[k] = new Mount(v, resolver));
+        mountPaths.forEach((v, k) => (files[k] = new Mount(v, resolver)));
 
         localCIFSCache = new FileSystem(/*ignoreCase*/ true, {
             files,
@@ -124,7 +139,9 @@ function getBuiltLocal(host: TestHost, ignoreCase: boolean, mountPaths: Map<stri
         localCIFSCache.makeReadonly();
     }
 
-    if (ignoreCase) { return localCIFSCache; }
+    if (ignoreCase) {
+        return localCIFSCache;
+    }
 
     if (!localCSFSCache) {
         localCSFSCache = localCIFSCache.shadow(/*ignoreCase*/ false);
@@ -135,9 +152,15 @@ function getBuiltLocal(host: TestHost, ignoreCase: boolean, mountPaths: Map<stri
 }
 
 function canReuseCache(host: TestHost, mountPaths: Map<string, string>): boolean {
-    if (cacheKey === undefined) { return false; }
-    if (cacheKey.host !== host) { return false; }
-    if (cacheKey.mountPaths.size !== mountPaths.size) { return false; }
+    if (cacheKey === undefined) {
+        return false;
+    }
+    if (cacheKey.host !== host) {
+        return false;
+    }
+    if (cacheKey.mountPaths.size !== mountPaths.size) {
+        return false;
+    }
 
     for (const key of cacheKey.mountPaths.keys()) {
         if (cacheKey.mountPaths.get(key) !== mountPaths.get(key)) {

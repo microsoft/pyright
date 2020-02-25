@@ -1,18 +1,15 @@
 /*
-* sourceFile.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Class that represents a single python source file.
-*/
+ * sourceFile.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Class that represents a single python source file.
+ */
 
 import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
 
-import {
-    ConfigOptions, ExecutionEnvironment,
-    getDefaultDiagnosticSettings
-} from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment, getDefaultDiagnosticSettings } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
@@ -142,9 +139,13 @@ export class SourceFile {
 
     readonly fileSystem: VirtualFileSystem;
 
-    constructor(fs: VirtualFileSystem, filePath: string, isTypeshedStubFile: boolean,
-        isThirdPartyImport: boolean, console?: ConsoleInterface) {
-
+    constructor(
+        fs: VirtualFileSystem,
+        filePath: string,
+        isTypeshedStubFile: boolean,
+        isThirdPartyImport: boolean,
+        console?: ConsoleInterface
+    ) {
         this.fileSystem = fs;
         this._console = console || new StandardConsole();
         this._filePath = filePath;
@@ -152,18 +153,19 @@ export class SourceFile {
         this._isTypeshedStubFile = isTypeshedStubFile;
         this._isThirdPartyImport = isThirdPartyImport;
         const fileName = getFileName(filePath);
-        this._isTypingStubFile = this._isStubFile && (
-            fileName === 'typing.pyi' || fileName === 'typing_extensions.pyi');
+        this._isTypingStubFile =
+            this._isStubFile && (fileName === 'typing.pyi' || fileName === 'typing_extensions.pyi');
 
         this._isBuiltInStubFile = false;
         if (this._isStubFile) {
-            if (this._filePath.endsWith(normalizeSlashes('/collections/__init__.pyi')) ||
+            if (
+                this._filePath.endsWith(normalizeSlashes('/collections/__init__.pyi')) ||
                 fileName === 'builtins.pyi' ||
                 fileName === '_importlib_modulespec.pyi' ||
                 fileName === 'dataclasses.pyi' ||
                 fileName === 'abc.pyi' ||
-                fileName === 'enum.pyi') {
-
+                fileName === 'enum.pyi'
+            ) {
                 this._isBuiltInStubFile = true;
             }
         }
@@ -184,9 +186,7 @@ export class SourceFile {
     // Returns a list of cached diagnostics from the latest analysis job.
     // If the prevVersion is specified, the method returns undefined if
     // the diagnostics haven't changed.
-    getDiagnostics(options: ConfigOptions, prevDiagnosticVersion?: number):
-        Diagnostic[] | undefined {
-
+    getDiagnostics(options: ConfigOptions, prevDiagnosticVersion?: number): Diagnostic[] | undefined {
         if (this._diagnosticVersion === prevDiagnosticVersion) {
             return undefined;
         }
@@ -200,15 +200,11 @@ export class SourceFile {
         }
 
         let diagList: Diagnostic[] = [];
-        diagList = diagList.concat(
-            this._parseDiagnostics,
-            this._bindDiagnostics,
-            this._checkerDiagnostics);
+        diagList = diagList.concat(this._parseDiagnostics, this._bindDiagnostics, this._checkerDiagnostics);
 
         // Filter the diagnostics based on "type: ignore" lines.
         if (options.diagnosticSettings.enableTypeIgnoreComments) {
-            const typeIgnoreLines = this._parseResults ?
-                this._parseResults.tokenizerOutput.typeIgnoreLines : {};
+            const typeIgnoreLines = this._parseResults ? this._parseResults.tokenizerOutput.typeIgnoreLines : {};
             if (Object.keys(typeIgnoreLines).length > 0) {
                 diagList = diagList.filter(d => {
                     for (let line = d.range.start.line; line <= d.range.end.line; line++) {
@@ -223,19 +219,34 @@ export class SourceFile {
         }
 
         if (options.diagnosticSettings.reportImportCycles !== 'none' && this._circularDependencies.length > 0) {
-            const category = options.diagnosticSettings.reportImportCycles === 'warning' ?
-                DiagnosticCategory.Warning : DiagnosticCategory.Error;
+            const category =
+                options.diagnosticSettings.reportImportCycles === 'warning'
+                    ? DiagnosticCategory.Warning
+                    : DiagnosticCategory.Error;
 
             this._circularDependencies.forEach(cirDep => {
-                diagList.push(new Diagnostic(category, 'Cycle detected in import chain\n' +
-                    cirDep.getPaths().map(path => '  ' + path).join('\n'), getEmptyRange()));
+                diagList.push(
+                    new Diagnostic(
+                        category,
+                        'Cycle detected in import chain\n' +
+                            cirDep
+                                .getPaths()
+                                .map(path => '  ' + path)
+                                .join('\n'),
+                        getEmptyRange()
+                    )
+                );
             });
         }
 
         if (this._hitMaxImportDepth !== undefined) {
-            diagList.push(new Diagnostic(DiagnosticCategory.Error,
-                `Import chain depth exceeded ${ this._hitMaxImportDepth }`,
-                getEmptyRange()));
+            diagList.push(
+                new Diagnostic(
+                    DiagnosticCategory.Error,
+                    `Import chain depth exceeded ${this._hitMaxImportDepth}`,
+                    getEmptyRange()
+                )
+            );
         }
 
         if (this._isTypeshedStubFile) {
@@ -245,8 +256,7 @@ export class SourceFile {
                 // Convert all the errors to warnings.
                 diagList = diagList.map(diag => {
                     if (diag.category === DiagnosticCategory.Error) {
-                        return new Diagnostic(DiagnosticCategory.Warning,
-                            diag.message, diag.range);
+                        return new Diagnostic(DiagnosticCategory.Warning, diag.message, diag.range);
                     }
                     return diag;
                 });
@@ -471,24 +481,30 @@ export class SourceFile {
 
             // Resolve imports.
             timingStats.resolveImportsTime.timeOperation(() => {
-                [this._imports, this._builtinsImport, this._typingModulePath, this._collectionsModulePath] =
-                    this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
+                [
+                    this._imports,
+                    this._builtinsImport,
+                    this._typingModulePath,
+                    this._collectionsModulePath
+                ] = this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
                 this._parseDiagnostics = diagSink.fetchAndClear();
             });
 
             // Is this file in a "strict" path?
-            const useStrict = configOptions.strict.find(
-                strictFileSpec => strictFileSpec.regExp.test(this._filePath)) !== undefined;
+            const useStrict =
+                configOptions.strict.find(strictFileSpec => strictFileSpec.regExp.test(this._filePath)) !== undefined;
 
             this._diagnosticSettings = CommentUtils.getFileLevelDirectives(
-                this._parseResults.tokenizerOutput.tokens, configOptions.diagnosticSettings,
-                useStrict);
+                this._parseResults.tokenizerOutput.tokens,
+                configOptions.diagnosticSettings,
+                useStrict
+            );
         } catch (e) {
-            const message: string = (e.stack ? e.stack.toString() : undefined) ||
+            const message: string =
+                (e.stack ? e.stack.toString() : undefined) ||
                 (typeof e.message === 'string' ? e.message : undefined) ||
                 JSON.stringify(e);
-            this._console.log(
-                `An internal error occurred while parsing ${ this.getFilePath() }: ` + message);
+            this._console.log(`An internal error occurred while parsing ${this.getFilePath()}: ` + message);
 
             // Create dummy parse results.
             this._parseResults = {
@@ -503,7 +519,7 @@ export class SourceFile {
                     typeIgnoreLines: {},
                     predominantEndOfLineSequence: '\n',
                     predominantTabSequence: '    ',
-                    predominantSingleQuoteCharacter: '\''
+                    predominantSingleQuoteCharacter: "'"
                 },
                 containsWildcardImport: false
             };
@@ -525,41 +541,47 @@ export class SourceFile {
         return true;
     }
 
-    getDefinitionsForPosition(position: Position,
-        evaluator: TypeEvaluator): DocumentRange[] | undefined {
-
+    getDefinitionsForPosition(position: Position, evaluator: TypeEvaluator): DocumentRange[] | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
         }
 
-        return DefinitionProvider.getDefinitionsForPosition(
-            this._parseResults, position, evaluator);
+        return DefinitionProvider.getDefinitionsForPosition(this._parseResults, position, evaluator);
     }
 
-    getReferencesForPosition(position: Position, includeDeclaration: boolean,
-        evaluator: TypeEvaluator): ReferencesResult | undefined {
-
+    getReferencesForPosition(
+        position: Position,
+        includeDeclaration: boolean,
+        evaluator: TypeEvaluator
+    ): ReferencesResult | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
         }
 
-        return ReferencesProvider.getReferencesForPosition(this._parseResults,
-            this._filePath, position, includeDeclaration, evaluator);
+        return ReferencesProvider.getReferencesForPosition(
+            this._parseResults,
+            this._filePath,
+            position,
+            includeDeclaration,
+            evaluator
+        );
     }
 
-    addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean,
-        evaluator: TypeEvaluator): void {
-
+    addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean, evaluator: TypeEvaluator): void {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return;
         }
 
         ReferencesProvider.addReferences(
-            this._parseResults, this._filePath, referencesResult, includeDeclaration,
-            evaluator);
+            this._parseResults,
+            this._filePath,
+            referencesResult,
+            includeDeclaration,
+            evaluator
+        );
     }
 
     addHierarchicalSymbolsForDocument(symbolList: DocumentSymbol[], evaluator: TypeEvaluator) {
@@ -568,51 +590,49 @@ export class SourceFile {
             return;
         }
 
-        DocumentSymbolProvider.addHierarchicalSymbolsForDocument(symbolList,
-            this._parseResults, evaluator);
+        DocumentSymbolProvider.addHierarchicalSymbolsForDocument(symbolList, this._parseResults, evaluator);
     }
 
-    addSymbolsForDocument(symbolList: SymbolInformation[], evaluator: TypeEvaluator,
-        query?: string) {
-
+    addSymbolsForDocument(symbolList: SymbolInformation[], evaluator: TypeEvaluator, query?: string) {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return;
         }
 
-        DocumentSymbolProvider.addSymbolsForDocument(symbolList, query,
-            this._filePath, this._parseResults, evaluator);
+        DocumentSymbolProvider.addSymbolsForDocument(symbolList, query, this._filePath, this._parseResults, evaluator);
     }
 
-    getHoverForPosition(position: Position,
-        evaluator: TypeEvaluator): HoverResults | undefined {
-
+    getHoverForPosition(position: Position, evaluator: TypeEvaluator): HoverResults | undefined {
         // If this file hasn't been bound, no hover info is available.
         if (this._isBindingNeeded || !this._parseResults) {
             return undefined;
         }
 
-        return HoverProvider.getHoverForPosition(
-            this._parseResults, position, evaluator);
+        return HoverProvider.getHoverForPosition(this._parseResults, position, evaluator);
     }
 
-    getSignatureHelpForPosition(position: Position,
-        importLookup: ImportLookup, evaluator: TypeEvaluator): SignatureHelpResults | undefined {
-
+    getSignatureHelpForPosition(
+        position: Position,
+        importLookup: ImportLookup,
+        evaluator: TypeEvaluator
+    ): SignatureHelpResults | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
         }
 
-        return SignatureHelpProvider.getSignatureHelpForPosition(
-            this._parseResults, position, evaluator);
+        return SignatureHelpProvider.getSignatureHelpForPosition(this._parseResults, position, evaluator);
     }
 
-    getCompletionsForPosition(position: Position,
-        workspacePath: string, configOptions: ConfigOptions, importResolver: ImportResolver,
-        importLookup: ImportLookup, evaluator: TypeEvaluator,
-        moduleSymbolsCallback: () => ModuleSymbolMap): CompletionList | undefined {
-
+    getCompletionsForPosition(
+        position: Position,
+        workspacePath: string,
+        configOptions: ConfigOptions,
+        importResolver: ImportResolver,
+        importLookup: ImportLookup,
+        evaluator: TypeEvaluator,
+        moduleSymbolsCallback: () => ModuleSymbolMap
+    ): CompletionList | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
@@ -625,28 +645,46 @@ export class SourceFile {
         }
 
         const completionProvider = new CompletionProvider(
-            workspacePath, this._parseResults, this._fileContents,
-            importResolver, position,
-            this._filePath, configOptions, importLookup, evaluator,
-            moduleSymbolsCallback);
+            workspacePath,
+            this._parseResults,
+            this._fileContents,
+            importResolver,
+            position,
+            this._filePath,
+            configOptions,
+            importLookup,
+            evaluator,
+            moduleSymbolsCallback
+        );
 
         return completionProvider.getCompletionsForPosition();
     }
 
-    resolveCompletionItem(configOptions: ConfigOptions, importResolver: ImportResolver,
-        importLookup: ImportLookup, evaluator: TypeEvaluator,
-        moduleSymbolsCallback: () => ModuleSymbolMap, completionItem: CompletionItem) {
-
+    resolveCompletionItem(
+        configOptions: ConfigOptions,
+        importResolver: ImportResolver,
+        importLookup: ImportLookup,
+        evaluator: TypeEvaluator,
+        moduleSymbolsCallback: () => ModuleSymbolMap,
+        completionItem: CompletionItem
+    ) {
         if (!this._parseResults || this._fileContents === undefined) {
             return;
         }
 
         const completionData = completionItem.data as CompletionItemData;
         const completionProvider = new CompletionProvider(
-            completionData.workspacePath, this._parseResults, this._fileContents,
-            importResolver, completionData.position,
-            this._filePath, configOptions, importLookup, evaluator,
-            moduleSymbolsCallback);
+            completionData.workspacePath,
+            this._parseResults,
+            this._fileContents,
+            importResolver,
+            completionData.position,
+            this._filePath,
+            configOptions,
+            importLookup,
+            evaluator,
+            moduleSymbolsCallback
+        );
 
         completionProvider.resolveCompletionItem(completionItem);
     }
@@ -681,8 +719,12 @@ export class SourceFile {
             timingStats.bindTime.timeOperation(() => {
                 this._cleanParseTreeIfRequired();
 
-                const fileInfo = this._buildFileInfo(configOptions, this._parseResults!.text,
-                    importLookup, builtinsScope);
+                const fileInfo = this._buildFileInfo(
+                    configOptions,
+                    this._parseResults!.text,
+                    importLookup,
+                    builtinsScope
+                );
                 AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
 
                 const binder = new Binder(fileInfo);
@@ -702,15 +744,16 @@ export class SourceFile {
                 this._moduleSymbolTable = moduleScope!.symbolTable;
             });
         } catch (e) {
-            const message: string = (e.stack ? e.stack.toString() : undefined) ||
+            const message: string =
+                (e.stack ? e.stack.toString() : undefined) ||
                 (typeof e.message === 'string' ? e.message : undefined) ||
                 JSON.stringify(e);
             this._console.log(
-                `An internal error occurred while performing name binding for ${ this.getFilePath() }: ` + message);
+                `An internal error occurred while performing name binding for ${this.getFilePath()}: ` + message
+            );
 
             const diagSink = new DiagnosticSink();
-            diagSink.addError(`An internal error occurred while performing name binding`,
-                getEmptyRange());
+            diagSink.addError(`An internal error occurred while performing name binding`, getEmptyRange());
             this._bindDiagnostics = diagSink.fetchAndClear();
         } finally {
             this._isBindingInProgress = false;
@@ -739,14 +782,15 @@ export class SourceFile {
                 this._checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
             });
         } catch (e) {
-            const message: string = (e.stack ? e.stack.toString() : undefined) ||
+            const message: string =
+                (e.stack ? e.stack.toString() : undefined) ||
                 (typeof e.message === 'string' ? e.message : undefined) ||
                 JSON.stringify(e);
             this._console.log(
-                `An internal error occurred while while performing type checking for ${ this.getFilePath() }: ` + message);
+                `An internal error occurred while while performing type checking for ${this.getFilePath()}: ` + message
+            );
             const diagSink = new DiagnosticSink();
-            diagSink.addError(`An internal error occurred while performing type checking`,
-                getEmptyRange());
+            diagSink.addError(`An internal error occurred while performing type checking`, getEmptyRange());
 
             // Mark the file as complete so we don't get into an infinite loop.
             this._isCheckingNeeded = false;
@@ -760,9 +804,12 @@ export class SourceFile {
         this._diagnosticVersion++;
     }
 
-    private _buildFileInfo(configOptions: ConfigOptions, fileContents: string,
-        importLookup: ImportLookup, builtinsScope?: Scope) {
-
+    private _buildFileInfo(
+        configOptions: ConfigOptions,
+        fileContents: string,
+        importLookup: ImportLookup,
+        builtinsScope?: Scope
+    ) {
         assert(this._parseResults !== undefined);
         const analysisDiagnostics = new TextRangeDiagnosticSink(this._parseResults!.tokenizerOutput.lines);
 
@@ -796,45 +843,43 @@ export class SourceFile {
         }
     }
 
-    private _resolveImports(importResolver: ImportResolver, moduleImports: ModuleImport[],
-        execEnv: ExecutionEnvironment): [ImportResult[], ImportResult?, string?, string?] {
-
+    private _resolveImports(
+        importResolver: ImportResolver,
+        moduleImports: ModuleImport[],
+        execEnv: ExecutionEnvironment
+    ): [ImportResult[], ImportResult?, string?, string?] {
         const imports: ImportResult[] = [];
 
         // Always include an implicit import of the builtins module.
-        let builtinsImportResult: ImportResult | undefined = importResolver.resolveImport(
-            this._filePath,
-            execEnv,
-            {
-                leadingDots: 0,
-                nameParts: ['builtins'],
-                importedSymbols: undefined
-            }
-        );
+        let builtinsImportResult: ImportResult | undefined = importResolver.resolveImport(this._filePath, execEnv, {
+            leadingDots: 0,
+            nameParts: ['builtins'],
+            importedSymbols: undefined
+        });
 
         // Avoid importing builtins from the builtins.pyi file itself.
-        if (builtinsImportResult.resolvedPaths.length === 0 ||
-            builtinsImportResult.resolvedPaths[0] !== this.getFilePath()) {
+        if (
+            builtinsImportResult.resolvedPaths.length === 0 ||
+            builtinsImportResult.resolvedPaths[0] !== this.getFilePath()
+        ) {
             imports.push(builtinsImportResult);
         } else {
             builtinsImportResult = undefined;
         }
 
         // Always include an implicit import of the typing module.
-        const typingImportResult: ImportResult | undefined = importResolver.resolveImport(
-            this._filePath,
-            execEnv,
-            {
-                leadingDots: 0,
-                nameParts: ['typing'],
-                importedSymbols: undefined
-            }
-        );
+        const typingImportResult: ImportResult | undefined = importResolver.resolveImport(this._filePath, execEnv, {
+            leadingDots: 0,
+            nameParts: ['typing'],
+            importedSymbols: undefined
+        });
 
         // Avoid importing typing from the typing.pyi file itself.
         let typingModulePath: string | undefined;
-        if (typingImportResult.resolvedPaths.length === 0 ||
-            typingImportResult.resolvedPaths[0] !== this.getFilePath()) {
+        if (
+            typingImportResult.resolvedPaths.length === 0 ||
+            typingImportResult.resolvedPaths[0] !== this.getFilePath()
+        ) {
             imports.push(typingImportResult);
             typingModulePath = typingImportResult.resolvedPaths[0];
         }
@@ -842,15 +887,11 @@ export class SourceFile {
         let collectionsModulePath: string | undefined;
 
         for (const moduleImport of moduleImports) {
-            const importResult = importResolver.resolveImport(
-                this._filePath,
-                execEnv,
-                {
-                    leadingDots: moduleImport.leadingDots,
-                    nameParts: moduleImport.nameParts,
-                    importedSymbols: moduleImport.importedSymbols
-                }
-            );
+            const importResult = importResolver.resolveImport(this._filePath, execEnv, {
+                leadingDots: moduleImport.leadingDots,
+                nameParts: moduleImport.nameParts,
+                importedSymbols: moduleImport.importedSymbols
+            });
 
             // If the file imports the stdlib 'collections' module, stash
             // away its file path. The type analyzer may need this to

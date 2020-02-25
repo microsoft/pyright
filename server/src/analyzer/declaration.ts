@@ -1,19 +1,32 @@
 /*
-* declaration.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Tracks the location within the code where a named entity
-* is declared and its associated declared type (if the type
-* is explicitly declared).
-*/
+ * declaration.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Tracks the location within the code where a named entity
+ * is declared and its associated declared type (if the type
+ * is explicitly declared).
+ */
 
 import { Range } from '../common/textRange';
-import { ClassNode, ExpressionNode, FunctionNode, ImportAsNode,
-    ImportFromAsNode, ImportFromNode, ModuleNode, NameNode, ParameterNode,
-    ParseNode, ReturnNode, StringListNode, TypeAnnotationNode, YieldFromNode,
-    YieldNode } from '../parser/parseNodes';
+import {
+    ClassNode,
+    ExpressionNode,
+    FunctionNode,
+    ImportAsNode,
+    ImportFromAsNode,
+    ImportFromNode,
+    ModuleNode,
+    NameNode,
+    ParameterNode,
+    ParseNode,
+    ReturnNode,
+    StringListNode,
+    TypeAnnotationNode,
+    YieldFromNode,
+    YieldNode
+} from '../parser/parseNodes';
 
 export const enum DeclarationType {
     Intrinsic,
@@ -132,6 +145,11 @@ export interface ModuleLoaderActions {
     implicitImports?: Map<string, ModuleLoaderActions>;
 }
 
-export type Declaration = IntrinsicDeclaration | ClassDeclaration |
-    SpecialBuiltInClassDeclaration | FunctionDeclaration | ParameterDeclaration |
-    VariableDeclaration | AliasDeclaration;
+export type Declaration =
+    | IntrinsicDeclaration
+    | ClassDeclaration
+    | SpecialBuiltInClassDeclaration
+    | FunctionDeclaration
+    | ParameterDeclaration
+    | VariableDeclaration
+    | AliasDeclaration;

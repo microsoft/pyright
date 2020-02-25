@@ -1,12 +1,12 @@
 /*
-* pythonLanguageVersion.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Types and functions that relate to the Python language version
-* and features within them.
-*/
+ * pythonLanguageVersion.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Types and functions that relate to the Python language version
+ * and features within them.
+ */
 
 export enum PythonVersion {
     // The order of this enumeration is significant. We assume
@@ -31,9 +31,9 @@ export const latestStablePythonVersion = PythonVersion.V38;
 export const latestPythonVersion = PythonVersion.V38;
 
 export function versionToString(version: PythonVersion): string {
-    const majorVersion = (version >> 8) & 0xFF;
-    const minorVersion = version & 0xFF;
-    return `${ majorVersion }.${ minorVersion }`;
+    const majorVersion = (version >> 8) & 0xff;
+    const minorVersion = version & 0xff;
+    return `${majorVersion}.${minorVersion}`;
 }
 
 export function versionFromString(verString: string): PythonVersion | undefined {
@@ -67,5 +67,5 @@ export function versionFromString(verString: string): PythonVersion | undefined 
 }
 
 export function is3x(version: PythonVersion): boolean {
-    return (version >> 8) === 3;
+    return version >> 8 === 3;
 }

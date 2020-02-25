@@ -1,10 +1,10 @@
 /**
-* webpack.config-server.js
-* Copyright: Microsoft 2018
-*
-* Configuration for webpack to bundle the javascript into a single file
-* for the VS Code Extension language server.
-*/
+ * webpack.config-server.js
+ * Copyright: Microsoft 2018
+ *
+ * Configuration for webpack to bundle the javascript into a single file
+ * for the VS Code Extension language server.
+ */
 
 const path = require('path'); // eslint-disable-line @typescript-eslint/no-var-requires
 
@@ -19,13 +19,10 @@ module.exports = {
         path: path.resolve(__dirname, '../client/server')
     },
     optimization: {
-        usedExports: true,
+        usedExports: true
     },
     resolve: {
-        modules: [
-            path.resolve(__dirname, '.'),
-            'node_modules'
-        ],
+        modules: [path.resolve(__dirname, '.'), 'node_modules'],
         extensions: ['.js', '.ts']
     },
     module: {

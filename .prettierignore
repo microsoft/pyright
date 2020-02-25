@@ -1,0 +1,6 @@
+*.json
+**/dist/**
+**/out/**
+**/client/server/**
+**/typeshed-fallback/**
+**/.github/**

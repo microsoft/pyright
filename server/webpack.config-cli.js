@@ -1,10 +1,12 @@
 /**
-* webpack.config-pyright.js
-* Copyright: Microsoft 2018
-*
-* Configuration for webpack to bundle the javascript into a single file
-* for the pyright command-line tool.
-*/
+ * webpack.config-pyright.js
+ * Copyright: Microsoft 2018
+ *
+ * Configuration for webpack to bundle the javascript into a single file
+ * for the pyright command-line tool.
+ */
+
+/* eslint-disable @typescript-eslint/no-var-requires */
 
 const path = require('path');
 
@@ -17,10 +19,7 @@ module.exports = {
         path: path.resolve(__dirname, '../dist')
     },
     resolve: {
-        modules: [
-            path.resolve(__dirname, '.'),
-            'node_modules'
-        ],
+        modules: [path.resolve(__dirname, '.'), 'node_modules'],
         extensions: ['.js', '.ts']
     },
 

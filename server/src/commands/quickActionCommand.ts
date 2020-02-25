@@ -11,7 +11,7 @@ import { LanguageServerInterface } from '../languageServerBase';
 import { ServerCommand } from './commandController';
 
 export class QuickActionCommand implements ServerCommand {
-    constructor(private _ls: LanguageServerInterface) { }
+    constructor(private _ls: LanguageServerInterface) {}
 
     async execute(cmdParams: ExecuteCommandParams): Promise<any> {
         if (cmdParams.arguments && cmdParams.arguments.length >= 1) {

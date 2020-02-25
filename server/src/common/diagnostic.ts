@@ -1,11 +1,11 @@
 /*
-* diagnostics.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Class that represents errors and warnings.
-*/
+ * diagnostics.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Class that represents errors and warnings.
+ */
 
 import { Commands } from '../commands/commands';
 import { Range } from './textRange';
@@ -42,9 +42,7 @@ export class Diagnostic {
     private _rule: string | undefined;
     private _relatedInfo: DiagnosticRelatedInfo[] = [];
 
-    constructor(readonly category: DiagnosticCategory, readonly message: string,
-        readonly range: Range) {
-    }
+    constructor(readonly category: DiagnosticCategory, readonly message: string, readonly range: Range) {}
 
     addAction(action: DiagnosticAction) {
         if (this._actions === undefined) {

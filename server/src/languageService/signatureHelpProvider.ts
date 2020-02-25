@@ -1,13 +1,13 @@
 /*
-* signatureHelpProvider.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Logic that maps a position within a Python call node into info
-* that can be presented to the developer to help fill in the remaining
-* arguments for the call.
-*/
+ * signatureHelpProvider.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Logic that maps a position within a Python call node into info
+ * that can be presented to the developer to help fill in the remaining
+ * arguments for the call.
+ */
 
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -36,10 +36,11 @@ export interface SignatureHelpResults {
 }
 
 export class SignatureHelpProvider {
-    static getSignatureHelpForPosition(parseResults: ParseResults, position: Position,
-        evaluator: TypeEvaluator):
-        SignatureHelpResults | undefined {
-
+    static getSignatureHelpForPosition(
+        parseResults: ParseResults,
+        position: Position,
+        evaluator: TypeEvaluator
+    ): SignatureHelpResults | undefined {
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;

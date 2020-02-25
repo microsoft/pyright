@@ -1,13 +1,13 @@
 /*
-* editAction.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Represents a single edit within a file.
-*/
+ * editAction.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Represents a single edit within a file.
+ */
 
-import { Range } from "./textRange";
+import { Range } from './textRange';
 
 export interface TextEditAction {
     range: Range;

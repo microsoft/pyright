@@ -1,19 +1,26 @@
 /*
-* importStatementUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Utility routines for summarizing and manipulating
-* import statements in a python source file.
-*/
+ * importStatementUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Utility routines for summarizing and manipulating
+ * import statements in a python source file.
+ */
 
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
-import { ImportAsNode, ImportFromAsNode, ImportFromNode, ImportNode,
-    ModuleNameNode, ModuleNode, ParseNodeType } from '../parser/parseNodes';
+import {
+    ImportAsNode,
+    ImportFromAsNode,
+    ImportFromNode,
+    ImportNode,
+    ModuleNameNode,
+    ModuleNode,
+    ParseNodeType
+} from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { ImportResult, ImportType } from './importResult';
@@ -67,9 +74,11 @@ export function getTopLevelImports(parseTree: ModuleNode): ImportStatements {
     return localImports;
 }
 
-export function getTextEditsForAutoImportSymbolAddition(symbolName: string,
-        importStatement: ImportStatement, parseResults: ParseResults) {
-
+export function getTextEditsForAutoImportSymbolAddition(
+    symbolName: string,
+    importStatement: ImportStatement,
+    parseResults: ParseResults
+) {
     const textEditList: TextEditAction[] = [];
 
     // Scan through the import symbols to find the right insertion point,
@@ -88,15 +97,16 @@ export function getTextEditsForAutoImportSymbolAddition(symbolName: string,
                 priorImport = curImport;
             }
 
-            const insertionOffset = priorImport ? TextRange.getEnd(priorImport) :
-                (importStatement.node.imports.length > 0 ?
-                    importStatement.node.imports[0].start :
-                    importStatement.node.start + importStatement.node.length);
+            const insertionOffset = priorImport
+                ? TextRange.getEnd(priorImport)
+                : importStatement.node.imports.length > 0
+                ? importStatement.node.imports[0].start
+                : importStatement.node.start + importStatement.node.length;
             const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.tokenizerOutput.lines);
 
             textEditList.push({
                 range: { start: insertionPosition, end: insertionPosition },
-                replacementText: priorImport ? (', ' + symbolName) : (symbolName + ', ')
+                replacementText: priorImport ? ', ' + symbolName : symbolName + ', '
             });
         }
     }
@@ -104,13 +114,17 @@ export function getTextEditsForAutoImportSymbolAddition(symbolName: string,
     return textEditList;
 }
 
-export function getTextEditsForAutoImportInsertion(symbolName: string, importStatements: ImportStatements,
-        moduleName: string, importType: ImportType, parseResults: ParseResults): TextEditAction[] {
-
+export function getTextEditsForAutoImportInsertion(
+    symbolName: string,
+    importStatements: ImportStatements,
+    moduleName: string,
+    importType: ImportType,
+    parseResults: ParseResults
+): TextEditAction[] {
     const textEditList: TextEditAction[] = [];
 
     // We need to emit a new 'from import' statement.
-    let newImportStatement = `from ${ moduleName } import ${ symbolName }`;
+    let newImportStatement = `from ${moduleName} import ${symbolName}`;
     let insertionPosition: Position;
     if (importStatements.orderedImports.length > 0) {
         let insertBefore = true;
@@ -124,8 +138,9 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
             // If the import was resolved, use its import type. If it wasn't
             // resolved, assume that it's the same import type as the previous
             // one.
-            const curImportType: ImportType = curImport.importResult ?
-                curImport.importResult.importType : prevImportType;
+            const curImportType: ImportType = curImport.importResult
+                ? curImport.importResult.importType
+                : prevImportType;
 
             if (importType < curImportType) {
                 if (!insertBefore && prevImportType < importType) {
@@ -151,7 +166,6 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
 
             // If this is the last import, see if we need to create a new group.
             if (curImport === importStatements.orderedImports[importStatements.orderedImports.length - 1]) {
-
                 if (importType > curImportType) {
                     // Add an extra line to create a new group.
                     newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
@@ -178,7 +192,8 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
 
             insertionPosition = convertOffsetToPosition(
                 insertBefore ? insertionImport.node.start : TextRange.getEnd(insertionImport.node),
-                parseResults.tokenizerOutput.lines);
+                parseResults.tokenizerOutput.lines
+            );
         } else {
             insertionPosition = { line: 0, character: 0 };
         }
@@ -207,19 +222,20 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
             }
 
             if (stopHere) {
-                insertionPosition = convertOffsetToPosition(statement.start,
-                    parseResults.tokenizerOutput.lines);
+                insertionPosition = convertOffsetToPosition(statement.start, parseResults.tokenizerOutput.lines);
                 addNewLineBefore = false;
                 break;
             } else {
                 insertionPosition = convertOffsetToPosition(
                     statement.start + statement.length,
-                    parseResults.tokenizerOutput.lines);
+                    parseResults.tokenizerOutput.lines
+                );
                 addNewLineBefore = true;
             }
         }
 
-        newImportStatement += parseResults.tokenizerOutput.predominantEndOfLineSequence +
+        newImportStatement +=
+            parseResults.tokenizerOutput.predominantEndOfLineSequence +
             parseResults.tokenizerOutput.predominantEndOfLineSequence;
 
         if (addNewLineBefore) {
@@ -237,9 +253,7 @@ export function getTextEditsForAutoImportInsertion(symbolName: string, importSta
     return textEditList;
 }
 
-function _processImportNode(node: ImportNode, localImports: ImportStatements,
-        followsNonImportStatement: boolean) {
-
+function _processImportNode(node: ImportNode, localImports: ImportStatements, followsNonImportStatement: boolean) {
     node.list.forEach(importAsNode => {
         const importResult = AnalyzerNodeInfo.getImportInfo(importAsNode.module);
         let resolvedPath: string | undefined;
@@ -271,9 +285,11 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements,
     });
 }
 
-function _processImportFromNode(node: ImportFromNode, localImports: ImportStatements,
-        followsNonImportStatement: boolean) {
-
+function _processImportFromNode(
+    node: ImportFromNode,
+    localImports: ImportStatements,
+    followsNonImportStatement: boolean
+) {
     const importResult = AnalyzerNodeInfo.getImportInfo(node.module);
     let resolvedPath: string | undefined;
 
@@ -297,9 +313,11 @@ function _processImportFromNode(node: ImportFromNode, localImports: ImportStatem
         // Overwrite existing import statements because we always want to prefer
         // 'import from' over 'import'. Also, overwrite existing 'import from' if
         // the module name is shorter.
-        if (!prevEntry || prevEntry.node.nodeType === ParseNodeType.Import ||
-                prevEntry.moduleName.length > localImport.moduleName.length) {
-
+        if (
+            !prevEntry ||
+            prevEntry.node.nodeType === ParseNodeType.Import ||
+            prevEntry.moduleName.length > localImport.moduleName.length
+        ) {
             localImports.mapByFilePath.set(resolvedPath, localImport);
         }
     }

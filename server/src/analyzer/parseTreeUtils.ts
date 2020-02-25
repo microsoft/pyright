@@ -1,20 +1,34 @@
 /*
-* parseTreeUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Utility routines for traversing a parse tree.
-*/
+ * parseTreeUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Utility routines for traversing a parse tree.
+ */
 
 import { fail } from '../common/debug';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { ArgumentCategory, AssignmentExpressionNode, ClassNode, EvaluationScopeNode,
-    ExecutionScopeNode, ExpressionNode, FunctionNode, isExpressionNode, LambdaNode, ModuleNode,
-    ParameterCategory, ParseNode, ParseNodeType, StatementNode, SuiteNode } from '../parser/parseNodes';
+import {
+    ArgumentCategory,
+    AssignmentExpressionNode,
+    ClassNode,
+    EvaluationScopeNode,
+    ExecutionScopeNode,
+    ExpressionNode,
+    FunctionNode,
+    isExpressionNode,
+    LambdaNode,
+    ModuleNode,
+    ParameterCategory,
+    ParseNode,
+    ParseNodeType,
+    StatementNode,
+    SuiteNode
+} from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { decodeDocString } from './docStringUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -39,9 +53,11 @@ export function getNodeDepth(node: ParseNode): number {
 }
 
 // Returns the deepest node that contains the specified position.
-export function findNodeByPosition(node: ParseNode, position: Position,
-        lines: TextRangeCollection<TextRange>): ParseNode | undefined {
-
+export function findNodeByPosition(
+    node: ParseNode,
+    position: Position,
+    lines: TextRangeCollection<TextRange>
+): ParseNode | undefined {
     const offset = convertPositionToOffset(position, lines);
     if (offset === undefined) {
         return undefined;
@@ -80,43 +96,53 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.MemberAccess: {
-            return printExpression(node.leftExpression, flags) + '.' +
-                node.memberName.value;
+            return printExpression(node.leftExpression, flags) + '.' + node.memberName.value;
         }
 
         case ParseNodeType.Call: {
-            return printExpression(node.leftExpression, flags) + '(' +
-                node.arguments.map(arg => {
-                    let argStr = '';
-                    if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
-                        argStr = '*';
-                    } else if (arg.argumentCategory === ArgumentCategory.UnpackedDictionary) {
-                        argStr = '**';
-                    }
-                    if (arg.name) {
-                        argStr += arg.name.value + '=';
-                    }
-                    argStr += printExpression(arg.valueExpression, flags);
-                    return argStr;
-                }).join(', ') +
-                ')';
+            return (
+                printExpression(node.leftExpression, flags) +
+                '(' +
+                node.arguments
+                    .map(arg => {
+                        let argStr = '';
+                        if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
+                            argStr = '*';
+                        } else if (arg.argumentCategory === ArgumentCategory.UnpackedDictionary) {
+                            argStr = '**';
+                        }
+                        if (arg.name) {
+                            argStr += arg.name.value + '=';
+                        }
+                        argStr += printExpression(arg.valueExpression, flags);
+                        return argStr;
+                    })
+                    .join(', ') +
+                ')'
+            );
         }
 
         case ParseNodeType.Index: {
-            return printExpression(node.baseExpression, flags) + '[' +
+            return (
+                printExpression(node.baseExpression, flags) +
+                '[' +
                 node.items.items.map(item => printExpression(item, flags)).join(', ') +
-                ']';
+                ']'
+            );
         }
 
         case ParseNodeType.UnaryOperation: {
-            return printOperator(node.operator) + ' ' +
-                printExpression(node.expression, flags);
+            return printOperator(node.operator) + ' ' + printExpression(node.expression, flags);
         }
 
         case ParseNodeType.BinaryOperation: {
-            return printExpression(node.leftExpression, flags) + ' ' +
-                printOperator(node.operator) + ' ' +
-                printExpression(node.rightExpression, flags);
+            return (
+                printExpression(node.leftExpression, flags) +
+                ' ' +
+                printOperator(node.operator) +
+                ' ' +
+                printExpression(node.rightExpression, flags)
+            );
         }
 
         case ParseNodeType.Number: {
@@ -128,12 +154,14 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.StringList: {
-            if ((flags & PrintExpressionFlags.ForwardDeclarations) && node.typeAnnotation) {
+            if (flags & PrintExpressionFlags.ForwardDeclarations && node.typeAnnotation) {
                 return printExpression(node.typeAnnotation, flags);
             } else {
-                return node.strings.map(str => {
-                    return printExpression(str, flags);
-                }).join(' ');
+                return node.strings
+                    .map(str => {
+                        return printExpression(str, flags);
+                    })
+                    .join(' ');
             }
         }
 
@@ -157,15 +185,15 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
 
             if (node.token.flags & StringTokenFlags.Triplicate) {
                 if (node.token.flags & StringTokenFlags.SingleQuote) {
-                    exprString += `'''${ node.token.escapedValue }'''`;
+                    exprString += `'''${node.token.escapedValue}'''`;
                 } else {
-                    exprString += `"""${ node.token.escapedValue }"""`;
+                    exprString += `"""${node.token.escapedValue}"""`;
                 }
             } else {
                 if (node.token.flags & StringTokenFlags.SingleQuote) {
-                    exprString += `'${ node.token.escapedValue }'`;
+                    exprString += `'${node.token.escapedValue}'`;
                 } else {
-                    exprString += `"${ node.token.escapedValue }"`;
+                    exprString += `"${node.token.escapedValue}"`;
                 }
             }
 
@@ -173,24 +201,25 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Assignment: {
-            return printExpression(node.leftExpression, flags) + ' = ' +
-                printExpression(node.rightExpression, flags);
+            return printExpression(node.leftExpression, flags) + ' = ' + printExpression(node.rightExpression, flags);
         }
 
         case ParseNodeType.AssignmentExpression: {
-            return printExpression(node.name, flags) + ' := ' +
-                printExpression(node.rightExpression, flags);
+            return printExpression(node.name, flags) + ' := ' + printExpression(node.rightExpression, flags);
         }
 
         case ParseNodeType.TypeAnnotation: {
-            return printExpression(node.valueExpression, flags) + ': ' +
-                printExpression(node.typeAnnotation, flags);
+            return printExpression(node.valueExpression, flags) + ': ' + printExpression(node.typeAnnotation, flags);
         }
 
         case ParseNodeType.AugmentedAssignment: {
-            return printExpression(node.leftExpression, flags) + ' ' +
-                printOperator(node.operator) + ' ' +
-                printExpression(node.rightExpression, flags);
+            return (
+                printExpression(node.leftExpression, flags) +
+                ' ' +
+                printOperator(node.operator) +
+                ' ' +
+                printExpression(node.rightExpression, flags)
+            );
         }
 
         case ParseNodeType.Await: {
@@ -198,16 +227,20 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Ternary: {
-            return printExpression(node.ifExpression, flags) + ' if ' +
-                printExpression(node.testExpression, flags) + ' else ' +
-                printExpression(node.elseExpression, flags);
+            return (
+                printExpression(node.ifExpression, flags) +
+                ' if ' +
+                printExpression(node.testExpression, flags) +
+                ' else ' +
+                printExpression(node.elseExpression, flags)
+            );
         }
 
         case ParseNodeType.List: {
             const expressions = node.entries.map(expr => {
                 return printExpression(expr, flags);
             });
-            return `[${ expressions.join(', ') }]`;
+            return `[${expressions.join(', ')}]`;
         }
 
         case ParseNodeType.Unpack: {
@@ -219,9 +252,9 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 return printExpression(expr, flags);
             });
             if (expressions.length === 1) {
-                return `(${ expressions[0] }, )`;
+                return `(${expressions[0]}, )`;
             }
-            return `(${ expressions.join(', ') })`;
+            return `(${expressions.join(', ')})`;
         }
 
         case ParseNodeType.Yield: {
@@ -248,19 +281,26 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             } else if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
                 const keyStr = printExpression(node.expression.keyExpression, flags);
                 const valueStr = printExpression(node.expression.valueExpression, flags);
-                listStr = `${ keyStr }: ${ valueStr }`;
+                listStr = `${keyStr}: ${valueStr}`;
             }
 
-            return listStr + ' ' +
-                node.comprehensions.map(expr => {
-                    if (expr.nodeType === ParseNodeType.ListComprehensionFor) {
-                        return `${ expr.isAsync ? 'async ' : '' }for ` +
-                            printExpression(expr.targetExpression, flags) +
-                            ` in ${ printExpression(expr.iterableExpression, flags) }`;
-                    } else {
-                        return `if ${ printExpression(expr.testExpression, flags) }`;
-                    }
-                }).join(' ');
+            return (
+                listStr +
+                ' ' +
+                node.comprehensions
+                    .map(expr => {
+                        if (expr.nodeType === ParseNodeType.ListComprehensionFor) {
+                            return (
+                                `${expr.isAsync ? 'async ' : ''}for ` +
+                                printExpression(expr.targetExpression, flags) +
+                                ` in ${printExpression(expr.iterableExpression, flags)}`
+                            );
+                        } else {
+                            return `if ${printExpression(expr.testExpression, flags)}`;
+                        }
+                    })
+                    .join(' ')
+            );
         }
 
         case ParseNodeType.Slice: {
@@ -278,24 +318,31 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Lambda: {
-            return 'lambda ' + node.parameters.map(param => {
-                let paramStr = '';
+            return (
+                'lambda ' +
+                node.parameters
+                    .map(param => {
+                        let paramStr = '';
 
-                if (param.category === ParameterCategory.VarArgList) {
-                    paramStr += '*';
-                } else if (param.category === ParameterCategory.VarArgDictionary) {
-                    paramStr += '**';
-                }
+                        if (param.category === ParameterCategory.VarArgList) {
+                            paramStr += '*';
+                        } else if (param.category === ParameterCategory.VarArgDictionary) {
+                            paramStr += '**';
+                        }
 
-                if (param.name) {
-                    paramStr += param.name.value;
-                }
+                        if (param.name) {
+                            paramStr += param.name.value;
+                        }
 
-                if (param.defaultValue) {
-                    paramStr += ' = ' + printExpression(param.defaultValue, flags);
-                }
-                return paramStr;
-            }).join(', ') + ': ' + printExpression(node.expression, flags);
+                        if (param.defaultValue) {
+                            paramStr += ' = ' + printExpression(param.defaultValue, flags);
+                        }
+                        return paramStr;
+                    })
+                    .join(', ') +
+                ': ' +
+                printExpression(node.expression, flags)
+            );
         }
 
         case ParseNodeType.Constant: {
@@ -312,10 +359,12 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Dictionary: {
-            return `{ ${ node.entries.map(entry => {
+            return `{ ${node.entries.map(entry => {
                 if (entry.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                    return `${ printExpression(entry.keyExpression, flags) }: ` +
-                        `${ printExpression(entry.valueExpression, flags) }`;
+                    return (
+                        `${printExpression(entry.keyExpression, flags)}: ` +
+                        `${printExpression(entry.valueExpression, flags)}`
+                    );
                 } else {
                     return printExpression(entry, flags);
                 }
@@ -323,7 +372,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.DictionaryExpandEntry: {
-            return `**${ printExpression(node.expandExpression, flags) }`;
+            return `**${printExpression(node.expandExpression, flags)}`;
         }
 
         case ParseNodeType.Set: {
@@ -423,9 +472,7 @@ export function getEnclosingModule(node: ParseNode): ModuleNode {
     return undefined!;
 }
 
-export function getEnclosingClassOrModule(node: ParseNode,
-        stopAtFunction = false): ClassNode | ModuleNode | undefined {
-
+export function getEnclosingClassOrModule(node: ParseNode, stopAtFunction = false): ClassNode | ModuleNode | undefined {
     let curNode = node.parent;
     while (curNode) {
         if (curNode.nodeType === ParseNodeType.Class) {
@@ -465,9 +512,9 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
     return undefined;
 }
 
-export function getEvaluationNodeForAssignmentExpression(node: AssignmentExpressionNode):
-        LambdaNode | FunctionNode | ModuleNode | undefined {
-
+export function getEvaluationNodeForAssignmentExpression(
+    node: AssignmentExpressionNode
+): LambdaNode | FunctionNode | ModuleNode | undefined {
     // PEP 572 indicates that the evaluation node for an assignment expression
     // target is the containing lambda, function or module, but not a class.
     let curNode: ParseNode | undefined = getEvaluationScopeNode(node);
@@ -547,9 +594,10 @@ export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
     // Classes are not considered execution scope because they are executed
     // within the context of their containing module or function. Likewise, list
     // comprehensions are executed within their container.
-    while (evaluationScope.nodeType === ParseNodeType.Class ||
-            evaluationScope.nodeType === ParseNodeType.ListComprehension) {
-
+    while (
+        evaluationScope.nodeType === ParseNodeType.Class ||
+        evaluationScope.nodeType === ParseNodeType.ListComprehension
+    ) {
         evaluationScope = getEvaluationScopeNode(evaluationScope.parent!);
     }
 
@@ -592,9 +640,14 @@ export function isSuiteEmpty(node: SuiteNode): boolean {
 export function isMatchingExpression(expression1: ExpressionNode, expression2: ExpressionNode): boolean {
     if (expression1.nodeType === ParseNodeType.Name && expression2.nodeType === ParseNodeType.Name) {
         return expression1.value === expression2.value;
-    } else if (expression1.nodeType === ParseNodeType.MemberAccess && expression2.nodeType === ParseNodeType.MemberAccess) {
-        return isMatchingExpression(expression1.leftExpression, expression2.leftExpression) &&
-            expression1.memberName.value === expression2.memberName.value;
+    } else if (
+        expression1.nodeType === ParseNodeType.MemberAccess &&
+        expression2.nodeType === ParseNodeType.MemberAccess
+    ) {
+        return (
+            isMatchingExpression(expression1.leftExpression, expression2.leftExpression) &&
+            expression1.memberName.value === expression2.memberName.value
+        );
     }
 
     return false;
@@ -609,10 +662,12 @@ export function isWithinDefaultParamInitializer(node: ParseNode) {
             return true;
         }
 
-        if (curNode.nodeType === ParseNodeType.Lambda ||
-                curNode.nodeType === ParseNodeType.Function ||
-                curNode.nodeType === ParseNodeType.Class ||
-                curNode.nodeType === ParseNodeType.Module) {
+        if (
+            curNode.nodeType === ParseNodeType.Lambda ||
+            curNode.nodeType === ParseNodeType.Function ||
+            curNode.nodeType === ParseNodeType.Class ||
+            curNode.nodeType === ParseNodeType.Module
+        ) {
             return false;
         }
 
@@ -636,8 +691,7 @@ export function getDocString(statements: StatementNode[]): string | undefined {
     // If the first statement in the suite isn't a StringNode,
     // assume there is no docString.
     const statementList = statements[0];
-    if (statementList.statements.length === 0 ||
-            statementList.statements[0].nodeType !== ParseNodeType.StringList) {
+    if (statementList.statements.length === 0 || statementList.statements[0].nodeType !== ParseNodeType.StringList) {
         return undefined;
     }
 
@@ -658,22 +712,27 @@ export function getDocString(statements: StatementNode[]): string | undefined {
 // This pattern is commonly used to set the default values that are
 // not specified in the original list.
 export function isAssignmentToDefaultsFollowingNamedTuple(callNode: ParseNode): boolean {
-    if (callNode.nodeType !== ParseNodeType.Call || !callNode.parent ||
-            callNode.parent.nodeType !== ParseNodeType.Assignment ||
-            callNode.parent.leftExpression.nodeType !== ParseNodeType.Name ||
-            !callNode.parent.parent ||
-            callNode.parent.parent.nodeType !== ParseNodeType.StatementList) {
-
+    if (
+        callNode.nodeType !== ParseNodeType.Call ||
+        !callNode.parent ||
+        callNode.parent.nodeType !== ParseNodeType.Assignment ||
+        callNode.parent.leftExpression.nodeType !== ParseNodeType.Name ||
+        !callNode.parent.parent ||
+        callNode.parent.parent.nodeType !== ParseNodeType.StatementList
+    ) {
         return false;
     }
 
     const namedTupleAssignedName = callNode.parent.leftExpression.value;
     const statementList = callNode.parent.parent;
-    if (statementList.statements[0] !== callNode.parent ||
-            !statementList.parent ||
-            !(statementList.parent.nodeType === ParseNodeType.Module ||
-                statementList.parent.nodeType === ParseNodeType.Suite)) {
-
+    if (
+        statementList.statements[0] !== callNode.parent ||
+        !statementList.parent ||
+        !(
+            statementList.parent.nodeType === ParseNodeType.Module ||
+            statementList.parent.nodeType === ParseNodeType.Suite
+        )
+    ) {
         return false;
     }
 
@@ -699,15 +758,17 @@ export function isAssignmentToDefaultsFollowingNamedTuple(callNode: ParseNode): 
 
         if (nextStatement.statements[0].nodeType === ParseNodeType.Assignment) {
             const assignNode = nextStatement.statements[0];
-            if (assignNode.leftExpression.nodeType === ParseNodeType.MemberAccess &&
-                    assignNode.leftExpression.memberName.value === '__defaults__') {
-
+            if (
+                assignNode.leftExpression.nodeType === ParseNodeType.MemberAccess &&
+                assignNode.leftExpression.memberName.value === '__defaults__'
+            ) {
                 const defaultTarget = assignNode.leftExpression.leftExpression;
-                if (defaultTarget.nodeType === ParseNodeType.MemberAccess &&
-                        defaultTarget.memberName.value === '__new__' &&
-                        defaultTarget.leftExpression.nodeType === ParseNodeType.Name &&
-                        defaultTarget.leftExpression.value === namedTupleAssignedName) {
-
+                if (
+                    defaultTarget.nodeType === ParseNodeType.MemberAccess &&
+                    defaultTarget.memberName.value === '__new__' &&
+                    defaultTarget.leftExpression.nodeType === ParseNodeType.Name &&
+                    defaultTarget.leftExpression.value === namedTupleAssignedName
+                ) {
                     return true;
                 }
             }

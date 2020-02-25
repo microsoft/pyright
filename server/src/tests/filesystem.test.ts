@@ -24,7 +24,9 @@ test('Folders', () => {
     const fs = new vfs.FileSystem(/*ignoreCase*/ true, { cwd });
 
     // no such dir exist
-    assert.throws(() => { fs.chdir('a'); });
+    assert.throws(() => {
+        fs.chdir('a');
+    });
 
     fs.mkdirSync('a');
     fs.chdir('a');
@@ -34,7 +36,9 @@ test('Folders', () => {
     fs.rmdirSync('a');
 
     // no such dir exist
-    assert.throws(() => { fs.chdir('a'); });
+    assert.throws(() => {
+        fs.chdir('a');
+    });
 });
 
 test('Files', () => {
@@ -145,8 +149,10 @@ test('createFromFileSystem1', () => {
     const content = '# test';
 
     // file system will map physical file system to virtual one
-    const fs = factory.createFromFileSystem(host.HOST, false,
-        { documents: [new factory.TextDocument(filepath, content)], cwd: factory.srcFolder });
+    const fs = factory.createFromFileSystem(host.HOST, false, {
+        documents: [new factory.TextDocument(filepath, content)],
+        cwd: factory.srcFolder
+    });
 
     // check existing typeshed folder on virtual path inherited from base snapshot from physical file system
     const entries = fs.readdirSync(factory.typeshedFolder);
@@ -165,7 +171,8 @@ test('createFromFileSystem2', () => {
 test('createFromFileSystemWithCustomTypeshedPath', () => {
     const invalidpath = normalizeSlashes(combinePaths(host.HOST.getWorkspaceRoot(), '../docs'));
     const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ false, {
-        cwd: factory.srcFolder, meta: { [factory.typeshedFolder]: invalidpath }
+        cwd: factory.srcFolder,
+        meta: { [factory.typeshedFolder]: invalidpath }
     });
 
     const entries = fs.readdirSync(factory.typeshedFolder);
@@ -174,7 +181,8 @@ test('createFromFileSystemWithCustomTypeshedPath', () => {
 
 test('createFromFileSystemWithMetadata', () => {
     const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ false, {
-        cwd: factory.srcFolder, meta: { 'unused': 'unused' }
+        cwd: factory.srcFolder,
+        meta: { unused: 'unused' }
     });
 
     assert(fs.existsSync(factory.srcFolder));

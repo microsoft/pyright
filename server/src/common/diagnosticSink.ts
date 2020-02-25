@@ -1,15 +1,15 @@
 /*
-* diagnostics.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Class that represents errors and warnings.
-*/
+ * diagnostics.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Class that represents errors and warnings.
+ */
 
 import { Diagnostic, DiagnosticCategory } from './diagnostic';
 import { convertOffsetsToRange } from './positionUtils';
-import { Range,TextRange } from './textRange';
+import { Range, TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
 
 // Represents a collection of diagnostics within a file.

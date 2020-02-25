@@ -1,17 +1,24 @@
 /*
-* analyzerNodeInfo.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Defines objects that hang off the parse nodes in the parse tree.
-* It contains information collected during the binder phase that
-* can be used for later analysis steps or for language services
-* (e.g. hover information).
-*/
+ * analyzerNodeInfo.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Defines objects that hang off the parse nodes in the parse tree.
+ * It contains information collected during the binder phase that
+ * can be used for later analysis steps or for language services
+ * (e.g. hover information).
+ */
 
-import { ClassNode, ExecutionScopeNode, FunctionNode, LambdaNode, ListComprehensionNode,
-    ModuleNode, ParseNode } from '../parser/parseNodes';
+import {
+    ClassNode,
+    ExecutionScopeNode,
+    FunctionNode,
+    LambdaNode,
+    ListComprehensionNode,
+    ModuleNode,
+    ParseNode
+} from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { FlowFlags, FlowNode } from './codeFlow';
 import { Declaration } from './declaration';
@@ -50,8 +57,7 @@ interface AnalyzerNodeInfo {
     codeFlowExpressions?: Map<string, string>;
 }
 
-export type ScopedNode = ModuleNode | ClassNode | FunctionNode |
-    LambdaNode | ListComprehensionNode;
+export type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode | ListComprehensionNode;
 
 // Cleans out all fields that are added by the analyzer phases
 // (after the post-parse walker).

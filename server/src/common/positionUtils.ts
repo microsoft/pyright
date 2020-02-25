@@ -1,12 +1,12 @@
 /*
-* positionUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Utility routines for converting between file offsets and
-* line/column positions.
-*/
+ * positionUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Utility routines for converting between file offsets and
+ * line/column positions.
+ */
 
 import { assert } from './debug';
 import { Position, Range, TextRange } from './textRange';
@@ -38,16 +38,18 @@ export function convertOffsetToPosition(offset: number, lines: TextRangeCollecti
 }
 
 // Translates a start/end file offset into a pair of line/column positions.
-export function convertOffsetsToRange(startOffset: number, endOffset: number,
-    lines: TextRangeCollection<TextRange>): Range {
+export function convertOffsetsToRange(
+    startOffset: number,
+    endOffset: number,
+    lines: TextRangeCollection<TextRange>
+): Range {
     const start = convertOffsetToPosition(startOffset, lines);
     const end = convertOffsetToPosition(endOffset, lines);
     return { start, end };
 }
 
 // Translates a position (line and col) into a file offset.
-export function convertPositionToOffset(position: Position,
-    lines: TextRangeCollection<TextRange>): number | undefined {
+export function convertPositionToOffset(position: Position, lines: TextRangeCollection<TextRange>): number | undefined {
     if (position.line >= lines.count) {
         return undefined;
     }

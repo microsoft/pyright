@@ -65,7 +65,9 @@ export class SortedMap<K, V> {
             this._writePreamble();
             insertAt(this._keys, ~index, key);
             insertAt(this._values, ~index, value);
-            if (this._order) { insertAt(this._order, ~index, this._version); }
+            if (this._order) {
+                insertAt(this._order, ~index, this._version);
+            }
             this._writePostScript();
         }
         return this;
@@ -77,7 +79,9 @@ export class SortedMap<K, V> {
             this._writePreamble();
             this._orderedRemoveItemAt(this._keys, index);
             this._orderedRemoveItemAt(this._values, index);
-            if (this._order) { this._orderedRemoveItemAt(this._order, index); }
+            if (this._order) {
+                this._orderedRemoveItemAt(this._order, index);
+            }
             this._writePostScript();
             return true;
         }
@@ -89,7 +93,9 @@ export class SortedMap<K, V> {
             this._writePreamble();
             this._keys.length = 0;
             this._values.length = 0;
-            if (this._order) { this._order.length = 0; }
+            if (this._order) {
+                this._order.length = 0;
+            }
             this._writePostScript();
         }
     }
@@ -117,7 +123,7 @@ export class SortedMap<K, V> {
         }
     }
 
-    * keys() {
+    *keys() {
         const keys = this._keys;
         const indices = this._getIterationOrder();
         const version = this._version;
@@ -137,7 +143,7 @@ export class SortedMap<K, V> {
         }
     }
 
-    * values() {
+    *values() {
         const values = this._values;
         const indices = this._getIterationOrder();
         const version = this._version;
@@ -157,7 +163,7 @@ export class SortedMap<K, V> {
         }
     }
 
-    * entries() {
+    *entries() {
         const keys = this._keys;
         const values = this._values;
         const indices = this._getIterationOrder();
@@ -188,7 +194,9 @@ export class SortedMap<K, V> {
         if (this._copyOnWrite) {
             this._keys = this._keys.slice();
             this._values = this._values.slice();
-            if (this._order) { this._order = this._order.slice(); }
+            if (this._order) {
+                this._order = this._order.slice();
+            }
             this._copyOnWrite = false;
         }
     }
@@ -200,9 +208,7 @@ export class SortedMap<K, V> {
     private _getIterationOrder() {
         if (this._order) {
             const order = this._order;
-            return this._order
-                .map((_, i) => i)
-                .sort((x, y) => order[x] - order[y]);
+            return this._order.map((_, i) => i).sort((x, y) => order[x] - order[y]);
         }
         return undefined;
     }
@@ -228,7 +234,9 @@ export function nextResult<T>(iterator: Iterator<T>): IteratorResult<T> | undefi
 
 export function closeIterator<T>(iterator: Iterator<T>) {
     const fn = iterator.return;
-    if (typeof fn === 'function') { fn.call(iterator); }
+    if (typeof fn === 'function') {
+        fn.call(iterator);
+    }
 }
 
 /**
@@ -250,7 +258,9 @@ export class Metadata {
     get size(): number {
         if (this._size === -1 || (this._parent && this._parent._version !== this._parentVersion)) {
             let size = 0;
-            for (const _ of Object.keys(this._map)) { size++; }
+            for (const _ of Object.keys(this._map)) {
+                size++;
+            }
             this._size = size;
             if (this._parent) {
                 this._parentVersion = this._parent._version;
@@ -303,18 +313,21 @@ export class Metadata {
     }
 
     private static _escapeKey(text: string) {
-        return (text.length >= 2 && text.charAt(0) === '_' && text.charAt(1) === '_' ? '_' + text : text);
+        return text.length >= 2 && text.charAt(0) === '_' && text.charAt(1) === '_' ? '_' + text : text;
     }
 
     private static _unescapeKey(text: string) {
-        return (text.length >= 3 && text.charAt(0) === '_' && text.charAt(1) === '_' && text.charAt(2) === '_' ? text.slice(1) : text);
+        return text.length >= 3 && text.charAt(0) === '_' && text.charAt(1) === '_' && text.charAt(2) === '_'
+            ? text.slice(1)
+            : text;
     }
 }
 
 export function bufferFrom(input: string, encoding?: BufferEncoding): Buffer {
     // See https://github.com/Microsoft/TypeScript/issues/25652
     return Buffer.from && (Buffer.from as Function) !== Int8Array.from
-        ? Buffer.from(input, encoding) : new Buffer(input, encoding);
+        ? Buffer.from(input, encoding)
+        : new Buffer(input, encoding);
 }
 
 export const IO_ERROR_MESSAGE = Object.freeze({
@@ -333,9 +346,11 @@ export const IO_ERROR_MESSAGE = Object.freeze({
 });
 
 export function createIOError(code: keyof typeof IO_ERROR_MESSAGE, details = '') {
-    const err: NodeJS.ErrnoException = new Error(`${ code }: ${ IO_ERROR_MESSAGE[code] } ${ details }`);
+    const err: NodeJS.ErrnoException = new Error(`${code}: ${IO_ERROR_MESSAGE[code]} ${details}`);
     err.code = code;
-    if (Error.captureStackTrace) { Error.captureStackTrace(err, createIOError); }
+    if (Error.captureStackTrace) {
+        Error.captureStackTrace(err, createIOError);
+    }
     return err;
 }
 

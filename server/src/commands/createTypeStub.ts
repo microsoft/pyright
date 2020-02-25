@@ -13,7 +13,7 @@ import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecu
 import { ServerCommand } from './commandController';
 
 export class CreateTypeStubCommand implements ServerCommand {
-    constructor(private _ls: LanguageServerInterface) { }
+    constructor(private _ls: LanguageServerInterface) {}
 
     async execute(cmdParams: ExecuteCommandParams): Promise<any> {
         if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
@@ -25,7 +25,7 @@ export class CreateTypeStubCommand implements ServerCommand {
 
             // Allocate a temporary pseudo-workspace to perform this job.
             const workspace: WorkspaceServiceInstance = {
-                workspaceName: `Create Type Stub ${ importName }`,
+                workspaceName: `Create Type Stub ${importName}`,
                 rootPath: workspaceRoot,
                 rootUri: convertPathToUri(workspaceRoot),
                 serviceInstance: service,
@@ -37,7 +37,7 @@ export class CreateTypeStubCommand implements ServerCommand {
                     try {
                         service.writeTypeStub();
                         service.dispose();
-                        const infoMessage = `Type stub was successfully created for '${ importName }'.`;
+                        const infoMessage = `Type stub was successfully created for '${importName}'.`;
                         this._ls.window.showInformationMessage(infoMessage);
                         this._handlePostCreateTypeStub();
                     } catch (err) {
@@ -45,7 +45,7 @@ export class CreateTypeStubCommand implements ServerCommand {
                         if (err instanceof Error) {
                             errMessage = ': ' + err.message;
                         }
-                        errMessage = `An error occurred when creating type stub for '${ importName }'` + errMessage;
+                        errMessage = `An error occurred when creating type stub for '${importName}'` + errMessage;
                         this._ls.console.error(errMessage);
                         this._ls.window.showErrorMessage(errMessage);
                     }

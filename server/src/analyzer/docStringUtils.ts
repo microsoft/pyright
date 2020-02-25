@@ -1,13 +1,13 @@
 /*
-* docStringUtils.ts
-* Copyright (c) Microsoft Corporation.
-* Licensed under the MIT license.
-* Author: Eric Traut
-*
-* Static methods that format and parse doc strings based on
-* the rules specified in PEP 257
-* (https://www.python.org/dev/peps/pep-0257/).
-*/
+ * docStringUtils.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
+ * Author: Eric Traut
+ *
+ * Static methods that format and parse doc strings based on
+ * the rules specified in PEP 257
+ * (https://www.python.org/dev/peps/pep-0257/).
+ */
 
 export function decodeDocString(rawString: string): string {
     // Remove carriage returns and replace tabs.
