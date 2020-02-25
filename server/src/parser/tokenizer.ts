@@ -150,13 +150,20 @@ interface StringScannerOutput {
     flags: StringTokenFlags;
 }
 
+interface IndentInfo {
+    tab1Spaces: number;
+    tab8Spaces: number;
+    isSpacePresent: boolean;
+    isTabPresent: boolean;
+}
+
 export class Tokenizer {
     private _cs = new CharacterStream('');
     private _tokens: Token[] = [];
     private _prevLineStart = 0;
     private _parenDepth = 0;
     private _lineRanges: TextRange[] = [];
-    private _indentAmounts: number[] = [];
+    private _indentAmounts: IndentInfo[] = [];
     private _typeIgnoreAll = false;
     private _typeIgnoreLines: { [line: number]: boolean } = {};
     private _comments: Comment[] | undefined;
@@ -221,7 +228,7 @@ export class Tokenizer {
         }
 
         // Insert any implied dedent tokens.
-        this._setIndent(0, false);
+        this._setIndent(0, 0, true, false);
 
         // Add a final end-of-stream token to make parsing easier.
         this._tokens.push(Token.create(TokenType.EndOfStream, this._cs.position, 0, this._getComments()));
@@ -489,30 +496,40 @@ export class Tokenizer {
     }
 
     private _readIndentationAfterNewLine() {
-        let spaceCount = 0;
+        let tab1Spaces = 0;
+        let tab8Spaces = 0;
         let isTabPresent = false;
+        let isSpacePresent = false;
 
         while (!this._cs.isEndOfStream()) {
             switch (this._cs.currentChar) {
                 case Char.Space:
-                    spaceCount++;
+                    tab1Spaces++;
+                    tab8Spaces++;
+                    isSpacePresent = true;
                     this._cs.moveNext();
                     break;
 
                 case Char.Tab:
-                    spaceCount += 8 - (spaceCount % 8);
+                    // Translate tabs into spaces assuming both 1-space
+                    // and 8-space tab stops.
+                    tab1Spaces++;
+                    tab8Spaces += 8 - (tab8Spaces % 8);
                     isTabPresent = true;
                     this._cs.moveNext();
                     break;
 
                 case Char.FormFeed:
-                    spaceCount = 0;
+                    tab1Spaces = 0;
+                    tab8Spaces = 0;
+                    isTabPresent = false;
+                    isSpacePresent = false;
                     this._cs.moveNext();
                     break;
 
                 default:
                     // Non-blank line. Set the current indent level.
-                    this._setIndent(spaceCount, isTabPresent);
+                    this._setIndent(tab1Spaces, tab8Spaces, isSpacePresent, isTabPresent);
                     return;
 
                 case Char.Hash:
@@ -524,7 +541,10 @@ export class Tokenizer {
         }
     }
 
-    private _setIndent(spaceCount: number, isTabPresent: boolean) {
+    // The caller must specify two space count values. The first assumes
+    // that tabs are translated into one-space tab stops. The second assumes
+    // that tabs are translated into eight-space tab stops.
+    private _setIndent(tab1Spaces: number, tab8Spaces: number, isSpacePresent: boolean, isTabPresent: boolean) {
         // Indentations are ignored within a parenthesized clause.
         if (this._parenDepth > 0) {
             return;
@@ -532,26 +552,48 @@ export class Tokenizer {
 
         // Insert indent or dedent tokens as necessary.
         if (this._indentAmounts.length === 0) {
-            if (spaceCount > 0) {
+            if (tab8Spaces > 0) {
                 this._indentCount++;
                 if (isTabPresent) {
                     this._indentTabCount++;
                 }
-                this._indentSpacesTotal += spaceCount;
+                this._indentSpacesTotal += tab8Spaces;
 
-                this._indentAmounts.push(spaceCount);
-                this._tokens.push(IndentToken.create(this._cs.position, 0, spaceCount, this._getComments()));
+                this._indentAmounts.push({
+                    tab1Spaces,
+                    tab8Spaces,
+                    isSpacePresent,
+                    isTabPresent
+                });
+                this._tokens.push(IndentToken.create(this._cs.position, 0, tab8Spaces, false, this._getComments()));
             }
         } else {
-            if (this._indentAmounts[this._indentAmounts.length - 1] < spaceCount) {
+            const prevTabInfo = this._indentAmounts[this._indentAmounts.length - 1];
+            if (prevTabInfo.tab8Spaces < tab8Spaces) {
+                // The Python spec says that if there is ambiguity about how tabs should
+                // be translated into spaces because the user has intermixed tabs and
+                // spaces, it should be an error. We'll record this condition in the token
+                // so the parser can later report it.
+                const isIndentAmbiguous =
+                    ((prevTabInfo.isSpacePresent && isTabPresent) || (prevTabInfo.isTabPresent && isSpacePresent)) &&
+                    prevTabInfo.tab1Spaces >= tab1Spaces;
+
                 this._indentCount++;
                 if (isTabPresent) {
                     this._indentTabCount++;
                 }
-                this._indentSpacesTotal += spaceCount - this._indentAmounts[this._indentAmounts.length - 1];
+                this._indentSpacesTotal += tab8Spaces - this._indentAmounts[this._indentAmounts.length - 1].tab8Spaces;
 
-                this._indentAmounts.push(spaceCount);
-                this._tokens.push(IndentToken.create(this._cs.position, 0, spaceCount, this._getComments()));
+                this._indentAmounts.push({
+                    tab1Spaces,
+                    tab8Spaces,
+                    isSpacePresent,
+                    isTabPresent
+                });
+
+                this._tokens.push(
+                    IndentToken.create(this._cs.position, 0, tab8Spaces, isIndentAmbiguous, this._getComments())
+                );
             } else {
                 // The Python spec says that dedent amounts need to match the indent
                 // amount exactly. An error is generated at runtime if it doesn't.
@@ -560,17 +602,19 @@ export class Tokenizer {
                 const dedentPoints: number[] = [];
                 while (
                     this._indentAmounts.length > 0 &&
-                    this._indentAmounts[this._indentAmounts.length - 1] > spaceCount
+                    this._indentAmounts[this._indentAmounts.length - 1].tab8Spaces > tab8Spaces
                 ) {
                     dedentPoints.push(
-                        this._indentAmounts.length > 1 ? this._indentAmounts[this._indentAmounts.length - 2] : 0
+                        this._indentAmounts.length > 1
+                            ? this._indentAmounts[this._indentAmounts.length - 2].tab8Spaces
+                            : 0
                     );
                     this._indentAmounts.pop();
                 }
 
                 dedentPoints.forEach((dedentAmount, index) => {
-                    const matchesIndent = index < dedentPoints.length - 1 || dedentAmount === spaceCount;
-                    const actualDedentAmount = index < dedentPoints.length - 1 ? dedentAmount : spaceCount;
+                    const matchesIndent = index < dedentPoints.length - 1 || dedentAmount === tab8Spaces;
+                    const actualDedentAmount = index < dedentPoints.length - 1 ? dedentAmount : tab8Spaces;
                     this._tokens.push(
                         DedentToken.create(this._cs.position, 0, actualDedentAmount, matchesIndent, this._getComments())
                     );

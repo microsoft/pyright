@@ -203,14 +203,22 @@ export namespace Token {
 export interface IndentToken extends Token {
     readonly type: TokenType.Indent;
     readonly indentAmount: number;
+    readonly isIndentAmbiguous: boolean;
 }
 
 export namespace IndentToken {
-    export function create(start: number, length: number, indentAmount: number, comments: Comment[] | undefined) {
+    export function create(
+        start: number,
+        length: number,
+        indentAmount: number,
+        isIndentAmbiguous: boolean,
+        comments: Comment[] | undefined
+    ) {
         const token: IndentToken = {
             start,
             length,
             type: TokenType.Indent,
+            isIndentAmbiguous,
             comments,
             indentAmount
         };

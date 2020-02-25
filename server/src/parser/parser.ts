@@ -100,6 +100,7 @@ import { Tokenizer, TokenizerOutput } from './tokenizer';
 import {
     DedentToken,
     IdentifierToken,
+    IndentToken,
     KeywordToken,
     KeywordType,
     NumberToken,
@@ -179,11 +180,15 @@ export class Parser {
             while (!this._atEof()) {
                 if (!this._consumeTokenIfType(TokenType.NewLine)) {
                     // Handle a common error case and try to recover.
-                    let nextToken = this._peekToken();
+                    const nextToken = this._peekToken();
                     if (nextToken.type === TokenType.Indent) {
                         this._getNextToken();
-                        nextToken = this._peekToken();
-                        this._addError('Unexpected indentation', nextToken);
+                        const indentToken = nextToken as IndentToken;
+                        if (indentToken.isIndentAmbiguous) {
+                            this._addError('Inconsistent use of tabs and spaces in indentation', indentToken);
+                        } else {
+                            this._addError('Unexpected indentation', nextToken);
+                        }
                     }
 
                     const statement = this._parseStatement();
@@ -372,17 +377,27 @@ export class Parser {
         }
 
         if (this._consumeTokenIfType(TokenType.NewLine)) {
+            const possibleIndent = this._peekToken();
             if (!this._consumeTokenIfType(TokenType.Indent)) {
                 this._addError('Expected indented block', this._peekToken());
+            } else {
+                const indentToken = possibleIndent as IndentToken;
+                if (indentToken.isIndentAmbiguous) {
+                    this._addError('Inconsistent use of tabs and spaces in indentation', indentToken);
+                }
             }
 
             while (true) {
                 // Handle a common error here and see if we can recover.
-                let nextToken = this._peekToken();
+                const nextToken = this._peekToken();
                 if (nextToken.type === TokenType.Indent) {
                     this._getNextToken();
-                    nextToken = this._peekToken();
-                    this._addError('Unexpected indentation', nextToken);
+                    const indentToken = nextToken as IndentToken;
+                    if (indentToken.isIndentAmbiguous) {
+                        this._addError('Inconsistent use of tabs and spaces in indentation', indentToken);
+                    } else {
+                        this._addError('Unexpected indentation', nextToken);
+                    }
                 }
 
                 const statement = this._parseStatement();

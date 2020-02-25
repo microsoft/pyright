@@ -1275,3 +1275,9 @@ test('Python2', () => {
 
     validateResults(analysisResults, 6);
 });
+
+test('InconsistentSpaceTab', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inconsistentSpaceTab.py']);
+
+    validateResults(analysisResults, 4);
+});
