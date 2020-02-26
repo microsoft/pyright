@@ -50,7 +50,7 @@ const DoubleTickRegEx = /``/g;
 const TabRegEx = /\t/g;
 const TildeRegEx = /~/g;
 const PlusRegEx = /\+/g;
-const UnescapedMarkdownCharsRegex = /(?<!\\)([_*~\[\]])/g;
+const UnescapedMarkdownCharsRegex = /(?<!\\)([_*~[\]])/g;
 
 // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#literal-blocks
 const LiteralBlockEmptyRegex = /^\s*::$/;
