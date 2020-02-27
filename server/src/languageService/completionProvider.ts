@@ -13,7 +13,7 @@ import { CompletionItem, CompletionItemKind, CompletionList, MarkupKind, Range, 
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
-import { convertDocStringToMarkdown } from '../analyzer/docStringUtils';
+import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
 import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
