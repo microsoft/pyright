@@ -22,7 +22,6 @@ import {
     IConnection,
     InitializeResult,
     Location,
-    MarkupKind,
     ParameterInformation,
     RemoteConsole,
     RemoteWindow,
@@ -43,6 +42,7 @@ import { Position } from './common/textRange';
 import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CompletionItemData } from './languageService/completionProvider';
+import { convertHoverResults } from './languageService/hoverProvider';
 import { WorkspaceMap } from './workspaceMap';
 
 export interface ServerSettings {
@@ -347,26 +347,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
             const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
             const hoverResults = workspace.serviceInstance.getHoverForPosition(filePath, position);
-            if (!hoverResults) {
-                return undefined;
-            }
-
-            const markupString = hoverResults.parts
-                .map(part => {
-                    if (part.python) {
-                        return '```python\n' + part.text + '\n```\n';
-                    }
-                    return part.text;
-                })
-                .join('');
-
-            return {
-                contents: {
-                    kind: MarkupKind.Markdown,
-                    value: markupString
-                },
-                range: hoverResults.range
-            };
+            return convertHoverResults(hoverResults);
         });
 
         this._connection.onSignatureHelp(params => {

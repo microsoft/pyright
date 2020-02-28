@@ -9,6 +9,8 @@
  * position within a smart editor.
  */
 
+import { Hover, MarkupKind } from 'vscode-languageserver';
+
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -183,4 +185,27 @@ export class HoverProvider {
             text
         });
     }
+}
+
+export function convertHoverResults(hoverResults: HoverResults | undefined): Hover | undefined {
+    if (!hoverResults) {
+        return undefined;
+    }
+
+    const markupString = hoverResults.parts
+        .map(part => {
+            if (part.python) {
+                return '```python\n' + part.text + '\n```\n';
+            }
+            return part.text;
+        })
+        .join('');
+
+    return {
+        contents: {
+            kind: MarkupKind.Markdown,
+            value: markupString
+        },
+        range: hoverResults.range
+    };
 }
