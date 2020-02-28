@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 import Char from 'typescript-char';
-import { Command } from 'vscode-languageserver';
+import { Command, MarkupContent } from 'vscode-languageserver';
 
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { Program } from '../../../analyzer/program';
@@ -31,8 +31,10 @@ import {
 import { convertOffsetToPosition, convertPositionToOffset } from '../../../common/positionUtils';
 import { getStringComparer } from '../../../common/stringUtils';
 import { Position, TextRange } from '../../../common/textRange';
+import { Range as PosRange } from '../../../common/textRange';
 import { WorkspaceServiceInstance } from '../../../languageServerBase';
 import { CodeActionProvider } from '../../../languageService/codeActionProvider';
+import { convertHoverResults } from '../../../languageService/hoverProvider';
 import * as host from '../host';
 import { stringify } from '../utils';
 import { createFromFileSystem } from '../vfs/factory';
@@ -561,6 +563,29 @@ export class TestState {
         this.markTestDone();
     }
 
+    verifyHover(map: { [marker: string]: { value: string; kind: string } }): void {
+        this._analyze();
+
+        for (const range of this.getRanges()) {
+            const name = this.getMarkerName(range.marker!);
+            const expected = map[name];
+
+            const rangePos = this._convertOffsetsToRange(range.fileName, range.pos, range.end);
+
+            const actual = convertHoverResults(this.program.getHoverForPosition(range.fileName, rangePos.start));
+            debug.assertDefined(actual);
+
+            assert.deepEqual(actual!.range, rangePos);
+
+            if (MarkupContent.is(actual!.contents)) {
+                assert.equal(actual!.contents.value, expected.value);
+                assert.equal(actual!.contents.kind, expected.kind);
+            } else {
+                assert.fail(`Unexpected type of contents object "${actual!.contents}", should be MarkupContent.`);
+            }
+        }
+    }
+
     verifyCaretAtMarker(markerName = '') {
         const pos = this.getMarkerByName(markerName);
         if (pos.fileName !== this.activeFile.fileName) {
@@ -665,6 +690,15 @@ export class TestState {
         const result = this._getParseResult(fileName);
 
         return convertOffsetToPosition(offset, result.tokenizerOutput.lines);
+    }
+
+    private _convertOffsetsToRange(fileName: string, startOffset: number, endOffset: number): PosRange {
+        const result = this._getParseResult(fileName);
+
+        return {
+            start: convertOffsetToPosition(startOffset, result.tokenizerOutput.lines),
+            end: convertOffsetToPosition(endOffset, result.tokenizerOutput.lines)
+        };
     }
 
     private _getParseResult(fileName: string) {

@@ -91,6 +91,7 @@ declare namespace _ {
         verifyInvokeCodeAction(map: {
             [marker: string]: { title: string; files: { [filePath: string]: string } };
         }): void;
+        verifyHover(map: { [marker: string]: { value: string; kind: string } }): void;
 
         /* not tested yet
         openFile(indexOrName: number | string, content?: string): void;
