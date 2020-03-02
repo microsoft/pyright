@@ -8,7 +8,6 @@
  */
 
 import { ParameterCategory } from '../parser/parseNodes';
-import { ImportLookup } from './analyzerFileInfo';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
@@ -237,18 +236,18 @@ export function transformTypeObjectToClass(type: Type): Type {
 // None is always falsy. All other types are generally truthy
 // unless they are objects that support the __bool__ or __len__
 // methods.
-export function canBeFalsy(type: Type, importLookup: ImportLookup): boolean {
+export function canBeFalsy(type: Type): boolean {
     if (type.category === TypeCategory.None) {
         return true;
     }
 
     if (type.category === TypeCategory.Object) {
-        const lenMethod = lookUpObjectMember(type, '__len__', importLookup);
+        const lenMethod = lookUpObjectMember(type, '__len__');
         if (lenMethod) {
             return true;
         }
 
-        const boolMethod = lookUpObjectMember(type, '__bool__', importLookup);
+        const boolMethod = lookUpObjectMember(type, '__bool__');
         if (boolMethod) {
             return true;
         }
@@ -448,11 +447,10 @@ export function specializeType(
 export function lookUpObjectMember(
     objectType: Type,
     memberName: string,
-    importLookup: ImportLookup,
     flags = ClassMemberLookupFlags.Default
 ): ClassMember | undefined {
     if (objectType.category === TypeCategory.Object) {
-        return lookUpClassMember(objectType.classType, memberName, importLookup, flags);
+        return lookUpClassMember(objectType.classType, memberName, flags);
     }
 
     return undefined;
@@ -469,7 +467,6 @@ export function lookUpObjectMember(
 export function lookUpClassMember(
     classType: Type,
     memberName: string,
-    importLookup: ImportLookup,
     flags = ClassMemberLookupFlags.Default
 ): ClassMember | undefined {
     const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
@@ -532,7 +529,6 @@ export function lookUpClassMember(
                 const methodType = lookUpClassMember(
                     partiallySpecializeType(baseClass, classType),
                     memberName,
-                    importLookup,
                     flags & ~ClassMemberLookupFlags.SkipOriginalClass
                 );
                 if (methodType) {
@@ -830,7 +826,7 @@ export function removeFalsinessFromType(type: Type): Type {
 // and a custom class "Foo" that has no __len__ or __nonzero__
 // method, this method would strip off the "Foo"
 // and return only the "None".
-export function removeTruthinessFromType(type: Type, importLookup: ImportLookup): Type {
+export function removeTruthinessFromType(type: Type): Type {
     return doForSubtypes(type, subtype => {
         if (subtype.category === TypeCategory.Object) {
             if (subtype.literalValue !== undefined) {
@@ -847,7 +843,7 @@ export function removeTruthinessFromType(type: Type, importLookup: ImportLookup)
         }
 
         // If it's possible for the type to be falsy, include it.
-        if (canBeFalsy(subtype, importLookup)) {
+        if (canBeFalsy(subtype)) {
             return subtype;
         }
 
