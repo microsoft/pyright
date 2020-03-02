@@ -6870,9 +6870,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        // If there was no decorator, see if there are any overloads provided
-        // by previous function declarations.
-        if (decoratedType === functionType) {
+        // See if there are any overloads provided by previous function declarations.
+        if (decoratedType.category === TypeCategory.Function) {
             decoratedType = addOverloadsToFunctionType(node, decoratedType);
         }
 
@@ -7037,6 +7036,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (inputFunctionType.category === TypeCategory.Function) {
                     return createProperty(decoratorType.details.name, inputFunctionType, decoratorNode.id);
                 }
+            }
+        }
+
+        // Copy the overload flag from the input function type.
+        if (inputFunctionType.category === TypeCategory.Function && returnType.category === TypeCategory.Function) {
+            if (FunctionType.isOverloaded(inputFunctionType)) {
+                returnType.details.flags |= FunctionTypeFlags.Overloaded;
             }
         }
 
@@ -7215,11 +7221,27 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (!declTypeInfo) {
                         break;
                     }
-                    if (!FunctionType.isOverloaded(declTypeInfo.functionType)) {
+
+                    if (declTypeInfo.decoratedType.category === TypeCategory.Function) {
+                        if (FunctionType.isOverloaded(declTypeInfo.decoratedType)) {
+                            overloadedTypes.unshift(declTypeInfo.decoratedType);
+                        } else {
+                            break;
+                        }
+                    } else if (declTypeInfo.decoratedType.category === TypeCategory.OverloadedFunction) {
+                        // If the previous declaration was itself an overloaded function,
+                        // copy the last entry out of it.
+                        const lastOverload =
+                            declTypeInfo.decoratedType.overloads[declTypeInfo.decoratedType.overloads.length - 1];
+                        if (FunctionType.isOverloaded(lastOverload)) {
+                            overloadedTypes.unshift(lastOverload);
+                        } else {
+                            break;
+                        }
+                    } else {
                         break;
                     }
 
-                    overloadedTypes.unshift(declTypeInfo.functionType);
                     declIndex--;
                 }
 

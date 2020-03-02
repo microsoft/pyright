@@ -1191,6 +1191,11 @@ test('Overload1', () => {
     validateResults(analysisResults, 2);
 });
 
+test('Overload2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload2.py']);
+    validateResults(analysisResults, 0);
+});
+
 test('Final1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final1.py']);
     validateResults(analysisResults, 1);
