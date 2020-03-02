@@ -330,6 +330,9 @@ export function isProperty(type: Type): boolean {
 
 // Partially specializes a type within the context of a specified
 // (presumably specialized) class.
+export function partiallySpecializeType(type: ClassType, contextClassType: ClassType): ClassType;
+export function partiallySpecializeType(type: Type, contextClassType: ClassType): Type;
+
 export function partiallySpecializeType(type: Type, contextClassType: ClassType): Type {
     // If the context class is not specialized (or doesn't need specialization),
     // then there's no need to do any more work.
@@ -1269,6 +1272,102 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
     }
 
     return false;
+}
+
+// Computes the method resolution ordering for a class whose base classes
+// have already been filled in. The algorithm for computing MRO is described
+// here: https://www.python.org/download/releases/2.3/mro/. It returns true
+// if an MRO was possible, false otherwise.
+export function computeMroLinearization(classType: ClassType): boolean {
+    let isMroFound = true;
+
+    // Construct the list of class lists that need to be merged.
+    const classListsToMerge: Type[][] = [];
+
+    classType.details.baseClasses.forEach(baseClass => {
+        if (baseClass.category === TypeCategory.Class) {
+            classListsToMerge.push(baseClass.details.mro.map(mroClass => partiallySpecializeType(mroClass, classType)));
+        } else {
+            classListsToMerge.push([baseClass]);
+        }
+    });
+
+    classListsToMerge.push(
+        classType.details.baseClasses.map(baseClass => partiallySpecializeType(baseClass, classType))
+    );
+
+    // The first class in the MRO is the class itself.
+    classType.details.mro.push(classType);
+
+    // Helper function that returns true if the specified searchClass
+    // is found in the "tail" (i.e. in elements 1 through n) of any
+    // of the class lists.
+    const isInTail = (searchClass: ClassType, classLists: Type[][]) => {
+        return classLists.some(classList => {
+            return (
+                classList.findIndex(
+                    value => value.category === TypeCategory.Class && value.details === searchClass.details
+                ) > 0
+            );
+        });
+    };
+
+    const filterClass = (classToFilter: ClassType, classLists: Type[][]) => {
+        for (let i = 0; i < classLists.length; i++) {
+            classLists[i] = classLists[i].filter(
+                value => value.category !== TypeCategory.Class || value.details !== classToFilter.details
+            );
+        }
+    };
+
+    while (true) {
+        let foundValidHead = false;
+        let nonEmptyList: Type[] | undefined = undefined;
+
+        for (const classList of classListsToMerge) {
+            if (classList.length > 0) {
+                if (nonEmptyList === undefined) {
+                    nonEmptyList = classList;
+                }
+
+                if (classList[0].category !== TypeCategory.Class) {
+                    foundValidHead = true;
+                    classType.details.mro.push(classList[0]);
+                    classList.shift();
+                    continue;
+                } else if (!isInTail(classList[0], classListsToMerge)) {
+                    foundValidHead = true;
+                    classType.details.mro.push(classList[0]);
+                    filterClass(classList[0], classListsToMerge);
+                    continue;
+                }
+            }
+        }
+
+        // If all lists are empty, we are done.
+        if (!nonEmptyList) {
+            break;
+        }
+
+        // We made it all the way through the list of class lists without
+        // finding a valid head, but there is at least one list that's not
+        // yet empty. This means there's no valid MRO order.
+        if (!foundValidHead) {
+            isMroFound = false;
+
+            // Handle the situation by pull the head off the first empty list.
+            // This allows us to make forward progress.
+            if (nonEmptyList[0].category !== TypeCategory.Class) {
+                classType.details.mro.push(nonEmptyList[0]);
+                nonEmptyList.shift();
+            } else {
+                classType.details.mro.push(nonEmptyList[0]);
+                filterClass(nonEmptyList[0], classListsToMerge);
+            }
+        }
+    }
+
+    return isMroFound;
 }
 
 export function printLiteralValue(type: ObjectType): string {

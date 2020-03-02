@@ -211,7 +211,8 @@ interface ClassDetails {
     flags: ClassTypeFlags;
     typeSourceId: TypeSourceId;
     baseClasses: Type[];
-    metaClass?: Type;
+    mro: Type[];
+    metaClass?: ClassType | UnknownType;
     aliasClass?: ClassType;
     fields: SymbolTable;
     typeParameters: TypeVarType[];
@@ -242,6 +243,7 @@ export namespace ClassType {
                 flags,
                 typeSourceId,
                 baseClasses: [],
+                mro: [],
                 fields: new Map<string, Symbol>(),
                 typeParameters: [],
                 docString

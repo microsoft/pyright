@@ -759,6 +759,12 @@ test('Classes2', () => {
     validateResults(analysisResults, 2);
 });
 
+test('Mro1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['mro1.py']);
+
+    validateResults(analysisResults, 1);
+});
+
 test('Enums1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums1.py']);
 

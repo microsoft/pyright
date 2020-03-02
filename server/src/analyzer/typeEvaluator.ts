@@ -139,6 +139,7 @@ import {
     canBeTruthy,
     ClassMember,
     ClassMemberLookupFlags,
+    computeMroLinearization,
     containsUnknown,
     convertClassToObject,
     derivesFromClassRecursive,
@@ -4510,6 +4511,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const classType = ClassType.create(className, ClassTypeFlags.EnumClass, errorNode.id);
         classType.details.baseClasses.push(enumClass);
+        computeMroLinearization(classType);
 
         const classFields = classType.details.fields;
         classFields.set(
@@ -4586,6 +4588,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
                 const classType = ClassType.create(className, classFlags, errorNode.id);
                 classType.details.baseClasses.push(baseClass);
+                computeMroLinearization(classType);
                 return classType;
             }
         }
@@ -4618,6 +4621,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const classType = ClassType.create(className, ClassTypeFlags.TypedDictClass, errorNode.id);
         classType.details.baseClasses.push(typedDictClass);
+        computeMroLinearization(classType);
 
         if (argList.length >= 3) {
             if (
@@ -4737,6 +4741,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
         const builtInNamedTuple = getTypingType(errorNode, 'NamedTuple') || UnknownType.create();
         classType.details.baseClasses.push(builtInNamedTuple);
+        computeMroLinearization(classType);
 
         const classFields = classType.details.fields;
         classFields.set(
@@ -6161,6 +6166,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         } else {
             specialClassType.details.baseClasses.push(UnknownType.create());
         }
+        computeMroLinearization(specialClassType);
 
         return specialClassType;
     }
@@ -6431,7 +6437,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
                             // TypedDict classes must derive only from other
                             // TypedDict classes.
-                            addError(`All base classes for TypedDict classes must ` + 'als be TypedDict classes', arg);
+                            addError(`All base classes for TypedDict classes must also be TypedDict classes`, arg);
                         }
 
                         // Validate that the class isn't deriving from itself, creating a
@@ -6457,12 +6463,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 if (isMetaclass) {
-                    classType.details.metaClass = argType;
-                    if (argType.category === TypeCategory.Class) {
-                        if (ClassType.isBuiltIn(argType, 'EnumMeta')) {
-                            classType.details.flags |= ClassTypeFlags.EnumClass;
-                        } else if (ClassType.isBuiltIn(argType, 'ABCMeta')) {
-                            classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
+                    if (argType.category === TypeCategory.Class || argType.category === TypeCategory.Unknown) {
+                        classType.details.metaClass = argType;
+                        if (argType.category === TypeCategory.Class) {
+                            if (ClassType.isBuiltIn(argType, 'EnumMeta')) {
+                                classType.details.flags |= ClassTypeFlags.EnumClass;
+                            } else if (ClassType.isBuiltIn(argType, 'ABCMeta')) {
+                                classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
+                            }
                         }
                     }
                 } else {
@@ -6533,6 +6541,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // TODO - if genericTypeParameters are provided, make sure that
         // typeParameters is a proper subset.
         classType.details.typeParameters = genericTypeParameters || typeParameters;
+
+        if (!computeMroLinearization(classType)) {
+            addError('Cannot create consistent method ordering', node.name);
+        }
 
         // The scope for this class becomes the "fields" for the corresponding type.
         const innerScope = ScopeUtils.getScopeForNode(node.suite);
@@ -7032,6 +7044,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function createProperty(className: string, fget: FunctionType, typeSourceId: TypeSourceId): ObjectType {
         const propertyClass = ClassType.create(className, ClassTypeFlags.PropertyClass, typeSourceId);
+        computeMroLinearization(propertyClass);
+
         const propertyObject = ObjectType.create(propertyClass);
 
         // Fill in the fget method.
@@ -7088,6 +7102,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             classType.details.flags,
             classType.details.typeSourceId
         );
+        computeMroLinearization(propertyClass);
+
         const propertyObject = ObjectType.create(propertyClass);
 
         // Clone the symbol table of the old class type.
@@ -7145,6 +7161,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             classType.details.flags,
             classType.details.typeSourceId
         );
+        computeMroLinearization(propertyClass);
+
         const propertyObject = ObjectType.create(propertyClass);
 
         // Clone the symbol table of the old class type.
