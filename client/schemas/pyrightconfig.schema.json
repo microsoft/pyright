@@ -346,6 +346,12 @@
       ],
       "pattern": "^(.*)$"
     },
+    "verboseOutput": {
+      "$id": "#/properties/verboseOutput",
+      "type": "boolean",
+      "title": "Output verbose logging",
+      "default": "false"
+    },
     "executionEnvironments": {
       "$id": "#/properties/executionEnvironments",
       "type": "array",
