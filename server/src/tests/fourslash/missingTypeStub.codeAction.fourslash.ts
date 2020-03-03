@@ -12,7 +12,7 @@
 ////     def DoEveryThing(self, code: str):
 ////         pass
 
-// @filename: test.py
+// @filename: .src/test.py
 //// import [|/*marker*/testLi|]b
 
 helper.verifyCodeActions({

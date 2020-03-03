@@ -9,3 +9,4 @@
 export const typeshedFallback = 'typeshed-fallback';
 export const lib = 'lib';
 export const sitePackages = 'site-packages';
+export const src = 'src';

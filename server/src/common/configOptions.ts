@@ -9,10 +9,12 @@
 
 import { isAbsolute } from 'path';
 
+import * as pathConsts from '../common/pathConsts';
 import { ConsoleInterface } from './console';
 import { DiagnosticRule } from './diagnosticRules';
 import { combinePaths, ensureTrailingDirectorySeparator, FileSpec, getFileSpec, normalizePath } from './pathUtils';
 import { latestStablePythonVersion, PythonVersion, versionFromString } from './pythonVersion';
+import { VirtualFileSystem } from './vfs';
 
 export class ExecutionEnvironment {
     // Default to "." which indicates every file in the project.
@@ -405,6 +407,22 @@ export class ConfigOptions {
         }
 
         return execEnv;
+    }
+
+    addExecEnvironmentForAutoSearchPaths(fs: VirtualFileSystem) {
+        // Auto-detect the common scenario where the sources are under the src folder
+        const srcPath = combinePaths(this.projectRoot, pathConsts.src);
+        if (fs.existsSync(srcPath) && !fs.existsSync(combinePaths(srcPath, '__init__.py'))) {
+            const execEnv = new ExecutionEnvironment(
+                this.projectRoot,
+                this.defaultPythonVersion,
+                this.defaultPythonPlatform
+            );
+
+            execEnv.extraPaths.push(srcPath);
+
+            this.executionEnvironments.push(execEnv);
+        }
     }
 
     // Initialize the structure from a JSON object.

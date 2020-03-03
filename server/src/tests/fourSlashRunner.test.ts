@@ -12,7 +12,7 @@ import * as path from 'path';
 import { normalizeSlashes } from '../common/pathUtils';
 import { runFourSlashTest } from './harness/fourslash/runner';
 import * as host from './harness/host';
-import { srcFolder } from './harness/vfs/factory';
+import { MODULE_PATH } from './harness/vfs/filesystem';
 
 describe('fourslash tests', () => {
     const testFiles: string[] = [];
@@ -29,7 +29,7 @@ describe('fourslash tests', () => {
 
             // TODO: make these to use promise/async rather than callback token
             it('fourslash test ' + justName + ' runs correctly', cb => {
-                runFourSlashTest(srcFolder, fn, cb);
+                runFourSlashTest(MODULE_PATH, fn, cb);
             });
         });
     });

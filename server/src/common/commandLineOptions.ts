@@ -53,6 +53,11 @@ export class CommandLineOptions {
     // to extract type information?
     useLibraryCodeForTypes?: boolean;
 
+    // Look for a common root folders such as 'src' and automatically
+    // add them as extra paths if the user has not explicitly defined
+    // execution environments.
+    autoSearchPaths?: boolean;
+
     // Indicates that the settings came from VS Code rather than
     // from the command-line. Useful for providing clearer error
     // messages.

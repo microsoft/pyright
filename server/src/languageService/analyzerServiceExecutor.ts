@@ -76,6 +76,8 @@ function GetCommandLineOptions(
         commandLineOptions.typeStubTargetImportName = typeStubTargetImportName;
     }
 
+    commandLineOptions.autoSearchPaths = serverSettings.autoSearchPaths;
+
     return commandLineOptions;
 }
 
