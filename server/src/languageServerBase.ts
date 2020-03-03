@@ -33,7 +33,7 @@ import {
 } from 'vscode-languageserver';
 
 import { ImportResolver } from './analyzer/importResolver';
-import { AnalyzerService } from './analyzer/service';
+import { AnalysisResults, AnalyzerService } from './analyzer/service';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface } from './common/console';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
@@ -82,7 +82,7 @@ export interface LanguageServerInterface {
 
 export abstract class LanguageServerBase implements LanguageServerInterface {
     // Create a connection for the server. The connection type can be changed by the process's arguments
-    private _connection: IConnection = createConnection();
+    protected _connection: IConnection = createConnection();
     private _workspaceMap: WorkspaceMap;
 
     // Create a simple text document manager. The text document manager
@@ -159,38 +159,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             noOpenFilesTimeInMs: 200
         });
 
-        service.setCompletionCallback(results => {
-            results.diagnostics.forEach(fileDiag => {
-                const diagnostics = this._convertDiagnostics(fileDiag.diagnostics);
-
-                // Send the computed diagnostics to the client.
-                this._connection.sendDiagnostics({
-                    uri: convertPathToUri(fileDiag.filePath),
-                    diagnostics
-                });
-
-                if (results.filesRequiringAnalysis > 0) {
-                    if (!results.checkingOnlyOpenFiles) {
-                        // Display a progress spinner if we're checking the entire program.
-                        if (!this._isDisplayingProgress) {
-                            this._isDisplayingProgress = true;
-                            this._connection.sendNotification('pyright/beginProgress');
-                        }
-
-                        const fileOrFiles = results.filesRequiringAnalysis !== 1 ? 'files' : 'file';
-                        this._connection.sendNotification(
-                            'pyright/reportProgress',
-                            `${results.filesRequiringAnalysis} ${fileOrFiles} to analyze`
-                        );
-                    }
-                } else {
-                    if (this._isDisplayingProgress) {
-                        this._isDisplayingProgress = false;
-                        this._connection.sendNotification('pyright/endProgress');
-                    }
-                }
-            });
-        });
+        service.setCompletionCallback(results => this.onAnalysisCompletedHandler(results));
 
         return service;
     }
@@ -514,6 +483,39 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     updateSettingsForAllWorkspaces(): void {
         this._workspaceMap.forEach(workspace => {
             this.updateSettingsForWorkspace(workspace).ignoreErrors();
+        });
+    }
+
+    protected onAnalysisCompletedHandler(results: AnalysisResults): void {
+        results.diagnostics.forEach(fileDiag => {
+            const diagnostics = this._convertDiagnostics(fileDiag.diagnostics);
+
+            // Send the computed diagnostics to the client.
+            this._connection.sendDiagnostics({
+                uri: convertPathToUri(fileDiag.filePath),
+                diagnostics
+            });
+
+            if (results.filesRequiringAnalysis > 0) {
+                if (!results.checkingOnlyOpenFiles) {
+                    // Display a progress spinner if we're checking the entire program.
+                    if (!this._isDisplayingProgress) {
+                        this._isDisplayingProgress = true;
+                        this._connection.sendNotification('pyright/beginProgress');
+                    }
+
+                    const fileOrFiles = results.filesRequiringAnalysis !== 1 ? 'files' : 'file';
+                    this._connection.sendNotification(
+                        'pyright/reportProgress',
+                        `${results.filesRequiringAnalysis} ${fileOrFiles} to analyze`
+                    );
+                }
+            } else {
+                if (this._isDisplayingProgress) {
+                    this._isDisplayingProgress = false;
+                    this._connection.sendNotification('pyright/endProgress');
+                }
+            }
         });
     }
 
