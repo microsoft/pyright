@@ -73,7 +73,7 @@ export function createFromFileSystem(
         mountPaths.set(typeshedFolder, typeshedPath);
     }
 
-    const fs = getBuiltLocal(host, ignoreCase, mountPaths).shadow();
+    const fs = getBuiltLocal(host, ignoreCase, cwd, mountPaths).shadow();
     if (meta) {
         for (const key of Object.keys(meta)) {
             fs.meta.set(key, meta[key]);
@@ -111,7 +111,12 @@ let cacheKey: { host: TestHost; mountPaths: Map<string, string> } | undefined;
 let localCIFSCache: FileSystem | undefined;
 let localCSFSCache: FileSystem | undefined;
 
-function getBuiltLocal(host: TestHost, ignoreCase: boolean, mountPaths: Map<string, string>): FileSystem {
+function getBuiltLocal(
+    host: TestHost,
+    ignoreCase: boolean,
+    cwd: string | undefined,
+    mountPaths: Map<string, string>
+): FileSystem {
     // Ensure typeshed folder
     if (!mountPaths.has(typeshedFolder)) {
         mountPaths.set(
@@ -128,12 +133,12 @@ function getBuiltLocal(host: TestHost, ignoreCase: boolean, mountPaths: Map<stri
 
     if (!localCIFSCache) {
         const resolver = createResolver(host);
-        const files: FileSet = { [srcFolder]: {} };
+        const files: FileSet = {};
         mountPaths.forEach((v, k) => (files[k] = new Mount(v, resolver)));
 
         localCIFSCache = new FileSystem(/*ignoreCase*/ true, {
             files,
-            cwd: srcFolder,
+            cwd,
             meta: {}
         });
         localCIFSCache.makeReadonly();

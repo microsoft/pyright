@@ -119,7 +119,7 @@ test('Configuration', () => {
     assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'file1.py'))));
 
     assert.equal(state.configOptions.diagnosticSettings.reportMissingImports, 'error');
-    assert.equal(state.configOptions.typingsPath, normalizeSlashes('src/typestubs'));
+    assert.equal(state.configOptions.typingsPath, normalizeSlashes('/src/typestubs'));
 });
 
 test('ProjectRoot', () => {

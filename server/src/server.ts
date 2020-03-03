@@ -36,6 +36,9 @@ class Server extends LanguageServerBase {
                 if (typeshedPaths && isArray(typeshedPaths) && typeshedPaths.length > 0) {
                     serverSettings.typeshedPath = normalizeSlashes(typeshedPaths[0]);
                 }
+                serverSettings.autoSearchPaths = !!pythonAnalysisSection.autoSearchPaths;
+            } else {
+                serverSettings.autoSearchPaths = false;
             }
 
             const pyrightSection = await this.getConfiguration(workspace, 'pyright');

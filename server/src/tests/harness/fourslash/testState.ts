@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 import Char from 'typescript-char';
-import { Command, MarkupContent } from 'vscode-languageserver';
+import { Command, Diagnostic, MarkupContent } from 'vscode-languageserver';
 
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { Program } from '../../../analyzer/program';
@@ -35,6 +35,7 @@ import { Range as PosRange } from '../../../common/textRange';
 import { WorkspaceServiceInstance } from '../../../languageServerBase';
 import { CodeActionProvider } from '../../../languageService/codeActionProvider';
 import { convertHoverResults } from '../../../languageService/hoverProvider';
+import { ParseResults } from '../../../parser/parser';
 import * as host from '../host';
 import { stringify } from '../utils';
 import { createFromFileSystem } from '../vfs/factory';
@@ -435,6 +436,11 @@ export class TestState {
         const resultPerFile = this._getDiagnosticsPerFile();
         const rangePerFile = this._createMultiMap<Range>(this.getRanges(), r => r.fileName);
 
+        if (!hasDiagnostics(resultPerFile) && rangePerFile.size === 0) {
+            // no errors and no error is expected. we are done
+            return;
+        }
+
         // expected number of files
         if (resultPerFile.size !== rangePerFile.size) {
             this._raiseError(
@@ -499,6 +505,26 @@ export class TestState {
                     }
                 }
             }
+        }
+
+        function hasDiagnostics(
+            resultPerFile: Map<
+                string,
+                {
+                    filePath: string;
+                    parseResults: ParseResults | undefined;
+                    errors: Diagnostic[];
+                    warnings: Diagnostic[];
+                }
+            >
+        ) {
+            for (const entry of resultPerFile.values()) {
+                if (entry.errors.length + entry.warnings.length > 0) {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 
@@ -646,7 +672,7 @@ export class TestState {
 
     private _convertGlobalOptionsToConfigOptions(globalOptions: CompilerSettings): ConfigOptions {
         const srtRoot: string = GlobalMetadataOptionNames.projectRoot;
-        const projectRoot = normalizeSlashes(globalOptions[srtRoot] ?? '.');
+        const projectRoot = normalizeSlashes(globalOptions[srtRoot] ?? vfs.MODULE_PATH);
         const configOptions = new ConfigOptions(projectRoot);
 
         // add more global options as we need them

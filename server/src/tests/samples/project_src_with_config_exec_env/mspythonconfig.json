@@ -1,0 +1,8 @@
+{
+    "executionEnvironments": [
+        {
+            "root": ".",
+            "pythonVersion": "3.5"
+        }
+    ]
+}

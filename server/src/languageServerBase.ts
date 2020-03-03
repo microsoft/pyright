@@ -52,6 +52,7 @@ export interface ServerSettings {
     openFilesOnly?: boolean;
     useLibraryCodeForTypes?: boolean;
     disableLanguageServices?: boolean;
+    autoSearchPaths?: boolean;
 }
 
 export interface WorkspaceServiceInstance {

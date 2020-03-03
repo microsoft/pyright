@@ -148,3 +148,80 @@ test('PythonPlatform', () => {
     const env = configOptions.executionEnvironments[0];
     assert.equal(env.pythonPlatform, 'platform');
 });
+
+test('AutoSearchPathsOn', () => {
+    const cwd = normalizePath(combinePaths(process.cwd(), '../server/src/tests/samples/project_src'));
+    const nullConsole = new NullConsole();
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const commandLineOptions = new CommandLineOptions(cwd, false);
+    commandLineOptions.autoSearchPaths = true;
+    service.setOptions(commandLineOptions);
+
+    const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+    // An execution environment is automatically created with src folder as extra path
+    const expectedExecEnvs = [
+        {
+            pythonPlatform: undefined,
+            pythonVersion: 776,
+            root: cwd,
+            extraPaths: [normalizePath(combinePaths(cwd, 'src'))]
+        }
+    ];
+
+    assert.deepEqual(configOptions.executionEnvironments, expectedExecEnvs);
+});
+
+test('AutoSearchPathsOff', () => {
+    const cwd = normalizePath(combinePaths(process.cwd(), '../server/src/tests/samples/project_src'));
+    const nullConsole = new NullConsole();
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const commandLineOptions = new CommandLineOptions(cwd, false);
+    commandLineOptions.autoSearchPaths = false;
+    service.setOptions(commandLineOptions);
+
+    const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+    assert.deepEqual(configOptions.executionEnvironments, []);
+});
+
+test('AutoSearchPathsOnSrcIsPkg', () => {
+    const cwd = normalizePath(combinePaths(process.cwd(), '../server/src/tests/samples/project_src_is_pkg'));
+    const nullConsole = new NullConsole();
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const commandLineOptions = new CommandLineOptions(cwd, false);
+    commandLineOptions.autoSearchPaths = true;
+    service.setOptions(commandLineOptions);
+
+    const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+    // The src folder is a package (has __init__.py) and so should not be automatically added as extra path
+    assert.deepEqual(configOptions.executionEnvironments, []);
+});
+
+test('AutoSearchPathsOnWithConfigExecEnv', () => {
+    const cwd = normalizePath(
+        combinePaths(process.cwd(), '../server/src/tests/samples/project_src_with_config_exec_env')
+    );
+    const nullConsole = new NullConsole();
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const commandLineOptions = new CommandLineOptions(cwd, false);
+    commandLineOptions.configFilePath = combinePaths(cwd, 'mspythonconfig.json');
+    commandLineOptions.autoSearchPaths = true;
+    service.setOptions(commandLineOptions);
+
+    const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+    // Execution environments are found in the config file, we do not modify them
+    // (so auto seach path option is ignored)
+    const expectedExecEnvs = [
+        {
+            pythonPlatform: undefined,
+            pythonVersion: 773,
+            root: cwd,
+            extraPaths: []
+        }
+    ];
+
+    assert.deepEqual(configOptions.executionEnvironments, expectedExecEnvs);
+});

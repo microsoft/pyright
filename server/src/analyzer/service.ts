@@ -335,8 +335,18 @@ export class AnalyzerService {
                         configOptions.exclude.push(getFileSpec(configFileDir, exclude));
                     });
                 }
+
+                // If the user has defined execution environments, then we ignore
+                // autoSearchPaths and leave it up to them to set extraPaths on them.
+                if (commandLineOptions.autoSearchPaths && configOptions.executionEnvironments.length === 0) {
+                    configOptions.addExecEnvironmentForAutoSearchPaths(this._fs);
+                }
             }
             this._updateConfigFileWatcher();
+        } else {
+            if (commandLineOptions.autoSearchPaths) {
+                configOptions.addExecEnvironmentForAutoSearchPaths(this._fs);
+            }
         }
 
         const reportDuplicateSetting = (settingName: string) => {
