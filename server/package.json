@@ -15,7 +15,8 @@
         "build:cli": "node ./copyTypeshedFallback.js && npm run eslint && webpack --config webpack.config-cli.js",
         "eslint": "eslint src/**/*.ts",
         "watch": "tsc --watch",
-        "test": "jest --detectOpenHandles --forceExit"
+        "test": "jest --detectOpenHandles --forceExit",
+        "test:pipeline": "jest --detectOpenHandles --forceExit --reporters=jest-junit --reporters=default --coverage --coverageReporters=cobertura --coverageReporters=html --coverageReporters=json"
     },
     "dependencies": {
         "assert": "^2.0.0",
@@ -40,6 +41,7 @@
         "eslint-config-prettier": "^6.10.0",
         "fs-extra": "^8.1.0",
         "jest": "^24.9.0",
+        "jest-junit": "^10.0.0",
         "node-loader": "^0.6.0",
         "prettier": "1.19.1",
         "ts-jest": "^24.3.0",

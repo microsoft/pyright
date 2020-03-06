@@ -13,3 +13,6 @@ server/out/
 client/out/
 client/server/
 client/*.vsix
+
+junit.xml
+coverage/
