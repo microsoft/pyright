@@ -99,7 +99,7 @@ export function activate(context: ExtensionContext) {
         );
     });
 
-    const genericCommands = [Commands.createTypeStub];
+    const genericCommands = [Commands.createTypeStub, Commands.restartServer];
     genericCommands.forEach(command => {
         context.subscriptions.push(
             commands.registerCommand(command, (...args: any[]) => {

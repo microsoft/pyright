@@ -10,6 +10,7 @@ import { LanguageServerInterface } from '../languageServerBase';
 import { Commands } from './commands';
 import { CreateTypeStubCommand } from './createTypeStub';
 import { QuickActionCommand } from './quickActionCommand';
+import { RestartServerCommand } from './restartServer';
 
 export interface ServerCommand {
     execute(cmdParams: ExecuteCommandParams): Promise<any>;
@@ -17,20 +18,33 @@ export interface ServerCommand {
 
 export class CommandController implements ServerCommand {
     private _createStub: CreateTypeStubCommand;
+    private _restartServer: RestartServerCommand;
     private _quickAction: QuickActionCommand;
 
     constructor(ls: LanguageServerInterface) {
         this._createStub = new CreateTypeStubCommand(ls);
+        this._restartServer = new RestartServerCommand(ls);
         this._quickAction = new QuickActionCommand(ls);
     }
 
     async execute(cmdParams: ExecuteCommandParams): Promise<any> {
-        if (cmdParams.command === Commands.orderImports || cmdParams.command === Commands.addMissingOptionalToParam) {
-            return this._quickAction.execute(cmdParams);
+        switch (cmdParams.command) {
+            case Commands.orderImports:
+            case Commands.addMissingOptionalToParam: {
+                return this._quickAction.execute(cmdParams);
+            }
+
+            case Commands.createTypeStub: {
+                return this._createStub.execute(cmdParams);
+            }
+
+            case Commands.restartServer: {
+                return this._restartServer.execute(cmdParams);
+            }
+
+            default: {
+                return new ResponseError<string>(1, 'Unsupported command');
+            }
         }
-        if (cmdParams.command === Commands.createTypeStub) {
-            return this._createStub.execute(cmdParams);
-        }
-        return new ResponseError<string>(1, 'Unsupported command');
     }
 }

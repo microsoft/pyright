@@ -19,6 +19,7 @@ export namespace Consts {
     // once compiled
     export enum Commands {
         createTypeStub = 'pyright.createtypestub',
+        restartServer = 'pyright.restartserver',
         orderImports = 'pyright.organizeimports',
         addMissingOptionalToParam = 'pyright.addoptionalforparam'
     }
