@@ -298,20 +298,6 @@ export namespace ClassType {
         return true;
     }
 
-    export function isProtocol(classType: ClassType) {
-        // Does the class directly 'derive' from "Protocol"?
-        return (
-            classType.details.baseClasses.find(baseClass => {
-                if (baseClass.category === TypeCategory.Class) {
-                    if (isBuiltIn(baseClass, 'Protocol')) {
-                        return true;
-                    }
-                }
-                return false;
-            }) !== undefined
-        );
-    }
-
     export function hasAbstractMethods(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.HasAbstractMethods) && !classType.skipAbstractClassTest;
     }

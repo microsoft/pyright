@@ -6410,6 +6410,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             ) {
                                 addError(`Use of 'Protocol' requires Python 3.7 or newer`, arg.valueExpression);
                             }
+                            classType.details.flags |= ClassTypeFlags.ProtocolClass;
                         }
 
                         if (ClassType.isBuiltIn(argType, 'property')) {
@@ -6421,12 +6422,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
                             if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
                                 classType.details.flags |= ClassTypeFlags.DataClass;
-                            }
-                        }
-
-                        if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V38) {
-                            if (ClassType.isBuiltIn(argType, 'Protocol')) {
-                                classType.details.flags |= ClassTypeFlags.ProtocolClass;
                             }
                         }
 
@@ -6877,7 +6872,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function inferFirstParamType(flags: FunctionTypeFlags, containingClassType: ClassType): Type | undefined {
         if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
             if (containingClassType) {
-                if (ClassType.isProtocol(containingClassType)) {
+                if (ClassType.isProtocolClass(containingClassType)) {
                     // Don't specialize the "self" for protocol classes because type
                     // comparisons will fail during structural typing analysis. We'll
                     // use an "Any" type here to avoid triggering errors about Unknown
@@ -9816,7 +9811,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     ): boolean {
         // Is it a structural type (i.e. a protocol)? If so, we need to
         // perform a member-by-member check.
-        if (ClassType.isProtocol(destType)) {
+        if (ClassType.isProtocolClass(destType)) {
             return canAssignClassToProtocol(destType, srcType, diag, typeVarMap, recursionCount);
         }
 
@@ -10643,7 +10638,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getCallbackProtocolType(objType: ObjectType): FunctionType | undefined {
-        if (!ClassType.isProtocol(objType.classType)) {
+        if (!ClassType.isProtocolClass(objType.classType)) {
             return undefined;
         }
 

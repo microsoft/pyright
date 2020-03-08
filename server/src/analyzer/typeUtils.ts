@@ -82,11 +82,6 @@ export const enum CanAssignFlags {
     ReverseTypeVarMatching = 1 << 1
 }
 
-export interface SymbolWithClass {
-    class: ClassType;
-    symbol: Symbol;
-}
-
 export interface TypedDictEntry {
     valueType: Type;
     isRequired: boolean;
@@ -330,9 +325,6 @@ export function isProperty(type: Type): boolean {
 
 // Partially specializes a type within the context of a specified
 // (presumably specialized) class.
-export function partiallySpecializeType(type: ClassType, contextClassType: ClassType): ClassType;
-export function partiallySpecializeType(type: Type, contextClassType: ClassType): Type;
-
 export function partiallySpecializeType(type: Type, contextClassType: ClassType): Type {
     // If the context class is not specialized (or doesn't need specialization),
     // then there's no need to do any more work.
@@ -852,40 +844,6 @@ export function removeTruthinessFromType(type: Type): Type {
 
         return undefined;
     });
-}
-
-// Looks up the specified symbol name within the base classes
-// of a specified class.
-export function getSymbolFromBaseClasses(
-    classType: ClassType,
-    name: string,
-    recursionCount = 0
-): SymbolWithClass | undefined {
-    if (recursionCount > maxTypeRecursionCount) {
-        return undefined;
-    }
-
-    for (const baseClass of classType.details.baseClasses) {
-        if (baseClass.category === TypeCategory.Class) {
-            const memberFields = baseClass.details.fields;
-            const symbol = memberFields.get(name);
-            if (symbol && symbol.isClassMember()) {
-                return {
-                    class: baseClass,
-                    symbol
-                };
-            }
-
-            const symbolWithClass = getSymbolFromBaseClasses(baseClass, name, recursionCount + 1);
-            if (symbolWithClass) {
-                return symbolWithClass;
-            }
-        } else {
-            return undefined;
-        }
-    }
-
-    return undefined;
 }
 
 // Returns the declared yield type if provided, or undefined otherwise.

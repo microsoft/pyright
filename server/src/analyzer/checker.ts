@@ -85,14 +85,15 @@ import {
     UnknownType
 } from './types';
 import {
+    ClassMemberLookupFlags,
     containsUnknown,
     derivesFromClassRecursive,
     doForSubtypes,
     getDeclaredGeneratorReturnType,
     getDeclaredGeneratorYieldType,
-    getSymbolFromBaseClasses,
     isNoReturnType,
     isProperty,
+    lookUpClassMember,
     specializeType,
     transformTypeObjectToClass
 } from './typeUtils';
@@ -1065,7 +1066,7 @@ export class Checker extends ParseTreeWalker {
 
         // According to PEP 544, protocol classes cannot be used as the right-hand
         // argument to isinstance or issubclass.
-        if (classTypeList.some(type => ClassType.isProtocol(type))) {
+        if (classTypeList.some(type => ClassType.isProtocolClass(type))) {
             this._evaluator.addError(
                 `Protocol class cannot be used in ${callName} call`,
                 node.arguments[1].valueExpression
@@ -1410,12 +1411,16 @@ export class Checker extends ParseTreeWalker {
     // as Final in parent classes.
     private _validateFinalMemberOverrides(classType: ClassType) {
         classType.details.fields.forEach((localSymbol, name) => {
-            const parentSymbol = getSymbolFromBaseClasses(classType, name);
-            if (parentSymbol && isFinalVariable(parentSymbol.symbol)) {
+            const parentSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
+            if (
+                parentSymbol &&
+                parentSymbol.classType.category === TypeCategory.Class &&
+                isFinalVariable(parentSymbol.symbol)
+            ) {
                 const decl = localSymbol.getDeclarations()[0];
                 this._evaluator.addError(
                     `'${name}' cannot be redeclared because parent class ` +
-                        `'${parentSymbol.class.details.name}' declares it as Final`,
+                        `'${parentSymbol.classType.details.name}' declares it as Final`,
                     decl.node
                 );
             }
@@ -1439,8 +1444,12 @@ export class Checker extends ParseTreeWalker {
             if (symbol.isClassMember() && !SymbolNameUtils.isDunderName(name)) {
                 const typeOfSymbol = this._evaluator.getEffectiveTypeOfSymbol(symbol);
                 if (typeOfSymbol.category === TypeCategory.Function) {
-                    const baseClassAndSymbol = getSymbolFromBaseClasses(classType, name);
-                    if (baseClassAndSymbol) {
+                    const baseClassAndSymbol = lookUpClassMember(
+                        classType,
+                        name,
+                        ClassMemberLookupFlags.SkipOriginalClass
+                    );
+                    if (baseClassAndSymbol && baseClassAndSymbol.classType.category === TypeCategory.Class) {
                         const typeOfBaseClassMethod = this._evaluator.getEffectiveTypeOfSymbol(
                             baseClassAndSymbol.symbol
                         );
@@ -1451,7 +1460,7 @@ export class Checker extends ParseTreeWalker {
                                 const diag = this._evaluator.addDiagnostic(
                                     this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
                                     DiagnosticRule.reportIncompatibleMethodOverride,
-                                    `Method '${name}' overrides class '${baseClassAndSymbol.class.details.name}' ` +
+                                    `Method '${name}' overrides class '${baseClassAndSymbol.classType.details.name}' ` +
                                         `in an incompatible manner` +
                                         diagAddendum.getString(),
                                     decl.node.name
@@ -1470,7 +1479,7 @@ export class Checker extends ParseTreeWalker {
                                 if (decl && decl.type === DeclarationType.Function) {
                                     const diag = this._evaluator.addError(
                                         `Method '${name}' cannot override final method defined ` +
-                                            `in class '${baseClassAndSymbol.class.details.name}'`,
+                                            `in class '${baseClassAndSymbol.classType.details.name}'`,
                                         decl.node.name
                                     );
 
