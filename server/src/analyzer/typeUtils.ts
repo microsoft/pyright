@@ -467,68 +467,83 @@ export function lookUpClassMember(
     const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
 
     if (classType.category === TypeCategory.Class) {
-        // Should we ignore members on the 'object' base class?
-        if (flags & ClassMemberLookupFlags.SkipObjectBaseClass) {
-            if (ClassType.isBuiltIn(classType, 'object')) {
-                return undefined;
+        for (const mroClass of classType.details.mro) {
+            if (mroClass.category !== TypeCategory.Class) {
+                // The class derives from an unknown type, so all bets are off
+                // when trying to find a member. Return an unknown symbol.
+                return {
+                    symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
+                    isInstanceMember: false,
+                    classType: UnknownType.create()
+                };
             }
-        }
 
-        if ((flags & ClassMemberLookupFlags.SkipOriginalClass) === 0) {
-            const memberFields = classType.details.fields;
+            // If mroClass is an ancestor of classType, partially specialize
+            // it in the context of classType.
+            const specializedMroClass = partiallySpecializeType(mroClass, classType);
+            if (specializedMroClass.category !== TypeCategory.Class) {
+                continue;
+            }
 
-            // Look in the instance members first if requested.
-            if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
+            // Should we ignore members on the 'object' base class?
+            if (flags & ClassMemberLookupFlags.SkipObjectBaseClass) {
+                if (ClassType.isBuiltIn(specializedMroClass, 'object')) {
+                    continue;
+                }
+            }
+
+            if (
+                (flags & ClassMemberLookupFlags.SkipOriginalClass) === 0 ||
+                specializedMroClass.details !== classType.details
+            ) {
+                const memberFields = specializedMroClass.details.fields;
+
+                // Look in the instance members first if requested.
+                if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
+                    const symbol = memberFields.get(memberName);
+                    if (symbol && symbol.isInstanceMember()) {
+                        if (!declaredTypesOnly || symbol.hasTypedDeclarations()) {
+                            return {
+                                symbol,
+                                isInstanceMember: true,
+                                classType: specializedMroClass
+                            };
+                        }
+                    }
+                }
+
+                // Next look in the class members.
                 const symbol = memberFields.get(memberName);
-                if (symbol && symbol.isInstanceMember()) {
+                if (symbol && symbol.isClassMember()) {
                     if (!declaredTypesOnly || symbol.hasTypedDeclarations()) {
+                        let isInstanceMember = false;
+
+                        // For data classes and typed dicts, variables that are declared
+                        // within the class are treated as instance variables. This distinction
+                        // is important in cases where a variable is a callable type because
+                        // we don't want to bind it to the instance like we would for a
+                        // class member.
+                        if (
+                            ClassType.isDataClass(specializedMroClass) ||
+                            ClassType.isTypedDictClass(specializedMroClass)
+                        ) {
+                            const decls = symbol.getDeclarations();
+                            if (decls.length > 0 && decls[0].type === DeclarationType.Variable) {
+                                isInstanceMember = true;
+                            }
+                        }
+
                         return {
                             symbol,
-                            isInstanceMember: true,
-                            classType
+                            isInstanceMember,
+                            classType: specializedMroClass
                         };
                     }
                 }
             }
 
-            // Next look in the class members.
-            const symbol = memberFields.get(memberName);
-            if (symbol && symbol.isClassMember()) {
-                if (!declaredTypesOnly || symbol.hasTypedDeclarations()) {
-                    let isInstanceMember = false;
-
-                    // For data classes and typed dicts, variables that are declared
-                    // within the class are treated as instance variables. This distinction
-                    // is important in cases where a variable is a callable type because
-                    // we don't want to bind it to the instance like we would for a
-                    // class member.
-                    if (ClassType.isDataClass(classType) || ClassType.isTypedDictClass(classType)) {
-                        const decls = symbol.getDeclarations();
-                        if (decls.length > 0 && decls[0].type === DeclarationType.Variable) {
-                            isInstanceMember = true;
-                        }
-                    }
-
-                    return {
-                        symbol,
-                        isInstanceMember,
-                        classType
-                    };
-                }
-            }
-        }
-
-        if ((flags & ClassMemberLookupFlags.SkipBaseClasses) === 0) {
-            for (const baseClass of classType.details.baseClasses) {
-                // Recursively perform search.
-                const methodType = lookUpClassMember(
-                    partiallySpecializeType(baseClass, classType),
-                    memberName,
-                    flags & ~ClassMemberLookupFlags.SkipOriginalClass
-                );
-                if (methodType) {
-                    return methodType;
-                }
+            if ((flags & ClassMemberLookupFlags.SkipBaseClasses) !== 0) {
+                break;
             }
         }
     } else if (isAnyOrUnknown(classType)) {
@@ -730,9 +745,16 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 // types. For example, if the generic type is Dict[_T1, _T2] and the
 // specialized type is Dict[str, int], it returns a map that associates
 // _T1 with str and _T2 with int.
-export function buildTypeVarMapFromSpecializedClass(classType: ClassType): TypeVarMap {
+export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeConcrete = true): TypeVarMap {
     const typeParameters = ClassType.getTypeParameters(classType);
     let typeArguments = classType.typeArguments;
+
+    // If there are no type arguments, we can either use the type variables
+    // from the type parameters (keeping the type arguments generic) or
+    // fill in concrete types.
+    if (!typeArguments && !makeConcrete) {
+        typeArguments = typeParameters;
+    }
 
     // Handle the special case where the source is a Tuple with heterogenous
     // type arguments. In this case, we'll create a union out of the heterogeneous
@@ -1231,16 +1253,27 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
     classType.details.baseClasses.forEach(baseClass => {
         if (baseClass.category === TypeCategory.Class) {
-            classListsToMerge.push([...baseClass.details.mro]);
+            const typeVarMap = buildTypeVarMapFromSpecializedClass(baseClass, false);
+            classListsToMerge.push(
+                baseClass.details.mro.map(mroClass => {
+                    return specializeType(mroClass, typeVarMap);
+                })
+            );
         } else {
             classListsToMerge.push([baseClass]);
         }
     });
 
-    classListsToMerge.push([...classType.details.baseClasses]);
+    classListsToMerge.push(
+        classType.details.baseClasses.map(baseClass => {
+            const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, false);
+            return specializeType(baseClass, typeVarMap);
+        })
+    );
 
     // The first class in the MRO is the class itself.
-    classType.details.mro.push(classType);
+    const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, false);
+    classType.details.mro.push(specializeType(classType, typeVarMap));
 
     // Helper function that returns true if the specified searchClass
     // is found in the "tail" (i.e. in elements 1 through n) of any
