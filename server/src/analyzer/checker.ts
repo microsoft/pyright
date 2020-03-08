@@ -1077,14 +1077,24 @@ export class Checker extends ParseTreeWalker {
             return combineTypes(types);
         };
 
-        const filterType = (varType: ClassType): ObjectType[] | ClassType[] => {
-            const filteredTypes: ClassType[] = [];
+        const filterType = (varType: ClassType): Type[] => {
+            const filteredTypes: Type[] = [];
 
             for (const filterType of classTypeList) {
                 const filterIsSuperclass = ClassType.isDerivedFrom(varType, filterType);
                 const filterIsSubclass = ClassType.isDerivedFrom(filterType, varType);
 
-                if (filterIsSuperclass) {
+                // Normally, a class should never be both a subclass and a
+                // superclass. However, this can happen if one of the classes
+                // derives from an unknown type. In this case, we'll add an
+                // unknown type into the filtered type list to avoid any
+                // false positives.
+                const isClassRelationshipIndeterminate =
+                    filterIsSubclass && filterIsSubclass && !ClassType.isSameGenericClass(varType, filterType);
+
+                if (isClassRelationshipIndeterminate) {
+                    filteredTypes.push(UnknownType.create());
+                } else if (filterIsSuperclass) {
                     // If the variable type is a subclass of the isinstance
                     // filter, we haven't learned anything new about the
                     // variable type.
@@ -1100,7 +1110,8 @@ export class Checker extends ParseTreeWalker {
                 return filteredTypes;
             }
 
-            return filteredTypes.map(t => ObjectType.create(t));
+            // Make all class types into object types before returning them.
+            return filteredTypes.map(t => (t.category === TypeCategory.Class ? ObjectType.create(t) : t));
         };
 
         let filteredType: Type;

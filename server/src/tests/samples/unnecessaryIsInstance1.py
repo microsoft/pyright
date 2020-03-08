@@ -2,6 +2,10 @@
 
 from typing import Union
 
+from unknown_import import CustomClass1
+
+class CustomClass2(CustomClass1): pass
+
 def foo(p1: int, p2: Union[int, str]):
     a = isinstance(p2, str)
 
@@ -21,4 +25,8 @@ def foo(p1: int, p2: Union[int, str]):
     # This should not generate an error because it's within an assert.
     assert isinstance(p1, int)
 
-    
+    g = CustomClass2()
+    # This should not generate an error because CustomClass2
+    # derives from an unknown type.
+    g = isinstance(g, CustomClass1)
+

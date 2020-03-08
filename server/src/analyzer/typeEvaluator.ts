@@ -8693,12 +8693,23 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const filteredTypes: ClassType[] = [];
 
             let foundSuperclass = false;
+            let isClassRelationshipIndeterminate = false;
+
             for (const filterType of classTypeList) {
                 const filterIsSuperclass = ClassType.isDerivedFrom(varType, filterType);
                 const filterIsSubclass = ClassType.isDerivedFrom(filterType, varType);
 
                 if (filterIsSuperclass) {
                     foundSuperclass = true;
+                }
+
+                // Normally, a type should never be both a subclass or a superclass.
+                // This can happen if either of the class types derives from a
+                // class whose type is unknown (e.g. an import failed). We'll
+                // note this case specially so we don't do any narrowing, which
+                // will generate false positives.
+                if (filterIsSubclass && filterIsSuperclass && !ClassType.isSameGenericClass(varType, filterType)) {
+                    isClassRelationshipIndeterminate = true;
                 }
 
                 if (isPositiveTest) {
@@ -8720,8 +8731,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // a superclass of the type), then there's nothing left after
             // the filter is applied. If we didn't find any superclass
             // match, then the original variable type survives the filter.
-            if (!isPositiveTest && !foundSuperclass) {
-                filteredTypes.push(varType);
+            if (!isPositiveTest) {
+                if (!foundSuperclass || isClassRelationshipIndeterminate) {
+                    filteredTypes.push(varType);
+                }
             }
 
             if (!isInstanceCheck) {
