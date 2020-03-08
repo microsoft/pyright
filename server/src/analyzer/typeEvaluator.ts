@@ -1444,7 +1444,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // entries added by this class.
         const localDataClassEntries: DataClassEntry[] = [];
         const fullDataClassEntries: DataClassEntry[] = [];
-        addInheritedDataClassEntriesRecursive(classType, fullDataClassEntries);
+        addInheritedDataClassEntries(classType, fullDataClassEntries);
 
         // Maintain a list of "type evaluators".
         type TypeEvaluator = () => Type;
@@ -2279,17 +2279,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // Builds a sorted list of dataclass entries that are inherited by
     // the specified class. These entries must be unique and in reverse-MRO
     // order.
-    function addInheritedDataClassEntriesRecursive(classType: ClassType, entries: DataClassEntry[]) {
-        // Recursively call for reverse-MRO ordering.
-        classType.details.baseClasses.forEach(baseClass => {
-            if (baseClass.category === TypeCategory.Class) {
-                addInheritedDataClassEntriesRecursive(baseClass, entries);
-            }
-        });
+    function addInheritedDataClassEntries(classType: ClassType, entries: DataClassEntry[]) {
+        for (let i = classType.details.mro.length - 1; i >= 0; i--) {
+            const mroClass = classType.details.mro[i];
 
-        classType.details.baseClasses.forEach(baseClass => {
-            if (baseClass.category === TypeCategory.Class) {
-                const dataClassEntries = ClassType.getDataClassEntries(baseClass);
+            if (mroClass.category === TypeCategory.Class) {
+                const dataClassEntries = ClassType.getDataClassEntries(mroClass);
 
                 // Add the entries to the end of the list, replacing same-named
                 // entries if found.
@@ -2302,7 +2297,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 });
             }
-        });
+        }
     }
 
     function getReturnTypeFromGenerator(type: Type): Type | undefined {

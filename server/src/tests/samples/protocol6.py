@@ -10,13 +10,13 @@ class Animal(Protocol[_T1]):
     species: str
     attributes: List[_T1]
 
-class Mammal(Protocol, Animal[_T2]):
+class Mammal(Animal[_T2], Protocol):
     pass
 
-class Ungulate(Protocol, Mammal[_T3]):
+class Ungulate(Mammal[_T3], Protocol):
     type_of_hooves: _T3
 
-class CamelLike(Protocol, Ungulate[bytes]):
+class CamelLike(Ungulate[bytes], Protocol):
     species: Literal['camel']
 
 

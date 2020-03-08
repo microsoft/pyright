@@ -912,7 +912,23 @@ export function convertClassToObject(type: Type): Type {
 }
 
 export function getMembersForClass(classType: ClassType, symbolTable: SymbolTable, includeInstanceVars: boolean) {
-    _getMembersForClassRecursive(classType, symbolTable, includeInstanceVars);
+    for (let i = classType.details.mro.length - 1; i >= 0; i--) {
+        const mroClass = classType.details.mro[i];
+
+        if (mroClass.category === TypeCategory.Class) {
+            // Add any new member variables from this class.
+            const isClassTypedDict = ClassType.isTypedDictClass(mroClass);
+            mroClass.details.fields.forEach((symbol, name) => {
+                if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
+                    if (!isClassTypedDict || !isTypedDictMemberAccessedThroughIndex(symbol)) {
+                        if (!symbolTable.get(name)) {
+                            symbolTable.set(name, symbol);
+                        }
+                    }
+                }
+            });
+        }
+    }
 }
 
 export function getMembersForModule(moduleType: ModuleType, symbolTable: SymbolTable) {
@@ -989,35 +1005,6 @@ export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     }
 
     return false;
-}
-
-function _getMembersForClassRecursive(
-    classType: ClassType,
-    symbolTable: SymbolTable,
-    includeInstanceVars: boolean,
-    recursionCount = 0
-) {
-    if (recursionCount > maxTypeRecursionCount) {
-        return;
-    }
-
-    classType.details.baseClasses.forEach(baseClassType => {
-        if (baseClassType.category === TypeCategory.Class) {
-            _getMembersForClassRecursive(baseClassType, symbolTable, includeInstanceVars, recursionCount + 1);
-        }
-    });
-
-    // Add any new member variables from this class.
-    const isClassTypedDict = ClassType.isTypedDictClass(classType);
-    classType.details.fields.forEach((symbol, name) => {
-        if (symbol.isClassMember() || (includeInstanceVars && symbol.isInstanceMember())) {
-            if (!isClassTypedDict || !isTypedDictMemberAccessedThroughIndex(symbol)) {
-                if (!symbolTable.get(name)) {
-                    symbolTable.set(name, symbol);
-                }
-            }
-        }
-    });
 }
 
 function _specializeClassType(
@@ -1244,15 +1231,13 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
     classType.details.baseClasses.forEach(baseClass => {
         if (baseClass.category === TypeCategory.Class) {
-            classListsToMerge.push(baseClass.details.mro.map(mroClass => partiallySpecializeType(mroClass, classType)));
+            classListsToMerge.push([...baseClass.details.mro]);
         } else {
             classListsToMerge.push([baseClass]);
         }
     });
 
-    classListsToMerge.push(
-        classType.details.baseClasses.map(baseClass => partiallySpecializeType(baseClass, classType))
-    );
+    classListsToMerge.push([...classType.details.baseClasses]);
 
     // The first class in the MRO is the class itself.
     classType.details.mro.push(classType);
@@ -1264,7 +1249,8 @@ export function computeMroLinearization(classType: ClassType): boolean {
         return classLists.some(classList => {
             return (
                 classList.findIndex(
-                    value => value.category === TypeCategory.Class && value.details === searchClass.details
+                    value =>
+                        value.category === TypeCategory.Class && ClassType.isSameGenericClass(value, searchClass, false)
                 ) > 0
             );
         });
@@ -1273,7 +1259,8 @@ export function computeMroLinearization(classType: ClassType): boolean {
     const filterClass = (classToFilter: ClassType, classLists: Type[][]) => {
         for (let i = 0; i < classLists.length; i++) {
             classLists[i] = classLists[i].filter(
-                value => value.category !== TypeCategory.Class || value.details !== classToFilter.details
+                value =>
+                    value.category !== TypeCategory.Class || !ClassType.isSameGenericClass(value, classToFilter, false)
             );
         }
     };

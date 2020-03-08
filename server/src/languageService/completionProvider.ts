@@ -427,13 +427,14 @@ export class CompletionProvider {
             return undefined;
         }
 
-        // Get symbols recursively.
+        // Get symbols in reverse-MRO, but leave omit the class itself.
         const symbolTable = new Map<string, Symbol>();
-        classResults.classType.details.baseClasses.forEach(baseClass => {
-            if (baseClass.category === TypeCategory.Class) {
-                getMembersForClass(baseClass, symbolTable, false);
+        for (let i = classResults.classType.details.mro.length - 1; i > 0; i--) {
+            const mroClass = classResults.classType.details.mro[i];
+            if (mroClass.category === TypeCategory.Class) {
+                getMembersForClass(mroClass, symbolTable, false);
             }
-        });
+        }
 
         const completionList = CompletionList.create();
 

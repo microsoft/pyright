@@ -352,7 +352,12 @@ export namespace ClassType {
     }
 
     // Same as isSame except that it doesn't compare type arguments.
-    export function isSameGenericClass(classType: ClassType, type2: ClassType, recursionCount = 0) {
+    export function isSameGenericClass(
+        classType: ClassType,
+        type2: ClassType,
+        treatAliasAsSame = true,
+        recursionCount = 0
+    ) {
         if (recursionCount > maxTypeRecursionCount) {
             return true;
         }
@@ -364,8 +369,10 @@ export namespace ClassType {
 
         // If either or both have aliases (e.g. List -> list), use the
         // aliases for comparison purposes.
-        const class1Details = classType.details.aliasClass ? classType.details.aliasClass.details : classType.details;
-        const class2Details = type2.details.aliasClass ? type2.details.aliasClass.details : type2.details;
+        const class1Details =
+            treatAliasAsSame && classType.details.aliasClass ? classType.details.aliasClass.details : classType.details;
+        const class2Details =
+            treatAliasAsSame && type2.details.aliasClass ? type2.details.aliasClass.details : type2.details;
 
         if (class1Details === class2Details) {
             return true;
@@ -935,7 +942,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             const classType2 = type2 as ClassType;
 
             // If the details are not the same it's not the same class.
-            if (!ClassType.isSameGenericClass(type1, classType2, recursionCount + 1)) {
+            if (!ClassType.isSameGenericClass(type1, classType2, true, recursionCount + 1)) {
                 return false;
             }
 
