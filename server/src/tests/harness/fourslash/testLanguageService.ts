@@ -48,7 +48,11 @@ export class TestLanguageService implements LanguageServerInterface {
     }
 
     reanalyze(): void {
-        /* don't do anything */
+        // Don't do anything
+    }
+
+    restart(): void {
+        // Don't do anything
     }
 
     readonly rootPath = path.sep;
@@ -65,6 +69,6 @@ class TestWindow implements WindowInterface {
     }
 
     showInformationMessage(message: string): void {
-        /* do not do any thing */
+        // Don't do anything
     }
 }

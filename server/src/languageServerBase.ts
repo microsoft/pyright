@@ -73,6 +73,7 @@ export interface LanguageServerInterface {
     getWorkspaceForFile(filePath: string): WorkspaceServiceInstance;
     getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
     reanalyze(): void;
+    restart(): void;
 
     readonly rootPath: string;
     readonly console: ConsoleInterface;
@@ -171,6 +172,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     reanalyze() {
         this._workspaceMap.forEach(workspace => {
             workspace.serviceInstance.invalidateAndForceReanalysis();
+        });
+    }
+
+    restart() {
+        this._workspaceMap.forEach(workspace => {
+            workspace.serviceInstance.restart();
         });
     }
 

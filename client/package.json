@@ -45,6 +45,11 @@
                 "command": "pyright.organizeimports",
                 "title": "Organize Imports",
                 "category": "Pyright"
+            },
+            {
+                "command": "pyright.restartserver",
+                "title": "Restart Server",
+                "category": "Pyright"
             }
         ],
         "menus": {

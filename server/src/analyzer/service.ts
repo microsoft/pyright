@@ -549,6 +549,12 @@ export class AnalyzerService {
         this._program.markAllFilesDirty(true);
     }
 
+    // Forces the service to stop all analysis, discard all its caches,
+    // and research for files.
+    restart() {
+        this._applyConfigOptions();
+    }
+
     private get _fs() {
         return this._importResolver.fileSystem;
     }
