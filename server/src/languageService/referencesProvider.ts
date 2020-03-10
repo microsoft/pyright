@@ -9,7 +9,7 @@
  */
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { Declaration } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
@@ -137,15 +137,25 @@ export class ReferencesProvider {
             return undefined;
         }
 
-        // Is this a type that potentially requires a global search?
-        const symbolDeclType = resolvedDeclarations[0].type;
+        // Does this symbol require search beyond the current file? Determine whether
+        // the symbol is declared within an evaluation scope that is within the current
+        // file and cannot be imported directly from other modules.
+        const requiresGlobalSearch = resolvedDeclarations.some(decl => {
+            // If the declaration is outside of this file, a global search is needed.
+            if (decl.path !== filePath) {
+                return true;
+            }
 
-        // Parameters are local to a scope, so they don't require a global search.
-        // If it's a named argument referring to a parameter, we still need to perform
-        // the global search.
-        const requiresGlobalSearch =
-            symbolDeclType !== DeclarationType.Parameter ||
-            (node.parent !== undefined && node.parent.nodeType === ParseNodeType.Argument);
+            const evalScope = ParseTreeUtils.getEvaluationScopeNode(decl.node);
+
+            // If the declaration is at the module level or a class level, it can be seen
+            // outside of the current module, so a global search is needed.
+            if (evalScope.nodeType === ParseNodeType.Module || evalScope.nodeType === ParseNodeType.Class) {
+                return true;
+            }
+
+            return false;
+        });
 
         const results: ReferencesResult = {
             requiresGlobalSearch,
