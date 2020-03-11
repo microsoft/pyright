@@ -101,7 +101,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     constructor(private _productName: string, rootDirectory: string) {
         this._connection.console.log(`${_productName} language server starting`);
-        // virtual file system to be used. initialized to real file system by default. but can't be overritten
+        // virtual file system to be used. initialized to real file system by default. but can't be overwritten
         this.fs = createFromRealFileSystem(this._connection.console);
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = rootDirectory;
