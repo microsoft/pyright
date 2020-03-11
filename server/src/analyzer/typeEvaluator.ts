@@ -5410,6 +5410,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         let expectedKeyType: Type | undefined;
         let expectedValueType: Type | undefined;
+        let expectedTypedDictEntries: Map<string, TypedDictEntry> | undefined;
 
         if (expectedType && expectedType.category === TypeCategory.Object) {
             const expectedClass = expectedType.classType;
@@ -5418,6 +5419,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     expectedKeyType = specializeType(expectedClass.typeArguments[0], undefined);
                     expectedValueType = specializeType(expectedClass.typeArguments[1], undefined);
                 }
+            } else if (ClassType.isTypedDictClass(expectedClass)) {
+                expectedTypedDictEntries = getTypedDictMembersForClass(expectedClass);
             }
         }
 
@@ -5426,8 +5429,26 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             let addUnknown = true;
 
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                keyTypes.push(getTypeOfExpression(entryNode.keyExpression, expectedKeyType).type);
-                valueTypes.push(getTypeOfExpression(entryNode.valueExpression, expectedValueType).type);
+                const keyType = getTypeOfExpression(entryNode.keyExpression, expectedKeyType).type;
+                let valueType: Type | undefined;
+
+                if (
+                    expectedTypedDictEntries &&
+                    keyType.category === TypeCategory.Object &&
+                    ClassType.isBuiltIn(keyType.classType, 'str') &&
+                    keyType.literalValue &&
+                    expectedTypedDictEntries.has(keyType.literalValue as string)
+                ) {
+                    valueType = getTypeOfExpression(
+                        entryNode.valueExpression,
+                        expectedTypedDictEntries.get(keyType.literalValue as string)!.valueType
+                    ).type;
+                } else {
+                    valueType = getTypeOfExpression(entryNode.valueExpression, expectedValueType).type;
+                }
+
+                keyTypes.push(keyType);
+                valueTypes.push(valueType);
                 addUnknown = false;
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
                 const unexpandedType = getTypeOfExpression(entryNode.expandExpression).type;
