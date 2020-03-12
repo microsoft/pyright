@@ -320,9 +320,6 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.suite);
         });
 
-        // Add the class symbol. We do this in the binder to speed
-        // up overall analysis times. Without this, the type analyzer needs
-        // to do more passes to resolve classes.
         this._addSymbolToCurrentScope(node.name.value, true);
 
         this._createAssignmentTargetFlowNodes(node.name, false, false);
@@ -1919,6 +1916,16 @@ export class Binder extends ParseTreeWalker {
             if (!symbol) {
                 symbol = scope.addSymbol(name, SymbolFlags.InitiallyUnbound | SymbolFlags.ClassMember);
 
+                // Handle the case where a new symbol is being added to a class
+                // but the expression assigned to it uses a symbol of the same
+                // name that is declared in an outer scope.
+                if (scope.type === ScopeType.Class) {
+                    const aliasSymbol = scope.parent!.lookUpSymbol(name);
+                    if (aliasSymbol) {
+                        this._createAssignmentAliasFlowNode(symbol.id, aliasSymbol.id);
+                    }
+                }
+
                 if (this._fileInfo.isStubFile && isPrivateOrProtectedName(name)) {
                     symbol.setIsExternallyHidden();
                 }
@@ -1992,9 +1999,6 @@ export class Binder extends ParseTreeWalker {
         if (!symbol) {
             let symbolFlags = SymbolFlags.None;
 
-            // If the caller specified a default type source ID, it's a
-            // symbol that's populated by the module loader, so it's
-            // bound at the time the module starts executing.
             if (isInitiallyUnbound) {
                 symbolFlags |= SymbolFlags.InitiallyUnbound;
             }
