@@ -4266,6 +4266,31 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     );
                     reportedArgError = true;
                 }
+
+                // Add any implicit (default) arguments that are needed for resolving
+                // generic types. For example, if the function is defined as
+                // def foo(v1: _T = 'default')
+                // and _T is a TypeVar, we need to match the TypeVar to the default
+                // value's type if it's not provided by the caller.
+                typeParams.forEach(param => {
+                    if (param.category === ParameterCategory.Simple && param.name) {
+                        const entry = paramMap.get(param.name)!;
+                        if (entry.argsNeeded === 0 && entry.argsReceived === 0) {
+                            if (param.defaultType && requiresSpecialization(param.type)) {
+                                validateArgTypeParams.push({
+                                    paramType: param.type,
+                                    requiresTypeVarMatching: true,
+                                    argument: {
+                                        argumentCategory: ArgumentCategory.Simple,
+                                        type: param.defaultType
+                                    },
+                                    errorNode: errorNode,
+                                    paramName: param.name
+                                });
+                            }
+                        }
+                    }
+                });
             }
         }
 
@@ -6808,6 +6833,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 category: param.category,
                 name: param.name ? param.name.value : undefined,
                 hasDefault: !!param.defaultValue,
+                defaultType: defaultValueType,
                 type: paramType || UnknownType.create()
             };
 
