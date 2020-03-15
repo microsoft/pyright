@@ -27,7 +27,7 @@ import {
     RemoteWindow,
     SignatureInformation,
     SymbolInformation,
-    TextDocuments,
+    TextDocumentSyncKind,
     TextEdit,
     WorkspaceEdit
 } from 'vscode-languageserver';
@@ -86,10 +86,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _connection: IConnection = createConnection();
     private _workspaceMap: WorkspaceMap;
 
-    // Create a simple text document manager. The text document manager
-    // supports full document sync only.
-    private _documents: TextDocuments = new TextDocuments();
-
     // Tracks whether we're currently displaying progress.
     private _isDisplayingProgress = false;
 
@@ -101,20 +97,21 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     constructor(private _productName: string, rootDirectory: string) {
         this._connection.console.log(`${_productName} language server starting`);
-        // virtual file system to be used. initialized to real file system by default. but can't be overwritten
+
+        // Create virtual file system, initialized to real file system by default.
         this.fs = createFromRealFileSystem(this._connection.console);
+
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = rootDirectory;
         this._connection.console.log(`Server root directory: ${rootDirectory}`);
 
         // Create workspace map.
         this._workspaceMap = new WorkspaceMap(this);
-        // Make the text document manager listen on the connection
-        // for open, change and close text document events.
-        this._documents.listen(this._connection);
-        // Setup callbacks
+
+        // Set up callbacks.
         this._setupConnection();
-        // Listen on the connection
+
+        // Listen on the connection.
         this._connection.listen();
     }
 
@@ -214,7 +211,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     capabilities: {
                         // Tell the client that the server works in FULL text document
                         // sync mode (as opposed to incremental).
-                        textDocumentSync: this._documents.syncKind,
+                        textDocumentSync: TextDocumentSyncKind.Full,
                         definitionProvider: true,
                         referencesProvider: true,
                         documentSymbolProvider: true,

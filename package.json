@@ -24,15 +24,15 @@
         "package": "npm run install:all && npm run clean && npm run build:serverProd && npm run build:cli && cd client && npx vsce package && cd .."
     },
     "devDependencies": {
-        "@types/node": "^12.12.28",
-        "@typescript-eslint/eslint-plugin": "^2.21.0",
-        "@typescript-eslint/parser": "^2.21.0",
+        "@types/node": "^13.9.1",
+        "@typescript-eslint/eslint-plugin": "^2.23.0",
+        "@typescript-eslint/parser": "^2.23.0",
         "del-cli": "^3.0.0",
         "eslint": "^6.8.0",
         "eslint-config-prettier": "^6.10.0",
-        "eslint-plugin-simple-import-sort": "^5.0.1",
+        "eslint-plugin-simple-import-sort": "^5.0.2",
         "prettier": "1.19.1",
-        "typescript": "^3.8.2"
+        "typescript": "^3.8.3"
     },
     "main": "index.js",
     "bin": {

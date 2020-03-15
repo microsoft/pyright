@@ -121,14 +121,14 @@
         "postinstall": "node ./node_modules/vscode/bin/install"
     },
     "devDependencies": {
-        "typescript": "^3.8.2",
-        "vsce": "^1.73.0",
+        "typescript": "^3.8.3",
+        "vsce": "^1.74.0",
         "vscode": "^1.1.36"
     },
     "dependencies": {
         "leven": "^3.1.0",
-        "vscode-languageclient": "^5.3.0-next.9",
-        "vscode-languageserver": "^5.3.0-next.10",
+        "vscode-languageclient": "^6.1.1",
+        "vscode-languageserver": "^6.1.1",
         "vscode-uri": "^2.1.1"
     }
 }

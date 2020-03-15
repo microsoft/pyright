@@ -13,7 +13,7 @@
 import { timingStats } from './common/timing';
 /* eslint-enable */
 
-import chalk from 'chalk';
+import * as chalk from 'chalk';
 import * as commandLineArgs from 'command-line-args';
 import { CommandLineOptions, OptionDefinition } from 'command-line-args';
 import * as process from 'process';
