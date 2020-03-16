@@ -10,8 +10,11 @@
  * definition is the top of the resolved import file.
  */
 
+import { CancellationToken } from 'vscode-languageserver';
+
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
 import { ParseNodeType } from '../parser/parseNodes';
@@ -21,8 +24,11 @@ export class DefinitionProvider {
     static getDefinitionsForPosition(
         parseResults: ParseResults,
         position: Position,
-        evaluator: TypeEvaluator
+        evaluator: TypeEvaluator,
+        token: CancellationToken
     ): DocumentRange[] | undefined {
+        throwIfCancellationRequested(token);
+
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;

@@ -8,7 +8,15 @@
  * a list of zero or more text completions that apply in the context.
  */
 
-import { CompletionItem, CompletionItemKind, CompletionList, MarkupKind, Range, TextEdit } from 'vscode-languageserver';
+import {
+    CancellationToken,
+    CompletionItem,
+    CompletionItemKind,
+    CompletionList,
+    MarkupKind,
+    Range,
+    TextEdit
+} from 'vscode-languageserver';
 
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
@@ -24,6 +32,7 @@ import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluator';
 import { ClassType, FunctionType, Type, TypeCategory } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analyzer/typeUtils';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
@@ -171,7 +180,8 @@ export class CompletionProvider {
         private _configOptions: ConfigOptions,
         private _importLookup: ImportLookup,
         private _evaluator: TypeEvaluator,
-        private _moduleSymbolsCallback: () => ModuleSymbolMap
+        private _moduleSymbolsCallback: () => ModuleSymbolMap,
+        private _cancellationToken: CancellationToken
     ) {}
 
     getCompletionsForPosition(): CompletionList | undefined {
@@ -241,6 +251,8 @@ export class CompletionProvider {
         // that of its ancestors.
         let curNode = errorNode || node;
         while (true) {
+            throwIfCancellationRequested(this._cancellationToken);
+
             if (curNode.nodeType === ParseNodeType.String) {
                 return this._getStringLiteralCompletions(curNode, priorWord, priorText, postText);
             }
@@ -307,6 +319,8 @@ export class CompletionProvider {
     // allowing us to record what was selected. This allows us to
     // build our MRU cache so we can better predict entries.
     resolveCompletionItem(completionItem: CompletionItem) {
+        throwIfCancellationRequested(this._cancellationToken);
+
         const completionItemData = completionItem.data as CompletionItemData;
 
         const label = completionItem.label;

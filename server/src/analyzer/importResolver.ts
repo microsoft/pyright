@@ -412,7 +412,7 @@ export class ImportResolver {
         return this._filterImplicitImports(cachedEntry, importedSymbols);
     }
 
-    private _addResultsToCache(
+    protected _addResultsToCache(
         execEnv: ExecutionEnvironment,
         importName: string,
         importResult: ImportResult,

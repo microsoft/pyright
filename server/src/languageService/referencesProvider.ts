@@ -8,12 +8,15 @@
  * by a location within a file.
  */
 
+import { CancellationToken } from 'vscode-languageserver';
+
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
@@ -33,13 +36,15 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     private _referencesResult: ReferencesResult;
     private _includeDeclaration: boolean;
     private _evaluator: TypeEvaluator;
+    private _cancellationToken: CancellationToken;
 
     constructor(
         parseResults: ParseResults,
         filePath: string,
         referencesResult: ReferencesResult,
         includeDeclaration: boolean,
-        evaluator: TypeEvaluator
+        evaluator: TypeEvaluator,
+        token: CancellationToken
     ) {
         super();
         this._parseResults = parseResults;
@@ -47,6 +52,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
         this._referencesResult = referencesResult;
         this._includeDeclaration = includeDeclaration;
         this._evaluator = evaluator;
+        this._cancellationToken;
     }
 
     findReferences() {
@@ -60,6 +66,8 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     }
 
     visitName(node: NameNode): boolean {
+        throwIfCancellationRequested(this._cancellationToken);
+
         const declarations = this._evaluator.getDeclarationsForNameNode(node);
 
         if (declarations && declarations.length > 0) {
@@ -104,8 +112,11 @@ export class ReferencesProvider {
         filePath: string,
         position: Position,
         includeDeclaration: boolean,
-        evaluator: TypeEvaluator
+        evaluator: TypeEvaluator,
+        token: CancellationToken
     ): ReferencesResult | undefined {
+        throwIfCancellationRequested(token);
+
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;
@@ -169,7 +180,8 @@ export class ReferencesProvider {
             filePath,
             results,
             includeDeclaration,
-            evaluator
+            evaluator,
+            token
         );
         refTreeWalker.findReferences();
 
@@ -181,14 +193,16 @@ export class ReferencesProvider {
         filePath: string,
         referencesResult: ReferencesResult,
         includeDeclaration: boolean,
-        evaluator: TypeEvaluator
+        evaluator: TypeEvaluator,
+        token: CancellationToken
     ): void {
         const refTreeWalker = new FindReferencesTreeWalker(
             parseResults,
             filePath,
             referencesResult,
             includeDeclaration,
-            evaluator
+            evaluator,
+            token
         );
         refTreeWalker.findReferences();
     }

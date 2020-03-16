@@ -8,7 +8,13 @@
  * Python files.
  */
 
-import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
+import {
+    CancellationToken,
+    CompletionItem,
+    CompletionList,
+    DocumentSymbol,
+    SymbolInformation
+} from 'vscode-languageserver';
 
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
@@ -153,48 +159,72 @@ export class AnalyzerService {
         this._scheduleReanalysis(false);
     }
 
-    getDefinitionForPosition(filePath: string, position: Position): DocumentRange[] | undefined {
-        return this._program.getDefinitionsForPosition(filePath, position);
+    getDefinitionForPosition(
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ): DocumentRange[] | undefined {
+        return this._program.getDefinitionsForPosition(filePath, position, token);
     }
 
     getReferencesForPosition(
         filePath: string,
         position: Position,
-        includeDeclaration: boolean
+        includeDeclaration: boolean,
+        token: CancellationToken
     ): DocumentRange[] | undefined {
-        return this._program.getReferencesForPosition(filePath, position, includeDeclaration);
+        return this._program.getReferencesForPosition(filePath, position, includeDeclaration, token);
     }
 
-    addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[]) {
-        this._program.addSymbolsForDocument(filePath, symbolList);
+    addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[], token: CancellationToken) {
+        this._program.addSymbolsForDocument(filePath, symbolList, token);
     }
 
-    addSymbolsForWorkspace(symbolList: SymbolInformation[], query: string) {
-        this._program.addSymbolsForWorkspace(symbolList, query);
+    addSymbolsForWorkspace(symbolList: SymbolInformation[], query: string, token: CancellationToken) {
+        this._program.addSymbolsForWorkspace(symbolList, query, token);
     }
 
-    getHoverForPosition(filePath: string, position: Position): HoverResults | undefined {
-        return this._program.getHoverForPosition(filePath, position);
+    getHoverForPosition(filePath: string, position: Position, token: CancellationToken): HoverResults | undefined {
+        return this._program.getHoverForPosition(filePath, position, token);
     }
 
-    getSignatureHelpForPosition(filePath: string, position: Position): SignatureHelpResults | undefined {
-        return this._program.getSignatureHelpForPosition(filePath, position);
+    getSignatureHelpForPosition(
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ): SignatureHelpResults | undefined {
+        return this._program.getSignatureHelpForPosition(filePath, position, token);
     }
 
-    getCompletionsForPosition(filePath: string, position: Position, workspacePath: string): CompletionList | undefined {
-        return this._program.getCompletionsForPosition(filePath, position, workspacePath);
+    getCompletionsForPosition(
+        filePath: string,
+        position: Position,
+        workspacePath: string,
+        token: CancellationToken
+    ): CompletionList | undefined {
+        return this._program.getCompletionsForPosition(filePath, position, workspacePath, token);
     }
 
-    resolveCompletionItem(filePath: string, completionItem: CompletionItem) {
-        this._program.resolveCompletionItem(filePath, completionItem);
+    resolveCompletionItem(filePath: string, completionItem: CompletionItem, token: CancellationToken) {
+        this._program.resolveCompletionItem(filePath, completionItem, token);
     }
 
-    performQuickAction(filePath: string, command: string, args: any[]): TextEditAction[] | undefined {
-        return this._program.performQuickAction(filePath, command, args);
+    performQuickAction(
+        filePath: string,
+        command: string,
+        args: any[],
+        token: CancellationToken
+    ): TextEditAction[] | undefined {
+        return this._program.performQuickAction(filePath, command, args, token);
     }
 
-    renameSymbolAtPosition(filePath: string, position: Position, newName: string): FileEditAction[] | undefined {
-        return this._program.renameSymbolAtPosition(filePath, position, newName);
+    renameSymbolAtPosition(
+        filePath: string,
+        position: Position,
+        newName: string,
+        token: CancellationToken
+    ): FileEditAction[] | undefined {
+        return this._program.renameSymbolAtPosition(filePath, position, newName, token);
     }
 
     printStats() {
@@ -211,6 +241,10 @@ export class AnalyzerService {
 
     getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[] {
         return this._program.getDiagnosticsForRange(filePath, this._configOptions, range);
+    }
+
+    getImportResolver(): ImportResolver {
+        return this._importResolver;
     }
 
     recordUserInteractionTime() {
@@ -485,7 +519,7 @@ export class AnalyzerService {
         return configOptions;
     }
 
-    writeTypeStub() {
+    writeTypeStub(token: CancellationToken) {
         const typingsPath = this._configOptions.typingsPath;
         if (!this._typeStubTargetPath || !this._typeStubTargetImportName) {
             const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
@@ -534,7 +568,12 @@ export class AnalyzerService {
             throw new Error(errMsg);
         }
 
-        this._program.writeTypeStub(this._typeStubTargetPath, this._typeStubTargetIsSingleFile, typingsSubdirPath);
+        this._program.writeTypeStub(
+            this._typeStubTargetPath,
+            this._typeStubTargetIsSingleFile,
+            typingsSubdirPath,
+            token
+        );
     }
 
     // This is called after a new type stub has been created. It allows

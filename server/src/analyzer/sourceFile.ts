@@ -7,8 +7,15 @@
  * Class that represents a single python source file.
  */
 
-import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
+import {
+    CancellationToken,
+    CompletionItem,
+    CompletionList,
+    DocumentSymbol,
+    SymbolInformation
+} from 'vscode-languageserver';
 
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, getDefaultDiagnosticSettings } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
@@ -541,19 +548,24 @@ export class SourceFile {
         return true;
     }
 
-    getDefinitionsForPosition(position: Position, evaluator: TypeEvaluator): DocumentRange[] | undefined {
+    getDefinitionsForPosition(
+        position: Position,
+        evaluator: TypeEvaluator,
+        token: CancellationToken
+    ): DocumentRange[] | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
         }
 
-        return DefinitionProvider.getDefinitionsForPosition(this._parseResults, position, evaluator);
+        return DefinitionProvider.getDefinitionsForPosition(this._parseResults, position, evaluator, token);
     }
 
     getReferencesForPosition(
         position: Position,
         includeDeclaration: boolean,
-        evaluator: TypeEvaluator
+        evaluator: TypeEvaluator,
+        token: CancellationToken
     ): ReferencesResult | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -565,11 +577,17 @@ export class SourceFile {
             this._filePath,
             position,
             includeDeclaration,
-            evaluator
+            evaluator,
+            token
         );
     }
 
-    addReferences(referencesResult: ReferencesResult, includeDeclaration: boolean, evaluator: TypeEvaluator): void {
+    addReferences(
+        referencesResult: ReferencesResult,
+        includeDeclaration: boolean,
+        evaluator: TypeEvaluator,
+        token: CancellationToken
+    ): void {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return;
@@ -580,48 +598,70 @@ export class SourceFile {
             this._filePath,
             referencesResult,
             includeDeclaration,
-            evaluator
+            evaluator,
+            token
         );
     }
 
-    addHierarchicalSymbolsForDocument(symbolList: DocumentSymbol[], evaluator: TypeEvaluator) {
+    addHierarchicalSymbolsForDocument(
+        symbolList: DocumentSymbol[],
+        evaluator: TypeEvaluator,
+        token: CancellationToken
+    ) {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return;
         }
 
-        DocumentSymbolProvider.addHierarchicalSymbolsForDocument(symbolList, this._parseResults, evaluator);
+        DocumentSymbolProvider.addHierarchicalSymbolsForDocument(symbolList, this._parseResults, evaluator, token);
     }
 
-    addSymbolsForDocument(symbolList: SymbolInformation[], evaluator: TypeEvaluator, query?: string) {
+    addSymbolsForDocument(
+        symbolList: SymbolInformation[],
+        evaluator: TypeEvaluator,
+        query: string,
+        token: CancellationToken
+    ) {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return;
         }
 
-        DocumentSymbolProvider.addSymbolsForDocument(symbolList, query, this._filePath, this._parseResults, evaluator);
+        DocumentSymbolProvider.addSymbolsForDocument(
+            symbolList,
+            query,
+            this._filePath,
+            this._parseResults,
+            evaluator,
+            token
+        );
     }
 
-    getHoverForPosition(position: Position, evaluator: TypeEvaluator): HoverResults | undefined {
+    getHoverForPosition(
+        position: Position,
+        evaluator: TypeEvaluator,
+        token: CancellationToken
+    ): HoverResults | undefined {
         // If this file hasn't been bound, no hover info is available.
         if (this._isBindingNeeded || !this._parseResults) {
             return undefined;
         }
 
-        return HoverProvider.getHoverForPosition(this._parseResults, position, evaluator);
+        return HoverProvider.getHoverForPosition(this._parseResults, position, evaluator, token);
     }
 
     getSignatureHelpForPosition(
         position: Position,
         importLookup: ImportLookup,
-        evaluator: TypeEvaluator
+        evaluator: TypeEvaluator,
+        token: CancellationToken
     ): SignatureHelpResults | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
         }
 
-        return SignatureHelpProvider.getSignatureHelpForPosition(this._parseResults, position, evaluator);
+        return SignatureHelpProvider.getSignatureHelpForPosition(this._parseResults, position, evaluator, token);
     }
 
     getCompletionsForPosition(
@@ -631,7 +671,8 @@ export class SourceFile {
         importResolver: ImportResolver,
         importLookup: ImportLookup,
         evaluator: TypeEvaluator,
-        moduleSymbolsCallback: () => ModuleSymbolMap
+        moduleSymbolsCallback: () => ModuleSymbolMap,
+        token: CancellationToken
     ): CompletionList | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
@@ -654,7 +695,8 @@ export class SourceFile {
             configOptions,
             importLookup,
             evaluator,
-            moduleSymbolsCallback
+            moduleSymbolsCallback,
+            token
         );
 
         return completionProvider.getCompletionsForPosition();
@@ -666,7 +708,8 @@ export class SourceFile {
         importLookup: ImportLookup,
         evaluator: TypeEvaluator,
         moduleSymbolsCallback: () => ModuleSymbolMap,
-        completionItem: CompletionItem
+        completionItem: CompletionItem,
+        token: CancellationToken
     ) {
         if (!this._parseResults || this._fileContents === undefined) {
             return;
@@ -683,13 +726,14 @@ export class SourceFile {
             configOptions,
             importLookup,
             evaluator,
-            moduleSymbolsCallback
+            moduleSymbolsCallback,
+            token
         );
 
         completionProvider.resolveCompletionItem(completionItem);
     }
 
-    performQuickAction(command: string, args: any[]): TextEditAction[] | undefined {
+    performQuickAction(command: string, args: any[], token: CancellationToken): TextEditAction[] | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;
@@ -701,14 +745,21 @@ export class SourceFile {
             return undefined;
         }
 
-        return performQuickAction(command, args, this._parseResults);
+        return performQuickAction(command, args, this._parseResults, token);
     }
 
     setCheckingRequired() {
         this._isCheckingNeeded = true;
     }
 
-    bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope?: Scope) {
+    bind(
+        configOptions: ConfigOptions,
+        importLookup: ImportLookup,
+        builtinsScope: Scope | undefined,
+        token: CancellationToken
+    ) {
+        throwIfCancellationRequested(token);
+
         assert(!this.isParseRequired());
         assert(this.isBindingRequired());
         assert(!this._isBindingInProgress);

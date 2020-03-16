@@ -8,7 +8,13 @@
  * and all of their recursive imports.
  */
 
-import { CompletionItem, CompletionList, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
+import {
+    CancellationToken,
+    CompletionItem,
+    CompletionList,
+    DocumentSymbol,
+    SymbolInformation
+} from 'vscode-languageserver';
 
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
@@ -287,7 +293,7 @@ export class Program {
 
             // Check the open files.
             for (const sourceFileInfo of openFiles) {
-                if (this._checkTypes(sourceFileInfo)) {
+                if (this._checkTypes(sourceFileInfo, CancellationToken.None)) {
                     if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                         return true;
                     }
@@ -313,7 +319,7 @@ export class Program {
 
             // Now do type parsing and analysis of the remaining.
             for (const sourceFileInfo of allFiles) {
-                if (this._checkTypes(sourceFileInfo)) {
+                if (this._checkTypes(sourceFileInfo, CancellationToken.None)) {
                     if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                         return true;
                     }
@@ -379,7 +385,12 @@ export class Program {
         }
     }
 
-    writeTypeStub(targetImportPath: string, targetIsSingleFile: boolean, typingsPath: string) {
+    writeTypeStub(
+        targetImportPath: string,
+        targetIsSingleFile: boolean,
+        typingsPath: string,
+        token: CancellationToken
+    ) {
         for (const sourceFileInfo of this._sourceFileList) {
             const filePath = sourceFileInfo.sourceFile.getFilePath();
 
@@ -407,7 +418,7 @@ export class Program {
                     throw new Error(errMsg);
                 }
 
-                this._bindFile(sourceFileInfo);
+                this._bindFile(sourceFileInfo, token);
                 const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile, this._evaluator);
                 writer.write();
             }
@@ -446,7 +457,7 @@ export class Program {
 
     // Binds the specified file and all of its dependencies, recursively. If
     // it runs out of time, it returns true. If it completes, it returns false.
-    private _bindFile(fileToAnalyze: SourceFileInfo): void {
+    private _bindFile(fileToAnalyze: SourceFileInfo, token: CancellationToken): void {
         if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired()) {
             return;
         }
@@ -456,7 +467,7 @@ export class Program {
         // We need to parse and bind the builtins import first.
         let builtinsScope: Scope | undefined;
         if (fileToAnalyze.builtinsImport) {
-            this._bindFile(fileToAnalyze.builtinsImport);
+            this._bindFile(fileToAnalyze.builtinsImport, token);
 
             // Get the builtins scope to pass to the binding pass.
             const parseResults = fileToAnalyze.builtinsImport.sourceFile.getParseResults();
@@ -466,7 +477,7 @@ export class Program {
             }
         }
 
-        fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope);
+        fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope, token);
     }
 
     private _lookUpImport = (filePath: string): ImportLookupResult | undefined => {
@@ -479,7 +490,7 @@ export class Program {
             // Bind the file if it's not already bound. Don't count this time
             // against the type checker.
             timingStats.typeCheckerTime.subtractFromTime(() => {
-                this._bindFile(sourceFileInfo);
+                this._bindFile(sourceFileInfo, CancellationToken.None);
             });
         }
 
@@ -513,7 +524,7 @@ export class Program {
         return moduleSymbolMap;
     }
 
-    private _checkTypes(fileToCheck: SourceFileInfo) {
+    private _checkTypes(fileToCheck: SourceFileInfo, token: CancellationToken) {
         // If the file isn't needed because it was eliminated from the
         // transitive closure or deleted, skip the file rather than wasting
         // time on it.
@@ -529,7 +540,7 @@ export class Program {
             return false;
         }
 
-        this._bindFile(fileToCheck);
+        this._bindFile(fileToCheck, token);
 
         // For very large programs, we may need to discard the evaluator and
         // its cached types to avoid running out of heap space.
@@ -704,33 +715,39 @@ export class Program {
         });
     }
 
-    getDefinitionsForPosition(filePath: string, position: Position): DocumentRange[] | undefined {
-        const sourceFileInfo = this._sourceFileMap.get(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
-
-        this._bindFile(sourceFileInfo);
-
-        return sourceFileInfo.sourceFile.getDefinitionsForPosition(position, this._evaluator);
-    }
-
-    getReferencesForPosition(
+    getDefinitionsForPosition(
         filePath: string,
         position: Position,
-        includeDeclaration: boolean
+        token: CancellationToken
     ): DocumentRange[] | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
 
-        this._bindFile(sourceFileInfo);
+        this._bindFile(sourceFileInfo, token);
+
+        return sourceFileInfo.sourceFile.getDefinitionsForPosition(position, this._evaluator, token);
+    }
+
+    getReferencesForPosition(
+        filePath: string,
+        position: Position,
+        includeDeclaration: boolean,
+        token: CancellationToken
+    ): DocumentRange[] | undefined {
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
+        if (!sourceFileInfo) {
+            return undefined;
+        }
+
+        this._bindFile(sourceFileInfo, token);
 
         const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
             position,
             includeDeclaration,
-            this._evaluator
+            this._evaluator,
+            token
         );
 
         if (!referencesResult) {
@@ -741,9 +758,14 @@ export class Program {
         if (referencesResult.requiresGlobalSearch) {
             for (const curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
-                    this._bindFile(curSourceFileInfo);
+                    this._bindFile(curSourceFileInfo, token);
 
-                    curSourceFileInfo.sourceFile.addReferences(referencesResult, includeDeclaration, this._evaluator);
+                    curSourceFileInfo.sourceFile.addReferences(
+                        referencesResult,
+                        includeDeclaration,
+                        this._evaluator,
+                        token
+                    );
                 }
             }
         }
@@ -751,16 +773,16 @@ export class Program {
         return referencesResult.locations;
     }
 
-    addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[]) {
+    addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[], token: CancellationToken) {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (sourceFileInfo) {
-            this._bindFile(sourceFileInfo);
+            this._bindFile(sourceFileInfo, token);
 
-            sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(symbolList, this._evaluator);
+            sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(symbolList, this._evaluator, token);
         }
     }
 
-    addSymbolsForWorkspace(symbolList: SymbolInformation[], query: string) {
+    addSymbolsForWorkspace(symbolList: SymbolInformation[], query: string, token: CancellationToken) {
         // Don't do a search if the query is empty. We'll return
         // too many results in this case.
         if (!query) {
@@ -768,41 +790,55 @@ export class Program {
         }
 
         for (const sourceFileInfo of this._sourceFileList) {
-            this._bindFile(sourceFileInfo);
+            this._bindFile(sourceFileInfo, token);
 
-            sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator, query);
+            sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator, query, token);
         }
     }
 
-    getHoverForPosition(filePath: string, position: Position): HoverResults | undefined {
+    getHoverForPosition(filePath: string, position: Position, token: CancellationToken): HoverResults | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
 
-        this._bindFile(sourceFileInfo);
+        this._bindFile(sourceFileInfo, token);
 
-        return sourceFileInfo.sourceFile.getHoverForPosition(position, this._evaluator);
+        return sourceFileInfo.sourceFile.getHoverForPosition(position, this._evaluator, token);
     }
 
-    getSignatureHelpForPosition(filePath: string, position: Position): SignatureHelpResults | undefined {
+    getSignatureHelpForPosition(
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ): SignatureHelpResults | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
 
-        this._bindFile(sourceFileInfo);
+        this._bindFile(sourceFileInfo, token);
 
-        return sourceFileInfo.sourceFile.getSignatureHelpForPosition(position, this._lookUpImport, this._evaluator);
+        return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
+            position,
+            this._lookUpImport,
+            this._evaluator,
+            token
+        );
     }
 
-    getCompletionsForPosition(filePath: string, position: Position, workspacePath: string): CompletionList | undefined {
+    getCompletionsForPosition(
+        filePath: string,
+        position: Position,
+        workspacePath: string,
+        token: CancellationToken
+    ): CompletionList | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
 
-        this._bindFile(sourceFileInfo);
+        this._bindFile(sourceFileInfo, token);
 
         return sourceFileInfo.sourceFile.getCompletionsForPosition(
             position,
@@ -811,17 +847,18 @@ export class Program {
             this._importResolver,
             this._lookUpImport,
             this._evaluator,
-            () => this._buildModuleSymbolsMap(sourceFileInfo)
+            () => this._buildModuleSymbolsMap(sourceFileInfo),
+            token
         );
     }
 
-    resolveCompletionItem(filePath: string, completionItem: CompletionItem) {
+    resolveCompletionItem(filePath: string, completionItem: CompletionItem, token: CancellationToken) {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return;
         }
 
-        this._bindFile(sourceFileInfo);
+        this._bindFile(sourceFileInfo, token);
 
         sourceFileInfo.sourceFile.resolveCompletionItem(
             this._configOptions,
@@ -829,28 +866,44 @@ export class Program {
             this._lookUpImport,
             this._evaluator,
             () => this._buildModuleSymbolsMap(sourceFileInfo),
-            completionItem
+            completionItem,
+            token
         );
     }
 
-    performQuickAction(filePath: string, command: string, args: any[]): TextEditAction[] | undefined {
+    performQuickAction(
+        filePath: string,
+        command: string,
+        args: any[],
+        token: CancellationToken
+    ): TextEditAction[] | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
 
-        this._bindFile(sourceFileInfo);
+        this._bindFile(sourceFileInfo, token);
 
-        return sourceFileInfo.sourceFile.performQuickAction(command, args);
+        return sourceFileInfo.sourceFile.performQuickAction(command, args, token);
     }
 
-    renameSymbolAtPosition(filePath: string, position: Position, newName: string): FileEditAction[] | undefined {
+    renameSymbolAtPosition(
+        filePath: string,
+        position: Position,
+        newName: string,
+        token: CancellationToken
+    ): FileEditAction[] | undefined {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             return undefined;
         }
 
-        const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(position, true, this._evaluator);
+        const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
+            position,
+            true,
+            this._evaluator,
+            token
+        );
 
         if (!referencesResult) {
             return undefined;
@@ -860,9 +913,9 @@ export class Program {
         if (referencesResult.requiresGlobalSearch) {
             for (const curSourceFileInfo of this._sourceFileList) {
                 if (curSourceFileInfo !== sourceFileInfo) {
-                    this._bindFile(curSourceFileInfo);
+                    this._bindFile(curSourceFileInfo, token);
 
-                    curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator);
+                    curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator, token);
                 }
             }
         }

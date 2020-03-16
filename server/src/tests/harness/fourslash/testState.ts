@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 import Char from 'typescript-char';
-import { Command, Diagnostic, MarkupContent } from 'vscode-languageserver';
+import { CancellationToken, Command, Diagnostic, MarkupContent } from 'vscode-languageserver';
 
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { Program } from '../../../analyzer/program';
@@ -561,7 +561,7 @@ export class TestState {
         this._analyze();
 
         const controller = new CommandController(new TestLanguageService(this.workspace, this.console, this.fs));
-        await controller.execute({ command: command.command, arguments: command.arguments });
+        await controller.execute({ command: command.command, arguments: command.arguments }, CancellationToken.None);
         await this._verifyFiles(files);
 
         this.markTestDone();
@@ -577,10 +577,13 @@ export class TestState {
             const controller = new CommandController(new TestLanguageService(this.workspace, this.console, this.fs));
 
             for (const codeAction of this._getCodeActions(range).filter(c => c.title === map[name].title)) {
-                await controller.execute({
-                    command: codeAction.command!.command,
-                    arguments: codeAction.command?.arguments
-                });
+                await controller.execute(
+                    {
+                        command: codeAction.command!.command,
+                        arguments: codeAction.command?.arguments
+                    },
+                    CancellationToken.None
+                );
             }
 
             await this._verifyFiles(map[name].files);
@@ -598,7 +601,9 @@ export class TestState {
 
             const rangePos = this._convertOffsetsToRange(range.fileName, range.pos, range.end);
 
-            const actual = convertHoverResults(this.program.getHoverForPosition(range.fileName, rangePos.start));
+            const actual = convertHoverResults(
+                this.program.getHoverForPosition(range.fileName, rangePos.start, CancellationToken.None)
+            );
             debug.assertDefined(actual);
 
             assert.deepEqual(actual!.range, rangePos);
@@ -1033,7 +1038,7 @@ export class TestState {
             end: this._convertOffsetToPosition(file, range.end)
         };
 
-        return CodeActionProvider.getCodeActionsForPosition(this.workspace, file, textRange);
+        return CodeActionProvider.getCodeActionsForPosition(this.workspace, file, textRange, CancellationToken.None);
     }
 
     private async _verifyFiles(files: { [filePath: string]: string }) {

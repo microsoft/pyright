@@ -63,6 +63,17 @@ interface DiagnosticResult {
     diagnosticCount: number;
 }
 
+const cancellationNone = Object.freeze({
+    isCancellationRequested: false,
+    onCancellationRequested: function() {
+        return {
+            dispose() {
+                /* empty */
+            }
+        };
+    }
+});
+
 function processArgs() {
     const optionDefinitions: OptionDefinition[] = [
         { name: 'createstub', type: String },
@@ -182,7 +193,7 @@ function processArgs() {
 
         if (args.createstub && results.filesRequiringAnalysis === 0) {
             try {
-                service.writeTypeStub();
+                service.writeTypeStub(cancellationNone);
                 service.dispose();
                 console.log(`Type stub was created for '${args.createstub}'`);
             } catch (err) {

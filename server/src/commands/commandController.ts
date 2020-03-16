@@ -4,7 +4,7 @@
  * Implements language server commands execution functionality.
  */
 
-import { ExecuteCommandParams, ResponseError } from 'vscode-languageserver';
+import { CancellationToken, ExecuteCommandParams, ResponseError } from 'vscode-languageserver';
 
 import { LanguageServerInterface } from '../languageServerBase';
 import { Commands } from './commands';
@@ -13,7 +13,7 @@ import { QuickActionCommand } from './quickActionCommand';
 import { RestartServerCommand } from './restartServer';
 
 export interface ServerCommand {
-    execute(cmdParams: ExecuteCommandParams): Promise<any>;
+    execute(cmdParams: ExecuteCommandParams, token: CancellationToken): Promise<any>;
 }
 
 export class CommandController implements ServerCommand {
@@ -27,15 +27,15 @@ export class CommandController implements ServerCommand {
         this._quickAction = new QuickActionCommand(ls);
     }
 
-    async execute(cmdParams: ExecuteCommandParams): Promise<any> {
+    async execute(cmdParams: ExecuteCommandParams, token: CancellationToken): Promise<any> {
         switch (cmdParams.command) {
             case Commands.orderImports:
             case Commands.addMissingOptionalToParam: {
-                return this._quickAction.execute(cmdParams);
+                return this._quickAction.execute(cmdParams, token);
             }
 
             case Commands.createTypeStub: {
-                return this._createStub.execute(cmdParams);
+                return this._createStub.execute(cmdParams, token);
             }
 
             case Commands.restartServer: {
