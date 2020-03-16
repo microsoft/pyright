@@ -4,7 +4,7 @@
  * Implements 'create stub' command functionality.
  */
 
-import { ExecuteCommandParams } from 'vscode-languageserver';
+import { CancellationToken, ExecuteCommandParams } from 'vscode-languageserver';
 
 import { AnalyzerService } from '../analyzer/service';
 import { convertPathToUri } from '../common/pathUtils';
@@ -15,7 +15,7 @@ import { ServerCommand } from './commandController';
 export class CreateTypeStubCommand implements ServerCommand {
     constructor(private _ls: LanguageServerInterface) {}
 
-    async execute(cmdParams: ExecuteCommandParams): Promise<any> {
+    async execute(cmdParams: ExecuteCommandParams, token: CancellationToken): Promise<any> {
         if (cmdParams.arguments && cmdParams.arguments.length >= 2) {
             const workspaceRoot = cmdParams.arguments[0];
             const importName = cmdParams.arguments[1];
@@ -35,7 +35,7 @@ export class CreateTypeStubCommand implements ServerCommand {
             service.setCompletionCallback(results => {
                 if (results.filesRequiringAnalysis === 0) {
                     try {
-                        service.writeTypeStub();
+                        service.writeTypeStub(token);
                         service.dispose();
                         const infoMessage = `Type stub was successfully created for '${importName}'.`;
                         this._ls.window.showInformationMessage(infoMessage);

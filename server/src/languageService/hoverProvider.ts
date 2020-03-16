@@ -9,7 +9,7 @@
  * position within a smart editor.
  */
 
-import { Hover, MarkupKind } from 'vscode-languageserver';
+import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
@@ -17,6 +17,7 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { isProperty } from '../analyzer/typeUtils';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
@@ -37,8 +38,11 @@ export class HoverProvider {
     static getHoverForPosition(
         parseResults: ParseResults,
         position: Position,
-        evaluator: TypeEvaluator
+        evaluator: TypeEvaluator,
+        token: CancellationToken
     ): HoverResults | undefined {
+        throwIfCancellationRequested(token);
+
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;

@@ -7,10 +7,13 @@
  * Provides support for miscellaneous quick actions.
  */
 
+import { CancellationToken } from 'vscode-languageserver';
+
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Commands } from '../commands/commands';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { TextRange } from '../common/textRange';
@@ -18,14 +21,14 @@ import { ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { ImportSorter } from './importSorter';
 
-export function performQuickAction(command: string, args: any[], parseResults: ParseResults) {
+export function performQuickAction(command: string, args: any[], parseResults: ParseResults, token: CancellationToken) {
     if (command === Commands.orderImports) {
-        const importSorter = new ImportSorter(parseResults);
+        const importSorter = new ImportSorter(parseResults, token);
         return importSorter.sort();
     } else if (command === Commands.addMissingOptionalToParam) {
         if (args.length >= 1) {
             const nodeOffset = parseInt(args[0], 10);
-            return _addMissingOptionalToParam(parseResults, nodeOffset);
+            return _addMissingOptionalToParam(parseResults, nodeOffset, token);
         }
     }
 
@@ -34,7 +37,13 @@ export function performQuickAction(command: string, args: any[], parseResults: P
 
 // Inserts text into the document to wrap an existing type annotation
 // with "Optional[X]".
-function _addMissingOptionalToParam(parseResults: ParseResults, offset: number): TextEditAction[] {
+function _addMissingOptionalToParam(
+    parseResults: ParseResults,
+    offset: number,
+    token: CancellationToken
+): TextEditAction[] {
+    throwIfCancellationRequested(token);
+
     let node: ParseNode | undefined = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, offset);
     while (node) {
         if (node.nodeType === ParseNodeType.Parameter) {

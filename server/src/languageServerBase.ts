@@ -7,6 +7,7 @@
 import './common/extensions';
 
 import {
+    CancellationToken,
     CodeAction,
     CodeActionKind,
     CodeActionParams,
@@ -84,7 +85,7 @@ export interface LanguageServerInterface {
 export abstract class LanguageServerBase implements LanguageServerInterface {
     // Create a connection for the server. The connection type can be changed by the process's arguments
     protected _connection: IConnection = createConnection();
-    private _workspaceMap: WorkspaceMap;
+    protected _workspaceMap: WorkspaceMap;
 
     // Tracks whether we're currently displaying progress.
     private _isDisplayingProgress = false;
@@ -97,8 +98,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     constructor(private _productName: string, rootDirectory: string) {
         this._connection.console.log(`${_productName} language server starting`);
-
-        // Create virtual file system, initialized to real file system by default.
+        // virtual file system to be used. initialized to real file system by default. but can't be overwritten
         this.fs = createFromRealFileSystem(this._connection.console);
 
         // Stash the base directory into a global variable.
@@ -115,9 +115,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._connection.listen();
     }
 
-    protected abstract async executeCommand(cmdParams: ExecuteCommandParams): Promise<any>;
+    protected abstract async executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
     protected abstract async executeCodeAction(
-        cmdParams: CodeActionParams
+        params: CodeActionParams,
+        token: CancellationToken
     ): Promise<(Command | CodeAction)[] | undefined | null>;
     abstract async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
 
@@ -238,9 +239,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             this.updateSettingsForAllWorkspaces();
         });
 
-        this._connection.onCodeAction((params: CodeActionParams) => this.executeCodeAction(params));
+        this._connection.onCodeAction((params, token) => this.executeCodeAction(params, token));
 
-        this._connection.onDefinition(params => {
+        this._connection.onDefinition((params, token) => {
             this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
@@ -254,14 +255,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             if (workspace.disableLanguageServices) {
                 return;
             }
-            const locations = workspace.serviceInstance.getDefinitionForPosition(filePath, position);
+            const locations = workspace.serviceInstance.getDefinitionForPosition(filePath, position, token);
             if (!locations) {
                 return undefined;
             }
             return locations.map(loc => Location.create(convertPathToUri(loc.path), loc.range));
         });
 
-        this._connection.onReferences(params => {
+        this._connection.onReferences((params, token) => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -276,7 +277,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             const locations = workspace.serviceInstance.getReferencesForPosition(
                 filePath,
                 position,
-                params.context.includeDeclaration
+                params.context.includeDeclaration,
+                token
             );
             if (!locations) {
                 return undefined;
@@ -284,7 +286,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return locations.map(loc => Location.create(convertPathToUri(loc.path), loc.range));
         });
 
-        this._connection.onDocumentSymbol(params => {
+        this._connection.onDocumentSymbol((params, token) => {
             this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
@@ -295,23 +297,23 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             }
 
             const symbolList: DocumentSymbol[] = [];
-            workspace.serviceInstance.addSymbolsForDocument(filePath, symbolList);
+            workspace.serviceInstance.addSymbolsForDocument(filePath, symbolList, token);
             return symbolList;
         });
 
-        this._connection.onWorkspaceSymbol(params => {
+        this._connection.onWorkspaceSymbol((params, token) => {
             const symbolList: SymbolInformation[] = [];
 
             this._workspaceMap.forEach(workspace => {
                 if (!workspace.disableLanguageServices) {
-                    workspace.serviceInstance.addSymbolsForWorkspace(symbolList, params.query);
+                    workspace.serviceInstance.addSymbolsForWorkspace(symbolList, params.query, token);
                 }
             });
 
             return symbolList;
         });
 
-        this._connection.onHover(params => {
+        this._connection.onHover((params, token) => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -320,11 +322,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             };
 
             const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
-            const hoverResults = workspace.serviceInstance.getHoverForPosition(filePath, position);
+            const hoverResults = workspace.serviceInstance.getHoverForPosition(filePath, position, token);
             return convertHoverResults(hoverResults);
         });
 
-        this._connection.onSignatureHelp(params => {
+        this._connection.onSignatureHelp((params, token) => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -336,7 +338,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             if (workspace.disableLanguageServices) {
                 return;
             }
-            const signatureHelpResults = workspace.serviceInstance.getSignatureHelpForPosition(filePath, position);
+            const signatureHelpResults = workspace.serviceInstance.getSignatureHelpForPosition(
+                filePath,
+                position,
+                token
+            );
             if (!signatureHelpResults) {
                 return undefined;
             }
@@ -361,7 +367,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             };
         });
 
-        this._connection.onCompletion(params => {
+        this._connection.onCompletion((params, token) => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -377,7 +383,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             const completions = workspace.serviceInstance.getCompletionsForPosition(
                 filePath,
                 position,
-                workspace.rootPath
+                workspace.rootPath,
+                token
             );
 
             // Always mark as incomplete so we get called back when the
@@ -391,18 +398,18 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return completions;
         });
 
-        this._connection.onCompletionResolve(params => {
+        this._connection.onCompletionResolve((params, token) => {
             const completionItemData = params.data as CompletionItemData;
             if (completionItemData) {
                 const workspace = this._workspaceMap.get(completionItemData.workspacePath);
                 if (workspace && completionItemData.filePath) {
-                    workspace.serviceInstance.resolveCompletionItem(completionItemData.filePath, params);
+                    workspace.serviceInstance.resolveCompletionItem(completionItemData.filePath, params, token);
                 }
             }
             return params;
         });
 
-        this._connection.onRenameRequest(params => {
+        this._connection.onRenameRequest((params, token) => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -414,7 +421,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             if (workspace.disableLanguageServices) {
                 return;
             }
-            const editActions = workspace.serviceInstance.renameSymbolAtPosition(filePath, position, params.newName);
+            const editActions = workspace.serviceInstance.renameSymbolAtPosition(
+                filePath,
+                position,
+                params.newName,
+                token
+            );
 
             if (!editActions) {
                 return undefined;
@@ -481,7 +493,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             });
         });
 
-        this._connection.onExecuteCommand((cmdParams: ExecuteCommandParams) => this.executeCommand(cmdParams));
+        this._connection.onExecuteCommand((params, token) => this.executeCommand(params, token));
     }
 
     updateSettingsForAllWorkspaces(): void {

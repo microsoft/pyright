@@ -108,7 +108,7 @@ export function doRangesOverlap(a: Range, b: Range) {
 }
 
 export function doesRangeContain(range: Range, position: Position) {
-    return comparePositions(range.start, position) >= 0 && comparePositions(range.end, position) <= 0;
+    return comparePositions(range.start, position) <= 0 && comparePositions(range.end, position) >= 0;
 }
 
 export function rangesAreEqual(a: Range, b: Range) {

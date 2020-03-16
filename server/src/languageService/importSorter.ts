@@ -8,8 +8,11 @@
  * python source file.
  */
 
+import { CancellationToken } from 'vscode-languageserver';
+
 import { ImportType } from '../analyzer/importResult';
 import * as ImportStatementUtils from '../analyzer/importStatementUtils';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { Range } from '../common/textRange';
@@ -29,9 +32,11 @@ export const enum ImportGroup {
 }
 
 export class ImportSorter {
-    constructor(private _parseResults: ParseResults) {}
+    constructor(private _parseResults: ParseResults, private _cancellationToken: CancellationToken) {}
 
     sort(): TextEditAction[] {
+        throwIfCancellationRequested(this._cancellationToken);
+
         const actions: TextEditAction[] = [];
         const importStatements = ImportStatementUtils.getTopLevelImports(this._parseResults.parseTree);
 

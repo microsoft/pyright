@@ -9,10 +9,13 @@
  * arguments for the call.
  */
 
+import { CancellationToken } from 'vscode-languageserver';
+
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { FunctionType } from '../analyzer/types';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
 import { ParseResults } from '../parser/parser';
@@ -39,8 +42,11 @@ export class SignatureHelpProvider {
     static getSignatureHelpForPosition(
         parseResults: ParseResults,
         position: Position,
-        evaluator: TypeEvaluator
+        evaluator: TypeEvaluator,
+        token: CancellationToken
     ): SignatureHelpResults | undefined {
+        throwIfCancellationRequested(token);
+
         const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
         if (offset === undefined) {
             return undefined;

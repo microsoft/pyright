@@ -5,7 +5,7 @@
  */
 
 import { isArray } from 'util';
-import { CodeAction, CodeActionParams, Command, ExecuteCommandParams } from 'vscode-languageserver';
+import { CancellationToken, CodeAction, CodeActionParams, Command, ExecuteCommandParams } from 'vscode-languageserver';
 
 import { CommandController } from './commands/commandController';
 import { convertUriToPath, getDirectoryPath, normalizeSlashes } from './common/pathUtils';
@@ -57,16 +57,19 @@ class Server extends LanguageServerBase {
         return serverSettings;
     }
 
-    protected executeCommand(cmdParams: ExecuteCommandParams): Promise<any> {
-        return this._controller.execute(cmdParams);
+    protected executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any> {
+        return this._controller.execute(params, token);
     }
 
-    protected async executeCodeAction(params: CodeActionParams): Promise<(Command | CodeAction)[] | undefined | null> {
+    protected async executeCodeAction(
+        params: CodeActionParams,
+        token: CancellationToken
+    ): Promise<(Command | CodeAction)[] | undefined | null> {
         this.recordUserInteractionTime();
 
         const filePath = convertUriToPath(params.textDocument.uri);
         const workspace = this.getWorkspaceForFile(filePath);
-        return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range);
+        return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range, token);
     }
 }
 

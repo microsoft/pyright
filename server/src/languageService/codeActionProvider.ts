@@ -4,15 +4,23 @@
  * Licensed under the MIT license.
  */
 
-import { CodeAction, CodeActionKind, Command } from 'vscode-languageserver';
+import { CancellationToken, CodeAction, CodeActionKind, Command } from 'vscode-languageserver';
 
 import { Commands } from '../commands/commands';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { AddMissingOptionalToParamAction, CreateTypeStubFileAction } from '../common/diagnostic';
 import { Range } from '../common/textRange';
 import { WorkspaceServiceInstance } from '../languageServerBase';
 
 export class CodeActionProvider {
-    static getCodeActionsForPosition(workspace: WorkspaceServiceInstance, filePath: string, range: Range) {
+    static getCodeActionsForPosition(
+        workspace: WorkspaceServiceInstance,
+        filePath: string,
+        range: Range,
+        token: CancellationToken
+    ) {
+        throwIfCancellationRequested(token);
+
         const sortImportsCodeAction = CodeAction.create(
             'Organize Imports',
             Command.create('Organize Imports', Commands.orderImports),
