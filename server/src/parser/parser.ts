@@ -1555,6 +1555,8 @@ export class Parser {
     }
 
     private _makeExpressionOrTuple(exprListResult: ExpressionListResult): ExpressionNode {
+        // A single-element tuple with no trailing comma is simply an expression
+        // that's surrounded by parens.
         if (exprListResult.list.length === 1 && !exprListResult.trailingComma) {
             return exprListResult.list[0];
         }
@@ -2023,17 +2025,12 @@ export class Parser {
                     this._isParsingTypeAnnotation = false;
                 }
                 this._isParsingIndexTrailer = true;
-                const indexExpr = this._parseSubscriptList();
+                const indexExpressions = this._parseSubscriptList();
                 this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
                 this._isParsingIndexTrailer = wasParsingIndexTrailer;
 
-                let expressions = [indexExpr];
-                if (indexExpr.nodeType === ParseNodeType.Tuple) {
-                    expressions = indexExpr.expressions;
-                }
-
                 const closingToken = this._peekToken();
-                const indexItemsNode = IndexItemsNode.create(nextToken, closingToken, expressions);
+                const indexItemsNode = IndexItemsNode.create(nextToken, closingToken, indexExpressions);
                 const indexNode = IndexNode.create(atomExpression, indexItemsNode);
                 extendRange(indexNode, indexNode);
 
@@ -2070,7 +2067,7 @@ export class Parser {
     }
 
     // subscriptlist: subscript (',' subscript)* [',']
-    private _parseSubscriptList(): ExpressionNode {
+    private _parseSubscriptList(): ExpressionNode[] {
         const listResult = this._parseExpressionListGeneric(
             () => this._parseSubscript(),
             () => {
@@ -2084,17 +2081,19 @@ export class Parser {
         );
 
         if (listResult.parseError) {
-            return listResult.parseError;
+            return [listResult.parseError];
         }
 
         if (listResult.list.length === 0) {
-            return this._handleExpressionParseError(
-                ErrorExpressionCategory.MissingIndexOrSlice,
-                'Expected index or slice expression'
-            );
+            return [
+                this._handleExpressionParseError(
+                    ErrorExpressionCategory.MissingIndexOrSlice,
+                    'Expected index or slice expression'
+                )
+            ];
         }
 
-        return this._makeExpressionOrTuple(listResult);
+        return listResult.list;
     }
 
     // subscript: test | [test] ':' [test] [sliceop]
