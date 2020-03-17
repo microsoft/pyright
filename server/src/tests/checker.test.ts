@@ -856,6 +856,12 @@ test('NewType1', () => {
     validateResults(analysisResults, 1);
 });
 
+test('NewType2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType2.py']);
+
+    validateResults(analysisResults, 3);
+});
+
 test('UnnecessaryIsInstance1', () => {
     const configOptions = new ConfigOptions('.');
 

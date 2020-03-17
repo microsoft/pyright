@@ -3477,11 +3477,17 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                     if (className === 'type') {
                         // Handle the 'type' call specially.
-                        if (argList.length >= 1) {
+                        if (argList.length === 1) {
+                            // The one-parameter form of "type" returns the class
+                            // for the specified object.
                             const argType = getTypeForArgument(argList[0]);
                             if (argType.category === TypeCategory.Object) {
                                 type = argType.classType;
                             }
+                        } else if (argList.length >= 2) {
+                            // The two-parameter form of "type" returns a new class type
+                            // built from the specified base types.
+                            type = createType(errorNode, argList);
                         }
 
                         // If the parameter to type() is not statically known,
@@ -4586,7 +4592,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return classType;
     }
 
-    // Implemented the semantics of the NewType call as documented
+    // Implements the semantics of the NewType call as documented
     // in the Python specification: The static type checker will treat
     // the new type as if it were a subclass of the original type.
     function createNewType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
@@ -4614,6 +4620,44 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return undefined;
+    }
+
+    // Implements the semantics of the multi-parameter variant of the "type" call.
+    function createType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
+        const arg0Type = getTypeForArgument(argList[0]);
+        if (arg0Type.category !== TypeCategory.Object || !ClassType.isBuiltIn(arg0Type.classType, 'str')) {
+            addError('Expected name of type as first argument', argList[0].valueExpression || errorNode);
+            return undefined;
+        }
+        const className = (arg0Type.literalValue as string) || '_';
+
+        const arg1Type = getTypeForArgument(argList[1]);
+        if (
+            arg1Type.category !== TypeCategory.Object ||
+            !ClassType.isBuiltIn(arg1Type.classType, 'Tuple') ||
+            arg1Type.classType.typeArguments === undefined
+        ) {
+            addError('Expected tuple of base class types as second argument', argList[1].valueExpression || errorNode);
+            return undefined;
+        }
+
+        const classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
+        arg1Type.classType.typeArguments.forEach(baseClass => {
+            if (baseClass.category === TypeCategory.Class || isAnyOrUnknown(baseClass)) {
+                classType.details.baseClasses.push(baseClass);
+            } else {
+                addError(
+                    `Expected class type but received ${printType(baseClass)}`,
+                    argList[1].valueExpression || errorNode
+                );
+            }
+        });
+
+        if (!computeMroLinearization(classType)) {
+            addError('Cannot create consistent method ordering', errorNode);
+        }
+
+        return classType;
     }
 
     // Creates a new custom TypedDict factory class.
