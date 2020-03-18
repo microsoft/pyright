@@ -994,7 +994,7 @@ export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     }
 
     if (type.category === TypeCategory.Class) {
-        if (type.typeArguments && !allowUnknownTypeArgsForClasses) {
+        if (type.typeArguments && !allowUnknownTypeArgsForClasses && !ClassType.isPseudoGenericClass(type)) {
             for (const argType of type.typeArguments) {
                 if (containsUnknown(argType, allowUnknownTypeArgsForClasses, recursionCount + 1)) {
                     return true;

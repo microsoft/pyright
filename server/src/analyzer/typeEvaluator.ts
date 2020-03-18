@@ -2992,7 +2992,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const type = doForSubtypes(baseType, subtype => {
             if (subtype.category === TypeCategory.TypeVar) {
-                subtype = specializeType(baseType, undefined);
+                subtype = specializeType(subtype, undefined);
             }
 
             if (isAnyOrUnknown(subtype)) {
@@ -5860,8 +5860,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 assignTypeToExpression(targetExpr, itemType, comprehension.iterableExpression);
             } else {
                 assert(comprehension.nodeType === ParseNodeType.ListComprehensionIf);
-                // Evaluate the test expression
-                getTypeOfExpression(comprehension.testExpression);
+
+                // Evaluate the test expression to validate it and mark symbols
+                // as referenced. Don't bother doing this if we're in speculative
+                // mode because it doesn't affect the element type.
+                if (!isSpeculativeMode()) {
+                    getTypeOfExpression(comprehension.testExpression);
+                }
             }
         }
 
@@ -6641,6 +6646,36 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
+        // Determine if the class should be a "pseudo-generic" class, characterized
+        // by having an __init__ method with parameters that lack type annotations.
+        // For such classes, we'll treat them as generic, with the type arguments provided
+        // by the callers of the constructor.
+        if (!fileInfo.isStubFile && classType.details.typeParameters.length === 0) {
+            const initMethod = classType.details.fields.get('__init__');
+            if (initMethod) {
+                const initDecls = initMethod.getTypedDeclarations();
+                if (initDecls.length === 1 && initDecls[0].type === DeclarationType.Function) {
+                    const initDeclNode = initDecls[0].node;
+                    const initParams = initDeclNode.parameters;
+                    if (initParams.length > 1 && !initParams.some(param => param.typeAnnotation)) {
+                        const genericParams = initParams.filter(
+                            (param, index) => index > 0 && param.name && param.category === ParameterCategory.Simple
+                        );
+
+                        if (genericParams.length > 0) {
+                            classType.details.flags |= ClassTypeFlags.PseudoGenericClass;
+
+                            // Create a type parameter for each simple, named parameter
+                            // in the __init__ method.
+                            classType.details.typeParameters = genericParams.map(param =>
+                                TypeVarType.create(`__type_of_${param.name!.value}`)
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
         // Now determine the decorated type of the class.
         decoratedType = classType;
         let foundUnknown = false;
@@ -6800,6 +6835,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         writeTypeCache(node, functionType);
         writeTypeCache(node.name, functionType);
 
+        // Is this an "__init__" method within a pseudo-generic class? If so,
+        // we'll add generic types to the constructor's parameters.
+        const addGenericParamTypes =
+            containingClassType &&
+            ClassType.isPseudoGenericClass(containingClassType) &&
+            node.name.value === '__init__';
+
         // If there was a defined return type, analyze that first so when we
         // walk the contents of the function, return statements can be
         // validated against this type.
@@ -6809,8 +6851,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         const paramTypes: Type[] = [];
+        let typeParamIndex = 0;
 
-        node.parameters.forEach(param => {
+        node.parameters.forEach((param, index) => {
             let paramType: Type | undefined;
             let annotatedType: Type | undefined;
             let concreteAnnotatedType: Type | undefined;
@@ -6818,7 +6861,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             if (param.typeAnnotation) {
                 annotatedType = getTypeOfAnnotation(param.typeAnnotation);
+            } else if (addGenericParamTypes) {
+                if (index > 0 && param.category === ParameterCategory.Simple && param.name) {
+                    annotatedType = containingClassType!.details.typeParameters[typeParamIndex];
+                    typeParamIndex++;
+                }
+            }
 
+            if (annotatedType) {
                 // PEP 484 indicates that if a parameter has a default value of 'None'
                 // the type checker should assume that the type is optional (i.e. a union
                 // of the specified type and 'None').
@@ -6844,7 +6894,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 ).type;
             }
 
-            if (param.typeAnnotation && annotatedType) {
+            if (annotatedType) {
                 // If there was both a type annotation and a default value, verify
                 // that the default value matches the annotation.
                 if (param.defaultValue && defaultValueType && concreteAnnotatedType) {
@@ -6858,7 +6908,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             param.defaultValue
                         );
 
-                        if (isNoneWithoutOptional) {
+                        if (isNoneWithoutOptional && param.typeAnnotation) {
                             const addOptionalAction: AddMissingOptionalToParamAction = {
                                 action: Commands.addMissingOptionalToParam,
                                 offsetOfTypeNode: param.typeAnnotation.start + 1
@@ -7597,6 +7647,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const enterMethodName = isAsync ? '__aenter__' : '__enter__';
         const scopedType = doForSubtypes(exprType, subtype => {
+            if (subtype.category === TypeCategory.TypeVar) {
+                subtype = specializeType(subtype, undefined);
+            }
+
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
@@ -7767,8 +7821,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             );
         }
 
-        // Scan up the parse tree until we find a non-expression, looking for
-        // contextual expressions in the process.
+        // Scan up the parse tree until we find a non-expression (while
+        // looking for contextual expressions in the process).
         while (curNode && (isExpressionNode(curNode) || isContextual(curNode))) {
             if (isContextual(curNode)) {
                 lastContextualExpression = curNode as ExpressionNode;
@@ -9708,9 +9762,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         paramType = getTypeOfExpression(param.defaultValue).type;
                         allArgTypesAreUnknown = false;
                     } else if (index === 0) {
+                        // If this is an instance or class method, use the implied
+                        // parameter type for the "self" or "cls" parameter.
                         if (
                             FunctionType.isInstanceMethod(functionType.functionType) ||
-                            FunctionType.isInstanceMethod(functionType.functionType)
+                            FunctionType.isClassMethod(functionType.functionType)
                         ) {
                             if (functionType.functionType.details.parameters.length > 0) {
                                 if (functionNode.parameters[0].name) {

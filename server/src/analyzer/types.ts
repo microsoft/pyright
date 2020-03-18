@@ -203,7 +203,12 @@ export const enum ClassTypeFlags {
     Final = 1 << 10,
 
     // The class derives directly from "Protocol".
-    ProtocolClass = 1 << 11
+    ProtocolClass = 1 << 11,
+
+    // A class whose constructor (__init__ method) does not have
+    // annotated types and is treated as though each parameter
+    // is a generic type for purposes of type inference.
+    PseudoGenericClass = 1 << 12
 }
 
 interface ClassDetails {
@@ -336,6 +341,10 @@ export namespace ClassType {
 
     export function isProtocolClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.ProtocolClass);
+    }
+
+    export function isPseudoGenericClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.PseudoGenericClass);
     }
 
     export function getDataClassEntries(classType: ClassType): DataClassEntry[] {
