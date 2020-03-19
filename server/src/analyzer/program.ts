@@ -22,6 +22,7 @@ import { assert } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
+import { LanguageServiceExtension } from '../common/extensibility';
 import {
     combinePaths,
     getDirectoryPath,
@@ -95,7 +96,8 @@ export class Program {
     constructor(
         initialImportResolver: ImportResolver,
         initialConfigOptions: ConfigOptions,
-        console?: ConsoleInterface
+        console?: ConsoleInterface,
+        private _extension?: LanguageServiceExtension
     ) {
         this._console = console || new StandardConsole();
         this._evaluator = createTypeEvaluator(this._lookUpImport);
@@ -840,7 +842,7 @@ export class Program {
 
         this._bindFile(sourceFileInfo, token);
 
-        return sourceFileInfo.sourceFile.getCompletionsForPosition(
+        let completionList = sourceFileInfo.sourceFile.getCompletionsForPosition(
             position,
             workspacePath,
             this._configOptions,
@@ -850,6 +852,20 @@ export class Program {
             () => this._buildModuleSymbolsMap(sourceFileInfo),
             token
         );
+
+        if (completionList && this._extension?.completionListExtension) {
+            const tree = sourceFileInfo.sourceFile.getParseResults()?.parseTree;
+            if (tree) {
+                completionList = this._extension.completionListExtension.updateCompletionList(
+                    completionList,
+                    tree,
+                    position,
+                    this._configOptions
+                );
+            }
+        }
+
+        return completionList;
     }
 
     resolveCompletionItem(filePath: string, completionItem: CompletionItem, token: CancellationToken) {

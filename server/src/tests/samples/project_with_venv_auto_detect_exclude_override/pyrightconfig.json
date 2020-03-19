@@ -1,0 +1,4 @@
+{
+    "exclude": ["excluded"],
+    "autoExcludeVenv": true
+}

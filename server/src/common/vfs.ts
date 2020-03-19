@@ -50,6 +50,11 @@ export interface VirtualFileSystem {
     unlinkSync(path: string): void;
     realpathSync(path: string): string;
     getModulePath(): string;
+    createLowLevelFileSystemWatcher(
+        paths: string[],
+        recursive?: boolean,
+        listener?: (event: string, filename: string) => void
+    ): FileWatcher;
     createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher;
 }
 
@@ -63,6 +68,14 @@ export function createFromRealFileSystem(console?: ConsoleInterface): VirtualFil
 
 const _isMacintosh = process.platform === 'darwin';
 const _isLinux = process.platform === 'linux';
+
+class LowLevelWatcher implements FileWatcher {
+    constructor(private paths: string[]) {}
+
+    close(): void {
+        this.paths.forEach(p => fs.unwatchFile(p));
+    }
+}
 
 class FileSystem implements VirtualFileSystem {
     constructor(private _console: ConsoleInterface) {}
@@ -103,6 +116,18 @@ class FileSystem implements VirtualFileSystem {
         // global variable to point to the directory that contains the
         // typeshed-fallback directory.
         return (global as any).__rootDirectory;
+    }
+
+    createLowLevelFileSystemWatcher(
+        paths: string[],
+        recursive?: boolean,
+        listener?: (event: string, filename: string) => void
+    ): FileWatcher {
+        paths.forEach(p => {
+            fs.watch(p, { recursive: recursive }, listener);
+        });
+
+        return new LowLevelWatcher(paths);
     }
 
     createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher {

@@ -21,8 +21,11 @@ export class CommandLineOptions {
     // are included.
     fileSpecs: string[] = [];
 
-    // Watch for changes?
-    watch?: boolean;
+    // Watch for changes in workspace source files.
+    watchForSourceChanges?: boolean;
+
+    // Watch for changes in environment library/search paths.
+    watchForLibraryChanges?: boolean;
 
     // Path of config file. This option cannot be combined with
     // file specs.

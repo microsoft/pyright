@@ -342,6 +342,11 @@ export class ConfigOptions {
     // within those directories are included.
     exclude: FileSpec[] = [];
 
+    // Automatically detect virtual environment folders and exclude them.
+    // If undefined, this defaults to false if the user has specified any
+    // directory in the exclude field, otherwise it defaults to true.
+    autoExcludeVenv?: boolean;
+
     // A list of file specs whose errors and warnings should be ignored even
     // if they are included in the transitive closure of included files.
     ignore: FileSpec[] = [];
@@ -462,6 +467,15 @@ export class ConfigOptions {
                         this.exclude.push(getFileSpec(this.projectRoot, fileSpec));
                     }
                 });
+            }
+        }
+
+        // Read the "autoExcludeVenv" setting.
+        if (configObj.autoExcludeVenv !== undefined) {
+            if (typeof configObj.autoExcludeVenv !== 'boolean') {
+                console.log(`Config "autoExcludeVenv" field must be true or false.`);
+            } else {
+                this.autoExcludeVenv = configObj.autoExcludeVenv;
             }
         }
 
