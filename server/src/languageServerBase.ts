@@ -38,6 +38,7 @@ import { AnalysisResults, AnalyzerService } from './analyzer/service';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface } from './common/console';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
+import { LanguageServiceExtension } from './common/extensibility';
 import { convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { Position } from './common/textRange';
 import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
@@ -45,7 +46,6 @@ import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecut
 import { CompletionItemData } from './languageService/completionProvider';
 import { convertHoverResults } from './languageService/hoverProvider';
 import { WorkspaceMap } from './workspaceMap';
-import { LanguageServiceExtension } from './common/extensibility';
 
 export interface ServerSettings {
     venvPath?: string;

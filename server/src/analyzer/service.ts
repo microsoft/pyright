@@ -23,6 +23,7 @@ import { assert } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
+import { LanguageServiceExtension } from '../common/extensibility';
 import {
     combinePaths,
     FileSpec,
@@ -43,7 +44,6 @@ import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
 import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths, getPythonPathFromPythonInterpreter } from './pythonPathUtils';
-import { LanguageServiceExtension } from '../common/extensibility';
 
 export { MaxAnalysisTime } from './program';
 

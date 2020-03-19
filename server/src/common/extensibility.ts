@@ -8,6 +8,7 @@
 */
 
 import { CompletionList, Position } from 'vscode-languageserver';
+
 import { ModuleNode } from '../parser/parseNodes';
 import { ConfigOptions } from './configOptions';
 
