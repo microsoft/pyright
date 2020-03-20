@@ -39,12 +39,13 @@ function GetCommandLineOptions(
     const commandLineOptions = new CommandLineOptions(workspaceRootPath, true);
     commandLineOptions.checkOnlyOpenFiles = serverSettings.openFilesOnly;
     commandLineOptions.useLibraryCodeForTypes = serverSettings.useLibraryCodeForTypes;
+    commandLineOptions.watchForLibraryChanges = serverSettings.watchForLibraryChanges;
 
     // Disable watching of source files in the VS Code extension if we're
     // analyzing only open files. The file system watcher code has caused
     // lots of problems across multiple platforms. It provides little or
     // no benefit when we're in "openFilesOnly" mode.
-    commandLineOptions.watch = !commandLineOptions.checkOnlyOpenFiles;
+    commandLineOptions.watchForSourceChanges = !commandLineOptions.checkOnlyOpenFiles;
 
     if (serverSettings.venvPath) {
         commandLineOptions.venvPath = combinePaths(
