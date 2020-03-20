@@ -887,16 +887,20 @@ export interface TypeVarType extends TypeBase {
     boundType?: Type;
     isCovariant: boolean;
     isContravariant: boolean;
+
+    // Internally created (e.g. for pseudo-generic classes)
+    isSynthesized: boolean;
 }
 
 export namespace TypeVarType {
-    export function create(name: string) {
+    export function create(name: string, isSynthesized = false) {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
             name,
             constraints: [],
             isCovariant: false,
-            isContravariant: false
+            isContravariant: false,
+            isSynthesized
         };
         return newTypeVarType;
     }

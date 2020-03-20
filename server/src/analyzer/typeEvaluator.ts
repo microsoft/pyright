@@ -6668,7 +6668,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             // Create a type parameter for each simple, named parameter
                             // in the __init__ method.
                             classType.details.typeParameters = genericParams.map(param =>
-                                TypeVarType.create(`__type_of_${param.name!.value}`)
+                                TypeVarType.create(`__type_of_${param.name!.value}`, true)
                             );
                         }
                     }
@@ -11374,35 +11374,39 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function printObjectTypeForClass(type: ClassType, recursionCount = 0): string {
         let objName = type.details.name;
 
-        // If there is a type arguments array, it's a specialized class.
-        if (type.typeArguments) {
-            // Handle Tuple[()] as a special case.
-            if (type.typeArguments.length > 0) {
-                objName +=
-                    '[' +
-                    type.typeArguments
-                        .map(typeArg => {
-                            return printType(typeArg, recursionCount + 1);
-                        })
-                        .join(', ') +
-                    ']';
-            } else {
-                if (ClassType.isBuiltIn(type, 'Tuple')) {
-                    objName += '[()]';
+        // If this is a pseudo-generic class, don't display the type arguments
+        // or type parameters because it will confuse users.
+        if (!ClassType.isPseudoGenericClass(type)) {
+            // If there is a type arguments array, it's a specialized class.
+            if (type.typeArguments) {
+                // Handle Tuple[()] as a special case.
+                if (type.typeArguments.length > 0) {
+                    objName +=
+                        '[' +
+                        type.typeArguments
+                            .map(typeArg => {
+                                return printType(typeArg, recursionCount + 1);
+                            })
+                            .join(', ') +
+                        ']';
+                } else {
+                    if (ClassType.isBuiltIn(type, 'Tuple')) {
+                        objName += '[()]';
+                    }
                 }
-            }
-        } else {
-            const typeParams = ClassType.getTypeParameters(type);
+            } else {
+                const typeParams = ClassType.getTypeParameters(type);
 
-            if (typeParams.length > 0) {
-                objName +=
-                    '[' +
-                    typeParams
-                        .map(typeArg => {
-                            return printType(typeArg, recursionCount + 1);
-                        })
-                        .join(', ') +
-                    ']';
+                if (typeParams.length > 0) {
+                    objName +=
+                        '[' +
+                        typeParams
+                            .map(typeArg => {
+                                return printType(typeArg, recursionCount + 1);
+                            })
+                            .join(', ') +
+                        ']';
+                }
             }
         }
 
@@ -11547,8 +11551,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case TypeCategory.TypeVar: {
-                const typeVarType = type;
-                const typeName = typeVarType.name;
+                // If it's synthesized, don't expose the internal
+                // name we generated. This will confuse users.
+                if (type.isSynthesized) {
+                    return 'Unknown';
+                }
+
+                const typeName = type.name;
 
                 // Print the name in a simplified form if it's embedded
                 // inside another type string.
@@ -11556,7 +11565,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     return typeName;
                 }
                 const params: string[] = [`'${typeName}'`];
-                for (const constraint of typeVarType.constraints) {
+                for (const constraint of type.constraints) {
                     params.push(printType(constraint, recursionCount + 1));
                 }
                 return 'TypeVar[' + params.join(', ') + ']';
