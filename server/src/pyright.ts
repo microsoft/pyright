@@ -162,7 +162,7 @@ function processArgs() {
     options.useLibraryCodeForTypes = !!args.lib;
 
     const watch = args.watch !== undefined;
-    options.watch = watch;
+    options.watchForSourceChanges = watch;
 
     const output = args.outputjson ? new NullConsole() : undefined;
     const service = new AnalyzerService('<default>', createFromRealFileSystem(output), output);

@@ -13,6 +13,7 @@ import { ConfigOptions } from '../common/configOptions';
 import * as pathConsts from '../common/pathConsts';
 import {
     combinePaths,
+    containsPath,
     ensureTrailingDirectorySeparator,
     getDirectoryPath,
     getFileSystemEntries,
@@ -21,7 +22,7 @@ import {
 } from '../common/pathUtils';
 import { VirtualFileSystem } from '../common/vfs';
 
-const cachedSearchPaths = new Map<string, string[]>();
+const cachedSearchPaths = new Map<string, PythonPathResult>();
 
 export function getTypeShedFallbackPath(fs: VirtualFileSystem) {
     let moduleDirectory = fs.getModulePath();
@@ -54,7 +55,9 @@ export function findPythonSearchPaths(
     fs: VirtualFileSystem,
     configOptions: ConfigOptions,
     venv: string | undefined,
-    importFailureInfo: string[]
+    importFailureInfo: string[],
+    includeWatchPathsOnly?: boolean | undefined,
+    workspaceRoot?: string | undefined
 ): string[] | undefined {
     importFailureInfo.push('Finding python search paths');
 
@@ -114,14 +117,28 @@ export function findPythonSearchPaths(
     }
 
     // Fall back on the python interpreter.
-    return getPythonPathFromPythonInterpreter(fs, configOptions.pythonPath, importFailureInfo);
+    const pathResult = getPythonPathFromPythonInterpreter(fs, configOptions.pythonPath, importFailureInfo);
+    if (includeWatchPathsOnly && workspaceRoot) {
+        const paths = pathResult.paths.filter(
+            p => !containsPath(workspaceRoot, p, true) || containsPath(pathResult.prefix, p, true)
+        );
+
+        return paths;
+    }
+
+    return pathResult.paths;
+}
+
+interface PythonPathResult {
+    paths: string[];
+    prefix: string;
 }
 
 export function getPythonPathFromPythonInterpreter(
     fs: VirtualFileSystem,
     interpreterPath: string | undefined,
     importFailureInfo: string[]
-): string[] {
+): PythonPathResult {
     const searchKey = interpreterPath || '';
 
     // If we've seen this request before, return the cached results.
@@ -130,7 +147,10 @@ export function getPythonPathFromPythonInterpreter(
         return cachedPath;
     }
 
-    let pythonPaths: string[] = [];
+    const result: PythonPathResult = {
+        paths: [],
+        prefix: ''
+    };
 
     try {
         // Set the working directory to a known location within
@@ -141,7 +161,10 @@ export function getPythonPathFromPythonInterpreter(
             fs.chdir(moduleDirectory);
         }
 
-        const commandLineArgs: string[] = ['-c', 'import sys, json; json.dump(sys.path, sys.stdout)'];
+        const commandLineArgs: string[] = [
+            '-c',
+            'import sys, json; json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)'
+        ];
         let execOutput: string;
 
         if (interpreterPath) {
@@ -154,22 +177,24 @@ export function getPythonPathFromPythonInterpreter(
 
         // Parse the execOutput. It should be a JSON-encoded array of paths.
         try {
-            const execSplit: string[] = JSON.parse(execOutput);
-            for (let execSplitEntry of execSplit) {
+            const execSplit = JSON.parse(execOutput);
+            for (let execSplitEntry of execSplit.path) {
                 execSplitEntry = execSplitEntry.trim();
                 if (execSplitEntry) {
                     const normalizedPath = normalizePath(execSplitEntry);
                     // Make sure the path exists and is a directory. We don't currently
                     // support zip files and other formats.
                     if (fs.existsSync(normalizedPath) && isDirectory(fs, normalizedPath)) {
-                        pythonPaths.push(normalizedPath);
+                        result.paths.push(normalizedPath);
                     } else {
                         importFailureInfo.push(`Skipping '${normalizedPath}' because it is not a valid directory`);
                     }
                 }
             }
 
-            if (pythonPaths.length === 0) {
+            result.prefix = execSplit.prefix;
+
+            if (result.paths.length === 0) {
                 importFailureInfo.push(`Found no valid directories`);
             }
         } catch (err) {
@@ -177,13 +202,14 @@ export function getPythonPathFromPythonInterpreter(
             throw err;
         }
     } catch {
-        pythonPaths = [];
+        result.paths = [];
+        result.prefix = '';
     }
 
-    cachedSearchPaths.set(searchKey, pythonPaths);
-    importFailureInfo.push(`Received ${pythonPaths.length} paths from interpreter`);
-    pythonPaths.forEach(path => {
+    cachedSearchPaths.set(searchKey, result);
+    importFailureInfo.push(`Received ${result.paths.length} paths from interpreter`);
+    result.paths.forEach(path => {
         importFailureInfo.push(`  ${path}`);
     });
-    return pythonPaths;
+    return result;
 }

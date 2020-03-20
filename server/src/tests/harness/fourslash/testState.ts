@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 import Char from 'typescript-char';
-import { CancellationToken, Command, Diagnostic, MarkupContent } from 'vscode-languageserver';
+import { CancellationToken, Command, Diagnostic, MarkupContent, TextEdit } from 'vscode-languageserver';
 
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { Program } from '../../../analyzer/program';
@@ -328,8 +328,7 @@ export class TestState {
         fileToOpen.fileName = normalizeSlashes(fileToOpen.fileName);
         this.activeFile = fileToOpen;
 
-        // Let the host know that this file is now open
-        // this.languageServiceAdapterHost.openFile(fileToOpen.fileName, content);
+        this.program.setFileOpened(this.activeFile.fileName, 1, fileToOpen.content);
     }
 
     printCurrentFileState(showWhitespace: boolean, makeCaretVisible: boolean) {
@@ -561,8 +560,24 @@ export class TestState {
         this._analyze();
 
         const controller = new CommandController(new TestLanguageService(this.workspace, this.console, this.fs));
-        await controller.execute({ command: command.command, arguments: command.arguments }, CancellationToken.None);
-        await this._verifyFiles(files);
+        const commandResult = await controller.execute(
+            { command: command.command, arguments: command.arguments },
+            CancellationToken.None
+        );
+
+        if (command.command === 'pyright.createtypestub') {
+            await this._verifyFiles(files);
+        } else if (command.command === 'pyright.organizeimports') {
+            //organize imports command can only be used on 1 file at a time, so there is no looping over "commandResult" or "files"
+            const actualText = (commandResult as TextEdit[])[0].newText;
+            const expectedText: string = Object.values(files)[0];
+
+            if (actualText != expectedText) {
+                this._raiseError(
+                    `doesn't contain expected result: ${stringify(expectedText)}, actual: ${stringify(actualText)}`
+                );
+            }
+        }
 
         this.markTestDone();
     }

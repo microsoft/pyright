@@ -342,6 +342,14 @@ export class ConfigOptions {
     // within those directories are included.
     exclude: FileSpec[] = [];
 
+    // Automatically detect virtual environment folders and exclude them.
+    // This property is for internal use and not exposed externally
+    // as a config setting.
+    // It is used to store whether the user has specified directories in
+    // the exclude setting, which is later modified to include a default set.
+    // This setting is true when user has not specified any exclude.
+    autoExcludeVenv?: boolean;
+
     // A list of file specs whose errors and warnings should be ignored even
     // if they are included in the transitive closure of included files.
     ignore: FileSpec[] = [];

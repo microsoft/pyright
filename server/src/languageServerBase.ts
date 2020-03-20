@@ -38,6 +38,7 @@ import { AnalysisResults, AnalyzerService } from './analyzer/service';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface } from './common/console';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
+import { LanguageServiceExtension } from './common/extensibility';
 import { convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { Position } from './common/textRange';
 import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
@@ -54,6 +55,7 @@ export interface ServerSettings {
     useLibraryCodeForTypes?: boolean;
     disableLanguageServices?: boolean;
     autoSearchPaths?: boolean;
+    watchForLibraryChanges?: boolean;
 }
 
 export interface WorkspaceServiceInstance {
@@ -96,7 +98,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     // File system abstraction.
     fs: VirtualFileSystem;
 
-    constructor(private _productName: string, rootDirectory: string) {
+    constructor(private _productName: string, rootDirectory: string, private _extension?: LanguageServiceExtension) {
         this._connection.console.log(`${_productName} language server starting`);
         // virtual file system to be used. initialized to real file system by default. but can't be overwritten
         this.fs = createFromRealFileSystem(this._connection.console);
@@ -149,7 +151,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     // program within a workspace.
     createAnalyzerService(name: string): AnalyzerService {
         this._connection.console.log(`Starting service instance "${name}"`);
-        const service = new AnalyzerService(name, this.fs, this._connection.console, this.createImportResolver);
+        const service = new AnalyzerService(
+            name,
+            this.fs,
+            this._connection.console,
+            this.createImportResolver.bind(this),
+            undefined,
+            this._extension
+        );
 
         // Don't allow the analysis engine to go too long without
         // reporting results. This will keep it responsive.
