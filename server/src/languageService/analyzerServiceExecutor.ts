@@ -18,7 +18,7 @@ export class AnalyzerServiceExecutor {
         serverSettings: ServerSettings,
         typeStubTargetImportName?: string
     ): void {
-        const commandLineOptions = GetCommandLineOptions(
+        const commandLineOptions = _getCommandLineOptions(
             languageServiceRootPath,
             workspace.rootPath,
             serverSettings,
@@ -30,7 +30,7 @@ export class AnalyzerServiceExecutor {
     }
 }
 
-function GetCommandLineOptions(
+function _getCommandLineOptions(
     languageServiceRootPath: string,
     workspaceRootPath: string,
     serverSettings: ServerSettings,
