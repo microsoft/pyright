@@ -552,6 +552,16 @@ export class Program {
             return false;
         }
 
+        // Don't bother checking third-party imports or typeshed files unless they're open.
+        if (
+            fileToCheck.isThirdPartyImport ||
+            (fileToCheck.isTypeshedFile && this._configOptions.diagnosticSettings.reportTypeshedErrors === 'none')
+        ) {
+            if (!fileToCheck.isOpenByClient) {
+                return false;
+            }
+        }
+
         if (this._configOptions.checkOnlyOpenFiles && !fileToCheck.isOpenByClient) {
             return false;
         }
@@ -694,7 +704,7 @@ export class Program {
         const fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
 
         this._sourceFileList.forEach(sourceFileInfo => {
-            if (!options.checkOnlyOpenFiles || sourceFileInfo.isOpenByClient) {
+            if (sourceFileInfo.isOpenByClient || (!options.checkOnlyOpenFiles && !sourceFileInfo.isThirdPartyImport)) {
                 const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
                     options,
                     sourceFileInfo.diagnosticsVersion
@@ -1148,7 +1158,7 @@ export class Program {
                     }
                 });
             } else if (options.verboseOutput) {
-                if (!sourceFileInfo.isTypeshedFile || options.diagnosticSettings.reportTypeshedErrors) {
+                if (!sourceFileInfo.isTypeshedFile || options.diagnosticSettings.reportTypeshedErrors !== 'none') {
                     this._console.log(
                         `Could not import '${importResult.importName}' ` +
                             `in file '${sourceFileInfo.sourceFile.getFilePath()}'`

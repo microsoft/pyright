@@ -9653,6 +9653,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
 
+        // Don't attempt to infer the return type for a stub file.
+        if (FunctionType.isStubDefinition(type)) {
+            return UnknownType.create();
+        }
+
         // If the return type has already been lazily evaluated,
         // don't bother computing it again.
         if (type.inferredReturnType) {
@@ -9660,9 +9665,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         } else {
             if (type.details.declaration) {
                 const functionNode = type.details.declaration.node;
-
-                // We should never get here if there is a type annotation.
-                assert(!functionNode.returnTypeAnnotation);
 
                 // Temporarily disable speculative mode while we
                 // lazily evaluate the return type.
