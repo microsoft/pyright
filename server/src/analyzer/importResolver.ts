@@ -356,7 +356,9 @@ export class ImportResolver {
             // We'll always try to use the shortest version.
             if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
                 moduleName = candidateModuleName;
-                importType = ImportType.ThirdParty;
+
+                // Treat the typings path as a local import so errors are reported for it.
+                importType = ImportType.Local;
             }
         }
 

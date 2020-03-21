@@ -55,7 +55,7 @@ export interface SourceFileInfo {
     isOpenByClient: boolean;
     isTypeshedFile: boolean;
     isThirdPartyImport: boolean;
-    diagnosticsVersion: number;
+    diagnosticsVersion?: number;
     imports: SourceFileInfo[];
     builtinsImport?: SourceFileInfo;
     importedBy: SourceFileInfo[];
@@ -218,6 +218,13 @@ export class Program {
             this._addToSourceFileListAndMap(sourceFileInfo);
         } else {
             sourceFileInfo.isOpenByClient = true;
+
+            if (this._configOptions.checkOnlyOpenFiles) {
+                // Reset the diagnostic version so we force an update
+                // to the diagnostics, which can change based on whether
+                // the file is open.
+                sourceFileInfo.diagnosticsVersion = undefined;
+            }
         }
 
         sourceFileInfo.sourceFile.setClientVersion(version, contents);
@@ -228,6 +235,13 @@ export class Program {
         if (sourceFileInfo) {
             sourceFileInfo.isOpenByClient = false;
             sourceFileInfo.sourceFile.setClientVersion(null, '');
+
+            if (this._configOptions.checkOnlyOpenFiles) {
+                // Reset the diagnostic version so we force an update
+                // to the diagnostics, which can change based on whether
+                // the file is open.
+                sourceFileInfo.diagnosticsVersion = undefined;
+            }
         }
 
         return this._removeUnneededFiles();
@@ -538,7 +552,7 @@ export class Program {
             return false;
         }
 
-        if (!fileToCheck.isTracked && !fileToCheck.isOpenByClient) {
+        if (this._configOptions.checkOnlyOpenFiles && !fileToCheck.isOpenByClient) {
             return false;
         }
 
@@ -680,7 +694,7 @@ export class Program {
         const fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
 
         this._sourceFileList.forEach(sourceFileInfo => {
-            if ((!options.checkOnlyOpenFiles && sourceFileInfo.isTracked) || sourceFileInfo.isOpenByClient) {
+            if (!options.checkOnlyOpenFiles || sourceFileInfo.isOpenByClient) {
                 const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
                     options,
                     sourceFileInfo.diagnosticsVersion
