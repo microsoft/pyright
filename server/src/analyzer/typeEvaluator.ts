@@ -10820,8 +10820,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     ): boolean {
         let canAssign = true;
 
-        const srcParamCount = srcType.details.parameters.length;
-        const destParamCount = destType.details.parameters.length;
+        // Count the number of parameters that have names. We'll exclude
+        // pseudo-parameters (* and /) that designate name-only and position-only
+        // separators.
+        const srcParamCount = srcType.details.parameters.filter(param => param.name).length;
+        const destParamCount = destType.details.parameters.filter(param => param.name).length;
         const minParamCount = Math.min(srcParamCount, destParamCount);
 
         // Match as many input parameters as we can.
@@ -10874,8 +10877,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const srcParams = srcType.details.parameters;
         const destParams = destType.details.parameters;
 
-        const srcHasVarArgs = srcParams.find(param => param.category !== ParameterCategory.Simple) !== undefined;
-        const destHasVarArgs = destParams.find(param => param.category !== ParameterCategory.Simple) !== undefined;
+        const srcHasVarArgs =
+            srcParams.find(param => param.name && param.category !== ParameterCategory.Simple) !== undefined;
+        const destHasVarArgs =
+            destParams.find(param => param.name && param.category !== ParameterCategory.Simple) !== undefined;
 
         if (checkNamedParams) {
             // Handle matching of named (keyword) parameters.
@@ -10946,7 +10951,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // with values. Plus, the number of source params must be enough to
         // accept all of the dest arguments.
         if (!srcHasVarArgs && !destHasVarArgs) {
-            const nonDefaultSrcParamCount = srcParams.filter(param => !param.hasDefault).length;
+            const nonDefaultSrcParamCount = srcParams.filter(param => !!param.name && !param.hasDefault).length;
 
             if (destParamCount < nonDefaultSrcParamCount) {
                 diag.addMessage(
