@@ -10211,6 +10211,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                 recursionCount + 1
                             )
                         ) {
+                            if (destTypeParam) {
+                                diag.addMessage(`Type variable '${destTypeParam.name}' is covariant`);
+                            }
                             return false;
                         }
                     } else if (destTypeParam.isContravariant) {
@@ -10224,6 +10227,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                 recursionCount + 1
                             )
                         ) {
+                            diag.addMessage(`Type variable '${destTypeParam.name}' is contravariant`);
                             return false;
                         }
                     } else {
@@ -10237,6 +10241,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                 recursionCount + 1
                             )
                         ) {
+                            diag.addMessage(`Type variable '${destTypeParam.name}' is invariant`);
                             return false;
                         }
                     }
