@@ -52,7 +52,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
         this._referencesResult = referencesResult;
         this._includeDeclaration = includeDeclaration;
         this._evaluator = evaluator;
-        this._cancellationToken;
+        this._cancellationToken = token;
     }
 
     findReferences() {
