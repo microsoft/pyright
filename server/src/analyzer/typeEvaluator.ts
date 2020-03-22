@@ -14,7 +14,10 @@
  * taken by the TypeScript compiler.
  */
 
+import { CancellationToken } from 'vscode-languageserver';
+
 import { Commands } from '../commands/commands';
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert, fail } from '../common/debug';
 import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
@@ -346,6 +349,8 @@ export interface CallResult {
 }
 
 export interface TypeEvaluator {
+    runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T;
+
     getType: (node: ExpressionNode) => Type | undefined;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
@@ -473,9 +478,26 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     const typeCache = new Map<number, CachedType>();
 
     let speculativeModeId = invalidSpeculativeModeId;
+    let cancellationToken: CancellationToken | undefined;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: Map<number, CachedType> | undefined;
+
+    function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T {
+        try {
+            cancellationToken = token;
+            return callback();
+        }
+        finally {
+            cancellationToken = undefined;
+        }
+    }
+
+    function checkForCancellation() {
+        if (cancellationToken) {
+            throwIfCancellationRequested(cancellationToken);
+        }
+    }
 
     function hasGrownTooLarge(): boolean {
         // We may need to discard the evaluator instance and its caches if they
@@ -632,6 +654,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getTypeOfExpression(node: ExpressionNode, expectedType?: Type, flags = EvaluatorFlags.None): TypeResult {
+        // This is a frequently-called routine, so it's a good place to call
+        // the cancellation check. If the operation is canceled, an exception
+        // will be thrown at this point.
+        checkForCancellation();
+
         // Is this type already cached?
         const cachedType = readTypeCache(node);
         if (cachedType) {
@@ -11642,6 +11669,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     return {
+        runWithCancellationToken,
         getType,
         getTypeOfClass,
         getTypeOfFunction,

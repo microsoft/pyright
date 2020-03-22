@@ -15,7 +15,7 @@ import {
     SymbolInformation
 } from 'vscode-languageserver';
 
-import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { OperationCanceledException } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, getDefaultDiagnosticSettings } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
@@ -536,6 +536,9 @@ export class SourceFile {
             const diagSink = new DiagnosticSink();
             diagSink.addError(`An internal error occurred while parsing file`, getEmptyRange());
             this._parseDiagnostics = diagSink.fetchAndClear();
+
+            // Do not rethrow the exception, swallow it here. Callers are not
+            // prepared to handle an exception.
         }
 
         this._analyzedFileContentsVersion = this._fileContentsVersion;
@@ -752,14 +755,7 @@ export class SourceFile {
         this._isCheckingNeeded = true;
     }
 
-    bind(
-        configOptions: ConfigOptions,
-        importLookup: ImportLookup,
-        builtinsScope: Scope | undefined,
-        token: CancellationToken
-    ) {
-        throwIfCancellationRequested(token);
-
+    bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope: Scope | undefined) {
         assert(!this.isParseRequired());
         assert(this.isBindingRequired());
         assert(!this._isBindingInProgress);
@@ -806,6 +802,9 @@ export class SourceFile {
             const diagSink = new DiagnosticSink();
             diagSink.addError(`An internal error occurred while performing name binding`, getEmptyRange());
             this._bindDiagnostics = diagSink.fetchAndClear();
+
+            // Do not rethrow the exception, swallow it here. Callers are not
+            // prepared to handle an exception.
         } finally {
             this._isBindingInProgress = false;
         }
@@ -833,26 +832,33 @@ export class SourceFile {
                 this._checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
             });
         } catch (e) {
-            const message: string =
-                (e.stack ? e.stack.toString() : undefined) ||
-                (typeof e.message === 'string' ? e.message : undefined) ||
-                JSON.stringify(e);
-            this._console.log(
-                `An internal error occurred while while performing type checking for ${this.getFilePath()}: ` + message
-            );
-            const diagSink = new DiagnosticSink();
-            diagSink.addError(`An internal error occurred while performing type checking`, getEmptyRange());
+            const isCancellation = e instanceof OperationCanceledException;
+            if (!isCancellation) {
+                const message: string =
+                    (e.stack ? e.stack.toString() : undefined) ||
+                    (typeof e.message === 'string' ? e.message : undefined) ||
+                    JSON.stringify(e);
+                this._console.log(
+                    `An internal error occurred while while performing type checking for ${this.getFilePath()}: ` +
+                        message
+                );
+                const diagSink = new DiagnosticSink();
+                diagSink.addError(`An internal error occurred while performing type checking`, getEmptyRange());
 
-            // Mark the file as complete so we don't get into an infinite loop.
-            this._isCheckingNeeded = false;
-            this._checkerDiagnostics = diagSink.fetchAndClear();
+                this._checkerDiagnostics = diagSink.fetchAndClear();
+
+                // Mark the file as complete so we don't get into an infinite loop.
+                this._isCheckingNeeded = false;
+            }
+
+            throw e;
+        } finally {
+            // Clear any circular dependencies associated with this file.
+            // These will be detected by the program module and associated
+            // with the source file right before it is finalized.
+            this._circularDependencies = [];
+            this._diagnosticVersion++;
         }
-
-        // Clear any circular dependencies associated with this file.
-        // These will be detected by the program module and associated
-        // with the source file right before it is finalized.
-        this._circularDependencies = [];
-        this._diagnosticVersion++;
     }
 
     private _buildFileInfo(

@@ -8,8 +8,14 @@
 
 import { CancellationToken, ErrorCodes, ResponseError } from 'vscode-languageserver';
 
+export class OperationCanceledException extends ResponseError<void> {
+    constructor() {
+        super(ErrorCodes.RequestCancelled, 'request cancelled');
+    }
+}
+
 export function throwIfCancellationRequested(token: CancellationToken) {
     if (token.isCancellationRequested) {
-        throw new ResponseError(ErrorCodes.RequestCancelled, 'request cancelled');
+        throw new OperationCanceledException();
     }
 }

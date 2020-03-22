@@ -7,6 +7,7 @@
 import { CancellationToken, ExecuteCommandParams } from 'vscode-languageserver';
 
 import { AnalyzerService } from '../analyzer/service';
+import { OperationCanceledException } from '../common/cancellationUtils';
 import { convertPathToUri } from '../common/pathUtils';
 import { LanguageServerInterface, WorkspaceServiceInstance } from '../languageServerBase';
 import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecutor';
@@ -41,13 +42,19 @@ export class CreateTypeStubCommand implements ServerCommand {
                         this._ls.window.showInformationMessage(infoMessage);
                         this._handlePostCreateTypeStub();
                     } catch (err) {
-                        let errMessage = '';
-                        if (err instanceof Error) {
-                            errMessage = ': ' + err.message;
+                        const isCancellation = err instanceof OperationCanceledException;
+                        if (isCancellation) {
+                            const errMessage = `Type stub creation for '${importName}' was canceled`;
+                            this._ls.console.error(errMessage);
+                        } else {
+                            let errMessage = '';
+                            if (err instanceof Error) {
+                                errMessage = ': ' + err.message;
+                            }
+                            errMessage = `An error occurred when creating type stub for '${importName}'` + errMessage;
+                            this._ls.console.error(errMessage);
+                            this._ls.window.showErrorMessage(errMessage);
                         }
-                        errMessage = `An error occurred when creating type stub for '${importName}'` + errMessage;
-                        this._ls.console.error(errMessage);
-                        this._ls.window.showErrorMessage(errMessage);
                     }
                 }
             });

@@ -16,6 +16,7 @@ import {
     SymbolInformation
 } from 'vscode-languageserver';
 
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
@@ -300,50 +301,54 @@ export class Program {
     // analysis. In interactive mode, the timeout is always limited
     // to the smaller value to maintain responsiveness.
     analyze(maxTime?: MaxAnalysisTime, interactiveMode?: boolean): boolean {
-        const elapsedTime = new Duration();
+        return this._runEvaluatorWithCancellationToken(undefined, () => {
+            const elapsedTime = new Duration();
 
-        const openFiles = this._sourceFileList.filter(sf => sf.isOpenByClient && sf.sourceFile.isCheckingRequired());
+            const openFiles = this._sourceFileList.filter(
+                sf => sf.isOpenByClient && sf.sourceFile.isCheckingRequired()
+            );
 
-        if (openFiles.length > 0) {
-            const effectiveMaxTime = maxTime ? maxTime.openFilesTimeInMs : Number.MAX_VALUE;
+            if (openFiles.length > 0) {
+                const effectiveMaxTime = maxTime ? maxTime.openFilesTimeInMs : Number.MAX_VALUE;
 
-            // Check the open files.
-            for (const sourceFileInfo of openFiles) {
-                if (this._checkTypes(sourceFileInfo, CancellationToken.None)) {
-                    if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
-                        return true;
+                // Check the open files.
+                for (const sourceFileInfo of openFiles) {
+                    if (this._checkTypes(sourceFileInfo)) {
+                        if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+                            return true;
+                        }
+                    }
+                }
+
+                // If the caller specified a maxTime, return at this point
+                // since we've finalized all open files. We want to get
+                // the results to the user as quickly as possible.
+                if (maxTime !== undefined) {
+                    return true;
+                }
+            }
+
+            if (!this._configOptions.checkOnlyOpenFiles) {
+                // Do type analysis of remaining files.
+                const allFiles = this._sourceFileList;
+                const effectiveMaxTime = maxTime
+                    ? interactiveMode
+                        ? maxTime.openFilesTimeInMs
+                        : maxTime.noOpenFilesTimeInMs
+                    : Number.MAX_VALUE;
+
+                // Now do type parsing and analysis of the remaining.
+                for (const sourceFileInfo of allFiles) {
+                    if (this._checkTypes(sourceFileInfo)) {
+                        if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
+                            return true;
+                        }
                     }
                 }
             }
 
-            // If the caller specified a maxTime, return at this point
-            // since we've finalized all open files. We want to get
-            // the results to the user as quickly as possible.
-            if (maxTime !== undefined) {
-                return true;
-            }
-        }
-
-        if (!this._configOptions.checkOnlyOpenFiles) {
-            // Do type analysis of remaining files.
-            const allFiles = this._sourceFileList;
-            const effectiveMaxTime = maxTime
-                ? interactiveMode
-                    ? maxTime.openFilesTimeInMs
-                    : maxTime.noOpenFilesTimeInMs
-                : Number.MAX_VALUE;
-
-            // Now do type parsing and analysis of the remaining.
-            for (const sourceFileInfo of allFiles) {
-                if (this._checkTypes(sourceFileInfo, CancellationToken.None)) {
-                    if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
+            return false;
+        });
     }
 
     // Prints import dependency information for each of the files in
@@ -408,6 +413,8 @@ export class Program {
         token: CancellationToken
     ) {
         for (const sourceFileInfo of this._sourceFileList) {
+            throwIfCancellationRequested(token);
+
             const filePath = sourceFileInfo.sourceFile.getFilePath();
 
             // Generate type stubs only for the files within the target path,
@@ -434,9 +441,12 @@ export class Program {
                     throw new Error(errMsg);
                 }
 
-                this._bindFile(sourceFileInfo, token);
-                const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile, this._evaluator);
-                writer.write();
+                this._bindFile(sourceFileInfo);
+
+                this._runEvaluatorWithCancellationToken(token, () => {
+                    const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile, this._evaluator);
+                    writer.write();
+                });
             }
         }
     }
@@ -473,7 +483,7 @@ export class Program {
 
     // Binds the specified file and all of its dependencies, recursively. If
     // it runs out of time, it returns true. If it completes, it returns false.
-    private _bindFile(fileToAnalyze: SourceFileInfo, token: CancellationToken): void {
+    private _bindFile(fileToAnalyze: SourceFileInfo): void {
         if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired()) {
             return;
         }
@@ -483,7 +493,7 @@ export class Program {
         // We need to parse and bind the builtins import first.
         let builtinsScope: Scope | undefined;
         if (fileToAnalyze.builtinsImport) {
-            this._bindFile(fileToAnalyze.builtinsImport, token);
+            this._bindFile(fileToAnalyze.builtinsImport);
 
             // Get the builtins scope to pass to the binding pass.
             const parseResults = fileToAnalyze.builtinsImport.sourceFile.getParseResults();
@@ -493,7 +503,7 @@ export class Program {
             }
         }
 
-        fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope, token);
+        fileToAnalyze.sourceFile.bind(this._configOptions, this._lookUpImport, builtinsScope);
     }
 
     private _lookUpImport = (filePath: string): ImportLookupResult | undefined => {
@@ -506,7 +516,7 @@ export class Program {
             // Bind the file if it's not already bound. Don't count this time
             // against the type checker.
             timingStats.typeCheckerTime.subtractFromTime(() => {
-                this._bindFile(sourceFileInfo, CancellationToken.None);
+                this._bindFile(sourceFileInfo);
             });
         }
 
@@ -540,7 +550,7 @@ export class Program {
         return moduleSymbolMap;
     }
 
-    private _checkTypes(fileToCheck: SourceFileInfo, token: CancellationToken) {
+    private _checkTypes(fileToCheck: SourceFileInfo) {
         // If the file isn't needed because it was eliminated from the
         // transitive closure or deleted, skip the file rather than wasting
         // time on it.
@@ -566,7 +576,7 @@ export class Program {
             return false;
         }
 
-        this._bindFile(fileToCheck, token);
+        this._bindFile(fileToCheck);
 
         // For very large programs, we may need to discard the evaluator and
         // its cached types to avoid running out of heap space.
@@ -746,14 +756,16 @@ export class Program {
         position: Position,
         token: CancellationToken
     ): DocumentRange[] | undefined {
-        const sourceFileInfo = this._sourceFileMap.get(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._sourceFileMap.get(filePath);
+            if (!sourceFileInfo) {
+                return undefined;
+            }
 
-        this._bindFile(sourceFileInfo, token);
+            this._bindFile(sourceFileInfo);
 
-        return sourceFileInfo.sourceFile.getDefinitionsForPosition(position, this._evaluator, token);
+            return sourceFileInfo.sourceFile.getDefinitionsForPosition(position, this._evaluator, token);
+        });
     }
 
     getReferencesForPosition(
@@ -762,75 +774,83 @@ export class Program {
         includeDeclaration: boolean,
         token: CancellationToken
     ): DocumentRange[] | undefined {
-        const sourceFileInfo = this._sourceFileMap.get(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._sourceFileMap.get(filePath);
+            if (!sourceFileInfo) {
+                return undefined;
+            }
 
-        this._bindFile(sourceFileInfo, token);
+            this._bindFile(sourceFileInfo);
 
-        const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
-            position,
-            includeDeclaration,
-            this._evaluator,
-            token
-        );
+            const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
+                position,
+                includeDeclaration,
+                this._evaluator,
+                token
+            );
 
-        if (!referencesResult) {
-            return undefined;
-        }
+            if (!referencesResult) {
+                return undefined;
+            }
 
-        // Do we need to do a global search as well?
-        if (referencesResult.requiresGlobalSearch) {
-            for (const curSourceFileInfo of this._sourceFileList) {
-                if (curSourceFileInfo !== sourceFileInfo) {
-                    this._bindFile(curSourceFileInfo, token);
+            // Do we need to do a global search as well?
+            if (referencesResult.requiresGlobalSearch) {
+                for (const curSourceFileInfo of this._sourceFileList) {
+                    if (curSourceFileInfo !== sourceFileInfo) {
+                        this._bindFile(curSourceFileInfo);
 
-                    curSourceFileInfo.sourceFile.addReferences(
-                        referencesResult,
-                        includeDeclaration,
-                        this._evaluator,
-                        token
-                    );
+                        curSourceFileInfo.sourceFile.addReferences(
+                            referencesResult,
+                            includeDeclaration,
+                            this._evaluator,
+                            token
+                        );
+                    }
                 }
             }
-        }
 
-        return referencesResult.locations;
+            return referencesResult.locations;
+        });
     }
 
     addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[], token: CancellationToken) {
-        const sourceFileInfo = this._sourceFileMap.get(filePath);
-        if (sourceFileInfo) {
-            this._bindFile(sourceFileInfo, token);
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._sourceFileMap.get(filePath);
+            if (sourceFileInfo) {
+                this._bindFile(sourceFileInfo);
 
-            sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(symbolList, this._evaluator, token);
-        }
+                sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(symbolList, this._evaluator, token);
+            }
+        });
     }
 
     addSymbolsForWorkspace(symbolList: SymbolInformation[], query: string, token: CancellationToken) {
-        // Don't do a search if the query is empty. We'll return
-        // too many results in this case.
-        if (!query) {
-            return;
-        }
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            // Don't do a search if the query is empty. We'll return
+            // too many results in this case.
+            if (!query) {
+                return;
+            }
 
-        for (const sourceFileInfo of this._sourceFileList) {
-            this._bindFile(sourceFileInfo, token);
+            for (const sourceFileInfo of this._sourceFileList) {
+                this._bindFile(sourceFileInfo);
 
-            sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator, query, token);
-        }
+                sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator, query, token);
+            }
+        });
     }
 
     getHoverForPosition(filePath: string, position: Position, token: CancellationToken): HoverResults | undefined {
-        const sourceFileInfo = this._sourceFileMap.get(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._sourceFileMap.get(filePath);
+            if (!sourceFileInfo) {
+                return undefined;
+            }
 
-        this._bindFile(sourceFileInfo, token);
+            this._bindFile(sourceFileInfo);
 
-        return sourceFileInfo.sourceFile.getHoverForPosition(position, this._evaluator, token);
+            return sourceFileInfo.sourceFile.getHoverForPosition(position, this._evaluator, token);
+        });
     }
 
     getSignatureHelpForPosition(
@@ -838,19 +858,21 @@ export class Program {
         position: Position,
         token: CancellationToken
     ): SignatureHelpResults | undefined {
-        const sourceFileInfo = this._sourceFileMap.get(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._sourceFileMap.get(filePath);
+            if (!sourceFileInfo) {
+                return undefined;
+            }
 
-        this._bindFile(sourceFileInfo, token);
+            this._bindFile(sourceFileInfo);
 
-        return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
-            position,
-            this._lookUpImport,
-            this._evaluator,
-            token
-        );
+            return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
+                position,
+                this._lookUpImport,
+                this._evaluator,
+                token
+            );
+        });
     }
 
     getCompletionsForPosition(
@@ -859,56 +881,108 @@ export class Program {
         workspacePath: string,
         token: CancellationToken
     ): CompletionList | undefined {
-        const sourceFileInfo = this._sourceFileMap.get(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
-
-        this._bindFile(sourceFileInfo, token);
-
-        let completionList = sourceFileInfo.sourceFile.getCompletionsForPosition(
-            position,
-            workspacePath,
-            this._configOptions,
-            this._importResolver,
-            this._lookUpImport,
-            this._evaluator,
-            () => this._buildModuleSymbolsMap(sourceFileInfo),
-            token
-        );
-
-        if (completionList && this._extension?.completionListExtension) {
-            const tree = sourceFileInfo.sourceFile.getParseResults()?.parseTree;
-            if (tree) {
-                completionList = this._extension.completionListExtension.updateCompletionList(
-                    completionList,
-                    tree,
-                    position,
-                    this._configOptions
-                );
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._sourceFileMap.get(filePath);
+            if (!sourceFileInfo) {
+                return undefined;
             }
-        }
 
-        return completionList;
+            this._bindFile(sourceFileInfo);
+
+            let completionList = sourceFileInfo.sourceFile.getCompletionsForPosition(
+                position,
+                workspacePath,
+                this._configOptions,
+                this._importResolver,
+                this._lookUpImport,
+                this._evaluator,
+                () => this._buildModuleSymbolsMap(sourceFileInfo),
+                token
+            );
+
+            if (completionList && this._extension?.completionListExtension) {
+                const tree = sourceFileInfo.sourceFile.getParseResults()?.parseTree;
+                if (tree) {
+                    completionList = this._extension.completionListExtension.updateCompletionList(
+                        completionList,
+                        tree,
+                        position,
+                        this._configOptions
+                    );
+                }
+            }
+
+            return completionList;
+        });
     }
 
     resolveCompletionItem(filePath: string, completionItem: CompletionItem, token: CancellationToken) {
-        const sourceFileInfo = this._sourceFileMap.get(filePath);
-        if (!sourceFileInfo) {
-            return;
-        }
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._sourceFileMap.get(filePath);
+            if (!sourceFileInfo) {
+                return;
+            }
 
-        this._bindFile(sourceFileInfo, token);
+            this._bindFile(sourceFileInfo);
 
-        sourceFileInfo.sourceFile.resolveCompletionItem(
-            this._configOptions,
-            this._importResolver,
-            this._lookUpImport,
-            this._evaluator,
-            () => this._buildModuleSymbolsMap(sourceFileInfo),
-            completionItem,
-            token
-        );
+            sourceFileInfo.sourceFile.resolveCompletionItem(
+                this._configOptions,
+                this._importResolver,
+                this._lookUpImport,
+                this._evaluator,
+                () => this._buildModuleSymbolsMap(sourceFileInfo),
+                completionItem,
+                token
+            );
+        });
+    }
+
+    renameSymbolAtPosition(
+        filePath: string,
+        position: Position,
+        newName: string,
+        token: CancellationToken
+    ): FileEditAction[] | undefined {
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._sourceFileMap.get(filePath);
+            if (!sourceFileInfo) {
+                return undefined;
+            }
+
+            const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
+                position,
+                true,
+                this._evaluator,
+                token
+            );
+
+            if (!referencesResult) {
+                return undefined;
+            }
+
+            // Do we need to do a global search as well?
+            if (referencesResult.requiresGlobalSearch) {
+                for (const curSourceFileInfo of this._sourceFileList) {
+                    if (curSourceFileInfo !== sourceFileInfo) {
+                        this._bindFile(curSourceFileInfo);
+
+                        curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator, token);
+                    }
+                }
+            }
+
+            const editActions: FileEditAction[] = [];
+
+            referencesResult.locations.forEach(loc => {
+                editActions.push({
+                    filePath: loc.path,
+                    range: loc.range,
+                    replacementText: newName
+                });
+            });
+
+            return editActions;
+        });
     }
 
     performQuickAction(
@@ -922,55 +996,28 @@ export class Program {
             return undefined;
         }
 
-        this._bindFile(sourceFileInfo, token);
+        this._bindFile(sourceFileInfo);
 
         return sourceFileInfo.sourceFile.performQuickAction(command, args, token);
     }
 
-    renameSymbolAtPosition(
-        filePath: string,
-        position: Position,
-        newName: string,
-        token: CancellationToken
-    ): FileEditAction[] | undefined {
-        const sourceFileInfo = this._sourceFileMap.get(filePath);
-        if (!sourceFileInfo) {
-            return undefined;
-        }
-
-        const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
-            position,
-            true,
-            this._evaluator,
-            token
-        );
-
-        if (!referencesResult) {
-            return undefined;
-        }
-
-        // Do we need to do a global search as well?
-        if (referencesResult.requiresGlobalSearch) {
-            for (const curSourceFileInfo of this._sourceFileList) {
-                if (curSourceFileInfo !== sourceFileInfo) {
-                    this._bindFile(curSourceFileInfo, token);
-
-                    curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator, token);
-                }
+    // Wrapper function that should be used when invoking this._evaluator
+    // with a cancellation token. It handles cancellation exceptions and
+    // any other unexpected exceptions.
+    private _runEvaluatorWithCancellationToken<T>(token: CancellationToken | undefined, callback: () => T): T {
+        try {
+            if (token) {
+                return this._evaluator.runWithCancellationToken(token, callback);
+            } else {
+                return callback();
             }
+        } catch (e) {
+            // An unexpected exception or cancellation occurred, potentially
+            // leaving the current evaluator in an inconsistent state. Discard
+            // it and replace it with a fresh one.
+            this._createNewEvaluator();
+            throw e;
         }
-
-        const editActions: FileEditAction[] = [];
-
-        referencesResult.locations.forEach(loc => {
-            editActions.push({
-                filePath: loc.path,
-                range: loc.range,
-                replacementText: newName
-            });
-        });
-
-        return editActions;
     }
 
     // Returns a list of empty file diagnostic entries for the files
