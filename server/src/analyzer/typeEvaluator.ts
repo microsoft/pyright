@@ -487,8 +487,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         try {
             cancellationToken = token;
             return callback();
-        }
-        finally {
+        } finally {
             cancellationToken = undefined;
         }
     }
