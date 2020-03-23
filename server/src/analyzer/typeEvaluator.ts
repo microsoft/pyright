@@ -99,6 +99,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
+import { CachedType, isIncompleteType, SpeculativeTypeTracker, TypeCache } from './typeCache';
 import {
     AnyType,
     ClassType,
@@ -423,22 +424,6 @@ interface CodeFlowAnalyzer {
     ) => FlowNodeTypeResult;
 }
 
-type CachedType = Type | PartialType;
-
-// Each time we enter speculative mode, we increment
-// the speculative mode ID so we can distinguish between
-// types that were cached in a previous speculative mode.
-let nextSpeculativeModeId = 1;
-const invalidSpeculativeModeId = 0;
-
-const partialTypeCategory = -1;
-interface PartialType {
-    category: -1;
-    type: Type | undefined;
-    isIncomplete?: boolean;
-    speculativeModeId: number;
-}
-
 interface FlowNodeTypeResult {
     type: Type | undefined;
     isIncomplete: boolean;
@@ -475,20 +460,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     const functionRecursionMap = new Map<number, true>();
     const callIsNoReturnCache = new Map<number, boolean>();
     const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
-    const typeCache = new Map<number, CachedType>();
-
-    let speculativeModeId = invalidSpeculativeModeId;
+    const typeCache: TypeCache = new Map<number, CachedType>();
+    const speculativeTypeTracker = new SpeculativeTypeTracker();
     let cancellationToken: CancellationToken | undefined;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
-    let returnTypeInferenceTypeCache: Map<number, CachedType> | undefined;
+    let returnTypeInferenceTypeCache: TypeCache | undefined;
 
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T {
         try {
             cancellationToken = token;
             return callback();
-        }
-        finally {
+        } finally {
             cancellationToken = undefined;
         }
     }
@@ -521,42 +504,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return undefined;
         }
 
-        if (cachedType.category === partialTypeCategory) {
-            if (!isSpeculativeMode()) {
-                return undefined;
-            }
-
-            const partialType = cachedType as PartialType;
-
-            // If the cached type was written as part of an older
-            // speculative mode, we will ignore it. If it was generated
-            // as part of a newer speculative mode, it is OK to use.
-            if (partialType.speculativeModeId < speculativeModeId) {
-                return undefined;
-            }
-
-            return partialType.type;
-        }
-
-        return cachedType;
+        assert(!isIncompleteType(cachedType));
+        return cachedType as Type;
     }
 
     function writeTypeCache(node: ParseNode, type: Type) {
-        const cachedType = !isSpeculativeMode()
-            ? type
-            : {
-                  category: partialTypeCategory,
-                  speculativeModeId,
-                  type
-              };
-
         // Should we use a temporary cache associated with a contextual
         // analysis of a function, contextualized based on call-site argument types?
-        if (returnTypeInferenceTypeCache && isNodeInReturnTypeInferenceContext(node)) {
-            returnTypeInferenceTypeCache.set(node.id, cachedType);
-        } else {
-            typeCache.set(node.id, cachedType);
-        }
+        const typeCacheToUse =
+            returnTypeInferenceTypeCache && isNodeInReturnTypeInferenceContext(node)
+                ? returnTypeInferenceTypeCache
+                : typeCache;
+
+        typeCacheToUse.set(node.id, type);
+        speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
     }
 
     // Determines whether the specified node is contained within
@@ -2418,6 +2379,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             // Don't use code-flow analysis if forward references are allowed.
             if (flags & EvaluatorFlags.AllowForwardReferences) {
+                useCodeFlowAnalysis = false;
+            }
+
+            // If the symbol is implicitly imported from the builtin
+            // scope, there's no need to use code flow analysis.
+            if (symbolWithScope.scope.type === ScopeType.Builtin) {
                 useCodeFlowAnalysis = false;
             }
 
@@ -4337,14 +4304,26 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // We'll do two passes. The first one will match any type arguments. The second
         // will perform the actual validation. We can skip the first pass if there
         // are no type vars to match.
-        if (validateArgTypeParams.some(arg => arg.requiresTypeVarMatching)) {
-            useSpeculativeMode(() => {
-                validateArgTypeParams.forEach(argParam => {
-                    if (argParam.requiresTypeVarMatching) {
-                        validateArgType(argParam, typeVarMap, skipUnknownArgCheck);
-                    }
+        const typeVarMatchingCount = validateArgTypeParams.filter(arg => arg.requiresTypeVarMatching).length;
+        if (typeVarMatchingCount > 0) {
+            // In theory, we may need to do up to n passes where n is the number of
+            // arguments that need type var matching. That's because later matches
+            // can provide bidirectional type hints for earlier matches. The best
+            // example of this is the built-in "map" method whose first parameter is
+            // a lambda and second parameter indicates what type the lambda should accept.
+            // In practice, we will limit the number of passes to 2 because it can get
+            // very expensive to go beyond this, and we don't see generally see cases
+            // where more than two passes are needed.
+            const passCount = Math.min(typeVarMatchingCount, 2);
+            for (let i = 0; i < passCount; i++) {
+                useSpeculativeMode(() => {
+                    validateArgTypeParams.forEach(argParam => {
+                        if (argParam.requiresTypeVarMatching) {
+                            validateArgType(argParam, typeVarMap, skipUnknownArgCheck);
+                        }
+                    });
                 });
-            });
+            }
 
             // Lock the type var map so it cannot be modified and revalidate the
             // arguments in a second pass.
@@ -7831,6 +7810,24 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         let curNode: ParseNode | undefined = node;
 
         function isContextual(node: ParseNode) {
+            // Parameters are contextual only for lambdas.
+            if (
+                node.nodeType === ParseNodeType.Parameter &&
+                node.parent &&
+                node.parent.nodeType === ParseNodeType.Lambda
+            ) {
+                return true;
+            }
+
+            // Arguments are contextual only for call nodes.
+            if (
+                node.nodeType === ParseNodeType.Argument &&
+                node.parent &&
+                node.parent.nodeType === ParseNodeType.Call
+            ) {
+                return true;
+            }
+
             return (
                 node.nodeType === ParseNodeType.Call ||
                 node.nodeType === ParseNodeType.Dictionary ||
@@ -7850,8 +7847,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Scan up the parse tree until we find a non-expression (while
         // looking for contextual expressions in the process).
-        while (curNode && (isExpressionNode(curNode) || isContextual(curNode))) {
-            if (isContextual(curNode)) {
+        while (curNode) {
+            const isNodeContextual = isContextual(curNode);
+            if (!isNodeContextual && !isExpressionNode(curNode)) {
+                break;
+            }
+            if (isNodeContextual) {
                 lastContextualExpression = curNode as ExpressionNode;
             }
 
@@ -7874,12 +7875,21 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         if (parent.nodeType === ParseNodeType.TypeAnnotation) {
-            getTypeOfAnnotation(parent.typeAnnotation);
+            const annotationParent = parent.parent;
+            if (
+                annotationParent &&
+                annotationParent.nodeType === ParseNodeType.Assignment &&
+                annotationParent.leftExpression === parent
+            ) {
+                evaluateTypesForAssignmentStatement(annotationParent);
+            } else {
+                getTypeOfAnnotation(parent.typeAnnotation);
+            }
             return;
         }
 
         if (parent.nodeType === ParseNodeType.ModuleName) {
-            // Names within a module name isn't an expression,
+            // A name within a module name isn't an expression,
             // so there's nothing we can evaluate here.
             return;
         }
@@ -8216,7 +8226,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // of the expressions within an execution context. Each code flow analyzer
     // instance maintains a cache of types it has already determined.
     function createCodeFlowAnalyzer(): CodeFlowAnalyzer {
-        const flowNodeTypeCacheSet = new Map<string, Map<number, CachedType | undefined>>();
+        const flowNodeTypeCacheSet = new Map<string, TypeCache>();
 
         function getTypeFromCodeFlow(
             reference: NameNode | MemberAccessNode,
@@ -8240,17 +8250,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // For speculative or incomplete types, we'll create a separate
                 // object. For non-speculative and complete types, we'll store
                 // the type directly.
-                const entry: PartialType | Type | undefined =
-                    isSpeculativeMode() || isIncomplete
-                        ? {
-                              category: partialTypeCategory,
-                              type,
-                              speculativeModeId,
-                              isIncomplete
-                          }
-                        : type;
+                const entry: CachedType | undefined = isIncomplete
+                    ? {
+                          isIncompleteType: true,
+                          type
+                      }
+                    : type;
 
                 flowNodeTypeCache!.set(flowNode.id, entry);
+                speculativeTypeTracker.trackEntry(flowNodeTypeCache!, flowNode.id);
 
                 return {
                     type,
@@ -8268,24 +8276,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     return undefined;
                 }
 
-                if (cachedEntry.category !== partialTypeCategory) {
+                if (!isIncompleteType(cachedEntry)) {
                     return {
                         type: cachedEntry,
                         isIncomplete: false
                     };
                 }
 
-                const partialType = cachedEntry as PartialType;
-
-                if (partialType.speculativeModeId !== invalidSpeculativeModeId) {
-                    if (!isSpeculativeMode()) {
-                        return undefined;
-                    }
-                }
-
                 return {
-                    type: partialType.type,
-                    isIncomplete: !!partialType.isIncomplete
+                    type: cachedEntry.type,
+                    isIncomplete: true
                 };
             }
 
@@ -9171,21 +9171,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // any caching of types, under the assumption that we're
     // performing speculative evaluations.
     function useSpeculativeMode(callback: () => void) {
-        const prevSpeculativeModeId = speculativeModeId;
-        speculativeModeId = nextSpeculativeModeId++;
+        speculativeTypeTracker.enterSpeculativeContext();
         callback();
-        speculativeModeId = prevSpeculativeModeId;
+        speculativeTypeTracker.leaveSpeculativeContext();
     }
 
     function isSpeculativeMode() {
-        return speculativeModeId !== invalidSpeculativeModeId;
+        return speculativeTypeTracker.isSpeculative();
     }
 
     function disableSpeculativeMode(callback: () => void) {
-        const prevSpeculativeModeId = speculativeModeId;
-        speculativeModeId = invalidSpeculativeModeId;
+        const stack = speculativeTypeTracker.disableSpeculativeMode();
         callback();
-        speculativeModeId = prevSpeculativeModeId;
+        speculativeTypeTracker.enableSpeculativeMode(stack);
     }
 
     function getFileInfo(node: ParseNode): AnalyzerFileInfo {
@@ -9637,14 +9635,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         while (declIndex >= 0) {
             const decl = typedDecls[declIndex];
 
-            if (getIndexOfSymbolResolution(symbol, decl) < 0) {
-                // If there's a partially-constructed type that is allowed
-                // for recursive symbol resolution, return it as the resolved type.
-                const partialType = getSymbolResolutionPartialType(symbol, decl);
-                if (partialType) {
-                    return partialType;
-                }
+            // If there's a partially-constructed type that is allowed
+            // for recursive symbol resolution, return it as the resolved type.
+            const partialType = getSymbolResolutionPartialType(symbol, decl);
+            if (partialType) {
+                return partialType;
+            }
 
+            if (getIndexOfSymbolResolution(symbol, decl) < 0) {
                 if (pushSymbolResolution(symbol, decl)) {
                     const type = getTypeForDeclaration(decl);
 
