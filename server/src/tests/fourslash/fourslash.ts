@@ -92,6 +92,7 @@ declare namespace _ {
             [marker: string]: { title: string; files: { [filePath: string]: string } };
         }): void;
         verifyHover(map: { [marker: string]: { value: string; kind: string } }): void;
+        verifyCompletion(fileName: string, completions: { [marker: string]: { completionResults: string[] } }): void;
 
         /* not tested yet
         openFile(indexOrName: number | string, content?: string): void;

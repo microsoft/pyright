@@ -53,6 +53,7 @@ import {
     TestCancellationToken
 } from './fourSlashTypes';
 import { TestLanguageService } from './testLanguageService';
+import path = require('path');
 
 export interface TextChange {
     span: TextRange;
@@ -675,6 +676,40 @@ export class TestState {
 
     verifyRangeIs(expectedText: string, includeWhiteSpace?: boolean) {
         this._verifyTextMatches(this._rangeText(this._getOnlyRange()), !!includeWhiteSpace, expectedText);
+    }
+
+    verifyCompletion(fileName: string, completions: { [marker: string]: { completionResults: string[] } }) {
+        this._analyze();
+
+        for (const range of this.getRanges()) {
+            const filePath = normalizeSlashes(path.join(this.workspace.rootPath, fileName));
+            const expectedCompletions = completions[this.getMarkerName(range.marker!)];
+            const completionPosition = this._convertOffsetToPosition(filePath, range.pos);
+
+            const result = this.program.getCompletionsForPosition(
+                filePath,
+                completionPosition,
+                this.workspace.rootPath,
+                CancellationToken.None
+            );
+
+            let errorMessage = '';
+            if (result?.items.length != expectedCompletions.completionResults.length) {
+                errorMessage =
+                    'Number of expected completions is not equal to the number of completions returned by the test';
+            } else {
+                for (let i = 0; i < result.items.length; i++) {
+                    if (expectedCompletions.completionResults[i] !== result.items[i].label) {
+                        errorMessage = 'The test does not return the expected completions';
+                    }
+                }
+            }
+
+            if (errorMessage != '') {
+                const finalErrorMessage = `Failure in test case positon: line =  ${completionPosition.line} . Character = ${completionPosition.character}. ${errorMessage}`;
+                this._raiseError(finalErrorMessage);
+            }
+        }
     }
 
     setCancelled(numberOfCalls: number): void {
