@@ -1,7 +1,6 @@
-# This sample exercises the type analyzer's isintance type constraint logic.
+# This sample exercises the type analyzer's isinstance type constraint logic.
 
-from collections import defaultdict
-from typing import DefaultDict, Optional, Type, Union, Any
+from typing import Type, Union, Any
 
 class UnrelatedClass:
     class_var1: int

@@ -243,7 +243,7 @@ test('TypeConstraint1', () => {
 test('TypeConstraint2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint2.py']);
 
-    validateResults(analysisResults, 8);
+    validateResults(analysisResults, 4);
 });
 
 test('TypeConstraint3', () => {
