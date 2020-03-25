@@ -1072,11 +1072,17 @@ export class Program {
             } else {
                 // If we're showing the user errors only for open files, clear
                 // out the errors for the now-closed file.
-                if (this._configOptions.checkOnlyOpenFiles && !fileInfo.isOpenByClient) {
+                if (
+                    this._configOptions.checkOnlyOpenFiles &&
+                    !fileInfo.isOpenByClient &&
+                    fileInfo.diagnosticsVersion !== fileInfo.sourceFile.getDiagnosticVersion()
+                ) {
                     fileDiagnostics.push({
                         filePath: fileInfo.sourceFile.getFilePath(),
                         diagnostics: []
                     });
+
+                    fileInfo.diagnosticsVersion = fileInfo.sourceFile.getDiagnosticVersion();
                 }
 
                 i++;
