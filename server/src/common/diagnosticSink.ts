@@ -20,15 +20,18 @@ export interface FileDiagnostics {
 
 // Creates and tracks a list of diagnostics.
 export class DiagnosticSink {
-    private _diagnostics: Diagnostic[] = [];
+    private _diagnosticList: Diagnostic[];
+    private _diagnosticMap: Map<string, Diagnostic>;
 
     constructor(diagnostics?: Diagnostic[]) {
-        this._diagnostics = diagnostics || [];
+        this._diagnosticList = diagnostics || [];
+        this._diagnosticMap = new Map<string, Diagnostic>();
     }
 
     fetchAndClear() {
-        const prevDiagnostics = this._diagnostics;
-        this._diagnostics = [];
+        const prevDiagnostics = this._diagnosticList;
+        this._diagnosticList = [];
+        this._diagnosticMap.clear();
         return prevDiagnostics;
     }
 
@@ -45,20 +48,28 @@ export class DiagnosticSink {
     }
 
     addDiagnostic(diag: Diagnostic) {
-        this._diagnostics.push(diag);
+        // Create a unique key for the diagnostic to prevent
+        // adding duplicates.
+        const key =
+            `${diag.range.start.line},${diag.range.start.character}-` +
+            `${diag.range.end.line}-${diag.range.end.character}:${diag.message.substr(0, 25)}}`;
+        if (!this._diagnosticMap.has(key)) {
+            this._diagnosticList.push(diag);
+            this._diagnosticMap.set(key, diag);
+        }
         return diag;
     }
 
     addDiagnostics(diagsToAdd: Diagnostic[]) {
-        this._diagnostics.push(...diagsToAdd);
+        this._diagnosticList.push(...diagsToAdd);
     }
 
     getErrors() {
-        return this._diagnostics.filter(diag => diag.category === DiagnosticCategory.Error);
+        return this._diagnosticList.filter(diag => diag.category === DiagnosticCategory.Error);
     }
 
     getWarnings() {
-        return this._diagnostics.filter(diag => diag.category === DiagnosticCategory.Warning);
+        return this._diagnosticList.filter(diag => diag.category === DiagnosticCategory.Warning);
     }
 }
 
