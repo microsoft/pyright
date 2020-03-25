@@ -25,7 +25,7 @@
         "command-line-args": "^5.1.1",
         "leven": "^3.1.0",
         "typescript-char": "^0.0.0",
-        "vscode-languageserver": "^6.1.1",
+        "vscode-languageserver": "^6.2.0-next.1",
         "vscode-uri": "^2.1.1"
     },
     "devDependencies": {

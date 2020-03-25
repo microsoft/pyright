@@ -16,6 +16,7 @@ import {
     SymbolInformation
 } from 'vscode-languageserver';
 
+import { getGlobalCancellationToken, OperationCanceledException } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
@@ -1085,7 +1086,11 @@ export class AnalyzerService {
 
         try {
             const duration = new Duration();
-            moreToAnalyze = this._program.analyze(this._maxAnalysisTime, this._useInteractiveMode());
+            moreToAnalyze = this._program.analyze(
+                this._maxAnalysisTime,
+                this._useInteractiveMode(),
+                getGlobalCancellationToken()
+            );
             const filesLeftToAnalyze = this._program.getFilesToAnalyzeCount();
             assert(filesLeftToAnalyze === 0 || moreToAnalyze);
 
@@ -1108,6 +1113,10 @@ export class AnalyzerService {
                 }
             }
         } catch (e) {
+            if (OperationCanceledException.is(e)) {
+                return true;
+            }
+
             const message: string =
                 (e.stack ? e.stack.toString() : undefined) ||
                 (typeof e.message === 'string' ? e.message : undefined) ||
