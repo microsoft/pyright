@@ -62,6 +62,10 @@ export type AnalysisCompleteCallback = (results: AnalysisResults) => void;
 
 const _configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
 
+// How long since the last user activity should we wait until running
+// the analyzer on any files that have not yet been analyzed?
+const _userActivityBackoffTimeInMs = 500;
+
 export class AnalyzerService {
     private _instanceName: string;
     private _program: Program;
@@ -1036,7 +1040,7 @@ export class AnalyzerService {
         // How long has it been since the user interacted with the service?
         // If the user is actively typing, back off to let him or her finish.
         const timeSinceLastUserInteractionInMs = Date.now() - this._lastUserInteractionTime;
-        const minBackoffTimeInMs = 1000;
+        const minBackoffTimeInMs = _userActivityBackoffTimeInMs;
 
         // We choose a small non-zero value here. If this value
         // is too small (like zero), the VS Code extension becomes
