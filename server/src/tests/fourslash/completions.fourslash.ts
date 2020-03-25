@@ -1,16 +1,37 @@
 /// <reference path="fourslash.ts" />
 
 // @filename: test.py
-////import time
-////time.lo/*marker1*/
-////aaaaaa = 100
-////aaaa/*marker2*/
-////def some_function(a):
-////    print(a)
-////some_fun/*marker3*/
+//// import time
+//// time.lo[|/*marker1*/|]
+//// aaaaaa = 100
+//// aaaa[|/*marker2*/|]
+//// def some_func1(a):
+////     '''some function docs'''
+////     pass
+//// def some_func2(a):
+////     '''another function docs'''
+////     pass
+//// some_fun[|/*marker3*/|]
 
-helper.verifyCompletion('test.py', {
-    marker1: { completionResults: ['localtime'] },
-    marker2: { completionResults: ['aaaaaa'] },
-    marker3: { completionResults: ['some_function'] }
+helper.verifyCompletion('exact', {
+    marker1: { completions: [{ label: 'localtime' }] },
+    marker2: { completions: [{ label: 'aaaaaa' }] },
+    marker3: {
+        completions: [
+            {
+                label: 'some_func1',
+                documentation: {
+                    kind: 'markdown',
+                    value: '```python\nsome_func1: (a: Unknown) -> None\n```\n---\nsome function docs'
+                }
+            },
+            {
+                label: 'some_func2',
+                documentation: {
+                    kind: 'markdown',
+                    value: '```python\nsome_func2: (a: Unknown) -> None\n```\n---\nanother function docs'
+                }
+            }
+        ]
+    }
 });

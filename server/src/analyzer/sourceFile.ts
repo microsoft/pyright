@@ -832,7 +832,7 @@ export class SourceFile {
                 this._checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
             });
         } catch (e) {
-            const isCancellation = e instanceof OperationCanceledException;
+            const isCancellation = OperationCanceledException.is(e);
             if (!isCancellation) {
                 const message: string =
                     (e.stack ? e.stack.toString() : undefined) ||

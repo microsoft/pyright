@@ -300,8 +300,12 @@ export class Program {
     // whether the method needs to be called again to complete the
     // analysis. In interactive mode, the timeout is always limited
     // to the smaller value to maintain responsiveness.
-    analyze(maxTime?: MaxAnalysisTime, interactiveMode?: boolean): boolean {
-        return this._runEvaluatorWithCancellationToken(undefined, () => {
+    analyze(
+        maxTime?: MaxAnalysisTime,
+        interactiveMode?: boolean,
+        token: CancellationToken = CancellationToken.None
+    ): boolean {
+        return this._runEvaluatorWithCancellationToken(token, () => {
             const elapsedTime = new Duration();
 
             const openFiles = this._sourceFileList.filter(

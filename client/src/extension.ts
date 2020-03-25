@@ -15,22 +15,28 @@ import { commands, ExtensionContext, Position, Range, TextEditor, TextEditorEdit
 import { LanguageClient, LanguageClientOptions, ServerOptions, TextEdit, TransportKind } from 'vscode-languageclient';
 
 import { Commands } from '../../server/src/commands/commands';
+import { FileBasedCancellationStrategy } from './cancellationUtils';
 import { ProgressReporting } from './progress';
 
+let cancellationStrategy: FileBasedCancellationStrategy | undefined;
+
 export function activate(context: ExtensionContext) {
+    cancellationStrategy = new FileBasedCancellationStrategy();
+
     const bundlePath = context.asAbsolutePath(path.join('server', 'server.bundle.js'));
     const nonBundlePath = context.asAbsolutePath(path.join('server', 'src', 'server.js'));
     const debugOptions = { execArgv: ['--nolazy', '--inspect=6600'] };
 
     // If the extension is launched in debug mode, then the debug server options are used.
     const serverOptions: ServerOptions = {
-        run: { module: bundlePath, transport: TransportKind.ipc },
+        run: { module: bundlePath, transport: TransportKind.ipc, args: cancellationStrategy.getCommandLineArguments() },
         // In debug mode, use the non-bundled code if it's present. The production
         // build includes only the bundled package, so we don't want to crash if
         // someone starts the production extension in debug mode.
         debug: {
             module: fs.existsSync(nonBundlePath) ? nonBundlePath : bundlePath,
             transport: TransportKind.ipc,
+            args: cancellationStrategy.getCommandLineArguments(),
             options: debugOptions
         }
     };
@@ -47,7 +53,8 @@ export function activate(context: ExtensionContext) {
         synchronize: {
             // Synchronize the setting section to the server.
             configurationSection: ['python', 'pyright']
-        }
+        },
+        connectionOptions: { cancellationStrategy: cancellationStrategy }
     };
 
     // Create the language client and start the client.
@@ -110,6 +117,11 @@ export function activate(context: ExtensionContext) {
 }
 
 export function deactivate() {
+    if (cancellationStrategy) {
+        cancellationStrategy.dispose();
+        cancellationStrategy = undefined;
+    }
+
     // Return undefined rather than a promise to indicate
     // that deactivation is done synchronously. We don't have
     // anything to do here.

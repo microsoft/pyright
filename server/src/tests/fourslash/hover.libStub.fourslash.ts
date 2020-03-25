@@ -1,18 +1,22 @@
 /// <reference path="fourslash.ts" />
 
-// @filename: test.py
-//// class [|/*marker1*/Validator|]:
-////     '''The validator class
-////
-////     .. versionadded:: 2.0
-////         This directive does not show in hover.
-////     '''
+// @filename: mspythonconfig.json
+//// {
+////   "useLibraryCodeForTypes": true
+//// }
+
+// @filename: testLib/__init__.pyi
+// @library: true
+//// class Validator:
+////     '''The validator class'''
 ////     def is_valid(self, text: str) -> bool:
 ////         '''Checks if the input string is valid.'''
-////         return true
-////
-//// validator = Validator()
-//// validator.[|/*marker2*/is_valid|]('hello')
+////         pass
+
+// @filename: test.py
+//// import testLib
+//// obj = testLib.[|/*marker1*/Validator|]()
+//// obj.[|/*marker2*/is_valid|]('')
 
 helper.verifyHover({
     marker1: { value: '```python\n(class) Validator\n```\nThe validator class', kind: 'markdown' },

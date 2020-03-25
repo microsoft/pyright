@@ -860,6 +860,15 @@ export class ConfigOptions {
             }
         }
 
+        // Read the "useLibraryCodeForTypes" setting.
+        if (configObj.useLibraryCodeForTypes !== undefined) {
+            if (typeof configObj.useLibraryCodeForTypes !== 'boolean') {
+                console.log(`Config "useLibraryCodeForTypes" field must be true or false.`);
+            } else {
+                this.useLibraryCodeForTypes = configObj.useLibraryCodeForTypes;
+            }
+        }
+
         // Read the "executionEnvironments" array. This should be done at the end
         // after we've established default values.
         this.executionEnvironments = [];

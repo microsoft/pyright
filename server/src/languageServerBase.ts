@@ -13,6 +13,7 @@ import {
     CodeActionParams,
     Command,
     ConfigurationItem,
+    ConnectionOptions,
     createConnection,
     Diagnostic,
     DiagnosticRelatedInformation,
@@ -35,6 +36,7 @@ import {
 
 import { ImportResolver } from './analyzer/importResolver';
 import { AnalysisResults, AnalyzerService } from './analyzer/service';
+import { getCancellationStrategyFromArgv } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface } from './common/console';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
@@ -86,7 +88,7 @@ export interface LanguageServerInterface {
 
 export abstract class LanguageServerBase implements LanguageServerInterface {
     // Create a connection for the server. The connection type can be changed by the process's arguments
-    protected _connection: IConnection = createConnection();
+    protected _connection: IConnection = createConnection(this._GetConnectionOptions());
     protected _workspaceMap: WorkspaceMap;
 
     // Tracks whether we're currently displaying progress.
@@ -556,6 +558,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         typeStubTargetImportName?: string
     ) {
         AnalyzerServiceExecutor.runWithOptions(this.rootPath, workspace, serverSettings, typeStubTargetImportName);
+    }
+
+    private _GetConnectionOptions(): ConnectionOptions {
+        return { cancellationStrategy: getCancellationStrategyFromArgv(process.argv) };
     }
 
     private _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {

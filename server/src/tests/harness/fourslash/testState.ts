@@ -9,7 +9,7 @@
 
 import * as assert from 'assert';
 import Char from 'typescript-char';
-import { CancellationToken, Command, Diagnostic, MarkupContent, TextEdit } from 'vscode-languageserver';
+import { CancellationToken, Command, CompletionItem, Diagnostic, MarkupContent, TextEdit } from 'vscode-languageserver';
 
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { Program } from '../../../analyzer/program';
@@ -53,7 +53,6 @@ import {
     TestCancellationToken
 } from './fourSlashTypes';
 import { TestLanguageService } from './testLanguageService';
-import path = require('path');
 
 export interface TextChange {
     span: TextRange;
@@ -678,13 +677,16 @@ export class TestState {
         this._verifyTextMatches(this._rangeText(this._getOnlyRange()), !!includeWhiteSpace, expectedText);
     }
 
-    verifyCompletion(fileName: string, completions: { [marker: string]: { completionResults: string[] } }) {
+    verifyCompletion(
+        verifyMode: 'exact' | 'included' | 'excluded',
+        map: { [marker: string]: { completions: { label: string; documentation?: { kind: string; value: string } }[] } }
+    ) {
         this._analyze();
 
-        for (const range of this.getRanges()) {
-            const filePath = normalizeSlashes(path.join(this.workspace.rootPath, fileName));
-            const expectedCompletions = completions[this.getMarkerName(range.marker!)];
-            const completionPosition = this._convertOffsetToPosition(filePath, range.pos);
+        for (const marker of this.getMarkers()) {
+            const filePath = marker.fileName;
+            const expectedCompletions = map[this.getMarkerName(marker)].completions;
+            const completionPosition = this._convertOffsetToPosition(filePath, marker.position);
 
             const result = this.program.getCompletionsForPosition(
                 filePath,
@@ -693,21 +695,68 @@ export class TestState {
                 CancellationToken.None
             );
 
-            let errorMessage = '';
-            if (result?.items.length != expectedCompletions.completionResults.length) {
-                errorMessage =
-                    'Number of expected completions is not equal to the number of completions returned by the test';
-            } else {
-                for (let i = 0; i < result.items.length; i++) {
-                    if (expectedCompletions.completionResults[i] !== result.items[i].label) {
-                        errorMessage = 'The test does not return the expected completions';
+            if (result) {
+                if (verifyMode === 'exact') {
+                    if (result.items.length !== expectedCompletions.length) {
+                        assert.fail(
+                            `Expected ${expectedCompletions.length} items but received ${
+                                result.items.length
+                            }. Actual completions:\n${stringify(result.items.map(r => r.label))}`
+                        );
                     }
                 }
-            }
 
-            if (errorMessage != '') {
-                const finalErrorMessage = `Failure in test case positon: line =  ${completionPosition.line} . Character = ${completionPosition.character}. ${errorMessage}`;
-                this._raiseError(finalErrorMessage);
+                for (let i = 0; i < expectedCompletions.length; i++) {
+                    const expected = expectedCompletions[i];
+                    const actualIndex = result.items.findIndex(a => a.label === expected.label);
+                    if (actualIndex >= 0) {
+                        if (verifyMode === 'excluded') {
+                            // we're not supposed to find the completions passed to the test
+                            assert.fail(
+                                `Completion item with label "${
+                                    expected.label
+                                }" unexpected. Actual completions:\n${stringify(result.items.map(r => r.label))}`
+                            );
+                        }
+
+                        const actual: CompletionItem = result.items[actualIndex];
+                        assert.equal(actual.label, expected.label);
+                        if (expectedCompletions[i].documentation !== undefined) {
+                            if (actual.documentation === undefined) {
+                                this.program.resolveCompletionItem(filePath, actual, CancellationToken.None);
+                            }
+
+                            if (MarkupContent.is(actual.documentation)) {
+                                assert.equal(actual.documentation.value, expected.documentation?.value);
+                                assert.equal(actual.documentation.kind, expected.documentation?.kind);
+                            } else {
+                                assert.fail(
+                                    `Unexpected type of contents object "${actual.documentation}", should be MarkupContent.`
+                                );
+                            }
+                        }
+
+                        result.items.splice(actualIndex, 1);
+                    } else {
+                        if (verifyMode === 'included' || verifyMode === 'exact') {
+                            // we're supposed to find all items passed to the test
+                            assert.fail(
+                                `Completion item with label "${
+                                    expected.label
+                                }" expected. Actual completions:\n${stringify(result.items.map(r => r.label))}`
+                            );
+                        }
+                    }
+                }
+
+                if (verifyMode === 'exact') {
+                    if (result.items.length !== 0) {
+                        // we removed every item we found, there should not be any remaining
+                        assert.fail(`Completion items unexpected: ${stringify(result.items.map(r => r.label))}`);
+                    }
+                }
+            } else {
+                assert.fail('Failed to get completions');
             }
         }
     }

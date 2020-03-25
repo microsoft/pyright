@@ -42,7 +42,7 @@ export class CreateTypeStubCommand implements ServerCommand {
                         this._ls.window.showInformationMessage(infoMessage);
                         this._handlePostCreateTypeStub();
                     } catch (err) {
-                        const isCancellation = err instanceof OperationCanceledException;
+                        const isCancellation = OperationCanceledException.is(err);
                         if (isCancellation) {
                             const errMessage = `Type stub creation for '${importName}' was canceled`;
                             this._ls.console.error(errMessage);
