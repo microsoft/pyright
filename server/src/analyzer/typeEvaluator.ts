@@ -1456,27 +1456,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         ) {
                             variableNameNode = statement.leftExpression.valueExpression;
                             variableTypeEvaluator = () =>
-                                convertClassToObject(
-                                    getTypeOfExpression(
-                                        (statement.leftExpression as TypeAnnotationNode).typeAnnotation,
-                                        undefined,
-                                        EvaluatorFlags.ConvertEllipsisToAny
-                                    ).type
-                                );
+                                getTypeOfAnnotation((statement.leftExpression as TypeAnnotationNode).typeAnnotation);
                         }
 
                         hasDefaultValue = true;
                     } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
                         if (statement.valueExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.valueExpression;
-                            variableTypeEvaluator = () =>
-                                convertClassToObject(
-                                    getTypeOfExpression(
-                                        statement.typeAnnotation,
-                                        undefined,
-                                        EvaluatorFlags.ConvertEllipsisToAny | EvaluatorFlags.EvaluateStringLiteralAsType
-                                    ).type
-                                );
+                            variableTypeEvaluator = () => getTypeOfAnnotation(statement.typeAnnotation);
                         }
                     }
 
