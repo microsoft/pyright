@@ -849,7 +849,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (node.child) {
                         getTypeOfExpression(node.child);
                     }
-                });
+                }, false);
                 typeResult = { type: UnknownType.create(), node };
                 break;
             }
@@ -2184,7 +2184,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (target.child) {
                         getTypeOfExpression(target.child);
                     }
-                });
+                }, false);
                 break;
             }
 
@@ -2234,7 +2234,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (node.child) {
                         getTypeOfExpression(node.child);
                     }
-                });
+                }, false);
                 break;
             }
 
@@ -5176,7 +5176,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         let leftType: Type | undefined;
         useSpeculativeMode(() => {
             leftType = getTypeOfExpression(node.leftExpression).type;
-        });
+        }, false);
         if (leftType!.category === TypeCategory.TypeVar) {
             leftType = specializeType(leftType!, undefined);
         }
@@ -9172,10 +9172,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // Disables recording of errors and warnings and disables
     // any caching of types, under the assumption that we're
     // performing speculative evaluations.
-    function useSpeculativeMode(callback: () => void) {
-        speculativeTypeTracker.enterSpeculativeContext();
-        callback();
-        speculativeTypeTracker.leaveSpeculativeContext();
+    function useSpeculativeMode(callback: () => void, requiresNewContext = true) {
+        if (requiresNewContext || !speculativeTypeTracker.isSpeculative()) {
+            speculativeTypeTracker.enterSpeculativeContext();
+            callback();
+            speculativeTypeTracker.leaveSpeculativeContext();
+        } else {
+            // Use the existing speculative context.
+            callback();
+        }
     }
 
     function isSpeculativeMode() {
