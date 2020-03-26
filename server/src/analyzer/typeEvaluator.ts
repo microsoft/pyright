@@ -615,16 +615,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getTypeOfExpression(node: ExpressionNode, expectedType?: Type, flags = EvaluatorFlags.None): TypeResult {
-        // This is a frequently-called routine, so it's a good place to call
-        // the cancellation check. If the operation is canceled, an exception
-        // will be thrown at this point.
-        checkForCancellation();
-
         // Is this type already cached?
         const cachedType = readTypeCache(node);
         if (cachedType) {
             return { type: cachedType, node };
         }
+
+        // This is a frequently-called routine, so it's a good place to call
+        // the cancellation check. If the operation is canceled, an exception
+        // will be thrown at this point.
+        checkForCancellation();
 
         let typeResult: TypeResult | undefined;
 

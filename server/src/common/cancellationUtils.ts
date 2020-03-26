@@ -22,6 +22,28 @@ import {
     ResponseError
 } from 'vscode-languageserver';
 
+class CancellationThrottle {
+    private static _lastCheckTimestamp = 0;
+
+    static shouldCheck() {
+        // Throttle cancellation checks to one every 5ms. This value
+        // was selected through empirical testing. If we call the
+        // file system more often than this, type analysis performance
+        // is affected. If we call it less often, performance doesn't
+        // improve much, but responsiveness suffers.
+        const minTimeBetweenChecksInMs = 5;
+        const curTimestamp = Date.now().valueOf();
+        const timeSinceLastCheck = curTimestamp - this._lastCheckTimestamp;
+
+        if (timeSinceLastCheck >= minTimeBetweenChecksInMs) {
+            this._lastCheckTimestamp = curTimestamp;
+            return true;
+        }
+
+        return false;
+    }
+}
+
 class GlobalCancellationToken implements CancellationToken {
     private _isCancelled = false;
 
@@ -32,7 +54,7 @@ class GlobalCancellationToken implements CancellationToken {
             return true;
         }
 
-        if (this._pipeExists()) {
+        if (CancellationThrottle.shouldCheck() && this._pipeExists()) {
             this._isCancelled = true;
         }
 
@@ -74,7 +96,7 @@ class FileBasedToken implements CancellationToken {
             return true;
         }
 
-        if (this._pipeExists()) {
+        if (CancellationThrottle.shouldCheck() && this._pipeExists()) {
             // the first time it encounters cancellation file, it will
             // cancel itself and raise cancellation event.
             // in this mode, cancel() might not be called explicitly by jsonrpc layer
