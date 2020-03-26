@@ -6084,15 +6084,30 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             typeArgs.forEach((typeArg, index) => {
                 if (isEllipsisType(typeArg.type)) {
                     if (!allowEllipsis) {
-                        addError(`'...' not allowed in this context`, typeArgs[index].node);
-                    } else if (typeArgs.length !== 2 || index !== 1) {
-                        addError(`'...' allowed only as the second of two arguments`, typeArgs[index].node);
+                        addError(`'...' not allowed in this context`, typeArg.node);
+                    } else if (typeArgs!.length !== 2 || index !== 1) {
+                        addError(`'...' allowed only as the second of two arguments`, typeArg.node);
                     }
                     if (typeArg.type.category === TypeCategory.Module) {
                         addError(`Module not allowed in this context`, typeArg.node);
                     }
                 }
             });
+
+            // Handle Tuple[()] as a special case, as defined in PEP 483.
+            if (ClassType.isBuiltIn(classType, 'Tuple')) {
+                if (typeArgs.length === 1) {
+                    const arg0Type = typeArgs[0].type;
+                    if (
+                        arg0Type.category === TypeCategory.Object &&
+                        ClassType.isBuiltIn(arg0Type.classType, 'Tuple') &&
+                        arg0Type.classType.typeArguments &&
+                        arg0Type.classType.typeArguments.length === 0
+                    ) {
+                        typeArgs = [];
+                    }
+                }
+            }
         }
 
         let typeArgTypes = typeArgs ? typeArgs.map(t => convertClassToObject(t.type)) : [];
@@ -10110,25 +10125,27 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // Handle built-in types that support arbitrary numbers
                 // of type parameters like Tuple.
                 if (destType.details.name === 'Tuple') {
-                    const destTypeArgs = destType.typeArguments || [];
-                    let destArgCount = destTypeArgs.length;
-                    const isDestHomogenousTuple = destArgCount === 2 && isEllipsisType(destTypeArgs[1]);
-                    if (isDestHomogenousTuple) {
-                        destArgCount = 1;
-                    }
+                    if (destType.typeArguments && curSrcType.typeArguments) {
+                        const destTypeArgs = destType.typeArguments;
+                        let destArgCount = destTypeArgs.length;
+                        const isDestHomogenousTuple = destArgCount === 2 && isEllipsisType(destTypeArgs[1]);
+                        if (isDestHomogenousTuple) {
+                            destArgCount = 1;
+                        }
 
-                    const srcTypeArgs = curSrcType.typeArguments || [];
-                    let srcArgCount = srcTypeArgs.length;
-                    const isSrcHomogeneousType = srcArgCount === 2 && isEllipsisType(srcTypeArgs[1]);
-                    if (isSrcHomogeneousType) {
-                        srcArgCount = 1;
-                    }
+                        const srcTypeArgs = curSrcType.typeArguments;
+                        let srcArgCount = srcTypeArgs.length;
+                        const isSrcHomogeneousType = srcArgCount === 2 && isEllipsisType(srcTypeArgs[1]);
+                        if (isSrcHomogeneousType) {
+                            srcArgCount = 1;
+                        }
 
-                    if (srcArgCount > 0 && destArgCount > 0) {
                         if (srcTypeArgs.length === destArgCount || isDestHomogenousTuple || isSrcHomogeneousType) {
                             for (let i = 0; i < Math.max(destArgCount, srcArgCount); i++) {
-                                const expectedDestType = isDestHomogenousTuple ? destTypeArgs[0] : destTypeArgs[i];
-                                const expectedSrcType = isSrcHomogeneousType ? srcTypeArgs[0] : srcTypeArgs[i];
+                                const expectedDestType =
+                                    (isDestHomogenousTuple ? destTypeArgs[0] : destTypeArgs[i]) || AnyType.create();
+                                const expectedSrcType =
+                                    (isSrcHomogeneousType ? srcTypeArgs[0] : srcTypeArgs[i]) || AnyType.create();
 
                                 if (
                                     !canAssignType(
