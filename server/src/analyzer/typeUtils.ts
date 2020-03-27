@@ -542,16 +542,16 @@ export function lookUpClassMember(
             if ((flags & ClassMemberLookupFlags.SkipBaseClasses) !== 0) {
                 break;
             }
+        }
 
-            if (foundUnknownBaseClass) {
-                // The class derives from an unknown type, so all bets are off
-                // when trying to find a member. Return an unknown symbol.
-                return {
-                    symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
-                    isInstanceMember: false,
-                    classType: UnknownType.create()
-                };
-            }
+        if (foundUnknownBaseClass) {
+            // The class derives from an unknown type, so all bets are off
+            // when trying to find a member. Return an unknown symbol.
+            return {
+                symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
+                isInstanceMember: false,
+                classType: UnknownType.create()
+            };
         }
     } else if (isAnyOrUnknown(classType)) {
         // The class derives from an unknown type, so all bets are off
