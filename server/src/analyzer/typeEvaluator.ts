@@ -9268,6 +9268,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
 
                     if (symbol) {
+                        // By default, report only the declarations that have type annotations.
+                        // If there are none, then report all of the unannotated declarations,
+                        // which includes every assignment of that symbol.
                         const typedDecls = symbol.getTypedDeclarations();
                         if (typedDecls.length > 0) {
                             declarations.push(...typedDecls);

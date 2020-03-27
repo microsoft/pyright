@@ -467,15 +467,12 @@ export function lookUpClassMember(
     const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
 
     if (classType.category === TypeCategory.Class) {
+        let foundUnknownBaseClass = false;
+
         for (const mroClass of classType.details.mro) {
             if (mroClass.category !== TypeCategory.Class) {
-                // The class derives from an unknown type, so all bets are off
-                // when trying to find a member. Return an unknown symbol.
-                return {
-                    symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
-                    isInstanceMember: false,
-                    classType: UnknownType.create()
-                };
+                foundUnknownBaseClass = true;
+                continue;
             }
 
             // If mroClass is an ancestor of classType, partially specialize
@@ -544,6 +541,16 @@ export function lookUpClassMember(
 
             if ((flags & ClassMemberLookupFlags.SkipBaseClasses) !== 0) {
                 break;
+            }
+
+            if (foundUnknownBaseClass) {
+                // The class derives from an unknown type, so all bets are off
+                // when trying to find a member. Return an unknown symbol.
+                return {
+                    symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
+                    isInstanceMember: false,
+                    classType: UnknownType.create()
+                };
             }
         }
     } else if (isAnyOrUnknown(classType)) {
