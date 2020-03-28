@@ -56,3 +56,30 @@ export function convertPositionToOffset(position: Position, lines: TextRangeColl
 
     return lines.getItemAt(position.line).start + position.character;
 }
+
+export function getLinesFromText(text: string): TextRangeCollection<TextRange> {
+    const lines: TextRange[] = [];
+
+    let prevLineStart = 0;
+    let curOffset = 0;
+    while (curOffset < text.length) {
+        const curChar = text.charCodeAt(curOffset);
+        curOffset++;
+
+        if (curChar === 0xd) {
+            if (curOffset < text.length && text.charCodeAt(curOffset) === 0xa) {
+                curOffset++;
+            }
+
+            lines.push({ start: prevLineStart, length: curOffset - prevLineStart });
+            prevLineStart = curOffset;
+        } else if (curChar === 0xa) {
+            lines.push({ start: prevLineStart, length: curOffset - prevLineStart });
+            prevLineStart = curOffset;
+        }
+    }
+
+    lines.push({ start: prevLineStart, length: curOffset - prevLineStart });
+
+    return new TextRangeCollection<TextRange>(lines);
+}

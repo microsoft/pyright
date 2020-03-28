@@ -13,7 +13,8 @@ import {
     CompletionItem,
     CompletionList,
     DocumentSymbol,
-    SymbolInformation
+    SymbolInformation,
+    TextDocumentContentChangeEvent
 } from 'vscode-languageserver';
 
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -202,7 +203,7 @@ export class Program {
         return sourceFile;
     }
 
-    setFileOpened(filePath: string, version: number | null, contents: string) {
+    setFileOpened(filePath: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
         let sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
             const sourceFile = new SourceFile(this._fs, filePath, false, false, this._console);
@@ -235,7 +236,7 @@ export class Program {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
         if (sourceFileInfo) {
             sourceFileInfo.isOpenByClient = false;
-            sourceFileInfo.sourceFile.setClientVersion(null, '');
+            sourceFileInfo.sourceFile.setClientVersion(null, [{ text: '' }]);
 
             if (this._configOptions.checkOnlyOpenFiles) {
                 // Reset the diagnostic version so we force an update

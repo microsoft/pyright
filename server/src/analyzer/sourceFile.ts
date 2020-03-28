@@ -12,7 +12,9 @@ import {
     CompletionItem,
     CompletionList,
     DocumentSymbol,
-    SymbolInformation
+    Range,
+    SymbolInformation,
+    TextDocumentContentChangeEvent
 } from 'vscode-languageserver';
 
 import { OperationCanceledException } from '../common/cancellationUtils';
@@ -23,6 +25,7 @@ import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
 import { getFileName, normalizeSlashes } from '../common/pathUtils';
+import { convertPositionToOffset, getLinesFromText } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { DocumentRange, getEmptyRange, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -365,19 +368,41 @@ export class SourceFile {
         }
     }
 
-    setClientVersion(version: number | null, contents: string): void {
+    setClientVersion(version: number | null, contents: TextDocumentContentChangeEvent[]): void {
         this._clientVersion = version;
 
         if (version === null) {
             this._fileContents = undefined;
         } else {
-            if (this._fileContents !== undefined) {
-                if (this._fileContents !== contents) {
-                    this.markDirty();
+            let fileContents = this._fileContents || '';
+            let contentsChanged = false;
+
+            // Apply changes in the order specified.
+            contents.forEach(change => {
+                const range: Range = (change as any).range;
+                if (range) {
+                    const lines = getLinesFromText(fileContents);
+                    const startOffset = convertPositionToOffset(range.start, lines);
+                    const endOffset = convertPositionToOffset(range.end, lines);
+
+                    if (startOffset !== undefined && endOffset !== undefined) {
+                        fileContents =
+                            fileContents.substr(0, startOffset) + change.text + fileContents.substr(endOffset);
+                        contentsChanged = true;
+                    }
+                } else {
+                    if (fileContents !== change.text) {
+                        contentsChanged = true;
+                    }
+                    fileContents = change.text;
                 }
+            });
+
+            if (contentsChanged) {
+                this.markDirty();
             }
 
-            this._fileContents = contents;
+            this._fileContents = fileContents;
         }
     }
 

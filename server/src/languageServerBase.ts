@@ -221,9 +221,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
                 return {
                     capabilities: {
-                        // Tell the client that the server works in FULL text document
-                        // sync mode (as opposed to incremental).
-                        textDocumentSync: TextDocumentSyncKind.Full,
+                        // Tell the client that the server works in incremental text document
+                        // sync mode.
+                        textDocumentSync: TextDocumentSyncKind.Incremental,
                         definitionProvider: true,
                         referencesProvider: true,
                         documentSymbolProvider: true,
@@ -473,7 +473,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
             const filePath = convertUriToPath(params.textDocument.uri);
             const service = this._workspaceMap.getWorkspaceForFile(filePath).serviceInstance;
-            service.updateOpenFileContents(filePath, params.textDocument.version, params.contentChanges[0].text);
+            service.updateOpenFileContents(filePath, params.textDocument.version, params.contentChanges);
         });
 
         this._connection.onDidCloseTextDocument(params => {

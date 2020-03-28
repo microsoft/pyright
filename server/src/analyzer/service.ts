@@ -13,7 +13,8 @@ import {
     CompletionItem,
     CompletionList,
     DocumentSymbol,
-    SymbolInformation
+    SymbolInformation,
+    TextDocumentContentChangeEvent
 } from 'vscode-languageserver';
 
 import { getGlobalCancellationToken, OperationCanceledException } from '../common/cancellationUtils';
@@ -156,11 +157,11 @@ export class AnalyzerService {
     }
 
     setFileOpened(path: string, version: number | null, contents: string) {
-        this._program.setFileOpened(path, version, contents);
+        this._program.setFileOpened(path, version, [{ text: contents }]);
         this._scheduleReanalysis(false);
     }
 
-    updateOpenFileContents(path: string, version: number | null, contents: string) {
+    updateOpenFileContents(path: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
         this._program.setFileOpened(path, version, contents);
         this._program.markFilesDirty([path]);
         this._scheduleReanalysis(false);
