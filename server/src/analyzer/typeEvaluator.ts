@@ -237,7 +237,10 @@ export const enum EvaluatorFlags {
     DoNotCheckForUnknownArgs = 8,
 
     // Treat string literal as a type.
-    EvaluateStringLiteralAsType = 16
+    EvaluateStringLiteralAsType = 16,
+
+    // 'Final' is not allowed in this context
+    FinalDisallowed = 32
 }
 
 interface EvaluatorUsage {
@@ -866,7 +869,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return typeResult;
     }
 
-    function getTypeOfAnnotation(node: ExpressionNode): Type {
+    function getTypeOfAnnotation(node: ExpressionNode, allowFinal = true): Type {
         const fileInfo = getFileInfo(node);
 
         // Special-case the typing.pyi file, which contains some special
@@ -886,6 +889,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         if (isAnnotationEvaluationPostponed) {
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+        }
+
+        if (!allowFinal) {
+            evaluatorFlags |= EvaluatorFlags.FinalDisallowed;
         }
 
         return convertClassToObject(getTypeOfExpression(node, undefined, evaluatorFlags).type);
@@ -2405,7 +2412,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (!(flags & EvaluatorFlags.DoNotSpecialize)) {
                 if (type.category === TypeCategory.Class) {
                     if (!type.typeArguments) {
-                        type = createSpecializedClassType(type, undefined, node);
+                        type = createSpecializedClassType(type, undefined, flags, node);
                     }
                 } else if (type.category === TypeCategory.Object) {
                     // If this is an object that contains a Type[X], transform it
@@ -2603,7 +2610,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
             if (type.category === TypeCategory.Class && !type.typeArguments) {
-                type = createSpecializedClassType(type, undefined, node);
+                type = createSpecializedClassType(type, undefined, flags, node);
             }
         }
 
@@ -3020,7 +3027,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 const typeArgs = getTypeArgs(node.items, flags);
-                return createSpecializedClassType(subtype, typeArgs, node.items);
+                return createSpecializedClassType(subtype, typeArgs, flags, node);
             }
 
             if (subtype.category === TypeCategory.Object) {
@@ -3224,7 +3231,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             typeResult = getTypeOfExpression(
                 node,
                 undefined,
-                flags | EvaluatorFlags.ConvertEllipsisToAny | EvaluatorFlags.EvaluateStringLiteralAsType
+                flags |
+                    EvaluatorFlags.ConvertEllipsisToAny |
+                    EvaluatorFlags.EvaluateStringLiteralAsType |
+                    EvaluatorFlags.FinalDisallowed
             );
         }
 
@@ -3719,7 +3729,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Should we specialize the class?
         if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
             if (type.category === TypeCategory.Class) {
-                type = createSpecializedClassType(type, undefined, errorNode);
+                type = createSpecializedClassType(type, undefined, flags, errorNode);
             }
         }
 
@@ -6060,7 +6070,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     // Creates a "Final" type.
-    function createFinalType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
+    function createFinalType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined, flags: EvaluatorFlags): Type {
+        if (flags & EvaluatorFlags.FinalDisallowed) {
+            addError(`Final is not allowed in this context`, errorNode);
+            return AnyType.create();
+        }
+
         if (!typeArgs || typeArgs.length === 0) {
             return AnyType.create();
         }
@@ -6870,7 +6885,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             let isNoneWithoutOptional = false;
 
             if (param.typeAnnotation) {
-                annotatedType = getTypeOfAnnotation(param.typeAnnotation);
+                annotatedType = getTypeOfAnnotation(param.typeAnnotation, false);
             } else if (addGenericParamTypes) {
                 if (index > 0 && param.category === ParameterCategory.Simple && param.name) {
                     annotatedType = containingClassType!.details.typeParameters[typeParamIndex];
@@ -9026,6 +9041,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function createSpecializedClassType(
         classType: ClassType,
         typeArgs: TypeResult[] | undefined,
+        flags: EvaluatorFlags,
         errorNode: ParseNode
     ): Type {
         // Handle the special-case classes that are not defined
@@ -9078,7 +9094,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 case 'Final': {
-                    return createFinalType(errorNode, typeArgs);
+                    return createFinalType(errorNode, typeArgs, flags);
                 }
             }
         }
@@ -9424,7 +9440,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 if (typeAnnotationNode) {
-                    const declaredType = getTypeOfAnnotation(typeAnnotationNode);
+                    const declaredType = getTypeOfAnnotation(typeAnnotationNode, false);
 
                     if (declaredType) {
                         return convertClassToObject(declaredType);

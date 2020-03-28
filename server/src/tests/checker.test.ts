@@ -1262,7 +1262,7 @@ test('Final2', () => {
 
 test('Final3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['final3.py']);
-    validateResults(analysisResults, 12);
+    validateResults(analysisResults, 14);
 });
 
 test('InferredTypes1', () => {

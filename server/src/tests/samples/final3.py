@@ -2,7 +2,7 @@
 # introduced in Python 3.8.
 
 import typing
-from typing import Final
+from typing import Final, List
 
 foo1: typing.Final = 3
 
@@ -74,4 +74,13 @@ class Bar(Foo):
         # a member that is marked Final in the parent class.
         self.member6 = 5
     
+
+# This should generate an error because Final isn't allowed for
+# function parameters.
+def bar(a: Final[int]):
+    pass
+
+# This should generate an error because Final must the outermost
+# type in assignments.
+b: List[Final[int]] = []
 
