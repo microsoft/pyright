@@ -9364,9 +9364,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         return strType;
                     }
 
-                    const iterableType = getBuiltInType(declaration.node, 'Iterable');
-                    if (iterableType.category === TypeCategory.Class) {
-                        return ObjectType.create(ClassType.cloneForSpecialization(iterableType, [strType]));
+                    if (declaration.intrinsicType === 'Iterable[str]') {
+                        const iterableType = getBuiltInType(declaration.node, 'Iterable');
+                        if (iterableType.category === TypeCategory.Class) {
+                            return ObjectType.create(ClassType.cloneForSpecialization(iterableType, [strType]));
+                        }
+                    }
+
+                    if (declaration.intrinsicType === 'Dict[str, Any]') {
+                        const dictType = getBuiltInType(declaration.node, 'Dict');
+                        if (dictType.category === TypeCategory.Class) {
+                            return ObjectType.create(ClassType.cloneForSpecialization(dictType, [strType, AnyType.create()]));
+                        }
                     }
                 }
 
