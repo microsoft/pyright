@@ -2638,7 +2638,10 @@ export class Parser {
                 leftExpr = TypeAnnotationNode.create(leftExpr, annotationExpr);
 
                 if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V36) {
-                    this._addError('Type annotations for variables requires Python 3.6 or newer', annotationExpr);
+                    this._addError(
+                        'Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with Python 3.5 or older',
+                        annotationExpr
+                    );
                 }
             });
 

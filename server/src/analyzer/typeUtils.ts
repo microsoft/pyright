@@ -544,7 +544,7 @@ export function lookUpClassMember(
             }
         }
 
-        if (foundUnknownBaseClass) {
+        if (foundUnknownBaseClass && !declaredTypesOnly) {
             // The class derives from an unknown type, so all bets are off
             // when trying to find a member. Return an unknown symbol.
             return {
