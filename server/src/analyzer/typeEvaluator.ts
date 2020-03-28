@@ -9376,7 +9376,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (declaration.intrinsicType === 'Dict[str, Any]') {
                         const dictType = getBuiltInType(declaration.node, 'Dict');
                         if (dictType.category === TypeCategory.Class) {
-                            return ObjectType.create(ClassType.cloneForSpecialization(dictType, [strType, AnyType.create()]));
+                            return ObjectType.create(
+                                ClassType.cloneForSpecialization(dictType, [strType, AnyType.create()])
+                            );
                         }
                     }
                 }
