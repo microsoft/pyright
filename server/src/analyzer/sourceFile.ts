@@ -319,6 +319,11 @@ export class SourceFile {
             return false;
         }
 
+        // If the file was never read previously, no need to check for a change.
+        if (this._lastFileContentLength === undefined) {
+            return false;
+        }
+
         // Read in the latest file contents and see if the hash matches
         // that of the previous contents.
         try {
@@ -749,10 +754,6 @@ export class SourceFile {
         }
 
         return performQuickAction(command, args, this._parseResults, token);
-    }
-
-    setCheckingRequired() {
-        this._isCheckingNeeded = true;
     }
 
     bind(configOptions: ConfigOptions, importLookup: ImportLookup, builtinsScope: Scope | undefined) {
