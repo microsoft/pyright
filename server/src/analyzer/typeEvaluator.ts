@@ -1377,7 +1377,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             const diag = new DiagnosticAddendum();
-            if (subtype.category === TypeCategory.Object) {
+            if (isAnyOrUnknown(subtype)) {
+                return subtype;
+            } else if (subtype.category === TypeCategory.Object) {
                 const returnType = getIteratorReturnType(subtype, undefined, diag);
                 if (returnType) {
                     return returnType;
