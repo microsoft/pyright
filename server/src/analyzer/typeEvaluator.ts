@@ -7666,6 +7666,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             const diag = new DiagnosticAddendum();
+            let additionalHelp = '';
+
             if (subtype.category === TypeCategory.Object) {
                 const memberType = getTypeFromObjectMember(
                     node.expression,
@@ -7691,11 +7693,26 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                     return memberReturnType;
                 }
+
+                if (!isAsync) {
+                    const memberType = getTypeFromObjectMember(
+                        node.expression,
+                        subtype,
+                        '__aenter__',
+                        { method: 'get' },
+                        diag,
+                        MemberAccessFlags.None
+                    );
+                    if (memberType) {
+                        additionalHelp = `; did you mean 'async with'?`;
+                    }
+                }
             }
 
             addError(
                 `Type ${printType(subtype)} cannot be used ` +
                     `with 'with' because it does not implement '${enterMethodName}'` +
+                    additionalHelp +
                     diag.getString(),
                 node.expression
             );

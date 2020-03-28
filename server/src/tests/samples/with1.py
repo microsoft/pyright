@@ -48,3 +48,20 @@ def test1():
         requires_int(foo2)
         requires_class3(foo3)
 
+class Class4:
+    async def __aenter__(self: _T1) -> _T1:
+        return self
+
+    
+def test2():
+    a1 = Class4()
+
+    # This should generate an error because __aenter__
+    # needs to be used with async with.
+    with a1 as foo:
+        pass
+
+    async with a1 as foo:
+        pass
+
+

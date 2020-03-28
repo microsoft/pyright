@@ -683,7 +683,7 @@ test('NoReturn1', () => {
 test('With1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with1.py']);
 
-    validateResults(analysisResults, 2);
+    validateResults(analysisResults, 3);
 });
 
 test('ForLoops1', () => {
