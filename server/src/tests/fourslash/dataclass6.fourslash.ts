@@ -30,5 +30,5 @@
 
 helper.verifyDiagnostics({
     marker1: { category: 'error', message: 'Expected 1 positional argument' },
-    marker2: { category: 'error', message: "Argument missing for parameter 'y'" }
+    marker2: { category: 'error', message: `Argument missing for parameter "y"` }
 });

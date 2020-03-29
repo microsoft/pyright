@@ -50,13 +50,12 @@
 ////     ddd: InitVar[int] = 3
 
 helper.verifyDiagnostics({
-    marker1: { category: 'error', message: "No parameter named 'ddd'" },
+    marker1: { category: 'error', message: `No parameter named "ddd"` },
     marker2: {
         category: 'error',
-        message:
-            "Argument of type 'Literal['hello']' cannot be assigned to parameter 'bbb' of type 'int'\n  'str' is incompatible with 'int'"
+        message: `Argument of type "Literal['hello']" cannot be assigned to parameter "bbb" of type "int"\n  "str" is incompatible with "int"`
     },
-    marker3: { category: 'error', message: "Argument missing for parameter 'ccc'" },
+    marker3: { category: 'error', message: `Argument missing for parameter "ccc"` },
     marker4: { category: 'error', message: 'Expected 3 positional arguments' },
     marker5: {
         category: 'error',

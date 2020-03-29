@@ -323,7 +323,7 @@ export class Parser {
                 return this._parseForStatement(asyncToken);
         }
 
-        this._addError('Expected "def", "with" or "for" to follow "async".', asyncToken);
+        this._addError('Expected "def", "with" or "for" to follow "async"', asyncToken);
 
         return undefined;
     }
@@ -396,7 +396,7 @@ export class Parser {
                     if (indentToken.isIndentAmbiguous) {
                         this._addError('Inconsistent use of tabs and spaces in indentation', indentToken);
                     } else {
-                        this._addError('Unexpected indentation', nextToken);
+                        this._addError('Indent not expected', nextToken);
                     }
                 }
 
@@ -607,7 +607,7 @@ export class Parser {
                     // Handle the python 2.x syntax in a graceful manner.
                     const peekToken = this._peekToken();
                     if (this._consumeTokenIfType(TokenType.Comma)) {
-                        this._addError(`Expected 'as' after exception type`, peekToken);
+                        this._addError(`Expected "as" after exception type`, peekToken);
 
                         // Parse the expression expected in python 2.x, but discard it.
                         this._parseTestExpression(false);
@@ -764,16 +764,16 @@ export class Parser {
             if (param.name) {
                 const name = param.name.value;
                 if (!paramMap.set(name, name)) {
-                    this._addError(`Duplicate parameter '${name}'`, param.name);
+                    this._addError(`Duplicate parameter "${name}"`, param.name);
                 }
             }
 
             if (param.category === ParameterCategory.Simple) {
                 if (!param.name) {
                     if (sawPositionOnlySeparator) {
-                        this._addError(`Only one '/' parameter is allowed`, param);
+                        this._addError(`Only one "/" parameter is allowed`, param);
                     } else if (sawKwSeparator) {
-                        this._addError(`'/' parameter must appear before '*' parameter`, param);
+                        this._addError(`"/" parameter must appear before "*" parameter`, param);
                     }
                     sawPositionOnlySeparator = true;
                 } else {
@@ -794,12 +794,12 @@ export class Parser {
             if (param.category === ParameterCategory.VarArgList) {
                 if (!param.name) {
                     if (sawKwSeparator) {
-                        this._addError(`Only one '*' separator is allowed`, param);
+                        this._addError(`Only one "*" separator is allowed`, param);
                     }
                     sawKwSeparator = true;
                 } else {
                     if (sawVarArgs) {
-                        this._addError(`Only one '*' parameter is allowed`, param);
+                        this._addError(`Only one "*" parameter is allowed`, param);
                     }
                     sawVarArgs = true;
                 }
@@ -807,11 +807,11 @@ export class Parser {
 
             if (param.category === ParameterCategory.VarArgDictionary) {
                 if (sawKwArgs) {
-                    this._addError(`Only one '**' parameter is allowed`, param);
+                    this._addError(`Only one "**" parameter is allowed`, param);
                 }
                 sawKwArgs = true;
             } else if (sawKwArgs) {
-                this._addError(`Parameter cannot follow '**' parameter`, param);
+                this._addError(`Parameter cannot follow "**" parameter`, param);
             }
 
             if (!this._consumeTokenIfType(TokenType.Comma)) {
@@ -822,7 +822,7 @@ export class Parser {
         if (paramList.length > 0) {
             const lastParam = paramList[paramList.length - 1];
             if (lastParam.category === ParameterCategory.VarArgList && !lastParam.name) {
-                this._addError(`Named argument must follow '*'`, lastParam);
+                this._addError(`Named argument must follow "*"`, lastParam);
             }
         }
 
@@ -894,7 +894,7 @@ export class Parser {
             extendRange(paramNode, paramNode.defaultValue);
 
             if (starCount > 0) {
-                this._addError(`Parameter with '*' or '**' cannot have default value`, paramNode.defaultValue);
+                this._addError(`Parameter with "*" or "**" cannot have default value`, paramNode.defaultValue);
             }
         }
 
@@ -1436,7 +1436,7 @@ export class Parser {
         const nextToken = this._peekToken();
         if (this._consumeTokenIfKeyword(KeywordType.From)) {
             if (this._getLanguageVersion() < PythonVersion.V33) {
-                this._addError(`Use of 'yield from' requires Python 3.3 or newer`, nextToken);
+                this._addError(`Use of "yield from" requires Python 3.3 or newer`, nextToken);
             }
             return YieldFromNode.create(yieldToken, this._parseTestExpression(true));
         }
@@ -1474,7 +1474,7 @@ export class Parser {
 
                 // Remove any non-printable characters.
                 const cleanedText = text.replace(/[\S\W]/g, '');
-                this._addError(`Invalid character in token: "${cleanedText}"`, invalidToken);
+                this._addError(`Invalid character in token "${cleanedText}"`, invalidToken);
                 this._consumeTokensUntilType(TokenType.NewLine);
                 break;
             }
@@ -1709,11 +1709,11 @@ export class Parser {
         }
 
         if (!this._assignmentExpressionsAllowed) {
-            this._addError(`Operator ':=' not allowed in this context`, walrusToken);
+            this._addError(`Operator ":=" not allowed in this context`, walrusToken);
         }
 
         if (this._getLanguageVersion() < PythonVersion.V38) {
-            this._addError(`Operator ':=' requires Python 3.8 or newer`, walrusToken);
+            this._addError(`Operator ":=" requires Python 3.8 or newer`, walrusToken);
         }
 
         let rightExpr: ExpressionNode;
@@ -1956,7 +1956,7 @@ export class Parser {
         if (this._peekKeywordType() === KeywordType.Await && !this._isParsingTypeAnnotation) {
             awaitToken = this._getKeywordToken(KeywordType.Await);
             if (this._getLanguageVersion() < PythonVersion.V35) {
-                this._addError(`Use of 'await' requires Python 3.5 or newer`, awaitToken);
+                this._addError(`Use of "await" requires Python 3.5 or newer`, awaitToken);
             }
         }
 
@@ -2639,7 +2639,7 @@ export class Parser {
 
                 if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V36) {
                     this._addError(
-                        'Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with Python 3.5 or older',
+                        'Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with previous versions',
                         annotationExpr
                     );
                 }
@@ -2966,11 +2966,11 @@ export class Parser {
             // Don't allow multiple strings because we have no way of reporting
             // parse errors that span strings.
             if (stringNode.strings.length > 1) {
-                this._addError('Type hints cannot span multiple string literals', stringNode);
+                this._addError('Type annotations cannot span multiple string literals', stringNode);
             } else if (stringNode.strings[0].token.flags & StringTokenFlags.Triplicate) {
-                this._addError('Type hints cannot use triple quotes', stringNode);
+                this._addError('Type annotations cannot use triple quotes', stringNode);
             } else if (stringNode.strings[0].token.flags & StringTokenFlags.Format) {
-                this._addError('Type hints cannot use format string literals (f-strings)', stringNode);
+                this._addError('Type annotations cannot use format string literals (f-strings)', stringNode);
             } else {
                 const stringToken = stringNode.strings[0].token;
                 const stringValue = StringTokenUtils.getUnescapedString(stringNode.strings[0].token);
@@ -2981,7 +2981,7 @@ export class Parser {
                 // Don't allow escape characters because we have no way of mapping
                 // error ranges back to the escaped text.
                 if (unescapedString.length !== stringToken.length - prefixLength - stringToken.quoteMarkLength) {
-                    this._addError('Type hints cannot contain escape characters', stringNode);
+                    this._addError('Type annotations cannot contain escape characters', stringNode);
                 } else {
                     const parser = new Parser();
                     const parseResults = parser.parseTextExpression(
@@ -3020,7 +3020,7 @@ export class Parser {
 
         for (const expr of possibleTupleExpr.expressions) {
             if (expr.nodeType === ParseNodeType.Unpack) {
-                this._addError('Unpack operation not allowed prior to Python 3.8', expr);
+                this._addError('Unpack operation not allowed in tuples prior to Python 3.8', expr);
                 return;
             }
         }

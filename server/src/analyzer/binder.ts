@@ -259,7 +259,7 @@ export class Binder extends ParseTreeWalker {
                 this._addDiagnostic(
                     this._fileInfo.diagnosticSettings.reportMissingImports,
                     DiagnosticRule.reportMissingImports,
-                    `Import '${importResult.importName}' could not be resolved`,
+                    `Import "${importResult.importName}" could not be resolved`,
                     node
                 );
             } else if (importResult.importType === ImportType.ThirdParty) {
@@ -267,7 +267,7 @@ export class Binder extends ParseTreeWalker {
                     const diagnostic = this._addDiagnostic(
                         this._fileInfo.diagnosticSettings.reportMissingTypeStubs,
                         DiagnosticRule.reportMissingTypeStubs,
-                        `Stub file not found for '${importResult.importName}'`,
+                        `Stub file not found for "${importResult.importName}"`,
                         node
                     );
                     if (diagnostic) {
@@ -561,7 +561,7 @@ export class Binder extends ParseTreeWalker {
                 const localSymbol = curScope.lookUpSymbol(node.name.value);
                 if (localSymbol) {
                     this._addError(
-                        `Assignment expression target '${node.name.value}' ` +
+                        `Assignment expression target "${node.name.value}" ` +
                             `cannot use same name as comprehension for target`,
                         node.name
                     );
@@ -826,7 +826,7 @@ export class Binder extends ParseTreeWalker {
 
     visitRaise(node: RaiseNode): boolean {
         if (!node.typeExpression && this._nestedExceptDepth === 0) {
-            this._addError(`Raise requires parameter(s) when used outside of except clause `, node);
+            this._addError(`"raise" requires one or more parameters when used outside of except clause`, node);
         }
 
         if (node.typeExpression) {
@@ -970,7 +970,7 @@ export class Binder extends ParseTreeWalker {
         // Make sure this is within an async lambda or function.
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
-            this._addError(`'await' allowed only within async function`, node);
+            this._addError(`"await" allowed only within async function`, node);
         }
 
         return true;
@@ -1026,14 +1026,14 @@ export class Binder extends ParseTreeWalker {
 
             // Is the binding inconsistent?
             if (this._notLocalBindings.get(nameValue) === NameBindingType.Nonlocal) {
-                this._addError(`'${nameValue}' was already declared nonlocal`, name);
+                this._addError(`"${nameValue}" was already declared nonlocal`, name);
             }
 
             const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
             // Was the name already assigned within this scope before it was declared global?
             if (valueWithScope && valueWithScope.scope === this._currentScope) {
-                this._addError(`'${nameValue}' is assigned before global declaration`, name);
+                this._addError(`"${nameValue}" is assigned before global declaration`, name);
             }
 
             // Add it to the global scope if it's not already added.
@@ -1058,16 +1058,16 @@ export class Binder extends ParseTreeWalker {
 
                 // Is the binding inconsistent?
                 if (this._notLocalBindings.get(nameValue) === NameBindingType.Global) {
-                    this._addError(`'${nameValue}' was already declared global`, name);
+                    this._addError(`"${nameValue}" was already declared global`, name);
                 }
 
                 const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
 
                 // Was the name already assigned within this scope before it was declared nonlocal?
                 if (valueWithScope && valueWithScope.scope === this._currentScope) {
-                    this._addError(`'${nameValue}' is assigned before nonlocal declaration`, name);
+                    this._addError(`"${nameValue}" is assigned before nonlocal declaration`, name);
                 } else if (!valueWithScope || valueWithScope.scope === globalScope) {
-                    this._addError(`No binding for nonlocal '${nameValue}' found`, name);
+                    this._addError(`No binding for nonlocal "${nameValue}" found`, name);
                 }
 
                 this._notLocalBindings.set(nameValue, NameBindingType.Nonlocal);
@@ -2427,11 +2427,11 @@ export class Binder extends ParseTreeWalker {
         const functionNode = ParseTreeUtils.getEnclosingFunction(node);
 
         if (!functionNode) {
-            this._addError(`'yield' not allowed outside of a function`, node);
+            this._addError(`"yield" not allowed outside of a function`, node);
         } else if (functionNode.isAsync && node.nodeType === ParseNodeType.YieldFrom) {
             // PEP 525 indicates that 'yield from' is not allowed in an
             // async function.
-            this._addError(`'yield from' not allowed in an async function`, node);
+            this._addError(`"yield from" not allowed in an async function`, node);
         }
 
         if (this._targetFunctionDeclaration) {

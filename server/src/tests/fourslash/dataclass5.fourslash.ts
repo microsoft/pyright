@@ -48,6 +48,6 @@
 //// d = [|/*marker1*/[|/*marker2*/D(3|]|])
 
 helper.verifyDiagnostics({
-    marker1: { category: 'error', message: "Expected no arguments to 'D' constructor" },
-    marker2: { category: 'error', message: "'D(3)' has type 'Type[D]' and is not callable" }
+    marker1: { category: 'error', message: `Expected no arguments to "D" constructor` },
+    marker2: { category: 'error', message: `"D(3)" has type "Type[D]" and is not callable` }
 });
