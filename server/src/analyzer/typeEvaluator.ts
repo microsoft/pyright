@@ -466,6 +466,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     const typeCache: TypeCache = new Map<number, CachedType>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
     let cancellationToken: CancellationToken | undefined;
+    let isDiagnosticSuppressed = false;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: TypeCache | undefined;
@@ -848,11 +849,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             case ParseNodeType.Error: {
                 // Evaluate the child expression as best we can so the
                 // type information is cached for the completion handler.
-                useSpeculativeMode(() => {
+                suppressDiagnostics(() => {
                     if (node.child) {
                         getTypeOfExpression(node.child);
                     }
-                }, false);
+                });
                 typeResult = { type: UnknownType.create(), node };
                 break;
             }
@@ -1703,7 +1704,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function addWarning(message: string, node: ParseNode) {
-        if (!isSpeculativeMode()) {
+        if (!isDiagnosticSuppressed && !isSpeculativeMode()) {
             const fileInfo = getFileInfo(node);
             return fileInfo.diagnosticSink.addWarningWithTextRange(message, node);
         }
@@ -1712,7 +1713,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function addError(message: string, node: ParseNode) {
-        if (!isSpeculativeMode()) {
+        if (!isDiagnosticSuppressed && !isSpeculativeMode()) {
             const fileInfo = getFileInfo(node);
             return fileInfo.diagnosticSink.addErrorWithTextRange(message, node);
         }
@@ -2189,11 +2190,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             case ParseNodeType.Error: {
                 // Evaluate the child expression as best we can so the
                 // type information is cached for the completion handler.
-                useSpeculativeMode(() => {
+                suppressDiagnostics(() => {
                     if (target.child) {
                         getTypeOfExpression(target.child);
                     }
-                }, false);
+                });
                 break;
             }
 
@@ -2239,11 +2240,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             case ParseNodeType.Error: {
                 // Evaluate the child expression as best we can so the
                 // type information is cached for the completion handler.
-                useSpeculativeMode(() => {
+                suppressDiagnostics(() => {
                     if (node.child) {
                         getTypeOfExpression(node.child);
                     }
-                }, false);
+                });
                 break;
             }
 
@@ -3746,7 +3747,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         for (const overload of callType.overloads) {
             // Temporarily disable diagnostic output.
             useSpeculativeMode(() => {
-                const callResult = validateCallArguments(errorNode, argList, overload, new TypeVarMap(), true);
+                const callResult = validateCallArguments(
+                    errorNode,
+                    argList,
+                    overload,
+                    new TypeVarMap(),
+                    /* skipUnknownArgCheck */ true,
+                    /* inferReturnTypeIfNeeded */ false
+                );
                 if (!callResult.argumentErrors) {
                     validOverload = overload;
                 }
@@ -3927,7 +3935,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         argList: FunctionArgument[],
         callType: Type,
         typeVarMap: TypeVarMap,
-        skipUnknownArgCheck: boolean
+        skipUnknownArgCheck: boolean,
+        inferReturnTypeIfNeeded = true
     ): CallResult {
         let callResult: CallResult = { argumentErrors: false };
 
@@ -3941,7 +3950,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case TypeCategory.Function: {
-                callResult = validateFunctionArguments(errorNode, argList, callType, typeVarMap, skipUnknownArgCheck);
+                callResult = validateFunctionArguments(
+                    errorNode,
+                    argList,
+                    callType,
+                    typeVarMap,
+                    skipUnknownArgCheck,
+                    inferReturnTypeIfNeeded
+                );
                 break;
             }
 
@@ -3953,7 +3969,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         argList,
                         overloadedFunctionType,
                         typeVarMap,
-                        skipUnknownArgCheck
+                        skipUnknownArgCheck,
+                        inferReturnTypeIfNeeded
                     );
                 } else {
                     const exprString = ParseTreeUtils.printExpression(errorNode);
@@ -3991,7 +4008,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         argList,
                         callMethodType,
                         typeVarMap,
-                        skipUnknownArgCheck
+                        skipUnknownArgCheck,
+                        inferReturnTypeIfNeeded
                     );
                 }
                 break;
@@ -4014,7 +4032,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             argList,
                             type,
                             typeVarMap,
-                            skipUnknownArgCheck
+                            skipUnknownArgCheck,
+                            inferReturnTypeIfNeeded
                         );
                         if (subtypeCallResult.returnType) {
                             returnTypes.push(subtypeCallResult.returnType);
@@ -4041,7 +4060,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         argList: FunctionArgument[],
         type: FunctionType,
         typeVarMap: TypeVarMap,
-        skipUnknownArgCheck: boolean
+        skipUnknownArgCheck: boolean,
+        inferReturnTypeIfNeeded = true
     ): CallResult {
         let argIndex = 0;
         const typeParams = type.details.parameters;
@@ -4348,9 +4368,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             });
         }
 
-        const returnType = specializeType(getFunctionEffectiveReturnType(type, validateArgTypeParams), typeVarMap);
+        // Calculate the return type. If there was an error matching arguments to
+        // parameters, don't bother attempting to infer the return type.
+        const returnType = getFunctionEffectiveReturnType(
+            type,
+            validateArgTypeParams,
+            inferReturnTypeIfNeeded && !reportedArgError
+        );
+        const specializedReturnType = specializeType(returnType, typeVarMap);
 
-        return { argumentErrors: reportedArgError, returnType };
+        return { argumentErrors: reportedArgError, returnType: specializedReturnType };
     }
 
     function validateArgType(
@@ -5183,12 +5210,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         let type: Type | undefined;
 
-        // Don't write to the cache when we evaluate the left-hand side.
-        // We'll write the result as part of the "set" method.
-        let leftType: Type | undefined;
-        useSpeculativeMode(() => {
-            leftType = getTypeOfExpression(node.leftExpression).type;
-        }, false);
+        let leftType = getTypeOfExpression(node.leftExpression).type;
         if (leftType!.category === TypeCategory.TypeVar) {
             leftType = specializeType(leftType!, undefined);
         }
@@ -5378,7 +5400,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 let callResult: CallResult | undefined;
 
-                useSpeculativeMode(() => {
+                suppressDiagnostics(() => {
                     callResult = validateCallArguments(
                         errorNode,
                         functionArgs,
@@ -9204,18 +9226,21 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return scope.lookUpSymbolRecursive(name);
     }
 
+    // Disables recording of errors and warnings.
+    function suppressDiagnostics(callback: () => void) {
+        const wasSuppressed = isDiagnosticSuppressed;
+        isDiagnosticSuppressed = true;
+        callback();
+        isDiagnosticSuppressed = wasSuppressed;
+    }
+
     // Disables recording of errors and warnings and disables
     // any caching of types, under the assumption that we're
     // performing speculative evaluations.
-    function useSpeculativeMode(callback: () => void, requiresNewContext = true) {
-        if (requiresNewContext || !speculativeTypeTracker.isSpeculative()) {
-            speculativeTypeTracker.enterSpeculativeContext();
-            callback();
-            speculativeTypeTracker.leaveSpeculativeContext();
-        } else {
-            // Use the existing speculative context.
-            callback();
-        }
+    function useSpeculativeMode(callback: () => void) {
+        speculativeTypeTracker.enterSpeculativeContext();
+        callback();
+        speculativeTypeTracker.leaveSpeculativeContext();
     }
 
     function isSpeculativeMode() {
@@ -9722,13 +9747,21 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // a type annotation, that type is returned. If not, an attempt is made to infer
     // the return type. If a list of args is provided, the inference logic may take
     // into account argument types to infer the return type.
-    function getFunctionEffectiveReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
+    function getFunctionEffectiveReturnType(
+        type: FunctionType,
+        args?: ValidateArgTypeParams[],
+        inferTypeIfNeeded = true
+    ) {
         const specializedReturnType = FunctionType.getSpecializedReturnType(type);
         if (specializedReturnType) {
             return specializedReturnType;
         }
 
-        return getFunctionInferredReturnType(type, args);
+        if (inferTypeIfNeeded) {
+            return getFunctionInferredReturnType(type, args);
+        }
+
+        return UnknownType.create();
     }
 
     function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
@@ -9820,9 +9853,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return undefined;
         }
 
-        // Enable speculative mode because we don't want to generate errors
-        // or overwrite the type cache in this case.
-        useSpeculativeMode(() => {
+        // Suppress diagnostics because we don't want to generate errors.
+        suppressDiagnostics(() => {
             // Allocate a new temporary type cache for the context of just
             // this function so we can analyze it separately without polluting
             // the main type cache.
