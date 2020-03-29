@@ -605,7 +605,7 @@ export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
 }
 
 export function isNodeContainedWithin(node: ParseNode, potentialContainer: ParseNode): boolean {
-    let curNode = node.parent;
+    let curNode: ParseNode | undefined = node;
     while (curNode) {
         if (curNode === potentialContainer) {
             return true;

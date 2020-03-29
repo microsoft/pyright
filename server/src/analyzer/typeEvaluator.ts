@@ -521,7 +521,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 : typeCache;
 
         typeCacheToUse.set(node.id, type);
-        speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
+
+        // If the entry is located within a part of the parse tree that is currently being
+        // "speculatively" evaluated, track it so we delete the cached entry when we leave
+        // this speculative context.
+        const speculativeNode = speculativeTypeTracker.getSpeculativeRootNode();
+        if (speculativeNode && ParseTreeUtils.isNodeContainedWithin(node, speculativeNode)) {
+            speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
+        }
     }
 
     // Determines whether the specified node is contained within
@@ -1704,7 +1711,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function addWarning(message: string, node: ParseNode) {
-        if (!isDiagnosticSuppressed && !isSpeculativeMode()) {
+        if (!isDiagnosticSuppressed && !isSpeculativeMode(node)) {
             const fileInfo = getFileInfo(node);
             return fileInfo.diagnosticSink.addWarningWithTextRange(message, node);
         }
@@ -1713,7 +1720,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function addError(message: string, node: ParseNode) {
-        if (!isDiagnosticSuppressed && !isSpeculativeMode()) {
+        if (!isDiagnosticSuppressed && !isSpeculativeMode(node)) {
             const fileInfo = getFileInfo(node);
             return fileInfo.diagnosticSink.addErrorWithTextRange(message, node);
         }
@@ -1953,7 +1960,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         // type of the class variable with that of the new instance variable.
                         if (!memberInfo.isInstanceMember && isInstanceMember) {
                             // The class variable is accessed in this case.
-                            setSymbolAccessed(fileInfo, memberInfo.symbol);
+                            setSymbolAccessed(fileInfo, memberInfo.symbol, node.memberName);
                             const memberType = getTypeOfMember(memberInfo);
                             srcType = combineTypes([srcType, memberType]);
                         }
@@ -2102,7 +2109,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                             : entryExpr.strings.map(s => s.value).join('');
                                     const symbolInScope = scope.lookUpSymbolRecursive(symbolName);
                                     if (symbolInScope) {
-                                        setSymbolAccessed(fileInfo, symbolInScope.symbol);
+                                        setSymbolAccessed(fileInfo, symbolInScope.symbol, target);
                                     }
                                 }
                             });
@@ -2255,8 +2262,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
     }
 
-    function setSymbolAccessed(fileInfo: AnalyzerFileInfo, symbol: Symbol) {
-        if (!isSpeculativeMode()) {
+    function setSymbolAccessed(fileInfo: AnalyzerFileInfo, symbol: Symbol, node: ParseNode) {
+        if (!isSpeculativeMode(node)) {
             fileInfo.accessedSymbolMap.set(symbol.id, true);
         }
     }
@@ -2431,7 +2438,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 addError(`'${name}' is possibly unbound`, node);
             }
 
-            setSymbolAccessed(fileInfo, symbol);
+            setSymbolAccessed(fileInfo, symbol, node);
         } else {
             // Handle the special case of "reveal_type".
             if (name !== 'reveal_type') {
@@ -2529,7 +2536,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const symbol = ModuleType.getField(baseType, memberName);
                 if (symbol) {
                     if (usage.method === 'get') {
-                        setSymbolAccessed(getFileInfo(node), symbol);
+                        setSymbolAccessed(getFileInfo(node), symbol, node.memberName);
                     }
 
                     type = getEffectiveTypeOfSymbol(symbol);
@@ -2707,7 +2714,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (usage.method === 'get') {
                 // Mark the member accessed if it's not coming from a parent class.
                 if (memberInfo.classType === classType) {
-                    setSymbolAccessed(getFileInfo(errorNode), memberInfo.symbol);
+                    setSymbolAccessed(getFileInfo(errorNode), memberInfo.symbol, errorNode);
                 }
             }
 
@@ -3746,7 +3753,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         for (const overload of callType.overloads) {
             // Temporarily disable diagnostic output.
-            useSpeculativeMode(() => {
+            useSpeculativeMode(errorNode, () => {
                 const callResult = validateCallArguments(
                     errorNode,
                     argList,
@@ -4335,7 +4342,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // where more than two passes are needed.
             const passCount = Math.min(typeVarMatchingCount, 2);
             for (let i = 0; i < passCount; i++) {
-                useSpeculativeMode(() => {
+                useSpeculativeMode(errorNode, () => {
                     validateArgTypeParams.forEach(argParam => {
                         if (argParam.requiresTypeVarMatching) {
                             validateArgType(argParam, typeVarMap, skipUnknownArgCheck);
@@ -4358,7 +4365,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Run through all the args that were not validated and evaluate their types
         // to ensure that we haven't missed any (due to arg/param mismatches). This will
         // ensure that referenced symbols are not reported as unaccessed.
-        if (!isSpeculativeMode()) {
+        if (!isSpeculativeMode(undefined)) {
             argList.forEach(arg => {
                 if (arg.valueExpression) {
                     if (!validateArgTypeParams.some(validatedArg => validatedArg.argument === arg)) {
@@ -4399,7 +4406,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const exprType = getTypeOfExpression(argParam.argument.valueExpression, expectedType);
             argType = exprType.type;
 
-            if (argParam.argument && argParam.argument.name && !isSpeculativeMode()) {
+            if (argParam.argument && argParam.argument.name && !isSpeculativeMode(argParam.errorNode)) {
                 writeTypeCache(argParam.argument.name, argType);
             }
         } else {
@@ -5891,7 +5898,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // Evaluate the test expression to validate it and mark symbols
                 // as referenced. Don't bother doing this if we're in speculative
                 // mode because it doesn't affect the element type.
-                if (!isSpeculativeMode()) {
+                if (!isSpeculativeMode(comprehension.testExpression)) {
                     getTypeOfExpression(comprehension.testExpression);
                 }
             }
@@ -9237,14 +9244,21 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // Disables recording of errors and warnings and disables
     // any caching of types, under the assumption that we're
     // performing speculative evaluations.
-    function useSpeculativeMode(callback: () => void) {
-        speculativeTypeTracker.enterSpeculativeContext();
+    function useSpeculativeMode(speculativeNode: ExpressionNode, callback: () => void) {
+        speculativeTypeTracker.enterSpeculativeContext(speculativeNode);
         callback();
         speculativeTypeTracker.leaveSpeculativeContext();
     }
 
-    function isSpeculativeMode() {
-        return speculativeTypeTracker.isSpeculative();
+    // Determines whether the specified node is within a part of the parse tree that
+    // is being "speculatively" evaluated. If so, it should not be written to the type
+    // cache, and diagnostics should not be reported for it.
+    function isSpeculativeMode(node: ParseNode | undefined) {
+        const speculativeRootNode = speculativeTypeTracker.getSpeculativeRootNode();
+        if (!speculativeRootNode) {
+            return false;
+        }
+        return node === undefined || ParseTreeUtils.isNodeContainedWithin(node, speculativeRootNode);
     }
 
     function disableSpeculativeMode(callback: () => void) {

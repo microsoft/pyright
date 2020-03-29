@@ -9,6 +9,7 @@
  */
 
 import { assert } from '../common/debug';
+import { ParseNode } from '../parser/parseNodes';
 import { Type } from './types';
 
 // A type cache maps node IDs to types or pseudo-type objects.
@@ -35,26 +36,29 @@ interface SpeculativeTypeCacheEntry {
     id: number;
 }
 
-type SpeculativeTypeCacheList = SpeculativeTypeCacheEntry[];
+interface SpeculativeContext {
+    speculativeRootNode: ParseNode;
+    entriesToUndo: SpeculativeTypeCacheEntry[];
+}
 
 // This class maintains a stack of "speculative type contexts". When
 // a context is popped off the stack, all of the speculative type cache
 // entries that were created within that context are removed from the
 // corresponding type caches because they are no longer valid.
 export class SpeculativeTypeTracker {
-    private _speculativeContextStack: SpeculativeTypeCacheList[] = [];
+    private _speculativeContextStack: SpeculativeContext[] = [];
 
-    enterSpeculativeContext() {
-        this._speculativeContextStack.push([]);
+    enterSpeculativeContext(speculativeRootNode: ParseNode) {
+        this._speculativeContextStack.push({ speculativeRootNode, entriesToUndo: [] });
     }
 
     leaveSpeculativeContext() {
         assert(this._speculativeContextStack.length > 0);
-        const trackedList = this._speculativeContextStack.pop();
+        const context = this._speculativeContextStack.pop();
 
         // Delete all of the speculative type cache entries
         // that were tracked in this context.
-        trackedList!.forEach(entry => {
+        context!.entriesToUndo.forEach(entry => {
             entry.cache.delete(entry.id);
         });
     }
@@ -63,10 +67,21 @@ export class SpeculativeTypeTracker {
         return this._speculativeContextStack.length > 0;
     }
 
+    getSpeculativeRootNode() {
+        const stackDepth = this._speculativeContextStack.length;
+        if (stackDepth > 0) {
+            // Return the speculative node associated with the most
+            // recent context pushed onto the stack.
+            return this._speculativeContextStack[stackDepth - 1].speculativeRootNode;
+        }
+
+        return undefined;
+    }
+
     trackEntry(cache: TypeCache, id: number) {
         const stackSize = this._speculativeContextStack.length;
         if (stackSize > 0) {
-            this._speculativeContextStack[stackSize - 1].push({
+            this._speculativeContextStack[stackSize - 1].entriesToUndo.push({
                 cache,
                 id
             });
@@ -82,7 +97,7 @@ export class SpeculativeTypeTracker {
         return stack;
     }
 
-    enableSpeculativeMode(stack: SpeculativeTypeCacheList[]) {
+    enableSpeculativeMode(stack: SpeculativeContext[]) {
         assert(this._speculativeContextStack.length === 0);
         this._speculativeContextStack = stack;
     }
