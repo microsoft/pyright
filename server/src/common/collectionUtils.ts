@@ -289,3 +289,16 @@ export function flatten<T>(array: T[][] | readonly (T | readonly T[] | undefined
     }
     return result;
 }
+
+/**
+ * Retrieves nested objects by parsing chained properties. ie. "a.b.c"
+ * Returns undefined if not found
+ * @param object The object to query
+ * @param property The property to be searched for in the object ie. "a.b.c"
+ */
+export function getNestedProperty(object: any, property: string) {
+    const value = property.split('.').reduce((obj, prop) => {
+        return obj && obj[prop];
+    }, object);
+    return value;
+}

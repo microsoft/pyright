@@ -75,21 +75,37 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        const callSignatureInfo = evaluator.getCallSignatureInfo(node, offset);
+        const callSignatureInfo = evaluator.getCallSignatureInfo(node, offset, parseResults.tokenizerOutput.tokens);
         if (!callSignatureInfo) {
             return undefined;
         }
 
-        const results: SignatureHelpResults = {
-            signatures: [],
-            activeParameter: callSignatureInfo.activeArgumentIndex
-        };
+        const signatures: SignatureInfo[] = [];
+        let activeSignature: number | undefined;
+        let activeParameter: number | undefined;
 
-        callSignatureInfo.signatures.forEach(type => {
-            results.signatures.push(this._makeSignature(type, evaluator));
+        callSignatureInfo.signatures.forEach((signature, index) => {
+            signatures.push(this._makeSignature(signature.type, evaluator));
+
+            // Unfortunately, the LSP specification only allows a single active overload
+            // with a single active parameter. Since overloads in Python can have wildly
+            // different looking signatures, this isn't enough, and having a per-overload
+            // active parameter would be preferred. In lieu of this, just mark the first
+            // overload containing the active parameter as active and hope for the best.
+            if (activeSignature === undefined && signature.activeParam) {
+                const paramIndex = signature.type.details.parameters.indexOf(signature.activeParam);
+                if (paramIndex !== -1) {
+                    activeSignature = index;
+                    activeParameter = paramIndex;
+                }
+            }
         });
 
-        return results;
+        return {
+            signatures,
+            activeSignature,
+            activeParameter
+        };
     }
 
     private static _makeSignature(functionType: FunctionType, evaluator: TypeEvaluator): SignatureInfo {

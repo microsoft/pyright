@@ -149,6 +149,17 @@ test('flatten', () => {
     assert.deepEqual(utils.flatten(data), [1, 2, 3, 4, 5, 6]);
 });
 
+test('getNestedProperty', () => {
+    const data = { a: { b: { c: 3 } } };
+    assert.deepEqual(utils.getNestedProperty(data, 'a'), { b: { c: 3 } });
+    assert.deepEqual(utils.getNestedProperty(data, 'a.b'), { c: 3 });
+    assert.deepEqual(utils.getNestedProperty(data, 'a.b.c'), 3);
+    assert.deepEqual(utils.getNestedProperty(data, 'x'), undefined);
+    assert.deepEqual(utils.getNestedProperty(data, 'a.x'), undefined);
+    assert.deepEqual(utils.getNestedProperty(data, ''), undefined);
+    assert.deepEqual(utils.getNestedProperty(undefined, ''), undefined);
+});
+
 class B {
     value: number;
 
