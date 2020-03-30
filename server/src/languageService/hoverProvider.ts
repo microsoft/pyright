@@ -16,12 +16,12 @@ import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { Type, TypeCategory, UnknownType } from '../analyzer/types';
-import { isProperty } from '../analyzer/typeUtils';
+import { ClassMemberLookupFlags, isProperty, lookUpClassMember } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
-import { NameNode, ParseNodeType } from '../parser/parseNodes';
+import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface HoverTextPart {
@@ -126,7 +126,48 @@ export class HoverProvider {
 
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass: {
-                this._addResultsPart(parts, '(class) ' + node.value, true);
+                let classText = node.value;
+
+                // If the class is used as part of a call (i.e. it is being
+                // instantiated), include the constructor arguments within the
+                // hover text.
+                let callLeftNode: ParseNode | undefined = node;
+
+                // Allow the left to be a member access chain (e.g. a.b.c) if the
+                // node in question is the last item in the chain.
+                if (
+                    callLeftNode.parent &&
+                    callLeftNode.parent.nodeType === ParseNodeType.MemberAccess &&
+                    node === callLeftNode.parent.memberName
+                ) {
+                    callLeftNode = node.parent;
+                }
+
+                if (
+                    callLeftNode &&
+                    callLeftNode.parent &&
+                    callLeftNode.parent.nodeType === ParseNodeType.Call &&
+                    callLeftNode.parent.leftExpression === callLeftNode
+                ) {
+                    // Get the init method for this class.
+                    const type = evaluator.getType(node);
+                    if (type && type.category === TypeCategory.Class) {
+                        const initMethodMember = lookUpClassMember(
+                            type,
+                            '__init__',
+                            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+                        );
+                        if (initMethodMember) {
+                            const initMethodType = evaluator.getTypeOfMember(initMethodMember);
+                            if (initMethodType && initMethodType.category === TypeCategory.Function) {
+                                const functionParts = evaluator.printFunctionParts(initMethodType);
+                                classText += `(${functionParts[0].join(', ')})`;
+                            }
+                        }
+                    }
+                }
+
+                this._addResultsPart(parts, '(class) ' + classText, true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
             }
