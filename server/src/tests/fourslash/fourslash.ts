@@ -98,6 +98,17 @@ declare namespace _ {
                 [marker: string]: { completions: { label: string; documentation?: { kind: string; value: string } }[] };
             }
         ): void;
+        verifySignature(map: {
+            [marker: string]: {
+                noSig?: boolean;
+                signatures?: {
+                    label: string;
+                    parameters: string[];
+                }[];
+                activeSignature?: number;
+                activeParameter?: number;
+            };
+        }): void;
 
         /* not tested yet
         openFile(indexOrName: number | string, content?: string): void;

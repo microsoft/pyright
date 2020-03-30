@@ -194,7 +194,7 @@ export class TestState {
     }
 
     goToEachMarker(markers: readonly Marker[], action: (marker: Marker, index: number) => void) {
-        debug.assert(markers.length > 0);
+        assert.ok(markers.length > 0);
         for (let i = 0; i < markers.length; i++) {
             this.goToMarker(markers[i]);
             action(markers[i], i);
@@ -209,7 +209,7 @@ export class TestState {
             }
         });
 
-        debug.assertDefined(found);
+        assert.ok(found);
         return found!;
     }
 
@@ -247,7 +247,7 @@ export class TestState {
         const start = this.getMarkerByName(startMarker);
         const end = this.getMarkerByName(endMarker);
 
-        debug.assert(start.fileName === end.fileName);
+        assert.ok(start.fileName === end.fileName);
         if (this.activeFile.fileName !== start.fileName) {
             this.openFile(start.fileName);
         }
@@ -274,7 +274,7 @@ export class TestState {
 
     goToEachRange(action: (range: Range) => void) {
         const ranges = this.getRanges();
-        debug.assert(ranges.length > 0);
+        assert.ok(ranges.length > 0);
         for (const range of ranges) {
             this.selectRange(range);
             action(range);
@@ -619,7 +619,7 @@ export class TestState {
             const actual = convertHoverResults(
                 this.program.getHoverForPosition(range.fileName, rangePos.start, CancellationToken.None)
             );
-            debug.assertDefined(actual);
+            assert.ok(actual);
 
             assert.deepEqual(actual!.range, rangePos);
 
@@ -758,6 +758,59 @@ export class TestState {
             } else {
                 assert.fail('Failed to get completions');
             }
+        }
+    }
+
+    verifySignature(map: {
+        [marker: string]: {
+            noSig?: boolean;
+            signatures?: {
+                label: string;
+                parameters: string[];
+            }[];
+            activeSignature?: number;
+            activeParameter?: number;
+        };
+    }): void {
+        this._analyze();
+
+        for (const marker of this.getMarkers()) {
+            const fileName = marker.fileName;
+            const name = this.getMarkerName(marker);
+
+            if (!(name in map)) {
+                continue;
+            }
+
+            const expected = map[name];
+            const position = this._convertOffsetToPosition(fileName, marker.position);
+
+            const actual = this.program.getSignatureHelpForPosition(fileName, position, CancellationToken.None);
+
+            if (expected.noSig) {
+                assert.equal(actual, undefined);
+                continue;
+            }
+
+            assert.ok(actual);
+            assert.ok(actual!.signatures);
+
+            actual!.signatures.forEach((sig, index) => {
+                const expectedSig = expected.signatures![index];
+                assert.equal(sig.label, expectedSig.label);
+
+                assert.ok(sig.parameters);
+                const actualParameters: string[] = [];
+
+                sig.parameters!.forEach(p => {
+                    actualParameters.push(sig.label.substring(p.startOffset, p.endOffset));
+                });
+
+                assert.deepEqual(actualParameters, expectedSig.parameters);
+            });
+
+            assert.equal(actual!.activeSignature, expected.activeSignature);
+            assert.equal(actual!.activeParameter, expected.activeParameter);
         }
     }
 
@@ -1023,7 +1076,7 @@ export class TestState {
             }
         });
 
-        debug.assertDefined(file);
+        assert.ok(file);
         return { file, availableNames };
     }
 

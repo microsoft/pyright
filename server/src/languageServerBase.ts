@@ -37,6 +37,7 @@ import {
 import { ImportResolver } from './analyzer/importResolver';
 import { AnalysisResults, AnalyzerService } from './analyzer/service';
 import { getCancellationStrategyFromArgv } from './common/cancellationUtils';
+import { getNestedProperty } from './common/collectionUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface } from './common/console';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
@@ -90,6 +91,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     // Create a connection for the server. The connection type can be changed by the process's arguments
     protected _connection: IConnection = createConnection(this._GetConnectionOptions());
     protected _workspaceMap: WorkspaceMap;
+    protected _hasConfigurationCapability = false;
+    protected _defaultClientConfig: any;
 
     // Tracks whether we're currently displaying progress.
     private _isDisplayingProgress = false;
@@ -127,16 +130,28 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     abstract async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
 
     protected getConfiguration(workspace: WorkspaceServiceInstance, section: string) {
-        const scopeUri = workspace.rootUri ? workspace.rootUri : undefined;
-        const item: ConfigurationItem = {
-            scopeUri,
-            section
-        };
-        return this._connection.workspace.getConfiguration(item);
+        if (this._hasConfigurationCapability) {
+            const scopeUri = workspace.rootUri ? workspace.rootUri : undefined;
+            const item: ConfigurationItem = {
+                scopeUri,
+                section
+            };
+            return this._connection.workspace.getConfiguration(item);
+        }
+
+        if (this._defaultClientConfig) {
+            return getNestedProperty(this._defaultClientConfig, section);
+        }
+
+        return undefined;
     }
 
     protected createImportResolver(fs: VirtualFileSystem, options: ConfigOptions): ImportResolver {
         return new ImportResolver(fs, options);
+    }
+
+    protected setExtension(extension: any): void {
+        this._extension = extension;
     }
 
     // Provides access to logging to the client output window.
@@ -197,6 +212,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             (params): InitializeResult => {
                 this.rootPath = params.rootPath || '';
 
+                // Does the client support the `workspace/configuration` request?
+                const capabilities = params.capabilities;
+                this._hasConfigurationCapability = !!(capabilities.workspace && !!capabilities.workspace.configuration);
+
                 // Create a service instance for each of the workspace folders.
                 if (params.workspaceFolders) {
                     params.workspaceFolders.forEach(folder => {
@@ -245,8 +264,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             }
         );
 
-        this._connection.onDidChangeConfiguration(_ => {
+        this._connection.onDidChangeConfiguration(params => {
             this._connection.console.log(`Received updated settings`);
+            if (params?.settings) {
+                this._defaultClientConfig = params?.settings;
+            }
             this.updateSettingsForAllWorkspaces();
         });
 

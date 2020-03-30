@@ -26,6 +26,7 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { getEmptyRange } from '../common/textRange';
 import { TextRange } from '../common/textRange';
+import { TextRangeCollection } from '../common/textRangeCollection';
 import {
     ArgumentCategory,
     AssignmentNode,
@@ -67,7 +68,7 @@ import {
     YieldNode
 } from '../parser/parseNodes';
 import { ParseOptions, Parser } from '../parser/parser';
-import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookup, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import {
@@ -191,6 +192,7 @@ interface FunctionArgument {
     name?: NameNode;
     type?: Type;
     valueExpression?: ExpressionNode;
+    active?: boolean;
 }
 
 interface ValidateArgTypeParams {
@@ -340,16 +342,20 @@ export interface FunctionTypeResult {
     decoratedType: Type;
 }
 
+export interface CallSignature {
+    type: FunctionType;
+    activeParam?: FunctionParameter;
+}
+
 export interface CallSignatureInfo {
+    signatures: CallSignature[];
     callNode: CallNode | DecoratorNode;
-    signatures: FunctionType[];
-    activeArgumentIndex: number;
-    activeArgumentName?: string;
 }
 
 export interface CallResult {
     returnType?: Type;
     argumentErrors: boolean;
+    activeParam?: FunctionParameter;
 }
 
 export interface TypeEvaluator {
@@ -392,7 +398,11 @@ export interface TypeEvaluator {
         memberName: string,
         treatAsClassMember: boolean
     ) => FunctionType | OverloadedFunctionType | undefined;
-    getCallSignatureInfo: (node: ParseNode, insertionOffset: number) => CallSignatureInfo | undefined;
+    getCallSignatureInfo: (
+        node: ParseNode,
+        insertionOffset: number,
+        tokens: TextRangeCollection<Token>
+    ) => CallSignatureInfo | undefined;
 
     canAssignType: (destType: Type, srcType: Type, diag: DiagnosticAddendum, typeVarMap?: TypeVarMap) => boolean;
     canOverrideMethod: (baseMethod: Type, overrideMethod: FunctionType, diag: DiagnosticAddendum) => boolean;
@@ -1065,7 +1075,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // Returns the signature(s) associated with a call node that contains
     // the specified node. It also returns the index of the argument
     // that contains the node.
-    function getCallSignatureInfo(node: ParseNode, insertionOffset: number): CallSignatureInfo | undefined {
+    function getCallSignatureInfo(
+        node: ParseNode,
+        insertionOffset: number,
+        tokens: TextRangeCollection<Token>
+    ): CallSignatureInfo | undefined {
         // Find the call node that contains the specified node.
         let curNode: ParseNode | undefined = node;
         let callNode: CallNode | DecoratorNode | undefined;
@@ -1081,45 +1095,108 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return undefined;
         }
 
-        if (insertionOffset > TextRange.getEnd(callNode)) {
+        if (insertionOffset >= TextRange.getEnd(callNode)) {
             return undefined;
         }
 
-        const signatures: FunctionType[] = [];
-        let activeArgumentIndex = 0;
-        let activeArgumentName: string | undefined;
-
-        const callType = getType(callNode.leftExpression);
+        const exprNode = callNode.leftExpression;
+        const callType = getType(exprNode);
         if (callType === undefined) {
             return undefined;
         }
 
-        // Determine which argument is currently "active".
-        const args = callNode.arguments;
-        for (let i = args.length - 1; i >= 0; i--) {
-            if (insertionOffset > TextRange.getEnd(args[i].valueExpression)) {
-                activeArgumentIndex = i + 1;
-                break;
-            }
+        const argList: FunctionArgument[] = [];
+        let addedActive = false;
+        let previousCategory = ArgumentCategory.Simple;
 
-            if (insertionOffset >= args[i].valueExpression.start) {
-                activeArgumentIndex = i;
-                break;
-            }
+        // Empty arguments do not enter the AST as nodes, but instead are left blank.
+        // Instead, we detect when we appear to be between two known arguments or at the
+        // end of the argument list and insert a fake argument of an unknown type to have
+        // something to match later.
+        function addFakeArg() {
+            argList.push({
+                argumentCategory: previousCategory,
+                type: UnknownType.create(),
+                active: true
+            });
         }
 
-        if (activeArgumentIndex < callNode.arguments.length) {
-            const argName = callNode.arguments[activeArgumentIndex].name;
-            if (argName) {
-                activeArgumentName = argName.value;
+        callNode.arguments.forEach(arg => {
+            let active = false;
+
+            if (!addedActive) {
+                // Calculate the argument's bounds including whitespace and colons.
+                let start = arg.start;
+                const startTokenIndex = tokens.getItemAtPosition(start);
+                if (startTokenIndex >= 0) {
+                    start = TextRange.getEnd(tokens.getItemAt(startTokenIndex - 1));
+                }
+
+                let end = TextRange.getEnd(arg);
+                const endTokenIndex = tokens.getItemAtPosition(end);
+                if (endTokenIndex >= 0) {
+                    // Find the true end of the argument by searching for the
+                    // terminating comma or parenthesis.
+                    for (let i = endTokenIndex; i < tokens.count; i++) {
+                        const tok = tokens.getItemAt(i);
+
+                        switch (tok.type) {
+                            case TokenType.Comma:
+                            case TokenType.CloseParenthesis:
+                                break;
+                            default:
+                                continue;
+                        }
+
+                        end = TextRange.getEnd(tok);
+                        break;
+                    }
+                }
+
+                if (insertionOffset < end) {
+                    if (insertionOffset >= start) {
+                        active = true;
+                    } else {
+                        addFakeArg();
+                    }
+                    addedActive = true;
+                }
             }
+
+            previousCategory = arg.argumentCategory;
+
+            argList.push({
+                valueExpression: arg.valueExpression,
+                argumentCategory: arg.argumentCategory,
+                name: arg.name,
+                active: active
+            });
+        });
+
+        if (!addedActive) {
+            addFakeArg();
+        }
+
+        const signatures: CallSignature[] = [];
+
+        function addOneFunctionToSignature(type: FunctionType) {
+            let callResult: CallResult | undefined;
+
+            useSpeculativeMode(exprNode, () => {
+                callResult = validateFunctionArguments(exprNode, argList, type, new TypeVarMap(), true);
+            });
+
+            signatures.push({
+                type,
+                activeParam: callResult?.activeParam
+            });
         }
 
         function addFunctionToSignature(type: FunctionType | OverloadedFunctionType) {
             if (type.category === TypeCategory.Function) {
-                signatures.push(type);
+                addOneFunctionToSignature(type);
             } else {
-                signatures.push(...type.overloads);
+                type.overloads.forEach(addOneFunctionToSignature);
             }
         }
 
@@ -1169,9 +1246,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         return {
             callNode,
-            signatures,
-            activeArgumentIndex,
-            activeArgumentName
+            signatures
         };
     }
 
@@ -4139,6 +4214,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         const validateArgTypeParams: ValidateArgTypeParams[] = [];
 
+        let activeParam: FunctionParameter | undefined;
+        function trySetActive(arg: FunctionArgument, param: FunctionParameter) {
+            if (arg.active) {
+                activeParam = param;
+            }
+        }
+
         // Map the positional args to parameters.
         let paramIndex = 0;
         while (argIndex < positionalArgCount) {
@@ -4184,6 +4266,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         argument: funcArg,
                         errorNode: argList[argIndex].valueExpression || errorNode
                     });
+                    trySetActive(argList[argIndex], typeParams[paramIndex]);
                 }
                 break;
             } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
@@ -4194,6 +4277,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     errorNode: argList[argIndex].valueExpression || errorNode,
                     paramName: typeParams[paramIndex].name
                 });
+                trySetActive(argList[argIndex], typeParams[paramIndex]);
+
                 argIndex++;
             } else {
                 validateArgTypeParams.push({
@@ -4203,6 +4288,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     errorNode: argList[argIndex].valueExpression || errorNode,
                     paramName: typeParams[paramIndex].name
                 });
+                trySetActive(argList[argIndex], typeParams[paramIndex]);
 
                 // Note that the parameter has received an argument.
                 const paramName = typeParams[paramIndex].name;
@@ -4252,6 +4338,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                     errorNode: argList[argIndex].valueExpression || errorNode,
                                     paramName: paramNameValue
                                 });
+                                trySetActive(argList[argIndex], typeParams[paramInfoIndex]);
                             }
                         } else if (varArgDictParam) {
                             validateArgTypeParams.push({
@@ -4261,6 +4348,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                 errorNode: argList[argIndex].valueExpression || errorNode,
                                 paramName: paramNameValue
                             });
+                            trySetActive(argList[argIndex], varArgDictParam);
                         } else {
                             addError(`No parameter named "${paramName.value}"`, paramName);
                             reportedArgError = true;
@@ -4385,7 +4473,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         );
         const specializedReturnType = specializeType(returnType, typeVarMap);
 
-        return { argumentErrors: reportedArgError, returnType: specializedReturnType };
+        return { argumentErrors: reportedArgError, returnType: specializedReturnType, activeParam };
     }
 
     function validateArgType(

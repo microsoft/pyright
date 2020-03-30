@@ -600,7 +600,11 @@ export class CompletionProvider {
     ) {
         // If we're within the argument list of a call, add parameter names.
         const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines)!;
-        const signatureInfo = this._evaluator.getCallSignatureInfo(parseNode, offset);
+        const signatureInfo = this._evaluator.getCallSignatureInfo(
+            parseNode,
+            offset,
+            this._parseResults.tokenizerOutput.tokens
+        );
 
         if (signatureInfo) {
             // Are we past the call expression and within the argument list?
@@ -625,21 +629,18 @@ export class CompletionProvider {
         completionList: CompletionList
     ) {
         signatureInfo.signatures.forEach(signature => {
-            let paramIndex = -1;
-
-            if (signatureInfo.activeArgumentName !== undefined) {
-                paramIndex = signature.details.parameters.findIndex(param => {
-                    param.name === signatureInfo.activeArgumentName;
-                });
-            } else if (signatureInfo.activeArgumentIndex < signature.details.parameters.length) {
-                paramIndex = signatureInfo.activeArgumentIndex;
+            if (!signature.activeParam) {
+                return undefined;
             }
+
+            const type = signature.type;
+            const paramIndex = type.details.parameters.indexOf(signature.activeParam);
 
             if (paramIndex < 0) {
                 return undefined;
             }
 
-            const paramType = signature.details.parameters[paramIndex].type;
+            const paramType = type.details.parameters[paramIndex].type;
             this._addLiteralValuesForTargetType(paramType, priorText, postText, completionList);
             return undefined;
         });
@@ -1034,7 +1035,7 @@ export class CompletionProvider {
         const argNameMap = new Map<string, string>();
 
         signatureInfo.signatures.forEach(signature => {
-            this._addNamedParametersToMap(signature, argNameMap);
+            this._addNamedParametersToMap(signature.type, argNameMap);
         });
 
         // Remove any named parameters that are already provided.
