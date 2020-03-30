@@ -548,6 +548,7 @@ export interface FunctionParameter {
     isNameSynthesized?: boolean;
     hasDefault?: boolean;
     defaultType?: Type;
+    hasDeclaredType?: boolean;
     type: Type;
 }
 

@@ -1545,6 +1545,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     category: ParameterCategory.Simple,
                     name: entry.name,
                     hasDefault: entry.hasDefault,
+                    hasDeclaredType: true,
                     type: entry.type
                 };
 
@@ -1616,11 +1617,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 FunctionType.addParameter(getOverload, {
                     category: ParameterCategory.Simple,
                     name: 'k',
+                    hasDeclaredType: true,
                     type: ObjectType.cloneWithLiteral(ObjectType.create(strClass), name)
                 });
                 FunctionType.addParameter(getOverload, {
                     category: ParameterCategory.Simple,
                     name: 'default',
+                    hasDeclaredType: true,
                     type: entry.valueType,
                     hasDefault: true
                 });
@@ -4897,6 +4900,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                                 const paramInfo: FunctionParameter = {
                                     category: ParameterCategory.Simple,
                                     name: entryName,
+                                    hasDeclaredType: includesTypes,
                                     type: entryType
                                 };
 
@@ -4983,6 +4987,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             const paramInfo: FunctionParameter = {
                                 category: ParameterCategory.Simple,
                                 name: entryName,
+                                hasDeclaredType: includesTypes,
                                 type: entryType
                             };
 
@@ -6983,6 +6988,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 name: param.name ? param.name.value : undefined,
                 hasDefault: !!param.defaultValue,
                 defaultType: defaultValueType,
+                hasDeclaredType: !!param.typeAnnotation,
                 type: paramType || UnknownType.create()
             };
 
