@@ -19,7 +19,7 @@ helper.verifyCodeActions({
     marker: {
         codeActions: [
             {
-                title: "Create Type Stub For 'testLib'",
+                title: `Create Type Stub For "testLib"`,
                 kind: Consts.CodeActionKind.QuickFix,
                 command: {
                     title: 'Create Type Stub',
