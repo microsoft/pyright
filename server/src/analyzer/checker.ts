@@ -340,7 +340,9 @@ export class Checker extends ParseTreeWalker {
         if (this._evaluator.isNodeReachable(node) && enclosingFunctionNode) {
             if (declaredReturnType) {
                 if (isNoReturnType(declaredReturnType)) {
-                    this._evaluator.addError(
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         `Function with declared return type "NoReturn" cannot include a return statement`,
                         node
                     );
@@ -351,7 +353,9 @@ export class Checker extends ParseTreeWalker {
                     // These will be replaced with the corresponding constraint or bound types.
                     const specializedDeclaredType = specializeType(declaredReturnType, undefined);
                     if (!this._evaluator.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
-                        this._evaluator.addError(
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
                             `Expression of type "${this._evaluator.printType(returnType)}" cannot be assigned ` +
                                 `to return type "${this._evaluator.printType(specializedDeclaredType)}"` +
                                 diagAddendum.getString(),
@@ -442,7 +446,9 @@ export class Checker extends ParseTreeWalker {
                 });
 
                 if (diagAddendum.getMessageCount() > 0) {
-                    this._evaluator.addError(
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         `Expected exception class or object` + diagAddendum.getString(),
                         node.typeExpression
                     );
@@ -827,20 +833,26 @@ export class Checker extends ParseTreeWalker {
 
         for (const otherDecl of otherDecls) {
             if (otherDecl.type === DeclarationType.Class) {
-                const diag = this._evaluator.addError(
+                const diag = this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
                     `Class declaration "${name}" is obscured by a ${primaryDeclType}declaration of the same name`,
                     otherDecl.node.name
                 );
                 addPrimaryDeclInfo(diag);
             } else if (otherDecl.type === DeclarationType.Function) {
-                const diag = this._evaluator.addError(
+                const diag = this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
                     `Function declaration "${name}" is obscured by a ${primaryDeclType}declaration of the same name`,
                     otherDecl.node.name
                 );
                 addPrimaryDeclInfo(diag);
             } else if (otherDecl.type === DeclarationType.Parameter) {
                 if (otherDecl.node.name) {
-                    const diag = this._evaluator.addError(
+                    const diag = this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         `Parameter "${name}" is obscured by a ${primaryDeclType}declaration of the same name`,
                         otherDecl.node.name
                     );
@@ -863,7 +875,9 @@ export class Checker extends ParseTreeWalker {
                         }
 
                         if (!duplicateIsOk) {
-                            const diag = this._evaluator.addError(
+                            const diag = this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
                                 `Declared type for "${name}" is obscured by an incompatible ${primaryDeclType}declaration`,
                                 otherDecl.node
                             );
@@ -872,7 +886,9 @@ export class Checker extends ParseTreeWalker {
                     }
                 } else if (primaryType && !isProperty(primaryType)) {
                     if (primaryDecl.type === DeclarationType.Function || primaryDecl.type === DeclarationType.Class) {
-                        const diag = this._evaluator.addError(
+                        const diag = this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
                             `Declared ${primaryDeclType}already exists for "${name}"`,
                             otherDecl.node
                         );
@@ -1370,7 +1386,9 @@ export class Checker extends ParseTreeWalker {
                     // an abstract method or a protocol method and don't require that
                     // the return type matches.
                     if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
-                        this._evaluator.addError(
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
                             `Function with declared type of "NoReturn" cannot return "None"`,
                             node.returnTypeAnnotation
                         );
@@ -1386,7 +1404,9 @@ export class Checker extends ParseTreeWalker {
                         // an abstract method or a protocol method and don't require that
                         // the return type matches.
                         if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
-                            this._evaluator.addError(
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
                                 `Function with declared type of "${this._evaluator.printType(
                                     declaredReturnType
                                 )}" must return value` + diagAddendum.getString(),
@@ -1626,14 +1646,18 @@ export class Checker extends ParseTreeWalker {
         if (this._evaluator.isNodeReachable(node)) {
             if (declaredYieldType) {
                 if (isNoReturnType(declaredYieldType)) {
-                    this._evaluator.addError(
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         `Function with declared return type "NoReturn" cannot include a yield statement`,
                         node
                     );
                 } else {
                     const diagAddendum = new DiagnosticAddendum();
                     if (!this._evaluator.canAssignType(declaredYieldType, adjustedYieldType, diagAddendum)) {
-                        this._evaluator.addError(
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
                             `Expression of type "${this._evaluator.printType(adjustedYieldType)}" cannot be assigned ` +
                                 `to yield type "${this._evaluator.printType(declaredYieldType)}"` +
                                 diagAddendum.getString(),

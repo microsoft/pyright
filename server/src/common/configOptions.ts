@@ -56,6 +56,9 @@ export interface DiagnosticSettings {
     // Enable support for type: ignore comments?
     enableTypeIgnoreComments: boolean;
 
+    // Report general type issues?
+    reportGeneralTypeIssues: DiagnosticLevel;
+
     // Report diagnostics in typeshed files?
     reportTypeshedErrors: DiagnosticLevel;
 
@@ -184,6 +187,7 @@ export function getBooleanDiagnosticSettings() {
 
 export function getDiagLevelSettings() {
     return [
+        DiagnosticRule.reportGeneralTypeIssues,
         DiagnosticRule.reportTypeshedErrors,
         DiagnosticRule.reportMissingImports,
         DiagnosticRule.reportMissingTypeStubs,
@@ -227,6 +231,7 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         strictDictionaryInference: true,
         strictParameterNoneValue: true,
         enableTypeIgnoreComments: true, // Not overridden by strict mode
+        reportGeneralTypeIssues: 'error',
         reportTypeshedErrors: 'error',
         reportMissingImports: 'error',
         reportMissingTypeStubs: 'error',
@@ -272,6 +277,7 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         strictDictionaryInference: false,
         strictParameterNoneValue: false,
         enableTypeIgnoreComments: true,
+        reportGeneralTypeIssues: 'error',
         reportTypeshedErrors: 'none',
         reportMissingImports: 'error',
         reportMissingTypeStubs: 'none',
@@ -541,6 +547,13 @@ export class ConfigOptions {
                 configObj.enableTypeIgnoreComments,
                 DiagnosticRule.enableTypeIgnoreComments,
                 defaultSettings.enableTypeIgnoreComments
+            ),
+
+            // Read the "reportGeneralTypeIssues" entry.
+            reportGeneralTypeIssues: this._convertDiagnosticLevel(
+                configObj.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                defaultSettings.reportGeneralTypeIssues
             ),
 
             // Read the "reportTypeshedErrors" entry.

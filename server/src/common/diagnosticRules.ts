@@ -14,6 +14,7 @@ export const enum DiagnosticRule {
     strictParameterNoneValue = 'strictParameterNoneValue',
     enableTypeIgnoreComments = 'enableTypeIgnoreComments',
 
+    reportGeneralTypeIssues = 'reportGeneralTypeIssues',
     reportTypeshedErrors = 'reportTypeshedErrors',
     reportMissingImports = 'reportMissingImports',
     reportMissingTypeStubs = 'reportMissingTypeStubs',

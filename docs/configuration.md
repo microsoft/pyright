@@ -42,6 +42,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **enableTypeIgnoreComments** [boolean]: PEP 484 defines support for "# type: ignore" comments. This switch enables or disables support for these comments. The default value for this setting is 'true'.
 
+**reportGeneralTypeIssues** [boolean or string, optional]: Generate or suppress diagnostics for general type inconsistencies, unbound symbols, unsupported operations, argument/parameter mismatches, etc. This covers all of the basic type-checking rules not covered by other rules. It does not include syntax errors. The default value for this setting is 'error'.
+
 **reportTypeshedErrors** [boolean or string, optional]: Generate or suppress diagnostics for typeshed type stub files. In general, these type stub files should be “clean” and generate no errors. The default value for this setting is 'none'.
 
 **reportMissingImports** [boolean or string, optional]: Generate or suppress diagnostics for imports that have no corresponding imported python file or type stub file. The default value for this setting is 'none', although pyright can do a much better job of static type checking if type stub files are provided for all imports.

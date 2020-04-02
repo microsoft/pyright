@@ -708,7 +708,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 if (expectingType) {
                     if (!typeResult) {
-                        addError(`Expected type but received a string literal`, node);
+                        const fileInfo = getFileInfo(node);
+                        addDiagnostic(
+                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            `Expected type but received a string literal`,
+                            node
+                        );
                         typeResult = { node, type: UnknownType.create() };
                     }
                 } else {
@@ -1378,7 +1384,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (errorNode) {
-                addError(`"${printType(subtype)}" is not awaitable`, errorNode);
+                const fileInfo = getFileInfo(errorNode);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    `"${printType(subtype)}" is not awaitable`,
+                    errorNode
+                );
             }
 
             return UnknownType.create();
@@ -1862,7 +1874,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const diagAddendum = new DiagnosticAddendum();
 
             if (!canAssignType(declaredType, type, diagAddendum)) {
-                addError(
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
                     `Expression of type "${printType(type)}" cannot be assigned to declared type "${printType(
                         declaredType
                     )}"` + diagAddendum.getString(),
@@ -2120,7 +2134,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                         targetTypes[target.expressions.length - 1].push(combineTypes(remainingTypes));
                     } else {
-                        addError(
+                        const fileInfo = getFileInfo(target);
+                        addDiagnostic(
+                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
                             `Tuple size mismatch: expected at least ${target.expressions.length} entries but got ${entryCount}`,
                             target
                         );
@@ -2132,7 +2149,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             targetTypes[index].push(entryType);
                         }
                     } else {
-                        addError(
+                        const fileInfo = getFileInfo(target);
+                        addDiagnostic(
+                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
                             `Tuple size mismatch: expected ${target.expressions.length} but got ${entryCount}`,
                             target
                         );
@@ -2282,7 +2302,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             default: {
-                addError(`Expression cannot be assignment target`, target);
+                const fileInfo = getFileInfo(target);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    `Expression cannot be assignment target`,
+                    target
+                );
                 break;
             }
         }
@@ -2332,7 +2358,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             default: {
-                addError(`Expression cannot be deleted`, node);
+                const fileInfo = getFileInfo(node);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    `Expression cannot be deleted`,
+                    node
+                );
                 break;
             }
         }
@@ -2509,16 +2541,31 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (isUnbound(type)) {
-                addError(`"${name}" is unbound`, node);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    `"${name}" is unbound`,
+                    node
+                );
             } else if (isPossiblyUnbound(type)) {
-                addError(`"${name}" is possibly unbound`, node);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    `"${name}" is possibly unbound`,
+                    node
+                );
             }
 
             setSymbolAccessed(fileInfo, symbol, node);
         } else {
             // Handle the special case of "reveal_type".
             if (name !== 'reveal_type') {
-                addError(`"${name}" is not defined`, node);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    `"${name}" is not defined`,
+                    node
+                );
             }
             type = UnknownType.create();
         }
@@ -2625,7 +2672,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         type = UnknownType.create();
                     }
                 } else {
-                    addError(`"${memberName}" is not a known member of module`, node.memberName);
+                    const fileInfo = getFileInfo(node);
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        `"${memberName}" is not a known member of module`,
+                        node.memberName
+                    );
                     type = UnknownType.create();
                 }
                 break;
@@ -2682,7 +2735,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 operationName = 'delete';
             }
 
-            addError(
+            const fileInfo = getFileInfo(node);
+            addDiagnostic(
+                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
                 `Cannot ${operationName} member "${memberName}" for type "${printType(baseType)}"` + diag.getString(),
                 node.memberName
             );
@@ -3130,7 +3186,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (!isUnbound(subtype)) {
-                addError(`Object of type "${printType(subtype)}" cannot be subscripted`, node.baseExpression);
+                const fileInfo = getFileInfo(node);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    `Object of type "${printType(subtype)}" cannot be subscripted`,
+                    node.baseExpression
+                );
             }
 
             return UnknownType.create();
@@ -3180,7 +3242,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (usage.method === 'set') {
                         canAssignType(entry.valueType, usage.setType!, diag);
                     } else if (usage.method === 'del' && entry.isRequired) {
-                        addError(`"${entryName}" is a required key and cannot be deleted`, node);
+                        const fileInfo = getFileInfo(node);
+                        addDiagnostic(
+                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            `"${entryName}" is a required key and cannot be deleted`,
+                            node
+                        );
                     }
 
                     return entry.valueType;
@@ -3197,7 +3265,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 } else if (usage.method === 'del') {
                     operationName = 'delete';
                 }
-                addError(`Could not ${operationName} item in TypedDict` + diag.getString(), node);
+
+                const fileInfo = getFileInfo(node);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    `Could not ${operationName} item in TypedDict` + diag.getString(),
+                    node
+                );
             }
 
             return resultingType;
@@ -3223,7 +3298,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         );
 
         if (!itemMethodType) {
-            addError(
+            const fileInfo = getFileInfo(node);
+            addDiagnostic(
+                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
                 `Object of type "${printType(baseType)}" does not define "${magicMethodName}"`,
                 node.baseExpression
             );
@@ -3494,7 +3572,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (reportError) {
-                addError(
+                const fileInfo = getFileInfo(node);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
                     `Second argument to "super" call must be object or class that derives from "${printType(
                         targetClassType
                     )}"`,
@@ -3583,7 +3664,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         className === 'Callable' ||
                         className === 'Type'
                     ) {
-                        addError(`"${className}" cannot be instantiated directly`, errorNode);
+                        const fileInfo = getFileInfo(errorNode);
+                        addDiagnostic(
+                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            `"${className}" cannot be instantiated directly`,
+                            errorNode
+                        );
                     } else if (
                         className === 'Enum' ||
                         className === 'IntEnum' ||
@@ -3618,7 +3705,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         }
                     });
 
-                    addError(
+                    const fileInfo = getFileInfo(errorNode);
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         `Cannot instantiate abstract class "${callType.details.name}"` + diagAddendum.getString(),
                         errorNode
                     );
@@ -3714,7 +3804,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const diagAddendum = new DiagnosticAddendum();
                     const argTypes = argList.map(t => printType(getTypeForArgument(t)));
                     diagAddendum.addMessage(`Argument types: (${argTypes.join(', ')})`);
-                    addError(`No overloads for "${exprString}" match parameters` + diagAddendum.getString(), errorNode);
+                    const fileInfo = getFileInfo(errorNode);
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        `No overloads for "${exprString}" match parameters` + diagAddendum.getString(),
+                        errorNode
+                    );
                     type = UnknownType.create();
                 }
                 break;
@@ -3803,7 +3899,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         if (!type) {
-            addError(
+            const fileInfo = getFileInfo(errorNode);
+            addDiagnostic(
+                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
                 `"${ParseTreeUtils.printExpression(errorNode)}" has type "${printType(callType)}" and is not callable`,
                 errorNode
             );
@@ -3952,7 +4051,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         if (!validatedTypes && argList.length > 0) {
-            addError(`Expected no arguments to "${type.details.name}" constructor`, errorNode);
+            const fileInfo = getFileInfo(errorNode);
+            addDiagnostic(
+                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                `Expected no arguments to "${type.details.name}" constructor`,
+                errorNode
+            );
         } else if (!returnType) {
             // There was no __new__ or __init__, so fall back on the
             // object.__new__ which takes no parameters.
@@ -4060,7 +4165,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const diagAddendum = new DiagnosticAddendum();
                     const argTypes = argList.map(t => printType(getTypeForArgument(t)));
                     diagAddendum.addMessage(`Argument types: (${argTypes.join(', ')})`);
-                    addError(`No overloads for "${exprString}" match parameters` + diagAddendum.getString(), errorNode);
+                    const fileInfo = getFileInfo(errorNode);
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        `No overloads for "${exprString}" match parameters` + diagAddendum.getString(),
+                        errorNode
+                    );
                 }
                 break;
             }
@@ -4069,7 +4180,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (!ClassType.isSpecialBuiltIn(callType)) {
                     callResult = validateConstructorArguments(errorNode, argList, callType, skipUnknownArgCheck);
                 } else {
-                    addError(`"${callType.details.name}" cannot be instantiated`, errorNode);
+                    const fileInfo = getFileInfo(errorNode);
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        `"${callType.details.name}" cannot be instantiated`,
+                        errorNode
+                    );
                 }
                 break;
             }
@@ -4230,13 +4347,22 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (argIndex < positionalOnlyIndex && argList[argIndex].name) {
-                addError(`Expected positional argument`, argList[argIndex].name!);
+                const fileInfo = getFileInfo(argList[argIndex].name!);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    `Expected positional argument`,
+                    argList[argIndex].name!
+                );
             }
 
             if (paramIndex >= positionalParamCount) {
                 if (argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
                     const adjustedCount = positionalParamCount;
-                    addError(
+                    const fileInfo = getFileInfo(errorNode);
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         `Expected ${adjustedCount} positional ${adjustedCount === 1 ? 'argument' : 'arguments'}`,
                         argList[argIndex].valueExpression || errorNode
                     );
@@ -4505,7 +4631,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const diag = new DiagnosticAddendum();
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
             const optionalParamName = argParam.paramName ? `"${argParam.paramName}" ` : '';
-            addError(
+            const fileInfo = getFileInfo(argParam.errorNode);
+            addDiagnostic(
+                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
                 `Argument of type "${printType(
                     argType
                 )}" cannot be assigned to parameter ${optionalParamName}of type "${printType(argParam.paramType)}"` +
@@ -5225,7 +5354,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (!type) {
-                addError(
+                const fileInfo = getFileInfo(node);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
                     `Operator "${ParseTreeUtils.printOperator(node.operator)}" not supported for type "${printType(
                         exprType
                     )}"`,
@@ -5458,7 +5590,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         if (!type || type.category === TypeCategory.Never) {
-            addError(
+            const fileInfo = getFileInfo(errorNode);
+            addDiagnostic(
+                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
                 `Operator "${ParseTreeUtils.printOperator(operator)}" not supported for types "${printType(
                     leftType
                 )}" and "${printType(rightType)}"`,
@@ -6024,7 +6159,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             const diag = new DiagnosticAddendum();
             if (!canAssignType(optionalIntObject, exprType, diag)) {
-                addError(`Index for slice operation must be an int value or "None"` + diag.getString(), indexExpr);
+                const fileInfo = getFileInfo(node);
+                addDiagnostic(
+                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    `Index for slice operation must be an int value or "None"` + diag.getString(),
+                    indexExpr
+                );
             }
         };
 
@@ -6637,7 +6778,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     // Handle "Type[X]" object.
                     argType = transformTypeObjectToClass(argType);
                     if (argType.category !== TypeCategory.Class) {
-                        addError(`Argument to class must be a base class`, arg);
+                        addDiagnostic(
+                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            `Argument to class must be a base class`,
+                            arg
+                        );
                         argType = UnknownType.create();
                     } else {
                         if (ClassType.isBuiltIn(argType, 'Protocol')) {
@@ -7048,7 +7194,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const diagAddendum = new DiagnosticAddendum();
 
                     if (!canAssignType(concreteAnnotatedType, defaultValueType, diagAddendum)) {
-                        const diag = addError(
+                        const diag = addDiagnostic(
+                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
                             `Value of type "${printType(
                                 defaultValueType
                             )}" cannot be assigned to parameter of type "${printType(annotatedType)}"` +
@@ -7848,7 +7996,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             }
 
-            addError(
+            const fileInfo = getFileInfo(node);
+            addDiagnostic(
+                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
                 `Object of type "${printType(
                     subtype
                 )}" cannot be used with "with" because it does not implement ${enterMethodName}` +
@@ -7932,7 +8083,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37 ||
                         !importLookupInfo.symbolTable.get('__getattr__')
                     ) {
-                        addError(`"${node.name.value}" is unknown import symbol`, node.name);
+                        addDiagnostic(
+                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            `"${node.name.value}" is unknown import symbol`,
+                            node.name
+                        );
                     }
                 }
             }
@@ -9271,7 +9427,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (index < typeArgCount) {
                 const diag = new DiagnosticAddendum();
                 if (!canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
-                    addError(
+                    const fileInfo = getFileInfo(typeArgs![index].node);
+                    addDiagnostic(
+                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         `Type "${printType(typeArgType)}" cannot be assigned to TypeVar "${
                             typeParameters[index].name
                         }"` + diag.getString(),
