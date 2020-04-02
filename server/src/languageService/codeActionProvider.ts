@@ -41,7 +41,7 @@ export class CodeActionProvider {
                     .find(a => a.action === Commands.createTypeStub) as CreateTypeStubFileAction;
                 if (action) {
                     const createTypeStubAction = CodeAction.create(
-                        `Create Type Stub For '${action.moduleName}'`,
+                        `Create Type Stub For "${action.moduleName}"`,
                         Command.create(
                             'Create Type Stub',
                             Commands.createTypeStub,
@@ -66,9 +66,9 @@ export class CodeActionProvider {
                     .find(a => a.action === Commands.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
                 if (action) {
                     const addMissingOptionalAction = CodeAction.create(
-                        `Add 'Optional' to type annotation`,
+                        `Add "Optional" to type annotation`,
                         Command.create(
-                            `Add 'Optional' to type annotation`,
+                            `Add "Optional" to type annotation`,
                             Commands.addMissingOptionalToParam,
                             action.offsetOfTypeNode
                         ),
