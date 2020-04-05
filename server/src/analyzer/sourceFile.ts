@@ -22,12 +22,12 @@ import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
+import { FileSystem } from '../common/fileSystem';
 import { getFileName, normalizeSlashes } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { DocumentRange, getEmptyRange, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
-import { VirtualFileSystem } from '../common/vfs';
 import { CompletionItemData, CompletionProvider, ModuleSymbolMap } from '../languageService/completionProvider';
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentSymbolProvider } from '../languageService/documentSymbolProvider';
@@ -144,10 +144,10 @@ export class SourceFile {
     private _typingModulePath?: string;
     private _collectionsModulePath?: string;
 
-    readonly fileSystem: VirtualFileSystem;
+    readonly fileSystem: FileSystem;
 
     constructor(
-        fs: VirtualFileSystem,
+        fs: FileSystem,
         filePath: string,
         isTypeshedStubFile: boolean,
         isThirdPartyImport: boolean,

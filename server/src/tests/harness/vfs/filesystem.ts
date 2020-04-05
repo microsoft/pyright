@@ -7,8 +7,8 @@
  */
 
 /* eslint-disable no-dupe-class-members */
+import { FileWatcher, FileWatcherEventHandler } from '../../../common/fileSystem';
 import * as pathUtil from '../../../common/pathUtils';
-import { FileWatcher, Listener } from '../../../common/vfs';
 import { bufferFrom, createIOError } from '../utils';
 import { closeIterator, getIterator, Metadata, nextResult, SortedMap } from './../utils';
 import { validate, ValidationFlags } from './pathValidation';
@@ -305,7 +305,7 @@ export class FileSystem {
         return results;
     }
 
-    createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher {
+    createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
         return {
             close: () => {
                 /* left empty */

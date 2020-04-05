@@ -10,6 +10,7 @@
 import * as child_process from 'child_process';
 
 import { ConfigOptions } from '../common/configOptions';
+import { FileSystem } from '../common/fileSystem';
 import * as pathConsts from '../common/pathConsts';
 import {
     combinePaths,
@@ -20,11 +21,10 @@ import {
     isDirectory,
     normalizePath
 } from '../common/pathUtils';
-import { VirtualFileSystem } from '../common/vfs';
 
 const cachedSearchPaths = new Map<string, PythonPathResult>();
 
-export function getTypeShedFallbackPath(fs: VirtualFileSystem) {
+export function getTypeShedFallbackPath(fs: FileSystem) {
     let moduleDirectory = fs.getModulePath();
     if (!moduleDirectory) {
         return undefined;
@@ -52,7 +52,7 @@ export function getTypeshedSubdirectory(typeshedPath: string, isStdLib: boolean)
 }
 
 export function findPythonSearchPaths(
-    fs: VirtualFileSystem,
+    fs: FileSystem,
     configOptions: ConfigOptions,
     venv: string | undefined,
     importFailureInfo: string[],
@@ -135,7 +135,7 @@ interface PythonPathResult {
 }
 
 export function getPythonPathFromPythonInterpreter(
-    fs: VirtualFileSystem,
+    fs: FileSystem,
     interpreterPath: string | undefined,
     importFailureInfo: string[]
 ): PythonPathResult {

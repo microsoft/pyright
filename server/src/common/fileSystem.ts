@@ -1,10 +1,11 @@
 /*
- * vfs.ts
+ * fileSystem.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Defines virtual file system interface that our code will operate upon and
- * factory method to expose real file system as virtual file system
+ * Defines a "file system provider" abstraction used throughout the
+ * code base. This abstraction allows us to swap out a real file system
+ * implementation for a virtual (mocked) implementation for testing.
  */
 
 /* eslint-disable no-dupe-class-members */
@@ -15,7 +16,7 @@ import * as fs from 'fs';
 
 import { ConsoleInterface, NullConsole } from './console';
 
-export type Listener = (
+export type FileWatcherEventHandler = (
     eventName: 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir',
     path: string,
     stats?: Stats
@@ -37,7 +38,7 @@ export interface Stats {
     isSocket(): boolean;
 }
 
-export interface VirtualFileSystem {
+export interface FileSystem {
     existsSync(path: string): boolean;
     mkdirSync(path: string): void;
     chdir(path: string): void;
@@ -55,15 +56,11 @@ export interface VirtualFileSystem {
         recursive?: boolean,
         listener?: (event: string, filename: string) => void
     ): FileWatcher;
-    createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher;
+    createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher;
 }
 
-/**
- * expose real file system as virtual file system
- * @param console console to log messages
- */
-export function createFromRealFileSystem(console?: ConsoleInterface): VirtualFileSystem {
-    return new FileSystem(console ?? new NullConsole());
+export function createFromRealFileSystem(console?: ConsoleInterface): FileSystem {
+    return new RealFileSystem(console ?? new NullConsole());
 }
 
 const _isMacintosh = process.platform === 'darwin';
@@ -77,30 +74,36 @@ class LowLevelWatcher implements FileWatcher {
     }
 }
 
-class FileSystem implements VirtualFileSystem {
+class RealFileSystem implements FileSystem {
     constructor(private _console: ConsoleInterface) {}
 
     existsSync(path: string) {
         return fs.existsSync(path);
     }
+
     mkdirSync(path: string) {
         fs.mkdirSync(path);
     }
+
     chdir(path: string) {
         process.chdir(path);
     }
+
     readdirSync(path: string) {
         return fs.readdirSync(path);
     }
+
     readFileSync(path: string, encoding?: null): Buffer;
     readFileSync(path: string, encoding: string): string;
     readFileSync(path: string, encoding?: string | null): Buffer | string;
     readFileSync(path: string, encoding: string | null = null) {
         return fs.readFileSync(path, { encoding });
     }
+
     writeFileSync(path: string, data: string | Buffer, encoding: string | null) {
         fs.writeFileSync(path, data, { encoding });
     }
+
     statSync(path: string) {
         return fs.statSync(path);
     }
@@ -130,8 +133,8 @@ class FileSystem implements VirtualFileSystem {
         return new LowLevelWatcher(paths);
     }
 
-    createFileSystemWatcher(paths: string[], event: 'all', listener: Listener): FileWatcher {
-        return this._createBaseFileSystemWatcher(paths).on(event, listener);
+    createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
+        return this._createBaseFileSystemWatcher(paths).on('all', listener);
     }
 
     private _createBaseFileSystemWatcher(paths: string[]): chokidar.FSWatcher {

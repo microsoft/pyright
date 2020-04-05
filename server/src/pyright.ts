@@ -25,7 +25,7 @@ import { DiagnosticCategory } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
 import { Range } from './common/textRange';
-import { createFromRealFileSystem } from './common/vfs';
+import { createFromRealFileSystem } from './common/fileSystem';
 
 const toolName = 'pyright';
 

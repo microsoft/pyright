@@ -3,14 +3,14 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * test mock that implements LanguageServiceInterface
+ * Test mock that implements LanguageServiceInterface
  */
 
 import * as path from 'path';
 
 import { ConsoleInterface } from '../../../common/console';
 import * as debug from '../../../common/debug';
-import { VirtualFileSystem } from '../../../common/vfs';
+import { FileSystem } from '../../../common/fileSystem';
 import {
     LanguageServerInterface,
     ServerSettings,
@@ -21,11 +21,7 @@ import {
 export class TestLanguageService implements LanguageServerInterface {
     private readonly _workspace: WorkspaceServiceInstance;
 
-    constructor(
-        workspace: WorkspaceServiceInstance,
-        readonly console: ConsoleInterface,
-        readonly fs: VirtualFileSystem
-    ) {
+    constructor(workspace: WorkspaceServiceInstance, readonly console: ConsoleInterface, readonly fs: FileSystem) {
         this._workspace = workspace;
     }
 

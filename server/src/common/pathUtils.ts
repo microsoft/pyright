@@ -14,6 +14,7 @@ import { URI } from 'vscode-uri';
 import { some } from './collectionUtils';
 import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
 import * as debug from './debug';
+import { FileSystem } from './fileSystem';
 import {
     compareStringsCaseInsensitive,
     compareStringsCaseSensitive,
@@ -21,7 +22,6 @@ import {
     equateStringsCaseSensitive,
     getStringComparer
 } from './stringUtils';
-import { VirtualFileSystem } from './vfs';
 
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
@@ -153,7 +153,7 @@ export function getRelativePath(dirPath: string, relativeTo: string) {
 }
 
 // Creates a directory hierarchy for a path, starting from some ancestor path.
-export function makeDirectories(fs: VirtualFileSystem, dirPath: string, startingFromDirPath: string) {
+export function makeDirectories(fs: FileSystem, dirPath: string, startingFromDirPath: string) {
     if (!dirPath.startsWith(startingFromDirPath)) {
         return;
     }
@@ -170,7 +170,7 @@ export function makeDirectories(fs: VirtualFileSystem, dirPath: string, starting
     }
 }
 
-export function getFileSize(fs: VirtualFileSystem, path: string) {
+export function getFileSize(fs: FileSystem, path: string) {
     try {
         const stat = fs.statSync(path);
         if (stat.isFile()) {
@@ -182,11 +182,11 @@ export function getFileSize(fs: VirtualFileSystem, path: string) {
     return 0;
 }
 
-export function fileExists(fs: VirtualFileSystem, path: string): boolean {
+export function fileExists(fs: FileSystem, path: string): boolean {
     return fileSystemEntryExists(fs, path, FileSystemEntryKind.File);
 }
 
-export function directoryExists(fs: VirtualFileSystem, path: string): boolean {
+export function directoryExists(fs: FileSystem, path: string): boolean {
     return fileSystemEntryExists(fs, path, FileSystemEntryKind.Directory);
 }
 
@@ -317,12 +317,12 @@ export function changeAnyExtension(
     extensions?: string | readonly string[],
     ignoreCase?: boolean
 ): string {
-    const pathext =
+    const pathExt =
         extensions !== undefined && ignoreCase !== undefined
             ? getAnyExtensionFromPath(path, extensions, ignoreCase)
             : getAnyExtensionFromPath(path);
 
-    return pathext ? path.slice(0, path.length - pathext.length) + (ext.startsWith('.') ? ext : '.' + ext) : path;
+    return pathExt ? path.slice(0, path.length - pathExt.length) + (ext.startsWith('.') ? ext : '.' + ext) : path;
 }
 
 /**
@@ -374,7 +374,7 @@ export function getAnyExtensionFromPath(
 
 /**
  * Returns the path except for its containing directory name.
- * Semantics align with NodeJS's `path.basename` except that we support URL's as well.
+ * Semantics align with NodeJS's `path.basename` except that we support URLs as well.
  *
  * ```ts
  * // POSIX
@@ -391,7 +391,7 @@ export function getAnyExtensionFromPath(
 export function getBaseFileName(pathString: string): string;
 /**
  * Gets the portion of a path following the last (non-terminal) separator (`/`).
- * Semantics align with NodeJS's `path.basename` except that we support URL's as well.
+ * Semantics align with NodeJS's `path.basename` except that we support URLs as well.
  * If the base name has any one of the provided extensions, it is removed.
  *
  * ```ts
@@ -516,7 +516,7 @@ export function normalizePath(pathString: string): string {
     return normalizeSlashes(path.normalize(pathString));
 }
 
-export function isDirectory(fs: VirtualFileSystem, path: string): boolean {
+export function isDirectory(fs: FileSystem, path: string): boolean {
     let stat: any;
     try {
         stat = fs.statSync(path);
@@ -527,7 +527,7 @@ export function isDirectory(fs: VirtualFileSystem, path: string): boolean {
     return stat.isDirectory();
 }
 
-export function isFile(fs: VirtualFileSystem, path: string): boolean {
+export function isFile(fs: FileSystem, path: string): boolean {
     let stat: any;
     try {
         stat = fs.statSync(path);
@@ -538,7 +538,7 @@ export function isFile(fs: VirtualFileSystem, path: string): boolean {
     return stat.isFile();
 }
 
-export function getFileSystemEntries(fs: VirtualFileSystem, path: string): FileSystemEntries {
+export function getFileSystemEntries(fs: FileSystem, path: string): FileSystemEntries {
     try {
         const entries = fs.readdirSync(path || '.').sort();
         const files: string[] = [];
@@ -810,7 +810,7 @@ const enum FileSystemEntryKind {
     Directory
 }
 
-function fileSystemEntryExists(fs: VirtualFileSystem, path: string, entryKind: FileSystemEntryKind): boolean {
+function fileSystemEntryExists(fs: FileSystem, path: string, entryKind: FileSystemEntryKind): boolean {
     try {
         const stat = fs.statSync(path);
         switch (entryKind) {

@@ -9,6 +9,7 @@
  */
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { FileSystem } from '../common/fileSystem';
 import {
     combinePaths,
     ensureTrailingDirectorySeparator,
@@ -23,7 +24,6 @@ import {
 } from '../common/pathUtils';
 import { versionToString } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
-import { VirtualFileSystem } from '../common/vfs';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as PythonPathUtils from './pythonPathUtils';
 import { isDunderName } from './symbolNameUtils';
@@ -49,9 +49,9 @@ export class ImportResolver {
     private _cachedTypeshedStdLibPath: string | undefined;
     private _cachedTypeshedThirdPartyPath: string | undefined;
 
-    readonly fileSystem: VirtualFileSystem;
+    readonly fileSystem: FileSystem;
 
-    constructor(fs: VirtualFileSystem, configOptions: ConfigOptions) {
+    constructor(fs: FileSystem, configOptions: ConfigOptions) {
         this.fileSystem = fs;
         this._configOptions = configOptions;
     }
@@ -1020,4 +1020,4 @@ export class ImportResolver {
     }
 }
 
-export type ImportResolverFactory = (fs: VirtualFileSystem, options: ConfigOptions) => ImportResolver;
+export type ImportResolverFactory = (fs: FileSystem, options: ConfigOptions) => ImportResolver;

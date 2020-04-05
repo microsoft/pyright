@@ -25,6 +25,7 @@ import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
+import { FileSystem, FileWatcher } from '../common/fileSystem';
 import {
     combinePaths,
     FileSpec,
@@ -39,7 +40,6 @@ import {
 } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
-import { FileWatcher, VirtualFileSystem } from '../common/vfs';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
@@ -94,7 +94,7 @@ export class AnalyzerService {
 
     constructor(
         instanceName: string,
-        fs: VirtualFileSystem,
+        fs: FileSystem,
         console?: ConsoleInterface,
         importResolverFactory?: ImportResolverFactory,
         configOptions?: ConfigOptions,
@@ -129,7 +129,7 @@ export class AnalyzerService {
         this._clearLibraryReanalysisTimer();
     }
 
-    static createImportResolver(fs: VirtualFileSystem, options: ConfigOptions): ImportResolver {
+    static createImportResolver(fs: FileSystem, options: ConfigOptions): ImportResolver {
         return new ImportResolver(fs, options);
     }
 
@@ -864,7 +864,7 @@ export class AnalyzerService {
                     this._console.log(`Adding fs watcher for directories:\n ${fileList.join('\n')}`);
                 }
 
-                this._sourceFileWatcher = this._fs.createFileSystemWatcher(fileList, 'all', (event, path) => {
+                this._sourceFileWatcher = this._fs.createFileSystemWatcher(fileList, (event, path) => {
                     if (this._verboseOutput) {
                         this._console.log(`Received fs event '${event}' for path '${path}'`);
                     }
@@ -901,7 +901,7 @@ export class AnalyzerService {
             return;
         }
 
-        // watch the library paths for package install/uninstall
+        // Watch the library paths for package install/uninstall
         const importFailureInfo: string[] = [];
         const watchList = findPythonSearchPaths(
             this._fs,
@@ -967,7 +967,7 @@ export class AnalyzerService {
         this._removeConfigFileWatcher();
 
         if (this._configFilePath) {
-            this._configFileWatcher = this._fs.createFileSystemWatcher([this._configFilePath], 'all', event => {
+            this._configFileWatcher = this._fs.createFileSystemWatcher([this._configFilePath], event => {
                 if (this._verboseOutput) {
                     this._console.log(`Received fs event '${event}' for config file`);
                 }

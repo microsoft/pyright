@@ -12,9 +12,9 @@ import { isAbsolute } from 'path';
 import * as pathConsts from '../common/pathConsts';
 import { ConsoleInterface } from './console';
 import { DiagnosticRule } from './diagnosticRules';
+import { FileSystem } from './fileSystem';
 import { combinePaths, ensureTrailingDirectorySeparator, FileSpec, getFileSpec, normalizePath } from './pathUtils';
 import { latestStablePythonVersion, PythonVersion, versionFromString } from './pythonVersion';
-import { VirtualFileSystem } from './vfs';
 
 export class ExecutionEnvironment {
     // Default to "." which indicates every file in the project.
@@ -423,7 +423,7 @@ export class ConfigOptions {
         return execEnv;
     }
 
-    addExecEnvironmentForAutoSearchPaths(fs: VirtualFileSystem) {
+    addExecEnvironmentForAutoSearchPaths(fs: FileSystem) {
         // Auto-detect the common scenario where the sources are under the src folder
         const srcPath = combinePaths(this.projectRoot, pathConsts.src);
         if (fs.existsSync(srcPath) && !fs.existsSync(combinePaths(srcPath, '__init__.py'))) {

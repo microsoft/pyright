@@ -2,6 +2,9 @@
  * languageServerBase.ts
  *
  * Implements common language server functionality.
+ * This is split out as a base class to allow for
+ * different language server variants to be created
+ * from the same core functionality.
  */
 
 import './common/extensions';
@@ -42,9 +45,9 @@ import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface } from './common/console';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import { LanguageServiceExtension } from './common/extensibility';
+import { createFromRealFileSystem, FileSystem } from './common/fileSystem';
 import { convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { Position } from './common/textRange';
-import { createFromRealFileSystem, VirtualFileSystem } from './common/vfs';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CompletionItemData } from './languageService/completionProvider';
 import { convertHoverResults } from './languageService/hoverProvider';
@@ -84,7 +87,7 @@ export interface LanguageServerInterface {
     readonly rootPath: string;
     readonly console: ConsoleInterface;
     readonly window: WindowInterface;
-    readonly fs: VirtualFileSystem;
+    readonly fs: FileSystem;
 }
 
 export abstract class LanguageServerBase implements LanguageServerInterface {
@@ -101,7 +104,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     rootPath = '';
 
     // File system abstraction.
-    fs: VirtualFileSystem;
+    fs: FileSystem;
 
     constructor(private _productName: string, rootDirectory: string, private _extension?: LanguageServiceExtension) {
         this._connection.console.log(`${_productName} language server starting`);
@@ -146,7 +149,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return undefined;
     }
 
-    protected createImportResolver(fs: VirtualFileSystem, options: ConfigOptions): ImportResolver {
+    protected createImportResolver(fs: FileSystem, options: ConfigOptions): ImportResolver {
         return new ImportResolver(fs, options);
     }
 

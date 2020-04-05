@@ -10,8 +10,8 @@
 import { ImportResolver } from '../analyzer/importResolver';
 import { SourceFile } from '../analyzer/sourceFile';
 import { ConfigOptions } from '../common/configOptions';
+import { createFromRealFileSystem } from '../common/fileSystem';
 import { combinePaths } from '../common/pathUtils';
-import { createFromRealFileSystem } from '../common/vfs';
 
 test('Empty', () => {
     const filePath = combinePaths(process.cwd(), 'tests/samples/test_file1.py');
