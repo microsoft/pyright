@@ -60,7 +60,7 @@ export interface AnalysisResults {
 
 export type AnalysisCompleteCallback = (results: AnalysisResults) => void;
 
-const _configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
+export const configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
 
 // How long since the last user activity should we wait until running
 // the analyzer on any files that have not yet been analyzed?
@@ -623,7 +623,7 @@ export class AnalyzerService {
     }
 
     private _findConfigFile(searchPath: string): string | undefined {
-        for (const name of _configFileNames) {
+        for (const name of configFileNames) {
             const fileName = combinePaths(searchPath, name);
             if (this._fs.existsSync(fileName)) {
                 return fileName;
@@ -918,10 +918,7 @@ export class AnalyzerService {
                     this._console.log(`Adding fs watcher for library directories:\n ${watchList.join('\n')}`);
                 }
 
-                // Use fs.watch instead of chokidar, to avoid issue where chokidar locks up files
-                // when the virtual environment is located under the workspace folder (which breaks pip uninstall)
-                // Not sure why that happens with chokidar, if the watch path is outside the workspace it is fine.
-                this._libraryFileWatcher = this._fs.createLowLevelFileSystemWatcher(watchList, true, (event, path) => {
+                this._libraryFileWatcher = this._fs.createFileSystemWatcher(watchList, (event, path) => {
                     if (this._verboseOutput) {
                         this._console.log(`Received fs event '${event}' for path '${path}'`);
                     }

@@ -16,11 +16,8 @@ import * as fs from 'fs';
 
 import { ConsoleInterface, NullConsole } from './console';
 
-export type FileWatcherEventHandler = (
-    eventName: 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir',
-    path: string,
-    stats?: Stats
-) => void;
+export type FileWatcherEventType = 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir';
+export type FileWatcherEventHandler = (eventName: FileWatcherEventType, path: string, stats?: Stats) => void;
 
 export interface FileWatcher {
     close(): void;
@@ -51,31 +48,31 @@ export interface FileSystem {
     unlinkSync(path: string): void;
     realpathSync(path: string): string;
     getModulePath(): string;
-    createLowLevelFileSystemWatcher(
-        paths: string[],
-        recursive?: boolean,
-        listener?: (event: string, filename: string) => void
-    ): FileWatcher;
     createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher;
 }
 
-export function createFromRealFileSystem(console?: ConsoleInterface): FileSystem {
-    return new RealFileSystem(console ?? new NullConsole());
+export interface FileWatcherProvider {
+    createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher;
+}
+
+// Callers can specify a different file watcher provider if desired.
+// By default, we'll use the file watcher based on chokidar.
+export function createFromRealFileSystem(
+    console?: ConsoleInterface,
+    fileWatcherProvider?: FileWatcherProvider
+): FileSystem {
+    return new RealFileSystem(fileWatcherProvider ?? new ChokidarFileWatcherProvider(console ?? new NullConsole()));
 }
 
 const _isMacintosh = process.platform === 'darwin';
 const _isLinux = process.platform === 'linux';
 
-class LowLevelWatcher implements FileWatcher {
-    constructor(private paths: string[]) {}
-
-    close(): void {
-        this.paths.forEach((p) => fs.unwatchFile(p));
-    }
-}
-
 class RealFileSystem implements FileSystem {
-    constructor(private _console: ConsoleInterface) {}
+    private _fileWatcherProvider: FileWatcherProvider;
+
+    constructor(fileWatcherProvider: FileWatcherProvider) {
+        this._fileWatcherProvider = fileWatcherProvider;
+    }
 
     existsSync(path: string) {
         return fs.existsSync(path);
@@ -107,9 +104,11 @@ class RealFileSystem implements FileSystem {
     statSync(path: string) {
         return fs.statSync(path);
     }
+
     unlinkSync(path: string) {
         fs.unlinkSync(path);
     }
+
     realpathSync(path: string) {
         return fs.realpathSync(path);
     }
@@ -121,23 +120,19 @@ class RealFileSystem implements FileSystem {
         return (global as any).__rootDirectory;
     }
 
-    createLowLevelFileSystemWatcher(
-        paths: string[],
-        recursive?: boolean,
-        listener?: (event: string, filename: string) => void
-    ): FileWatcher {
-        paths.forEach((p) => {
-            fs.watch(p, { recursive: recursive }, listener);
-        });
-
-        return new LowLevelWatcher(paths);
-    }
-
     createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
-        return this._createBaseFileSystemWatcher(paths).on('all', listener);
+        return this._fileWatcherProvider.createFileWatcher(paths, listener);
+    }
+}
+
+class ChokidarFileWatcherProvider implements FileWatcherProvider {
+    constructor(private _console: ConsoleInterface) {}
+
+    createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
+        return this._createFileSystemWatcher(paths).on('all', listener);
     }
 
-    private _createBaseFileSystemWatcher(paths: string[]): chokidar.FSWatcher {
+    private _createFileSystemWatcher(paths: string[]): chokidar.FSWatcher {
         // The following options are copied from VS Code source base. It also
         // uses chokidar for its file watching.
         const watcherOptions: chokidar.WatchOptions = {

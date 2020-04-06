@@ -9,6 +9,7 @@
 
 import './common/extensions';
 
+import * as fs from 'fs';
 import {
     CancellationToken,
     CodeAction,
@@ -22,6 +23,7 @@ import {
     DiagnosticRelatedInformation,
     DiagnosticSeverity,
     DiagnosticTag,
+    DidChangeWatchedFilesNotification,
     DocumentSymbol,
     ExecuteCommandParams,
     IConnection,
@@ -34,19 +36,26 @@ import {
     SymbolInformation,
     TextDocumentSyncKind,
     TextEdit,
+    WatchKind,
     WorkspaceEdit,
 } from 'vscode-languageserver';
 
 import { ImportResolver } from './analyzer/importResolver';
-import { AnalysisResults, AnalyzerService } from './analyzer/service';
+import { AnalysisResults, AnalyzerService, configFileNames } from './analyzer/service';
 import { getCancellationStrategyFromArgv } from './common/cancellationUtils';
 import { getNestedProperty } from './common/collectionUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface } from './common/console';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import { LanguageServiceExtension } from './common/extensibility';
-import { createFromRealFileSystem, FileSystem } from './common/fileSystem';
-import { convertPathToUri, convertUriToPath } from './common/pathUtils';
+import {
+    createFromRealFileSystem,
+    FileSystem,
+    FileWatcher,
+    FileWatcherEventHandler,
+    FileWatcherEventType,
+} from './common/fileSystem';
+import { containsPath, convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { Position } from './common/textRange';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CompletionItemData } from './languageService/completionProvider';
@@ -90,15 +99,27 @@ export interface LanguageServerInterface {
     readonly fs: FileSystem;
 }
 
+interface InternalFileWatcher extends FileWatcher {
+    // Paths that are being watched within the workspace
+    workspacePaths: string[];
+
+    // Event handler to call
+    eventHandler: FileWatcherEventHandler;
+}
+
 export abstract class LanguageServerBase implements LanguageServerInterface {
     // Create a connection for the server. The connection type can be changed by the process's arguments
     protected _connection: IConnection = createConnection(this._GetConnectionOptions());
     protected _workspaceMap: WorkspaceMap;
     protected _hasConfigurationCapability = false;
+    protected _hasWatchFileCapability = false;
     protected _defaultClientConfig: any;
 
     // Tracks whether we're currently displaying progress.
     private _isDisplayingProgress = false;
+
+    // Tracks active file system watchers.
+    private _fileWatchers: InternalFileWatcher[] = [];
 
     // Global root path - the basis for all global settings.
     rootPath = '';
@@ -109,7 +130,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     constructor(private _productName: string, rootDirectory: string, private _extension?: LanguageServiceExtension) {
         this._connection.console.log(`${_productName} language server starting`);
         // virtual file system to be used. initialized to real file system by default. but can't be overwritten
-        this.fs = createFromRealFileSystem(this._connection.console);
+        this.fs = createFromRealFileSystem(this._connection.console, this);
 
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = rootDirectory;
@@ -208,6 +229,50 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
     }
 
+    createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
+        // Capture "this" so we can reference it within the "close" method below.
+        const lsBase = this;
+
+        // Determine which paths are located within one or more workspaces.
+        // Those are already covered by existing file watchers handled by
+        // the client.
+        const workspacePaths: string[] = [];
+        const nonWorkspacePaths: string[] = [];
+        const workspaces = this._workspaceMap.getNonDefaultWorkspaces();
+
+        paths.forEach((path) => {
+            if (workspaces.some((workspace) => containsPath(workspace.rootPath, path))) {
+                workspacePaths.push(path);
+            } else {
+                nonWorkspacePaths.push(path);
+            }
+        });
+
+        // For any non-workspace paths, use the node file watcher.
+        const nodeWatchers = nonWorkspacePaths.map((path) => {
+            return fs.watch(path, { recursive: true }, listener);
+        });
+
+        const fileWatcher: InternalFileWatcher = {
+            close() {
+                // Stop listening for workspace paths.
+                lsBase._fileWatchers = lsBase._fileWatchers.filter((watcher) => watcher !== fileWatcher);
+
+                // Close the node watchers.
+                nodeWatchers.forEach((watcher) => {
+                    watcher.close();
+                });
+            },
+            workspacePaths,
+            eventHandler: listener,
+        };
+
+        // Record the file watcher.
+        this._fileWatchers.push(fileWatcher);
+
+        return fileWatcher;
+    }
+
     private _setupConnection(): void {
         // After the server has started the client sends an initialize request. The server receives
         // in the passed params the rootPath of the workspace plus the client capabilities.
@@ -217,7 +282,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
                 // Does the client support the `workspace/configuration` request?
                 const capabilities = params.capabilities;
-                this._hasConfigurationCapability = !!(capabilities.workspace && !!capabilities.workspace.configuration);
+                this._hasConfigurationCapability = !!capabilities.workspace?.configuration;
+                this._hasWatchFileCapability = !!capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration;
 
                 // Create a service instance for each of the workspace folders.
                 if (params.workspaceFolders) {
@@ -507,6 +573,18 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             service.setFileClosed(filePath);
         });
 
+        this._connection.onDidChangeWatchedFiles((params) => {
+            params.changes.forEach((change) => {
+                const filePath = convertUriToPath(change.uri);
+                const eventType: FileWatcherEventType = change.type === 1 ? 'add' : 'change';
+                this._fileWatchers.forEach((watcher) => {
+                    if (watcher.workspacePaths.some((dirPath) => containsPath(dirPath, filePath))) {
+                        watcher.eventHandler(eventType, filePath);
+                    }
+                });
+            });
+        });
+
         this._connection.onInitialized(() => {
             this._connection.workspace.onDidChangeWorkspaceFolders((event) => {
                 event.removed.forEach((workspace) => {
@@ -527,6 +605,24 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     await this.updateSettingsForWorkspace(newWorkspace);
                 });
             });
+
+            // Set up our file watchers.
+            if (this._hasWatchFileCapability) {
+                this._connection.client.register(DidChangeWatchedFilesNotification.type, {
+                    watchers: [
+                        ...configFileNames.map((fileName) => {
+                            return {
+                                globPattern: `**/${fileName}`,
+                                kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
+                            };
+                        }),
+                        {
+                            globPattern: '**/*.{py,pyi,pyd}',
+                            kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
+                        },
+                    ],
+                });
+            }
         });
 
         this._connection.onExecuteCommand((params, token) => this.executeCommand(params, token));

@@ -13,6 +13,17 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         super();
     }
 
+    getNonDefaultWorkspaces(): WorkspaceServiceInstance[] {
+        const workspaces: WorkspaceServiceInstance[] = [];
+        this.forEach((workspace) => {
+            if (workspace.rootPath) {
+                workspaces.push(workspace);
+            }
+        });
+
+        return workspaces;
+    }
+
     getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
         let bestRootPath: string | undefined;
         let bestInstance: WorkspaceServiceInstance | undefined;

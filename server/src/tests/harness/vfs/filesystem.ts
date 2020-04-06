@@ -313,18 +313,6 @@ export class FileSystem {
         };
     }
 
-    createLowLevelFileSystemWatcher(
-        paths: string[],
-        recursive?: boolean,
-        listener?: (event: string, filename: string) => void
-    ): FileWatcher {
-        return {
-            close: () => {
-                /* left empty */
-            },
-        };
-    }
-
     getModulePath(): string {
         return MODULE_PATH;
     }
