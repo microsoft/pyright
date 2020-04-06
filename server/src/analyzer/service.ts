@@ -918,10 +918,7 @@ export class AnalyzerService {
                     this._console.log(`Adding fs watcher for library directories:\n ${watchList.join('\n')}`);
                 }
 
-                // Use fs.watch instead of chokidar, to avoid issue where chokidar locks up files
-                // when the virtual environment is located under the workspace folder (which breaks pip uninstall)
-                // Not sure why that happens with chokidar, if the watch path is outside the workspace it is fine.
-                this._libraryFileWatcher = this._fs.createLowLevelFileSystemWatcher(watchList, true, (event, path) => {
+                this._libraryFileWatcher = this._fs.createFileSystemWatcher(watchList, (event, path) => {
                     if (this._verboseOutput) {
                         this._console.log(`Received fs event '${event}' for path '${path}'`);
                     }

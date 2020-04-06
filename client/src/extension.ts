@@ -11,7 +11,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { commands, ExtensionContext, Position, Range, TextEditor, TextEditorEdit } from 'vscode';
+import { commands, ExtensionContext, Position, Range, TextEditor, TextEditorEdit, workspace } from 'vscode';
 import { LanguageClient, LanguageClientOptions, ServerOptions, TextEdit, TransportKind } from 'vscode-languageclient';
 
 import { Commands } from '../../server/src/commands/commands';
@@ -52,7 +52,14 @@ export function activate(context: ExtensionContext) {
         ],
         synchronize: {
             // Synchronize the setting section to the server.
-            configurationSection: ['python', 'pyright']
+            configurationSection: ['python', 'pyright'],
+
+            // Send file system change events within the workspace.
+            fileEvents: [
+                workspace.createFileSystemWatcher('**/pyrightconfig.json'),
+                workspace.createFileSystemWatcher('**/mspythonconfig.json'),
+                workspace.createFileSystemWatcher('**/*.{py,pyi,pyd}')
+            ]
         },
         connectionOptions: { cancellationStrategy: cancellationStrategy }
     };
