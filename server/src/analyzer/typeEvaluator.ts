@@ -10906,12 +10906,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             let foundMatch = false;
             // Run through all subtypes in the union. Don't stop at the first
             // match we find because we may need to match TypeVars in other
-            // subtypes.
-            destType.subtypes.forEach((subtype) => {
-                if (canAssignType(subtype, srcType, diagAddendum, typeVarMap, flags, recursionCount + 1)) {
-                    foundMatch = true;
-                }
-            });
+            // subtypes. We special-case "None" so we can handle Optional[T]
+            // without matching the None to the type var.
+            if (
+                srcType.category === TypeCategory.None &&
+                destType.subtypes.some((subtype) => subtype.category === TypeCategory.None)
+            ) {
+                foundMatch = true;
+            } else {
+                destType.subtypes.forEach((subtype) => {
+                    if (canAssignType(subtype, srcType, diagAddendum, typeVarMap, flags, recursionCount + 1)) {
+                        foundMatch = true;
+                    }
+                });
+            }
 
             if (!foundMatch) {
                 diag.addAddendum(diagAddendum);
