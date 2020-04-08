@@ -24,10 +24,10 @@ test('PlaintextIndention', () => {
         ['\nA\n    B', 'A\n    B'],
         ['\n    A\n    B', 'A\nB'],
         ['\nA\nB\n', 'A\nB'],
-        ['  \n\nA \n    \nB  \n    ', 'A\n\nB']
+        ['  \n\nA \n    \nB  \n    ', 'A\n\nB'],
     ];
 
-    all.forEach(v => _testConvertToMarkdown(v[0], v[1]));
+    all.forEach((v) => _testConvertToMarkdown(v[0], v[1]));
 });
 
 test('NormalText', () => {

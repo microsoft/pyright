@@ -129,7 +129,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
 
         const location: Location = {
             uri: URI.file(this._filePath).toString(),
-            range: declaration.range
+            range: declaration.range,
         };
 
         const symbolKind = getSymbolKind(name, declaration, this._evaluator);
@@ -140,7 +140,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
         const symbolInfo: SymbolInformation = {
             name,
             kind: symbolKind,
-            location
+            location,
         };
 
         if (containerName) {
@@ -267,7 +267,7 @@ function getDocumentSymbolRecursive(
         kind: symbolKind,
         range,
         selectionRange,
-        children
+        children,
     };
 
     docSymbolResults.push(symbolInfo);

@@ -24,9 +24,9 @@ helper.verifyCodeActions({
                 command: {
                     title: 'Create Type Stub',
                     command: Consts.Commands.createTypeStub,
-                    arguments: ['\\', 'testLib', '\\.src\\test.py']
-                }
-            }
-        ]
-    }
+                    arguments: ['\\', 'testLib', '\\.src\\test.py'],
+                },
+            },
+        ],
+    },
 });

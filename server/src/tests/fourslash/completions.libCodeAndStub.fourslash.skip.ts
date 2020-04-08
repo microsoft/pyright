@@ -30,10 +30,10 @@ helper.verifyCompletion('included', {
                 label: 'Validator',
                 documentation: {
                     kind: 'markdown',
-                    value: '```python\nclass Validator()\n```\n---\nThe validator class'
-                }
-            }
-        ]
+                    value: '```python\nclass Validator()\n```\n---\nThe validator class',
+                },
+            },
+        ],
     },
     marker2: {
         completions: [
@@ -42,9 +42,9 @@ helper.verifyCompletion('included', {
                 documentation: {
                     kind: 'markdown',
                     value:
-                        '```python\nis_valid: (self: Validator, text: str) -> bool\n```\n---\nChecks if the input string is valid.'
-                }
-            }
-        ]
-    }
+                        '```python\nis_valid: (self: Validator, text: str) -> bool\n```\n---\nChecks if the input string is valid.',
+                },
+            },
+        ],
+    },
 });

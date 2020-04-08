@@ -57,8 +57,8 @@ export class HoverProvider {
             parts: [],
             range: {
                 start: convertOffsetToPosition(node.start, parseResults.tokenizerOutput.lines),
-                end: convertOffsetToPosition(TextRange.getEnd(node), parseResults.tokenizerOutput.lines)
-            }
+                end: convertOffsetToPosition(TextRange.getEnd(node), parseResults.tokenizerOutput.lines),
+            },
         };
 
         if (node.nodeType === ParseNodeType.Name) {
@@ -212,7 +212,7 @@ export class HoverProvider {
         } else if (type.category === TypeCategory.Function) {
             this._addDocumentationResultsPart(parts, type.details.docString);
         } else if (type.category === TypeCategory.OverloadedFunction) {
-            type.overloads.forEach(overload => {
+            type.overloads.forEach((overload) => {
                 this._addDocumentationResultsPart(parts, overload.details.docString);
             });
         }
@@ -227,7 +227,7 @@ export class HoverProvider {
     private static _addResultsPart(parts: HoverTextPart[], text: string, python = false) {
         parts.push({
             python,
-            text
+            text,
         });
     }
 }
@@ -238,7 +238,7 @@ export function convertHoverResults(hoverResults: HoverResults | undefined): Hov
     }
 
     const markupString = hoverResults.parts
-        .map(part => {
+        .map((part) => {
             if (part.python) {
                 return '```python\n' + part.text + '\n```\n';
             }
@@ -249,8 +249,8 @@ export function convertHoverResults(hoverResults: HoverResults | undefined): Hov
     return {
         contents: {
             kind: MarkupKind.Markdown,
-            value: markupString
+            value: markupString,
         },
-        range: hoverResults.range
+        range: hoverResults.range,
     };
 }

@@ -7,7 +7,7 @@
 module.exports = {
     roots: ['<rootDir>/src/tests'],
     transform: {
-        '^.+\\.tsx?$': 'ts-jest'
+        '^.+\\.tsx?$': 'ts-jest',
     },
     testRegex: '(/__tests__/.*|(\\.|/)(test|spec))\\.tsx?$',
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
@@ -18,8 +18,8 @@ module.exports = {
 
                 // Needed because jest calls tsc in a way that doesn't
                 // inline const enums.
-                preserveConstEnums: true
-            }
-        }
-    }
+                preserveConstEnums: true,
+            },
+        },
+    },
 };

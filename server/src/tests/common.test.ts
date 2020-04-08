@@ -23,34 +23,34 @@ test('textRange overlap', () => {
     const textRangeOne: Range = {
         start: {
             line: 0,
-            character: 0
+            character: 0,
         },
         end: {
             line: 10,
-            character: 0
-        }
+            character: 0,
+        },
     };
 
     const textRangeTwo: Range = {
         start: {
             line: 11,
-            character: 0
+            character: 0,
         },
         end: {
             line: 20,
-            character: 0
-        }
+            character: 0,
+        },
     };
 
     const textRangeThree: Range = {
         start: {
             line: 5,
-            character: 0
+            character: 0,
         },
         end: {
             line: 15,
-            character: 0
-        }
+            character: 0,
+        },
     };
 
     assert.equal(doRangesOverlap(textRangeOne, textRangeTwo), false);
@@ -62,12 +62,12 @@ test('textRange contain', () => {
     const textRangeOne: Range = {
         start: {
             line: 0,
-            character: 5
+            character: 5,
         },
         end: {
             line: 10,
-            character: 1
-        }
+            character: 1,
+        },
     };
 
     assert.equal(doesRangeContain(textRangeOne, { line: 0, character: 0 }), false);
@@ -82,34 +82,34 @@ test('textRange equal', () => {
     const textRangeOne: Range = {
         start: {
             line: 0,
-            character: 0
+            character: 0,
         },
         end: {
             line: 10,
-            character: 0
-        }
+            character: 0,
+        },
     };
 
     const textRangeTwo: Range = {
         start: {
             line: 0,
-            character: 0
+            character: 0,
         },
         end: {
             line: 10,
-            character: 0
-        }
+            character: 0,
+        },
     };
 
     const textRangeThree: Range = {
         start: {
             line: 5,
-            character: 0
+            character: 0,
         },
         end: {
             line: 15,
-            character: 0
-        }
+            character: 0,
+        },
     };
 
     assert.equal(rangesAreEqual(textRangeOne, textRangeTwo), true);

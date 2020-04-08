@@ -20,37 +20,37 @@
 const overloadedSignatures = [
     {
         label: '(x: int) -> int',
-        parameters: ['x: int']
+        parameters: ['x: int'],
     },
     {
         label: '(x: int, y: int) -> str',
-        parameters: ['x: int', 'y: int']
+        parameters: ['x: int', 'y: int'],
     },
     {
         label: '(*args) -> None',
-        parameters: ['*args']
-    }
+        parameters: ['*args'],
+    },
 ];
 
 helper.verifySignature({
     o1: {
         signatures: overloadedSignatures,
         activeParameter: 0,
-        activeSignature: 0
+        activeSignature: 0,
     },
     o2: {
         signatures: overloadedSignatures,
         activeParameter: 1,
-        activeSignature: 1
+        activeSignature: 1,
     },
     o3: {
         signatures: overloadedSignatures,
         activeParameter: 0,
-        activeSignature: 2
+        activeSignature: 2,
     },
     o4: {
         signatures: overloadedSignatures,
         activeParameter: 0,
-        activeSignature: 2
-    }
+        activeSignature: 2,
+    },
 });

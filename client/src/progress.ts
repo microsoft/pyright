@@ -21,16 +21,16 @@ export class ProgressReporting implements Disposable {
     constructor(languageClient: LanguageClient) {
         languageClient.onReady().then(() => {
             languageClient.onNotification('pyright/beginProgress', async () => {
-                const progressPromise = new Promise<void>(resolve => {
+                const progressPromise = new Promise<void>((resolve) => {
                     this._resolveProgress = resolve;
                 });
 
                 window.withProgress(
                     {
                         location: ProgressLocation.Window,
-                        title: ''
+                        title: '',
                     },
-                    progress => {
+                    (progress) => {
                         this._progress = progress;
                         return progressPromise;
                     }

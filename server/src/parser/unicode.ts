@@ -639,7 +639,7 @@ export const unicodeLu: UnicodeRangeTable = [
     [120662, 120686],
     [120720, 120744],
     120778,
-    [125184, 125217]
+    [125184, 125217],
 ];
 
 export const unicodeLl: UnicodeRangeTable = [
@@ -1275,7 +1275,7 @@ export const unicodeLl: UnicodeRangeTable = [
     [120746, 120770],
     [120772, 120777],
     120779,
-    [125218, 125251]
+    [125218, 125251],
 ];
 
 export const unicodeLt: UnicodeRangeTable = [
@@ -1288,7 +1288,7 @@ export const unicodeLt: UnicodeRangeTable = [
     [8104, 8111],
     8124,
     8140,
-    8188
+    8188,
 ];
 
 export const unicodeLo: UnicodeRangeTable = [
@@ -1750,7 +1750,7 @@ export const unicodeLo: UnicodeRangeTable = [
     [177984, 178205],
     [178208, 183969],
     [183984, 191456],
-    [194560, 195101]
+    [194560, 195101],
 ];
 
 export const unicodeLm: UnicodeRangeTable = [
@@ -1810,7 +1810,7 @@ export const unicodeLm: UnicodeRangeTable = [
     [65438, 65439],
     [92992, 92995],
     [94099, 94111],
-    [94176, 94177]
+    [94176, 94177],
 ];
 
 export const unicodeNl: UnicodeRangeTable = [
@@ -1825,7 +1825,7 @@ export const unicodeNl: UnicodeRangeTable = [
     66369,
     66378,
     [66513, 66517],
-    [74752, 74862]
+    [74752, 74862],
 ];
 
 export const unicodeMn: UnicodeRangeTable = [
@@ -2129,7 +2129,7 @@ export const unicodeMn: UnicodeRangeTable = [
     [122918, 122922],
     [125136, 125142],
     [125252, 125258],
-    [917760, 917999]
+    [917760, 917999],
 ];
 
 export const unicodeMc: UnicodeRangeTable = [
@@ -2292,7 +2292,7 @@ export const unicodeMc: UnicodeRangeTable = [
     72884,
     [94033, 94078],
     [119141, 119142],
-    [119149, 119154]
+    [119149, 119154],
 ];
 
 export const unicodeNd: UnicodeRangeTable = [
@@ -2350,7 +2350,7 @@ export const unicodeNd: UnicodeRangeTable = [
     [92768, 92777],
     [93008, 93017],
     [120782, 120831],
-    [125264, 125273]
+    [125264, 125273],
 ];
 
 export const unicodePc: UnicodeRangeTable = [95, [8255, 8256], 8276, [65075, 65076], [65101, 65103], 65343];

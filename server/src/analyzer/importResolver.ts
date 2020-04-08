@@ -20,7 +20,7 @@ import {
     isDirectory,
     isFile,
     stripFileExtension,
-    stripTrailingDirectorySeparator
+    stripTrailingDirectorySeparator,
 } from '../common/pathUtils';
 import { versionToString } from '../common/pythonVersion';
 import * as StringUtils from '../common/stringUtils';
@@ -243,7 +243,7 @@ export class ImportResolver {
             importType: ImportType.Local,
             isStubFile: false,
             isPydFile: false,
-            implicitImports: []
+            implicitImports: [],
         };
 
         return this._addResultsToCache(execEnv, importName, notFoundResult, undefined);
@@ -837,7 +837,7 @@ export class ImportResolver {
             searchPath: rootPath,
             isStubFile,
             isPydFile,
-            implicitImports
+            implicitImports,
         };
     }
 
@@ -853,7 +853,7 @@ export class ImportResolver {
 
         // Copy the nameParts into a new directory and add an extra empty
         // part if there is a trailing dot.
-        const nameParts = moduleDescriptor.nameParts.map(name => name);
+        const nameParts = moduleDescriptor.nameParts.map((name) => name);
         if (moduleDescriptor.hasTrailingDot) {
             nameParts.push('');
         }
@@ -881,7 +881,7 @@ export class ImportResolver {
     private _addFilteredSuggestions(dirPath: string, filter: string, suggestions: string[], similarityLimit: number) {
         const entries = getFileSystemEntries(this.fileSystem, dirPath);
 
-        entries.files.forEach(file => {
+        entries.files.forEach((file) => {
             const fileWithoutExtension = stripFileExtension(file);
             const fileExtension = getFileExtension(file);
 
@@ -897,7 +897,7 @@ export class ImportResolver {
             }
         });
 
-        entries.directories.forEach(dir => {
+        entries.directories.forEach((dir) => {
             if (!filter || dir.startsWith(filter)) {
                 this._addUniqueSuggestion(dir, suggestions);
             }
@@ -905,7 +905,7 @@ export class ImportResolver {
     }
 
     private _addUniqueSuggestion(suggestionToAdd: string, suggestions: string[]) {
-        if (suggestions.some(s => s === suggestionToAdd)) {
+        if (suggestions.some((s) => s === suggestionToAdd)) {
             return;
         }
 
@@ -939,8 +939,8 @@ export class ImportResolver {
             return importResult;
         }
 
-        const filteredImplicitImports = importResult.implicitImports.filter(implicitImport => {
-            return importedSymbols.some(sym => sym === implicitImport.name);
+        const filteredImplicitImports = importResult.implicitImports.filter((implicitImport) => {
+            return importedSymbols.some((sym) => sym === implicitImport.name);
         });
 
         if (filteredImplicitImports.length === importResult.implicitImports.length) {
@@ -963,12 +963,12 @@ export class ImportResolver {
             if (fileName.endsWith('.py') || fileName.endsWith('.pyi')) {
                 const filePath = combinePaths(dirPath, fileName);
 
-                if (!exclusions.find(exclusion => exclusion === filePath)) {
+                if (!exclusions.find((exclusion) => exclusion === filePath)) {
                     const strippedFileName = stripFileExtension(fileName);
                     const implicitImport: ImplicitImport = {
                         isStubFile: fileName.endsWith('.pyi'),
                         name: strippedFileName,
-                        path: filePath
+                        path: filePath,
                     };
 
                     // Always prefer stub files over non-stub files.
@@ -995,11 +995,11 @@ export class ImportResolver {
             }
 
             if (path) {
-                if (!exclusions.find(exclusion => exclusion === path)) {
+                if (!exclusions.find((exclusion) => exclusion === path)) {
                     const implicitImport: ImplicitImport = {
                         isStubFile,
                         name: dirName,
-                        path
+                        path,
                     };
 
                     implicitImportMap.set(implicitImport.name, implicitImport);
@@ -1016,7 +1016,7 @@ export class ImportResolver {
             name += '.';
         }
 
-        return name + moduleDescriptor.nameParts.map(part => part).join('.');
+        return name + moduleDescriptor.nameParts.map((part) => part).join('.');
     }
 }
 

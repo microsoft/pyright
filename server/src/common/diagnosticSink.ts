@@ -65,11 +65,11 @@ export class DiagnosticSink {
     }
 
     getErrors() {
-        return this._diagnosticList.filter(diag => diag.category === DiagnosticCategory.Error);
+        return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.Error);
     }
 
     getWarnings() {
-        return this._diagnosticList.filter(diag => diag.category === DiagnosticCategory.Warning);
+        return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.Warning);
     }
 }
 

@@ -81,7 +81,7 @@ test('DebugAssertNever', () => {
     const enum MyEnum {
         A,
         B,
-        C
+        C,
     }
     const unused = 5 as MyEnum;
 
@@ -114,7 +114,7 @@ test('DebugFormatEnum', () => {
     enum MyEnum {
         A,
         B,
-        C
+        C,
     }
     assert(debug.formatEnum(MyEnum.A, MyEnum, false) === 'A');
 });

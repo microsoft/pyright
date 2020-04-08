@@ -20,7 +20,7 @@ import {
     compareStringsCaseSensitive,
     equateStringsCaseInsensitive,
     equateStringsCaseSensitive,
-    getStringComparer
+    getStringComparer,
 } from './stringUtils';
 
 export interface FileSpec {
@@ -601,7 +601,7 @@ export function getWildcardRegexPattern(rootPath: string, fileSpec: string): str
                 component = escapedSeparator + component;
             }
 
-            regExPattern += component.replace(reservedCharacterPattern, match => {
+            regExPattern += component.replace(reservedCharacterPattern, (match) => {
                 if (match === '*') {
                     return `[^${escapedSeparator}]*`;
                 } else if (match === '?') {
@@ -666,7 +666,7 @@ export function getFileSpec(rootPath: string, fileSpec: string): FileSpec {
 
     return {
         wildcardRoot,
-        regExp
+        regExp,
     };
 }
 
@@ -807,7 +807,7 @@ function getPathComponentsRelativeTo(
 
 const enum FileSystemEntryKind {
     File,
-    Directory
+    Directory,
 }
 
 function fileSystemEntryExists(fs: FileSystem, path: string, entryKind: FileSystemEntryKind): boolean {

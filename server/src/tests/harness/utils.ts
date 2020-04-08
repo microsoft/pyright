@@ -342,7 +342,7 @@ export const IO_ERROR_MESSAGE = Object.freeze({
     EINVAL: 'invalid value',
     ENOTEMPTY: 'directory not empty',
     EPERM: 'operation not permitted',
-    EROFS: 'file system is read-only'
+    EROFS: 'file system is read-only',
 });
 
 export function createIOError(code: keyof typeof IO_ERROR_MESSAGE, details = '') {

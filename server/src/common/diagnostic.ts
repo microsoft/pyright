@@ -13,7 +13,7 @@ import { Range } from './textRange';
 export const enum DiagnosticCategory {
     Error,
     Warning,
-    UnusedCode
+    UnusedCode,
 }
 
 export interface DiagnosticAction {
@@ -127,6 +127,6 @@ export class DiagnosticAddendum {
         // Prepend indentation for readability. Skip if there are no
         // messages at this level.
         const extraSpace = this._messages.length > 0 ? '  ' : '';
-        return this._messages.concat(childLines).map(line => extraSpace + line);
+        return this._messages.concat(childLines).map((line) => extraSpace + line);
     }
 }

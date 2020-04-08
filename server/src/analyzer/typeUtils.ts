@@ -28,7 +28,7 @@ import {
     Type,
     TypeCategory,
     TypeVarType,
-    UnknownType
+    UnknownType,
 } from './types';
 import { TypeVarMap } from './typeVarMap';
 
@@ -66,7 +66,7 @@ export const enum ClassMemberLookupFlags {
     // By default, the first symbol is returned even if it has only
     // an inferred type associated with it. If this flag is set,
     // the search looks only for symbols with declared types.
-    DeclaredTypesOnly = 1 << 4
+    DeclaredTypesOnly = 1 << 4,
 }
 
 export const enum CanAssignFlags {
@@ -79,7 +79,7 @@ export const enum CanAssignFlags {
     // The caller has swapped the source and dest types because
     // the types are contravariant. Perform type var matching
     // on dest type vars rather than source type var.
-    ReverseTypeVarMatching = 1 << 1
+    ReverseTypeVarMatching = 1 << 1,
 }
 
 export interface TypedDictEntry {
@@ -90,7 +90,7 @@ export interface TypedDictEntry {
 
 export function isOptionalType(type: Type): boolean {
     if (type.category === TypeCategory.Union) {
-        return type.subtypes.some(t => isNoneOrNever(t));
+        return type.subtypes.some((t) => isNoneOrNever(t));
     }
 
     return false;
@@ -102,7 +102,7 @@ export function doForSubtypes(type: Type, callback: (type: Type) => Type | undef
     if (type.category === TypeCategory.Union) {
         const newTypes: Type[] = [];
 
-        type.subtypes.forEach(typeEntry => {
+        type.subtypes.forEach((typeEntry) => {
             const transformedType = callback(typeEntry);
             if (transformedType) {
                 newTypes.push(transformedType);
@@ -140,7 +140,7 @@ export function stripLiteralValue(type: Type): Type {
     }
 
     if (type.category === TypeCategory.Union) {
-        return doForSubtypes(type, subtype => {
+        return doForSubtypes(type, (subtype) => {
             return stripLiteralValue(subtype);
         });
     }
@@ -155,7 +155,7 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
 
     if (type.category === TypeCategory.Class) {
         if (type.typeArguments) {
-            const strippedTypeArgs = type.typeArguments.map(t =>
+            const strippedTypeArgs = type.typeArguments.map((t) =>
                 stripLiteralTypeArgsValue(stripLiteralValue(t), recursionCount + 1)
             );
             return ClassType.cloneForSpecialization(type, strippedTypeArgs, type.skipAbstractClassTest);
@@ -171,7 +171,7 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
     }
 
     if (type.category === TypeCategory.Union) {
-        return doForSubtypes(type, subtype => {
+        return doForSubtypes(type, (subtype) => {
             return stripLiteralTypeArgsValue(subtype, recursionCount + 1);
         });
     }
@@ -179,12 +179,12 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
     if (type.category === TypeCategory.Function) {
         if (type.specializedTypes) {
             const strippedSpecializedTypes: SpecializedFunctionTypes = {
-                parameterTypes: type.specializedTypes.parameterTypes.map(t =>
+                parameterTypes: type.specializedTypes.parameterTypes.map((t) =>
                     stripLiteralTypeArgsValue(stripLiteralValue(t), recursionCount + 1)
                 ),
                 returnType: type.specializedTypes.returnType
                     ? stripLiteralTypeArgsValue(stripLiteralValue(type.specializedTypes.returnType), recursionCount + 1)
-                    : undefined
+                    : undefined,
             };
             type = FunctionType.cloneForSpecialization(type, strippedSpecializedTypes);
         }
@@ -195,7 +195,7 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
     if (type.category === TypeCategory.OverloadedFunction) {
         const strippedOverload = OverloadedFunctionType.create();
         strippedOverload.overloads = type.overloads.map(
-            t => stripLiteralTypeArgsValue(t, recursionCount + 1) as FunctionType
+            (t) => stripLiteralTypeArgsValue(t, recursionCount + 1) as FunctionType
         );
         return strippedOverload;
     }
@@ -388,7 +388,7 @@ export function specializeType(
 
     if (type.category === TypeCategory.Union) {
         const subtypes: Type[] = [];
-        type.subtypes.forEach(typeEntry => {
+        type.subtypes.forEach((typeEntry) => {
             subtypes.push(specializeType(typeEntry, typeVarMap, makeConcrete, recursionLevel + 1));
         });
 
@@ -503,7 +503,7 @@ export function lookUpClassMember(
                             return {
                                 symbol,
                                 isInstanceMember: true,
-                                classType: specializedMroClass
+                                classType: specializedMroClass,
                             };
                         }
                     }
@@ -533,7 +533,7 @@ export function lookUpClassMember(
                         return {
                             symbol,
                             isInstanceMember,
-                            classType: specializedMroClass
+                            classType: specializedMroClass,
                         };
                     }
                 }
@@ -550,7 +550,7 @@ export function lookUpClassMember(
             return {
                 symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
                 isInstanceMember: false,
-                classType: UnknownType.create()
+                classType: UnknownType.create(),
             };
         }
     } else if (isAnyOrUnknown(classType)) {
@@ -559,7 +559,7 @@ export function lookUpClassMember(
         return {
             symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
             isInstanceMember: false,
-            classType: UnknownType.create()
+            classType: UnknownType.create(),
         };
     }
 
@@ -570,12 +570,12 @@ export function addDefaultFunctionParameters(functionType: FunctionType) {
     FunctionType.addParameter(functionType, {
         category: ParameterCategory.VarArgList,
         name: 'args',
-        type: AnyType.create()
+        type: AnyType.create(),
     });
     FunctionType.addParameter(functionType, {
         category: ParameterCategory.VarArgDictionary,
         name: 'kwargs',
-        type: AnyType.create()
+        type: AnyType.create(),
     });
 }
 
@@ -608,7 +608,7 @@ export function getMetaclass(type: ClassType, recursionCount = 0): ClassType | U
 // but removing any duplicates.
 export function addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarType[]) {
     for (const type2 of list2) {
-        if (!list1.find(type1 => type1 === type2)) {
+        if (!list1.find((type1) => type1 === type2)) {
             list1.push(type2);
         }
     }
@@ -623,7 +623,7 @@ export function getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
     const getTypeVarsFromClass = (classType: ClassType) => {
         const combinedList: TypeVarType[] = [];
         if (classType.typeArguments) {
-            classType.typeArguments.forEach(typeArg => {
+            classType.typeArguments.forEach((typeArg) => {
                 addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg));
             });
         }
@@ -646,7 +646,7 @@ export function getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
     } else if (type.category === TypeCategory.Function) {
         const combinedList: TypeVarType[] = [];
 
-        type.details.parameters.forEach(param => {
+        type.details.parameters.forEach((param) => {
             addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(param.type));
         });
 
@@ -689,14 +689,14 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 
     switch (destType.category) {
         case TypeCategory.Union:
-            destType.subtypes.forEach(subtype => {
+            destType.subtypes.forEach((subtype) => {
                 setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount + 1);
             });
             break;
 
         case TypeCategory.Class:
             if (destType.typeArguments) {
-                destType.typeArguments.forEach(typeArg => {
+                destType.typeArguments.forEach((typeArg) => {
                     setTypeArgumentsRecursive(typeArg, srcType, typeVarMap, recursionCount + 1);
                 });
             }
@@ -708,7 +708,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 
         case TypeCategory.Function:
             if (destType.specializedTypes) {
-                destType.specializedTypes.parameterTypes.forEach(paramType => {
+                destType.specializedTypes.parameterTypes.forEach((paramType) => {
                     setTypeArgumentsRecursive(paramType, srcType, typeVarMap, recursionCount + 1);
                 });
                 if (destType.specializedTypes.returnType) {
@@ -720,7 +720,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
                     );
                 }
             } else {
-                destType.details.parameters.forEach(param => {
+                destType.details.parameters.forEach((param) => {
                     setTypeArgumentsRecursive(param.type, srcType, typeVarMap, recursionCount + 1);
                 });
                 if (destType.details.declaredReturnType) {
@@ -735,7 +735,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
             break;
 
         case TypeCategory.OverloadedFunction:
-            destType.overloads.forEach(subtype => {
+            destType.overloads.forEach((subtype) => {
                 setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount + 1);
             });
             break;
@@ -821,7 +821,7 @@ export function derivesFromClassRecursive(classType: ClassType, baseClassToFind:
 // and an "int", this method would strip off the "None"
 // and return only the "int".
 export function removeFalsinessFromType(type: Type): Type {
-    return doForSubtypes(type, subtype => {
+    return doForSubtypes(type, (subtype) => {
         if (subtype.category === TypeCategory.Object) {
             if (subtype.literalValue !== undefined) {
                 // If the object is already definitely truthy, it's fine to
@@ -851,7 +851,7 @@ export function removeFalsinessFromType(type: Type): Type {
 // method, this method would strip off the "Foo"
 // and return only the "None".
 export function removeTruthinessFromType(type: Type): Type {
-    return doForSubtypes(type, subtype => {
+    return doForSubtypes(type, (subtype) => {
         if (subtype.category === TypeCategory.Object) {
             if (subtype.literalValue !== undefined) {
                 // If the object is already definitely falsy, it's fine to
@@ -931,7 +931,7 @@ export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type
 }
 
 export function convertClassToObject(type: Type): Type {
-    return doForSubtypes(type, subtype => {
+    return doForSubtypes(type, (subtype) => {
         if (subtype.category === TypeCategory.Class) {
             return ObjectType.create(subtype);
         }
@@ -1014,7 +1014,7 @@ export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
 
     // See if a function has an unknown type.
     if (type.category === TypeCategory.OverloadedFunction) {
-        return type.overloads.some(overload => {
+        return type.overloads.some((overload) => {
             return containsUnknown(overload, false, recursionCount + 1);
         });
     }
@@ -1052,7 +1052,7 @@ function _specializeClassType(
 
     // If type args were previously provided, specialize them.
     if (classType.typeArguments) {
-        newTypeArgs = classType.typeArguments.map(oldTypeArgType => {
+        newTypeArgs = classType.typeArguments.map((oldTypeArgType) => {
             const newTypeArgType = specializeType(oldTypeArgType, typeVarMap, makeConcrete, recursionLevel + 1);
             if (newTypeArgType !== oldTypeArgType) {
                 specializationNeeded = true;
@@ -1060,7 +1060,7 @@ function _specializeClassType(
             return newTypeArgType;
         });
     } else {
-        ClassType.getTypeParameters(classType).forEach(typeParam => {
+        ClassType.getTypeParameters(classType).forEach((typeParam) => {
             let typeArgType: Type;
 
             if (typeVarMap && typeVarMap.get(typeParam.name)) {
@@ -1111,13 +1111,13 @@ function _specializeOverloadedFunctionType(
     recursionLevel: number
 ): OverloadedFunctionType {
     // Specialize each of the functions in the overload.
-    const overloads = type.overloads.map(entry =>
+    const overloads = type.overloads.map((entry) =>
         _specializeFunctionType(entry, typeVarMap, makeConcrete, recursionLevel)
     );
 
     // Construct a new overload with the specialized function types.
     const newOverloadType = OverloadedFunctionType.create();
-    overloads.forEach(overload => {
+    overloads.forEach((overload) => {
         OverloadedFunctionType.addOverload(newOverloadType, overload);
     });
 
@@ -1141,7 +1141,7 @@ function _specializeFunctionType(
 
     const specializedParameters: SpecializedFunctionTypes = {
         parameterTypes: [],
-        returnType: specializedReturnType
+        returnType: specializedReturnType,
     };
 
     for (let i = 0; i < functionType.details.parameters.length; i++) {
@@ -1190,7 +1190,7 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
                 }
 
                 return (
-                    type.typeArguments.find(typeArg => requiresSpecialization(typeArg, recursionCount + 1)) !==
+                    type.typeArguments.find((typeArg) => requiresSpecialization(typeArg, recursionCount + 1)) !==
                     undefined
                 );
             }
@@ -1233,11 +1233,13 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
         }
 
         case TypeCategory.OverloadedFunction: {
-            return type.overloads.find(overload => requiresSpecialization(overload, recursionCount + 1)) !== undefined;
+            return (
+                type.overloads.find((overload) => requiresSpecialization(overload, recursionCount + 1)) !== undefined
+            );
         }
 
         case TypeCategory.Union: {
-            return type.subtypes.find(type => requiresSpecialization(type, recursionCount + 1)) !== undefined;
+            return type.subtypes.find((type) => requiresSpecialization(type, recursionCount + 1)) !== undefined;
         }
 
         case TypeCategory.TypeVar: {
@@ -1258,11 +1260,11 @@ export function computeMroLinearization(classType: ClassType): boolean {
     // Construct the list of class lists that need to be merged.
     const classListsToMerge: Type[][] = [];
 
-    classType.details.baseClasses.forEach(baseClass => {
+    classType.details.baseClasses.forEach((baseClass) => {
         if (baseClass.category === TypeCategory.Class) {
             const typeVarMap = buildTypeVarMapFromSpecializedClass(baseClass, false);
             classListsToMerge.push(
-                baseClass.details.mro.map(mroClass => {
+                baseClass.details.mro.map((mroClass) => {
                     return specializeType(mroClass, typeVarMap);
                 })
             );
@@ -1272,7 +1274,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
     });
 
     classListsToMerge.push(
-        classType.details.baseClasses.map(baseClass => {
+        classType.details.baseClasses.map((baseClass) => {
             const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, false);
             return specializeType(baseClass, typeVarMap);
         })
@@ -1286,10 +1288,10 @@ export function computeMroLinearization(classType: ClassType): boolean {
     // is found in the "tail" (i.e. in elements 1 through n) of any
     // of the class lists.
     const isInTail = (searchClass: ClassType, classLists: Type[][]) => {
-        return classLists.some(classList => {
+        return classLists.some((classList) => {
             return (
                 classList.findIndex(
-                    value =>
+                    (value) =>
                         value.category === TypeCategory.Class && ClassType.isSameGenericClass(value, searchClass, false)
                 ) > 0
             );
@@ -1299,7 +1301,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
     const filterClass = (classToFilter: ClassType, classLists: Type[][]) => {
         for (let i = 0; i < classLists.length; i++) {
             classLists[i] = classLists[i].filter(
-                value =>
+                (value) =>
                     value.category !== TypeCategory.Class || !ClassType.isSameGenericClass(value, classToFilter, false)
             );
         }

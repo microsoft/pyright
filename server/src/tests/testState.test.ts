@@ -206,7 +206,7 @@ test('GoToEachMarker', () => {
     const marker2 = data.markerPositions.get('marker2');
 
     const results: number[] = [];
-    state.goToEachMarker([marker1!, marker2!], m => {
+    state.goToEachMarker([marker1!, marker2!], (m) => {
         results.push(m.position);
     });
 
@@ -235,7 +235,7 @@ test('Markers', () => {
     assert.deepEqual(
         state
             .getMarkers()
-            .map(m => state.getMarkerName(m))
+            .map((m) => state.getMarkerName(m))
             .sort(compareStringsCaseSensitive),
         state.getMarkerNames().sort(comparePathsCaseSensitive)
     );
@@ -353,7 +353,7 @@ test('goToEachRange', () => {
     const { state } = parseAndGetTestState(code);
 
     const results: Range[] = [];
-    state.goToEachRange(r => {
+    state.goToEachRange((r) => {
         assert.equal(state.activeFile.fileName, r.fileName);
         results.push(r);
     });
@@ -378,7 +378,7 @@ test('getRangesInFile', () => {
 
     assert.deepEqual(
         state.getRangesInFile(data.files[0].fileName),
-        data.ranges.filter(r => r.fileName === data.files[0].fileName)
+        data.ranges.filter((r) => r.fileName === data.files[0].fileName)
     );
 });
 

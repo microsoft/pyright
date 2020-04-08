@@ -24,7 +24,7 @@ export class TestWalker extends ParseTreeWalker {
 
     // Make sure that all of the children point to their parent.
     private _verifyParentChildLinks(node: ParseNode, children: ParseNodeArray) {
-        children.forEach(child => {
+        children.forEach((child) => {
             if (child) {
                 if (child.parent !== node) {
                     fail(
@@ -42,7 +42,7 @@ export class TestWalker extends ParseTreeWalker {
     private _verifyChildRanges(node: ParseNode, children: ParseNodeArray) {
         let prevNode: ParseNode | undefined;
 
-        children.forEach(child => {
+        children.forEach((child) => {
             if (child) {
                 let skipCheck = false;
 

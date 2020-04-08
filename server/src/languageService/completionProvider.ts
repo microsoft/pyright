@@ -15,7 +15,7 @@ import {
     CompletionList,
     MarkupKind,
     Range,
-    TextEdit
+    TextEdit,
 } from 'vscode-languageserver';
 
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
@@ -52,7 +52,7 @@ import {
     ParameterCategory,
     ParseNode,
     ParseNodeType,
-    StringNode
+    StringNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
@@ -93,7 +93,7 @@ const _keywords: string[] = [
     'return',
     'try',
     'while',
-    'yield'
+    'yield',
 ];
 
 enum SortCategory {
@@ -135,7 +135,7 @@ enum SortCategory {
     DunderSymbol,
 
     // An auto-import symbol.
-    AutoImport
+    AutoImport,
 }
 
 // Completion items can have arbitrary data hanging off them.
@@ -330,7 +330,7 @@ export class CompletionProvider {
         }
 
         const curIndex = CompletionProvider._mostRecentCompletions.findIndex(
-            item => item.label === label && item.autoImportText === autoImportText
+            (item) => item.label === label && item.autoImportText === autoImportText
         );
 
         if (curIndex > 0) {
@@ -459,7 +459,7 @@ export class CompletionProvider {
                 if (isSimilar) {
                     const range: Range = {
                         start: { line: this._position.line, character: this._position.character - partialName.length },
-                        end: { line: this._position.line, character: this._position.character }
+                        end: { line: this._position.line, character: this._position.character },
                     };
 
                     const methodSignature = this._printMethodSignature(decl.node) + ':';
@@ -474,7 +474,7 @@ export class CompletionProvider {
 
     private _printMethodSignature(node: FunctionNode): string {
         const paramList = node.parameters
-            .map(param => {
+            .map((param) => {
                 let paramString = '';
                 if (param.category === ParameterCategory.VarArgList) {
                     paramString += '*';
@@ -508,7 +508,7 @@ export class CompletionProvider {
         const symbolTable = new Map<string, Symbol>();
 
         if (leftType) {
-            doForSubtypes(leftType, subtype => {
+            doForSubtypes(leftType, (subtype) => {
                 if (subtype.category === TypeCategory.Object) {
                     getMembersForClass(subtype.classType, symbolTable, true);
                 } else if (subtype.category === TypeCategory.Class) {
@@ -522,7 +522,7 @@ export class CompletionProvider {
         }
 
         const completionList = CompletionList.create();
-        this._addSymbolsForSymbolTable(symbolTable, _ => true, priorWord, completionList);
+        this._addSymbolsForSymbolTable(symbolTable, (_) => true, priorWord, completionList);
 
         return completionList;
     }
@@ -558,7 +558,7 @@ export class CompletionProvider {
         this._addSymbols(parseNode, priorWord, completionList);
 
         // Add keywords.
-        this._findMatchingKeywords(_keywords, priorWord).map(keyword => {
+        this._findMatchingKeywords(_keywords, priorWord).map((keyword) => {
             const completionItem = CompletionItem.create(keyword);
             completionItem.kind = CompletionItemKind.Keyword;
             completionList.items.push(completionItem);
@@ -628,7 +628,7 @@ export class CompletionProvider {
         postText: string,
         completionList: CompletionList
     ) {
-        signatureInfo.signatures.forEach(signature => {
+        signatureInfo.signatures.forEach((signature) => {
             if (!signature.activeParam) {
                 return undefined;
             }
@@ -653,7 +653,7 @@ export class CompletionProvider {
         completionList: CompletionList
     ) {
         const quoteValue = this._getQuoteValueFromPriorText(priorText);
-        doForSubtypes(type, subtype => {
+        doForSubtypes(type, (subtype) => {
             if (subtype.category === TypeCategory.Object) {
                 if (ClassType.isBuiltIn(subtype.classType, 'str')) {
                     if (subtype.literalValue !== undefined) {
@@ -817,7 +817,7 @@ export class CompletionProvider {
 
             const range: Range = {
                 start: { line: this._position.line, character: rangeStartCol },
-                end: { line: this._position.line, character: rangeEndCol }
+                end: { line: this._position.line, character: rangeEndCol },
             };
             completionItem.textEdit = TextEdit.replace(range, valueWithQuotes);
 
@@ -850,7 +850,7 @@ export class CompletionProvider {
                             // this name, don't add an auto-import suggestion with
                             // the same name.
                             const localDuplicate = completionList.items.find(
-                                item => item.label === name && !item.data.autoImport
+                                (item) => item.label === name && !item.data.autoImport
                             );
                             const declarations = symbol.getDeclarations();
                             if (declarations && declarations.length > 0 && localDuplicate === undefined) {
@@ -904,7 +904,7 @@ export class CompletionProvider {
                     if (moduleNameAndType.moduleName) {
                         const autoImportText = `Auto-import from ${moduleNameAndType.moduleName}`;
 
-                        const isDuplicateEntry = completionList.items.find(item => {
+                        const isDuplicateEntry = completionList.items.find((item) => {
                             if (item.label === name) {
                                 // Don't add if there's already a local completion suggestion.
                                 if (!item.data.autoImport) {
@@ -1002,9 +1002,9 @@ export class CompletionProvider {
         if (lookupResults) {
             this._addSymbolsForSymbolTable(
                 lookupResults.symbolTable,
-                name => {
+                (name) => {
                     // Don't suggest symbols that have already been imported.
-                    return !importFromNode.imports.find(imp => imp.name.value === name);
+                    return !importFromNode.imports.find((imp) => imp.name.value === name);
                 },
                 priorWord,
                 completionList
@@ -1012,8 +1012,8 @@ export class CompletionProvider {
         }
 
         // Add the implicit imports.
-        importInfo.implicitImports.forEach(implImport => {
-            if (!importFromNode.imports.find(imp => imp.name.value === implImport.name)) {
+        importInfo.implicitImports.forEach((implImport) => {
+            if (!importFromNode.imports.find((imp) => imp.name.value === implImport.name)) {
                 this._addNameToCompletionList(implImport.name, CompletionItemKind.Module, priorWord, completionList);
             }
         });
@@ -1022,7 +1022,7 @@ export class CompletionProvider {
     }
 
     private _findMatchingKeywords(keywordList: string[], partialMatch: string): string[] {
-        return keywordList.filter(keyword => {
+        return keywordList.filter((keyword) => {
             if (partialMatch) {
                 return StringUtils.computeCompletionSimilarity(partialMatch, keyword) > similarityLimit;
             } else {
@@ -1034,19 +1034,19 @@ export class CompletionProvider {
     private _addNamedParameters(signatureInfo: CallSignatureInfo, priorWord: string, completionList: CompletionList) {
         const argNameMap = new Map<string, string>();
 
-        signatureInfo.signatures.forEach(signature => {
+        signatureInfo.signatures.forEach((signature) => {
             this._addNamedParametersToMap(signature.type, argNameMap);
         });
 
         // Remove any named parameters that are already provided.
-        signatureInfo.callNode.arguments!.forEach(arg => {
+        signatureInfo.callNode.arguments!.forEach((arg) => {
             if (arg.name) {
                 argNameMap.delete(arg.name.value);
             }
         });
 
         // Add the remaining unique parameter names to the completion list.
-        argNameMap.forEach(argName => {
+        argNameMap.forEach((argName) => {
             const similarity = StringUtils.computeCompletionSimilarity(priorWord, argName);
 
             if (similarity > similarityLimit) {
@@ -1056,7 +1056,7 @@ export class CompletionProvider {
                 const completionItemData: CompletionItemData = {
                     workspacePath: this._workspacePath,
                     filePath: this._filePath,
-                    position: this._position
+                    position: this._position,
                 };
                 completionItem.data = completionItemData;
                 completionItem.sortText = this._makeSortText(SortCategory.NamedParameter, argName);
@@ -1067,7 +1067,7 @@ export class CompletionProvider {
     }
 
     private _addNamedParametersToMap(type: FunctionType, paramMap: Map<string, string>) {
-        type.details.parameters.forEach(param => {
+        type.details.parameters.forEach((param) => {
             if (param.name && !param.isNameSynthesized) {
                 // Don't add private or protected names. These are assumed
                 // not to be named parameters.
@@ -1160,7 +1160,7 @@ export class CompletionProvider {
                                 case DeclarationType.Function:
                                     if (type.category === TypeCategory.OverloadedFunction) {
                                         typeDetail = type.overloads
-                                            .map(overload => name + this._evaluator.printType(overload))
+                                            .map((overload) => name + this._evaluator.printType(overload))
                                             .join('\n');
                                     } else {
                                         typeDetail = name + ': ' + this._evaluator.printType(type);
@@ -1208,7 +1208,7 @@ export class CompletionProvider {
                             if (markdownString) {
                                 this._itemToResolve.documentation = {
                                     kind: MarkupKind.Markdown,
-                                    value: markdownString
+                                    value: markdownString,
                                 };
                             }
                         }
@@ -1275,7 +1275,7 @@ export class CompletionProvider {
             const completionItemData: CompletionItemData = {
                 workspacePath: this._workspacePath,
                 filePath: this._filePath,
-                position: this._position
+                position: this._position,
             };
             completionItem.data = completionItemData;
 
@@ -1319,7 +1319,7 @@ export class CompletionProvider {
             if (markdownString) {
                 completionItem.documentation = {
                     kind: MarkupKind.Markdown,
-                    value: markdownString
+                    value: markdownString,
                 };
             }
 
@@ -1328,13 +1328,13 @@ export class CompletionProvider {
             }
 
             if (additionalTextEdits) {
-                completionItem.additionalTextEdits = additionalTextEdits.map(te => {
+                completionItem.additionalTextEdits = additionalTextEdits.map((te) => {
                     const textEdit: TextEdit = {
                         range: {
                             start: { line: te.range.start.line, character: te.range.start.character },
-                            end: { line: te.range.end.line, character: te.range.end.character }
+                            end: { line: te.range.end.line, character: te.range.end.character },
                         },
-                        newText: te.replacementText
+                        newText: te.replacementText,
                     };
                     return textEdit;
                 });
@@ -1346,7 +1346,7 @@ export class CompletionProvider {
 
     private _getRecentListIndex(name: string, autoImportText: string) {
         return CompletionProvider._mostRecentCompletions.findIndex(
-            item => item.label === name && item.autoImportText === autoImportText
+            (item) => item.label === name && item.autoImportText === autoImportText
         );
     }
 
@@ -1429,8 +1429,8 @@ export class CompletionProvider {
         const moduleDescriptor: ImportedModuleDescriptor = {
             leadingDots: node.leadingDots,
             hasTrailingDot: node.hasTrailingDot,
-            nameParts: node.nameParts.map(part => part.value),
-            importedSymbols: []
+            nameParts: node.nameParts.map((part) => part.value),
+            importedSymbols: [],
         };
 
         const completions = this._importResolver.getCompletionSuggestions(
@@ -1457,7 +1457,7 @@ export class CompletionProvider {
             completionItem.sortText = this._makeSortText(SortCategory.Keyword, keyword);
         }
 
-        completions.forEach(completionName => {
+        completions.forEach((completionName) => {
             const completionItem = CompletionItem.create(completionName);
             completionItem.kind = CompletionItemKind.Module;
             completionList.items.push(completionItem);

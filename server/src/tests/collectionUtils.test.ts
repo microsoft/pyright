@@ -37,7 +37,7 @@ test('UtilsAppendUndefinedValue', () => {
 test('UtilsFindEmpty', () => {
     const data: number[] = [];
     assert.equal(
-        utils.find(data, e => true),
+        utils.find(data, (e) => true),
         undefined
     );
 });
@@ -45,7 +45,7 @@ test('UtilsFindEmpty', () => {
 test('UtilsFindNoMatch', () => {
     const data = [1];
     assert.equal(
-        utils.find(data, e => false),
+        utils.find(data, (e) => false),
         undefined
     );
 });
@@ -53,7 +53,7 @@ test('UtilsFindNoMatch', () => {
 test('UtilsFindMatchSimple', () => {
     const data = [1];
     assert.equal(
-        utils.find(data, e => e === 1),
+        utils.find(data, (e) => e === 1),
         1
     );
 });
@@ -61,7 +61,7 @@ test('UtilsFindMatchSimple', () => {
 test('UtilsFindMatch', () => {
     const data = [new D(1, 'Hello')];
     assert.equal(
-        utils.find(data, e => e.value === 1),
+        utils.find(data, (e) => e.value === 1),
         data[0]
     );
 });
@@ -81,21 +81,21 @@ test('UtilsStableSort', () => {
     const sorted = utils.stableSort(data, (a, b) => compareValues(a.value, b.value));
 
     const result: string[] = [];
-    sorted.forEach(e => result.push(e.name));
+    sorted.forEach((e) => result.push(e.name));
 
     assert.deepEqual(result, ['Hello1', 'Hello2', 'Hello3', 'Hello4']);
 });
 
 test('UtilsBinarySearch', () => {
     const data = [new D(1, 'Hello3'), new D(2, 'Hello1'), new D(3, 'Hello4'), new D(4, 'Hello2')];
-    const index = utils.binarySearch(data, new D(3, 'Unused'), v => v.value, compareValues, 0);
+    const index = utils.binarySearch(data, new D(3, 'Unused'), (v) => v.value, compareValues, 0);
 
     assert.equal(index, 2);
 });
 
 test('UtilsBinarySearchMiss', () => {
     const data = [new D(1, 'Hello3'), new D(2, 'Hello1'), new D(4, 'Hello4'), new D(5, 'Hello2')];
-    const index = utils.binarySearch(data, new D(3, 'Unused'), v => v.value, compareValues, 0);
+    const index = utils.binarySearch(data, new D(3, 'Unused'), (v) => v.value, compareValues, 0);
 
     assert.equal(~index, 2);
 });
@@ -144,7 +144,7 @@ test('flatten', () => {
     const data: number[][] = [
         [1, 2],
         [3, 4],
-        [5, 6]
+        [5, 6],
     ];
     assert.deepEqual(utils.flatten(data), [1, 2, 3, 4, 5, 6]);
 });

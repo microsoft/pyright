@@ -176,7 +176,7 @@ export function getBooleanDiagnosticSettings() {
     return [
         DiagnosticRule.strictListInference,
         DiagnosticRule.strictDictionaryInference,
-        DiagnosticRule.strictParameterNoneValue
+        DiagnosticRule.strictParameterNoneValue,
 
         // Do not include this this one because we don't
         // want to override it in strict mode or support
@@ -221,7 +221,7 @@ export function getDiagLevelSettings() {
         DiagnosticRule.reportUnnecessaryCast,
         DiagnosticRule.reportAssertAlwaysTrue,
         DiagnosticRule.reportSelfClsParameterName,
-        DiagnosticRule.reportImplicitStringConcatenation
+        DiagnosticRule.reportImplicitStringConcatenation,
     ];
 }
 
@@ -265,7 +265,7 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
         reportUnnecessaryCast: 'error',
         reportAssertAlwaysTrue: 'error',
         reportSelfClsParameterName: 'error',
-        reportImplicitStringConcatenation: 'none'
+        reportImplicitStringConcatenation: 'none',
     };
 
     return diagSettings;
@@ -311,7 +311,7 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
         reportUnnecessaryCast: 'none',
         reportAssertAlwaysTrue: 'warning',
         reportSelfClsParameterName: 'warning',
-        reportImplicitStringConcatenation: 'none'
+        reportImplicitStringConcatenation: 'none',
     };
 
     return diagSettings;
@@ -411,7 +411,7 @@ export class ConfigOptions {
     // If no matching execution environment can be found, a default
     // execution environment is used.
     findExecEnvironment(filePath: string): ExecutionEnvironment {
-        let execEnv = this.executionEnvironments.find(env => {
+        let execEnv = this.executionEnvironments.find((env) => {
             const envRoot = ensureTrailingDirectorySeparator(normalizePath(combinePaths(this.projectRoot, env.root)));
             return filePath.startsWith(envRoot);
         });
@@ -792,7 +792,7 @@ export class ConfigOptions {
                 configObj.reportImplicitStringConcatenation,
                 DiagnosticRule.reportImplicitStringConcatenation,
                 defaultSettings.reportImplicitStringConcatenation
-            )
+            ),
         };
 
         // Read the "venvPath".

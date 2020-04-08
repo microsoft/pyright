@@ -13,7 +13,7 @@ import {
     CompletionItem,
     CompletionList,
     DocumentSymbol,
-    SymbolInformation
+    SymbolInformation,
 } from 'vscode-languageserver';
 
 import { getGlobalCancellationToken, OperationCanceledException } from '../common/cancellationUtils';
@@ -36,7 +36,7 @@ import {
     getFileSystemEntries,
     isDirectory,
     normalizePath,
-    stripFileExtension
+    stripFileExtension,
 } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
@@ -340,7 +340,7 @@ export class AnalyzerService {
         const defaultExcludes = ['**/node_modules', '**/__pycache__', '.git'];
 
         if (commandLineOptions.fileSpecs.length > 0) {
-            commandLineOptions.fileSpecs.forEach(fileSpec => {
+            commandLineOptions.fileSpecs.forEach((fileSpec) => {
                 configOptions.include.push(getFileSpec(projectRoot, fileSpec));
             });
         } else if (!configFilePath) {
@@ -351,7 +351,7 @@ export class AnalyzerService {
                 configOptions.include.push(getFileSpec(commandLineOptions.executionRoot, '.'));
 
                 // Add a few common excludes to avoid long scan times.
-                defaultExcludes.forEach(exclude => {
+                defaultExcludes.forEach((exclude) => {
                     configOptions.exclude.push(getFileSpec(commandLineOptions.executionRoot, exclude));
                 });
             }
@@ -377,7 +377,7 @@ export class AnalyzerService {
 
                 // If there was no explicit set of excludes, add a few common ones to avoid long scan times.
                 if (configOptions.exclude.length === 0) {
-                    defaultExcludes.forEach(exclude => {
+                    defaultExcludes.forEach((exclude) => {
                         this._console.log(`Auto-excluding ${exclude}`);
                         configOptions.exclude.push(getFileSpec(configFileDir, exclude));
                     });
@@ -477,7 +477,7 @@ export class AnalyzerService {
                         );
 
                         if (configOptions.verboseOutput) {
-                            importFailureInfo.forEach(diag => {
+                            importFailureInfo.forEach((diag) => {
                                 this._console.log(`  ${diag}`);
                             });
                         }
@@ -498,7 +498,7 @@ export class AnalyzerService {
             } else {
                 if (configOptions.verboseOutput) {
                     this._console.log(`Search paths found for configured python interpreter:`);
-                    pythonPaths.forEach(path => {
+                    pythonPaths.forEach((path) => {
                         this._console.log(`  ${path}`);
                     });
                 }
@@ -507,7 +507,7 @@ export class AnalyzerService {
             if (configOptions.verboseOutput) {
                 if (importFailureInfo.length > 0) {
                     this._console.log(`When attempting to get search paths from python interpreter:`);
-                    importFailureInfo.forEach(diag => {
+                    importFailureInfo.forEach((diag) => {
                         this._console.log(`  ${diag}`);
                     });
                 }
@@ -515,7 +515,7 @@ export class AnalyzerService {
         }
 
         // Is there a reference to a venv? If so, there needs to be a valid venvPath.
-        if (configOptions.defaultVenv || configOptions.executionEnvironments.find(e => !!e.venv)) {
+        if (configOptions.defaultVenv || configOptions.executionEnvironments.find((e) => !!e.venv)) {
             if (!configOptions.venvPath) {
                 this._console.log(`venvPath not specified, so venv settings will be ignored.`);
             }
@@ -619,7 +619,7 @@ export class AnalyzerService {
     }
 
     private _findConfigFileHereOrUp(searchPath: string): string | undefined {
-        return forEachAncestorDirectory(searchPath, ancestor => this._findConfigFile(ancestor));
+        return forEachAncestorDirectory(searchPath, (ancestor) => this._findConfigFile(ancestor));
     }
 
     private _findConfigFile(searchPath: string): string | undefined {
@@ -700,7 +700,7 @@ export class AnalyzerService {
             const moduleDescriptor: ImportedModuleDescriptor = {
                 leadingDots: 0,
                 nameParts: this._typeStubTargetImportName.split('.'),
-                importedSymbols: []
+                importedSymbols: [],
             };
 
             const importResult = this._importResolver.resolveImport('', execEnv, moduleDescriptor);
@@ -740,7 +740,7 @@ export class AnalyzerService {
                 }
 
                 // Add the implicit import paths.
-                importResult.implicitImports.forEach(implicitImport => {
+                importResult.implicitImports.forEach((implicitImport) => {
                     filesToImport.push(implicitImport.path);
                 });
 
@@ -769,7 +769,7 @@ export class AnalyzerService {
     }
 
     private _isInExcludePath(path: string, excludePaths: FileSpec[]) {
-        return !!excludePaths.find(excl => excl.regExp.test(path));
+        return !!excludePaths.find((excl) => excl.regExp.test(path));
     }
 
     private _matchFiles(include: FileSpec[], exclude: FileSpec[]): string[] {
@@ -779,7 +779,7 @@ export class AnalyzerService {
 
         const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
             if (this._configOptions.autoExcludeVenv) {
-                if (envMarkers.some(f => this._fs.existsSync(combinePaths(absolutePath, ...f)))) {
+                if (envMarkers.some((f) => this._fs.existsSync(combinePaths(absolutePath, ...f)))) {
                     this._console.log(`Auto-excluding ${absolutePath}`);
                     return;
                 }
@@ -807,7 +807,7 @@ export class AnalyzerService {
             }
         };
 
-        include.forEach(includeSpec => {
+        include.forEach((includeSpec) => {
             let foundFileSpec = false;
 
             if (!this._isInExcludePath(includeSpec.wildcardRoot, exclude)) {
@@ -855,7 +855,7 @@ export class AnalyzerService {
         }
 
         if (this._configOptions.include.length > 0) {
-            const fileList = this._configOptions.include.map(spec => {
+            const fileList = this._configOptions.include.map((spec) => {
                 return combinePaths(this._executionRootPath, spec.wildcardRoot);
             });
 
@@ -967,7 +967,7 @@ export class AnalyzerService {
         this._removeConfigFileWatcher();
 
         if (this._configFilePath) {
-            this._configFileWatcher = this._fs.createFileSystemWatcher([this._configFilePath], event => {
+            this._configFileWatcher = this._fs.createFileSystemWatcher([this._configFilePath], (event) => {
                 if (this._verboseOutput) {
                     this._console.log(`Received fs event '${event}' for config file`);
                 }
@@ -1105,7 +1105,7 @@ export class AnalyzerService {
                 checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
                 fatalErrorOccurred: false,
                 configParseErrorOccurred: false,
-                elapsedTime: duration.getDurationInSeconds()
+                elapsedTime: duration.getDurationInSeconds(),
             };
 
             const diagnosticFileCount = results.diagnostics.length;
@@ -1135,7 +1135,7 @@ export class AnalyzerService {
                     checkingOnlyOpenFiles: true,
                     fatalErrorOccurred: true,
                     configParseErrorOccurred: false,
-                    elapsedTime: 0
+                    elapsedTime: 0,
                 });
             }
         }
@@ -1153,7 +1153,7 @@ export class AnalyzerService {
                     checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
                     fatalErrorOccurred: false,
                     configParseErrorOccurred: false,
-                    elapsedTime: 0
+                    elapsedTime: 0,
                 });
             }
         }
@@ -1168,7 +1168,7 @@ export class AnalyzerService {
                 checkingOnlyOpenFiles: true,
                 fatalErrorOccurred: false,
                 configParseErrorOccurred: true,
-                elapsedTime: 0
+                elapsedTime: 0,
             });
         }
     }

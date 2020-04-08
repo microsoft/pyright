@@ -30,10 +30,10 @@ export class CreateTypeStubCommand implements ServerCommand {
                 rootPath: workspaceRoot,
                 rootUri: convertPathToUri(workspaceRoot),
                 serviceInstance: service,
-                disableLanguageServices: true
+                disableLanguageServices: true,
             };
 
-            service.setCompletionCallback(results => {
+            service.setCompletionCallback((results) => {
                 if (results.filesRequiringAnalysis === 0) {
                     try {
                         service.writeTypeStub(token);
@@ -72,7 +72,7 @@ export class CreateTypeStubCommand implements ServerCommand {
 
         service.setMaxAnalysisDuration({
             openFilesTimeInMs: 500,
-            noOpenFilesTimeInMs: 500
+            noOpenFilesTimeInMs: 500,
         });
 
         return service;

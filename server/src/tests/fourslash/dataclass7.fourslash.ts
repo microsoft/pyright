@@ -56,10 +56,10 @@
 helper.verifyDiagnostics({
     marker1: {
         category: 'error',
-        message: `Argument of type "C1" cannot be assigned to parameter "aa" of type "C2"\n  "C1" is incompatible with "C2"`
+        message: `Argument of type "C1" cannot be assigned to parameter "aa" of type "C2"\n  "C1" is incompatible with "C2"`,
     },
     marker2: {
         category: 'error',
-        message: 'Data fields without default value cannot appear after data fields with default values'
-    }
+        message: 'Data fields without default value cannot appear after data fields with default values',
+    },
 });

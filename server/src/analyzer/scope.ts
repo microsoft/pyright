@@ -27,7 +27,7 @@ export const enum ScopeType {
 
     // Built-in scopes are used for all ambient symbols provided
     // by the Python environment.
-    Builtin
+    Builtin,
 }
 
 // Provides information for recursive scope lookups.
@@ -121,7 +121,7 @@ export class Scope {
                 symbol,
                 isOutsideCallerModule,
                 isBeyondExecutionScope,
-                scope: this
+                scope: this,
             };
         }
 

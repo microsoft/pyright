@@ -13,7 +13,7 @@ import {
     CompletionItem,
     CompletionList,
     DocumentSymbol,
-    SymbolInformation
+    SymbolInformation,
 } from 'vscode-languageserver';
 
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -30,7 +30,7 @@ import {
     getRelativePath,
     makeDirectories,
     normalizePath,
-    stripFileExtension
+    stripFileExtension,
 } from '../common/pathUtils';
 import { DocumentRange, doRangesOverlap, Position, Range } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
@@ -119,13 +119,13 @@ export class Program {
         if (this._sourceFileList.length > 0) {
             // We need to determine which files to remove from the existing file list.
             const newFileMap = new Map<string, string>();
-            filePaths.forEach(path => {
+            filePaths.forEach((path) => {
                 newFileMap.set(path, path);
             });
 
             // Files that are not in the tracked file list are
             // marked as no longer tracked.
-            this._sourceFileList.forEach(oldFile => {
+            this._sourceFileList.forEach((oldFile) => {
                 const filePath = oldFile.sourceFile.getFilePath();
                 if (!newFileMap.has(filePath)) {
                     oldFile.isTracked = false;
@@ -155,7 +155,7 @@ export class Program {
     getFilesToAnalyzeCount() {
         let sourceFileCount = 0;
 
-        this._sourceFileList.forEach(fileInfo => {
+        this._sourceFileList.forEach((fileInfo) => {
             if (
                 fileInfo.sourceFile.isParseRequired() ||
                 fileInfo.sourceFile.isBindingRequired() ||
@@ -175,7 +175,7 @@ export class Program {
     }
 
     addTrackedFiles(filePaths: string[]) {
-        filePaths.forEach(filePath => {
+        filePaths.forEach((filePath) => {
             this.addTrackedFile(filePath);
         });
     }
@@ -196,7 +196,7 @@ export class Program {
             isThirdPartyImport: false,
             diagnosticsVersion: sourceFile.getDiagnosticVersion(),
             imports: [],
-            importedBy: []
+            importedBy: [],
         };
         this._addToSourceFileListAndMap(sourceFileInfo);
         return sourceFile;
@@ -214,7 +214,7 @@ export class Program {
                 isThirdPartyImport: false,
                 diagnosticsVersion: sourceFile.getDiagnosticVersion(),
                 imports: [],
-                importedBy: []
+                importedBy: [],
             };
             this._addToSourceFileListAndMap(sourceFileInfo);
         } else {
@@ -251,7 +251,7 @@ export class Program {
     markAllFilesDirty(evenIfContentsAreSame: boolean) {
         const markDirtyMap = new Map<string, boolean>();
 
-        this._sourceFileList.forEach(sourceFileInfo => {
+        this._sourceFileList.forEach((sourceFileInfo) => {
             if (evenIfContentsAreSame) {
                 sourceFileInfo.sourceFile.markDirty();
             } else if (sourceFileInfo.sourceFile.didContentsChangeOnDisk()) {
@@ -270,7 +270,7 @@ export class Program {
 
     markFilesDirty(filePaths: string[]) {
         const markDirtyMap = new Map<string, boolean>();
-        filePaths.forEach(filePath => {
+        filePaths.forEach((filePath) => {
             const sourceFileInfo = this._sourceFileMap.get(filePath);
             if (sourceFileInfo) {
                 sourceFileInfo.sourceFile.markDirty();
@@ -309,7 +309,7 @@ export class Program {
             const elapsedTime = new Duration();
 
             const openFiles = this._sourceFileList.filter(
-                sf => sf.isOpenByClient && sf.sourceFile.isCheckingRequired()
+                (sf) => sf.isOpenByClient && sf.sourceFile.isCheckingRequired()
             );
 
             if (openFiles.length > 0) {
@@ -359,14 +359,14 @@ export class Program {
     // the program, skipping any typeshed files.
     printDependencies(projectRootDir: string, verbose: boolean) {
         const sortedFiles = this._sourceFileList
-            .filter(s => !s.isTypeshedFile)
+            .filter((s) => !s.isTypeshedFile)
             .sort((a, b) => {
                 return a.sourceFile.getFilePath() < b.sourceFile.getFilePath() ? 1 : -1;
             });
 
         const zeroImportFiles: SourceFile[] = [];
 
-        sortedFiles.forEach(sfInfo => {
+        sortedFiles.forEach((sfInfo) => {
             this._console.log('');
             let filePath = sfInfo.sourceFile.getFilePath();
             const relPath = getRelativePath(filePath, projectRootDir);
@@ -380,7 +380,7 @@ export class Program {
                 ` Imports     ${sfInfo.imports.length} ` + `file${sfInfo.imports.length === 1 ? '' : 's'}`
             );
             if (verbose) {
-                sfInfo.imports.forEach(importInfo => {
+                sfInfo.imports.forEach((importInfo) => {
                     this._console.log(`    ${importInfo.sourceFile.getFilePath()}`);
                 });
             }
@@ -389,7 +389,7 @@ export class Program {
                 ` Imported by ${sfInfo.importedBy.length} ` + `file${sfInfo.importedBy.length === 1 ? '' : 's'}`
             );
             if (verbose) {
-                sfInfo.importedBy.forEach(importInfo => {
+                sfInfo.importedBy.forEach((importInfo) => {
                     this._console.log(`    ${importInfo.sourceFile.getFilePath()}`);
                 });
             }
@@ -404,7 +404,7 @@ export class Program {
             this._console.log(
                 `${zeroImportFiles.length} file${zeroImportFiles.length === 1 ? '' : 's'}` + ` not explicitly imported`
             );
-            zeroImportFiles.forEach(importFile => {
+            zeroImportFiles.forEach((importFile) => {
                 this._console.log(`    ${importFile.getFilePath()}`);
             });
         }
@@ -533,7 +533,7 @@ export class Program {
 
         return {
             symbolTable,
-            docString
+            docString,
         };
     };
 
@@ -542,7 +542,7 @@ export class Program {
     private _buildModuleSymbolsMap(sourceFileToExclude?: SourceFileInfo): ModuleSymbolMap {
         const moduleSymbolMap = new Map<string, SymbolTable>();
 
-        this._sourceFileList.forEach(fileInfo => {
+        this._sourceFileList.forEach((fileInfo) => {
             if (fileInfo !== sourceFileToExclude) {
                 const symbolTable = fileInfo.sourceFile.getModuleSymbolTable();
                 if (symbolTable) {
@@ -601,7 +601,7 @@ export class Program {
                 const closureMap = new Map<string, SourceFileInfo>();
                 this._getImportsRecursive(fileToCheck, closureMap, 0);
 
-                closureMap.forEach(file => {
+                closureMap.forEach((file) => {
                     timingStats.cycleDetectionTime.timeOperation(() => {
                         this._detectAndReportImportCycles(file);
                     });
@@ -689,7 +689,7 @@ export class Program {
 
     private _logImportCycle(dependencyChain: SourceFileInfo[]) {
         const circDep = new CircularDependency();
-        dependencyChain.forEach(sourceFileInfo => {
+        dependencyChain.forEach((sourceFileInfo) => {
             circDep.appendPath(sourceFileInfo.sourceFile.getFilePath());
         });
 
@@ -708,7 +708,7 @@ export class Program {
             sourceFileInfo.sourceFile.markReanalysisRequired();
             markMap.set(filePath, true);
 
-            sourceFileInfo.importedBy.forEach(dep => {
+            sourceFileInfo.importedBy.forEach((dep) => {
                 this._markFileDirtyRecursive(dep, markMap);
             });
         }
@@ -717,7 +717,7 @@ export class Program {
     getDiagnostics(options: ConfigOptions): FileDiagnostics[] {
         const fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
 
-        this._sourceFileList.forEach(sourceFileInfo => {
+        this._sourceFileList.forEach((sourceFileInfo) => {
             if (sourceFileInfo.isOpenByClient || (!options.checkOnlyOpenFiles && !sourceFileInfo.isThirdPartyImport)) {
                 const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
                     options,
@@ -726,7 +726,7 @@ export class Program {
                 if (diagnostics !== undefined) {
                     fileDiagnostics.push({
                         filePath: sourceFileInfo.sourceFile.getFilePath(),
-                        diagnostics
+                        diagnostics,
                     });
 
                     // Update the cached diagnosticsVersion so we can determine
@@ -750,7 +750,7 @@ export class Program {
             return [];
         }
 
-        return unfilteredDiagnostics.filter(diag => {
+        return unfilteredDiagnostics.filter((diag) => {
             return doRangesOverlap(diag.range, range);
         });
     }
@@ -977,11 +977,11 @@ export class Program {
 
             const editActions: FileEditAction[] = [];
 
-            referencesResult.locations.forEach(loc => {
+            referencesResult.locations.forEach((loc) => {
                 editActions.push({
                     filePath: loc.path,
                     range: loc.range,
-                    replacementText: newName
+                    replacementText: newName,
                 });
             });
 
@@ -1037,7 +1037,7 @@ export class Program {
             if (!this._isFileNeeded(fileInfo)) {
                 fileDiagnostics.push({
                     filePath: fileInfo.sourceFile.getFilePath(),
-                    diagnostics: []
+                    diagnostics: [],
                 });
 
                 fileInfo.sourceFile.prepareForClose();
@@ -1046,8 +1046,8 @@ export class Program {
 
                 // Unlink any imports and remove them from the list if
                 // they are no longer referenced.
-                fileInfo.imports.forEach(importedFile => {
-                    const indexToRemove = importedFile.importedBy.findIndex(fi => fi === fileInfo);
+                fileInfo.imports.forEach((importedFile) => {
+                    const indexToRemove = importedFile.importedBy.findIndex((fi) => fi === fileInfo);
                     assert(indexToRemove >= 0);
                     importedFile.importedBy.splice(indexToRemove, 1);
 
@@ -1055,11 +1055,11 @@ export class Program {
                     // is no longer needed. If its index is >= i, it will be
                     // removed when we get to it.
                     if (!this._isFileNeeded(importedFile)) {
-                        const indexToRemove = this._sourceFileList.findIndex(fi => fi === importedFile);
+                        const indexToRemove = this._sourceFileList.findIndex((fi) => fi === importedFile);
                         if (indexToRemove >= 0 && indexToRemove < i) {
                             fileDiagnostics.push({
                                 filePath: importedFile.sourceFile.getFilePath(),
-                                diagnostics: []
+                                diagnostics: [],
                             });
 
                             importedFile.sourceFile.prepareForClose();
@@ -1079,7 +1079,7 @@ export class Program {
                 ) {
                     fileDiagnostics.push({
                         filePath: fileInfo.sourceFile.getFilePath(),
-                        diagnostics: []
+                        diagnostics: [],
                     });
 
                     fileInfo.diagnosticsVersion = fileInfo.sourceFile.getDiagnosticVersion();
@@ -1188,7 +1188,7 @@ export class Program {
 
         // Create a map of unique imports, since imports can appear more than once.
         const newImportPathMap = new Map<string, UpdateImportInfo>();
-        imports.forEach(importResult => {
+        imports.forEach((importResult) => {
             if (importResult.isImportFound) {
                 if (this._isImportAllowed(sourceFileInfo, importResult, importResult.isStubFile)) {
                     if (importResult.resolvedPaths.length > 0) {
@@ -1198,19 +1198,19 @@ export class Program {
                                 isTypeshedFile: !!importResult.isTypeshedFile,
                                 isThirdPartyImport:
                                     importResult.importType === ImportType.ThirdParty ||
-                                    (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local)
+                                    (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local),
                             });
                         }
                     }
                 }
 
-                importResult.implicitImports.forEach(implicitImport => {
+                importResult.implicitImports.forEach((implicitImport) => {
                     if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
                         newImportPathMap.set(implicitImport.path, {
                             isTypeshedFile: !!importResult.isTypeshedFile,
                             isThirdPartyImport:
                                 importResult.importType === ImportType.ThirdParty ||
-                                (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local)
+                                (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local),
                         });
                     }
                 });
@@ -1221,7 +1221,7 @@ export class Program {
                             `in file '${sourceFileInfo.sourceFile.getFilePath()}'`
                     );
                     if (importResult.importFailureInfo) {
-                        importResult.importFailureInfo.forEach(diag => {
+                        importResult.importFailureInfo.forEach((diag) => {
                             this._console.log(`  ${diag}`);
                         });
                     }
@@ -1230,13 +1230,13 @@ export class Program {
         });
 
         const updatedImportMap = new Map<string, SourceFileInfo>();
-        sourceFileInfo.imports.forEach(importInfo => {
+        sourceFileInfo.imports.forEach((importInfo) => {
             const oldFilePath = importInfo.sourceFile.getFilePath();
 
             // A previous import was removed.
             if (!newImportPathMap.has(oldFilePath)) {
                 importInfo.importedBy = importInfo.importedBy.filter(
-                    fi => fi.sourceFile.getFilePath() !== sourceFileInfo.sourceFile.getFilePath()
+                    (fi) => fi.sourceFile.getFilePath() !== sourceFileInfo.sourceFile.getFilePath()
                 );
             } else {
                 updatedImportMap.set(oldFilePath, importInfo);
@@ -1267,7 +1267,7 @@ export class Program {
                         isThirdPartyImport: importInfo.isThirdPartyImport,
                         diagnosticsVersion: sourceFile.getDiagnosticVersion(),
                         imports: [],
-                        importedBy: []
+                        importedBy: [],
                     };
 
                     this._addToSourceFileListAndMap(importedFileInfo);

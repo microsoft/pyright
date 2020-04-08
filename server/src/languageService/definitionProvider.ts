@@ -44,12 +44,12 @@ export class DefinitionProvider {
         if (node.nodeType === ParseNodeType.Name) {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             if (declarations) {
-                declarations.forEach(decl => {
+                declarations.forEach((decl) => {
                     const resolvedDecl = evaluator.resolveAliasDeclaration(decl);
                     if (resolvedDecl && resolvedDecl.path) {
                         this._addIfUnique(definitions, {
                             path: resolvedDecl.path,
-                            range: resolvedDecl.range
+                            range: resolvedDecl.range,
                         });
                     }
                 });

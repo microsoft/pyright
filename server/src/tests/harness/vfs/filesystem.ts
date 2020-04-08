@@ -309,7 +309,7 @@ export class FileSystem {
         return {
             close: () => {
                 /* left empty */
-            }
+            },
         };
     }
 
@@ -321,7 +321,7 @@ export class FileSystem {
         return {
             close: () => {
                 /* left empty */
-            }
+            },
         };
     }
 
@@ -1108,7 +1108,7 @@ export class FileSystem {
             mtimeMs: time,
             ctimeMs: time,
             birthtimeMs: time,
-            nlink: 0
+            nlink: 0,
         };
     }
 
@@ -1229,7 +1229,7 @@ export class FileSystem {
                 ctimeMs: root.ctimeMs,
                 birthtimeMs: root.birthtimeMs,
                 nlink: root.nlink,
-                shadowRoot: root
+                shadowRoot: root,
             };
 
             if (isSymlink(root)) {

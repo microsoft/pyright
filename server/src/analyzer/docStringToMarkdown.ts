@@ -41,7 +41,7 @@ const PotentialHeaders: RegexReplacement[] = [
     { exp: /^\s*=+(\s+=+)+$/, replacement: '=' },
     { exp: /^\s*-+(\s+-+)+$/, replacement: '-' },
     { exp: /^\s*~+(\s+-+)+$/, replacement: '~' },
-    { exp: /^\s*\++(\s+\++)+$/, replacement: '+' }
+    { exp: /^\s*\++(\s+\++)+$/, replacement: '+' },
 ];
 
 // Regexes for replace all
@@ -59,7 +59,7 @@ const LiteralBlockReplacements: RegexReplacement[] = [
     { exp: /(\S)\s*::$/g, replacement: '$1:' },
     // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#interpreted-text
     { exp: /:[\w_\-+:.]+:`/g, replacement: '`' },
-    { exp: /`:[\w_\-+:.]+:/g, replacement: '`' }
+    { exp: /`:[\w_\-+:.]+:/g, replacement: '`' },
 ];
 
 // Converter is a state machine, where the current state is a function which
@@ -133,7 +133,9 @@ class DocStringConverter {
     }
 
     private _nextBlockIndent(): number {
-        return _countLeadingSpaces(this._lines.slice(this._lineNum + 1).find(v => !_isUndefinedOrWhitespace(v)) || '');
+        return _countLeadingSpaces(
+            this._lines.slice(this._lineNum + 1).find((v) => !_isUndefinedOrWhitespace(v)) || ''
+        );
     }
 
     private _currentLineIsOutsideBlock(): boolean {
@@ -284,7 +286,7 @@ class DocStringConverter {
             return '';
         }
 
-        LiteralBlockReplacements.forEach(item => (line = line.replace(item.exp, item.replacement)));
+        LiteralBlockReplacements.forEach((item) => (line = line.replace(item.exp, item.replacement)));
 
         line = line.replace(DoubleTickRegEx, '`');
         return line;
@@ -503,7 +505,7 @@ function _splitDocString(docstring: string): string[] {
     // As done by inspect.cleandoc.
     docstring = docstring.replace(TabRegEx, ' '.repeat(8));
 
-    let lines = docstring.split(CrLfRegEx).map(v => v.trimRight());
+    let lines = docstring.split(CrLfRegEx).map((v) => v.trimRight());
     if (lines.length > 0) {
         let first: string | undefined = lines[0].trimLeft();
         if (first === '') {
@@ -524,11 +526,11 @@ function _splitDocString(docstring: string): string[] {
 
 function _stripLeadingWhitespace(lines: string[], trim?: number): string[] {
     const amount = trim === undefined ? _largestTrim(lines) : trim;
-    return lines.map(line => (amount > line.length ? '' : line.substr(amount)));
+    return lines.map((line) => (amount > line.length ? '' : line.substr(amount)));
 }
 
 function _largestTrim(lines: string[]): number {
-    const nonEmptyLines = lines.filter(s => !_isUndefinedOrWhitespace(s));
+    const nonEmptyLines = lines.filter((s) => !_isUndefinedOrWhitespace(s));
     const counts = nonEmptyLines.map(_countLeadingSpaces);
     const largest = counts.length > 0 ? Math.min(...counts) : 0;
     return largest;

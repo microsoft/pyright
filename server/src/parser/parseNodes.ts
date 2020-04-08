@@ -17,7 +17,7 @@ import {
     OperatorType,
     StringToken,
     Token,
-    TokenType
+    TokenType,
 } from './tokenizerTypes';
 
 export const enum ParseNodeType {
@@ -90,7 +90,7 @@ export const enum ParseNodeType {
 
     WithItem, // 60
     Yield,
-    YieldFrom
+    YieldFrom,
 }
 
 export const enum ErrorExpressionCategory {
@@ -104,7 +104,7 @@ export const enum ErrorExpressionCategory {
     MissingMemberAccessName,
     MissingTupleCloseParen,
     MissingListCloseBracket,
-    MissingFunctionParameterList
+    MissingFunctionParameterList,
 }
 
 export interface ParseNodeBase extends TextRange {
@@ -146,7 +146,7 @@ export namespace ModuleNode {
             length: range.length,
             nodeType: ParseNodeType.Module,
             id: _nextNodeId++,
-            statements: []
+            statements: [],
         };
 
         return node;
@@ -165,7 +165,7 @@ export namespace SuiteNode {
             length: range.length,
             nodeType: ParseNodeType.Suite,
             id: _nextNodeId++,
-            statements: []
+            statements: [],
         };
 
         return node;
@@ -193,7 +193,7 @@ export namespace IfNode {
             id: _nextNodeId++,
             testExpression,
             ifSuite,
-            elseSuite
+            elseSuite,
         };
 
         testExpression.parent = node;
@@ -225,7 +225,7 @@ export namespace WhileNode {
             nodeType: ParseNodeType.While,
             id: _nextNodeId++,
             testExpression,
-            whileSuite
+            whileSuite,
         };
 
         testExpression.parent = node;
@@ -260,7 +260,7 @@ export namespace ForNode {
             id: _nextNodeId++,
             targetExpression,
             iterableExpression,
-            forSuite
+            forSuite,
         };
 
         targetExpression.parent = node;
@@ -290,7 +290,7 @@ export namespace ListComprehensionForNode {
             nodeType: ParseNodeType.ListComprehensionFor,
             id: _nextNodeId++,
             targetExpression,
-            iterableExpression
+            iterableExpression,
         };
 
         targetExpression.parent = node;
@@ -315,7 +315,7 @@ export namespace ListComprehensionIfNode {
             length: ifToken.length,
             nodeType: ParseNodeType.ListComprehensionIf,
             id: _nextNodeId++,
-            testExpression
+            testExpression,
         };
 
         testExpression.parent = node;
@@ -342,7 +342,7 @@ export namespace TryNode {
             nodeType: ParseNodeType.Try,
             id: _nextNodeId++,
             trySuite,
-            exceptClauses: []
+            exceptClauses: [],
         };
 
         trySuite.parent = node;
@@ -367,7 +367,7 @@ export namespace ExceptNode {
             length: exceptToken.length,
             nodeType: ParseNodeType.Except,
             id: _nextNodeId++,
-            exceptSuite
+            exceptSuite,
         };
 
         exceptSuite.parent = node;
@@ -398,7 +398,7 @@ export namespace FunctionNode {
             decorators: [],
             name,
             parameters: [],
-            suite
+            suite,
         };
 
         name.parent = node;
@@ -413,7 +413,7 @@ export namespace FunctionNode {
 export const enum ParameterCategory {
     Simple,
     VarArgList,
-    VarArgDictionary
+    VarArgDictionary,
 }
 
 export interface ParameterNode extends ParseNodeBase {
@@ -431,7 +431,7 @@ export namespace ParameterNode {
             length: startToken.length,
             nodeType: ParseNodeType.Parameter,
             id: _nextNodeId++,
-            category: paramCategory
+            category: paramCategory,
         };
 
         return node;
@@ -456,7 +456,7 @@ export namespace ClassNode {
             decorators: [],
             name,
             arguments: [],
-            suite
+            suite,
         };
 
         name.parent = node;
@@ -487,9 +487,9 @@ export namespace ClassNode {
                     start: 0,
                     length: 0,
                     comments: [],
-                    value: ''
+                    value: '',
                 },
-                value: ''
+                value: '',
             },
             arguments: [],
             suite: {
@@ -497,11 +497,11 @@ export namespace ClassNode {
                 length: 0,
                 id: 0,
                 nodeType: ParseNodeType.Suite,
-                statements: []
-            }
+                statements: [],
+            },
         };
 
-        decorators.forEach(decorator => {
+        decorators.forEach((decorator) => {
             decorator.parent = node;
             extendRange(node, decorator);
         });
@@ -525,7 +525,7 @@ export namespace WithNode {
             nodeType: ParseNodeType.With,
             id: _nextNodeId++,
             withItems: [],
-            suite
+            suite,
         };
 
         suite.parent = node;
@@ -549,7 +549,7 @@ export namespace WithItemNode {
             length: expression.length,
             nodeType: ParseNodeType.WithItem,
             id: _nextNodeId++,
-            expression
+            expression,
         };
 
         expression.parent = node;
@@ -572,7 +572,7 @@ export namespace DecoratorNode {
             nodeType: ParseNodeType.Decorator,
             id: _nextNodeId++,
             leftExpression,
-            arguments: undefined
+            arguments: undefined,
         };
 
         leftExpression.parent = node;
@@ -595,7 +595,7 @@ export namespace StatementListNode {
             length: atToken.length,
             nodeType: ParseNodeType.StatementList,
             id: _nextNodeId++,
-            statements: []
+            statements: [],
         };
 
         return node;
@@ -705,7 +705,7 @@ export namespace ErrorNode {
             nodeType: ParseNodeType.Error,
             id: _nextNodeId++,
             category,
-            child
+            child,
         };
 
         if (child) {
@@ -731,7 +731,7 @@ export namespace UnaryOperationNode {
             nodeType: ParseNodeType.UnaryOperation,
             id: _nextNodeId++,
             operator,
-            expression
+            expression,
         };
 
         expression.parent = node;
@@ -758,7 +758,7 @@ export namespace BinaryOperationNode {
             id: _nextNodeId++,
             leftExpression,
             operator,
-            rightExpression
+            rightExpression,
         };
 
         leftExpression.parent = node;
@@ -784,7 +784,7 @@ export namespace AssignmentExpressionNode {
             nodeType: ParseNodeType.AssignmentExpression,
             id: _nextNodeId++,
             name,
-            rightExpression
+            rightExpression,
         };
 
         name.parent = node;
@@ -811,7 +811,7 @@ export namespace AssignmentNode {
             nodeType: ParseNodeType.Assignment,
             id: _nextNodeId++,
             leftExpression,
-            rightExpression
+            rightExpression,
         };
 
         leftExpression.parent = node;
@@ -837,7 +837,7 @@ export namespace TypeAnnotationNode {
             nodeType: ParseNodeType.TypeAnnotation,
             id: _nextNodeId++,
             valueExpression,
-            typeAnnotation
+            typeAnnotation,
         };
 
         valueExpression.parent = node;
@@ -876,7 +876,7 @@ export namespace AugmentedAssignmentNode {
             leftExpression,
             operator,
             rightExpression,
-            destExpression
+            destExpression,
         };
 
         leftExpression.parent = node;
@@ -901,7 +901,7 @@ export namespace AwaitNode {
             length: awaitToken.length,
             nodeType: ParseNodeType.Await,
             id: _nextNodeId++,
-            expression
+            expression,
         };
 
         expression.parent = node;
@@ -932,7 +932,7 @@ export namespace TernaryNode {
             id: _nextNodeId++,
             ifExpression,
             testExpression,
-            elseExpression
+            elseExpression,
         };
 
         ifExpression.parent = node;
@@ -957,7 +957,7 @@ export namespace UnpackNode {
             length: starToken.length,
             nodeType: ParseNodeType.Unpack,
             id: _nextNodeId++,
-            expression
+            expression,
         };
 
         expression.parent = node;
@@ -980,7 +980,7 @@ export namespace TupleNode {
             length: range.length,
             nodeType: ParseNodeType.Tuple,
             id: _nextNodeId++,
-            expressions: []
+            expressions: [],
         };
 
         return node;
@@ -1001,7 +1001,7 @@ export namespace CallNode {
             nodeType: ParseNodeType.Call,
             id: _nextNodeId++,
             leftExpression,
-            arguments: []
+            arguments: [],
         };
 
         leftExpression.parent = node;
@@ -1024,7 +1024,7 @@ export namespace ListComprehensionNode {
             nodeType: ParseNodeType.ListComprehension,
             id: _nextNodeId++,
             expression,
-            comprehensions: []
+            comprehensions: [],
         };
 
         expression.parent = node;
@@ -1045,10 +1045,10 @@ export namespace IndexItemsNode {
             length: openBracketToken.length,
             nodeType: ParseNodeType.IndexItems,
             id: _nextNodeId++,
-            items
+            items,
         };
 
-        items.forEach(item => {
+        items.forEach((item) => {
             item.parent = node;
         });
 
@@ -1072,7 +1072,7 @@ export namespace IndexNode {
             nodeType: ParseNodeType.Index,
             id: _nextNodeId++,
             baseExpression,
-            items
+            items,
         };
 
         baseExpression.parent = node;
@@ -1097,7 +1097,7 @@ export namespace SliceNode {
             start: range.start,
             length: range.length,
             nodeType: ParseNodeType.Slice,
-            id: _nextNodeId++
+            id: _nextNodeId++,
         };
 
         return node;
@@ -1116,7 +1116,7 @@ export namespace YieldNode {
             length: yieldToken.length,
             nodeType: ParseNodeType.Yield,
             id: _nextNodeId++,
-            expression
+            expression,
         };
 
         if (expression) {
@@ -1140,7 +1140,7 @@ export namespace YieldFromNode {
             length: yieldToken.length,
             nodeType: ParseNodeType.YieldFrom,
             id: _nextNodeId++,
-            expression
+            expression,
         };
 
         expression.parent = node;
@@ -1165,7 +1165,7 @@ export namespace MemberAccessNode {
             nodeType: ParseNodeType.MemberAccess,
             id: _nextNodeId++,
             leftExpression,
-            memberName
+            memberName,
         };
 
         leftExpression.parent = node;
@@ -1191,7 +1191,7 @@ export namespace LambdaNode {
             nodeType: ParseNodeType.Lambda,
             id: _nextNodeId++,
             parameters: [],
-            expression
+            expression,
         };
 
         expression.parent = node;
@@ -1216,7 +1216,7 @@ export namespace NameNode {
             nodeType: ParseNodeType.Name,
             id: _nextNodeId++,
             token: nameToken,
-            value: nameToken.value
+            value: nameToken.value,
         };
 
         return node;
@@ -1235,7 +1235,7 @@ export namespace ConstantNode {
             length: token.length,
             nodeType: ParseNodeType.Constant,
             id: _nextNodeId++,
-            constType: token.keywordType
+            constType: token.keywordType,
         };
 
         return node;
@@ -1252,7 +1252,7 @@ export namespace EllipsisNode {
             start: range.start,
             length: range.length,
             nodeType: ParseNodeType.Ellipsis,
-            id: _nextNodeId++
+            id: _nextNodeId++,
         };
 
         return node;
@@ -1275,7 +1275,7 @@ export namespace NumberNode {
             id: _nextNodeId++,
             value: token.value,
             isInteger: token.isInteger,
-            isImaginary: token.isImaginary
+            isImaginary: token.isImaginary,
         };
 
         return node;
@@ -1298,7 +1298,7 @@ export namespace StringNode {
             id: _nextNodeId++,
             token,
             value: unescapedValue,
-            hasUnescapeErrors
+            hasUnescapeErrors,
         };
 
         return node;
@@ -1328,10 +1328,10 @@ export namespace FormatStringNode {
             token,
             value: unescapedValue,
             hasUnescapeErrors,
-            expressions
+            expressions,
         };
 
-        expressions.forEach(expr => {
+        expressions.forEach((expr) => {
             expr.parent = node;
         });
 
@@ -1356,11 +1356,11 @@ export namespace StringListNode {
             length: strings[0].length,
             nodeType: ParseNodeType.StringList,
             id: _nextNodeId++,
-            strings
+            strings,
         };
 
         if (strings.length > 0) {
-            strings.forEach(str => {
+            strings.forEach((str) => {
                 str.parent = node;
             });
             extendRange(node, strings[strings.length - 1]);
@@ -1382,7 +1382,7 @@ export namespace DictionaryNode {
             length: range.length,
             nodeType: ParseNodeType.Dictionary,
             id: _nextNodeId++,
-            entries: []
+            entries: [],
         };
 
         return node;
@@ -1403,7 +1403,7 @@ export namespace DictionaryKeyEntryNode {
             nodeType: ParseNodeType.DictionaryKeyEntry,
             id: _nextNodeId++,
             keyExpression,
-            valueExpression
+            valueExpression,
         };
 
         keyExpression.parent = node;
@@ -1427,7 +1427,7 @@ export namespace DictionaryExpandEntryNode {
             length: expandExpression.length,
             nodeType: ParseNodeType.DictionaryExpandEntry,
             id: _nextNodeId++,
-            expandExpression
+            expandExpression,
         };
 
         expandExpression.parent = node;
@@ -1450,7 +1450,7 @@ export namespace SetNode {
             length: range.length,
             nodeType: ParseNodeType.Set,
             id: _nextNodeId++,
-            entries: []
+            entries: [],
         };
 
         return node;
@@ -1469,7 +1469,7 @@ export namespace ListNode {
             length: range.length,
             nodeType: ParseNodeType.List,
             id: _nextNodeId++,
-            entries: []
+            entries: [],
         };
 
         return node;
@@ -1479,7 +1479,7 @@ export namespace ListNode {
 export const enum ArgumentCategory {
     Simple,
     UnpackedList,
-    UnpackedDictionary
+    UnpackedDictionary,
 }
 
 export interface ArgumentNode extends ParseNodeBase {
@@ -1497,7 +1497,7 @@ export namespace ArgumentNode {
             nodeType: ParseNodeType.Argument,
             id: _nextNodeId++,
             valueExpression,
-            argumentCategory: argCategory
+            argumentCategory: argCategory,
         };
 
         valueExpression.parent = node;
@@ -1520,7 +1520,7 @@ export namespace DelNode {
             length: delToken.length,
             nodeType: ParseNodeType.Del,
             id: _nextNodeId++,
-            expressions: []
+            expressions: [],
         };
 
         return node;
@@ -1537,7 +1537,7 @@ export namespace PassNode {
             start: passToken.start,
             length: passToken.length,
             nodeType: ParseNodeType.Pass,
-            id: _nextNodeId++
+            id: _nextNodeId++,
         };
 
         return node;
@@ -1556,7 +1556,7 @@ export namespace ImportNode {
             length: passToken.length,
             nodeType: ParseNodeType.Import,
             id: _nextNodeId++,
-            list: []
+            list: [],
         };
 
         return node;
@@ -1580,7 +1580,7 @@ export namespace ModuleNameNode {
             nodeType: ParseNodeType.ModuleName,
             id: _nextNodeId++,
             leadingDots: 0,
-            nameParts: []
+            nameParts: [],
         };
 
         return node;
@@ -1600,7 +1600,7 @@ export namespace ImportAsNode {
             length: module.length,
             nodeType: ParseNodeType.ImportAs,
             id: _nextNodeId++,
-            module
+            module,
         };
 
         module.parent = node;
@@ -1628,7 +1628,7 @@ export namespace ImportFromNode {
             module,
             imports: [],
             isWildcardImport: false,
-            usesParens: false
+            usesParens: false,
         };
 
         module.parent = node;
@@ -1652,7 +1652,7 @@ export namespace ImportFromAsNode {
             length: name.length,
             nodeType: ParseNodeType.ImportFromAs,
             id: _nextNodeId++,
-            name
+            name,
         };
 
         name.parent = node;
@@ -1673,7 +1673,7 @@ export namespace GlobalNode {
             length: range.length,
             nodeType: ParseNodeType.Global,
             id: _nextNodeId++,
-            nameList: []
+            nameList: [],
         };
 
         return node;
@@ -1692,7 +1692,7 @@ export namespace NonlocalNode {
             length: range.length,
             nodeType: ParseNodeType.Nonlocal,
             id: _nextNodeId++,
-            nameList: []
+            nameList: [],
         };
 
         return node;
@@ -1712,7 +1712,7 @@ export namespace AssertNode {
             length: assertToken.length,
             nodeType: ParseNodeType.Assert,
             id: _nextNodeId++,
-            testExpression
+            testExpression,
         };
 
         testExpression.parent = node;
@@ -1733,7 +1733,7 @@ export namespace BreakNode {
             start: range.start,
             length: range.length,
             nodeType: ParseNodeType.Break,
-            id: _nextNodeId++
+            id: _nextNodeId++,
         };
 
         return node;
@@ -1750,7 +1750,7 @@ export namespace ContinueNode {
             start: range.start,
             length: range.length,
             nodeType: ParseNodeType.Continue,
-            id: _nextNodeId++
+            id: _nextNodeId++,
         };
 
         return node;
@@ -1768,7 +1768,7 @@ export namespace ReturnNode {
             start: range.start,
             length: range.length,
             nodeType: ParseNodeType.Return,
-            id: _nextNodeId++
+            id: _nextNodeId++,
         };
 
         return node;
@@ -1788,7 +1788,7 @@ export namespace RaiseNode {
             start: range.start,
             length: range.length,
             nodeType: ParseNodeType.Raise,
-            id: _nextNodeId++
+            id: _nextNodeId++,
         };
 
         return node;

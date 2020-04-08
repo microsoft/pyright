@@ -22,7 +22,7 @@ enum CharCategory {
     StartIdentifierChar = 1,
 
     // Character can appear only within identifier, not at beginning
-    IdentifierChar = 2
+    IdentifierChar = 2,
 }
 
 // Table of first 256 character codes (the most common cases).
@@ -100,7 +100,7 @@ const _specialStartIdentifierChars: unicode.UnicodeRangeTable = [
     0x2118,
     0x212e,
     0x309b,
-    0x309c
+    0x309c,
 ];
 
 const _startIdentifierCharRanges = [
@@ -110,7 +110,7 @@ const _startIdentifierCharRanges = [
     unicode.unicodeLt,
     unicode.unicodeLo,
     unicode.unicodeLm,
-    unicode.unicodeNl
+    unicode.unicodeNl,
 ];
 
 // Characters with the Other_ID_Start property.
@@ -126,7 +126,7 @@ const _specialIdentifierChars: unicode.UnicodeRangeTable = [
     0x136f,
     0x1370,
     0x1371,
-    0x19da
+    0x19da,
 ];
 
 const _identifierCharRanges = [
@@ -134,7 +134,7 @@ const _identifierCharRanges = [
     unicode.unicodeMn,
     unicode.unicodeMc,
     unicode.unicodeNd,
-    unicode.unicodePc
+    unicode.unicodePc,
 ];
 
 function _buildIdentifierLookupTableFromUnicodeRangeTable(
@@ -172,11 +172,11 @@ function _buildIdentifierLookupTableFromUnicodeRangeTable(
 function _buildIdentifierLookupTable(fastTableOnly: boolean) {
     _identifierCharFastTable.fill(CharCategory.NotIdentifierChar);
 
-    _identifierCharRanges.forEach(table => {
+    _identifierCharRanges.forEach((table) => {
         _buildIdentifierLookupTableFromUnicodeRangeTable(table, CharCategory.IdentifierChar, fastTableOnly);
     });
 
-    _startIdentifierCharRanges.forEach(table => {
+    _startIdentifierCharRanges.forEach((table) => {
         _buildIdentifierLookupTableFromUnicodeRangeTable(table, CharCategory.StartIdentifierChar, fastTableOnly);
     });
 }

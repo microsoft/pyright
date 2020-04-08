@@ -12,7 +12,7 @@ import {
     CompletionItem,
     CompletionList,
     DocumentSymbol,
-    SymbolInformation
+    SymbolInformation,
 } from 'vscode-languageserver';
 
 import { OperationCanceledException } from '../common/cancellationUtils';
@@ -213,7 +213,7 @@ export class SourceFile {
         if (options.diagnosticSettings.enableTypeIgnoreComments) {
             const typeIgnoreLines = this._parseResults ? this._parseResults.tokenizerOutput.typeIgnoreLines : {};
             if (Object.keys(typeIgnoreLines).length > 0) {
-                diagList = diagList.filter(d => {
+                diagList = diagList.filter((d) => {
                     for (let line = d.range.start.line; line <= d.range.end.line; line++) {
                         if (typeIgnoreLines[line]) {
                             return false;
@@ -231,14 +231,14 @@ export class SourceFile {
                     ? DiagnosticCategory.Warning
                     : DiagnosticCategory.Error;
 
-            this._circularDependencies.forEach(cirDep => {
+            this._circularDependencies.forEach((cirDep) => {
                 diagList.push(
                     new Diagnostic(
                         category,
                         'Cycle detected in import chain\n' +
                             cirDep
                                 .getPaths()
-                                .map(path => '  ' + path)
+                                .map((path) => '  ' + path)
                                 .join('\n'),
                         getEmptyRange()
                     )
@@ -261,7 +261,7 @@ export class SourceFile {
                 includeWarningsAndErrors = false;
             } else if (options.diagnosticSettings.reportTypeshedErrors === 'warning') {
                 // Convert all the errors to warnings.
-                diagList = diagList.map(diag => {
+                diagList = diagList.map((diag) => {
                     if (diag.category === DiagnosticCategory.Error) {
                         return new Diagnostic(DiagnosticCategory.Warning, diag.message, diag.range);
                     }
@@ -271,7 +271,7 @@ export class SourceFile {
         }
 
         // If the file is in the ignore list, clear the diagnostic list.
-        if (options.ignore.find(ignoreFileSpec => ignoreFileSpec.regExp.test(this._filePath))) {
+        if (options.ignore.find((ignoreFileSpec) => ignoreFileSpec.regExp.test(this._filePath))) {
             diagList = [];
         }
 
@@ -287,7 +287,7 @@ export class SourceFile {
         // the errors and warnings, leaving only the unreachable code
         // diagnostics.
         if (!includeWarningsAndErrors) {
-            diagList = diagList.filter(diag => diag.category === DiagnosticCategory.UnusedCode);
+            diagList = diagList.filter((diag) => diag.category === DiagnosticCategory.UnusedCode);
         }
 
         return diagList;
@@ -428,7 +428,7 @@ export class SourceFile {
 
         // Some topologies can result in a massive number of cycles. We'll cut it off.
         if (this._circularDependencies.length < _maxImportCyclesPerFile) {
-            if (!this._circularDependencies.some(dep => dep.isEqual(circDependency))) {
+            if (!this._circularDependencies.some((dep) => dep.isEqual(circDependency))) {
                 this._circularDependencies.push(circDependency);
                 updatedDependencyList = true;
             }
@@ -497,14 +497,14 @@ export class SourceFile {
                     this._imports,
                     this._builtinsImport,
                     this._typingModulePath,
-                    this._collectionsModulePath
+                    this._collectionsModulePath,
                 ] = this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
                 this._parseDiagnostics = diagSink.fetchAndClear();
             });
 
             // Is this file in a "strict" path?
             const useStrict =
-                configOptions.strict.find(strictFileSpec => strictFileSpec.regExp.test(this._filePath)) !== undefined;
+                configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._filePath)) !== undefined;
 
             this._diagnosticSettings = CommentUtils.getFileLevelDirectives(
                 this._parseResults.tokenizerOutput.tokens,
@@ -531,9 +531,9 @@ export class SourceFile {
                     typeIgnoreLines: {},
                     predominantEndOfLineSequence: '\n',
                     predominantTabSequence: '    ',
-                    predominantSingleQuoteCharacter: "'"
+                    predominantSingleQuoteCharacter: "'",
                 },
-                containsWildcardImport: false
+                containsWildcardImport: false,
             };
             this._imports = undefined;
             this._builtinsImport = undefined;
@@ -886,7 +886,7 @@ export class SourceFile {
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
             isBuiltInStubFile: this._isBuiltInStubFile,
-            accessedSymbolMap: new Map<number, true>()
+            accessedSymbolMap: new Map<number, true>(),
         };
         return fileInfo;
     }
@@ -912,7 +912,7 @@ export class SourceFile {
         let builtinsImportResult: ImportResult | undefined = importResolver.resolveImport(this._filePath, execEnv, {
             leadingDots: 0,
             nameParts: ['builtins'],
-            importedSymbols: undefined
+            importedSymbols: undefined,
         });
 
         // Avoid importing builtins from the builtins.pyi file itself.
@@ -929,7 +929,7 @@ export class SourceFile {
         const typingImportResult: ImportResult | undefined = importResolver.resolveImport(this._filePath, execEnv, {
             leadingDots: 0,
             nameParts: ['typing'],
-            importedSymbols: undefined
+            importedSymbols: undefined,
         });
 
         // Avoid importing typing from the typing.pyi file itself.
@@ -948,7 +948,7 @@ export class SourceFile {
             const importResult = importResolver.resolveImport(this._filePath, execEnv, {
                 leadingDots: moduleImport.leadingDots,
                 nameParts: moduleImport.nameParts,
-                importedSymbols: moduleImport.importedSymbols
+                importedSymbols: moduleImport.importedSymbols,
             });
 
             // If the file imports the stdlib 'collections' module, stash

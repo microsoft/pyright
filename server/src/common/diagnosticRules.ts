@@ -48,5 +48,5 @@ export const enum DiagnosticRule {
     reportUnnecessaryCast = 'reportUnnecessaryCast',
     reportAssertAlwaysTrue = 'reportAssertAlwaysTrue',
     reportSelfClsParameterName = 'reportSelfClsParameterName',
-    reportImplicitStringConcatenation = 'reportImplicitStringConcatenation'
+    reportImplicitStringConcatenation = 'reportImplicitStringConcatenation',
 }

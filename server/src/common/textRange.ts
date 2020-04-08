@@ -44,7 +44,7 @@ export namespace TextRange {
     export function extend(range: TextRange, extension: TextRange | TextRange[] | undefined) {
         if (extension) {
             if (Array.isArray(extension)) {
-                extension.forEach(r => {
+                extension.forEach((r) => {
                     extend(range, r);
                 });
             } else {
@@ -94,7 +94,7 @@ export function comparePositions(a: Position, b: Position) {
 export function getEmptyPosition(): Position {
     return {
         line: 0,
-        character: 0
+        character: 0,
     };
 }
 
@@ -118,6 +118,6 @@ export function rangesAreEqual(a: Range, b: Range) {
 export function getEmptyRange(): Range {
     return {
         start: getEmptyPosition(),
-        end: getEmptyPosition()
+        end: getEmptyPosition(),
     };
 }

@@ -58,7 +58,7 @@ export class SpeculativeTypeTracker {
 
         // Delete all of the speculative type cache entries
         // that were tracked in this context.
-        context!.entriesToUndo.forEach(entry => {
+        context!.entriesToUndo.forEach((entry) => {
             entry.cache.delete(entry.id);
         });
     }
@@ -83,7 +83,7 @@ export class SpeculativeTypeTracker {
         if (stackSize > 0) {
             this._speculativeContextStack[stackSize - 1].entriesToUndo.push({
                 cache,
-                id
+                id,
             });
         }
     }

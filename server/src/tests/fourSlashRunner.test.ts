@@ -22,13 +22,13 @@ describe('fourslash tests', () => {
         testFiles.push(file);
     }
 
-    testFiles.forEach(file => {
+    testFiles.forEach((file) => {
         describe(file, () => {
             const fn = normalizeSlashes(file);
             const justName = fn.replace(/^.*[\\/]/, '');
 
             // TODO: make these to use promise/async rather than callback token
-            it('fourslash test ' + justName + ' runs correctly', cb => {
+            it('fourslash test ' + justName + ' runs correctly', (cb) => {
                 runFourSlashTest(MODULE_PATH, fn, cb);
             });
         });

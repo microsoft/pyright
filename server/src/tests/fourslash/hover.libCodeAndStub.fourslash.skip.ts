@@ -27,6 +27,6 @@ helper.verifyHover({
     marker1: { value: '```python\n(class) Validator\n```\nThe validator class', kind: 'markdown' },
     marker2: {
         value: '```python\n(method) is_valid: (text: str) -> bool\n```\nChecks if the input string is valid.',
-        kind: 'markdown'
-    }
+        kind: 'markdown',
+    },
 });

@@ -15,7 +15,7 @@ import {
     LanguageServerInterface,
     ServerSettings,
     WindowInterface,
-    WorkspaceServiceInstance
+    WorkspaceServiceInstance,
 } from '../../../languageServerBase';
 
 export class TestLanguageService implements LanguageServerInterface {
@@ -37,7 +37,7 @@ export class TestLanguageService implements LanguageServerInterface {
             typeshedPath: this._workspace.serviceInstance.test_configOptions.typeshedPath,
             openFilesOnly: this._workspace.serviceInstance.test_configOptions.checkOnlyOpenFiles,
             useLibraryCodeForTypes: this._workspace.serviceInstance.test_configOptions.useLibraryCodeForTypes,
-            disableLanguageServices: this._workspace.disableLanguageServices
+            disableLanguageServices: this._workspace.disableLanguageServices,
         };
 
         return settings;

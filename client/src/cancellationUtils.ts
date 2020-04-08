@@ -15,7 +15,7 @@ import {
     CancellationReceiverStrategy,
     CancellationSenderStrategy,
     CancellationStrategy,
-    Disposable
+    Disposable,
 } from 'vscode-languageserver';
 
 function getCancellationFolderPath(folderName: string) {

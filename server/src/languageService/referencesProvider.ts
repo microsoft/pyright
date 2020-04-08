@@ -72,7 +72,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
 
         if (declarations && declarations.length > 0) {
             // Does this name share a declaration with the symbol of interest?
-            if (declarations.some(decl => this._resultsContainsDeclaration(decl))) {
+            if (declarations.some((decl) => this._resultsContainsDeclaration(decl))) {
                 // Is it the same symbol?
                 if (this._includeDeclaration || node !== this._referencesResult.nodeAtOffset) {
                     this._referencesResult.locations.push({
@@ -82,8 +82,8 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
                             end: convertOffsetToPosition(
                                 TextRange.getEnd(node),
                                 this._parseResults.tokenizerOutput.lines
-                            )
-                        }
+                            ),
+                        },
                     });
                 }
             }
@@ -100,7 +100,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
 
         // The reference results declarations are already resolved, so we don't
         // need to call resolveAliasDeclaration on them.
-        return this._referencesResult.declarations.some(decl =>
+        return this._referencesResult.declarations.some((decl) =>
             DeclarationUtils.areDeclarationsSame(decl, resolvedDecl)
         );
     }
@@ -137,7 +137,7 @@ export class ReferencesProvider {
         }
 
         const resolvedDeclarations: Declaration[] = [];
-        declarations.forEach(decl => {
+        declarations.forEach((decl) => {
             const resolvedDecl = evaluator.resolveAliasDeclaration(decl);
             if (resolvedDecl) {
                 resolvedDeclarations.push(resolvedDecl);
@@ -151,7 +151,7 @@ export class ReferencesProvider {
         // Does this symbol require search beyond the current file? Determine whether
         // the symbol is declared within an evaluation scope that is within the current
         // file and cannot be imported directly from other modules.
-        const requiresGlobalSearch = resolvedDeclarations.some(decl => {
+        const requiresGlobalSearch = resolvedDeclarations.some((decl) => {
             // If the declaration is outside of this file, a global search is needed.
             if (decl.path !== filePath) {
                 return true;
@@ -172,7 +172,7 @@ export class ReferencesProvider {
             requiresGlobalSearch,
             nodeAtOffset: node,
             declarations: resolvedDeclarations,
-            locations: []
+            locations: [],
         };
 
         const refTreeWalker = new FindReferencesTreeWalker(

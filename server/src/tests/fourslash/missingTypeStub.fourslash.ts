@@ -16,5 +16,5 @@
 //// import [|/*marker*/testLi|]b
 
 helper.verifyDiagnostics({
-    marker: { category: 'warning', message: `Stub file not found for "testLib"` }
+    marker: { category: 'warning', message: `Stub file not found for "testLib"` },
 });

@@ -6,6 +6,6 @@
 
 helper.verifyCompletion('excluded', {
     marker1: {
-        completions: [{ label: 'capitalize' }]
-    }
+        completions: [{ label: 'capitalize' }],
+    },
 });

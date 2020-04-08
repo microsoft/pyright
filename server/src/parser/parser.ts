@@ -93,7 +93,7 @@ import {
     WithItemNode,
     WithNode,
     YieldFromNode,
-    YieldNode
+    YieldNode,
 } from './parseNodes';
 import * as StringTokenUtils from './stringTokenUtils';
 import { Tokenizer, TokenizerOutput } from './tokenizer';
@@ -109,7 +109,7 @@ import {
     StringToken,
     StringTokenFlags,
     Token,
-    TokenType
+    TokenType,
 } from './tokenizerTypes';
 
 interface ExpressionListResult {
@@ -210,7 +210,7 @@ export class Parser {
             importedModules: this._importedModules,
             futureImports: this._futureImportMap,
             tokenizerOutput: this._tokenizerOutput!,
-            containsWildcardImport: this._containsWildcardImport
+            containsWildcardImport: this._containsWildcardImport,
         };
     }
 
@@ -244,7 +244,7 @@ export class Parser {
         return {
             parseTree,
             lines: this._tokenizerOutput!.lines,
-            diagnostics: diagSink.fetchAndClear()
+            diagnostics: diagSink.fetchAndClear(),
         };
     }
 
@@ -496,7 +496,7 @@ export class Parser {
 
         listCompNode.comprehensions = compList;
         if (compList.length > 0) {
-            compList.forEach(comp => {
+            compList.forEach((comp) => {
                 comp.parent = listCompNode;
             });
             extendRange(listCompNode, compList[compList.length - 1]);
@@ -704,13 +704,13 @@ export class Parser {
         }
 
         functionNode.parameters = paramList;
-        paramList.forEach(param => {
+        paramList.forEach((param) => {
             param.parent = functionNode;
         });
 
         if (decorators) {
             functionNode.decorators = decorators;
-            decorators.forEach(decorator => {
+            decorators.forEach((decorator) => {
                 decorator.parent = functionNode;
             });
 
@@ -922,7 +922,7 @@ export class Parser {
         }
 
         withNode.withItems = withItemList;
-        withItemList.forEach(withItem => {
+        withItemList.forEach((withItem) => {
             withItem.parent = withNode;
         });
 
@@ -1022,7 +1022,7 @@ export class Parser {
 
         if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
             decoratorNode.arguments = this._parseArgList();
-            decoratorNode.arguments.forEach(arg => {
+            decoratorNode.arguments.forEach((arg) => {
                 arg.parent = decoratorNode;
                 extendRange(decoratorNode, arg);
             });
@@ -1066,14 +1066,14 @@ export class Parser {
 
         const classNode = ClassNode.create(classToken, NameNode.create(nameToken), suite);
         classNode.arguments = argList;
-        argList.forEach(arg => {
+        argList.forEach((arg) => {
             arg.parent = classNode;
         });
 
         if (decorators) {
             classNode.decorators = decorators;
             if (decorators.length > 0) {
-                decorators.forEach(decorator => {
+                decorators.forEach((decorator) => {
                     decorator.parent = classNode;
                 });
                 extendRange(classNode, decorators[0]);
@@ -1216,8 +1216,8 @@ export class Parser {
         this._importedModules.push({
             nameNode: importFromNode.module,
             leadingDots: importFromNode.module.leadingDots,
-            nameParts: importFromNode.module.nameParts.map(p => p.value),
-            importedSymbols: importFromNode.imports.map(imp => imp.name.value)
+            nameParts: importFromNode.module.nameParts.map((p) => p.value),
+            importedSymbols: importFromNode.imports.map((imp) => imp.name.value),
         });
 
         return importFromNode;
@@ -1252,8 +1252,8 @@ export class Parser {
             this._importedModules.push({
                 nameNode: importAsNode.module,
                 leadingDots: importAsNode.module.leadingDots,
-                nameParts: importAsNode.module.nameParts.map(p => p.value),
-                importedSymbols: undefined
+                nameParts: importAsNode.module.nameParts.map((p) => p.value),
+                importedSymbols: undefined,
             });
 
             if (!this._consumeTokenIfType(TokenType.Comma)) {
@@ -1316,7 +1316,7 @@ export class Parser {
         const globalNode = GlobalNode.create(globalToken);
         globalNode.nameList = this._parseNameList();
         if (globalNode.nameList.length > 0) {
-            globalNode.nameList.forEach(name => {
+            globalNode.nameList.forEach((name) => {
                 name.parent = globalNode;
             });
             extendRange(globalNode, globalNode.nameList[globalNode.nameList.length - 1]);
@@ -1330,7 +1330,7 @@ export class Parser {
         const nonlocalNode = NonlocalNode.create(nonlocalToken);
         nonlocalNode.nameList = this._parseNameList();
         if (nonlocalNode.nameList.length > 0) {
-            nonlocalNode.nameList.forEach(name => {
+            nonlocalNode.nameList.forEach((name) => {
                 name.parent = nonlocalNode;
             });
             extendRange(nonlocalNode, nonlocalNode.nameList[nonlocalNode.nameList.length - 1]);
@@ -1420,7 +1420,7 @@ export class Parser {
         const delNode = DelNode.create(delToken);
         delNode.expressions = exprListResult.list;
         if (delNode.expressions.length > 0) {
-            delNode.expressions.forEach(expr => {
+            delNode.expressions.forEach((expr) => {
                 expr.parent = delNode;
             });
             extendRange(delNode, delNode.expressions[delNode.expressions.length - 1]);
@@ -1570,7 +1570,7 @@ export class Parser {
         const tupleNode = TupleNode.create(tupleStartRange);
         tupleNode.expressions = exprListResult.list;
         if (exprListResult.list.length > 0) {
-            exprListResult.list.forEach(expr => {
+            exprListResult.list.forEach((expr) => {
                 expr.parent = tupleNode;
             });
             extendRange(tupleNode, exprListResult.list[exprListResult.list.length - 1]);
@@ -1975,7 +1975,7 @@ export class Parser {
                 const callNode = CallNode.create(atomExpression);
                 callNode.arguments = argList;
                 if (argList.length > 0) {
-                    argList.forEach(arg => {
+                    argList.forEach((arg) => {
                         arg.parent = callNode;
                     });
                     extendRange(callNode, argList[argList.length - 1]);
@@ -2089,7 +2089,7 @@ export class Parser {
                 this._handleExpressionParseError(
                     ErrorExpressionCategory.MissingIndexOrSlice,
                     'Expected index or slice expression'
-                )
+                ),
             ];
         }
 
@@ -2361,7 +2361,7 @@ export class Parser {
 
         const lambdaNode = LambdaNode.create(lambdaToken, testExpr);
         lambdaNode.parameters = argList;
-        argList.forEach(arg => {
+        argList.forEach((arg) => {
             arg.parent = lambdaNode;
         });
         return lambdaNode;
@@ -2419,7 +2419,7 @@ export class Parser {
         const listAtom = ListNode.create(startBracket);
         extendRange(listAtom, closeBracket);
         if (exprListResult.list.length > 0) {
-            exprListResult.list.forEach(expr => {
+            exprListResult.list.forEach((expr) => {
                 expr.parent = listAtom;
             });
             extendRange(listAtom, exprListResult.list[exprListResult.list.length - 1]);
@@ -2555,7 +2555,7 @@ export class Parser {
             if (setEntries.length > 0) {
                 extendRange(setAtom, setEntries[setEntries.length - 1]);
             }
-            setEntries.forEach(entry => {
+            setEntries.forEach((entry) => {
                 entry.parent = setAtom;
             });
             setAtom.entries = setEntries;
@@ -2567,7 +2567,7 @@ export class Parser {
             extendRange(dictionaryAtom, closeCurlyBrace);
         }
         if (dictionaryEntries.length > 0) {
-            dictionaryEntries.forEach(entry => {
+            dictionaryEntries.forEach((entry) => {
                 entry.parent = dictionaryAtom;
             });
             extendRange(dictionaryAtom, dictionaryEntries[dictionaryEntries.length - 1]);
@@ -2802,7 +2802,7 @@ export class Parser {
             true
         );
 
-        parseResults.diagnostics.forEach(diag => {
+        parseResults.diagnostics.forEach((diag) => {
             this._addError(diag.message, stringListNode);
         });
 
@@ -2835,7 +2835,7 @@ export class Parser {
                     false
                 );
 
-                parseResults.diagnostics.forEach(diag => {
+                parseResults.diagnostics.forEach((diag) => {
                     const textRangeStart =
                         (diag.range
                             ? convertPositionToOffset(diag.range.start, parseResults.lines)
@@ -2992,7 +2992,7 @@ export class Parser {
                         true
                     );
 
-                    parseResults.diagnostics.forEach(diag => {
+                    parseResults.diagnostics.forEach((diag) => {
                         this._addError(diag.message, stringNode);
                     });
 
@@ -3152,7 +3152,7 @@ export class Parser {
         // to an identifier token.
         if (nextToken.type === TokenType.Keyword) {
             const keywordType = this._peekKeywordType();
-            if (!disallowedKeywords.find(type => type === keywordType)) {
+            if (!disallowedKeywords.find((type) => type === keywordType)) {
                 const keywordText = this._fileContents!.substr(nextToken.start, nextToken.length);
                 this._getNextToken();
                 return IdentifierToken.create(nextToken.start, nextToken.length, keywordText, nextToken.comments);
