@@ -36,14 +36,14 @@ export const enum TokenType {
     Ellipsis,
     Dot,
     Arrow,
-    Backtick
+    Backtick,
 }
 
 export const enum NewLineType {
     CarriageReturn,
     LineFeed,
     CarriageReturnLineFeed,
-    Implied
+    Implied,
 }
 
 export const enum OperatorType {
@@ -93,14 +93,14 @@ export const enum OperatorType {
     Is,
     IsNot,
     In,
-    NotIn
+    NotIn,
 }
 
 export const enum OperatorFlags {
     Unary = 1 << 0,
     Binary = 1 << 1,
     Assignment = 1 << 2,
-    Comparison = 1 << 3
+    Comparison = 1 << 3,
 }
 
 export const enum KeywordType {
@@ -139,7 +139,7 @@ export const enum KeywordType {
     Try,
     While,
     With,
-    Yield
+    Yield,
 }
 
 export const enum StringTokenFlags {
@@ -157,7 +157,7 @@ export const enum StringTokenFlags {
     Format = 1 << 6,
 
     // Error conditions
-    Unterminated = 1 << 16
+    Unterminated = 1 << 16,
 }
 
 export interface Comment extends TextRange {
@@ -171,7 +171,7 @@ export namespace Comment {
         const comment: Comment = {
             start,
             length,
-            value
+            value,
         };
 
         return comment;
@@ -193,7 +193,7 @@ export namespace Token {
             start,
             length,
             type,
-            comments
+            comments,
         };
 
         return token;
@@ -220,7 +220,7 @@ export namespace IndentToken {
             type: TokenType.Indent,
             isIndentAmbiguous,
             comments,
-            indentAmount
+            indentAmount,
         };
 
         return token;
@@ -247,7 +247,7 @@ export namespace DedentToken {
             type: TokenType.Dedent,
             comments,
             indentAmount,
-            matchesIndent
+            matchesIndent,
         };
 
         return token;
@@ -266,7 +266,7 @@ export namespace NewLineToken {
             length,
             type: TokenType.NewLine,
             comments,
-            newLineType
+            newLineType,
         };
 
         return token;
@@ -285,7 +285,7 @@ export namespace KeywordToken {
             length,
             type: TokenType.Keyword,
             comments,
-            keywordType
+            keywordType,
         };
 
         return token;
@@ -325,7 +325,7 @@ export namespace StringToken {
             escapedValue,
             prefixLength,
             quoteMarkLength: flags & StringTokenFlags.Triplicate ? 3 : 1,
-            comments
+            comments,
         };
 
         return token;
@@ -355,7 +355,7 @@ export namespace NumberToken {
             isInteger,
             isImaginary,
             value,
-            comments
+            comments,
         };
 
         return token;
@@ -374,7 +374,7 @@ export namespace OperatorToken {
             length,
             type: TokenType.Operator,
             operatorType,
-            comments
+            comments,
         };
 
         return token;
@@ -393,7 +393,7 @@ export namespace IdentifierToken {
             length,
             type: TokenType.Identifier,
             value,
-            comments
+            comments,
         };
 
         return token;

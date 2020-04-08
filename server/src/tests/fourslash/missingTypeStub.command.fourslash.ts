@@ -20,7 +20,7 @@ const filename = helper.getMarkerByName('marker').fileName;
 const command = {
     title: 'Create Type Stub',
     command: Consts.Commands.createTypeStub,
-    arguments: ['/', 'testLib', filename]
+    arguments: ['/', 'testLib', filename],
 };
 
 helper.verifyCommand(command, {
@@ -34,5 +34,5 @@ class MyLibrary:
     
 
 
-`
+`,
 });

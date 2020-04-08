@@ -28,7 +28,7 @@ export const enum ImportGroup {
     BuiltIn = 0,
     ThirdParty = 1,
     Local = 2,
-    LocalRelative = 3
+    LocalRelative = 3,
 }
 
 export class ImportSorter {
@@ -41,7 +41,7 @@ export class ImportSorter {
         const importStatements = ImportStatementUtils.getTopLevelImports(this._parseResults.parseTree);
 
         const sortedStatements = importStatements.orderedImports
-            .map(s => s)
+            .map((s) => s)
             .sort((a, b) => {
                 return this._compareImportStatements(a, b);
             });
@@ -55,7 +55,7 @@ export class ImportSorter {
 
         actions.push({
             range: primaryRange,
-            replacementText: this._generateSortedImportText(sortedStatements)
+            replacementText: this._generateSortedImportText(sortedStatements),
         });
 
         this._addSecondaryReplacementRanges(importStatements.orderedImports, actions);
@@ -101,7 +101,7 @@ export class ImportSorter {
     // If there are other blocks of import statements separated by other statements,
     // we'll ignore these other blocks for now.
     private _getPrimaryReplacementRange(statements: ImportStatementUtils.ImportStatement[]): Range {
-        let statementLimit = statements.findIndex(s => s.followsNonImportStatement);
+        let statementLimit = statements.findIndex((s) => s.followsNonImportStatement);
         if (statementLimit < 0) {
             statementLimit = statements.length;
         }
@@ -109,7 +109,7 @@ export class ImportSorter {
         const lastStatement = statements[statementLimit - 1].node;
         return {
             start: convertOffsetToPosition(statements[0].node.start, this._parseResults.tokenizerOutput.lines),
-            end: convertOffsetToPosition(TextRange.getEnd(lastStatement), this._parseResults.tokenizerOutput.lines)
+            end: convertOffsetToPosition(TextRange.getEnd(lastStatement), this._parseResults.tokenizerOutput.lines),
         };
     }
 
@@ -119,7 +119,7 @@ export class ImportSorter {
         statements: ImportStatementUtils.ImportStatement[],
         actions: TextEditAction[]
     ) {
-        let secondaryBlockStart = statements.findIndex(s => s.followsNonImportStatement);
+        let secondaryBlockStart = statements.findIndex((s) => s.followsNonImportStatement);
         if (secondaryBlockStart < 0) {
             return;
         }
@@ -141,9 +141,9 @@ export class ImportSorter {
                     end: convertOffsetToPosition(
                         TextRange.getEnd(statements[secondaryBlockLimit - 1].node),
                         this._parseResults.tokenizerOutput.lines
-                    )
+                    ),
                 },
-                replacementText: ''
+                replacementText: '',
             });
 
             secondaryBlockStart = secondaryBlockLimit;
@@ -195,7 +195,7 @@ export class ImportSorter {
     private _formatImportFromNode(node: ImportFromNode, moduleName: string): string {
         const symbols = node.imports
             .sort((a, b) => this._compareSymbols(a, b))
-            .map(symbol => {
+            .map((symbol) => {
                 let symbolText = symbol.name.value;
                 if (symbol.alias) {
                     symbolText += ` as ${symbol.alias.value}`;

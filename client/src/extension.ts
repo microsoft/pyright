@@ -37,8 +37,8 @@ export function activate(context: ExtensionContext) {
             module: fs.existsSync(nonBundlePath) ? nonBundlePath : bundlePath,
             transport: TransportKind.ipc,
             args: cancellationStrategy.getCommandLineArguments(),
-            options: debugOptions
-        }
+            options: debugOptions,
+        },
     };
 
     // Options to control the language client
@@ -47,14 +47,14 @@ export function activate(context: ExtensionContext) {
         documentSelector: [
             {
                 scheme: 'file',
-                language: 'python'
-            }
+                language: 'python',
+            },
         ],
         synchronize: {
             // Synchronize the setting section to the server.
-            configurationSection: ['python', 'pyright']
+            configurationSection: ['python', 'pyright'],
         },
-        connectionOptions: { cancellationStrategy: cancellationStrategy }
+        connectionOptions: { cancellationStrategy: cancellationStrategy },
     };
 
     // Create the language client and start the client.
@@ -71,22 +71,22 @@ export function activate(context: ExtensionContext) {
 
     // Register our custom commands.
     const textEditorCommands = [Commands.orderImports, Commands.addMissingOptionalToParam];
-    textEditorCommands.forEach(commandName => {
+    textEditorCommands.forEach((commandName) => {
         context.subscriptions.push(
             commands.registerTextEditorCommand(
                 commandName,
                 (editor: TextEditor, edit: TextEditorEdit, ...args: any[]) => {
                     const cmd = {
                         command: commandName,
-                        arguments: [editor.document.uri.toString(), ...args]
+                        arguments: [editor.document.uri.toString(), ...args],
                     };
 
                     languageClient
                         .sendRequest('workspace/executeCommand', cmd)
                         .then((edits: TextEdit[] | undefined) => {
                             if (edits && edits.length > 0) {
-                                editor.edit(editBuilder => {
-                                    edits.forEach(edit => {
+                                editor.edit((editBuilder) => {
+                                    edits.forEach((edit) => {
                                         const startPos = new Position(
                                             edit.range.start.line,
                                             edit.range.start.character
@@ -107,7 +107,7 @@ export function activate(context: ExtensionContext) {
     });
 
     const genericCommands = [Commands.createTypeStub, Commands.restartServer];
-    genericCommands.forEach(command => {
+    genericCommands.forEach((command) => {
         context.subscriptions.push(
             commands.registerCommand(command, (...args: any[]) => {
                 languageClient.sendRequest('workspace/executeCommand', { command, arguments: args });

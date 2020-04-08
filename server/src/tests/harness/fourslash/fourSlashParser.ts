@@ -13,7 +13,7 @@ import {
     getRelativePath,
     isRootedDiskPath,
     normalizePath,
-    normalizeSlashes
+    normalizeSlashes,
 } from '../../../common/pathUtils';
 import { libFolder } from '../vfs/factory';
 import { fileMetadataNames, FourSlashData, FourSlashFile, Marker, MetadataOptionNames, Range } from './fourSlashTypes';
@@ -130,7 +130,7 @@ export function parseTestData(basePath: string, contents: string, fileName: stri
         markers,
         globalOptions,
         files,
-        ranges
+        ranges,
     };
 }
 
@@ -148,7 +148,7 @@ interface RangeLocationInformation extends LocationInformation {
 const enum State {
     none,
     inSlashStarMarker,
-    inObjectMarker
+    inObjectMarker,
 }
 
 function reportError(fileName: string, line: number, col: number, message: string) {
@@ -179,7 +179,7 @@ function recordObjectMarker(
     const marker: Marker = {
         fileName,
         position: location.position,
-        data: markerValue
+        data: markerValue,
     };
 
     // Object markers can be anonymous
@@ -201,7 +201,7 @@ function recordMarker(
 ): Marker | undefined {
     const marker: Marker = {
         fileName,
-        position: location.position
+        position: location.position,
     };
 
     // Verify markers for uniqueness
@@ -274,7 +274,7 @@ function parseFileContent(
                             position: i - 1 - difference,
                             sourcePosition: i - 1,
                             sourceLine: line,
-                            sourceColumn: column
+                            sourceColumn: column,
                         });
                         // copy all text up to marker position
                         flush(i - 1);
@@ -291,7 +291,7 @@ function parseFileContent(
                             fileName,
                             pos: rangeStart!.position,
                             end: i - 1 - difference,
-                            marker: rangeStart!.marker
+                            marker: rangeStart!.marker,
                         };
                         localRanges.push(range);
 
@@ -306,7 +306,7 @@ function parseFileContent(
                             position: i - 1 - difference,
                             sourcePosition: i - 1,
                             sourceLine: line,
-                            sourceColumn: column
+                            sourceColumn: column,
                         };
                     } else if (previousChar === '{' && currentChar === '|') {
                         // found an object marker start
@@ -315,7 +315,7 @@ function parseFileContent(
                             position: i - 1 - difference,
                             sourcePosition: i - 1,
                             sourceLine: line,
-                            sourceColumn: column
+                            sourceColumn: column,
                         };
                         flush(i - 1);
                     }
@@ -411,7 +411,7 @@ function parseFileContent(
 
     // put ranges in the correct order
     localRanges = localRanges.sort((a, b) => (a.pos < b.pos ? -1 : a.pos === b.pos && a.end > b.end ? -1 : 1));
-    localRanges.forEach(r => {
+    localRanges.forEach((r) => {
         ranges.push(r);
     });
 
@@ -419,7 +419,7 @@ function parseFileContent(
         content: output,
         fileOptions: {},
         version: 0,
-        fileName
+        fileName,
     };
 }
 
@@ -431,5 +431,5 @@ function chompLeadingSpace(content: string) {
         }
     }
 
-    return lines.map(s => s.substr(1)).join('\n');
+    return lines.map((s) => s.substr(1)).join('\n');
 }

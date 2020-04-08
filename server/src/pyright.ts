@@ -33,7 +33,7 @@ enum ExitStatus {
     NoErrors = 0,
     ErrorsReported = 1,
     FatalError = 2,
-    ConfigFileParseError = 3
+    ConfigFileParseError = 3,
 }
 
 interface PyrightJsonResults {
@@ -65,13 +65,13 @@ interface DiagnosticResult {
 
 const cancellationNone = Object.freeze({
     isCancellationRequested: false,
-    onCancellationRequested: function() {
+    onCancellationRequested: function () {
         return {
             dispose() {
                 /* empty */
-            }
+            },
         };
-    }
+    },
 });
 
 function processArgs() {
@@ -88,7 +88,7 @@ function processArgs() {
         { name: 'venv-path', alias: 'v', type: String },
         { name: 'verbose', type: Boolean },
         { name: 'version', type: Boolean },
-        { name: 'watch', alias: 'w', type: Boolean }
+        { name: 'watch', alias: 'w', type: Boolean },
     ];
 
     let args: CommandLineOptions;
@@ -131,7 +131,7 @@ function processArgs() {
     // Assume any relative paths are relative to the working directory.
     if (args.files && Array.isArray(args.files)) {
         options.fileSpecs = args.files;
-        options.fileSpecs = options.fileSpecs.map(f => combinePaths(process.cwd(), f));
+        options.fileSpecs = options.fileSpecs.map((f) => combinePaths(process.cwd(), f));
     } else {
         options.fileSpecs = [];
     }
@@ -167,7 +167,7 @@ function processArgs() {
     const output = args.outputjson ? new NullConsole() : undefined;
     const service = new AnalyzerService('<default>', createFromRealFileSystem(output), output);
 
-    service.setCompletionCallback(results => {
+    service.setCompletionCallback((results) => {
         if (results.fatalErrorOccurred) {
             process.exit(ExitStatus.FatalError);
         }
@@ -282,21 +282,21 @@ function reportDiagnosticsAsJson(
             filesAnalyzed: filesInProgram,
             errorCount: 0,
             warningCount: 0,
-            timeInSec
-        }
+            timeInSec,
+        },
     };
 
     let errorCount = 0;
     let warningCount = 0;
 
-    fileDiagnostics.forEach(fileDiag => {
-        fileDiag.diagnostics.forEach(diag => {
+    fileDiagnostics.forEach((fileDiag) => {
+        fileDiag.diagnostics.forEach((diag) => {
             if (diag.category === DiagnosticCategory.Error || diag.category === DiagnosticCategory.Warning) {
                 report.diagnostics.push({
                     file: fileDiag.filePath,
                     severity: diag.category === DiagnosticCategory.Error ? 'error' : 'warning',
                     message: diag.message,
-                    range: diag.range
+                    range: diag.range,
                 });
 
                 if (diag.category === DiagnosticCategory.Error) {
@@ -316,7 +316,7 @@ function reportDiagnosticsAsJson(
     return {
         errorCount,
         warningCount,
-        diagnosticCount: errorCount + warningCount
+        diagnosticCount: errorCount + warningCount,
     };
 }
 
@@ -324,15 +324,15 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
     let errorCount = 0;
     let warningCount = 0;
 
-    fileDiagnostics.forEach(fileDiagnostics => {
+    fileDiagnostics.forEach((fileDiagnostics) => {
         // Don't report unused code diagnostics.
         const fileErrorsAndWarnings = fileDiagnostics.diagnostics.filter(
-            diag => diag.category !== DiagnosticCategory.UnusedCode
+            (diag) => diag.category !== DiagnosticCategory.UnusedCode
         );
 
         if (fileErrorsAndWarnings.length > 0) {
             console.log(`${fileDiagnostics.filePath}`);
-            fileErrorsAndWarnings.forEach(diag => {
+            fileErrorsAndWarnings.forEach((diag) => {
                 let message = '  ';
                 if (diag.range) {
                     message +=
@@ -369,7 +369,7 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
     return {
         errorCount,
         warningCount,
-        diagnosticCount: errorCount + warningCount
+        diagnosticCount: errorCount + warningCount,
     };
 }
 

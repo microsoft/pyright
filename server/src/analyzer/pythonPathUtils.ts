@@ -19,7 +19,7 @@ import {
     getDirectoryPath,
     getFileSystemEntries,
     isDirectory,
-    normalizePath
+    normalizePath,
 } from '../common/pathUtils';
 
 const cachedSearchPaths = new Map<string, PythonPathResult>();
@@ -120,7 +120,7 @@ export function findPythonSearchPaths(
     const pathResult = getPythonPathFromPythonInterpreter(fs, configOptions.pythonPath, importFailureInfo);
     if (includeWatchPathsOnly && workspaceRoot) {
         const paths = pathResult.paths.filter(
-            p => !containsPath(workspaceRoot, p, true) || containsPath(pathResult.prefix, p, true)
+            (p) => !containsPath(workspaceRoot, p, true) || containsPath(pathResult.prefix, p, true)
         );
 
         return paths;
@@ -149,7 +149,7 @@ export function getPythonPathFromPythonInterpreter(
 
     const result: PythonPathResult = {
         paths: [],
-        prefix: ''
+        prefix: '',
     };
 
     try {
@@ -163,7 +163,7 @@ export function getPythonPathFromPythonInterpreter(
 
         const commandLineArgs: string[] = [
             '-c',
-            'import sys, json; json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)'
+            'import sys, json; json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
         ];
         let execOutput: string;
 
@@ -208,7 +208,7 @@ export function getPythonPathFromPythonInterpreter(
 
     cachedSearchPaths.set(searchKey, result);
     importFailureInfo.push(`Received ${result.paths.length} paths from interpreter`);
-    result.paths.forEach(path => {
+    result.paths.forEach((path) => {
         importFailureInfo.push(`  ${path}`);
     });
     return result;

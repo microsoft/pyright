@@ -10,7 +10,7 @@
 export const enum ImportType {
     BuiltIn,
     ThirdParty,
-    Local
+    Local,
 }
 
 export interface ImplicitImport {

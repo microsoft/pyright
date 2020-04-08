@@ -104,7 +104,7 @@ export class SignatureHelpProvider {
         return {
             signatures,
             activeSignature,
-            activeParameter
+            activeParameter,
         };
     }
 
@@ -119,7 +119,7 @@ export class SignatureHelpProvider {
             parameters.push({
                 startOffset: label.length,
                 endOffset: label.length + paramString.length,
-                documentation: extractParameterDocumentation(functionDocString || '', paramName)
+                documentation: extractParameterDocumentation(functionDocString || '', paramName),
             });
 
             label += paramString;
@@ -133,7 +133,7 @@ export class SignatureHelpProvider {
         const sigInfo: SignatureInfo = {
             label,
             parameters,
-            documentation: functionDocString
+            documentation: functionDocString,
         };
 
         return sigInfo;

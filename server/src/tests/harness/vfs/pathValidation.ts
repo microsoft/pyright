@@ -54,7 +54,7 @@ export const enum ValidationFlags {
         AllowNavigation,
 
     /** Path may only be a filename */
-    Basename = RequireBasename | AllowExtname
+    Basename = RequireBasename | AllowExtname,
 }
 
 function validateComponents(components: string[], flags: ValidationFlags, hasTrailingSeparator: boolean) {

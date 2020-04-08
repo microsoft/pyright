@@ -25,7 +25,7 @@ import {
     OperatorType,
     StringToken,
     StringTokenFlags,
-    TokenType
+    TokenType,
 } from '../parser/tokenizerTypes';
 import * as TestUtils from './testUtils';
 
@@ -366,7 +366,7 @@ test('Strings: unclosed', () => {
     const ranges = [
         [1, 8],
         [10, 18],
-        [29, 10]
+        [29, 10],
     ];
     for (let i = 0; i < ranges.length; i += 1) {
         assert.equal(results.tokens.getItemAt(i).start, ranges[i][0]);
@@ -382,7 +382,7 @@ test('Strings: escaped across multiple lines', () => {
 
     const ranges = [
         [1, 6],
-        [8, 7]
+        [8, 7],
     ];
     for (let i = 0; i < ranges.length; i += 1) {
         assert.equal(results.tokens.getItemAt(i).start, ranges[i][0]);
@@ -398,7 +398,7 @@ test('Strings: block next to regular, double-quoted', () => {
 
     const ranges = [
         [0, 8],
-        [8, 8]
+        [8, 8],
     ];
     for (let i = 0; i < ranges.length; i += 1) {
         assert.equal(results.tokens.getItemAt(i).start, ranges[i][0]);
@@ -414,7 +414,7 @@ test('Strings: block next to block, double-quoted', () => {
 
     const ranges = [
         [0, 6],
-        [6, 2]
+        [6, 2],
     ];
     for (let i = 0; i < ranges.length; i += 1) {
         assert.equal(results.tokens.getItemAt(i).start, ranges[i][0]);
@@ -1294,7 +1294,7 @@ test('Operators', () => {
         OperatorType.BitwiseOrEqual,
         OperatorType.BitwiseXor,
         OperatorType.BitwiseXorEqual,
-        OperatorType.Walrus
+        OperatorType.Walrus,
     ];
     assert.equal(results.tokens.count - _implicitTokenCount, lengths.length);
     assert.equal(results.tokens.count - _implicitTokenCount, operatorTypes.length);

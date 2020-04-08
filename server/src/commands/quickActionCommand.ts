@@ -30,10 +30,10 @@ export class QuickActionCommand implements ServerCommand {
             }
 
             const edits: TextEdit[] = [];
-            editActions.forEach(editAction => {
+            editActions.forEach((editAction) => {
                 edits.push({
                     range: editAction.range,
-                    newText: editAction.replacementText
+                    newText: editAction.replacementText,
                 });
             });
 

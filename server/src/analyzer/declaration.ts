@@ -25,7 +25,7 @@ import {
     StringListNode,
     TypeAnnotationNode,
     YieldFromNode,
-    YieldNode
+    YieldNode,
 } from '../parser/parseNodes';
 
 export const enum DeclarationType {
@@ -35,7 +35,7 @@ export const enum DeclarationType {
     Function,
     Class,
     SpecialBuiltInClass,
-    Alias
+    Alias,
 }
 
 export type IntrinsicType = 'Any' | 'str' | 'Iterable[str]' | 'class' | 'Dict[str, Any]';

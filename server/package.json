@@ -43,7 +43,7 @@
         "jest": "^25.2.4",
         "jest-junit": "^10.0.0",
         "node-loader": "^0.6.0",
-        "prettier": "1.19.1",
+        "prettier": "2.0.4",
         "ts-jest": "^25.2.1",
         "ts-loader": "^6.2.2",
         "typescript": "^3.8.3",

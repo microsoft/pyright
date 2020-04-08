@@ -63,7 +63,7 @@ export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: Exec
             node.rightExpression.nodeType === ParseNodeType.StringList
         ) {
             // Handle the special case of "sys.platform != 'X'"
-            const comparisonPlatform = node.rightExpression.strings.map(s => s.value).join('');
+            const comparisonPlatform = node.rightExpression.strings.map((s) => s.value).join('');
             const expectedPlatformName = _getExpectedPlatformNameFromPlatform(execEnv);
             return _evaluateStringBinaryOperation(node.operator, expectedPlatformName || '', comparisonPlatform);
         } else if (
@@ -71,7 +71,7 @@ export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: Exec
             node.rightExpression.nodeType === ParseNodeType.StringList
         ) {
             // Handle the special case of "os.name == 'X'"
-            const comparisonOsName = node.rightExpression.strings.map(s => s.value).join('');
+            const comparisonOsName = node.rightExpression.strings.map((s) => s.value).join('');
             const expectedOsName = _getExpectedOsNameFromPlatform(execEnv);
             if (expectedOsName !== undefined) {
                 return _evaluateStringBinaryOperation(node.operator, expectedOsName, comparisonOsName);

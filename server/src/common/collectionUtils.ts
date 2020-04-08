@@ -166,7 +166,7 @@ function indicesOf(array: readonly unknown[]): number[] {
 export function stableSort<T>(array: readonly T[], comparer: Comparer<T>): SortedReadonlyArray<T> {
     const indices = indicesOf(array);
     stableSortIndices(array, indices, comparer);
-    return (indices.map(i => array[i]) as SortedArray<T>) as SortedReadonlyArray<T>;
+    return (indices.map((i) => array[i]) as SortedArray<T>) as SortedReadonlyArray<T>;
 }
 
 function stableSortIndices<T>(array: readonly T[], indices: number[], comparer: Comparer<T>) {

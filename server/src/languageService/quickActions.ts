@@ -64,16 +64,16 @@ function _addMissingOptionalToParam(
 
     editActions.push({
         range: { start: startPos, end: startPos },
-        replacementText: 'Optional['
+        replacementText: 'Optional[',
     });
     editActions.push({
         range: { start: endPos, end: endPos },
-        replacementText: ']'
+        replacementText: ']',
     });
 
     // Add the import statement if necessary.
     const importStatements = ImportStatementUtils.getTopLevelImports(parseResults.parseTree);
-    const importStatement = importStatements.orderedImports.find(imp => imp.moduleName === 'typing');
+    const importStatement = importStatements.orderedImports.find((imp) => imp.moduleName === 'typing');
 
     // If there's an existing import statement, insert into it.
     if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {

@@ -30,15 +30,15 @@ export class CodeActionProvider {
 
         if (!workspace.disableLanguageServices) {
             const diags = workspace.serviceInstance.getDiagnosticsForRange(filePath, range);
-            const typeStubDiag = diags.find(d => {
+            const typeStubDiag = diags.find((d) => {
                 const actions = d.getActions();
-                return actions && actions.find(a => a.action === Commands.createTypeStub);
+                return actions && actions.find((a) => a.action === Commands.createTypeStub);
             });
 
             if (typeStubDiag) {
                 const action = typeStubDiag
                     .getActions()!
-                    .find(a => a.action === Commands.createTypeStub) as CreateTypeStubFileAction;
+                    .find((a) => a.action === Commands.createTypeStub) as CreateTypeStubFileAction;
                 if (action) {
                     const createTypeStubAction = CodeAction.create(
                         `Create Type Stub For "${action.moduleName}"`,
@@ -55,15 +55,15 @@ export class CodeActionProvider {
                 }
             }
 
-            const addOptionalDiag = diags.find(d => {
+            const addOptionalDiag = diags.find((d) => {
                 const actions = d.getActions();
-                return actions && actions.find(a => a.action === Commands.addMissingOptionalToParam);
+                return actions && actions.find((a) => a.action === Commands.addMissingOptionalToParam);
             });
 
             if (addOptionalDiag) {
                 const action = addOptionalDiag
                     .getActions()!
-                    .find(a => a.action === Commands.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
+                    .find((a) => a.action === Commands.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
                 if (action) {
                     const addMissingOptionalAction = CodeAction.create(
                         `Add "Optional" to type annotation`,

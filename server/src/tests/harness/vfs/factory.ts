@@ -19,7 +19,7 @@ import {
     MODULE_PATH,
     Mount,
     S_IFDIR,
-    S_IFREG
+    S_IFREG,
 } from './filesystem';
 
 export class TextDocument {
@@ -94,7 +94,7 @@ export function createFromFileSystem(
             // Add symlinks
             const symlink = document.meta.get('symlink');
             if (symlink) {
-                for (const link of symlink.split(',').map(link => link.trim())) {
+                for (const link of symlink.split(',').map((link) => link.trim())) {
                     fs.mkdirpSync(getDirectoryPath(link));
                     fs.symlinkSync(resolvePaths(fs.cwd(), document.file), link);
                 }
@@ -139,7 +139,7 @@ function getBuiltLocal(
         localCIFSCache = new FileSystem(/*ignoreCase*/ true, {
             files,
             cwd,
-            meta: {}
+            meta: {},
         });
         localCIFSCache.makeReadonly();
     }
@@ -193,6 +193,6 @@ function createResolver(host: TestHost): FileSystemResolver {
         },
         readFileSync(path: string): Buffer {
             return bufferFrom(host.readFile(path)!, 'utf8');
-        }
+        },
     };
 }

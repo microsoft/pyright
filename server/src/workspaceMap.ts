@@ -17,7 +17,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
         let bestRootPath: string | undefined;
         let bestInstance: WorkspaceServiceInstance | undefined;
 
-        this.forEach(workspace => {
+        this.forEach((workspace) => {
             if (workspace.rootPath) {
                 // Is the file is under this workspace folder?
                 if (filePath.startsWith(workspace.rootPath)) {
@@ -51,7 +51,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
                     rootPath: '',
                     rootUri: '',
                     serviceInstance: this._ls.createAnalyzerService(this._defaultWorkspacePath),
-                    disableLanguageServices: false
+                    disableLanguageServices: false,
                 };
                 this.set(this._defaultWorkspacePath, defaultWorkspace);
                 this._ls.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();

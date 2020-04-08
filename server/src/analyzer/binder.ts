@@ -67,7 +67,7 @@ import {
     WhileNode,
     WithNode,
     YieldFromNode,
-    YieldNode
+    YieldNode,
 } from '../parser/parseNodes';
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
@@ -86,7 +86,7 @@ import {
     FlowPreFinallyGate,
     FlowWildcardImport,
     getUniqueFlowNodeId,
-    isCodeFlowSupportedForReference
+    isCodeFlowSupportedForReference,
 } from './codeFlow';
 import {
     AliasDeclaration,
@@ -96,7 +96,7 @@ import {
     IntrinsicType,
     ModuleLoaderActions,
     ParameterDeclaration,
-    VariableDeclaration
+    VariableDeclaration,
 } from './declaration';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as ParseTreeUtils from './parseTreeUtils';
@@ -111,7 +111,7 @@ export const enum NameBindingType {
     Nonlocal,
 
     // With "global" keyword
-    Global
+    Global,
 }
 
 interface MemberAccessInfo {
@@ -189,7 +189,7 @@ export class Binder extends ParseTreeWalker {
     // Flow node that is used for unreachable code.
     private static _unreachableFlowNode: FlowNode = {
         flags: FlowFlags.Unreachable,
-        id: getUniqueFlowNodeId()
+        id: getUniqueFlowNodeId(),
     };
 
     constructor(fileInfo: AnalyzerFileInfo) {
@@ -234,7 +234,7 @@ export class Binder extends ParseTreeWalker {
         this._bindDeferred();
 
         return {
-            moduleDocString: ParseTreeUtils.getDocString(node.statements)
+            moduleDocString: ParseTreeUtils.getDocString(node.statements),
         };
     }
 
@@ -274,7 +274,7 @@ export class Binder extends ParseTreeWalker {
                         // Add a diagnostic action for resolving this diagnostic.
                         const createTypeStubAction: CreateTypeStubFileAction = {
                             action: Commands.createTypeStub,
-                            moduleName: importResult.importName
+                            moduleName: importResult.importName,
                         };
                         diagnostic.addAction(createTypeStubAction);
                     }
@@ -292,7 +292,7 @@ export class Binder extends ParseTreeWalker {
             type: DeclarationType.Class,
             node,
             path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines)
+            range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
         };
 
         const symbol = this._bindNameToScope(this._currentScope, node.name.value);
@@ -337,7 +337,7 @@ export class Binder extends ParseTreeWalker {
             isMethod: !!containingClassNode,
             isGenerator: false,
             path: this._fileInfo.filePath,
-            range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines)
+            range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
         };
 
         if (symbol) {
@@ -348,7 +348,7 @@ export class Binder extends ParseTreeWalker {
         AnalyzerNodeInfo.setDeclaration(node, functionDeclaration);
 
         this.walkMultiple(node.decorators);
-        node.parameters.forEach(param => {
+        node.parameters.forEach((param) => {
             if (param.defaultValue) {
                 this.walk(param.defaultValue);
             }
@@ -411,7 +411,7 @@ export class Binder extends ParseTreeWalker {
                 // Create a start node for the function.
                 this._currentFlowNode = this._createStartFlowNode();
 
-                node.parameters.forEach(paramNode => {
+                node.parameters.forEach((paramNode) => {
                     if (paramNode.name) {
                         const symbol = this._bindNameToScope(this._currentScope, paramNode.name.value);
                         if (symbol) {
@@ -423,7 +423,7 @@ export class Binder extends ParseTreeWalker {
                                     paramNode.start,
                                     TextRange.getEnd(paramNode),
                                     this._fileInfo.lines
-                                )
+                                ),
                             };
 
                             symbol.addDeclaration(paramDeclaration);
@@ -464,7 +464,7 @@ export class Binder extends ParseTreeWalker {
     visitLambda(node: LambdaNode): boolean {
         // Analyze the parameter defaults in the context of the parent's scope
         // before we add any names from the function's scope.
-        node.parameters.forEach(param => {
+        node.parameters.forEach((param) => {
             if (param.defaultValue) {
                 this.walk(param.defaultValue);
             }
@@ -477,7 +477,7 @@ export class Binder extends ParseTreeWalker {
                 // Create a start node for the lambda.
                 this._currentFlowNode = this._createStartFlowNode();
 
-                node.parameters.forEach(paramNode => {
+                node.parameters.forEach((paramNode) => {
                     if (paramNode.name) {
                         const symbol = this._bindNameToScope(this._currentScope, paramNode.name.value);
                         if (symbol) {
@@ -489,7 +489,7 @@ export class Binder extends ParseTreeWalker {
                                     paramNode.start,
                                     TextRange.getEnd(paramNode),
                                     this._fileInfo.lines
-                                )
+                                ),
                             };
 
                             symbol.addDeclaration(paramDeclaration);
@@ -592,7 +592,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitDel(node: DelNode) {
-        node.expressions.forEach(expr => {
+        node.expressions.forEach((expr) => {
             this._bindPossibleTupleNamedTarget(expr);
             this.walk(expr);
             this._createAssignmentTargetFlowNodes(expr, false, true);
@@ -807,7 +807,7 @@ export class Binder extends ParseTreeWalker {
                     node: node.name,
                     isConstant: isConstantName(node.name.value),
                     path: this._fileInfo.filePath,
-                    range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines)
+                    range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
                 };
                 symbol.addDeclaration(declaration);
             }
@@ -897,7 +897,7 @@ export class Binder extends ParseTreeWalker {
             flags: FlowFlags.PreFinallyGate,
             id: getUniqueFlowNodeId(),
             antecedent: preFinallyReturnOrRaiseLabel,
-            isGateClosed: false
+            isGateClosed: false,
         };
         if (node.finallySuite) {
             this._addAntecedent(preFinallyLabel, preFinallyGate);
@@ -906,7 +906,7 @@ export class Binder extends ParseTreeWalker {
         // An exception may be generated before the first flow node
         // added by the try block, so all of the exception targets
         // must have the pre-try flow node as an antecedent.
-        curExceptTargets.forEach(exceptLabel => {
+        curExceptTargets.forEach((exceptLabel) => {
             this._addAntecedent(exceptLabel, this._currentFlowNode);
         });
 
@@ -958,7 +958,7 @@ export class Binder extends ParseTreeWalker {
                 flags: FlowFlags.PostFinally,
                 id: getUniqueFlowNodeId(),
                 antecedent: this._currentFlowNode,
-                preFinallyGate
+                preFinallyGate,
             };
             this._currentFlowNode = isAfterElseAndExceptsReachable ? postFinallyNode : Binder._unreachableFlowNode;
         }
@@ -1021,7 +1021,7 @@ export class Binder extends ParseTreeWalker {
     visitGlobal(node: GlobalNode): boolean {
         const globalScope = this._currentScope.getGlobalScope();
 
-        node.nameList.forEach(name => {
+        node.nameList.forEach((name) => {
             const nameValue = name.value;
 
             // Is the binding inconsistent?
@@ -1053,7 +1053,7 @@ export class Binder extends ParseTreeWalker {
         if (this._currentScope === globalScope) {
             this._addError('Nonlocal declaration not allowed at module level', node);
         } else {
-            node.nameList.forEach(name => {
+            node.nameList.forEach((name) => {
                 const nameValue = name.value;
 
                 // Is the binding inconsistent?
@@ -1112,14 +1112,14 @@ export class Binder extends ParseTreeWalker {
                 // python module loader.
                 const existingDecl = symbol
                     .getDeclarations()
-                    .find(decl => decl.type === DeclarationType.Alias && decl.firstNamePart === firstNamePartValue);
+                    .find((decl) => decl.type === DeclarationType.Alias && decl.firstNamePart === firstNamePartValue);
 
                 const newDecl: AliasDeclaration = (existingDecl as AliasDeclaration) || {
                     type: DeclarationType.Alias,
                     node,
                     path: '',
                     range: getEmptyRange(),
-                    firstNamePart: firstNamePartValue
+                    firstNamePart: firstNamePartValue,
                 };
 
                 // Add the implicit imports for this module if it's the last
@@ -1146,7 +1146,7 @@ export class Binder extends ParseTreeWalker {
                             // Allocate a new loader action.
                             loaderActions = {
                                 path: '',
-                                implicitImports: new Map<string, ModuleLoaderActions>()
+                                implicitImports: new Map<string, ModuleLoaderActions>(),
                             };
                             if (!curLoaderActions.implicitImports) {
                                 curLoaderActions.implicitImports = new Map<string, ModuleLoaderActions>();
@@ -1195,7 +1195,7 @@ export class Binder extends ParseTreeWalker {
                 const lookupInfo = this._fileInfo.importLookup(resolvedPath);
                 if (lookupInfo) {
                     const wildcardNames = this._getWildcardImportNames(lookupInfo);
-                    wildcardNames.forEach(name => {
+                    wildcardNames.forEach((name) => {
                         const symbol = lookupInfo.symbolTable.get(name)!;
 
                         // Don't include the ignored names in the symbol table.
@@ -1207,7 +1207,7 @@ export class Binder extends ParseTreeWalker {
                                     node,
                                     path: resolvedPath,
                                     range: getEmptyRange(),
-                                    symbolName: name
+                                    symbolName: name,
                                 };
                                 symbol.addDeclaration(aliasDecl);
                                 names.push(name);
@@ -1218,16 +1218,16 @@ export class Binder extends ParseTreeWalker {
 
                 // Also add all of the implicitly-imported modules for
                 // the import module.
-                importInfo.implicitImports.forEach(implicitImport => {
+                importInfo.implicitImports.forEach((implicitImport) => {
                     // Don't overwrite a symbol that was imported from the module.
-                    if (!names.some(name => name === implicitImport.name)) {
+                    if (!names.some((name) => name === implicitImport.name)) {
                         const symbol = this._bindNameToScope(this._currentScope, implicitImport.name);
                         if (symbol) {
                             const submoduleFallback: AliasDeclaration = {
                                 type: DeclarationType.Alias,
                                 node,
                                 path: implicitImport.path,
-                                range: getEmptyRange()
+                                range: getEmptyRange(),
                             };
 
                             const aliasDecl: AliasDeclaration = {
@@ -1236,7 +1236,7 @@ export class Binder extends ParseTreeWalker {
                                 path: resolvedPath,
                                 symbolName: implicitImport.name,
                                 submoduleFallback,
-                                range: getEmptyRange()
+                                range: getEmptyRange(),
                             };
 
                             symbol.addDeclaration(aliasDecl);
@@ -1248,7 +1248,7 @@ export class Binder extends ParseTreeWalker {
                 this._createFlowWildcardImport(node, names);
             }
         } else {
-            node.imports.forEach(importSymbolNode => {
+            node.imports.forEach((importSymbolNode) => {
                 const importedName = importSymbolNode.name.value;
                 const nameNode = importSymbolNode.alias || importSymbolNode.name;
                 const symbol = this._bindNameToScope(this._currentScope, nameNode.value);
@@ -1264,7 +1264,7 @@ export class Binder extends ParseTreeWalker {
                     // Is the import referring to an implicitly-imported module?
                     let implicitImport: ImplicitImport | undefined;
                     if (importInfo && importInfo.implicitImports) {
-                        implicitImport = importInfo.implicitImports.find(imp => imp.name === importedName);
+                        implicitImport = importInfo.implicitImports.find((imp) => imp.name === importedName);
                     }
 
                     let submoduleFallback: AliasDeclaration | undefined;
@@ -1273,7 +1273,7 @@ export class Binder extends ParseTreeWalker {
                             type: DeclarationType.Alias,
                             node: importSymbolNode,
                             path: implicitImport.path,
-                            range: getEmptyRange()
+                            range: getEmptyRange(),
                         };
 
                         // Handle the case of "from . import X". In this case,
@@ -1290,7 +1290,7 @@ export class Binder extends ParseTreeWalker {
                         path: resolvedPath,
                         symbolName: importedName,
                         submoduleFallback,
-                        range: getEmptyRange()
+                        range: getEmptyRange(),
                     };
 
                     symbol.addDeclaration(aliasDecl);
@@ -1303,7 +1303,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitWith(node: WithNode): boolean {
-        node.withItems.forEach(item => {
+        node.withItems.forEach((item) => {
             this.walk(item.expression);
             if (item.target) {
                 this._bindPossibleTupleNamedTarget(item.target);
@@ -1476,7 +1476,7 @@ export class Binder extends ParseTreeWalker {
                 if (firstDecl.node.parent && firstDecl.node.parent.nodeType === ParseNodeType.Assignment) {
                     const expr = firstDecl.node.parent.rightExpression;
                     if (expr.nodeType === ParseNodeType.List) {
-                        expr.entries.forEach(listEntryNode => {
+                        expr.entries.forEach((listEntryNode) => {
                             if (
                                 listEntryNode.nodeType === ParseNodeType.StringList &&
                                 listEntryNode.strings.length === 1 &&
@@ -1544,7 +1544,7 @@ export class Binder extends ParseTreeWalker {
     private _createStartFlowNode() {
         const flowNode: FlowNode = {
             flags: FlowFlags.Start,
-            id: getUniqueFlowNodeId()
+            id: getUniqueFlowNodeId(),
         };
         return flowNode;
     }
@@ -1553,7 +1553,7 @@ export class Binder extends ParseTreeWalker {
         const flowNode: FlowLabel = {
             flags: FlowFlags.BranchLabel,
             id: getUniqueFlowNodeId(),
-            antecedents: []
+            antecedents: [],
         };
         return flowNode;
     }
@@ -1562,7 +1562,7 @@ export class Binder extends ParseTreeWalker {
         const flowNode: FlowLabel = {
             flags: FlowFlags.LoopLabel,
             id: getUniqueFlowNodeId(),
-            antecedents: []
+            antecedents: [],
         };
         return flowNode;
     }
@@ -1625,7 +1625,7 @@ export class Binder extends ParseTreeWalker {
             return antecedent;
         }
 
-        expressionList.forEach(expr => {
+        expressionList.forEach((expr) => {
             const referenceKey = createKeyForReference(expr);
             this._currentExecutionScopeReferenceMap.set(referenceKey, referenceKey);
         });
@@ -1634,7 +1634,7 @@ export class Binder extends ParseTreeWalker {
             flags,
             id: getUniqueFlowNodeId(),
             expression,
-            antecedent
+            antecedent,
         };
 
         this._addExceptTargets(conditionalFlowNode);
@@ -1759,7 +1759,7 @@ export class Binder extends ParseTreeWalker {
             }
 
             case ParseNodeType.Tuple: {
-                target.expressions.forEach(expr => {
+                target.expressions.forEach((expr) => {
                     this._createAssignmentTargetFlowNodes(expr, walkTargets, unbound);
                 });
                 break;
@@ -1782,7 +1782,7 @@ export class Binder extends ParseTreeWalker {
             }
 
             case ParseNodeType.List: {
-                target.entries.forEach(entry => {
+                target.entries.forEach((entry) => {
                     this._createAssignmentTargetFlowNodes(entry, walkTargets, unbound);
                 });
                 break;
@@ -1802,7 +1802,7 @@ export class Binder extends ParseTreeWalker {
                 flags: FlowFlags.Call,
                 id: getUniqueFlowNodeId(),
                 node,
-                antecedent: this._currentFlowNode
+                antecedent: this._currentFlowNode,
             };
 
             this._currentFlowNode = flowNode;
@@ -1816,7 +1816,7 @@ export class Binder extends ParseTreeWalker {
                 id: getUniqueFlowNodeId(),
                 antecedent: this._currentFlowNode,
                 targetSymbolId,
-                aliasSymbolId
+                aliasSymbolId,
             };
 
             this._currentFlowNode = flowNode;
@@ -1838,7 +1838,7 @@ export class Binder extends ParseTreeWalker {
                 id: getUniqueFlowNodeId(),
                 node,
                 antecedent: this._currentFlowNode,
-                targetSymbolId
+                targetSymbolId,
             };
 
             const referenceKey = createKeyForReference(node);
@@ -1865,7 +1865,7 @@ export class Binder extends ParseTreeWalker {
                 id: getUniqueFlowNodeId(),
                 node,
                 names,
-                antecedent: this._currentFlowNode
+                antecedent: this._currentFlowNode,
             };
 
             this._addExceptTargets(flowNode);
@@ -1883,7 +1883,7 @@ export class Binder extends ParseTreeWalker {
         // If there are any except targets, then we're in a try block, and we
         // have to assume that an exception can be raised after every assignment.
         if (this._currentExceptTargets) {
-            this._currentExceptTargets.forEach(label => {
+            this._currentExceptTargets.forEach((label) => {
                 this._addAntecedent(label, flowNode);
             });
         }
@@ -1904,7 +1904,7 @@ export class Binder extends ParseTreeWalker {
     private _addAntecedent(label: FlowLabel, antecedent: FlowNode) {
         if (!(this._currentFlowNode.flags & FlowFlags.Unreachable)) {
             // Don't add the same antecedent twice.
-            if (!label.antecedents.some(existing => existing.id === antecedent.id)) {
+            if (!label.antecedents.some((existing) => existing.id === antecedent.id)) {
                 label.antecedents.push(antecedent);
             }
         }
@@ -1950,14 +1950,14 @@ export class Binder extends ParseTreeWalker {
             }
 
             case ParseNodeType.Tuple: {
-                target.expressions.forEach(expr => {
+                target.expressions.forEach((expr) => {
                     this._bindPossibleTupleNamedTarget(expr, addedSymbols);
                 });
                 break;
             }
 
             case ParseNodeType.List: {
-                target.entries.forEach(expr => {
+                target.entries.forEach((expr) => {
                     this._bindPossibleTupleNamedTarget(expr, addedSymbols);
                 });
                 break;
@@ -1987,7 +1987,7 @@ export class Binder extends ParseTreeWalker {
                 node,
                 intrinsicType: type,
                 path: this._fileInfo.filePath,
-                range: getEmptyRange()
+                range: getEmptyRange(),
             });
             symbol.setIsIgnoredForProtocolMatch();
         }
@@ -2055,7 +2055,7 @@ export class Binder extends ParseTreeWalker {
                         isConstant: isConstantName(target.value),
                         inferredTypeSource: source,
                         path: this._fileInfo.filePath,
-                        range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
+                        range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
                 }
@@ -2092,7 +2092,7 @@ export class Binder extends ParseTreeWalker {
                             target.memberName.start,
                             target.memberName.start + target.memberName.length,
                             this._fileInfo.lines
-                        )
+                        ),
                     };
                     symbol.addDeclaration(declaration);
                 }
@@ -2100,7 +2100,7 @@ export class Binder extends ParseTreeWalker {
             }
 
             case ParseNodeType.Tuple: {
-                target.expressions.forEach(expr => {
+                target.expressions.forEach((expr) => {
                     this._addInferredTypeAssignmentForVariable(expr, source);
                 });
                 break;
@@ -2117,7 +2117,7 @@ export class Binder extends ParseTreeWalker {
             }
 
             case ParseNodeType.List: {
-                target.entries.forEach(entry => {
+                target.entries.forEach((entry) => {
                     this._addInferredTypeAssignmentForVariable(entry, source);
                 });
                 break;
@@ -2141,7 +2141,7 @@ export class Binder extends ParseTreeWalker {
                         isFinal: finalInfo.isFinal,
                         path: this._fileInfo.filePath,
                         typeAnnotationNode: finalInfo.isFinal ? finalInfo.finalTypeNode : typeAnnotation,
-                        range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines)
+                        range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
                 }
@@ -2190,7 +2190,7 @@ export class Binder extends ParseTreeWalker {
                             target.memberName.start,
                             target.memberName.start + target.memberName.length,
                             this._fileInfo.lines
-                        )
+                        ),
                     };
                     symbol.addDeclaration(declaration);
 
@@ -2319,12 +2319,12 @@ export class Binder extends ParseTreeWalker {
             classNode,
             methodNode,
             classScope,
-            isInstanceMember
+            isInstanceMember,
         };
     }
 
     private _addImplicitImportsToLoaderActions(importResult: ImportResult, loaderActions: ModuleLoaderActions) {
-        importResult.implicitImports.forEach(implicitImport => {
+        importResult.implicitImports.forEach((implicitImport) => {
             const existingLoaderAction = loaderActions.implicitImports
                 ? loaderActions.implicitImports.get(implicitImport.name)
                 : undefined;
@@ -2336,7 +2336,7 @@ export class Binder extends ParseTreeWalker {
                 }
                 loaderActions.implicitImports.set(implicitImport.name, {
                     path: implicitImport.path,
-                    implicitImports: new Map<string, ModuleLoaderActions>()
+                    implicitImports: new Map<string, ModuleLoaderActions>(),
                 });
             }
         });
@@ -2375,7 +2375,7 @@ export class Binder extends ParseTreeWalker {
             ClassVar: true,
             Final: true,
             Literal: true,
-            TypedDict: true
+            TypedDict: true,
         };
 
         const assignedName = assignedNameNode.value;
@@ -2394,7 +2394,7 @@ export class Binder extends ParseTreeWalker {
                     annotationNode.start,
                     TextRange.getEnd(annotationNode),
                     this._fileInfo.lines
-                )
+                ),
             });
         }
         return true;
@@ -2405,7 +2405,7 @@ export class Binder extends ParseTreeWalker {
             scope: this._currentScope,
             nonLocalBindingsMap: this._notLocalBindings,
             codeFlowExpressionMap: this._currentExecutionScopeReferenceMap,
-            callback
+            callback,
         });
     }
 

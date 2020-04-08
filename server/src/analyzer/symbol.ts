@@ -40,7 +40,7 @@ export const enum SymbolFlags {
 
     // Indicates that the symbol is not considered for protocol
     // matching. This applies to some built-in symbols like __class__.
-    IgnoredForProtocolMatch = 1 << 5
+    IgnoredForProtocolMatch = 1 << 5,
 }
 
 let nextSymbolId = 1;
@@ -129,7 +129,7 @@ export class Symbol {
             // See if this node was already identified as a declaration. If so,
             // replace it. Otherwise, add it as a new declaration to the end of
             // the list.
-            const declIndex = this._declarations.findIndex(decl => areDeclarationsSame(decl, declaration));
+            const declIndex = this._declarations.findIndex((decl) => areDeclarationsSame(decl, declaration));
             if (declIndex < 0) {
                 this._declarations.push(declaration);
             } else {
@@ -177,11 +177,11 @@ export class Symbol {
             return true;
         }
 
-        return this.getDeclarations().some(decl => hasTypeForDeclaration(decl));
+        return this.getDeclarations().some((decl) => hasTypeForDeclaration(decl));
     }
 
     getTypedDeclarations() {
-        return this.getDeclarations().filter(decl => hasTypeForDeclaration(decl));
+        return this.getDeclarations().filter((decl) => hasTypeForDeclaration(decl));
     }
 
     getSynthesizedType() {

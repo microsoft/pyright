@@ -27,7 +27,7 @@ import {
     ParseNode,
     ParseNodeType,
     StatementNode,
-    SuiteNode
+    SuiteNode,
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { decodeDocString } from './docStringUtils';
@@ -37,7 +37,7 @@ export const enum PrintExpressionFlags {
     None = 0,
 
     // Don't use string literals for forward declarations.
-    ForwardDeclarations = 1 << 0
+    ForwardDeclarations = 1 << 0,
 }
 
 export function getNodeDepth(node: ParseNode): number {
@@ -104,7 +104,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 printExpression(node.leftExpression, flags) +
                 '(' +
                 node.arguments
-                    .map(arg => {
+                    .map((arg) => {
                         let argStr = '';
                         if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
                             argStr = '*';
@@ -126,7 +126,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             return (
                 printExpression(node.baseExpression, flags) +
                 '[' +
-                node.items.items.map(item => printExpression(item, flags)).join(', ') +
+                node.items.items.map((item) => printExpression(item, flags)).join(', ') +
                 ']'
             );
         }
@@ -158,7 +158,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 return printExpression(node.typeAnnotation, flags);
             } else {
                 return node.strings
-                    .map(str => {
+                    .map((str) => {
                         return printExpression(str, flags);
                     })
                     .join(' ');
@@ -237,7 +237,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.List: {
-            const expressions = node.entries.map(expr => {
+            const expressions = node.entries.map((expr) => {
                 return printExpression(expr, flags);
             });
             return `[${expressions.join(', ')}]`;
@@ -248,7 +248,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Tuple: {
-            const expressions = node.expressions.map(expr => {
+            const expressions = node.expressions.map((expr) => {
                 return printExpression(expr, flags);
             });
             if (expressions.length === 1) {
@@ -288,7 +288,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
                 listStr +
                 ' ' +
                 node.comprehensions
-                    .map(expr => {
+                    .map((expr) => {
                         if (expr.nodeType === ParseNodeType.ListComprehensionFor) {
                             return (
                                 `${expr.isAsync ? 'async ' : ''}for ` +
@@ -321,7 +321,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             return (
                 'lambda ' +
                 node.parameters
-                    .map(param => {
+                    .map((param) => {
                         let paramStr = '';
 
                         if (param.category === ParameterCategory.VarArgList) {
@@ -359,7 +359,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Dictionary: {
-            return `{ ${node.entries.map(entry => {
+            return `{ ${node.entries.map((entry) => {
                 if (entry.nodeType === ParseNodeType.DictionaryKeyEntry) {
                     return (
                         `${printExpression(entry.keyExpression, flags)}: ` +
@@ -376,7 +376,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Set: {
-            return node.entries.map(entry => printExpression(entry, flags)).join(', ');
+            return node.entries.map((entry) => printExpression(entry, flags)).join(', ');
         }
     }
 
@@ -425,7 +425,7 @@ export function printOperator(operator: OperatorType): string {
         [OperatorType.Is]: 'is',
         [OperatorType.IsNot]: 'is not',
         [OperatorType.In]: 'in',
-        [OperatorType.NotIn]: 'not in'
+        [OperatorType.NotIn]: 'not in',
     };
 
     if (operatorMap[operator]) {
@@ -554,7 +554,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
         // the enclosing scope instead.
         switch (curNode.nodeType) {
             case ParseNodeType.Function: {
-                if (curNode.parameters.some(param => param === prevNode)) {
+                if (curNode.parameters.some((param) => param === prevNode)) {
                     if (isParamNameNode) {
                         return curNode;
                     }
@@ -737,7 +737,7 @@ export function isAssignmentToDefaultsFollowingNamedTuple(callNode: ParseNode): 
     }
 
     const moduleOrSuite = statementList.parent;
-    let statementIndex = moduleOrSuite.statements.findIndex(s => s === statementList);
+    let statementIndex = moduleOrSuite.statements.findIndex((s) => s === statementList);
 
     if (statementIndex < 0) {
         return false;

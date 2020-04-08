@@ -32,7 +32,7 @@ import {
     StringToken,
     StringTokenFlags,
     Token,
-    TokenType
+    TokenType,
 } from './tokenizerTypes';
 
 const _keywords: { [key: string]: KeywordType } = {
@@ -71,7 +71,7 @@ const _keywords: { [key: string]: KeywordType } = {
     yield: KeywordType.Yield,
     False: KeywordType.False,
     None: KeywordType.None,
-    True: KeywordType.True
+    True: KeywordType.True,
 };
 
 const _operatorInfo: { [key: number]: OperatorFlags } = {
@@ -116,7 +116,7 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
     [OperatorType.Is]: OperatorFlags.Binary,
     [OperatorType.IsNot]: OperatorFlags.Binary,
     [OperatorType.In]: OperatorFlags.Binary,
-    [OperatorType.NotIn]: OperatorFlags.Binary
+    [OperatorType.NotIn]: OperatorFlags.Binary,
 };
 
 const _byteOrderMarker = 0xfeff;
@@ -270,7 +270,7 @@ export class Tokenizer {
             typeIgnoreAll: this._typeIgnoreAll,
             predominantEndOfLineSequence,
             predominantTabSequence,
-            predominantSingleQuoteCharacter: this._singleQuoteCount >= this._doubleQuoteCount ? "'" : '"'
+            predominantSingleQuoteCharacter: this._singleQuoteCount >= this._doubleQuoteCount ? "'" : '"',
         };
     }
 
@@ -563,7 +563,7 @@ export class Tokenizer {
                     tab1Spaces,
                     tab8Spaces,
                     isSpacePresent,
-                    isTabPresent
+                    isTabPresent,
                 });
                 this._tokens.push(IndentToken.create(this._cs.position, 0, tab8Spaces, false, this._getComments()));
             }
@@ -588,7 +588,7 @@ export class Tokenizer {
                     tab1Spaces,
                     tab8Spaces,
                     isSpacePresent,
-                    isTabPresent
+                    isTabPresent,
                 });
 
                 this._tokens.push(
@@ -924,7 +924,7 @@ export class Tokenizer {
         const comment = Comment.create(start, length, value);
 
         if (value.match(/^\s*type:\s*ignore(\s|$)/)) {
-            if (this._tokens.findIndex(t => t.type !== TokenType.NewLine && t && t.type !== TokenType.Indent) < 0) {
+            if (this._tokens.findIndex((t) => t.type !== TokenType.NewLine && t && t.type !== TokenType.Indent) < 0) {
                 this._typeIgnoreAll = true;
             } else {
                 this._typeIgnoreLines[this._lineRanges.length] = true;
@@ -962,10 +962,7 @@ export class Tokenizer {
         }
 
         if (this._cs.lookAhead(2) === Char.SingleQuote || this._cs.lookAhead(2) === Char.DoubleQuote) {
-            const prefix = this._cs
-                .getText()
-                .substr(this._cs.position, 2)
-                .toLowerCase();
+            const prefix = this._cs.getText().substr(this._cs.position, 2).toLowerCase();
             switch (prefix) {
                 case 'rf':
                 case 'fr':

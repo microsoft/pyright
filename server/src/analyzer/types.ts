@@ -53,7 +53,7 @@ export const enum TypeCategory {
     Union,
 
     // Type variable (defined with TypeVar)
-    TypeVar
+    TypeVar,
 }
 
 export type Type =
@@ -87,7 +87,7 @@ export interface UnboundType extends TypeBase {
 
 export namespace UnboundType {
     const _instance: UnboundType = {
-        category: TypeCategory.Unbound
+        category: TypeCategory.Unbound,
     };
 
     export function create() {
@@ -102,7 +102,7 @@ export interface UnknownType extends TypeBase {
 
 export namespace UnknownType {
     const _instance: UnknownType = {
-        category: TypeCategory.Unknown
+        category: TypeCategory.Unknown,
     };
 
     export function create() {
@@ -127,7 +127,7 @@ export namespace ModuleType {
         const newModuleType: ModuleType = {
             category: TypeCategory.Module,
             fields: symbolTable || new Map<string, Symbol>(),
-            loaderFields: new Map<string, Symbol>()
+            loaderFields: new Map<string, Symbol>(),
         };
         return newModuleType;
     }
@@ -208,7 +208,7 @@ export const enum ClassTypeFlags {
     // A class whose constructor (__init__ method) does not have
     // annotated types and is treated as though each parameter
     // is a generic type for purposes of type inference.
-    PseudoGenericClass = 1 << 12
+    PseudoGenericClass = 1 << 12,
 }
 
 interface ClassDetails {
@@ -251,9 +251,9 @@ export namespace ClassType {
                 mro: [],
                 fields: new Map<string, Symbol>(),
                 typeParameters: [],
-                docString
+                docString,
             },
-            skipAbstractClassTest: false
+            skipAbstractClassTest: false,
         };
 
         return newClass;
@@ -530,7 +530,7 @@ export namespace ObjectType {
     export function create(classType: ClassType) {
         const newObjectType: ObjectType = {
             category: TypeCategory.Object,
-            classType
+            classType,
         };
         return newObjectType;
     }
@@ -601,7 +601,7 @@ export const enum FunctionTypeFlags {
     Final = 1 << 12,
 
     // Function has one or more parameters that are missing type annotations
-    UnannotatedParams = 1 << 13
+    UnannotatedParams = 1 << 13,
 }
 
 interface FunctionDetails {
@@ -642,8 +642,8 @@ export namespace FunctionType {
             details: {
                 flags,
                 parameters: [],
-                docString
-            }
+                docString,
+            },
         };
         return newFunctionType;
     }
@@ -660,7 +660,7 @@ export namespace FunctionType {
             declaredReturnType: type.details.declaredReturnType,
             declaration: type.details.declaration,
             builtInName: type.details.builtInName,
-            docString: type.details.docString
+            docString: type.details.docString,
         };
 
         // If we strip off the first parameter, this is no longer an
@@ -674,7 +674,7 @@ export namespace FunctionType {
         if (type.specializedTypes) {
             newFunction.specializedTypes = {
                 parameterTypes: type.specializedTypes.parameterTypes.slice(startParam),
-                returnType: type.specializedTypes.returnType
+                returnType: type.specializedTypes.returnType,
             };
         }
 
@@ -794,7 +794,7 @@ export namespace OverloadedFunctionType {
     export function create() {
         const newType: OverloadedFunctionType = {
             category: TypeCategory.OverloadedFunction,
-            overloads: []
+            overloads: [],
         };
         return newType;
     }
@@ -810,7 +810,7 @@ export interface NoneType extends TypeBase {
 
 export namespace NoneType {
     const _noneInstance: NoneType = {
-        category: TypeCategory.None
+        category: TypeCategory.None,
     };
 
     export function create() {
@@ -824,7 +824,7 @@ export interface NeverType extends TypeBase {
 
 export namespace NeverType {
     const _neverInstance: NeverType = {
-        category: TypeCategory.Never
+        category: TypeCategory.Never,
     };
 
     export function create() {
@@ -840,11 +840,11 @@ export interface AnyType extends TypeBase {
 export namespace AnyType {
     const _anyInstance: AnyType = {
         category: TypeCategory.Any,
-        isEllipsis: false
+        isEllipsis: false,
     };
     const _ellipsisInstance: AnyType = {
         category: TypeCategory.Any,
-        isEllipsis: true
+        isEllipsis: true,
     };
 
     export function create(isEllipsis = false) {
@@ -861,7 +861,7 @@ export namespace UnionType {
     export function create() {
         const newUnionType: UnionType = {
             category: TypeCategory.Union,
-            subtypes: []
+            subtypes: [],
         };
 
         return newUnionType;
@@ -876,7 +876,7 @@ export namespace UnionType {
     }
 
     export function containsType(unionType: UnionType, subtype: Type, recursionCount = 0): boolean {
-        return unionType.subtypes.find(t => isTypeSame(t, subtype, recursionCount + 1)) !== undefined;
+        return unionType.subtypes.find((t) => isTypeSame(t, subtype, recursionCount + 1)) !== undefined;
     }
 }
 
@@ -901,7 +901,7 @@ export namespace TypeVarType {
             constraints: [],
             isCovariant: false,
             isContravariant: false,
-            isSynthesized
+            isSynthesized,
         };
         return newTypeVarType;
     }
@@ -921,7 +921,7 @@ export function isAnyOrUnknown(type: Type): boolean {
     }
 
     if (type.category === TypeCategory.Union) {
-        return type.subtypes.find(t => !isAnyOrUnknown(t)) === undefined;
+        return type.subtypes.find((t) => !isAnyOrUnknown(t)) === undefined;
     }
 
     return false;
@@ -937,7 +937,7 @@ export function isPossiblyUnbound(type: Type): boolean {
     }
 
     if (type.category === TypeCategory.Union) {
-        return type.subtypes.find(t => isPossiblyUnbound(t)) !== undefined;
+        return type.subtypes.find((t) => isPossiblyUnbound(t)) !== undefined;
     }
 
     return false;
@@ -1070,7 +1070,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
 
             // The types do not have a particular order, so we need to
             // do the comparison in an order-independent manner.
-            return subtypes1.find(t => !UnionType.containsType(unionType2, t, recursionCount + 1)) === undefined;
+            return subtypes1.find((t) => !UnionType.containsType(unionType2, t, recursionCount + 1)) === undefined;
         }
 
         case TypeCategory.TypeVar: {
@@ -1163,7 +1163,7 @@ export function removeNoneFromUnion(type: Type): Type {
 
 export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolean) {
     if (type.category === TypeCategory.Union) {
-        const remainingTypes = type.subtypes.filter(t => !removeFilter(t));
+        const remainingTypes = type.subtypes.filter((t) => !removeFilter(t));
         if (remainingTypes.length < type.subtypes.length) {
             return combineTypes(remainingTypes);
         }
@@ -1178,7 +1178,7 @@ export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolea
 // If no types remain in the end, a NeverType is returned.
 export function combineTypes(types: Type[]): Type {
     // Filter out any "Never" types.
-    types = types.filter(type => type.category !== TypeCategory.Never);
+    types = types.filter((type) => type.category !== TypeCategory.Never);
     if (types.length === 0) {
         return NeverType.create();
     }

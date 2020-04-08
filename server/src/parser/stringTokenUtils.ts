@@ -33,7 +33,7 @@ export const enum UnescapeErrorType {
     InvalidEscapeSequence,
     EscapeWithinFormatExpression,
     SingleCloseBraceWithinFormatLiteral,
-    UnterminatedFormatExpression
+    UnterminatedFormatExpression,
 }
 
 export interface UnescapeError {
@@ -65,14 +65,14 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
         offset: 0,
         length: 0,
         value: '',
-        isExpression: false
+        isExpression: false,
     };
     let strOffset = 0;
     const output: UnescapedString = {
         value: '',
         unescapeErrors: [],
         nonAsciiInBytes: false,
-        formatStringSegments: []
+        formatStringSegments: [],
     };
 
     const addInvalidEscapeOffset = () => {
@@ -81,7 +81,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
             output.unescapeErrors.push({
                 offset: strOffset - 1,
                 length: 2,
-                errorType: UnescapeErrorType.InvalidEscapeSequence
+                errorType: UnescapeErrorType.InvalidEscapeSequence,
             });
         }
     };
@@ -135,7 +135,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                     output.unescapeErrors.push({
                         offset: formatSegment.offset,
                         length: strOffset - formatSegment.offset,
-                        errorType: UnescapeErrorType.UnterminatedFormatExpression
+                        errorType: UnescapeErrorType.UnterminatedFormatExpression,
                     });
                 }
 
@@ -154,7 +154,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 output.unescapeErrors.push({
                     offset: strOffset,
                     length: 1,
-                    errorType: UnescapeErrorType.EscapeWithinFormatExpression
+                    errorType: UnescapeErrorType.EscapeWithinFormatExpression,
                 });
             }
 
@@ -326,7 +326,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                     offset: strOffset,
                     length: 0,
                     value: '',
-                    isExpression: true
+                    isExpression: true,
                 };
                 formatExpressionNestCount++;
             }
@@ -338,7 +338,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 output.unescapeErrors.push({
                     offset: strOffset,
                     length: 1,
-                    errorType: UnescapeErrorType.SingleCloseBraceWithinFormatLiteral
+                    errorType: UnescapeErrorType.SingleCloseBraceWithinFormatLiteral,
                 });
                 strOffset++;
             } else {
@@ -355,7 +355,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                     offset: strOffset,
                     length: 0,
                     value: '',
-                    isExpression: false
+                    isExpression: false,
                 };
             }
         } else if (formatSegment.isExpression && (curChar === Char.SingleQuote || curChar === Char.DoubleQuote)) {

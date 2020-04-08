@@ -17,7 +17,7 @@ import {
     LambdaNode,
     ListComprehensionNode,
     ModuleNode,
-    ParseNode
+    ParseNode,
 } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import { FlowFlags, FlowNode } from './codeFlow';

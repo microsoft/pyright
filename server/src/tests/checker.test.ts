@@ -178,7 +178,7 @@ test('Builtins1', () => {
         'zip',
         // These really shouldn't be exposed but are defined by builtins.pyi currently.
         'function',
-        'ellipsis'
+        'ellipsis',
     ];
 
     const moduleScope = AnalyzerNodeInfo.getScope(analysisResults[0].parseResults!.parseTree)!;

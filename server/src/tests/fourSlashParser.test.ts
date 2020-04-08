@@ -32,7 +32,7 @@ test('GlobalOptions', () => {
     const data = parseTestData('.', code, 'test.py');
     assertOptions(data.globalOptions, [
         ['libpath', '../dist/lib'],
-        ['pythonversion', '3.7']
+        ['pythonversion', '3.7'],
     ]);
 
     assert.equal(data.files.length, 1);
@@ -74,7 +74,7 @@ test('Extra file options', () => {
     assertOptions(data.globalOptions, []);
     assertOptions(data.files[0].fileOptions, [
         ['filename', 'file1.py'],
-        ['library', 'false']
+        ['library', 'false'],
     ]);
 });
 
@@ -220,12 +220,13 @@ test('Multiple Files', () => {
     const data = parseTestData('.', code, 'test.py');
     assert.equal(data.files.length, 3);
 
-    assert.equal(data.files.filter(f => f.fileName === normalizeSlashes('./src/A.py'))[0].content, getContent('A'));
+    assert.equal(data.files.filter((f) => f.fileName === normalizeSlashes('./src/A.py'))[0].content, getContent('A'));
     assert.equal(
-        data.files.filter(f => f.fileName === normalizeSlashes(combinePaths(factory.libFolder, 'src/B.py')))[0].content,
+        data.files.filter((f) => f.fileName === normalizeSlashes(combinePaths(factory.libFolder, 'src/B.py')))[0]
+            .content,
         getContent('B')
     );
-    assert.equal(data.files.filter(f => f.fileName === normalizeSlashes('./src/C.py'))[0].content, getContent('C'));
+    assert.equal(data.files.filter((f) => f.fileName === normalizeSlashes('./src/C.py'))[0].content, getContent('C'));
 });
 
 test('Multiple Files with default name', () => {
@@ -246,9 +247,12 @@ test('Multiple Files with default name', () => {
     const data = parseTestData('.', code, './src/test.py');
     assert.equal(data.files.length, 3);
 
-    assert.equal(data.files.filter(f => f.fileName === normalizeSlashes('./src/test.py'))[0].content, getContent('A'));
-    assert.equal(data.files.filter(f => f.fileName === normalizeSlashes('./src/B.py'))[0].content, getContent('B'));
-    assert.equal(data.files.filter(f => f.fileName === normalizeSlashes('./src/C.py'))[0].content, getContent('C'));
+    assert.equal(
+        data.files.filter((f) => f.fileName === normalizeSlashes('./src/test.py'))[0].content,
+        getContent('A')
+    );
+    assert.equal(data.files.filter((f) => f.fileName === normalizeSlashes('./src/B.py'))[0].content, getContent('B'));
+    assert.equal(data.files.filter((f) => f.fileName === normalizeSlashes('./src/C.py'))[0].content, getContent('C'));
 });
 
 test('Multiple Files with markers', () => {
@@ -270,16 +274,16 @@ test('Multiple Files with markers', () => {
     const data = parseTestData('.', code, 'test.py');
     assert.equal(data.files.length, 3);
 
-    assert.equal(data.files.filter(f => f.fileName === normalizeSlashes('./src/A.py'))[0].content, getContent('A'));
-    assert.equal(data.files.filter(f => f.fileName === normalizeSlashes('./src/B.py'))[0].content, getContent('B'));
-    assert.equal(data.files.filter(f => f.fileName === normalizeSlashes('./src/C.py'))[0].content, getContent('C'));
+    assert.equal(data.files.filter((f) => f.fileName === normalizeSlashes('./src/A.py'))[0].content, getContent('A'));
+    assert.equal(data.files.filter((f) => f.fileName === normalizeSlashes('./src/B.py'))[0].content, getContent('B'));
+    assert.equal(data.files.filter((f) => f.fileName === normalizeSlashes('./src/C.py'))[0].content, getContent('C'));
 
     assert.equal(data.ranges.length, 3);
 
     assert(data.markerPositions.get('marker1'));
     assert(data.markerPositions.get('marker2'));
 
-    assert.equal(data.ranges.filter(r => r.marker).length, 2);
+    assert.equal(data.ranges.filter((r) => r.marker).length, 2);
 });
 
 test('fourSlashWithFileSystem', () => {
@@ -299,12 +303,12 @@ test('fourSlashWithFileSystem', () => {
 
     const data = parseTestData('.', code, 'unused');
     const documents = data.files.map(
-        f => new factory.TextDocument(f.fileName, f.content, new Map<string, string>(Object.entries(f.fileOptions)))
+        (f) => new factory.TextDocument(f.fileName, f.content, new Map<string, string>(Object.entries(f.fileOptions)))
     );
 
     const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ false, {
         documents,
-        cwd: normalizeSlashes('/')
+        cwd: normalizeSlashes('/'),
     });
 
     for (const file of data.files) {

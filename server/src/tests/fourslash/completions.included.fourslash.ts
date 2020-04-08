@@ -6,6 +6,6 @@
 
 helper.verifyCompletion('included', {
     marker1: {
-        completions: [{ label: 'denominator' }, { label: 'imag' }, { label: 'numerator' }, { label: 'real' }]
-    }
+        completions: [{ label: 'denominator' }, { label: 'imag' }, { label: 'numerator' }, { label: 'real' }],
+    },
 });

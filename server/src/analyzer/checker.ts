@@ -57,7 +57,7 @@ import {
     WhileNode,
     WithNode,
     YieldFromNode,
-    YieldNode
+    YieldNode,
 } from '../parser/parseNodes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -82,7 +82,7 @@ import {
     ObjectType,
     Type,
     TypeCategory,
-    UnknownType
+    UnknownType,
 } from './types';
 import {
     ClassMemberLookupFlags,
@@ -95,7 +95,7 @@ import {
     isProperty,
     lookUpClassMember,
     specializeType,
-    transformTypeObjectToClass
+    transformTypeObjectToClass,
 } from './typeUtils';
 
 export class Checker extends ParseTreeWalker {
@@ -189,7 +189,7 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        node.parameters.forEach(param => {
+        node.parameters.forEach((param) => {
             if (param.defaultValue) {
                 this.walk(param.defaultValue);
             }
@@ -205,7 +205,7 @@ export class Checker extends ParseTreeWalker {
 
         this.walkMultiple(node.decorators);
 
-        node.parameters.forEach(param => {
+        node.parameters.forEach((param) => {
             if (param.name) {
                 this.walk(param.name);
             }
@@ -229,7 +229,7 @@ export class Checker extends ParseTreeWalker {
         // Walk the children.
         this.walkMultiple([...node.parameters, node.expression]);
 
-        node.parameters.forEach(param => {
+        node.parameters.forEach((param) => {
             if (param.name) {
                 const paramType = this._evaluator.getType(param.name);
                 if (paramType) {
@@ -315,7 +315,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitWith(node: WithNode): boolean {
-        node.withItems.forEach(item => {
+        node.withItems.forEach((item) => {
             this._evaluator.evaluateTypesForStatement(item);
         });
 
@@ -421,7 +421,7 @@ export class Checker extends ParseTreeWalker {
             if (exceptionType && baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
                 const diagAddendum = new DiagnosticAddendum();
 
-                doForSubtypes(exceptionType, subtype => {
+                doForSubtypes(exceptionType, (subtype) => {
                     if (!isAnyOrUnknown(subtype)) {
                         if (subtype.category === TypeCategory.Class) {
                             if (!derivesFromClassRecursive(subtype, baseExceptionType)) {
@@ -463,7 +463,7 @@ export class Checker extends ParseTreeWalker {
             if (exceptionType && baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
                 const diagAddendum = new DiagnosticAddendum();
 
-                doForSubtypes(exceptionType, subtype => {
+                doForSubtypes(exceptionType, (subtype) => {
                     if (!isAnyOrUnknown(subtype) && !isNoneOrNever(subtype)) {
                         if (subtype.category === TypeCategory.Object) {
                             if (!derivesFromClassRecursive(subtype.classType, baseExceptionType)) {
@@ -602,7 +602,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitFormatString(node: FormatStringNode): boolean {
-        node.expressions.forEach(formatExpr => {
+        node.expressions.forEach((formatExpr) => {
             this._evaluator.getType(formatExpr);
         });
 
@@ -616,7 +616,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitDel(node: DelNode) {
-        node.expressions.forEach(expr => {
+        node.expressions.forEach((expr) => {
             this._evaluator.verifyDeleteExpression(expr);
         });
 
@@ -640,7 +640,7 @@ export class Checker extends ParseTreeWalker {
 
     visitImportFrom(node: ImportFromNode): boolean {
         if (!node.isWildcardImport) {
-            node.imports.forEach(importAs => {
+            node.imports.forEach((importAs) => {
                 this._evaluator.evaluateTypesForStatement(importAs);
             });
         }
@@ -689,7 +689,7 @@ export class Checker extends ParseTreeWalker {
         } else if (exceptionType.category === TypeCategory.Object) {
             const iterableType = this._evaluator.getTypeFromIterable(exceptionType, false, errorNode, false);
 
-            resultingExceptionType = doForSubtypes(iterableType, subtype => {
+            resultingExceptionType = doForSubtypes(iterableType, (subtype) => {
                 if (isAnyOrUnknown(subtype)) {
                     return subtype;
                 }
@@ -750,7 +750,7 @@ export class Checker extends ParseTreeWalker {
         let sawFinal = false;
         let sawAssignment = false;
 
-        decls.forEach(decl => {
+        decls.forEach((decl) => {
             if (isFinalVariableDeclaration(decl)) {
                 if (sawFinal) {
                     this._evaluator.addError(`"${name}" was previously declared as Final`, decl.node);
@@ -768,7 +768,7 @@ export class Checker extends ParseTreeWalker {
 
         // If it's not a stub file, an assignment must be provided.
         if (!sawAssignment && !this._fileInfo.isStubFile) {
-            const firstDecl = decls.find(decl => decl.type === DeclarationType.Variable && decl.isFinal);
+            const firstDecl = decls.find((decl) => decl.type === DeclarationType.Variable && decl.isFinal);
             if (firstDecl) {
                 this._evaluator.addError(`"${name}" is declared Final, but value is not assigned`, firstDecl.node);
             }
@@ -786,12 +786,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        let otherDecls = symbol.getDeclarations().filter(decl => decl !== primaryDecl);
+        let otherDecls = symbol.getDeclarations().filter((decl) => decl !== primaryDecl);
 
         // If it's a function, we can skip any other declarations
         // that are overloads.
         if (primaryDecl.type === DeclarationType.Function) {
-            otherDecls = otherDecls.filter(decl => decl.type !== DeclarationType.Function);
+            otherDecls = otherDecls.filter((decl) => decl.type !== DeclarationType.Function);
         }
 
         // If there are no other declarations to consider, we're done.
@@ -916,7 +916,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         const decls = symbol.getDeclarations();
-        decls.forEach(decl => {
+        decls.forEach((decl) => {
             this._conditionallyReportUnusedDeclaration(decl, this._isSymbolPrivate(name, scopeType));
         });
     }
@@ -938,7 +938,7 @@ export class Checker extends ParseTreeWalker {
                         // Handle multi-part names specially.
                         const nameParts = decl.node.module.nameParts;
                         if (nameParts.length > 0) {
-                            const multipartName = nameParts.map(np => np.value).join('.');
+                            const multipartName = nameParts.map((np) => np.value).join('.');
                             const textRange: TextRange = { start: nameParts[0].start, length: nameParts[0].length };
                             TextRange.extend(textRange, nameParts[nameParts.length - 1]);
                             this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
@@ -1045,7 +1045,7 @@ export class Checker extends ParseTreeWalker {
         if (!arg0Type) {
             return;
         }
-        arg0Type = doForSubtypes(arg0Type, subtype => {
+        arg0Type = doForSubtypes(arg0Type, (subtype) => {
             return transformTypeObjectToClass(subtype);
         });
 
@@ -1066,7 +1066,7 @@ export class Checker extends ParseTreeWalker {
             // parameter is a tuple of classes.
             const objClass = arg1Type.classType;
             if (ClassType.isBuiltIn(objClass, 'Tuple') && objClass.typeArguments) {
-                objClass.typeArguments.forEach(typeArg => {
+                objClass.typeArguments.forEach((typeArg) => {
                     if (typeArg.category === TypeCategory.Class) {
                         classTypeList.push(typeArg);
                     } else {
@@ -1080,7 +1080,7 @@ export class Checker extends ParseTreeWalker {
 
         // According to PEP 544, protocol classes cannot be used as the right-hand
         // argument to isinstance or issubclass.
-        if (classTypeList.some(type => ClassType.isProtocolClass(type))) {
+        if (classTypeList.some((type) => ClassType.isProtocolClass(type))) {
             this._evaluator.addError(
                 `Protocol class cannot be used in ${callName} call`,
                 node.arguments[1].valueExpression
@@ -1125,7 +1125,7 @@ export class Checker extends ParseTreeWalker {
             }
 
             // Make all class types into object types before returning them.
-            return filteredTypes.map(t => (t.category === TypeCategory.Class ? ObjectType.create(t) : t));
+            return filteredTypes.map((t) => (t.category === TypeCategory.Class ? ObjectType.create(t) : t));
         };
 
         let filteredType: Type;
@@ -1139,7 +1139,7 @@ export class Checker extends ParseTreeWalker {
             let remainingTypes: Type[] = [];
             let foundAnyType = false;
 
-            arg0Type.subtypes.forEach(t => {
+            arg0Type.subtypes.forEach((t) => {
                 if (isAnyOrUnknown(t)) {
                     foundAnyType = true;
                 }
@@ -1162,7 +1162,7 @@ export class Checker extends ParseTreeWalker {
         }
 
         const getTestType = () => {
-            const objTypeList = classTypeList.map(t => ObjectType.create(t));
+            const objTypeList = classTypeList.map((t) => ObjectType.create(t));
             return combineTypes(objTypeList);
         };
 
@@ -1319,7 +1319,7 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.addError(`TypedDict classes can contain only type annotations`, node);
         };
 
-        suiteNode.statements.forEach(statement => {
+        suiteNode.statements.forEach((statement) => {
             if (!AnalyzerNodeInfo.isCodeUnreachable(statement)) {
                 if (statement.nodeType === ParseNodeType.StatementList) {
                     for (const substatement of statement.statements) {
@@ -1674,11 +1674,11 @@ export class Checker extends ParseTreeWalker {
 
         const importModuleMap = new Map<string, ImportAsNode>();
 
-        importStatements.orderedImports.forEach(importStatement => {
+        importStatements.orderedImports.forEach((importStatement) => {
             if (importStatement.node.nodeType === ParseNodeType.ImportFrom) {
                 const symbolMap = new Map<string, ImportFromAsNode>();
 
-                importStatement.node.imports.forEach(importFromAs => {
+                importStatement.node.imports.forEach((importFromAs) => {
                     // Ignore duplicates if they're aliased.
                     if (!importFromAs.alias) {
                         const prevImport = symbolMap.get(importFromAs.name.value);

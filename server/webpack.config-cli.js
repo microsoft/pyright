@@ -16,11 +16,11 @@ module.exports = {
     target: 'node',
     output: {
         filename: 'pyright.js',
-        path: path.resolve(__dirname, '../dist')
+        path: path.resolve(__dirname, '../dist'),
     },
     resolve: {
         modules: [path.resolve(__dirname, '.'), 'node_modules'],
-        extensions: ['.js', '.ts']
+        extensions: ['.js', '.ts'],
     },
 
     module: {
@@ -29,17 +29,17 @@ module.exports = {
                 test: /\.ts$/,
                 loader: 'ts-loader',
                 options: {
-                    configFile: 'tsconfig.json'
-                }
+                    configFile: 'tsconfig.json',
+                },
             },
             {
                 test: /\.node$/,
-                loader: 'node-loader'
-            }
-        ]
+                loader: 'node-loader',
+            },
+        ],
     },
 
     node: {
-        fs: 'empty'
-    }
+        fs: 'empty',
+    },
 };

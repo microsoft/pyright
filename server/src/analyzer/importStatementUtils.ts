@@ -19,7 +19,7 @@ import {
     ImportNode,
     ModuleNameNode,
     ModuleNode,
-    ParseNodeType
+    ParseNodeType,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -45,15 +45,15 @@ export interface ImportStatements {
 export function getTopLevelImports(parseTree: ModuleNode): ImportStatements {
     const localImports: ImportStatements = {
         orderedImports: [],
-        mapByFilePath: new Map<string, ImportStatement>()
+        mapByFilePath: new Map<string, ImportStatement>(),
     };
 
     let followsNonImportStatement = false;
     let foundFirstImportStatement = false;
 
-    parseTree.statements.forEach(statement => {
+    parseTree.statements.forEach((statement) => {
         if (statement.nodeType === ParseNodeType.StatementList) {
-            statement.statements.forEach(subStatement => {
+            statement.statements.forEach((subStatement) => {
                 if (subStatement.nodeType === ParseNodeType.Import) {
                     foundFirstImportStatement = true;
                     _processImportNode(subStatement, localImports, followsNonImportStatement);
@@ -88,7 +88,7 @@ export function getTextEditsForAutoImportSymbolAddition(
     if (importStatement.node && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
         // Make sure we're not attempting to auto-import a symbol that
         // already exists in the import list.
-        if (!importStatement.node.imports.some(importAs => importAs.name.value === symbolName)) {
+        if (!importStatement.node.imports.some((importAs) => importAs.name.value === symbolName)) {
             for (const curImport of importStatement.node.imports) {
                 if (curImport.name.value > symbolName) {
                     break;
@@ -106,7 +106,7 @@ export function getTextEditsForAutoImportSymbolAddition(
 
             textEditList.push({
                 range: { start: insertionPosition, end: insertionPosition },
-                replacementText: priorImport ? ', ' + symbolName : symbolName + ', '
+                replacementText: priorImport ? ', ' + symbolName : symbolName + ', ',
             });
         }
     }
@@ -247,14 +247,14 @@ export function getTextEditsForAutoImportInsertion(
 
     textEditList.push({
         range: { start: insertionPosition, end: insertionPosition },
-        replacementText: newImportStatement
+        replacementText: newImportStatement,
     });
 
     return textEditList;
 }
 
 function _processImportNode(node: ImportNode, localImports: ImportStatements, followsNonImportStatement: boolean) {
-    node.list.forEach(importAsNode => {
+    node.list.forEach((importAsNode) => {
         const importResult = AnalyzerNodeInfo.getImportInfo(importAsNode.module);
         let resolvedPath: string | undefined;
 
@@ -268,7 +268,7 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements, fo
             importResult,
             resolvedPath,
             moduleName: _formatModuleName(importAsNode.module),
-            followsNonImportStatement
+            followsNonImportStatement,
         };
 
         localImports.orderedImports.push(localImport);
@@ -302,7 +302,7 @@ function _processImportFromNode(
         importResult,
         resolvedPath,
         moduleName: _formatModuleName(node.module),
-        followsNonImportStatement
+        followsNonImportStatement,
     };
 
     localImports.orderedImports.push(localImport);
@@ -329,7 +329,7 @@ function _formatModuleName(node: ModuleNameNode): string {
         moduleName = moduleName + '.';
     }
 
-    moduleName += node.nameParts.map(part => part.value).join('.');
+    moduleName += node.nameParts.map((part) => part.value).join('.');
 
     return moduleName;
 }

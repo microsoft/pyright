@@ -66,7 +66,7 @@ test('CreateRich', () => {
         [normalizeSlashes('/a/b/2.txt')]: new vfs.File('hello2'),
         [normalizeSlashes('/a/3.txt')]: new vfs.File('hello3'),
         [normalizeSlashes('/4.txt')]: new vfs.File('hello4', { encoding: 'utf16le' }),
-        [normalizeSlashes('/a/b/../c/./5.txt')]: new vfs.File('hello5', { encoding: 'ucs2' })
+        [normalizeSlashes('/a/b/../c/./5.txt')]: new vfs.File('hello5', { encoding: 'ucs2' }),
     };
 
     const fs = new vfs.FileSystem(/*ignoreCase*/ true, { cwd, files });
@@ -151,7 +151,7 @@ test('createFromFileSystem1', () => {
     // file system will map physical file system to virtual one
     const fs = factory.createFromFileSystem(host.HOST, false, {
         documents: [new factory.TextDocument(filepath, content)],
-        cwd: factory.srcFolder
+        cwd: factory.srcFolder,
     });
 
     // check existing typeshed folder on virtual path inherited from base snapshot from physical file system
@@ -172,17 +172,17 @@ test('createFromFileSystemWithCustomTypeshedPath', () => {
     const invalidpath = normalizeSlashes(combinePaths(host.HOST.getWorkspaceRoot(), '../docs'));
     const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ false, {
         cwd: factory.srcFolder,
-        meta: { [factory.typeshedFolder]: invalidpath }
+        meta: { [factory.typeshedFolder]: invalidpath },
     });
 
     const entries = fs.readdirSync(factory.typeshedFolder);
-    assert(entries.filter(e => e.endsWith('.md')).length > 0);
+    assert(entries.filter((e) => e.endsWith('.md')).length > 0);
 });
 
 test('createFromFileSystemWithMetadata', () => {
     const fs = factory.createFromFileSystem(host.HOST, /* ignoreCase */ false, {
         cwd: factory.srcFolder,
-        meta: { unused: 'unused' }
+        meta: { unused: 'unused' },
     });
 
     assert(fs.existsSync(factory.srcFolder));

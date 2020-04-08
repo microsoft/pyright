@@ -13,12 +13,12 @@ helper.verifyCommand(
     {
         title: 'Quick action order imports',
         command: Consts.Commands.orderImports,
-        arguments: ['quickActionOrganizeImportTest2.py']
+        arguments: ['quickActionOrganizeImportTest2.py'],
     },
     {
         ['quickActionOrganizeImportTest2.py']: `import math
 import os
 import sys
-import time`
+import time`,
     }
 );

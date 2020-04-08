@@ -74,7 +74,7 @@ import {
     WithItemNode,
     WithNode,
     YieldFromNode,
-    YieldNode
+    YieldNode,
 } from '../parser/parseNodes';
 
 // To use this class, create a subclass and override the
@@ -88,7 +88,7 @@ export class ParseTreeWalker {
     }
 
     walkMultiple(nodes: ParseNodeArray) {
-        nodes.forEach(node => {
+        nodes.forEach((node) => {
             if (node) {
                 this.walk(node);
             }

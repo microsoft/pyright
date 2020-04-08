@@ -70,7 +70,7 @@ class LowLevelWatcher implements FileWatcher {
     constructor(private paths: string[]) {}
 
     close(): void {
-        this.paths.forEach(p => fs.unwatchFile(p));
+        this.paths.forEach((p) => fs.unwatchFile(p));
     }
 }
 
@@ -126,7 +126,7 @@ class RealFileSystem implements FileSystem {
         recursive?: boolean,
         listener?: (event: string, filename: string) => void
     ): FileWatcher {
-        paths.forEach(p => {
+        paths.forEach((p) => {
             fs.watch(p, { recursive: recursive }, listener);
         });
 
@@ -146,7 +146,7 @@ class RealFileSystem implements FileSystem {
             followSymlinks: true, // this is the default of chokidar and supports file events through symlinks
             interval: 1000, // while not used in normal cases, if any error causes chokidar to fallback to polling, increase its intervals
             binaryInterval: 1000,
-            disableGlobbing: true // fix https://github.com/Microsoft/vscode/issues/4586
+            disableGlobbing: true, // fix https://github.com/Microsoft/vscode/issues/4586
         };
 
         if (_isMacintosh) {
@@ -157,7 +157,7 @@ class RealFileSystem implements FileSystem {
 
         const excludes: string[] = [];
         if (_isMacintosh || _isLinux) {
-            if (paths.some(path => path === '' || path === '/')) {
+            if (paths.some((path) => path === '' || path === '/')) {
                 excludes.push('/dev/**');
                 if (_isLinux) {
                     excludes.push('/proc/**', '/sys/**');
@@ -167,7 +167,7 @@ class RealFileSystem implements FileSystem {
         watcherOptions.ignored = excludes;
 
         const watcher = chokidar.watch(paths, watcherOptions);
-        watcher.on('error', _ => {
+        watcher.on('error', (_) => {
             this._console.log('Error returned from file system watcher.');
         });
 

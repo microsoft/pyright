@@ -20,7 +20,7 @@ import {
     ImportFromNode,
     MemberAccessNode,
     NameNode,
-    ParseNodeType
+    ParseNodeType,
 } from '../parser/parseNodes';
 
 export enum FlowFlags {
@@ -36,7 +36,7 @@ export enum FlowFlags {
     Call = 1 << 10, // Call node
     PreFinallyGate = 1 << 11, // Injected edge that links pre-finally label and pre-try flow
     PostFinally = 1 << 12, // Injected edge that links post-finally flow with the rest of the graph
-    AssignmentAlias = 1 << 13 // Assigned symbol is aliased to another symbol with the same name
+    AssignmentAlias = 1 << 13, // Assigned symbol is aliased to another symbol with the same name
 }
 
 let _nextFlowNodeId = 1;

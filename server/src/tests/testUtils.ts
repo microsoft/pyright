@@ -78,7 +78,7 @@ export function parseSampleFile(
 
     return {
         fileContents: text,
-        parseResults: parseText(text, diagSink)
+        parseResults: parseText(text, diagSink),
     };
 }
 
@@ -91,7 +91,7 @@ export function buildAnalyzerFileInfo(
     const analysisDiagnostics = new TextRangeDiagnosticSink(parseResults.tokenizerOutput.lines);
 
     const fileInfo: AnalyzerFileInfo = {
-        importLookup: _ => undefined,
+        importLookup: (_) => undefined,
         futureImports: new Map<string, boolean>(),
         builtinsScope: undefined,
         diagnosticSink: analysisDiagnostics,
@@ -103,7 +103,7 @@ export function buildAnalyzerFileInfo(
         isStubFile: filePath.endsWith('.pyi'),
         isTypingStubFile: false,
         isBuiltInStubFile: false,
-        accessedSymbolMap: new Map<number, true>()
+        accessedSymbolMap: new Map<number, true>(),
     };
 
     return fileInfo;
@@ -127,7 +127,7 @@ export function bindSampleFile(fileName: string, configOptions = new ConfigOptio
         filePath,
         parseResults: parseInfo.parseResults,
         errors: fileInfo.diagnosticSink.getErrors(),
-        warnings: fileInfo.diagnosticSink.getWarnings()
+        warnings: fileInfo.diagnosticSink.getWarnings(),
     };
 }
 
@@ -140,7 +140,7 @@ export function typeAnalyzeSampleFiles(
     const importResolver = new ImportResolver(createFromRealFileSystem(), configOptions);
 
     const program = new Program(importResolver, configOptions);
-    const filePaths = fileNames.map(name => resolveSampleFilePath(name));
+    const filePaths = fileNames.map((name) => resolveSampleFilePath(name));
     program.setTrackedFiles(filePaths);
 
     while (program.analyze()) {
@@ -148,15 +148,15 @@ export function typeAnalyzeSampleFiles(
         // specifying a timeout, it should complete the first time.
     }
 
-    const sourceFiles = filePaths.map(filePath => program.getSourceFile(filePath));
+    const sourceFiles = filePaths.map((filePath) => program.getSourceFile(filePath));
     return sourceFiles.map((sourceFile, index) => {
         if (sourceFile) {
             const diagnostics = sourceFile.getDiagnostics(configOptions) || [];
             const analysisResult: FileAnalysisResult = {
                 filePath: sourceFile.getFilePath(),
                 parseResults: sourceFile.getParseResults(),
-                errors: diagnostics.filter(diag => diag.category === DiagnosticCategory.Error),
-                warnings: diagnostics.filter(diag => diag.category === DiagnosticCategory.Warning)
+                errors: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Error),
+                warnings: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Warning),
             };
             return analysisResult;
         } else {
@@ -166,7 +166,7 @@ export function typeAnalyzeSampleFiles(
                 filePath: '',
                 parseResults: undefined,
                 errors: [],
-                warnings: []
+                warnings: [],
             };
             return analysisResult;
         }

@@ -54,7 +54,7 @@ test('FindFilesVirtualEnvAutoDetectExclude', () => {
 
     // There are 3 python files in the workspace, outside of myvenv
     // There is 1 python file in myvenv, which should be excluded
-    const fileNames = fileList.map(p => getBaseFileName(p)).sort();
+    const fileNames = fileList.map((p) => getBaseFileName(p)).sort();
     assert.deepEqual(fileNames, ['sample1.py', 'sample2.py', 'sample3.py']);
 });
 
@@ -72,7 +72,7 @@ test('FindFilesVirtualEnvAutoDetectInclude', () => {
     // There are 3 python files in the workspace, outside of myvenv
     // There is 1 more python file in excluded folder
     // There is 1 python file in myvenv, which should be included
-    const fileNames = fileList.map(p => getBaseFileName(p)).sort();
+    const fileNames = fileList.map((p) => getBaseFileName(p)).sort();
     assert.deepEqual(fileNames, ['library1.py', 'sample1.py', 'sample2.py', 'sample3.py']);
 });
 
@@ -201,8 +201,8 @@ test('AutoSearchPathsOn', () => {
             pythonPlatform: undefined,
             pythonVersion: 776,
             root: cwd,
-            extraPaths: [normalizePath(combinePaths(cwd, 'src'))]
-        }
+            extraPaths: [normalizePath(combinePaths(cwd, 'src'))],
+        },
     ];
 
     assert.deepEqual(configOptions.executionEnvironments, expectedExecEnvs);
@@ -255,8 +255,8 @@ test('AutoSearchPathsOnWithConfigExecEnv', () => {
             pythonPlatform: undefined,
             pythonVersion: 773,
             root: cwd,
-            extraPaths: []
-        }
+            extraPaths: [],
+        },
     ];
 
     assert.deepEqual(configOptions.executionEnvironments, expectedExecEnvs);

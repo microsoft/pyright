@@ -15,13 +15,13 @@ export const enum GlobalMetadataOptionNames {
     projectRoot = 'projectroot',
     ignoreCase = 'ignorecase',
     typeshed = 'typeshed',
-    asynctest = 'asynctest'
+    asynctest = 'asynctest',
 }
 
 /** Any option name not belong to this will become global option */
 export const enum MetadataOptionNames {
     fileName = 'filename',
-    library = 'library'
+    library = 'library',
 }
 
 /** List of allowed file metadata names */

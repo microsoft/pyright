@@ -14,7 +14,7 @@ import {
     DiagnosticSettings,
     getBooleanDiagnosticSettings,
     getDiagLevelSettings,
-    getStrictDiagnosticSettings
+    getStrictDiagnosticSettings,
 } from '../common/configOptions';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Token } from '../parser/tokenizerTypes';
@@ -69,14 +69,14 @@ function _applyStrictSettings(settings: DiagnosticSettings) {
 function _parsePyrightComment(commentValue: string, settings: DiagnosticSettings) {
     // Is this a pyright or mspython-specific comment?
     const validPrefixes = ['pyright:', 'mspython:'];
-    const prefix = validPrefixes.find(p => commentValue.startsWith(p));
+    const prefix = validPrefixes.find((p) => commentValue.startsWith(p));
     if (prefix) {
         const operands = commentValue.substr(prefix.length).trim();
-        const operandList = operands.split(',').map(s => s.trim());
+        const operandList = operands.split(',').map((s) => s.trim());
 
         // If it contains a "strict" operand, replace the existing
         // diagnostic settings with their strict counterparts.
-        if (operandList.some(s => s === 'strict')) {
+        if (operandList.some((s) => s === 'strict')) {
             _applyStrictSettings(settings);
         }
 
@@ -89,7 +89,7 @@ function _parsePyrightComment(commentValue: string, settings: DiagnosticSettings
 }
 
 function _parsePyrightOperand(operand: string, settings: DiagnosticSettings) {
-    const operandSplit = operand.split('=').map(s => s.trim());
+    const operandSplit = operand.split('=').map((s) => s.trim());
     if (operandSplit.length !== 2) {
         return settings;
     }
@@ -98,12 +98,12 @@ function _parsePyrightOperand(operand: string, settings: DiagnosticSettings) {
     const boolSettings = getBooleanDiagnosticSettings();
     const diagLevelSettings = getDiagLevelSettings();
 
-    if (diagLevelSettings.find(s => s === settingName)) {
+    if (diagLevelSettings.find((s) => s === settingName)) {
         const diagLevelValue = _parseDiagLevel(operandSplit[1]);
         if (diagLevelValue !== undefined) {
             (settings as any)[settingName] = diagLevelValue;
         }
-    } else if (boolSettings.find(s => s === settingName)) {
+    } else if (boolSettings.find((s) => s === settingName)) {
         const boolValue = _parseBoolSetting(operandSplit[1]);
         if (boolValue !== undefined) {
             (settings as any)[settingName] = boolValue;

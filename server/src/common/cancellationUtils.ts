@@ -19,7 +19,7 @@ import {
     Emitter,
     ErrorCodes,
     Event,
-    ResponseError
+    ResponseError,
 } from 'vscode-languageserver';
 
 class CancellationThrottle {

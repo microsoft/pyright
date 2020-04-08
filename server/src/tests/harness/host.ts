@@ -15,7 +15,7 @@ import {
     fileExists,
     FileSystemEntries,
     getFileSize,
-    resolvePaths
+    resolvePaths,
 } from '../../common/pathUtils';
 import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../../common/stringUtils';
 
@@ -62,7 +62,7 @@ function createHost(): TestHost {
 
         /** Convert all lowercase chars to uppercase, and vice-versa */
         function swapCase(s: string): string {
-            return s.replace(/\w/g, ch => {
+            return s.replace(/\w/g, (ch) => {
                 const up = ch.toUpperCase();
                 return ch === up ? ch.toLowerCase() : up;
             });
@@ -162,17 +162,17 @@ function createHost(): TestHost {
     return {
         useCaseSensitiveFileNames: () => useCaseSensitiveFileNames,
         getFileSize: (path: string) => getFileSize(vfs, path),
-        readFile: path => readFile(path),
+        readFile: (path) => readFile(path),
         writeFile: (path, content) => {
             writeFile(path, content);
         },
-        fileExists: path => fileExists(vfs, path),
-        directoryExists: path => directoryExists(vfs, path),
+        fileExists: (path) => fileExists(vfs, path),
+        directoryExists: (path) => directoryExists(vfs, path),
         listFiles,
-        log: s => {
+        log: (s) => {
             console.log(s);
         },
         getWorkspaceRoot: () => resolvePaths(__dirname, '../../..'),
-        getAccessibleFileSystemEntries
+        getAccessibleFileSystemEntries,
     };
 }

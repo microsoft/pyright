@@ -16,14 +16,14 @@ module.exports = {
     devtool: 'source-map',
     output: {
         filename: 'server.bundle.js',
-        path: path.resolve(__dirname, '../client/server')
+        path: path.resolve(__dirname, '../client/server'),
     },
     optimization: {
-        usedExports: true
+        usedExports: true,
     },
     resolve: {
         modules: [path.resolve(__dirname, '.'), 'node_modules'],
-        extensions: ['.js', '.ts']
+        extensions: ['.js', '.ts'],
     },
     module: {
         rules: [
@@ -31,18 +31,18 @@ module.exports = {
                 test: /\.ts$/,
                 loader: 'ts-loader',
                 options: {
-                    configFile: 'tsconfig.json'
-                }
+                    configFile: 'tsconfig.json',
+                },
             },
             {
                 test: /\.node$/,
-                use: 'node-loader'
-            }
-        ]
+                use: 'node-loader',
+            },
+        ],
     },
     node: {
         fs: 'empty',
         __dirname: false,
-        __filename: false
-    }
+        __filename: false,
+    },
 };
