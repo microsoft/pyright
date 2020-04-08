@@ -569,7 +569,7 @@ export class Program {
         // Don't bother checking third-party imports or typeshed files unless they're open.
         if (
             fileToCheck.isThirdPartyImport ||
-            (fileToCheck.isTypeshedFile && this._configOptions.diagnosticSettings.reportTypeshedErrors === 'none')
+            (fileToCheck.isTypeshedFile && this._configOptions.diagnosticRuleSet.reportTypeshedErrors === 'none')
         ) {
             if (!fileToCheck.isOpenByClient) {
                 return false;
@@ -592,7 +592,7 @@ export class Program {
         fileToCheck.sourceFile.check(this._evaluator);
 
         // Detect import cycles that involve the file.
-        if (this._configOptions.diagnosticSettings.reportImportCycles !== 'none') {
+        if (this._configOptions.diagnosticRuleSet.reportImportCycles !== 'none') {
             // Don't detect import cycles when doing type stub generation. Some
             // third-party modules are pretty convoluted.
             if (!this._allowedThirdPartyImports) {
@@ -1215,7 +1215,7 @@ export class Program {
                     }
                 });
             } else if (options.verboseOutput) {
-                if (!sourceFileInfo.isTypeshedFile || options.diagnosticSettings.reportTypeshedErrors !== 'none') {
+                if (!sourceFileInfo.isTypeshedFile || options.diagnosticRuleSet.reportTypeshedErrors !== 'none') {
                     this._console.log(
                         `Could not import '${importResult.importName}' ` +
                             `in file '${sourceFileInfo.sourceFile.getFilePath()}'`

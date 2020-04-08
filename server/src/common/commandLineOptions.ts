@@ -61,6 +61,10 @@ export class CommandLineOptions {
     // execution environments.
     autoSearchPaths?: boolean;
 
+    // Default type-checking rule set. Should be one of 'off',
+    // 'basic', or 'strict'.
+    typeCheckingMode?: string;
+
     // Indicates that the settings came from VS Code rather than
     // from the command-line. Useful for providing clearer error
     // messages.

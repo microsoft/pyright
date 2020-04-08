@@ -40,6 +40,7 @@ function _getCommandLineOptions(
     commandLineOptions.checkOnlyOpenFiles = serverSettings.openFilesOnly;
     commandLineOptions.useLibraryCodeForTypes = serverSettings.useLibraryCodeForTypes;
     commandLineOptions.watchForLibraryChanges = serverSettings.watchForLibraryChanges;
+    commandLineOptions.typeCheckingMode = serverSettings.typeCheckingMode;
 
     // Disable watching of source files in the VS Code extension if we're
     // analyzing only open files. The file system watcher code has caused

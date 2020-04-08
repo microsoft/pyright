@@ -166,7 +166,7 @@ export class Checker extends ParseTreeWalker {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;
                     if (paramType.category === TypeCategory.Unknown) {
                         this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                            this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
                             DiagnosticRule.reportUnknownParameterType,
                             `Type of parameter "${param.name.value}" is unknown`,
                             param.name
@@ -175,7 +175,7 @@ export class Checker extends ParseTreeWalker {
                         const diagAddendum = new DiagnosticAddendum();
                         diagAddendum.addMessage(`Parameter type is "${this._evaluator.printType(paramType)}"`);
                         this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                            this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
                             DiagnosticRule.reportUnknownParameterType,
                             `Type of parameter "${param.name.value}" is partially unknown` + diagAddendum.getString(),
                             param.name
@@ -235,14 +235,14 @@ export class Checker extends ParseTreeWalker {
                 if (paramType) {
                     if (paramType.category === TypeCategory.Unknown) {
                         this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                            this._fileInfo.diagnosticRuleSet.reportUnknownLambdaType,
                             DiagnosticRule.reportUnknownLambdaType,
                             `Type of "${param.name.value}" is unknown`,
                             param.name
                         );
                     } else if (containsUnknown(paramType)) {
                         this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                            this._fileInfo.diagnosticRuleSet.reportUnknownLambdaType,
                             DiagnosticRule.reportUnknownLambdaType,
                             `Type of "${param.name.value}", ` +
                                 `"${this._evaluator.printType(paramType)}", is partially unknown`,
@@ -257,14 +257,14 @@ export class Checker extends ParseTreeWalker {
         if (returnType) {
             if (returnType.category === TypeCategory.Unknown) {
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                    this._fileInfo.diagnosticRuleSet.reportUnknownLambdaType,
                     DiagnosticRule.reportUnknownLambdaType,
                     `Return type of lambda is unknown`,
                     node.expression
                 );
             } else if (containsUnknown(returnType)) {
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownLambdaType,
+                    this._fileInfo.diagnosticRuleSet.reportUnknownLambdaType,
                     DiagnosticRule.reportUnknownLambdaType,
                     `Return type of lambda, "${this._evaluator.printType(returnType)}", is partially unknown`,
                     node.expression
@@ -284,7 +284,7 @@ export class Checker extends ParseTreeWalker {
 
         if (ParseTreeUtils.isWithinDefaultParamInitializer(node) && !this._fileInfo.isStubFile) {
             this._evaluator.addDiagnostic(
-                this._fileInfo.diagnosticSettings.reportCallInDefaultInitializer,
+                this._fileInfo.diagnosticRuleSet.reportCallInDefaultInitializer,
                 DiagnosticRule.reportCallInDefaultInitializer,
                 `Function calls within default value initializer are not permitted`,
                 node
@@ -341,7 +341,7 @@ export class Checker extends ParseTreeWalker {
             if (declaredReturnType) {
                 if (isNoReturnType(declaredReturnType)) {
                     this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         `Function with declared return type "NoReturn" cannot include a return statement`,
                         node
@@ -354,7 +354,7 @@ export class Checker extends ParseTreeWalker {
                     const specializedDeclaredType = specializeType(declaredReturnType, undefined);
                     if (!this._evaluator.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
                         this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `Expression of type "${this._evaluator.printType(returnType)}" cannot be assigned ` +
                                 `to return type "${this._evaluator.printType(specializedDeclaredType)}"` +
@@ -367,14 +367,14 @@ export class Checker extends ParseTreeWalker {
 
             if (returnType.category === TypeCategory.Unknown) {
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                    this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                     DiagnosticRule.reportUnknownVariableType,
                     `Return type is unknown`,
                     node.returnExpression!
                 );
             } else if (containsUnknown(returnType)) {
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                    this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                     DiagnosticRule.reportUnknownVariableType,
                     `Return type, "${this._evaluator.printType(returnType)}", is partially unknown`,
                     node.returnExpression!
@@ -447,7 +447,7 @@ export class Checker extends ParseTreeWalker {
 
                 if (diagAddendum.getMessageCount() > 0) {
                     this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         `Expected exception class or object` + diagAddendum.getString(),
                         node.typeExpression
@@ -517,7 +517,7 @@ export class Checker extends ParseTreeWalker {
                 if (type.classType.typeArguments.length > 0) {
                     this._evaluator.addDiagnosticForTextRange(
                         this._fileInfo,
-                        this._fileInfo.diagnosticSettings.reportAssertAlwaysTrue,
+                        this._fileInfo.diagnosticRuleSet.reportAssertAlwaysTrue,
                         DiagnosticRule.reportAssertAlwaysTrue,
                         `Assert expression always evaluates to true`,
                         node.testExpression
@@ -591,7 +591,7 @@ export class Checker extends ParseTreeWalker {
         if (node.strings.length > 1) {
             this._evaluator.addDiagnosticForTextRange(
                 this._fileInfo,
-                this._fileInfo.diagnosticSettings.reportImplicitStringConcatenation,
+                this._fileInfo.diagnosticRuleSet.reportImplicitStringConcatenation,
                 DiagnosticRule.reportImplicitStringConcatenation,
                 `Implicit string concatenation not allowed`,
                 node
@@ -834,7 +834,7 @@ export class Checker extends ParseTreeWalker {
         for (const otherDecl of otherDecls) {
             if (otherDecl.type === DeclarationType.Class) {
                 const diag = this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `Class declaration "${name}" is obscured by a ${primaryDeclType}declaration of the same name`,
                     otherDecl.node.name
@@ -842,7 +842,7 @@ export class Checker extends ParseTreeWalker {
                 addPrimaryDeclInfo(diag);
             } else if (otherDecl.type === DeclarationType.Function) {
                 const diag = this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `Function declaration "${name}" is obscured by a ${primaryDeclType}declaration of the same name`,
                     otherDecl.node.name
@@ -851,7 +851,7 @@ export class Checker extends ParseTreeWalker {
             } else if (otherDecl.type === DeclarationType.Parameter) {
                 if (otherDecl.node.name) {
                     const diag = this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         `Parameter "${name}" is obscured by a ${primaryDeclType}declaration of the same name`,
                         otherDecl.node.name
@@ -876,7 +876,7 @@ export class Checker extends ParseTreeWalker {
 
                         if (!duplicateIsOk) {
                             const diag = this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
                                 `Declared type for "${name}" is obscured by an incompatible ${primaryDeclType}declaration`,
                                 otherDecl.node
@@ -887,7 +887,7 @@ export class Checker extends ParseTreeWalker {
                 } else if (primaryType && !isProperty(primaryType)) {
                     if (primaryDecl.type === DeclarationType.Function || primaryDecl.type === DeclarationType.Class) {
                         const diag = this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `Declared ${primaryDeclType}already exists for "${name}"`,
                             otherDecl.node
@@ -929,7 +929,7 @@ export class Checker extends ParseTreeWalker {
 
         switch (decl.type) {
             case DeclarationType.Alias:
-                diagnosticLevel = this._fileInfo.diagnosticSettings.reportUnusedImport;
+                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedImport;
                 rule = DiagnosticRule.reportUnusedImport;
                 if (decl.node.nodeType === ParseNodeType.ImportAs) {
                     if (decl.node.alias) {
@@ -948,7 +948,7 @@ export class Checker extends ParseTreeWalker {
 
                             this._evaluator.addDiagnosticForTextRange(
                                 this._fileInfo,
-                                this._fileInfo.diagnosticSettings.reportUnusedImport,
+                                this._fileInfo.diagnosticRuleSet.reportUnusedImport,
                                 DiagnosticRule.reportUnusedImport,
                                 `Import "${multipartName}" is not accessed`,
                                 textRange
@@ -980,7 +980,7 @@ export class Checker extends ParseTreeWalker {
                 if (!isPrivate) {
                     return;
                 }
-                diagnosticLevel = this._fileInfo.diagnosticSettings.reportUnusedVariable;
+                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedVariable;
                 if (decl.node.nodeType === ParseNodeType.Name) {
                     nameNode = decl.node;
                     rule = DiagnosticRule.reportUnusedVariable;
@@ -992,7 +992,7 @@ export class Checker extends ParseTreeWalker {
                 if (!isPrivate) {
                     return;
                 }
-                diagnosticLevel = this._fileInfo.diagnosticSettings.reportUnusedClass;
+                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedClass;
                 nameNode = decl.node.name;
                 rule = DiagnosticRule.reportUnusedClass;
                 message = `Class "${nameNode.value}" is not accessed`;
@@ -1002,7 +1002,7 @@ export class Checker extends ParseTreeWalker {
                 if (!isPrivate) {
                     return;
                 }
-                diagnosticLevel = this._fileInfo.diagnosticSettings.reportUnusedFunction;
+                diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedFunction;
                 nameNode = decl.node.name;
                 rule = DiagnosticRule.reportUnusedFunction;
                 message = `Function "${nameNode.value}" is not accessed`;
@@ -1169,7 +1169,7 @@ export class Checker extends ParseTreeWalker {
         const callType = isInstanceCheck ? 'instance' : 'subclass';
         if (filteredType.category === TypeCategory.Never) {
             this._evaluator.addDiagnostic(
-                this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
+                this._fileInfo.diagnosticRuleSet.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
                 `Unnecessary ${callName} call; "${this._evaluator.printType(arg0Type)}" ` +
                     `is never ${callType} of "${this._evaluator.printType(getTestType())}"`,
@@ -1177,7 +1177,7 @@ export class Checker extends ParseTreeWalker {
             );
         } else if (isTypeSame(filteredType, arg0Type)) {
             this._evaluator.addDiagnostic(
-                this._fileInfo.diagnosticSettings.reportUnnecessaryIsInstance,
+                this._fileInfo.diagnosticRuleSet.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
                 `Unnecessary ${callName} call; "${this._evaluator.printType(arg0Type)}" ` +
                     `is always ${callType} of "${this._evaluator.printType(getTestType())}"`,
@@ -1208,7 +1208,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _conditionallyReportPrivateUsage(node: NameNode) {
-        if (this._fileInfo.diagnosticSettings.reportPrivateUsage === 'none') {
+        if (this._fileInfo.diagnosticRuleSet.reportPrivateUsage === 'none') {
             return;
         }
 
@@ -1293,7 +1293,7 @@ export class Checker extends ParseTreeWalker {
         if (classOrModuleNode && !ParseTreeUtils.isNodeContainedWithin(node, classOrModuleNode)) {
             if (isProtectedAccess) {
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportPrivateUsage,
+                    this._fileInfo.diagnosticRuleSet.reportPrivateUsage,
                     DiagnosticRule.reportPrivateUsage,
                     `"${nameValue}" is protected and used outside of a derived class`,
                     node
@@ -1302,7 +1302,7 @@ export class Checker extends ParseTreeWalker {
                 const scopeName = classOrModuleNode.nodeType === ParseNodeType.Class ? 'class' : 'module';
 
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportPrivateUsage,
+                    this._fileInfo.diagnosticRuleSet.reportPrivateUsage,
                     DiagnosticRule.reportPrivateUsage,
                     `"${nameValue}" is private and used outside of the ${scopeName} in which it is declared`,
                     node
@@ -1355,14 +1355,14 @@ export class Checker extends ParseTreeWalker {
             if (declaredReturnType) {
                 if (declaredReturnType.category === TypeCategory.Unknown) {
                     this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                        this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                         DiagnosticRule.reportUnknownVariableType,
                         `Declared return type is unknown`,
                         node.returnTypeAnnotation
                     );
                 } else if (containsUnknown(declaredReturnType)) {
                     this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportUnknownVariableType,
+                        this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                         DiagnosticRule.reportUnknownVariableType,
                         `Declared return type, "${this._evaluator.printType(
                             declaredReturnType
@@ -1387,7 +1387,7 @@ export class Checker extends ParseTreeWalker {
                     // the return type matches.
                     if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
                         this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `Function with declared type of "NoReturn" cannot return "None"`,
                             node.returnTypeAnnotation
@@ -1405,7 +1405,7 @@ export class Checker extends ParseTreeWalker {
                         // the return type matches.
                         if (!ParseTreeUtils.isSuiteEmpty(node.suite)) {
                             this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
                                 `Function with declared type of "${this._evaluator.printType(
                                     declaredReturnType
@@ -1420,14 +1420,14 @@ export class Checker extends ParseTreeWalker {
             const inferredReturnType = this._evaluator.getFunctionInferredReturnType(functionType);
             if (inferredReturnType.category === TypeCategory.Unknown) {
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                    this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,
                     `Inferred return type is unknown`,
                     node.name
                 );
             } else if (containsUnknown(inferredReturnType)) {
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportUnknownParameterType,
+                    this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,
                     `Return type "${this._evaluator.printType(inferredReturnType)}" is partially unknown`,
                     node.name
@@ -1486,7 +1486,7 @@ export class Checker extends ParseTreeWalker {
                             const decl = getLastTypedDeclaredForSymbol(symbol);
                             if (decl && decl.type === DeclarationType.Function) {
                                 const diag = this._evaluator.addDiagnostic(
-                                    this._fileInfo.diagnosticSettings.reportIncompatibleMethodOverride,
+                                    this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
                                     DiagnosticRule.reportIncompatibleMethodOverride,
                                     `Method "${name}" overrides class "${baseClassAndSymbol.classType.details.name}" ` +
                                         `in an incompatible manner` +
@@ -1535,7 +1535,7 @@ export class Checker extends ParseTreeWalker {
                 (node.parameters[0].name.value !== 'cls' && node.parameters[0].name.value !== 'mcs')
             ) {
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                    this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
                     DiagnosticRule.reportSelfClsParameterName,
                     `The __new__ override should take a "cls" parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name
@@ -1545,7 +1545,7 @@ export class Checker extends ParseTreeWalker {
             // __init_subclass__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name || node.parameters[0].name.value !== 'cls') {
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                    this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
                     DiagnosticRule.reportSelfClsParameterName,
                     `The __init_subclass__ override should take a "cls" parameter`,
                     node.parameters.length > 0 ? node.parameters[0] : node.name
@@ -1557,7 +1557,7 @@ export class Checker extends ParseTreeWalker {
                 const paramName = node.parameters[0].name.value;
                 if (paramName === 'self' || paramName === 'cls') {
                     this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                        this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
                         DiagnosticRule.reportSelfClsParameterName,
                         `Static methods should not take a "self" or "cls" parameter`,
                         node.parameters[0].name
@@ -1575,7 +1575,7 @@ export class Checker extends ParseTreeWalker {
             if (paramName !== 'cls') {
                 if (!this._fileInfo.isStubFile || (!paramName.startsWith('_') && paramName !== 'metacls')) {
                     this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                        this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
                         DiagnosticRule.reportSelfClsParameterName,
                         `Class methods should take a "cls" parameter`,
                         node.parameters.length > 0 ? node.parameters[0] : node.name
@@ -1619,7 +1619,7 @@ export class Checker extends ParseTreeWalker {
 
                     if (!isLegalMetaclassName) {
                         this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportSelfClsParameterName,
+                            this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
                             DiagnosticRule.reportSelfClsParameterName,
                             `Instance methods should take a "self" parameter`,
                             node.parameters.length > 0 ? node.parameters[0] : node.name
@@ -1647,7 +1647,7 @@ export class Checker extends ParseTreeWalker {
             if (declaredYieldType) {
                 if (isNoReturnType(declaredYieldType)) {
                     this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         `Function with declared return type "NoReturn" cannot include a yield statement`,
                         node
@@ -1656,7 +1656,7 @@ export class Checker extends ParseTreeWalker {
                     const diagAddendum = new DiagnosticAddendum();
                     if (!this._evaluator.canAssignType(declaredYieldType, adjustedYieldType, diagAddendum)) {
                         this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `Expression of type "${this._evaluator.printType(adjustedYieldType)}" cannot be assigned ` +
                                 `to yield type "${this._evaluator.printType(declaredYieldType)}"` +
@@ -1684,7 +1684,7 @@ export class Checker extends ParseTreeWalker {
                         const prevImport = symbolMap.get(importFromAs.name.value);
                         if (prevImport) {
                             this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticSettings.reportDuplicateImport,
+                                this._fileInfo.diagnosticRuleSet.reportDuplicateImport,
                                 DiagnosticRule.reportDuplicateImport,
                                 `"${importFromAs.name.value}" is imported more than once`,
                                 importFromAs.name
@@ -1700,7 +1700,7 @@ export class Checker extends ParseTreeWalker {
                     const prevImport = importModuleMap.get(importStatement.moduleName);
                     if (prevImport) {
                         this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportDuplicateImport,
+                            this._fileInfo.diagnosticRuleSet.reportDuplicateImport,
                             DiagnosticRule.reportDuplicateImport,
                             `"${importStatement.moduleName}" is imported more than once`,
                             importStatement.subnode

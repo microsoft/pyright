@@ -86,6 +86,7 @@ export class AnalyzerService {
     private _onCompletionCallback: AnalysisCompleteCallback | undefined;
     private _watchForSourceChanges = false;
     private _watchForLibraryChanges = false;
+    private _typeCheckingMode: string | undefined;
     private _verboseOutput = false;
     private _maxAnalysisTime?: MaxAnalysisTime;
     private _analyzeTimer: any;
@@ -144,6 +145,7 @@ export class AnalyzerService {
     setOptions(commandLineOptions: CommandLineOptions): void {
         this._watchForSourceChanges = !!commandLineOptions.watchForSourceChanges;
         this._watchForLibraryChanges = !!commandLineOptions.watchForLibraryChanges;
+        this._typeCheckingMode = commandLineOptions.typeCheckingMode;
         this._verboseOutput = !!commandLineOptions.verboseOutput;
         this._configOptions = this._getConfigOptions(commandLineOptions);
         this._program.setConfigOptions(this._configOptions);
@@ -336,7 +338,7 @@ export class AnalyzerService {
             }
         }
 
-        const configOptions = new ConfigOptions(projectRoot);
+        const configOptions = new ConfigOptions(projectRoot, this._typeCheckingMode);
         const defaultExcludes = ['**/node_modules', '**/__pycache__', '.git'];
 
         if (commandLineOptions.fileSpecs.length > 0) {
@@ -364,7 +366,7 @@ export class AnalyzerService {
             this._console.log(`Loading configuration file at ${configFilePath}`);
             const configJsonObj = this._parseConfigFile(configFilePath);
             if (configJsonObj) {
-                configOptions.initializeFromJson(configJsonObj, this._console);
+                configOptions.initializeFromJson(configJsonObj, this._typeCheckingMode, this._console);
 
                 const configFileDir = getDirectoryPath(configFilePath);
 
@@ -1000,7 +1002,7 @@ export class AnalyzerService {
             this._console.log(`Reloading configuration file at ${this._configFilePath}`);
             const configJsonObj = this._parseConfigFile(this._configFilePath);
             if (configJsonObj) {
-                this._configOptions.initializeFromJson(configJsonObj, this._console);
+                this._configOptions.initializeFromJson(configJsonObj, this._typeCheckingMode, this._console);
             }
 
             this._applyConfigOptions();

@@ -64,6 +64,17 @@
         "pattern": "^(.*)$"
       }
     },
+    "typeCheckingMode": {
+      "$id": "#/properties/typeCheckingMode",
+      "type": "string",
+      "enum": [
+        "off",
+        "basic",
+        "strict"
+      ],
+      "title": "Specifies the default rule set to use for type checking",
+      "default": "basic"
+    },
     "typeshedPath": {
       "$id": "#/properties/typeshedPath",
       "type": "string",

@@ -104,6 +104,17 @@
                     "default": false,
                     "description": "Use library implementations to extract type information when type stub is not present.",
                     "scope": "resource"
+                },
+                "pyright.typeCheckingMode": {
+                    "type": "string",
+                    "default": "basic",
+                    "enum": [
+                        "off",
+                        "basic",
+                        "strict"
+                    ],
+                    "description": "Defines the default rule set for type checking.",
+                    "scope": "resource"
                 }
             }
         },

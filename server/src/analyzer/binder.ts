@@ -257,7 +257,7 @@ export class Binder extends ParseTreeWalker {
         if (importResult) {
             if (!importResult.isImportFound) {
                 this._addDiagnostic(
-                    this._fileInfo.diagnosticSettings.reportMissingImports,
+                    this._fileInfo.diagnosticRuleSet.reportMissingImports,
                     DiagnosticRule.reportMissingImports,
                     `Import "${importResult.importName}" could not be resolved`,
                     node
@@ -265,7 +265,7 @@ export class Binder extends ParseTreeWalker {
             } else if (importResult.importType === ImportType.ThirdParty) {
                 if (!importResult.isStubFile) {
                     const diagnostic = this._addDiagnostic(
-                        this._fileInfo.diagnosticSettings.reportMissingTypeStubs,
+                        this._fileInfo.diagnosticRuleSet.reportMissingTypeStubs,
                         DiagnosticRule.reportMissingTypeStubs,
                         `Stub file not found for "${importResult.importName}"`,
                         node
@@ -991,7 +991,7 @@ export class Binder extends ParseTreeWalker {
 
                     if (error.errorType === StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence) {
                         this._addDiagnostic(
-                            this._fileInfo.diagnosticSettings.reportInvalidStringEscapeSequence,
+                            this._fileInfo.diagnosticRuleSet.reportInvalidStringEscapeSequence,
                             DiagnosticRule.reportInvalidStringEscapeSequence,
                             'Unsupported escape sequence in string literal',
                             textRange
@@ -2070,7 +2070,7 @@ export class Binder extends ParseTreeWalker {
                     let symbol = memberAccessInfo.classScope.lookUpSymbol(name.value);
                     if (!symbol) {
                         symbol = memberAccessInfo.classScope.addSymbol(name.value, SymbolFlags.InitiallyUnbound);
-                        const honorPrivateNaming = this._fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
+                        const honorPrivateNaming = this._fileInfo.diagnosticRuleSet.reportPrivateUsage !== 'none';
                         if (isPrivateOrProtectedName(name.value) && honorPrivateNaming) {
                             symbol.setIsPrivateMember();
                         }
@@ -2166,7 +2166,7 @@ export class Binder extends ParseTreeWalker {
                     let symbol = memberAccessInfo.classScope.lookUpSymbol(name.value);
                     if (!symbol) {
                         symbol = memberAccessInfo.classScope.addSymbol(name.value, SymbolFlags.InitiallyUnbound);
-                        const honorPrivateNaming = this._fileInfo.diagnosticSettings.reportPrivateUsage !== 'none';
+                        const honorPrivateNaming = this._fileInfo.diagnosticRuleSet.reportPrivateUsage !== 'none';
                         if (isPrivateOrProtectedName(name.value) && honorPrivateNaming) {
                             symbol.setIsPrivateMember();
                         }

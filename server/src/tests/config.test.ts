@@ -179,7 +179,7 @@ test('PythonPlatform', () => {
             "extraPaths" : []
     }]}`);
 
-    configOptions.initializeFromJson(json, nullConsole);
+    configOptions.initializeFromJson(json, undefined, nullConsole);
 
     const env = configOptions.executionEnvironments[0];
     assert.equal(env.pythonPlatform, 'platform');

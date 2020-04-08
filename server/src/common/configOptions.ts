@@ -43,7 +43,7 @@ export class ExecutionEnvironment {
 
 export type DiagnosticLevel = 'none' | 'warning' | 'error';
 
-export interface DiagnosticSettings {
+export interface DiagnosticRuleSet {
     // Use strict inference rules for list expressions?
     strictListInference: boolean;
 
@@ -167,12 +167,12 @@ export interface DiagnosticSettings {
     reportImplicitStringConcatenation: DiagnosticLevel;
 }
 
-export function cloneDiagnosticSettings(diagSettings: DiagnosticSettings): DiagnosticSettings {
+export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
     // Create a shallow copy of the existing object.
     return Object.assign({}, diagSettings);
 }
 
-export function getBooleanDiagnosticSettings() {
+export function getBooleanDiagnosticRules() {
     return [
         DiagnosticRule.strictListInference,
         DiagnosticRule.strictDictionaryInference,
@@ -185,7 +185,7 @@ export function getBooleanDiagnosticSettings() {
     ];
 }
 
-export function getDiagLevelSettings() {
+export function getDiagLevelDiagnosticRules() {
     return [
         DiagnosticRule.reportGeneralTypeIssues,
         DiagnosticRule.reportTypeshedErrors,
@@ -225,8 +225,8 @@ export function getDiagLevelSettings() {
     ];
 }
 
-export function getStrictDiagnosticSettings(): DiagnosticSettings {
-    const diagSettings: DiagnosticSettings = {
+export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
+    const diagSettings: DiagnosticRuleSet = {
         strictListInference: true,
         strictDictionaryInference: true,
         strictParameterNoneValue: true,
@@ -271,8 +271,54 @@ export function getStrictDiagnosticSettings(): DiagnosticSettings {
     return diagSettings;
 }
 
-export function getDefaultDiagnosticSettings(): DiagnosticSettings {
-    const diagSettings: DiagnosticSettings = {
+export function getNoTypeCheckingDiagnosticRuleSet(): DiagnosticRuleSet {
+    const diagSettings: DiagnosticRuleSet = {
+        strictListInference: false,
+        strictDictionaryInference: false,
+        strictParameterNoneValue: false,
+        enableTypeIgnoreComments: true,
+        reportGeneralTypeIssues: 'none',
+        reportTypeshedErrors: 'none',
+        reportMissingImports: 'none',
+        reportMissingTypeStubs: 'none',
+        reportImportCycles: 'none',
+        reportUnusedImport: 'none',
+        reportUnusedClass: 'none',
+        reportUnusedFunction: 'none',
+        reportUnusedVariable: 'none',
+        reportDuplicateImport: 'none',
+        reportOptionalSubscript: 'none',
+        reportOptionalMemberAccess: 'none',
+        reportOptionalCall: 'none',
+        reportOptionalIterable: 'none',
+        reportOptionalContextManager: 'none',
+        reportOptionalOperand: 'none',
+        reportUntypedFunctionDecorator: 'none',
+        reportUntypedClassDecorator: 'none',
+        reportUntypedBaseClass: 'none',
+        reportUntypedNamedTuple: 'none',
+        reportPrivateUsage: 'none',
+        reportConstantRedefinition: 'none',
+        reportIncompatibleMethodOverride: 'none',
+        reportInvalidStringEscapeSequence: 'none',
+        reportUnknownParameterType: 'none',
+        reportUnknownArgumentType: 'none',
+        reportUnknownLambdaType: 'none',
+        reportUnknownVariableType: 'none',
+        reportUnknownMemberType: 'none',
+        reportCallInDefaultInitializer: 'none',
+        reportUnnecessaryIsInstance: 'none',
+        reportUnnecessaryCast: 'none',
+        reportAssertAlwaysTrue: 'none',
+        reportSelfClsParameterName: 'none',
+        reportImplicitStringConcatenation: 'none',
+    };
+
+    return diagSettings;
+}
+
+export function getDefaultDiagnosticRuleSet(): DiagnosticRuleSet {
+    const diagSettings: DiagnosticRuleSet = {
         strictListInference: false,
         strictDictionaryInference: false,
         strictParameterNoneValue: false,
@@ -320,9 +366,9 @@ export function getDefaultDiagnosticSettings(): DiagnosticSettings {
 // Internal configuration options. These are derived from a combination
 // of the command line and from a JSON-based config file.
 export class ConfigOptions {
-    constructor(projectRoot: string) {
+    constructor(projectRoot: string, typeCheckingMode?: string) {
         this.projectRoot = projectRoot;
-        this.diagnosticSettings = getDefaultDiagnosticSettings();
+        this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
     }
 
     // Absolute directory of project. All relative paths in the config
@@ -374,9 +420,9 @@ export class ConfigOptions {
     useLibraryCodeForTypes: boolean;
 
     //---------------------------------------------------------------
-    // Diagnostics Settings
+    // Diagnostics Rule Set
 
-    diagnosticSettings: DiagnosticSettings;
+    diagnosticRuleSet: DiagnosticRuleSet;
 
     //---------------------------------------------------------------
     // Parsing and Import Resolution Settings
@@ -405,6 +451,18 @@ export class ConfigOptions {
 
     // Run additional analysis as part of test cases?
     internalTestMode?: boolean;
+
+    static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
+        if (typeCheckingMode === 'strict') {
+            return getStrictDiagnosticRuleSet();
+        }
+
+        if (typeCheckingMode === 'off') {
+            return getNoTypeCheckingDiagnosticRuleSet();
+        }
+
+        return getDefaultDiagnosticRuleSet();
+    }
 
     // Finds the best execution environment for a given file path. The
     // specified file path should be absolute.
@@ -440,7 +498,7 @@ export class ConfigOptions {
     }
 
     // Initialize the structure from a JSON object.
-    initializeFromJson(configObj: any, console: ConsoleInterface) {
+    initializeFromJson(configObj: any, typeCheckingMode: string | undefined, console: ConsoleInterface) {
         // Read the "include" entry.
         this.include = [];
         if (configObj.include !== undefined) {
@@ -517,9 +575,23 @@ export class ConfigOptions {
             }
         }
 
-        const defaultSettings = getDefaultDiagnosticSettings();
+        // If there is a "typeCheckingMode", it can override the provided setting.
+        let configTypeCheckingMode: string | undefined;
+        if (configObj.typeCheckingMode !== undefined) {
+            if (
+                configObj.typeCheckingMode === 'off' ||
+                configObj.typeCheckingMode === 'basic' ||
+                configObj.typeCheckingMode === 'strict'
+            ) {
+                configTypeCheckingMode = configObj.typeCheckingMode;
+            } else {
+                console.log(`Config "typeCheckingMode" entry must contain "off", "basic", or "strict".`);
+            }
+        }
 
-        this.diagnosticSettings = {
+        const defaultSettings = ConfigOptions.getDiagnosticRuleSet(configTypeCheckingMode || typeCheckingMode);
+
+        this.diagnosticRuleSet = {
             // Use strict inference rules for list expressions?
             strictListInference: this._convertBoolean(
                 configObj.strictListInference,

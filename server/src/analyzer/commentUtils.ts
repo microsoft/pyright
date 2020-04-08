@@ -9,25 +9,25 @@
  */
 
 import {
-    cloneDiagnosticSettings,
+    cloneDiagnosticRuleSet,
     DiagnosticLevel,
-    DiagnosticSettings,
-    getBooleanDiagnosticSettings,
-    getDiagLevelSettings,
-    getStrictDiagnosticSettings,
+    DiagnosticRuleSet,
+    getBooleanDiagnosticRules,
+    getDiagLevelDiagnosticRules,
+    getStrictDiagnosticRuleSet,
 } from '../common/configOptions';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Token } from '../parser/tokenizerTypes';
 
 export function getFileLevelDirectives(
     tokens: TextRangeCollection<Token>,
-    defaultSettings: DiagnosticSettings,
+    defaultRuleSet: DiagnosticRuleSet,
     useStrict: boolean
-): DiagnosticSettings {
-    let settings = cloneDiagnosticSettings(defaultSettings);
+): DiagnosticRuleSet {
+    let ruleSet = cloneDiagnosticRuleSet(defaultRuleSet);
 
     if (useStrict) {
-        _applyStrictSettings(settings);
+        _applyStrictRules(ruleSet);
     }
 
     for (let i = 0; i < tokens.count; i++) {
@@ -36,37 +36,37 @@ export function getFileLevelDirectives(
             for (const comment of token.comments) {
                 const value = comment.value.trim();
 
-                settings = _parsePyrightComment(value, settings);
+                ruleSet = _parsePyrightComment(value, ruleSet);
             }
         }
     }
 
-    return settings;
+    return ruleSet;
 }
 
-function _applyStrictSettings(settings: DiagnosticSettings) {
-    const strictSettings = getStrictDiagnosticSettings();
-    const boolSettingNames = getBooleanDiagnosticSettings();
-    const diagSettingNames = getDiagLevelSettings();
+function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
+    const strictRuleSet = getStrictDiagnosticRuleSet();
+    const boolRuleNames = getBooleanDiagnosticRules();
+    const diagRuleNames = getDiagLevelDiagnosticRules();
 
-    // Enable the strict settings as appropriate.
-    for (const setting of boolSettingNames) {
-        if ((strictSettings as any)[setting]) {
-            (settings as any)[setting] = true;
+    // Enable the strict rules as appropriate.
+    for (const ruleName of boolRuleNames) {
+        if ((strictRuleSet as any)[ruleName]) {
+            (ruleSet as any)[ruleName] = true;
         }
     }
 
-    for (const setting of diagSettingNames) {
-        const strictValue: DiagnosticLevel = (strictSettings as any)[setting];
-        const prevValue: DiagnosticLevel = (settings as any)[setting];
+    for (const ruleName of diagRuleNames) {
+        const strictValue: DiagnosticLevel = (strictRuleSet as any)[ruleName];
+        const prevValue: DiagnosticLevel = (ruleSet as any)[ruleName];
 
         if (strictValue === 'error' || (strictValue === 'warning' && prevValue !== 'error')) {
-            (settings as any)[setting] = strictValue;
+            (ruleSet as any)[ruleName] = strictValue;
         }
     }
 }
 
-function _parsePyrightComment(commentValue: string, settings: DiagnosticSettings) {
+function _parsePyrightComment(commentValue: string, ruleSet: DiagnosticRuleSet) {
     // Is this a pyright or mspython-specific comment?
     const validPrefixes = ['pyright:', 'mspython:'];
     const prefix = validPrefixes.find((p) => commentValue.startsWith(p));
@@ -75,42 +75,42 @@ function _parsePyrightComment(commentValue: string, settings: DiagnosticSettings
         const operandList = operands.split(',').map((s) => s.trim());
 
         // If it contains a "strict" operand, replace the existing
-        // diagnostic settings with their strict counterparts.
+        // diagnostic rules with their strict counterparts.
         if (operandList.some((s) => s === 'strict')) {
-            _applyStrictSettings(settings);
+            _applyStrictRules(ruleSet);
         }
 
         for (const operand of operandList) {
-            settings = _parsePyrightOperand(operand, settings);
+            ruleSet = _parsePyrightOperand(operand, ruleSet);
         }
     }
 
-    return settings;
+    return ruleSet;
 }
 
-function _parsePyrightOperand(operand: string, settings: DiagnosticSettings) {
+function _parsePyrightOperand(operand: string, ruleSet: DiagnosticRuleSet) {
     const operandSplit = operand.split('=').map((s) => s.trim());
     if (operandSplit.length !== 2) {
-        return settings;
+        return ruleSet;
     }
 
-    const settingName = operandSplit[0];
-    const boolSettings = getBooleanDiagnosticSettings();
-    const diagLevelSettings = getDiagLevelSettings();
+    const ruleName = operandSplit[0];
+    const boolRules = getBooleanDiagnosticRules();
+    const diagLevelRules = getDiagLevelDiagnosticRules();
 
-    if (diagLevelSettings.find((s) => s === settingName)) {
+    if (diagLevelRules.find((r) => r === ruleName)) {
         const diagLevelValue = _parseDiagLevel(operandSplit[1]);
         if (diagLevelValue !== undefined) {
-            (settings as any)[settingName] = diagLevelValue;
+            (ruleSet as any)[ruleName] = diagLevelValue;
         }
-    } else if (boolSettings.find((s) => s === settingName)) {
+    } else if (boolRules.find((r) => r === ruleName)) {
         const boolValue = _parseBoolSetting(operandSplit[1]);
         if (boolValue !== undefined) {
-            (settings as any)[settingName] = boolValue;
+            (ruleSet as any)[ruleName] = boolValue;
         }
     }
 
-    return settings;
+    return ruleSet;
 }
 
 function _parseDiagLevel(value: string): DiagnosticLevel | undefined {

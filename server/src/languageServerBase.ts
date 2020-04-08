@@ -67,6 +67,7 @@ export interface ServerSettings {
     pythonPath?: string;
     typeshedPath?: string;
     openFilesOnly?: boolean;
+    typeCheckingMode?: string;
     useLibraryCodeForTypes?: boolean;
     disableLanguageServices?: boolean;
     autoSearchPaths?: boolean;

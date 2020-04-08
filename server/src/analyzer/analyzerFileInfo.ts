@@ -8,7 +8,7 @@
  * by the binder and checker.
  */
 
-import { DiagnosticSettings, ExecutionEnvironment } from '../common/configOptions';
+import { DiagnosticRuleSet, ExecutionEnvironment } from '../common/configOptions';
 import { TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -31,7 +31,7 @@ export interface AnalyzerFileInfo {
     collectionsModulePath?: string;
     diagnosticSink: TextRangeDiagnosticSink;
     executionEnvironment: ExecutionEnvironment;
-    diagnosticSettings: DiagnosticSettings;
+    diagnosticRuleSet: DiagnosticRuleSet;
     fileContents: string;
     lines: TextRangeCollection<TextRange>;
     filePath: string;

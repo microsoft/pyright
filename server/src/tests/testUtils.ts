@@ -15,7 +15,7 @@ import { Binder } from '../analyzer/binder';
 import { ImportResolver } from '../analyzer/importResolver';
 import { Program } from '../analyzer/program';
 import { TestWalker } from '../analyzer/testWalker';
-import { cloneDiagnosticSettings, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
+import { cloneDiagnosticRuleSet, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { fail } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
@@ -96,7 +96,7 @@ export function buildAnalyzerFileInfo(
         builtinsScope: undefined,
         diagnosticSink: analysisDiagnostics,
         executionEnvironment: configOptions.findExecEnvironment(filePath),
-        diagnosticSettings: cloneDiagnosticSettings(configOptions.diagnosticSettings),
+        diagnosticRuleSet: cloneDiagnosticRuleSet(configOptions.diagnosticRuleSet),
         fileContents,
         lines: parseResults.tokenizerOutput.lines,
         filePath,

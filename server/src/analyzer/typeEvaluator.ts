@@ -711,7 +711,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (!typeResult) {
                         const fileInfo = getFileInfo(node);
                         addDiagnostic(
-                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `Expected type but received a string literal`,
                             node
@@ -1387,7 +1387,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (errorNode) {
                 const fileInfo = getFileInfo(errorNode);
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `"${printType(subtype)}" is not awaitable`,
                     errorNode
@@ -1417,7 +1417,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (type.category === TypeCategory.Union && type.subtypes.some((t) => isNoneOrNever(t))) {
             if (errorNode) {
                 addDiagnostic(
-                    getFileInfo(errorNode).diagnosticSettings.reportOptionalIterable,
+                    getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
                     DiagnosticRule.reportOptionalIterable,
                     `Object of type "None" cannot be used as iterable value`,
                     errorNode
@@ -1876,7 +1876,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             if (!canAssignType(declaredType, type, diagAddendum)) {
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `Expression of type "${printType(type)}" cannot be assigned to declared type "${printType(
                         declaredType
@@ -1902,7 +1902,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 if (
                     !isConstant &&
-                    (!isPrivate || getFileInfo(nameNode).diagnosticSettings.reportPrivateUsage === 'none')
+                    (!isPrivate || getFileInfo(nameNode).diagnosticRuleSet.reportPrivateUsage === 'none')
                 ) {
                     destType = stripLiteralValue(destType);
                 }
@@ -1917,7 +1917,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // isn't the first assignment, generate an error.
                 if (nameNode !== declarations[0].node) {
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportConstantRedefinition,
+                        fileInfo.diagnosticRuleSet.reportConstantRedefinition,
                         DiagnosticRule.reportConstantRedefinition,
                         `"${nameValue}" is constant and cannot be redefined`,
                         nameNode
@@ -2022,7 +2022,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     ) {
                         if (typedDecls[0].isConstant) {
                             addDiagnostic(
-                                fileInfo.diagnosticSettings.reportConstantRedefinition,
+                                fileInfo.diagnosticRuleSet.reportConstantRedefinition,
                                 DiagnosticRule.reportConstantRedefinition,
                                 `"${node.memberName.value}" is constant and cannot be redefined`,
                                 node.memberName
@@ -2086,7 +2086,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // There was no declared type, so we need to infer the type.
                 if (srcExprNode) {
                     reportPossibleUnknownAssignment(
-                        fileInfo.diagnosticSettings.reportUnknownMemberType,
+                        fileInfo.diagnosticRuleSet.reportUnknownMemberType,
                         DiagnosticRule.reportUnknownMemberType,
                         node.memberName,
                         srcType,
@@ -2137,7 +2137,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     } else {
                         const fileInfo = getFileInfo(target);
                         addDiagnostic(
-                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `Tuple size mismatch: expected at least ${target.expressions.length} entries but got ${entryCount}`,
                             target
@@ -2152,7 +2152,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     } else {
                         const fileInfo = getFileInfo(target);
                         addDiagnostic(
-                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `Tuple size mismatch: expected ${target.expressions.length} but got ${entryCount}`,
                             target
@@ -2215,7 +2215,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 reportPossibleUnknownAssignment(
-                    getFileInfo(target).diagnosticSettings.reportUnknownVariableType,
+                    getFileInfo(target).diagnosticRuleSet.reportUnknownVariableType,
                     DiagnosticRule.reportUnknownVariableType,
                     target,
                     type,
@@ -2305,7 +2305,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             default: {
                 const fileInfo = getFileInfo(target);
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `Expression cannot be assignment target`,
                     target
@@ -2361,7 +2361,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             default: {
                 const fileInfo = getFileInfo(node);
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `Expression cannot be deleted`,
                     node
@@ -2543,14 +2543,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             if (isUnbound(type)) {
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `"${name}" is unbound`,
                     node
                 );
             } else if (isPossiblyUnbound(type)) {
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `"${name}" is possibly unbound`,
                     node
@@ -2562,7 +2562,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // Handle the special case of "reveal_type".
             if (name !== 'reveal_type') {
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `"${name}" is not defined`,
                     node
@@ -2675,7 +2675,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 } else {
                     const fileInfo = getFileInfo(node);
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         `"${memberName}" is not a known member of module`,
                         node.memberName
@@ -2689,7 +2689,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 type = doForSubtypes(baseType, (subtype) => {
                     if (isNoneOrNever(subtype)) {
                         addDiagnostic(
-                            getFileInfo(node).diagnosticSettings.reportOptionalMemberAccess,
+                            getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
                             DiagnosticRule.reportOptionalMemberAccess,
                             `"${memberName}" is not a known member of "None"`,
                             node.memberName
@@ -2738,7 +2738,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             const fileInfo = getFileInfo(node);
             addDiagnostic(
-                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 `Cannot ${operationName} member "${memberName}" for type "${printType(baseType)}"` + diag.getString(),
                 node.memberName
@@ -3177,7 +3177,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             if (isNoneOrNever(subtype)) {
                 addDiagnostic(
-                    getFileInfo(node).diagnosticSettings.reportOptionalSubscript,
+                    getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
                     DiagnosticRule.reportOptionalSubscript,
                     `Object of type "None" cannot be subscripted`,
                     node.baseExpression
@@ -3189,7 +3189,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (!isUnbound(subtype)) {
                 const fileInfo = getFileInfo(node);
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `Object of type "${printType(subtype)}" cannot be subscripted`,
                     node.baseExpression
@@ -3245,7 +3245,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     } else if (usage.method === 'del' && entry.isRequired) {
                         const fileInfo = getFileInfo(node);
                         addDiagnostic(
-                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `"${entryName}" is a required key and cannot be deleted`,
                             node
@@ -3269,7 +3269,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                 const fileInfo = getFileInfo(node);
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `Could not ${operationName} item in TypedDict` + diag.getString(),
                     node
@@ -3301,7 +3301,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (!itemMethodType) {
             const fileInfo = getFileInfo(node);
             addDiagnostic(
-                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 `Object of type "${printType(baseType)}" does not define "${magicMethodName}"`,
                 node.baseExpression
@@ -3575,7 +3575,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (reportError) {
                 const fileInfo = getFileInfo(node);
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `Second argument to "super" call must be object or class that derives from "${printType(
                         targetClassType
@@ -3667,7 +3667,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     ) {
                         const fileInfo = getFileInfo(errorNode);
                         addDiagnostic(
-                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `"${className}" cannot be instantiated directly`,
                             errorNode
@@ -3704,7 +3704,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                     const fileInfo = getFileInfo(errorNode);
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         `Cannot instantiate abstract class "${callType.details.name}"` + diagAddendum.getString(),
                         errorNode
@@ -3724,7 +3724,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // as a function rather than a class, so we need to check for it here.
                 if (callType.details.builtInName === 'namedtuple') {
                     addDiagnostic(
-                        getFileInfo(errorNode).diagnosticSettings.reportUntypedNamedTuple,
+                        getFileInfo(errorNode).diagnosticRuleSet.reportUntypedNamedTuple,
                         DiagnosticRule.reportUntypedNamedTuple,
                         `"namedtuple" provides no types for tuple entries; use "NamedTuple" instead`,
                         errorNode
@@ -3775,7 +3775,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         ) {
                             if (isTypeSame(castToType, castFromType.classType)) {
                                 addDiagnostic(
-                                    getFileInfo(errorNode).diagnosticSettings.reportUnnecessaryCast,
+                                    getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
                                     DiagnosticRule.reportUnnecessaryCast,
                                     `Unnecessary "cast" call; type is already ${printType(castFromType)}`,
                                     errorNode
@@ -3803,7 +3803,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     diagAddendum.addMessage(`Argument types: (${argTypes.join(', ')})`);
                     const fileInfo = getFileInfo(errorNode);
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         `No overloads for "${exprString}" match parameters` + diagAddendum.getString(),
                         errorNode
@@ -3858,7 +3858,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 callType.subtypes.forEach((typeEntry) => {
                     if (isNoneOrNever(typeEntry)) {
                         addDiagnostic(
-                            getFileInfo(errorNode).diagnosticSettings.reportOptionalCall,
+                            getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
                             DiagnosticRule.reportOptionalCall,
                             `Object of type "None" cannot be called`,
                             errorNode
@@ -3898,7 +3898,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (!type) {
             const fileInfo = getFileInfo(errorNode);
             addDiagnostic(
-                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 `"${ParseTreeUtils.printExpression(errorNode)}" has type "${printType(callType)}" and is not callable`,
                 errorNode
@@ -4050,7 +4050,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (!validatedTypes && argList.length > 0) {
             const fileInfo = getFileInfo(errorNode);
             addDiagnostic(
-                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 `Expected no arguments to "${type.details.name}" constructor`,
                 errorNode
@@ -4164,7 +4164,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     diagAddendum.addMessage(`Argument types: (${argTypes.join(', ')})`);
                     const fileInfo = getFileInfo(errorNode);
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         `No overloads for "${exprString}" match parameters` + diagAddendum.getString(),
                         errorNode
@@ -4179,7 +4179,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 } else {
                     const fileInfo = getFileInfo(errorNode);
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         `"${callType.details.name}" cannot be instantiated`,
                         errorNode
@@ -4218,7 +4218,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 for (const type of callType.subtypes) {
                     if (isNoneOrNever(type)) {
                         addDiagnostic(
-                            getFileInfo(errorNode).diagnosticSettings.reportOptionalCall,
+                            getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
                             DiagnosticRule.reportOptionalCall,
                             `Object of type "None" cannot be called`,
                             errorNode
@@ -4348,7 +4348,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (argIndex < positionalOnlyIndex && argList[argIndex].name) {
                 const fileInfo = getFileInfo(argList[argIndex].name!);
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `Expected positional argument`,
                     argList[argIndex].name!
@@ -4360,7 +4360,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const adjustedCount = positionalParamCount;
                     const fileInfo = getFileInfo(errorNode);
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         `Expected ${adjustedCount} positional ${adjustedCount === 1 ? 'argument' : 'arguments'}`,
                         argList[argIndex].valueExpression || errorNode
@@ -4632,7 +4632,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const optionalParamName = argParam.paramName ? `"${argParam.paramName}" ` : '';
             const fileInfo = getFileInfo(argParam.errorNode);
             addDiagnostic(
-                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 `Argument of type "${printType(
                     argType
@@ -4646,7 +4646,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             const fileInfo = getFileInfo(argParam.errorNode);
             if (simplifiedType.category === TypeCategory.Unknown) {
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportUnknownArgumentType,
+                    fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
                     DiagnosticRule.reportUnknownArgumentType,
                     `Type of argument is unknown`,
                     argParam.errorNode
@@ -4663,7 +4663,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const diagAddendum = new DiagnosticAddendum();
                     diagAddendum.addMessage(`Argument type is "${printType(simplifiedType)}"`);
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportUnknownArgumentType,
+                        fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
                         DiagnosticRule.reportUnknownArgumentType,
                         `Type of argument is partially unknown` + diagAddendum.getString(),
                         argParam.errorNode
@@ -5329,7 +5329,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (node.operator !== OperatorType.Not) {
             if (isOptionalType(exprType)) {
                 addDiagnostic(
-                    getFileInfo(node).diagnosticSettings.reportOptionalOperand,
+                    getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
                     DiagnosticRule.reportOptionalOperand,
                     `Operator "${ParseTreeUtils.printOperator(node.operator)}" not supported for "None" type`,
                     node.expression
@@ -5355,7 +5355,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (!type) {
                 const fileInfo = getFileInfo(node);
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `Operator "${ParseTreeUtils.printOperator(node.operator)}" not supported for type "${printType(
                         exprType
@@ -5400,7 +5400,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // None is a valid operand for these operators.
                 if (node.operator !== OperatorType.Equals && node.operator !== OperatorType.NotEquals) {
                     addDiagnostic(
-                        getFileInfo(node).diagnosticSettings.reportOptionalOperand,
+                        getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
                         DiagnosticRule.reportOptionalOperand,
                         `Operator "${ParseTreeUtils.printOperator(node.operator)}" not supported for "None" type`,
                         node.leftExpression
@@ -5591,7 +5591,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (!type || type.category === TypeCategory.Never) {
             const fileInfo = getFileInfo(errorNode);
             addDiagnostic(
-                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 `Operator "${ParseTreeUtils.printOperator(operator)}" not supported for types "${printType(
                     leftType
@@ -5877,7 +5877,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // are the same type, we'll assume that all values in this dictionary should
         // be the same.
         if (valueTypes.length > 0) {
-            if (getFileInfo(node).diagnosticSettings.strictDictionaryInference) {
+            if (getFileInfo(node).diagnosticRuleSet.strictDictionaryInference) {
                 valueType = combineTypes(valueTypes);
             } else {
                 valueType = areTypesSame(valueTypes) ? valueTypes[0] : UnknownType.create();
@@ -5946,7 +5946,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (entryTypes.length > 0) {
             // If there was an expected type or we're using strict list inference,
             // combine the types into a union.
-            if (expectedType || getFileInfo(node).diagnosticSettings.strictListInference) {
+            if (expectedType || getFileInfo(node).diagnosticRuleSet.strictListInference) {
                 inferredEntryType = combineTypes(entryTypes);
             } else {
                 // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
@@ -6160,7 +6160,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (!canAssignType(optionalIntObject, exprType, diag)) {
                 const fileInfo = getFileInfo(node);
                 addDiagnostic(
-                    fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
                     `Index for slice operation must be an int value or "None"` + diag.getString(),
                     indexExpr
@@ -6778,7 +6778,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     argType = transformTypeObjectToClass(argType);
                     if (argType.category !== TypeCategory.Class) {
                         addDiagnostic(
-                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `Argument to class must be a base class`,
                             arg
@@ -6832,7 +6832,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         argType.subtypes.some((t) => t.category === TypeCategory.Unknown))
                 ) {
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportUntypedBaseClass,
+                        fileInfo.diagnosticRuleSet.reportUntypedBaseClass,
                         DiagnosticRule.reportUntypedBaseClass,
                         `Base class type is unknown, obscuring type of derived class`,
                         arg
@@ -6980,7 +6980,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportUntypedClassDecorator,
+                        fileInfo.diagnosticRuleSet.reportUntypedClassDecorator,
                         DiagnosticRule.reportUntypedClassDecorator,
                         `Untyped class decorator obscures type of class; ignoring decorator`,
                         node.decorators[i].leftExpression
@@ -7168,7 +7168,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     if (param.defaultValue.constType === KeywordType.None) {
                         isNoneWithoutOptional = true;
 
-                        if (!fileInfo.diagnosticSettings.strictParameterNoneValue) {
+                        if (!fileInfo.diagnosticRuleSet.strictParameterNoneValue) {
                             annotatedType = combineTypes([annotatedType, NoneType.create()]);
                         }
                     }
@@ -7194,7 +7194,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                     if (!canAssignType(concreteAnnotatedType, defaultValueType, diagAddendum)) {
                         const diag = addDiagnostic(
-                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `Value of type "${printType(
                                 defaultValueType
@@ -7276,7 +7276,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportUntypedFunctionDecorator,
+                        fileInfo.diagnosticRuleSet.reportUntypedFunctionDecorator,
                         DiagnosticRule.reportUntypedFunctionDecorator,
                         `Untyped function decorator obscures type of function; ignoring decorator`,
                         node.decorators[i].leftExpression
@@ -7933,7 +7933,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (isOptionalType(exprType)) {
             const fileInfo = getFileInfo(node);
             addDiagnostic(
-                fileInfo.diagnosticSettings.reportOptionalContextManager,
+                fileInfo.diagnosticRuleSet.reportOptionalContextManager,
                 DiagnosticRule.reportOptionalContextManager,
                 `Object of type "None" cannot be used with "with"`,
                 node.expression
@@ -7997,7 +7997,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             const fileInfo = getFileInfo(node);
             addDiagnostic(
-                fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 `Object of type "${printType(
                     subtype
@@ -8083,7 +8083,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         !importLookupInfo.symbolTable.get('__getattr__')
                     ) {
                         addDiagnostic(
-                            fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             `"${node.name.value}" is unknown import symbol`,
                             node.name
@@ -9428,7 +9428,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (!canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
                     const fileInfo = getFileInfo(typeArgs![index].node);
                     addDiagnostic(
-                        fileInfo.diagnosticSettings.reportGeneralTypeIssues,
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         `Type "${printType(typeArgType)}" cannot be assigned to TypeVar "${
                             typeParameters[index].name

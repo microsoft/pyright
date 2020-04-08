@@ -16,7 +16,7 @@ import {
 } from 'vscode-languageserver';
 
 import { OperationCanceledException } from '../common/cancellationUtils';
-import { ConfigOptions, ExecutionEnvironment, getDefaultDiagnosticSettings } from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment, getDefaultDiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
@@ -124,7 +124,7 @@ export class SourceFile {
     private _checkerDiagnostics: Diagnostic[] = [];
 
     // Settings that control which diagnostics should be output.
-    private _diagnosticSettings = getDefaultDiagnosticSettings();
+    private _diagnosticRuleSet = getDefaultDiagnosticRuleSet();
 
     // Circular dependencies that have been reported in this file.
     private _circularDependencies: CircularDependency[] = [];
@@ -210,7 +210,7 @@ export class SourceFile {
         diagList = diagList.concat(this._parseDiagnostics, this._bindDiagnostics, this._checkerDiagnostics);
 
         // Filter the diagnostics based on "type: ignore" lines.
-        if (options.diagnosticSettings.enableTypeIgnoreComments) {
+        if (options.diagnosticRuleSet.enableTypeIgnoreComments) {
             const typeIgnoreLines = this._parseResults ? this._parseResults.tokenizerOutput.typeIgnoreLines : {};
             if (Object.keys(typeIgnoreLines).length > 0) {
                 diagList = diagList.filter((d) => {
@@ -225,9 +225,9 @@ export class SourceFile {
             }
         }
 
-        if (options.diagnosticSettings.reportImportCycles !== 'none' && this._circularDependencies.length > 0) {
+        if (options.diagnosticRuleSet.reportImportCycles !== 'none' && this._circularDependencies.length > 0) {
             const category =
-                options.diagnosticSettings.reportImportCycles === 'warning'
+                options.diagnosticRuleSet.reportImportCycles === 'warning'
                     ? DiagnosticCategory.Warning
                     : DiagnosticCategory.Error;
 
@@ -257,9 +257,9 @@ export class SourceFile {
         }
 
         if (this._isTypeshedStubFile) {
-            if (options.diagnosticSettings.reportTypeshedErrors === 'none') {
+            if (options.diagnosticRuleSet.reportTypeshedErrors === 'none') {
                 includeWarningsAndErrors = false;
-            } else if (options.diagnosticSettings.reportTypeshedErrors === 'warning') {
+            } else if (options.diagnosticRuleSet.reportTypeshedErrors === 'warning') {
                 // Convert all the errors to warnings.
                 diagList = diagList.map((diag) => {
                     if (diag.category === DiagnosticCategory.Error) {
@@ -277,7 +277,7 @@ export class SourceFile {
 
         // If there is a "type: ignore" comment at the top of the file, clear
         // the diagnostic list.
-        if (options.diagnosticSettings.enableTypeIgnoreComments) {
+        if (options.diagnosticRuleSet.enableTypeIgnoreComments) {
             if (this._parseResults && this._parseResults.tokenizerOutput.typeIgnoreAll) {
                 diagList = [];
             }
@@ -506,9 +506,9 @@ export class SourceFile {
             const useStrict =
                 configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._filePath)) !== undefined;
 
-            this._diagnosticSettings = CommentUtils.getFileLevelDirectives(
+            this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
                 this._parseResults.tokenizerOutput.tokens,
-                configOptions.diagnosticSettings,
+                configOptions.diagnosticRuleSet,
                 useStrict
             );
         } catch (e) {
@@ -879,7 +879,7 @@ export class SourceFile {
             collectionsModulePath: this._collectionsModulePath,
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
-            diagnosticSettings: this._diagnosticSettings,
+            diagnosticRuleSet: this._diagnosticRuleSet,
             fileContents,
             lines: this._parseResults!.tokenizerOutput.lines,
             filePath: this._filePath,

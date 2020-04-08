@@ -496,22 +496,22 @@ test('Optional1', () => {
     validateResults(analysisResults, 0);
 
     // Turn on warnings.
-    configOptions.diagnosticSettings.reportOptionalSubscript = 'warning';
-    configOptions.diagnosticSettings.reportOptionalMemberAccess = 'warning';
-    configOptions.diagnosticSettings.reportOptionalCall = 'warning';
-    configOptions.diagnosticSettings.reportOptionalIterable = 'warning';
-    configOptions.diagnosticSettings.reportOptionalContextManager = 'warning';
-    configOptions.diagnosticSettings.reportOptionalOperand = 'warning';
+    configOptions.diagnosticRuleSet.reportOptionalSubscript = 'warning';
+    configOptions.diagnosticRuleSet.reportOptionalMemberAccess = 'warning';
+    configOptions.diagnosticRuleSet.reportOptionalCall = 'warning';
+    configOptions.diagnosticRuleSet.reportOptionalIterable = 'warning';
+    configOptions.diagnosticRuleSet.reportOptionalContextManager = 'warning';
+    configOptions.diagnosticRuleSet.reportOptionalOperand = 'warning';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
     validateResults(analysisResults, 0, 7);
 
     // Turn on errors.
-    configOptions.diagnosticSettings.reportOptionalSubscript = 'error';
-    configOptions.diagnosticSettings.reportOptionalMemberAccess = 'error';
-    configOptions.diagnosticSettings.reportOptionalCall = 'error';
-    configOptions.diagnosticSettings.reportOptionalIterable = 'error';
-    configOptions.diagnosticSettings.reportOptionalContextManager = 'error';
-    configOptions.diagnosticSettings.reportOptionalOperand = 'error';
+    configOptions.diagnosticRuleSet.reportOptionalSubscript = 'error';
+    configOptions.diagnosticRuleSet.reportOptionalMemberAccess = 'error';
+    configOptions.diagnosticRuleSet.reportOptionalCall = 'error';
+    configOptions.diagnosticRuleSet.reportOptionalIterable = 'error';
+    configOptions.diagnosticRuleSet.reportOptionalContextManager = 'error';
+    configOptions.diagnosticRuleSet.reportOptionalOperand = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['optional1.py'], configOptions);
     validateResults(analysisResults, 7);
 });
@@ -524,7 +524,7 @@ test('Private1', () => {
     validateResults(analysisResults, 0);
 
     // Turn on errors.
-    configOptions.diagnosticSettings.reportPrivateUsage = 'error';
+    configOptions.diagnosticRuleSet.reportPrivateUsage = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['private1.py'], configOptions);
     validateResults(analysisResults, 4);
 });
@@ -537,7 +537,7 @@ test('Constant1', () => {
     validateResults(analysisResults, 0);
 
     // Turn on errors.
-    configOptions.diagnosticSettings.reportConstantRedefinition = 'error';
+    configOptions.diagnosticRuleSet.reportConstantRedefinition = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['constant1.py'], configOptions);
     validateResults(analysisResults, 5);
 });
@@ -766,7 +766,7 @@ test('Classes2', () => {
     validateResults(analysisResults, 0);
 
     // Turn on errors.
-    configOptions.diagnosticSettings.reportIncompatibleMethodOverride = 'error';
+    configOptions.diagnosticRuleSet.reportIncompatibleMethodOverride = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes2.py'], configOptions);
     validateResults(analysisResults, 2);
 });
@@ -851,7 +851,7 @@ test('DefaultInitializer1', () => {
     validateResults(analysisResults, 0);
 
     // Turn on errors.
-    configOptions.diagnosticSettings.reportCallInDefaultInitializer = 'error';
+    configOptions.diagnosticRuleSet.reportCallInDefaultInitializer = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['defaultInitializer1.py'], configOptions);
     validateResults(analysisResults, 2);
 });
@@ -881,7 +881,7 @@ test('UnnecessaryIsInstance1', () => {
     validateResults(analysisResults, 1);
 
     // Turn on errors.
-    configOptions.diagnosticSettings.reportUnnecessaryIsInstance = 'error';
+    configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance1.py'], configOptions);
     validateResults(analysisResults, 4);
 });
@@ -893,7 +893,7 @@ test('UnnecessaryIsSubclass1', () => {
     validateResults(analysisResults, 0);
 
     // Turn on errors.
-    configOptions.diagnosticSettings.reportUnnecessaryIsInstance = 'error';
+    configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsSubclass1.py'], configOptions);
     validateResults(analysisResults, 3);
 });
@@ -911,7 +911,7 @@ test('UnnecessaryCast', () => {
     validateResults(analysisResults, 0);
 
     // Turn on errors.
-    configOptions.diagnosticSettings.reportUnnecessaryCast = 'error';
+    configOptions.diagnosticRuleSet.reportUnnecessaryCast = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryCast1.py'], configOptions);
     validateResults(analysisResults, 1);
 });
@@ -924,12 +924,12 @@ test('AssertAlwaysTrue', () => {
     validateResults(analysisResults, 0, 1);
 
     // Enable it as an error.
-    configOptions.diagnosticSettings.reportAssertAlwaysTrue = 'error';
+    configOptions.diagnosticRuleSet.reportAssertAlwaysTrue = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['assert1.py'], configOptions);
     validateResults(analysisResults, 1, 0);
 
     // Turn off the diagnostic.
-    configOptions.diagnosticSettings.reportAssertAlwaysTrue = 'none';
+    configOptions.diagnosticRuleSet.reportAssertAlwaysTrue = 'none';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['assert1.py'], configOptions);
     validateResults(analysisResults, 0, 0);
 });
@@ -1169,7 +1169,7 @@ test('TypeIgnore1', () => {
     validateResults(analysisResults, 0);
 
     // Disable type ignore
-    configOptions.diagnosticSettings.enableTypeIgnoreComments = false;
+    configOptions.diagnosticRuleSet.enableTypeIgnoreComments = false;
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore1.py'], configOptions);
     validateResults(analysisResults, 2);
 });
@@ -1181,7 +1181,7 @@ test('TypeIgnore2', () => {
     validateResults(analysisResults, 0);
 
     // Disable type ignore
-    configOptions.diagnosticSettings.enableTypeIgnoreComments = false;
+    configOptions.diagnosticRuleSet.enableTypeIgnoreComments = false;
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore2.py'], configOptions);
     validateResults(analysisResults, 3);
 });
@@ -1289,7 +1289,7 @@ test('DuplicateImports1', () => {
     validateResults(analysisResults, 0);
 
     // Turn on errors.
-    configOptions.diagnosticSettings.reportDuplicateImport = 'error';
+    configOptions.diagnosticRuleSet.reportDuplicateImport = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['duplicateImports1.py'], configOptions);
     validateResults(analysisResults, 2);
 });
@@ -1320,11 +1320,11 @@ test('ParamName1', () => {
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramNames1.py'], configOptions);
     validateResults(analysisResults, 0, 4);
 
-    configOptions.diagnosticSettings.reportSelfClsParameterName = 'none';
+    configOptions.diagnosticRuleSet.reportSelfClsParameterName = 'none';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramNames1.py'], configOptions);
     validateResults(analysisResults, 0, 0);
 
-    configOptions.diagnosticSettings.reportSelfClsParameterName = 'error';
+    configOptions.diagnosticRuleSet.reportSelfClsParameterName = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramNames1.py'], configOptions);
     validateResults(analysisResults, 4, 0);
 });

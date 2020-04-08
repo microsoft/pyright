@@ -107,7 +107,7 @@ export class TestState {
                     throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
                 }
 
-                configOptions.initializeFromJson(configJson, nullConsole);
+                configOptions.initializeFromJson(configJson, 'basic', nullConsole);
                 this._applyTestConfigOptions(configOptions);
             } else {
                 files[file.fileName] = new vfs.File(file.content, { meta: file.fileOptions, encoding: 'utf8' });
