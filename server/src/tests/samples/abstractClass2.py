@@ -21,8 +21,5 @@ class ClassAB(InterfaceAB, MixinA):
   	def b(self) -> None:
 	  	print('ClassAB.b')
 
-# This should not generate an error, but it does.
-# This is because Pyright currently doesn't honor
-# true MRO when resolving methods.
 ab = ClassAB()
 ab.a()
