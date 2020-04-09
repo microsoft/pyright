@@ -11798,6 +11798,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function printFunctionParts(type: FunctionType, recursionCount = 0): [string[], string] {
+        // Avoid printing type types if none of the parameters have known types.
+        const printInputTypes = type.details.parameters.some((param) => param.hasDeclaredType);
         const paramTypeStrings = type.details.parameters.map((param, index) => {
             let paramString = '';
             if (param.category === ParameterCategory.VarArgList) {
@@ -11812,8 +11814,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             if (param.category === ParameterCategory.Simple) {
                 if (param.name) {
-                    // Avoid printing type types if parameter have unknown type.
-                    if (param.hasDeclaredType) {
+                    if (printInputTypes) {
                         const paramType = FunctionType.getEffectiveParameterType(type, index);
                         const paramTypeString =
                             recursionCount < maxTypeRecursionCount ? printType(paramType, recursionCount + 1) : '';
