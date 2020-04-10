@@ -25,7 +25,7 @@
         "command-line-args": "^5.1.1",
         "leven": "^3.1.0",
         "typescript-char": "^0.0.0",
-        "vscode-languageserver": "^6.2.0-next.1",
+        "vscode-languageserver": "^6.2.0-next.2",
         "vscode-uri": "^2.1.1"
     },
     "devDependencies": {
@@ -34,9 +34,9 @@
         "@types/command-line-args": "^5.0.0",
         "@types/fs-extra": "^8.1.0",
         "@types/jest": "^25.1.4",
-        "@types/node": "^13.9.5",
-        "@typescript-eslint/eslint-plugin": "^2.25.0",
-        "@typescript-eslint/parser": "^2.25.0",
+        "@types/node": "^13.11.1",
+        "@typescript-eslint/eslint-plugin": "^2.27.0",
+        "@typescript-eslint/parser": "^2.27.0",
         "eslint": "^6.8.0",
         "eslint-config-prettier": "^6.10.1",
         "fs-extra": "^8.1.0",
