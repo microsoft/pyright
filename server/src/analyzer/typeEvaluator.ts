@@ -7237,16 +7237,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         });
 
-        if (containingClassNode) {
+        if (containingClassType) {
             // If the first parameter doesn't have an explicit type annotation,
             // provide a type if it's an instance, class or constructor method.
             if (functionType.details.parameters.length > 0 && !node.parameters[0].typeAnnotation) {
-                if (containingClassType) {
-                    const inferredParamType = inferFirstParamType(functionType.details.flags, containingClassType);
-                    if (inferredParamType) {
-                        functionType.details.parameters[0].type = inferredParamType;
-                        paramTypes[0] = inferredParamType;
+                const inferredParamType = inferFirstParamType(functionType.details.flags, containingClassType);
+                if (inferredParamType) {
+                    functionType.details.parameters[0].type = inferredParamType;
+                    if (inferredParamType.category !== TypeCategory.Any) {
+                        functionType.details.parameters[0].isTypeInferred = true;
                     }
+
+                    paramTypes[0] = inferredParamType;
                 }
             }
         }
@@ -11798,8 +11800,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function printFunctionParts(type: FunctionType, recursionCount = 0): [string[], string] {
-        // Avoid printing type types if none of the parameters have known types.
-        const printInputTypes = type.details.parameters.some((param) => param.hasDeclaredType);
         const paramTypeStrings = type.details.parameters.map((param, index) => {
             let paramString = '';
             if (param.category === ParameterCategory.VarArgList) {
@@ -11814,7 +11814,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             if (param.category === ParameterCategory.Simple) {
                 if (param.name) {
-                    if (printInputTypes) {
+                    // Avoid printing type types if parameter have unknown type.
+                    if (param.hasDeclaredType || param.isTypeInferred) {
                         const paramType = FunctionType.getEffectiveParameterType(type, index);
                         const paramTypeString =
                             recursionCount < maxTypeRecursionCount ? printType(paramType, recursionCount + 1) : '';
