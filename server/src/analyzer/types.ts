@@ -546,6 +546,7 @@ export interface FunctionParameter {
     category: ParameterCategory;
     name?: string;
     isNameSynthesized?: boolean;
+    isTypeInferred?: boolean;
     hasDefault?: boolean;
     defaultType?: Type;
     hasDeclaredType?: boolean;
