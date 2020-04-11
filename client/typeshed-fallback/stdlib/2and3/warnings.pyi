@@ -1,6 +1,7 @@
 import sys
-from typing import Any, List, NamedTuple, Optional, overload, TextIO, Type
 from types import ModuleType, TracebackType
+from typing import Any, List, NamedTuple, Optional, TextIO, Type, overload
+
 from typing_extensions import Literal
 
 from _warnings import warn as warn, warn_explicit as warn_explicit
@@ -20,15 +21,32 @@ class _OptionError(Exception): ...
 class WarningMessage:
     message: Warning
     category: Type[Warning]
-    filename: Any
-    lineno: Any
-    file: Optional[Any]
-    line: Optional[Any]
+    filename: str
+    lineno: int
+    file: Optional[TextIO]
+    line: Optional[str]
     if sys.version_info >= (3, 6):
         source: Optional[Any]
-        def __init__(self, message: Warning, category: Type[Warning], filename: Any, lineno: Any, file: Optional[Any] = ..., line: Optional[Any] = ..., source: Optional[Any] = ...) -> None: ...
+        def __init__(
+            self,
+            message: Warning,
+            category: Type[Warning],
+            filename: str,
+            lineno: int,
+            file: Optional[TextIO] = ...,
+            line: Optional[str] = ...,
+            source: Optional[Any] = ...,
+        ) -> None: ...
     else:
-        def __init__(self, message: Warning, category: Type[Warning], filename: Any, lineno: Any, file: Optional[Any] = ..., line: Optional[Any] = ...) -> None: ...
+        def __init__(
+            self,
+            message: Warning,
+            category: Type[Warning],
+            filename: str,
+            lineno: int,
+            file: Optional[TextIO] = ...,
+            line: Optional[str] = ...,
+        ) -> None: ...
 
 class catch_warnings:
     @overload

@@ -21,7 +21,7 @@ class TextWrapper:
     whitespace_trans: str = ...
     unicode_whitespace_trans: Dict[int, int] = ...
     uspace: int = ...
-    x: int = ...
+    x: str = ...  # leaked loop variable
 
     def __init__(
             self,
@@ -53,7 +53,7 @@ class TextWrapper:
 
 
 def wrap(
-        text: str = ...,
+        text: str,
         width: int = ...,
         *,
         initial_indent: str = ...,
@@ -109,5 +109,5 @@ def shorten(
 def dedent(text: str) -> str:
     ...
 
-def indent(text: str, prefix: str, predicate: Callable[[str], bool] = ...) -> str:
+def indent(text: str, prefix: str, predicate: Optional[Callable[[str], bool]] = ...) -> str:
     ...

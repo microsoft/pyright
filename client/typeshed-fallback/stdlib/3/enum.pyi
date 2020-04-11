@@ -32,6 +32,7 @@ class Enum(metaclass=EnumMeta):
         _ignore_: Union[str, List[str]]
     if sys.version_info >= (3, 6):
         _order_: str
+        __order__: str
         @classmethod
         def _missing_(cls, value: object) -> Any: ...
         @staticmethod

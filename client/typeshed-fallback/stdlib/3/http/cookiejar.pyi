@@ -1,6 +1,9 @@
+import sys
 from typing import Dict, Iterable, Iterator, Optional, Sequence, Tuple, TypeVar, Union, overload
 from http.client import HTTPResponse
 from urllib.request import Request
+if sys.version_info >= (3, 6):
+    from os import PathLike
 
 _T = TypeVar('_T')
 
@@ -27,8 +30,12 @@ class CookieJar(Iterable[Cookie]):
 class FileCookieJar(CookieJar):
     filename: str
     delayload: bool
-    def __init__(self, filename: str = ..., delayload: bool = ...,
-                 policy: Optional[CookiePolicy] = ...) -> None: ...
+    if sys.version_info >= (3, 8):
+        def __init__(self, filename: Union[str, PathLike[str]] = ..., delayload: bool = ...,
+                     policy: Optional[CookiePolicy] = ...) -> None: ...
+    else:
+        def __init__(self, filename: str = ..., delayload: bool = ...,
+                     policy: Optional[CookiePolicy] = ...) -> None: ...
     def save(self, filename: Optional[str] = ..., ignore_discard: bool = ...,
              ignore_expires: bool = ...) -> None: ...
     def load(self, filename: Optional[str] = ..., ignore_discard: bool = ...,

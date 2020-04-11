@@ -1,7 +1,7 @@
 # Stubs for plistlib
 
 from typing import (
-    Any, IO, Mapping, MutableMapping, Optional, Union,
+    Any, IO, Mapping, MutableMapping, Optional, overload, Union,
     Type, TypeVar,
 )
 from typing import Dict as DictT
@@ -23,9 +23,17 @@ else:
     _Path = Union[str, unicode]
 
 if sys.version_info >= (3, 4):
+    @overload
+    def load(fp: IO[bytes], *, fmt: Optional[PlistFormat] = ...,
+             use_builtin_types: bool = ...) -> DictT[str, Any]: ...
+    @overload
     def load(fp: IO[bytes], *, fmt: Optional[PlistFormat] = ...,
              use_builtin_types: bool = ..., dict_type: Type[_D] = ...) -> _D: ...
-    def loads(data: bytes, *, fmt: Optional[PlistFormat] = ...,
+    @overload
+    def loads(value: bytes, *, fmt: Optional[PlistFormat] = ...,
+              use_builtin_types: bool = ...) -> DictT[str, Any]: ...
+    @overload
+    def loads(value: bytes, *, fmt: Optional[PlistFormat] = ...,
               use_builtin_types: bool = ..., dict_type: Type[_D] = ...) -> _D: ...
     def dump(value: Mapping[str, Any], fp: IO[bytes], *,
              fmt: PlistFormat = ..., sort_keys: bool = ...,
@@ -63,3 +71,6 @@ if sys.version_info >= (3, 8):
         def __index__(self) -> int: ...
         def __reduce__(self) -> Any: ...
         def __hash__(self) -> int: ...
+
+class InvalidFileException(ValueError):
+    def __init__(self, message: str = ...) -> None: ...

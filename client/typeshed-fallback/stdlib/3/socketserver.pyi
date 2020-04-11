@@ -1,7 +1,7 @@
 # NB: SocketServer.pyi and socketserver.pyi must remain consistent!
 # Stubs for socketserver
 
-from typing import Any, BinaryIO, Callable, Optional, Tuple, Type, Text, Union
+from typing import Any, BinaryIO, Callable, List, Optional, Tuple, Type, Text, Union
 from socket import SocketType
 import sys
 import types
@@ -63,8 +63,34 @@ if sys.platform != 'win32':
                      RequestHandlerClass: Callable[..., BaseRequestHandler],
                      bind_and_activate: bool = ...) -> None: ...
 
-class ForkingMixIn: ...
-class ThreadingMixIn: ...
+class ForkingMixIn:
+    timeout: Optional[float]  # undocumented
+    active_children: Optional[List[int]]  # undocumented
+    max_children: int  # undocumented
+    if sys.version_info >= (3, 7):
+        block_on_close: bool
+    if sys.version_info >= (3, 6):
+        def collect_children(self, *, blocking: bool = ...) -> None: ...  # undocumented
+    else:
+        def collect_children(self) -> None: ...  # undocumented
+    def handle_timeout(self) -> None: ...  # undocumented
+    if sys.version_info >= (3, 3):
+        def service_actions(self) -> None: ...  # undocumented
+    def process_request(self, request: bytes,
+                        client_address: Tuple[str, int]) -> None: ...
+    if sys.version_info >= (3, 6):
+        def server_close(self) -> None: ...
+
+class ThreadingMixIn:
+    daemon_threads: bool
+    if sys.version_info >= (3, 7):
+        block_on_close: bool
+    def process_request_thread(self, request: bytes,
+                               client_address: Tuple[str, int]) -> None: ...  # undocumented
+    def process_request(self, request: bytes,
+                        client_address: Tuple[str, int]) -> None: ...
+    if sys.version_info >= (3, 6):
+        def server_close(self) -> None: ...
 
 class ForkingTCPServer(ForkingMixIn, TCPServer): ...
 class ForkingUDPServer(ForkingMixIn, UDPServer): ...
@@ -84,8 +110,9 @@ class BaseRequestHandler:
     # https://github.com/python/typeshed/pull/384#issuecomment-234649696)
     request: Any
     client_address: Any
-
     server: BaseServer
+
+    def __init__(self, request: Any, client_address: Any, server: BaseServer) -> None: ...
     def setup(self) -> None: ...
     def handle(self) -> None: ...
     def finish(self) -> None: ...

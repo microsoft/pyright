@@ -1,5 +1,6 @@
 # Stubs for http.cookies (Python 3.5)
 
+import sys
 from typing import Generic, Dict, List, Mapping, Optional, TypeVar, Union, Any
 
 _DataType = Union[str, Mapping[str, Union[str, Morsel[Any]]]]
@@ -11,7 +12,10 @@ class Morsel(Dict[str, Any], Generic[_T]):
     value: str
     coded_value: _T
     key: str
-    def set(self, key: str, val: str, coded_val: _T) -> None: ...
+    if sys.version_info >= (3, 7):
+        def set(self, key: str, val: str, coded_val: _T) -> None: ...
+    else:
+        def set(self, key: str, val: str, coded_val: _T, LegalChars: str = ...) -> None: ...
     def isReservedKey(self, K: str) -> bool: ...
     def output(self, attrs: Optional[List[str]] = ...,
                header: str = ...) -> str: ...

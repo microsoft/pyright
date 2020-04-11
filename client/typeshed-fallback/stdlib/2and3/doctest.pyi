@@ -106,8 +106,8 @@ class DebugRunner(DocTestRunner): ...
 
 master: Optional[DocTestRunner]
 
-def testmod(m: Optional[types.ModuleType] = ..., name: Optional[str] = ..., globs: Dict[str, Any] = ..., verbose: Optional[bool] = ...,
-            report: bool = ..., optionflags: int = ..., extraglobs: Dict[str, Any] = ...,
+def testmod(m: Optional[types.ModuleType] = ..., name: Optional[str] = ..., globs: Optional[Dict[str, Any]] = ..., verbose: Optional[bool] = ...,
+            report: bool = ..., optionflags: int = ..., extraglobs: Optional[Dict[str, Any]] = ...,
             raise_on_error: bool = ..., exclude_empty: bool = ...) -> TestResults: ...
 def testfile(filename: str, module_relative: bool = ..., name: Optional[str] = ..., package: Union[None, str, types.ModuleType] = ...,
              globs: Optional[Dict[str, Any]] = ..., verbose: Optional[bool] = ..., report: bool = ..., optionflags: int = ...,

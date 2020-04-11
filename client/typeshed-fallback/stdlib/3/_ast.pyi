@@ -251,12 +251,6 @@ class Call(expr):
     args: typing.List[expr]
     keywords: typing.List[keyword]
 
-class Num(expr):  # Deprecated in 3.8; use Constant
-    n: complex
-
-class Str(expr):  # Deprecated in 3.8; use Constant
-    s: str
-
 if sys.version_info >= (3, 6):
     class FormattedValue(expr):
         value: expr
@@ -266,11 +260,20 @@ if sys.version_info >= (3, 6):
     class JoinedStr(expr):
         values: typing.List[expr]
 
-class Bytes(expr):  # Deprecated in 3.8; use Constant
-    s: bytes
+if sys.version_info < (3, 8):
+    class Num(expr):  # Deprecated in 3.8; use Constant
+        n: complex
 
-class NameConstant(expr):
-    value: Any
+    class Str(expr):  # Deprecated in 3.8; use Constant
+        s: str
+
+    class Bytes(expr):  # Deprecated in 3.8; use Constant
+        s: bytes
+
+    class NameConstant(expr):  # Deprecated in 3.8; use Constant
+        value: Any
+
+    class Ellipsis(expr): ...  # Deprecated in 3.8; use Constant
 
 if sys.version_info >= (3, 6):
     class Constant(expr):
@@ -284,8 +287,6 @@ if sys.version_info >= (3, 8):
     class NamedExpr(expr):
         target: expr
         value: expr
-
-class Ellipsis(expr): ...
 
 class Attribute(expr):
     value: expr

@@ -16,7 +16,9 @@ opmap: Dict[str, int]
 HAVE_ARGUMENT: int
 EXTENDED_ARG: int
 
-if sys.version_info >= (3, 4):
+if sys.version_info >= (3, 8):
+    def stack_effect(opcode: int, oparg: Optional[int] = ..., *, jump: Optional[bool] = ...) -> int: ...
+elif sys.version_info >= (3, 4):
     def stack_effect(opcode: int, oparg: Optional[int] = ...) -> int: ...
 
 if sys.version_info >= (3, 6):

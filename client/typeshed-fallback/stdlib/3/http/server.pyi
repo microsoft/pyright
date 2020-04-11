@@ -18,7 +18,7 @@ if sys.version_info >= (3, 7):
     class ThreadingHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
         daemon_threads: bool  # undocumented
 
-class BaseHTTPRequestHandler:
+class BaseHTTPRequestHandler(socketserver.StreamRequestHandler):
     client_address: Tuple[str, int]
     server: socketserver.BaseServer
     close_connection: bool

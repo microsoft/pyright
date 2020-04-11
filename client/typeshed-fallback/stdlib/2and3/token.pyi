@@ -58,6 +58,11 @@ if sys.version_info >= (3,):
     ELLIPSIS: int
 if sys.version_info >= (3, 5):
     ATEQUAL: int
+    if sys.version_info < (3, 7):
+        # These were removed in Python 3.7 but added back in Python 3.8
+        AWAIT: int
+        ASYNC: int
+if sys.version_info >= (3, 8):
     AWAIT: int
     ASYNC: int
 OP: int
@@ -69,6 +74,10 @@ if sys.version_info >= (3, 7):
     COMMENT: int
     NL: int
     ENCODING: int
+if sys.version_info >= (3, 8):
+    TYPE_COMMENT: int
+    TYPE_IGNORE: int
+    COLONEQUAL: int
 
 def ISTERMINAL(x: int) -> bool: ...
 def ISNONTERMINAL(x: int) -> bool: ...

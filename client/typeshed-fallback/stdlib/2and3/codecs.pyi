@@ -1,8 +1,13 @@
 import sys
-from typing import Any, BinaryIO, Callable, Generator, IO, Iterable, Iterator, List, Optional, Protocol, Text, TextIO, Tuple, Type, TypeVar, Union
+from typing import Any, BinaryIO, Callable, Generator, IO, Iterable, Iterator, List, Optional, Protocol, Text, TextIO, Tuple, Type, TypeVar, Union, overload
 
 from abc import abstractmethod
 import types
+
+if sys.version_info < (3,) or sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
 
 # TODO: this only satisfies the most common interface, where
 # bytes (py2 str) is the raw form and str (py2 unicode) is the cooked form.
@@ -28,8 +33,40 @@ class _IncrementalEncoder(Protocol):
 class _IncrementalDecoder(Protocol):
     def __call__(self, errors: str = ...) -> IncrementalDecoder: ...
 
+# The type ignore on `encode` and `decode` is to avoid issues with overlapping overloads, for more details, see #300
+# mypy and pytype disagree about where the type ignore can and cannot go, so alias the long type
+_BytesToBytesEncodingT = Literal[
+    "base64",
+    "base_64",
+    "base64_codec",
+    "bz2",
+    "bz2_codec",
+    "hex",
+    "hex_codec",
+    "quopri",
+    "quotedprintable",
+    "quoted_printable",
+    "quopri_codec",
+    "uu",
+    "uu_codec",
+    "zip",
+    "zlib",
+    "zlib_codec",
+]
+@overload
+def encode(obj: bytes, encoding: _BytesToBytesEncodingT, errors: str = ...) -> bytes: ...
+@overload
+def encode(obj: str, encoding: Literal["rot13", "rot_13"] = ..., errors: str = ...) -> str: ...  # type: ignore
+@overload
 def encode(obj: _Decoded, encoding: str = ..., errors: str = ...) -> _Encoded: ...
+
+@overload
+def decode(obj: bytes, encoding: _BytesToBytesEncodingT, errors: str = ...) -> bytes: ...  # type: ignore
+@overload
+def decode(obj: str, encoding: Literal["rot13", "rot_13"] = ..., errors: str = ...) -> Text: ...
+@overload
 def decode(obj: _Encoded, encoding: str = ..., errors: str = ...) -> _Decoded: ...
+
 def lookup(encoding: str) -> CodecInfo: ...
 def utf_16_be_decode(__obj: _Encoded, __errors: str = ..., __final: bool = ...) -> Tuple[_Decoded, int]: ...  # undocumented
 def utf_16_be_encode(__obj: _Decoded, __errors: str = ...) -> Tuple[_Encoded, int]: ...  # undocumented

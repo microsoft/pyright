@@ -2,7 +2,7 @@
 
 from typing import (
     Callable, IO, Iterable, Iterator, List, Mapping, Optional, Type,
-    Union,
+    Union, Tuple, Dict, Set
 )
 import os
 import sys
@@ -15,23 +15,53 @@ elif sys.version_info >= (3,):
 else:
     _Path = Union[str, unicode]
 
-ENCODING: str
+# tar constants
+NUL: bytes
+BLOCKSIZE: int
+RECORDSIZE: int
+GNU_MAGIC: bytes
+POSIX_MAGIC: bytes
+
+LENGTH_NAME: int
+LENGTH_LINK: int
+LENGTH_PREFIX: int
+
+REGTYPE: bytes
+AREGTYPE: bytes
+LNKTYPE: bytes
+SYMTYPE: bytes
+CONTTYPE: bytes
+BLKTYPE: bytes
+DIRTYPE: bytes
+FIFOTYPE: bytes
+CHRTYPE: bytes
+
+GNUTYPE_LONGNAME: bytes
+GNUTYPE_LONGLINK: bytes
+GNUTYPE_SPARSE: bytes
+
+XHDTYPE: bytes
+XGLTYPE: bytes
+SOLARIS_XHDTYPE: bytes
 
 USTAR_FORMAT: int
 GNU_FORMAT: int
 PAX_FORMAT: int
 DEFAULT_FORMAT: int
 
-REGTYPE: bytes
-AREGTYPE: bytes
-LNKTYPE: bytes
-SYMTYPE: bytes
-DIRTYPE: bytes
-FIFOTYPE: bytes
-CONTTYPE: bytes
-CHRTYPE: bytes
-BLKTYPE: bytes
-GNUTYPE_SPARSE: bytes
+# tarfile constants
+
+SUPPORTED_TYPES: Tuple[bytes, ...]
+REGULAR_TYPES: Tuple[bytes, ...]
+GNU_TYPES: Tuple[bytes, ...]
+PAX_FIELDS: Tuple[str, ...]
+PAX_NUMBER_FIELDS: Dict[str, type]
+
+if sys.version_info >= (3,):
+    PAX_NAME_FIELDS: Set[str]
+
+
+ENCODING: str
 
 if sys.version_info < (3,):
     TAR_PLAIN: int

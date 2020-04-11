@@ -14,7 +14,7 @@ class error(Exception):
 
 class _NamedIntConstant(int):
     name: Any
-    def __new__(cls, value: int, name: str): ...
+    def __new__(cls, value: int, name: str) -> _NamedIntConstant: ...
 
 MAXREPEAT: _NamedIntConstant
 OPCODES: List[_NamedIntConstant]

@@ -65,3 +65,5 @@ class HTTPStatus(IntEnum):
     NETWORK_AUTHENTICATION_REQUIRED: int
     if sys.version_info >= (3, 7):
         MISDIRECTED_REQUEST: int
+    if sys.version_info >= (3, 8):
+        UNAVAILABLE_FOR_LEGAL_REASONS: int

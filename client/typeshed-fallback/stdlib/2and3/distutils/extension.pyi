@@ -18,6 +18,7 @@ class Extension:
                      extra_compile_args: List[str] = ...,
                      extra_link_args: List[str] = ...,
                      export_symbols: List[str] = ...,
+                     swig_opts: Optional[str] = ...,  # undocumented
                      depends: List[str] = ...,
                      language: str = ...,
                      optional: bool = ...) -> None: ...
@@ -35,5 +36,6 @@ class Extension:
                      extra_compile_args: List[str] = ...,
                      extra_link_args: List[str] = ...,
                      export_symbols: List[str] = ...,
+                     swig_opts: Optional[str] = ...,  # undocumented
                      depends: List[str] = ...,
                      language: str = ...) -> None: ...
