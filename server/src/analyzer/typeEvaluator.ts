@@ -5800,7 +5800,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 }
             } else if (entryNode.nodeType === ParseNodeType.ListComprehension) {
-                const dictEntryType = getElementTypeFromListComprehension(node.entries[0] as ListComprehensionNode);
+                const dictEntryType = getElementTypeFromListComprehension(entryNode);
 
                 // The result should be a Tuple
                 if (dictEntryType.category === TypeCategory.Object) {
