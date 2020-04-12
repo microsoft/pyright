@@ -9032,6 +9032,30 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         }
                     }
                 }
+
+                // Look for X == <literal> or X != <literal>
+                if (equalsOrNotEqualsOperator) {
+                    const adjIsPositiveTest =
+                        testExpression.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
+
+                    if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
+                        const rightType = getTypeOfExpression(testExpression.rightExpression).type;
+                        if (rightType.category === TypeCategory.Object && rightType.literalValue) {
+                            return (type: Type) => {
+                                return narrowTypeForLiteralComparison(type, rightType, adjIsPositiveTest);
+                            };
+                        }
+                    }
+
+                    if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
+                        const leftType = getTypeOfExpression(testExpression.leftExpression).type;
+                        if (leftType.category === TypeCategory.Object && leftType.literalValue) {
+                            return (type: Type) => {
+                                return narrowTypeForLiteralComparison(type, leftType, adjIsPositiveTest);
+                            };
+                        }
+                    }
+                }
             }
         }
 
@@ -9228,6 +9252,33 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         // Return the original type.
         return type;
+    }
+
+    // Attempts to narrow a type (make it more constrained) based on a comparison
+    // (equal or not equal) to a literal value.
+    function narrowTypeForLiteralComparison(
+        referenceType: Type,
+        literalType: ObjectType,
+        isPositiveTest: boolean
+    ): Type {
+        let canNarrow = true;
+        const narrowedType = doForSubtypes(referenceType, (subtype) => {
+            if (
+                subtype.category === TypeCategory.Object &&
+                ClassType.isSameGenericClass(literalType.classType, subtype.classType) &&
+                subtype.literalValue
+            ) {
+                const literalValueMatches = subtype.literalValue === literalType.literalValue;
+                if ((literalValueMatches && !isPositiveTest) || (!literalValueMatches && isPositiveTest)) {
+                    return undefined;
+                }
+                return subtype;
+            }
+            canNarrow = false;
+            return subtype;
+        });
+
+        return canNarrow ? narrowedType : referenceType;
     }
 
     // Attempts to narrow a type (make it more constrained) based on a
