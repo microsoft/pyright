@@ -31,6 +31,7 @@ export class CreateTypeStubCommand implements ServerCommand {
                 rootUri: convertPathToUri(workspaceRoot),
                 serviceInstance: service,
                 disableLanguageServices: true,
+                disableOrganizeImports: true,
             };
 
             service.setCompletionCallback((results) => {

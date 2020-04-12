@@ -63,6 +63,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
                     rootUri: '',
                     serviceInstance: this._ls.createAnalyzerService(this._defaultWorkspacePath),
                     disableLanguageServices: false,
+                    disableOrganizeImports: false,
                 };
                 this.set(this._defaultWorkspacePath, defaultWorkspace);
                 this._ls.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();

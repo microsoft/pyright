@@ -26,7 +26,11 @@ export class CodeActionProvider {
             Command.create('Organize Imports', Commands.orderImports),
             CodeActionKind.SourceOrganizeImports
         );
-        const codeActions: CodeAction[] = [sortImportsCodeAction];
+        const codeActions: CodeAction[] = [];
+
+        if (!workspace.disableOrganizeImports) {
+            codeActions.push(sortImportsCodeAction);
+        }
 
         if (!workspace.disableLanguageServices) {
             const diags = workspace.serviceInstance.getDiagnosticsForRange(filePath, range);

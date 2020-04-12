@@ -70,6 +70,7 @@ export interface ServerSettings {
     typeCheckingMode?: string;
     useLibraryCodeForTypes?: boolean;
     disableLanguageServices?: boolean;
+    disableOrganizeImports?: boolean;
     autoSearchPaths?: boolean;
     watchForLibraryChanges?: boolean;
 }
@@ -80,6 +81,7 @@ export interface WorkspaceServiceInstance {
     rootUri: string;
     serviceInstance: AnalyzerService;
     disableLanguageServices: boolean;
+    disableOrganizeImports: boolean;
 }
 
 export interface WindowInterface {
@@ -152,6 +154,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         params: CodeActionParams,
         token: CancellationToken
     ): Promise<(Command | CodeAction)[] | undefined | null>;
+
     abstract async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
 
     protected getConfiguration(workspace: WorkspaceServiceInstance, section: string) {
@@ -296,6 +299,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                             rootUri: folder.uri,
                             serviceInstance: this.createAnalyzerService(folder.name),
                             disableLanguageServices: false,
+                            disableOrganizeImports: false,
                         });
                     });
                 } else if (params.rootPath) {
@@ -305,6 +309,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                         rootUri: '',
                         serviceInstance: this.createAnalyzerService(params.rootPath),
                         disableLanguageServices: false,
+                        disableOrganizeImports: false,
                     });
                 }
 
@@ -604,6 +609,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                         rootUri: workspace.uri,
                         serviceInstance: this.createAnalyzerService(workspace.name),
                         disableLanguageServices: false,
+                        disableOrganizeImports: false,
                     };
                     this._workspaceMap.set(rootPath, newWorkspace);
                     await this.updateSettingsForWorkspace(newWorkspace);
@@ -675,6 +681,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         const serverSettings = await this.getSettings(workspace);
         this.updateOptionsAndRestartService(workspace, serverSettings);
         workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
+        workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
     }
 
     updateOptionsAndRestartService(

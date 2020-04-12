@@ -46,11 +46,13 @@ class PyrightServer extends LanguageServerBase {
                 serverSettings.openFilesOnly = !!pyrightSection.openFilesOnly;
                 serverSettings.useLibraryCodeForTypes = !!pyrightSection.useLibraryCodeForTypes;
                 serverSettings.disableLanguageServices = !!pyrightSection.disableLanguageServices;
+                serverSettings.disableOrganizeImports = !!pyrightSection.disableOrganizeImports;
                 serverSettings.typeCheckingMode = pyrightSection.typeCheckingMode;
             } else {
                 serverSettings.openFilesOnly = true;
                 serverSettings.useLibraryCodeForTypes = false;
                 serverSettings.disableLanguageServices = false;
+                serverSettings.disableOrganizeImports = false;
                 serverSettings.typeCheckingMode = undefined;
             }
         } catch (error) {

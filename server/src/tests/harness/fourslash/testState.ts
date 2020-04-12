@@ -139,6 +139,7 @@ export class TestState {
             rootUri: convertPathToUri(this.fs.getModulePath()),
             serviceInstance: service,
             disableLanguageServices: false,
+            disableOrganizeImports: false,
         };
 
         if (this._files.length > 0) {

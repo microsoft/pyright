@@ -93,6 +93,12 @@
                     "description": "Disables type completion, definitions, and references.",
                     "scope": "resource"
                 },
+                "pyright.disableOrganizeImports": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Disables the “Organize Imports” command.",
+                    "scope": "resource"
+                },
                 "pyright.openFilesOnly": {
                     "type": "boolean",
                     "default": true,
