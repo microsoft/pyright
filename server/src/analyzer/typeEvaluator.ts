@@ -57,6 +57,7 @@ import {
     ParseNode,
     ParseNodeType,
     SetNode,
+    SliceNode,
     StringListNode,
     TernaryNode,
     TupleNode,
@@ -793,7 +794,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case ParseNodeType.Slice: {
-                typeResult = { type: getBuiltInObject(node, 'slice'), node };
+                typeResult = getTypeFromSlice(node);
                 break;
             }
 
@@ -6146,6 +6147,23 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return type;
+    }
+
+    function getTypeFromSlice(node: SliceNode): TypeResult {
+        // Evaluate the expressions to report errors and record symbol references.
+        if (node.startValue) {
+            getTypeOfExpression(node.startValue);
+        }
+
+        if (node.endValue) {
+            getTypeOfExpression(node.endValue);
+        }
+
+        if (node.stepValue) {
+            getTypeOfExpression(node.stepValue);
+        }
+
+        return { type: getBuiltInObject(node, 'slice'), node };
     }
 
     // Converts the type parameters for a Callable type. It should
