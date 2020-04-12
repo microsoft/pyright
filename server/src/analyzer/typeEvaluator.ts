@@ -57,7 +57,6 @@ import {
     ParseNode,
     ParseNodeType,
     SetNode,
-    SliceNode,
     StringListNode,
     TernaryNode,
     TupleNode,
@@ -794,7 +793,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case ParseNodeType.Slice: {
-                typeResult = getTypeFromSlice(node);
+                typeResult = { type: getBuiltInObject(node, 'slice'), node };
                 break;
             }
 
@@ -6147,42 +6146,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         return type;
-    }
-
-    function getTypeFromSlice(node: SliceNode): TypeResult {
-        const intObject = getBuiltInObject(node, 'int');
-        const optionalIntObject = combineTypes([intObject, NoneType.create()]);
-
-        const validateIndexType = (indexExpr: ExpressionNode) => {
-            const exprType = stripLiteralValue(getTypeOfExpression(indexExpr).type);
-
-            const diag = new DiagnosticAddendum();
-            if (!canAssignType(optionalIntObject, exprType, diag)) {
-                const fileInfo = getFileInfo(node);
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    `Index for slice operation must be an int value or "None"` + diag.getString(),
-                    indexExpr
-                );
-            }
-        };
-
-        // Validate the index values.
-        if (node.startValue) {
-            validateIndexType(node.startValue);
-        }
-
-        if (node.endValue) {
-            validateIndexType(node.endValue);
-        }
-
-        if (node.stepValue) {
-            validateIndexType(node.stepValue);
-        }
-
-        const sliceObject = getBuiltInObject(node, 'slice');
-        return { type: sliceObject, node };
     }
 
     // Converts the type parameters for a Callable type. It should
