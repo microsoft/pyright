@@ -2462,6 +2462,7 @@ export class Parser {
         let isDictionary = false;
         let isSet = false;
         let sawListComprehension = false;
+        let isFirstEntry = true;
 
         while (true) {
             if (this._peekTokenType() === TokenType.CloseCurlyBrace) {
@@ -2496,6 +2497,10 @@ export class Parser {
                     if (listComp) {
                         dictEntry = listComp;
                         sawListComprehension = true;
+
+                        if (!isFirstEntry) {
+                            this._addError('Comprehension cannot be used with other dictionary entries', dictEntry);
+                        }
                     }
                     dictionaryEntries.push(dictEntry);
                     isDictionary = true;
@@ -2510,6 +2515,13 @@ export class Parser {
                     if (listComp) {
                         expandEntryNode = listComp;
                         sawListComprehension = true;
+
+                        if (!isFirstEntry) {
+                            this._addError(
+                                'Comprehension cannot be used with other dictionary entries',
+                                doubleStarExpression
+                            );
+                        }
                     }
                     dictionaryEntries.push(expandEntryNode);
                     isDictionary = true;
@@ -2524,6 +2536,10 @@ export class Parser {
                         if (listComp) {
                             keyExpression = listComp;
                             sawListComprehension = true;
+
+                            if (!isFirstEntry) {
+                                this._addError('Comprehension cannot be used with other set entries', keyExpression);
+                            }
                         }
                         setEntries.push(keyExpression);
                         isSet = true;
@@ -2539,6 +2555,8 @@ export class Parser {
             if (!this._consumeTokenIfType(TokenType.Comma)) {
                 break;
             }
+
+            isFirstEntry = false;
         }
 
         let closeCurlyBrace: Token | undefined = this._peekToken();
