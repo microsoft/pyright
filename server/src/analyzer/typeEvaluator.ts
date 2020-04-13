@@ -4047,6 +4047,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
+        // If we weren't able to validate the args, analyze the expressions
+        // here to mark symbols as referenced and report expression-level errors.
+        if (!validatedTypes) {
+            argList.forEach((arg) => {
+                if (arg.valueExpression) {
+                    getTypeOfExpression(arg.valueExpression);
+                }
+            });
+        }
+
         if (!validatedTypes && argList.length > 0) {
             const fileInfo = getFileInfo(errorNode);
             addDiagnostic(
