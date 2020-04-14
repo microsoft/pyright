@@ -24,6 +24,6 @@ def generator2() -> Iterator[ClassB]:
 
     # This should also generate an error because it
     # yields the wrong type.
-    yield from 1
+    yield from [1]
 
 

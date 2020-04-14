@@ -19,7 +19,7 @@ class ClassC():
 def generator1() -> Generator[ClassA, ClassB, ClassC]:
     cont = ClassB()
     while cont.shouldContinue():
-        cont = yield ClassA()
+        yield ClassA()
 
     return ClassC()
 
@@ -37,7 +37,7 @@ def generator2() -> Generator[ClassA, ClassB, ClassC]:
     while cont.shouldContinue():
         # This should generate an error because 3 isn't
         # assignable to the yield type (ClassA).
-        cont = yield 3
+        yield 3
 
 
 def generator3() -> Generator[ClassA]:
@@ -48,7 +48,7 @@ def generator3() -> Generator[ClassA]:
     while cont.shouldContinue():
         # This should generate an error because 3 isn't
         # assignable to the yield type (ClassA).
-        cont = yield 3
+        yield 3
 
 
 def generator4() -> Iterator[ClassA]:

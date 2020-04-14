@@ -856,7 +856,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             case ParseNodeType.Unpack: {
                 const iterType = getTypeOfExpression(node.expression, expectedType).type;
-                const type = getTypeFromIterable(iterType, false, node, false);
+                const type = getTypeFromIterable(iterType, /* isAsync */ false, node, /* supportGetItem */ false);
                 typeResult = { type, unpackedType: iterType, node };
                 break;
             }
@@ -2162,7 +2162,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             } else {
                 // The assigned expression isn't a tuple, so it had better
                 // be some iterable type.
-                const iterableType = getTypeFromIterable(subtype, false, srcExpr, false);
+                const iterableType = getTypeFromIterable(
+                    subtype,
+                    /* isAsync */ false,
+                    srcExpr,
+                    /* supportGetItem */ false
+                );
                 for (let index = 0; index < target.expressions.length; index++) {
                     targetTypes[index].push(iterableType);
                 }
@@ -2283,7 +2288,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             case ParseNodeType.List: {
                 // The assigned expression had better be some iterable type.
-                const iteratedType = getTypeFromIterable(type, false, srcExpr, false);
+                const iteratedType = getTypeFromIterable(
+                    type,
+                    /* isAsync */ false,
+                    srcExpr,
+                    /* supportGetItem */ false
+                );
 
                 target.entries.forEach((entry) => {
                     assignTypeToExpression(entry, iteratedType, srcExpr);
@@ -4386,9 +4396,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (argList[argIndex].valueExpression) {
                     const listElementType = getTypeFromIterable(
                         getTypeForArgument(argList[argIndex]),
-                        false,
+                        /* isAsync */ false,
                         argList[argIndex].valueExpression!,
-                        false
+                        /* supportGetItem */ false
                     );
                     const funcArg: FunctionArgument = {
                         argumentCategory: ArgumentCategory.Simple,
@@ -5980,47 +5990,47 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getTypeFromYield(node: YieldNode): TypeResult {
-        let sentType: Type | undefined;
+        let expectedType: Type | undefined;
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction) {
             const functionTypeInfo = getTypeOfFunction(enclosingFunction);
             if (functionTypeInfo) {
-                sentType = getDeclaredGeneratorSendType(functionTypeInfo.functionType);
+                expectedType = getDeclaredGeneratorSendType(functionTypeInfo.functionType);
             }
         }
 
-        if (!sentType) {
-            sentType = UnknownType.create();
-        }
-
+        let yieldType: Type = NoneType.create();
         if (node.expression) {
-            getTypeOfExpression(node.expression, sentType);
+            yieldType = getTypeOfExpression(node.expression, expectedType).type;
         }
 
-        return { type: sentType, node };
+        return { type: yieldType, node };
     }
 
     function getTypeFromYieldFrom(node: YieldFromNode): TypeResult {
-        let sentType: Type | undefined;
+        let expectedType: Type | undefined;
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction) {
             const functionTypeInfo = getTypeOfFunction(enclosingFunction);
             if (functionTypeInfo) {
-                sentType = getDeclaredGeneratorSendType(functionTypeInfo.functionType);
+                expectedType = getDeclaredGeneratorSendType(functionTypeInfo.functionType);
             }
         }
 
-        if (!sentType) {
-            sentType = UnknownType.create();
-        }
-
+        let yieldType: Type = NoneType.create();
         if (node.expression) {
-            getTypeOfExpression(node.expression, sentType);
+            const iteratorType = getTypeOfExpression(node.expression, expectedType).type;
+            yieldType = getTypeFromIterable(
+                iteratorType,
+                /* isAsync */ false,
+                node.expression,
+                /* supportGetItem */ false
+            );
         }
 
-        return { type: sentType, node };
+        return { type: yieldType, node };
     }
 
     function getTypeFromLambda(node: LambdaNode, expectedType?: Type): TypeResult {
@@ -6124,7 +6134,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     iterableType,
                     !!comprehension.isAsync,
                     comprehension.iterableExpression,
-                    false
+                    /* supportGetItem */ false
                 );
 
                 const targetExpr = comprehension.targetExpression;
@@ -7760,12 +7770,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const inferredYieldTypes: Type[] = [];
                 functionDecl.yieldExpressions.forEach((yieldNode) => {
                     if (isNodeReachable(yieldNode)) {
-                        if (yieldNode.expression) {
-                            const cachedType = getTypeOfExpression(yieldNode.expression).type;
-                            inferredYieldTypes.push(cachedType || UnknownType.create());
-                        } else {
-                            inferredYieldTypes.push(NoneType.create());
-                        }
+                        inferredYieldTypes.push(getTypeOfExpression(yieldNode).type);
                     }
                 });
 
@@ -7875,7 +7880,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (exceptionType.category === TypeCategory.Object) {
-                const iterableType = getTypeFromIterable(exceptionType, false, errorNode, false);
+                const iterableType = getTypeFromIterable(
+                    exceptionType,
+                    /* isAsync */ false,
+                    errorNode,
+                    /* supportGetItem */ false
+                );
 
                 return doForSubtypes(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {

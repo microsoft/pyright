@@ -687,7 +687,12 @@ export class Checker extends ParseTreeWalker {
             }
             resultingExceptionType = ObjectType.create(exceptionType);
         } else if (exceptionType.category === TypeCategory.Object) {
-            const iterableType = this._evaluator.getTypeFromIterable(exceptionType, false, errorNode, false);
+            const iterableType = this._evaluator.getTypeFromIterable(
+                exceptionType,
+                /* isAsync */ false,
+                errorNode,
+                false
+            );
 
             resultingExceptionType = doForSubtypes(iterableType, (subtype) => {
                 if (isAnyOrUnknown(subtype)) {
