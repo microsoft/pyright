@@ -4,14 +4,11 @@
 
 from typing import Dict
 def f():
-    yield from [1,2,3]
+    yield from [1, 2, 3]
 
 def g():
     yield from f()
 
-a = Dict[int,int]()
+a: Dict[int, int] = {}
 for i in g():
     a[i] = i
-
-
- 
