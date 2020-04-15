@@ -1168,6 +1168,17 @@ export class Binder extends ParseTreeWalker {
                 if (!existingDecl) {
                     symbol.addDeclaration(newDecl);
                 }
+            } else if (node.alias && symbol) {
+                // If we couldn't resolve the import but there is an alias symbol,
+                // create a dummy declaration with a bogus path so it gets an unknown
+                // type (rather than an unbound type) at analysis time.
+                const newDecl: AliasDeclaration = {
+                    type: DeclarationType.Alias,
+                    node,
+                    path: '*** unresolved ***',
+                    range: getEmptyRange(),
+                };
+                symbol.addDeclaration(newDecl);
             }
 
             this._createFlowAssignment(node.alias ? node.alias : node.module.nameParts[0]);
