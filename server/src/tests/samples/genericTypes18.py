@@ -1,7 +1,7 @@
 # This sample tests handling of user-defined type aliases.
 
 from datetime import datetime
-from typing import Callable, TypeVar, Union
+from typing import Callable, Generic, TypeVar, Union
 
 
 from typing import TypeVar, Union, Optional
@@ -73,4 +73,33 @@ def f6_5() -> Response6:
     # This should generate an error
     return None
 
+
+class InnerA:
+    pass
+
+class InnerB:
+    pass
+
+T = TypeVar("T", bound=InnerA)
+
+class A(Generic[T]):
+    pass
+
+class B:
+    pass
+
+U = Union[A[T], B]
+
+a: U[InnerA]
+
+# This should generate an error because InnerB is not
+# compatible with the type bound to TypeVar T.
+b: U[InnerB]
+
+
+V = Union[A[T], T]
+
+# This should generate an error because too many type
+# arguments are provided.
+c: V[InnerA, int]
 

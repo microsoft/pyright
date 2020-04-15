@@ -137,7 +137,6 @@ import {
     addDefaultFunctionParameters,
     addTypeVarsToListIfUnique,
     areTypesSame,
-    buildTypeVarMap,
     buildTypeVarMapFromSpecializedClass,
     CanAssignFlags,
     canBeFalsy,
@@ -3125,7 +3124,26 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             if (isUnionOfClasses && typeParameters.length > 0) {
                 const typeArgs = getTypeArgs(node.items, flags).map((t) => convertClassToObject(t.type));
-                const typeVarMap = buildTypeVarMap(typeParameters, typeArgs);
+                if (typeArgs.length > typeParameters.length) {
+                    addError(
+                        `Too many type arguments provided; expected ${typeParameters.length} but got ${typeArgs.length}`,
+                        node.items
+                    );
+                }
+
+                const typeVarMap = new TypeVarMap();
+                const diag = new DiagnosticAddendum();
+                // const typeVarMap = buildTypeVarMap(typeParameters, typeArgs);
+                typeParameters.forEach((param, index) => {
+                    if (index < typeArgs.length) {
+                        assignTypeToTypeVar(param, typeArgs[index], false, diag, typeVarMap);
+                    }
+                });
+
+                if (diag.getMessageCount() > 0) {
+                    addError(`Could not specialize type "${printType(baseType)}"` + diag.getString(), node.items);
+                }
+
                 const type = specializeType(baseType, typeVarMap);
                 return { type, node };
             }

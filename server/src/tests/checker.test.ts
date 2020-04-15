@@ -1063,7 +1063,7 @@ test('GenericTypes17', () => {
 test('GenericTypes18', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes18.py']);
 
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 6);
 });
 
 test('GenericTypes19', () => {
