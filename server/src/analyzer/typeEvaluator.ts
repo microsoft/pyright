@@ -1188,7 +1188,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         function addOneFunctionToSignature(type: FunctionType) {
             let callResult: CallResult | undefined;
 
-            useSpeculativeMode(exprNode, () => {
+            useSpeculativeMode(callNode!, () => {
                 callResult = validateFunctionArguments(exprNode, argList, type, new TypeVarMap(), true);
             });
 
@@ -9587,7 +9587,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // Disables recording of errors and warnings and disables
     // any caching of types, under the assumption that we're
     // performing speculative evaluations.
-    function useSpeculativeMode(speculativeNode: ExpressionNode, callback: () => void) {
+    function useSpeculativeMode(speculativeNode: ParseNode, callback: () => void) {
         speculativeTypeTracker.enterSpeculativeContext(speculativeNode);
         callback();
         speculativeTypeTracker.leaveSpeculativeContext();
