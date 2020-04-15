@@ -74,7 +74,6 @@ ${code}
 
     // TODO: figure out how to use this with async
     try {
-        // tslint:disable-next-line: no-eval
         const f = eval(wrappedCode);
         f(state, Consts);
 

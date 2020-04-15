@@ -13,7 +13,7 @@ import { Range } from '../common/textRange';
 import { WorkspaceServiceInstance } from '../languageServerBase';
 
 export class CodeActionProvider {
-    static getCodeActionsForPosition(
+    static async getCodeActionsForPosition(
         workspace: WorkspaceServiceInstance,
         filePath: string,
         range: Range,
@@ -33,7 +33,7 @@ export class CodeActionProvider {
         }
 
         if (!workspace.disableLanguageServices) {
-            const diags = workspace.serviceInstance.getDiagnosticsForRange(filePath, range);
+            const diags = await workspace.serviceInstance.getDiagnosticsForRange(filePath, range, token);
             const typeStubDiag = diags.find((d) => {
                 const actions = d.getActions();
                 return actions && actions.find((a) => a.action === Commands.createTypeStub);

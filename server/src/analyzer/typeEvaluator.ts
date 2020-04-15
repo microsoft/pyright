@@ -8680,6 +8680,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             ): FlowNodeTypeResult {
                 let curFlowNode = flowNode;
 
+                // This is a frequently-called routine, so it's a good place to call
+                // the cancellation check. If the operation is canceled, an exception
+                // will be thrown at this point.
+                checkForCancellation();
+
                 while (true) {
                     // Have we already been here? If so, use the cached value.
                     const cachedEntry = getCacheEntry(curFlowNode);

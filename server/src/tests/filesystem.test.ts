@@ -15,13 +15,13 @@ import * as vfs from './harness/vfs/filesystem';
 
 test('CreateVFS', () => {
     const cwd = normalizeSlashes('/');
-    const fs = new vfs.FileSystem(/*ignoreCase*/ true, { cwd });
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
     assert.equal(fs.cwd(), cwd);
 });
 
 test('Folders', () => {
     const cwd = normalizeSlashes('/');
-    const fs = new vfs.FileSystem(/*ignoreCase*/ true, { cwd });
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
 
     // no such dir exist
     assert.throws(() => {
@@ -43,7 +43,7 @@ test('Folders', () => {
 
 test('Files', () => {
     const cwd = normalizeSlashes('/');
-    const fs = new vfs.FileSystem(/*ignoreCase*/ true, { cwd });
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
 
     fs.writeFileSync('1.txt', 'hello', 'utf8');
     const buffer1 = fs.readFileSync('1.txt');
@@ -69,7 +69,7 @@ test('CreateRich', () => {
         [normalizeSlashes('/a/b/../c/./5.txt')]: new vfs.File('hello5', { encoding: 'ucs2' }),
     };
 
-    const fs = new vfs.FileSystem(/*ignoreCase*/ true, { cwd, files });
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd, files });
     const entries = fs.scanSync(cwd, 'descendants-or-self', {});
 
     // files + directory + root
@@ -84,7 +84,7 @@ test('CreateRich', () => {
 
 test('Shadow', () => {
     const cwd = normalizeSlashes('/');
-    const fs = new vfs.FileSystem(/*ignoreCase*/ true, { cwd });
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
 
     // only readonly fs can be shadowed
     assert.throws(() => fs.shadow());
@@ -110,7 +110,7 @@ test('Shadow', () => {
 
 test('Diffing', () => {
     const cwd = normalizeSlashes('/');
-    const fs = new vfs.FileSystem(/*ignoreCase*/ true, { cwd });
+    const fs = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
 
     // first snapshot
     fs.snapshot();

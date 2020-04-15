@@ -153,14 +153,6 @@ export function getPythonPathFromPythonInterpreter(
     };
 
     try {
-        // Set the working directory to a known location within
-        // the extension directory. Otherwise the execution of
-        // python can have unintended and surprising results.
-        const moduleDirectory = fs.getModulePath();
-        if (moduleDirectory) {
-            fs.chdir(moduleDirectory);
-        }
-
         const commandLineArgs: string[] = [
             '-c',
             'import sys, json; json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',

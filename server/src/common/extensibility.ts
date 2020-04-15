@@ -7,7 +7,7 @@
 * Defines language service completion list extensibility.
 */
 
-import { CompletionList, Position } from 'vscode-languageserver';
+import { CompletionList } from 'vscode-languageserver';
 
 import { ModuleNode } from '../parser/parseNodes';
 import { ConfigOptions } from './configOptions';
@@ -20,7 +20,8 @@ export interface CompletionListExtension {
     updateCompletionList(
         sourceList: CompletionList,
         ast: ModuleNode,
-        position: Position,
+        content: string,
+        position: number,
         options: ConfigOptions
     ): CompletionList;
 }

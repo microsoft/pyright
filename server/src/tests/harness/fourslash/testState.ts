@@ -67,7 +67,7 @@ export class TestState {
     private readonly _testDoneCallback?: jest.DoneCallback;
     private _markedDone = false;
 
-    readonly fs: vfs.FileSystem;
+    readonly fs: vfs.TestFileSystem;
     readonly workspace: WorkspaceServiceInstance;
     readonly console: ConsoleInterface;
     readonly asyncTest: boolean;
@@ -152,7 +152,7 @@ export class TestState {
     }
 
     get importResolver(): ImportResolver {
-        return this.workspace.serviceInstance.test_ImportResolver;
+        return this.workspace.serviceInstance.getImportResolver();
     }
 
     get configOptions(): ConfigOptions {
@@ -528,15 +528,15 @@ export class TestState {
         }
     }
 
-    verifyCodeActions(map: {
+    async verifyCodeActions(map: {
         [marker: string]: { codeActions: { title: string; kind: string; command: Command }[] };
-    }): void {
+    }): Promise<any> {
         this._analyze();
 
         for (const range of this.getRanges()) {
             const name = this.getMarkerName(range.marker!);
             for (const expected of map[name].codeActions) {
-                const actual = this._getCodeActions(range);
+                const actual = await this._getCodeActions(range);
 
                 const command = {
                     title: expected.command.title,
@@ -556,6 +556,8 @@ export class TestState {
                 }
             }
         }
+
+        this.markTestDone();
     }
 
     async verifyCommand(command: Command, files: { [filePath: string]: string }): Promise<any> {
@@ -593,7 +595,8 @@ export class TestState {
             const name = this.getMarkerName(range.marker!);
             const controller = new CommandController(new TestLanguageService(this.workspace, this.console, this.fs));
 
-            for (const codeAction of this._getCodeActions(range).filter((c) => c.title === map[name].title)) {
+            const codeActions = await this._getCodeActions(range);
+            for (const codeAction of codeActions.filter((c) => c.title === map[name].title)) {
                 await controller.execute(
                     {
                         command: codeAction.command!.command,

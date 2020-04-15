@@ -124,3 +124,8 @@ export function toBoolean(trueOrFalse: string): boolean {
 
     return false;
 }
+
+export function isDebugMode() {
+    const argv = process.execArgv.join();
+    return argv.includes('inspect') || argv.includes('debug');
+}

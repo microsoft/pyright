@@ -7,7 +7,9 @@
  */
 
 /* eslint-disable no-dupe-class-members */
-import { FileWatcher, FileWatcherEventHandler } from '../../../common/fileSystem';
+import { ReadStream, WriteStream } from 'fs';
+
+import { FileSystem, FileWatcher, FileWatcherEventHandler } from '../../../common/fileSystem';
 import * as pathUtil from '../../../common/pathUtils';
 import { bufferFrom, createIOError } from '../utils';
 import { closeIterator, getIterator, Metadata, nextResult, SortedMap } from './../utils';
@@ -25,7 +27,7 @@ export interface DiffOptions {
 /**
  * Represents a virtual POSIX-like file system.
  */
-export class FileSystem {
+export class TestFileSystem implements FileSystem {
     /** Indicates whether the file system is case-sensitive (`false`) or case-insensitive (`true`). */
     readonly ignoreCase: boolean;
 
@@ -41,7 +43,7 @@ export class FileSystem {
 
     private _cwd: string; // current working directory
     private _time: number | Date | (() => number | Date);
-    private _shadowRoot: FileSystem | undefined;
+    private _shadowRoot: TestFileSystem | undefined;
     private _dirStack: string[] | undefined;
 
     constructor(ignoreCase: boolean, options: FileSystemOptions = {}) {
@@ -125,7 +127,7 @@ export class FileSystem {
         if (this.isReadonly) {
             return;
         }
-        const fs = new FileSystem(this.ignoreCase, { time: this._time });
+        const fs = new TestFileSystem(this.ignoreCase, { time: this._time });
         fs._lazy = this._lazy;
         fs._cwd = this._cwd;
         fs._time = this._time;
@@ -148,7 +150,7 @@ export class FileSystem {
         if (ignoreCase && !this.ignoreCase) {
             throw new Error('Cannot create a case-insensitive file system from a case-sensitive one.');
         }
-        const fs = new FileSystem(ignoreCase, { time: this._time });
+        const fs = new TestFileSystem(ignoreCase, { time: this._time });
         fs._shadowRoot = this;
         fs._cwd = this._cwd;
         return fs;
@@ -816,6 +818,20 @@ export class FileSystem {
         node.ctimeMs = time;
     }
 
+    readFile(filePath: string): Promise<Buffer> {
+        return Promise.resolve(this.readFileSync(filePath));
+    }
+    readFileText(filePath: string, encoding?: string): Promise<string> {
+        return Promise.resolve(this.readFileSync(filePath, encoding || 'utf8'));
+    }
+
+    createReadStream(path: string): ReadStream {
+        throw new Error('Not implemented in test file system.');
+    }
+    createWriteStream(path: string): WriteStream {
+        throw new Error('Not implemented in test file system.');
+    }
+
     /**
      * Generates a `FileSet` patch containing all the entries in this `FileSystem` that are not in `base`.
      * @param base The base file system. If not provided, this file system's `shadowRoot` is used (if present).
@@ -823,32 +839,32 @@ export class FileSystem {
     diff(base = this.shadowRoot, options: DiffOptions = {}) {
         const differences: FileSet = {};
         const hasDifferences = base
-            ? FileSystem._rootDiff(differences, this, base, options)
-            : FileSystem._trackCreatedInodes(differences, this, this._getRootLinks());
+            ? TestFileSystem._rootDiff(differences, this, base, options)
+            : TestFileSystem._trackCreatedInodes(differences, this, this._getRootLinks());
         return hasDifferences ? differences : undefined;
     }
 
     /**
      * Generates a `FileSet` patch containing all the entries in `changed` that are not in `base`.
      */
-    static diff(changed: FileSystem, base: FileSystem, options: DiffOptions = {}) {
+    static diff(changed: TestFileSystem, base: TestFileSystem, options: DiffOptions = {}) {
         const differences: FileSet = {};
-        return FileSystem._rootDiff(differences, changed, base, options) ? differences : undefined;
+        return TestFileSystem._rootDiff(differences, changed, base, options) ? differences : undefined;
     }
 
     private static _diffWorker(
         container: FileSet,
-        changed: FileSystem,
+        changed: TestFileSystem,
         changedLinks: ReadonlyMap<string, Inode> | undefined,
-        base: FileSystem,
+        base: TestFileSystem,
         baseLinks: ReadonlyMap<string, Inode> | undefined,
         options: DiffOptions
     ) {
         if (changedLinks && !baseLinks) {
-            return FileSystem._trackCreatedInodes(container, changed, changedLinks);
+            return TestFileSystem._trackCreatedInodes(container, changed, changedLinks);
         }
         if (baseLinks && !changedLinks) {
-            return FileSystem._trackDeletedInodes(container, baseLinks);
+            return TestFileSystem._trackDeletedInodes(container, baseLinks);
         }
         if (changedLinks && baseLinks) {
             let hasChanges = false;
@@ -865,7 +881,7 @@ export class FileSystem {
                 if (baseNode) {
                     if (isDirectory(changedNode) && isDirectory(baseNode)) {
                         return (hasChanges =
-                            FileSystem._directoryDiff(
+                            TestFileSystem._directoryDiff(
                                 container,
                                 basename,
                                 changed,
@@ -877,23 +893,30 @@ export class FileSystem {
                     }
                     if (isFile(changedNode) && isFile(baseNode)) {
                         return (hasChanges =
-                            FileSystem._fileDiff(container, basename, changed, changedNode, base, baseNode, options) ||
-                            hasChanges);
+                            TestFileSystem._fileDiff(
+                                container,
+                                basename,
+                                changed,
+                                changedNode,
+                                base,
+                                baseNode,
+                                options
+                            ) || hasChanges);
                     }
                     if (isSymlink(changedNode) && isSymlink(baseNode)) {
                         return (hasChanges =
-                            FileSystem._symlinkDiff(container, basename, changedNode, baseNode) || hasChanges);
+                            TestFileSystem._symlinkDiff(container, basename, changedNode, baseNode) || hasChanges);
                     }
                 }
                 return (hasChanges =
-                    FileSystem._trackCreatedInode(container, basename, changed, changedNode) || hasChanges);
+                    TestFileSystem._trackCreatedInode(container, basename, changed, changedNode) || hasChanges);
             });
             return hasChanges;
         }
         return false;
     }
 
-    private static _rootDiff(container: FileSet, changed: FileSystem, base: FileSystem, options: DiffOptions) {
+    private static _rootDiff(container: FileSet, changed: TestFileSystem, base: TestFileSystem, options: DiffOptions) {
         while (!changed._lazy.links && changed._shadowRoot) {
             changed = changed._shadowRoot;
         }
@@ -911,15 +934,22 @@ export class FileSystem {
             return false;
         }
 
-        return FileSystem._diffWorker(container, changed, changed._getRootLinks(), base, base._getRootLinks(), options);
+        return TestFileSystem._diffWorker(
+            container,
+            changed,
+            changed._getRootLinks(),
+            base,
+            base._getRootLinks(),
+            options
+        );
     }
 
     private static _directoryDiff(
         container: FileSet,
         basename: string,
-        changed: FileSystem,
+        changed: TestFileSystem,
         changedNode: DirectoryInode,
-        base: FileSystem,
+        base: TestFileSystem,
         baseNode: DirectoryInode,
         options: DiffOptions
     ) {
@@ -955,7 +985,7 @@ export class FileSystem {
         // no difference if both nodes have identical children
         const children: FileSet = {};
         if (
-            !FileSystem._diffWorker(
+            !TestFileSystem._diffWorker(
                 children,
                 changed,
                 changed._getLinks(changedNode),
@@ -974,9 +1004,9 @@ export class FileSystem {
     private static _fileDiff(
         container: FileSet,
         basename: string,
-        changed: FileSystem,
+        changed: TestFileSystem,
         changedNode: FileInode,
-        base: FileSystem,
+        base: TestFileSystem,
         baseNode: FileInode,
         options: DiffOptions
     ) {
@@ -1044,10 +1074,10 @@ export class FileSystem {
         return true;
     }
 
-    private static _trackCreatedInode(container: FileSet, basename: string, changed: FileSystem, node: Inode) {
+    private static _trackCreatedInode(container: FileSet, basename: string, changed: TestFileSystem, node: Inode) {
         if (isDirectory(node)) {
             const children: FileSet = {};
-            FileSystem._trackCreatedInodes(children, changed, changed._getLinks(node));
+            TestFileSystem._trackCreatedInodes(children, changed, changed._getLinks(node));
             container[basename] = new Directory(children);
         } else if (isSymlink(node)) {
             container[basename] = new Symlink(node.symlink);
@@ -1059,7 +1089,7 @@ export class FileSystem {
 
     private static _trackCreatedInodes(
         container: FileSet,
-        changed: FileSystem,
+        changed: TestFileSystem,
         changedLinks: ReadonlyMap<string, Inode>
     ) {
         // no difference if links are empty
@@ -1068,7 +1098,7 @@ export class FileSystem {
         }
 
         changedLinks.forEach((node, basename) => {
-            FileSystem._trackCreatedInode(container, basename, changed, node);
+            TestFileSystem._trackCreatedInode(container, basename, changed, node);
         });
         return true;
     }

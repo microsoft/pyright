@@ -28,6 +28,27 @@ export class AnalyzerServiceExecutor {
         // setting option cause analyzer service to re-analyze everything
         workspace.serviceInstance.setOptions(commandLineOptions);
     }
+
+    static withOptions(
+        languageServiceRootPath: string,
+        workspace: WorkspaceServiceInstance,
+        serverSettings: ServerSettings,
+        typeStubTargetImportName?: string
+    ): void {
+        const commandLineOptions = _getCommandLineOptions(
+            languageServiceRootPath,
+            workspace.rootPath,
+            serverSettings,
+            typeStubTargetImportName
+        );
+
+        // don't track file changes
+        commandLineOptions.watchForSourceChanges = false;
+        commandLineOptions.watchForLibraryChanges = false;
+
+        // set option without tracking files and analysis
+        workspace.serviceInstance.setOptions(commandLineOptions, false);
+    }
 }
 
 function _getCommandLineOptions(

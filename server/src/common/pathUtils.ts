@@ -34,6 +34,13 @@ export interface FileSpec {
     regExp: RegExp;
 }
 
+export namespace FileSpec {
+    export function is(value: any): value is FileSpec {
+        const candidate: FileSpec = value as FileSpec;
+        return candidate && !!candidate.wildcardRoot && !!candidate.regExp;
+    }
+}
+
 export interface FileSystemEntries {
     files: string[];
     directories: string[];

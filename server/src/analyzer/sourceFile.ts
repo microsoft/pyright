@@ -365,6 +365,14 @@ export class SourceFile {
         }
     }
 
+    getClientVersion() {
+        return this._clientVersion;
+    }
+
+    getFileContents() {
+        return this._fileContents;
+    }
+
     setClientVersion(version: number | null, contents: string): void {
         this._clientVersion = version;
 

@@ -9,6 +9,7 @@
  */
 
 import {
+    AbstractCancellationTokenSource,
     CancellationToken,
     CompletionItem,
     CompletionList,
@@ -16,13 +17,12 @@ import {
     SymbolInformation,
 } from 'vscode-languageserver';
 
-import { getGlobalCancellationToken, OperationCanceledException } from '../common/cancellationUtils';
+import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
+import { createAnalysisCancellationTokenSource } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
-import { assert } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
-import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
 import { FileSystem, FileWatcher } from '../common/fileSystem';
@@ -39,26 +39,13 @@ import {
     stripFileExtension,
 } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
-import { Duration, timingStats } from '../common/timing';
+import { timingStats } from '../common/timing';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
+import { AnalysisCompleteCallback } from './analysis';
+import { BackgroundAnalysisProgram } from './backgroundAnalysisProgram';
 import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
-import { MaxAnalysisTime, Program } from './program';
 import { findPythonSearchPaths, getPythonPathFromPythonInterpreter } from './pythonPathUtils';
-
-export { MaxAnalysisTime } from './program';
-
-export interface AnalysisResults {
-    diagnostics: FileDiagnostics[];
-    filesInProgram: number;
-    checkingOnlyOpenFiles: boolean;
-    filesRequiringAnalysis: number;
-    fatalErrorOccurred: boolean;
-    configParseErrorOccurred: boolean;
-    elapsedTime: number;
-}
-
-export type AnalysisCompleteCallback = (results: AnalysisResults) => void;
 
 export const configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
 
@@ -68,10 +55,7 @@ const _userActivityBackoffTimeInMs = 500;
 
 export class AnalyzerService {
     private _instanceName: string;
-    private _program: Program;
-    private _configOptions: ConfigOptions;
     private _importResolverFactory: ImportResolverFactory;
-    private _importResolver: ImportResolver;
     private _executionRootPath: string;
     private _typeStubTargetImportName: string | undefined;
     private _typeStubTargetPath: string | undefined;
@@ -88,10 +72,13 @@ export class AnalyzerService {
     private _watchForLibraryChanges = false;
     private _typeCheckingMode: string | undefined;
     private _verboseOutput = false;
-    private _maxAnalysisTime?: MaxAnalysisTime;
     private _analyzeTimer: any;
     private _requireTrackedFileUpdate = true;
     private _lastUserInteractionTime = Date.now();
+    private _extension: LanguageServiceExtension | undefined;
+    private _backgroundAnalysisProgram: BackgroundAnalysisProgram;
+    private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
+    private _disposed = false;
 
     constructor(
         instanceName: string,
@@ -99,29 +86,44 @@ export class AnalyzerService {
         console?: ConsoleInterface,
         importResolverFactory?: ImportResolverFactory,
         configOptions?: ConfigOptions,
-        extension?: LanguageServiceExtension
+        extension?: LanguageServiceExtension,
+        backgroundAnalysis?: BackgroundAnalysisBase
     ) {
         this._instanceName = instanceName;
         this._console = console || new StandardConsole();
-        this._configOptions = configOptions ?? new ConfigOptions(process.cwd());
-        this._importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;
-        this._importResolver = this._importResolverFactory(fs, this._configOptions);
-        this._program = new Program(this._importResolver, this._configOptions, this._console, extension);
         this._executionRootPath = '';
         this._typeStubTargetImportName = undefined;
+        this._extension = extension;
+        this._importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;
+
+        configOptions = configOptions ?? new ConfigOptions(process.cwd());
+        const importResolver = this._importResolverFactory(fs, configOptions);
+        this._backgroundAnalysisProgram = new BackgroundAnalysisProgram(
+            this._console,
+            configOptions,
+            importResolver,
+            this._extension,
+            backgroundAnalysis
+        );
     }
 
-    clone(instanceName: string): AnalyzerService {
+    clone(instanceName: string, backgroundAnalysis?: BackgroundAnalysisBase): AnalyzerService {
+        // we need new background analysis for this cloned service.
+        // don't want to pass in factory method like ImportResolver, so instead
+        // caller must pass in new background analysis to use
         return new AnalyzerService(
             instanceName,
             this._fs,
             this._console,
             this._importResolverFactory,
-            this._configOptions
+            this._backgroundAnalysisProgram.configOptions,
+            this._extension,
+            backgroundAnalysis
         );
     }
 
     dispose() {
+        this._disposed = true;
         this._removeSourceFileWatchers();
         this._removeConfigFileWatcher();
         this._removeLibraryFileWatcher();
@@ -136,41 +138,37 @@ export class AnalyzerService {
 
     setCompletionCallback(callback: AnalysisCompleteCallback | undefined): void {
         this._onCompletionCallback = callback;
+        this._backgroundAnalysisProgram.setCompletionCallback(callback);
     }
 
-    setMaxAnalysisDuration(maxAnalysisTime?: MaxAnalysisTime) {
-        this._maxAnalysisTime = maxAnalysisTime;
-    }
-
-    setOptions(commandLineOptions: CommandLineOptions): void {
+    setOptions(commandLineOptions: CommandLineOptions, reanalyze = true): void {
         this._watchForSourceChanges = !!commandLineOptions.watchForSourceChanges;
         this._watchForLibraryChanges = !!commandLineOptions.watchForLibraryChanges;
         this._typeCheckingMode = commandLineOptions.typeCheckingMode;
         this._verboseOutput = !!commandLineOptions.verboseOutput;
-        this._configOptions = this._getConfigOptions(commandLineOptions);
-        this._program.setConfigOptions(this._configOptions);
+
+        const configOptions = this._getConfigOptions(commandLineOptions);
+        this._backgroundAnalysisProgram.setConfigOptions(configOptions);
         this._typeStubTargetImportName = commandLineOptions.typeStubTargetImportName;
 
         this._executionRootPath = normalizePath(
-            combinePaths(commandLineOptions.executionRoot, this._configOptions.projectRoot)
+            combinePaths(commandLineOptions.executionRoot, configOptions.projectRoot)
         );
-        this._applyConfigOptions();
+        this._applyConfigOptions(reanalyze);
     }
 
     setFileOpened(path: string, version: number | null, contents: string) {
-        this._program.setFileOpened(path, version, contents);
+        this._backgroundAnalysisProgram.setFileOpened(path, version, contents);
         this._scheduleReanalysis(false);
     }
 
     updateOpenFileContents(path: string, version: number | null, contents: string) {
-        this._program.setFileOpened(path, version, contents);
-        this._program.markFilesDirty([path]);
+        this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents);
         this._scheduleReanalysis(false);
     }
 
     setFileClosed(path: string) {
-        const fileDiagnostics = this._program.setFileClosed(path);
-        this._reportDiagnosticsForRemovedFiles(fileDiagnostics);
+        this._backgroundAnalysisProgram.setFileClosed(path);
         this._scheduleReanalysis(false);
     }
 
@@ -254,12 +252,12 @@ export class AnalyzerService {
         this._program.printDependencies(this._executionRootPath, verbose);
     }
 
-    getDiagnosticsForRange(filePath: string, range: Range): Diagnostic[] {
-        return this._program.getDiagnosticsForRange(filePath, this._configOptions, range);
+    async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
+        return this._backgroundAnalysisProgram.getDiagnosticsForRange(filePath, range, token);
     }
 
     getImportResolver(): ImportResolver {
-        return this._importResolver;
+        return this._backgroundAnalysisProgram.importResolver;
     }
 
     recordUserInteractionTime() {
@@ -273,10 +271,6 @@ export class AnalyzerService {
     }
 
     // test only APIs
-    get test_ImportResolver() {
-        return this._importResolver;
-    }
-
     get test_configOptions() {
         return this._configOptions;
     }
@@ -541,14 +535,63 @@ export class AnalyzerService {
         return configOptions;
     }
 
-    writeTypeStub(token: CancellationToken) {
+    writeTypeStub(token: CancellationToken): void {
+        const typingsSubdirPath = this._getTypeStubFolder();
+
+        this._program.writeTypeStub(
+            this._typeStubTargetPath!,
+            this._typeStubTargetIsSingleFile,
+            typingsSubdirPath,
+            token
+        );
+    }
+
+    writeTypeStubInBG(token: CancellationToken): Promise<any> {
+        const typingsSubdirPath = this._getTypeStubFolder();
+
+        return this._backgroundAnalysisProgram.writeTypeStub(
+            this._typeStubTargetPath!,
+            this._typeStubTargetIsSingleFile,
+            typingsSubdirPath,
+            token
+        );
+    }
+
+    // This is called after a new type stub has been created. It allows
+    // us to invalidate caches and force reanalysis of files that potentially
+    // are affected by the appearance of a new type stub.
+    invalidateAndForceReanalysis() {
+        // Mark all files with one or more errors dirty.
+        this._backgroundAnalysisProgram.invalidateAndForceReanalysis();
+    }
+
+    // Forces the service to stop all analysis, discard all its caches,
+    // and research for files.
+    restart() {
+        this._applyConfigOptions();
+
+        this._backgroundAnalysisProgram.restart();
+    }
+
+    private get _fs() {
+        return this._backgroundAnalysisProgram.importResolver.fileSystem;
+    }
+
+    private get _program() {
+        return this._backgroundAnalysisProgram.program;
+    }
+
+    private get _configOptions() {
+        return this._backgroundAnalysisProgram.configOptions;
+    }
+
+    private _getTypeStubFolder() {
         const typingsPath = this._configOptions.typingsPath;
         if (!this._typeStubTargetPath || !this._typeStubTargetImportName) {
             const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
-
         if (!typingsPath) {
             // We should never get here because we always generate a
             // default typings path if none was specified.
@@ -556,7 +599,6 @@ export class AnalyzerService {
             this._console.log(errMsg);
             throw new Error(errMsg);
         }
-
         const typeStubInputTargetParts = this._typeStubTargetImportName.split('.');
         if (typeStubInputTargetParts[0].length === 0) {
             // We should never get here because the import resolution
@@ -565,7 +607,6 @@ export class AnalyzerService {
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
-
         try {
             // Generate a new typings directory if necessary.
             if (!this._fs.existsSync(typingsPath)) {
@@ -576,7 +617,6 @@ export class AnalyzerService {
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
-
         // Generate a typings subdirectory.
         const typingsSubdirPath = combinePaths(typingsPath, typeStubInputTargetParts[0]);
         try {
@@ -589,35 +629,7 @@ export class AnalyzerService {
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
-
-        this._program.writeTypeStub(
-            this._typeStubTargetPath,
-            this._typeStubTargetIsSingleFile,
-            typingsSubdirPath,
-            token
-        );
-    }
-
-    // This is called after a new type stub has been created. It allows
-    // us to invalidate caches and force reanalysis of files that potentially
-    // are affected by the appearance of a new type stub.
-    invalidateAndForceReanalysis() {
-        // Make sure the import resolver doesn't have invalid
-        // cached entries.
-        this._importResolver.invalidateCache();
-
-        // Mark all files with one or more errors dirty.
-        this._program.markAllFilesDirty(true);
-    }
-
-    // Forces the service to stop all analysis, discard all its caches,
-    // and research for files.
-    restart() {
-        this._applyConfigOptions();
-    }
-
-    private get _fs() {
-        return this._importResolver.fileSystem;
+        return typingsSubdirPath;
     }
 
     private _findConfigFileHereOrUp(searchPath: string): string | undefined {
@@ -705,7 +717,11 @@ export class AnalyzerService {
                 importedSymbols: [],
             };
 
-            const importResult = this._importResolver.resolveImport('', execEnv, moduleDescriptor);
+            const importResult = this._backgroundAnalysisProgram.importResolver.resolveImport(
+                '',
+                execEnv,
+                moduleDescriptor
+            );
 
             if (importResult.isImportFound) {
                 const filesToImport: string[] = [];
@@ -746,8 +762,8 @@ export class AnalyzerService {
                     filesToImport.push(implicitImport.path);
                 });
 
-                this._program.setAllowedThirdPartyImports([this._typeStubTargetImportName]);
-                this._program.setTrackedFiles(filesToImport);
+                this._backgroundAnalysisProgram.setAllowedThirdPartyImports([this._typeStubTargetImportName]);
+                this._backgroundAnalysisProgram.setTrackedFiles(filesToImport);
             } else {
                 this._console.log(`Import '${this._typeStubTargetImportName}' not found`);
             }
@@ -756,9 +772,8 @@ export class AnalyzerService {
             this._console.log(`Searching for source files`);
             fileList = this._getFileNamesFromFileSpecs();
 
-            const fileDiagnostics = this._program.setTrackedFiles(fileList);
-            this._reportDiagnosticsForRemovedFiles(fileDiagnostics);
-            this._program.markAllFilesDirty(markFilesDirtyUnconditionally);
+            this._backgroundAnalysisProgram.setTrackedFiles(fileList);
+            this._backgroundAnalysisProgram.markAllFilesDirty(markFilesDirtyUnconditionally);
 
             if (fileList.length === 0) {
                 this._console.log(`No source files found.`);
@@ -847,10 +862,7 @@ export class AnalyzerService {
     private _updateSourceFileWatchers() {
         this._removeSourceFileWatchers();
 
-        // Invalidate import resolver because it could have cached
-        // imports that are no longer valid because a source file has
-        // been deleted or added.
-        this._importResolver.invalidateCache();
+        this._backgroundAnalysisProgram.invalidateCache();
 
         if (!this._watchForSourceChanges) {
             return;
@@ -872,7 +884,7 @@ export class AnalyzerService {
                     }
 
                     if (event === 'change') {
-                        this._program.markFilesDirty([path]);
+                        this._backgroundAnalysisProgram.markFilesDirty([path]);
                         this._scheduleReanalysis(false);
                     } else {
                         this._scheduleReanalysis(true);
@@ -894,10 +906,7 @@ export class AnalyzerService {
     private _updateLibraryFileWatcher() {
         this._removeLibraryFileWatcher();
 
-        // Invalidate import resolver because it could have cached
-        // imports that are no longer valid because library has
-        // been installed or uninstalled.
-        this._importResolver.invalidateCache();
+        this._backgroundAnalysisProgram.invalidateCache();
 
         if (!this._watchForLibraryChanges) {
             return;
@@ -907,7 +916,7 @@ export class AnalyzerService {
         const importFailureInfo: string[] = [];
         const watchList = findPythonSearchPaths(
             this._fs,
-            this._configOptions,
+            this._backgroundAnalysisProgram.configOptions,
             undefined,
             importFailureInfo,
             true,
@@ -941,6 +950,11 @@ export class AnalyzerService {
     }
 
     private _scheduleLibraryAnalysis() {
+        if (this._disposed) {
+            // already disposed
+            return;
+        }
+
         this._clearLibraryReanalysisTimer();
 
         // Wait for a little while, since library changes
@@ -1002,23 +1016,26 @@ export class AnalyzerService {
             this._console.log(`Reloading configuration file at ${this._configFilePath}`);
             const configJsonObj = this._parseConfigFile(this._configFilePath);
             if (configJsonObj) {
-                this._configOptions.initializeFromJson(configJsonObj, this._typeCheckingMode, this._console);
+                this._backgroundAnalysisProgram.initializeFromJson(configJsonObj, this._typeCheckingMode);
             }
 
             this._applyConfigOptions();
         }
     }
 
-    private _applyConfigOptions() {
+    private _applyConfigOptions(reanalyze = true) {
         // Allocate a new import resolver because the old one has information
         // cached based on the previous config options.
-        this._importResolver = this._importResolverFactory(this._fs, this._configOptions);
-        this._program.setImportResolver(this._importResolver);
+        const importResolver = this._importResolverFactory(this._fs, this._backgroundAnalysisProgram.configOptions);
+        this._backgroundAnalysisProgram.setImportResolver(importResolver);
 
         this._updateLibraryFileWatcher();
         this._updateSourceFileWatchers();
         this._updateTrackedFileList(true);
-        this._scheduleReanalysis(false);
+
+        if (reanalyze) {
+            this._scheduleReanalysis(false);
+        }
     }
 
     private _clearReanalysisTimer() {
@@ -1029,9 +1046,16 @@ export class AnalyzerService {
     }
 
     private _scheduleReanalysis(requireTrackedFileUpdate: boolean) {
+        if (this._disposed) {
+            // already disposed
+            return;
+        }
+
         if (requireTrackedFileUpdate) {
             this._requireTrackedFileUpdate = true;
         }
+
+        this._backgroundAnalysisCancellationSource?.cancel();
 
         // Remove any existing analysis timer.
         this._clearReanalysisTimer();
@@ -1060,102 +1084,10 @@ export class AnalyzerService {
                 this._updateTrackedFileList(false);
             }
 
-            const moreToAnalyze = this._reanalyze();
-
-            if (moreToAnalyze) {
-                this._scheduleReanalysis(false);
-            }
+            // this only creates cancellation source if it actually gets used.
+            this._backgroundAnalysisCancellationSource = createAnalysisCancellationTokenSource();
+            this._backgroundAnalysisProgram.startAnalysis(this._backgroundAnalysisCancellationSource.token);
         }, timeUntilNextAnalysisInMs);
-    }
-
-    // Determine whether the user appears to be interacting with
-    // the service currently. In this case, we'll optimize for
-    // responsiveness versus overall performance.
-    private _useInteractiveMode(): boolean {
-        const curTime = Date.now();
-
-        // Assume we're in interactive mode if we've seen a
-        // user action within this time (measured in ms).
-        const interactiveTimeLimit = 1000;
-
-        return curTime - this._lastUserInteractionTime < interactiveTimeLimit;
-    }
-
-    // Performs analysis for a while (up to this._maxAnalysisTimeInMs) before
-    // returning some results. Return value indicates whether more analysis is
-    // required to finish the entire program.
-    private _reanalyze(): boolean {
-        let moreToAnalyze = false;
-
-        try {
-            const duration = new Duration();
-            moreToAnalyze = this._program.analyze(
-                this._maxAnalysisTime,
-                this._useInteractiveMode(),
-                getGlobalCancellationToken()
-            );
-            const filesLeftToAnalyze = this._program.getFilesToAnalyzeCount();
-            assert(filesLeftToAnalyze === 0 || moreToAnalyze);
-
-            const results: AnalysisResults = {
-                diagnostics: this._program.getDiagnostics(this._configOptions),
-                filesInProgram: this._program.getFileCount(),
-                filesRequiringAnalysis: filesLeftToAnalyze,
-                checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
-                fatalErrorOccurred: false,
-                configParseErrorOccurred: false,
-                elapsedTime: duration.getDurationInSeconds(),
-            };
-
-            const diagnosticFileCount = results.diagnostics.length;
-
-            // Report any diagnostics or completion.
-            if (diagnosticFileCount > 0 || !moreToAnalyze) {
-                if (this._onCompletionCallback) {
-                    this._onCompletionCallback(results);
-                }
-            }
-        } catch (e) {
-            if (OperationCanceledException.is(e)) {
-                return true;
-            }
-
-            const message: string =
-                (e.stack ? e.stack.toString() : undefined) ||
-                (typeof e.message === 'string' ? e.message : undefined) ||
-                JSON.stringify(e);
-            this._console.log('Error performing analysis: ' + message);
-
-            if (this._onCompletionCallback) {
-                this._onCompletionCallback({
-                    diagnostics: [],
-                    filesInProgram: 0,
-                    filesRequiringAnalysis: 0,
-                    checkingOnlyOpenFiles: true,
-                    fatalErrorOccurred: true,
-                    configParseErrorOccurred: false,
-                    elapsedTime: 0,
-                });
-            }
-        }
-
-        return moreToAnalyze;
-    }
-
-    private _reportDiagnosticsForRemovedFiles(fileDiags: FileDiagnostics[]) {
-        if (fileDiags.length > 0) {
-            if (this._onCompletionCallback) {
-                this._onCompletionCallback({
-                    diagnostics: fileDiags,
-                    filesInProgram: this._program.getFileCount(),
-                    filesRequiringAnalysis: this._program.getFilesToAnalyzeCount(),
-                    checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
-                    fatalErrorOccurred: false,
-                    configParseErrorOccurred: false,
-                    elapsedTime: 0,
-                });
-            }
-        }
     }
 
     private _reportConfigParseError() {
