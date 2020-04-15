@@ -12,6 +12,7 @@ import './common/extensions';
 import * as fs from 'fs';
 import {
     CancellationToken,
+    CancellationTokenSource,
     CodeAction,
     CodeActionKind,
     CodeActionParams,
@@ -40,9 +41,11 @@ import {
     WorkspaceEdit,
 } from 'vscode-languageserver';
 
+import { AnalysisResults } from './analyzer/analysis';
 import { ImportResolver } from './analyzer/importResolver';
-import { AnalysisResults, AnalyzerService, configFileNames } from './analyzer/service';
-import { getCancellationStrategyFromArgv } from './common/cancellationUtils';
+import { AnalyzerService, configFileNames } from './analyzer/service';
+import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
+import { CancelAfter, getCancellationStrategyFromArgv } from './common/cancellationUtils';
 import { getNestedProperty } from './common/collectionUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface } from './common/console';
@@ -93,6 +96,7 @@ export interface WindowInterface {
 export interface LanguageServerInterface {
     getWorkspaceForFile(filePath: string): WorkspaceServiceInstance;
     getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
+    createBackgroundAnalysis(): BackgroundAnalysisBase | undefined;
     reanalyze(): void;
     restart(): void;
 
@@ -135,6 +139,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // virtual file system to be used. initialized to real file system by default. but can't be overwritten
         this.fs = createFromRealFileSystem(this._connection.console, this);
 
+        // Set the working directory to a known location within
+        // the extension directory. Otherwise the execution of
+        // python can have unintended and surprising results.
+        const moduleDirectory = this.fs.getModulePath();
+        if (moduleDirectory) {
+            this.fs.chdir(moduleDirectory);
+        }
+
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = rootDirectory;
         this._connection.console.log(`Server root directory: ${rootDirectory}`);
@@ -149,6 +161,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._connection.listen();
     }
 
+    abstract createBackgroundAnalysis(): BackgroundAnalysisBase | undefined;
     protected abstract async executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
     protected abstract async executeCodeAction(
         params: CodeActionParams,
@@ -202,15 +215,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             this._connection.console,
             this.createImportResolver.bind(this),
             undefined,
-            this._extension
+            this._extension,
+            this.createBackgroundAnalysis()
         );
-
-        // Don't allow the analysis engine to go too long without
-        // reporting results. This will keep it responsive.
-        service.setMaxAnalysisDuration({
-            openFilesTimeInMs: 50,
-            noOpenFilesTimeInMs: 200,
-        });
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(results));
 
@@ -318,21 +325,28 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                         // Tell the client that the server works in FULL text document
                         // sync mode (as opposed to incremental).
                         textDocumentSync: TextDocumentSyncKind.Full,
-                        definitionProvider: true,
-                        referencesProvider: true,
-                        documentSymbolProvider: true,
-                        workspaceSymbolProvider: true,
-                        hoverProvider: true,
-                        renameProvider: true,
+                        definitionProvider: { workDoneProgress: true },
+                        referencesProvider: { workDoneProgress: true },
+                        documentSymbolProvider: { workDoneProgress: true },
+                        workspaceSymbolProvider: { workDoneProgress: true },
+                        hoverProvider: { workDoneProgress: true },
+                        renameProvider: { workDoneProgress: true },
                         completionProvider: {
                             triggerCharacters: ['.', '['],
                             resolveProvider: true,
+                            workDoneProgress: true,
                         },
                         signatureHelpProvider: {
                             triggerCharacters: ['(', ',', ')'],
+                            workDoneProgress: true,
                         },
                         codeActionProvider: {
                             codeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
+                            workDoneProgress: true,
+                        },
+                        executeCommandProvider: {
+                            commands: [],
+                            workDoneProgress: true,
                         },
                     },
                 };
@@ -635,7 +649,27 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             }
         });
 
-        this._connection.onExecuteCommand((params, token) => this.executeCommand(params, token));
+        // we support only 1 command to run at a time
+        let lastCancellationSource: CancellationTokenSource;
+        this._connection.onExecuteCommand(async (params, token) => {
+            if (lastCancellationSource) {
+                // cancel command running if there is one
+                lastCancellationSource.cancel();
+            }
+
+            const progress = await this._connection.window.createWorkDoneProgress();
+            const source = CancelAfter(token, progress.token);
+            lastCancellationSource = source;
+
+            try {
+                // we probably want to pass in progress reporter to execute command
+                progress.begin(`executing command`, undefined, undefined, true);
+                return await this.executeCommand(params, source.token);
+            } finally {
+                progress.done();
+                source.dispose();
+            }
+        });
     }
 
     updateSettingsForAllWorkspaces(): void {

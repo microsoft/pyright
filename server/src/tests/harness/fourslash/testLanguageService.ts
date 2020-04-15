@@ -8,6 +8,7 @@
 
 import * as path from 'path';
 
+import { BackgroundAnalysisBase } from '../../../backgroundAnalysisBase';
 import { ConsoleInterface } from '../../../common/console';
 import * as debug from '../../../common/debug';
 import { FileSystem } from '../../../common/fileSystem';
@@ -41,6 +42,12 @@ export class TestLanguageService implements LanguageServerInterface {
         };
 
         return settings;
+    }
+
+    createBackgroundAnalysis(): BackgroundAnalysisBase | undefined {
+        // worker thread doesn't work in Jest
+        // by returning undefined, analysis will run inline
+        return undefined;
     }
 
     reanalyze(): void {

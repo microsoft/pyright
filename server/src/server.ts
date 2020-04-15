@@ -6,8 +6,13 @@
 
 import { isArray } from 'util';
 import { CancellationToken, CodeAction, CodeActionParams, Command, ExecuteCommandParams } from 'vscode-languageserver';
+import { isMainThread } from 'worker_threads';
 
+import { BackgroundAnalysis } from './backgroundAnalysis';
+import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
+import { getCancellationFolderName } from './common/cancellationUtils';
+import { isDebugMode } from './common/core';
 import { convertUriToPath, getDirectoryPath, normalizeSlashes } from './common/pathUtils';
 import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
@@ -61,6 +66,16 @@ class PyrightServer extends LanguageServerBase {
         return serverSettings;
     }
 
+    createBackgroundAnalysis(): BackgroundAnalysisBase | undefined {
+        if (isDebugMode() || !getCancellationFolderName()) {
+            // either in debug mode or old client is used where
+            // cancellation is not supported
+            return undefined;
+        }
+
+        return new BackgroundAnalysis(this.console);
+    }
+
     protected executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any> {
         return this._controller.execute(params, token);
     }
@@ -77,4 +92,6 @@ class PyrightServer extends LanguageServerBase {
     }
 }
 
-export const server = new PyrightServer();
+if (isMainThread) {
+    new PyrightServer();
+}

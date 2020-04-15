@@ -9,13 +9,14 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { CancellationId } from 'vscode-jsonrpc';
+import { CancellationId, CancellationTokenSource } from 'vscode-jsonrpc';
 import {
     AbstractCancellationTokenSource,
     CancellationReceiverStrategy,
     CancellationSenderStrategy,
     CancellationStrategy,
     CancellationToken,
+    Disposable,
     Emitter,
     ErrorCodes,
     Event,
@@ -44,55 +45,24 @@ class CancellationThrottle {
     }
 }
 
-class GlobalCancellationToken implements CancellationToken {
-    private _isCancelled = false;
-
-    constructor(private _cancellationFolderPath: string) {}
-
-    get isCancellationRequested(): boolean {
-        if (this._isCancelled) {
-            return true;
-        }
-
-        if (CancellationThrottle.shouldCheck() && this._pipeExists()) {
-            this._isCancelled = true;
-        }
-
-        return this._isCancelled;
-    }
-
-    get onCancellationRequested(): Event<any> {
-        return Event.None;
-    }
-
-    private _pipeExists(): boolean {
-        try {
-            const result = fs.readdirSync(this._cancellationFolderPath);
-            return result && result.length > 0;
-        } catch (e) {
-            return false;
-        }
-    }
-}
-
 class FileBasedToken implements CancellationToken {
-    private _isCancelled = false;
+    protected isCancelled = false;
     private _emitter: Emitter<any> | undefined;
 
-    constructor(private _cancellationFilePath: string) {}
+    constructor(readonly cancellationFilePath: string) {}
 
     public cancel() {
-        if (!this._isCancelled) {
-            this._isCancelled = true;
+        if (!this.isCancelled) {
+            this.isCancelled = true;
             if (this._emitter) {
                 this._emitter.fire(undefined);
-                this.dispose();
+                this._diposeEmitter();
             }
         }
     }
 
     get isCancellationRequested(): boolean {
-        if (this._isCancelled) {
+        if (this.isCancelled) {
             return true;
         }
 
@@ -103,7 +73,7 @@ class FileBasedToken implements CancellationToken {
             this.cancel();
         }
 
-        return this._isCancelled;
+        return this.isCancelled;
     }
 
     get onCancellationRequested(): Event<any> {
@@ -114,6 +84,10 @@ class FileBasedToken implements CancellationToken {
     }
 
     public dispose(): void {
+        this._diposeEmitter();
+    }
+
+    private _diposeEmitter() {
         if (this._emitter) {
             this._emitter.dispose();
             this._emitter = undefined;
@@ -122,7 +96,7 @@ class FileBasedToken implements CancellationToken {
 
     private _pipeExists(): boolean {
         try {
-            fs.statSync(this._cancellationFilePath);
+            fs.statSync(this.cancellationFilePath);
             return true;
         } catch (e) {
             return false;
@@ -130,15 +104,61 @@ class FileBasedToken implements CancellationToken {
     }
 }
 
+class OwningFileToken extends FileBasedToken {
+    private _disposed = false;
+
+    constructor(cancellationFilePath: string) {
+        super(cancellationFilePath);
+    }
+
+    public cancel() {
+        if (!this._disposed && !this.isCancelled) {
+            this._createPipe();
+            super.cancel();
+        }
+    }
+
+    get isCancellationRequested(): boolean {
+        // since I own the file and it gets created when token is cancelled,
+        // no point on checking the pipe
+        return this.isCancelled;
+    }
+
+    public dispose(): void {
+        this._disposed = true;
+
+        super.dispose();
+        this._removePipe();
+    }
+
+    private _createPipe() {
+        try {
+            fs.writeFileSync(this.cancellationFilePath, '', { flag: 'w' });
+        } catch {
+            /* empty */
+        }
+    }
+
+    private _removePipe() {
+        try {
+            fs.unlinkSync(this.cancellationFilePath);
+        } catch {
+            /* empty */
+        }
+    }
+}
+
 class FileBasedCancellationTokenSource implements AbstractCancellationTokenSource {
     private _token: CancellationToken;
-    constructor(private _cancellationFilePath: string) {}
+    constructor(private _cancellationFilePath: string, private _ownFile: boolean = false) {}
 
     get token(): CancellationToken {
         if (!this._token) {
             // be lazy and create the token only when
             // actually needed
-            this._token = new FileBasedToken(this._cancellationFilePath);
+            this._token = this._ownFile
+                ? new OwningFileToken(this._cancellationFilePath)
+                : new FileBasedToken(this._cancellationFilePath);
         }
         return this._token;
     }
@@ -197,7 +217,15 @@ export function throwIfCancellationRequested(token: CancellationToken) {
     }
 }
 
-let cancellationFolderName: string;
+let cancellationFolderName: string | undefined;
+
+export function getCancellationFolderName() {
+    return cancellationFolderName;
+}
+
+export function setCancellationFolderName(folderName?: string) {
+    cancellationFolderName = folderName;
+}
 
 export function getCancellationStrategyFromArgv(argv: string[]): CancellationStrategy {
     let receiver: CancellationReceiverStrategy | undefined;
@@ -215,7 +243,7 @@ export function getCancellationStrategyFromArgv(argv: string[]): CancellationStr
     }
 
     if (receiver && !cancellationFolderName) {
-        cancellationFolderName = (receiver as FileCancellationReceiverStrategy).folderName;
+        setCancellationFolderName((receiver as FileCancellationReceiverStrategy).folderName);
     }
 
     receiver = receiver ? receiver : CancellationReceiverStrategy.Message;
@@ -233,10 +261,55 @@ export function getCancellationStrategyFromArgv(argv: string[]): CancellationStr
     }
 }
 
-export function getGlobalCancellationToken() {
+let analysisId = 0;
+export function createAnalysisCancellationTokenSource() {
     if (!cancellationFolderName) {
+        // file based cancellation is not used.
+        // return regular cancellation token source
+        return new CancellationTokenSource();
+    }
+
+    return new FileBasedCancellationTokenSource(
+        getCancellationFilePath(cancellationFolderName, `analysis-${String(analysisId++)}`),
+        true
+    );
+}
+
+export function disposeCancellationToken(token: CancellationToken) {
+    if (token instanceof FileBasedToken) {
+        token.dispose();
+    }
+}
+
+export function getCancellationTokenFromId(cancellationId: string) {
+    if (!cancellationId) {
         return CancellationToken.None;
     }
 
-    return new GlobalCancellationToken(getCancellationFolderPath(cancellationFolderName));
+    return new FileBasedToken(cancellationId);
+}
+
+export function getCancellationTokenId(token: CancellationToken) {
+    return token instanceof FileBasedToken ? token.cancellationFilePath : undefined;
+}
+
+export function CancelAfter(...tokens: CancellationToken[]) {
+    const source = new CancellationTokenSource();
+    const disposables: Disposable[] = [];
+
+    for (const token of tokens) {
+        disposables.push(
+            token.onCancellationRequested((_) => {
+                source.cancel();
+            })
+        );
+    }
+
+    disposables.push(
+        source.token.onCancellationRequested((_) => {
+            disposables.forEach((d) => d.dispose());
+        })
+    );
+
+    return source;
 }

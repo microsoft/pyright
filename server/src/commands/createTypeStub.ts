@@ -34,49 +34,37 @@ export class CreateTypeStubCommand implements ServerCommand {
                 disableOrganizeImports: true,
             };
 
-            service.setCompletionCallback((results) => {
-                if (results.filesRequiringAnalysis === 0) {
-                    try {
-                        service.writeTypeStub(token);
-                        service.dispose();
-                        const infoMessage = `Type stub was successfully created for '${importName}'.`;
-                        this._ls.window.showInformationMessage(infoMessage);
-                        this._handlePostCreateTypeStub();
-                    } catch (err) {
-                        const isCancellation = OperationCanceledException.is(err);
-                        if (isCancellation) {
-                            const errMessage = `Type stub creation for '${importName}' was canceled`;
-                            this._ls.console.error(errMessage);
-                        } else {
-                            let errMessage = '';
-                            if (err instanceof Error) {
-                                errMessage = ': ' + err.message;
-                            }
-                            errMessage = `An error occurred when creating type stub for '${importName}'` + errMessage;
-                            this._ls.console.error(errMessage);
-                            this._ls.window.showErrorMessage(errMessage);
-                        }
-                    }
-                }
-            });
-
             const serverSettings = await this._ls.getSettings(workspace);
-            AnalyzerServiceExecutor.runWithOptions(this._ls.rootPath, workspace, serverSettings, importName);
-            return;
+            AnalyzerServiceExecutor.withOptions(this._ls.rootPath, workspace, serverSettings, importName);
+
+            try {
+                await service.writeTypeStubInBG(token);
+                service.dispose();
+                const infoMessage = `Type stub was successfully created for '${importName}'.`;
+                this._ls.window.showInformationMessage(infoMessage);
+                this._handlePostCreateTypeStub();
+            } catch (err) {
+                const isCancellation = OperationCanceledException.is(err);
+                if (isCancellation) {
+                    const errMessage = `Type stub creation for '${importName}' was canceled`;
+                    this._ls.console.error(errMessage);
+                } else {
+                    let errMessage = '';
+                    if (err instanceof Error) {
+                        errMessage = ': ' + err.message;
+                    }
+                    errMessage = `An error occurred when creating type stub for '${importName}'` + errMessage;
+                    this._ls.console.error(errMessage);
+                    this._ls.window.showErrorMessage(errMessage);
+                }
+            }
         }
     }
 
     // Creates a service instance that's used for creating type
     // stubs for a specified target library.
     private _createTypeStubService(callingFile?: string): AnalyzerService {
-        const service = this._createAnalyzerService(callingFile);
-
-        service.setMaxAnalysisDuration({
-            openFilesTimeInMs: 500,
-            noOpenFilesTimeInMs: 500,
-        });
-
-        return service;
+        return this._createAnalyzerService(callingFile);
     }
 
     private _createAnalyzerService(callingFile: string | undefined) {
@@ -86,7 +74,10 @@ export class CreateTypeStubCommand implements ServerCommand {
             // this should let us to inherit all execution env of the calling file
             // if it is invoked from IDE through code action
             const workspace = this._ls.getWorkspaceForFile(callingFile);
-            return workspace.serviceInstance.clone('Type stub');
+
+            // new service has its own background analysis running on its own thread
+            // to not block main bg running background analysis
+            return workspace.serviceInstance.clone('Type stub', this._ls.createBackgroundAnalysis());
         }
 
         return new AnalyzerService('Type stub', this._ls.fs, this._ls.console);

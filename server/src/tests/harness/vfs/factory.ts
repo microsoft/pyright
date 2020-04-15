@@ -13,13 +13,13 @@ import { TestHost } from '../host';
 import { bufferFrom } from '../utils';
 import {
     FileSet,
-    FileSystem,
     FileSystemOptions,
     FileSystemResolver,
     MODULE_PATH,
     Mount,
     S_IFDIR,
     S_IFREG,
+    TestFileSystem,
 } from './filesystem';
 
 export class TextDocument {
@@ -108,15 +108,15 @@ export function createFromFileSystem(
 }
 
 let cacheKey: { host: TestHost; mountPaths: Map<string, string> } | undefined;
-let localCIFSCache: FileSystem | undefined;
-let localCSFSCache: FileSystem | undefined;
+let localCIFSCache: TestFileSystem | undefined;
+let localCSFSCache: TestFileSystem | undefined;
 
 function getBuiltLocal(
     host: TestHost,
     ignoreCase: boolean,
     cwd: string | undefined,
     mountPaths: Map<string, string>
-): FileSystem {
+): TestFileSystem {
     // Ensure typeshed folder
     if (!mountPaths.has(typeshedFolder)) {
         mountPaths.set(
@@ -136,7 +136,7 @@ function getBuiltLocal(
         const files: FileSet = {};
         mountPaths.forEach((v, k) => (files[k] = new Mount(v, resolver)));
 
-        localCIFSCache = new FileSystem(/*ignoreCase*/ true, {
+        localCIFSCache = new TestFileSystem(/*ignoreCase*/ true, {
             files,
             cwd,
             meta: {},

@@ -15,6 +15,7 @@ import * as chokidar from 'chokidar';
 import * as fs from 'fs';
 
 import { ConsoleInterface, NullConsole } from './console';
+import { createDeferred } from './deferred';
 
 export type FileWatcherEventType = 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir';
 export type FileWatcherEventHandler = (eventName: FileWatcherEventType, path: string, stats?: Stats) => void;
@@ -49,6 +50,11 @@ export interface FileSystem {
     realpathSync(path: string): string;
     getModulePath(): string;
     createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher;
+    createReadStream(path: string): fs.ReadStream;
+    createWriteStream(path: string): fs.WriteStream;
+    // Async I/O
+    readFile(path: string): Promise<Buffer>;
+    readFileText(path: string, encoding?: string): Promise<string>;
 }
 
 export interface FileWatcherProvider {
@@ -123,6 +129,37 @@ class RealFileSystem implements FileSystem {
     createFileSystemWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
         return this._fileWatcherProvider.createFileWatcher(paths, listener);
     }
+
+    createReadStream(path: string): fs.ReadStream {
+        return fs.createReadStream(path);
+    }
+    createWriteStream(path: string): fs.WriteStream {
+        return fs.createWriteStream(path);
+    }
+
+    readFile(path: string): Promise<Buffer> {
+        const d = createDeferred<Buffer>();
+        fs.readFile(path, (e, b) => {
+            if (e) {
+                d.reject(e);
+            } else {
+                d.resolve(b);
+            }
+        });
+        return d.promise;
+    }
+
+    readFileText(path: string, encoding: string): Promise<string> {
+        const d = createDeferred<string>();
+        fs.readFile(path, { encoding }, (e, s) => {
+            if (e) {
+                d.reject(e);
+            } else {
+                d.resolve(s);
+            }
+        });
+        return d.promise;
+    }
 }
 
 class ChokidarFileWatcherProvider implements FileWatcherProvider {
@@ -130,6 +167,13 @@ class ChokidarFileWatcherProvider implements FileWatcherProvider {
 
     createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
         return this._createFileSystemWatcher(paths).on('all', listener);
+    }
+
+    createReadStream(path: string): fs.ReadStream {
+        return fs.createReadStream(path);
+    }
+    createWriteStream(path: string): fs.WriteStream {
+        return fs.createWriteStream(path);
     }
 
     private _createFileSystemWatcher(paths: string[]): chokidar.FSWatcher {
@@ -172,5 +216,29 @@ class ChokidarFileWatcherProvider implements FileWatcherProvider {
         }
 
         return watcher;
+    }
+
+    readFile(path: string): Promise<Buffer> {
+        const d = createDeferred<Buffer>();
+        fs.readFile(path, (e, b) => {
+            if (e) {
+                d.reject(e);
+            } else {
+                d.resolve(b);
+            }
+        });
+        return d.promise;
+    }
+
+    readFileText(path: string, encoding: string): Promise<string> {
+        const d = createDeferred<string>();
+        fs.readFile(path, { encoding }, (e, s) => {
+            if (e) {
+                d.reject(e);
+            } else {
+                d.resolve(s);
+            }
+        });
+        return d.promise;
     }
 }
