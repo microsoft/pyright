@@ -1897,8 +1897,6 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 destType = narrowDeclaredTypeBasedOnAssignedType(declaredType, type);
             }
         } else {
-            destType = stripLiteralTypeArgsValue(destType);
-
             // If this is a member name (within a class scope) and the member name
             // appears to be a constant, use the strict source type. If it's a member
             // variable that can be overridden by a child class, use the more general
@@ -5770,8 +5768,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
         }
 
-        const inferredEntryType =
+        let inferredEntryType =
             entryTypes.length > 0 ? combineTypes(entryTypes.map((t) => stripLiteralValue(t))) : AnyType.create();
+
+        // If we weren't provided an expected type, strip away any
+        // literals from the set.
+        if (!expectedType) {
+            inferredEntryType = stripLiteralValue(inferredEntryType);
+        }
 
         const type = getBuiltInObject(node, 'set', [inferredEntryType]);
 
@@ -5933,6 +5937,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             valueType = AnyType.create();
         }
 
+        // If we weren't provided an expected type, strip away any
+        // literals from the key and value.
+        if (!expectedType) {
+            keyType = stripLiteralValue(keyType);
+            valueType = stripLiteralValue(valueType);
+        }
+
         const type = getBuiltInObject(node, 'dict', [keyType, valueType]);
 
         return { type, node };
@@ -5999,6 +6010,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
                 inferredEntryType = areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
             }
+        }
+
+        // If we weren't provided an expected type, strip away any
+        // literals from the list. The user is probably not expecting
+        // ['a'] to be interpreted as type List[Literal['a']] but
+        // instead List[str].
+        if (!expectedType) {
+            inferredEntryType = stripLiteralValue(inferredEntryType);
         }
 
         const type = getBuiltInObject(node, 'list', [inferredEntryType]);
