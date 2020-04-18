@@ -1509,7 +1509,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     // Validates fields for compatibility with a dataclass and synthesizes
-    // an appropriate __new__ and __init__ methods.
+    // an appropriate __new__ and __init__ methods plus a __dataclass_fields__
+    // class variable.
     function synthesizeDataClassMethods(node: ClassNode, classType: ClassType, skipSynthesizeInit: boolean) {
         assert(ClassType.isDataClass(classType));
 
@@ -1626,6 +1627,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             entryEvaluator.entry.type = entryEvaluator.evaluator();
         });
 
+        const symbolTable = classType.details.fields;
         if (!skipSynthesizeInit) {
             fullDataClassEntries.forEach((entry) => {
                 const functionParam: FunctionParameter = {
@@ -1639,10 +1641,17 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 FunctionType.addParameter(initType, functionParam);
             });
 
-            const symbolTable = classType.details.fields;
             symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
             symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
         }
+
+        let dictType = getBuiltInType(node, 'Dict');
+        if (dictType.category === TypeCategory.Class) {
+            dictType = ObjectType.create(
+                ClassType.cloneForSpecialization(dictType, [getBuiltInObject(node, 'str'), AnyType.create()])
+            );
+        }
+        symbolTable.set('__dataclass_fields__', Symbol.createWithType(SymbolFlags.ClassMember, dictType));
     }
 
     function synthesizeTypedDictClassMethods(node: ClassNode | ExpressionNode, classType: ClassType) {
