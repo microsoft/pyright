@@ -45,6 +45,7 @@ import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram } from './backgroundAnalysisProgram';
 import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
+import { MaxAnalysisTime } from './program';
 import { findPythonSearchPaths, getPythonPathFromPythonInterpreter } from './pythonPathUtils';
 
 export const configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
@@ -78,6 +79,7 @@ export class AnalyzerService {
     private _extension: LanguageServiceExtension | undefined;
     private _backgroundAnalysisProgram: BackgroundAnalysisProgram;
     private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
+    private _maxAnalysisTimeInForeground?: MaxAnalysisTime;
     private _disposed = false;
 
     constructor(
@@ -87,7 +89,8 @@ export class AnalyzerService {
         importResolverFactory?: ImportResolverFactory,
         configOptions?: ConfigOptions,
         extension?: LanguageServiceExtension,
-        backgroundAnalysis?: BackgroundAnalysisBase
+        backgroundAnalysis?: BackgroundAnalysisBase,
+        maxAnalysisTime?: MaxAnalysisTime
     ) {
         this._instanceName = instanceName;
         this._console = console || new StandardConsole();
@@ -95,6 +98,7 @@ export class AnalyzerService {
         this._typeStubTargetImportName = undefined;
         this._extension = extension;
         this._importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;
+        this._maxAnalysisTimeInForeground = maxAnalysisTime;
 
         configOptions = configOptions ?? new ConfigOptions(process.cwd());
         const importResolver = this._importResolverFactory(fs, configOptions);
@@ -103,7 +107,8 @@ export class AnalyzerService {
             configOptions,
             importResolver,
             this._extension,
-            backgroundAnalysis
+            backgroundAnalysis,
+            this._maxAnalysisTimeInForeground
         );
     }
 
@@ -115,7 +120,8 @@ export class AnalyzerService {
             this._importResolverFactory,
             this._backgroundAnalysisProgram.configOptions,
             this._extension,
-            backgroundAnalysis
+            backgroundAnalysis,
+            this._maxAnalysisTimeInForeground
         );
     }
 

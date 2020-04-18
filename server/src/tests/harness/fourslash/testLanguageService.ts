@@ -26,7 +26,7 @@ export class TestLanguageService implements LanguageServerInterface {
         this._workspace = workspace;
     }
 
-    getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
+    async getWorkspaceForFile(filePath: string): Promise<WorkspaceServiceInstance> {
         debug.assertDefined(this._workspace.serviceInstance.test_program.getSourceFile(filePath));
         return this._workspace;
     }

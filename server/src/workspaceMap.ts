@@ -4,6 +4,7 @@
  * Workspace management related functionality.
  */
 
+import { createDeferred } from './common/deferred';
 import { LanguageServerBase, WorkspaceServiceInstance } from './languageServerBase';
 
 export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
@@ -64,6 +65,7 @@ export class WorkspaceMap extends Map<string, WorkspaceServiceInstance> {
                     serviceInstance: this._ls.createAnalyzerService(this._defaultWorkspacePath),
                     disableLanguageServices: false,
                     disableOrganizeImports: false,
+                    isInitialized: createDeferred<boolean>(),
                 };
                 this.set(this._defaultWorkspacePath, defaultWorkspace);
                 this._ls.updateSettingsForWorkspace(defaultWorkspace).ignoreErrors();

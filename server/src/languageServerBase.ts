@@ -45,12 +45,14 @@ import {
 
 import { AnalysisResults } from './analyzer/analysis';
 import { ImportResolver } from './analyzer/importResolver';
+import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, configFileNames } from './analyzer/service';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CancelAfter, getCancellationStrategyFromArgv } from './common/cancellationUtils';
 import { getNestedProperty } from './common/collectionUtils';
 import { ConfigOptions } from './common/configOptions';
 import { ConsoleInterface } from './common/console';
+import { createDeferred, Deferred } from './common/deferred';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import { LanguageServiceExtension } from './common/extensibility';
 import {
@@ -87,6 +89,7 @@ export interface WorkspaceServiceInstance {
     serviceInstance: AnalyzerService;
     disableLanguageServices: boolean;
     disableOrganizeImports: boolean;
+    isInitialized: Deferred<boolean>;
 }
 
 export interface WindowInterface {
@@ -96,7 +99,7 @@ export interface WindowInterface {
 }
 
 export interface LanguageServerInterface {
-    getWorkspaceForFile(filePath: string): WorkspaceServiceInstance;
+    getWorkspaceForFile(filePath: string): Promise<WorkspaceServiceInstance>;
     getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
     createBackgroundAnalysis(): BackgroundAnalysisBase | undefined;
     reanalyze(): void;
@@ -136,9 +139,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     // File system abstraction.
     fs: FileSystem;
 
-    constructor(private _productName: string, rootDirectory: string, private _extension?: LanguageServiceExtension) {
+    constructor(
+        private _productName: string,
+        rootDirectory: string,
+        private _extension?: LanguageServiceExtension,
+        private _maxAnalysisTimeInForeground?: MaxAnalysisTime
+    ) {
         this._connection.console.log(`${_productName} language server starting`);
-        // virtual file system to be used. initialized to real file system by default. but can't be overwritten
         this.fs = createFromRealFileSystem(this._connection.console, this);
 
         // Set the working directory to a known location within
@@ -218,7 +225,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             this.createImportResolver.bind(this),
             undefined,
             this._extension,
-            this.createBackgroundAnalysis()
+            this.createBackgroundAnalysis(),
+            this._maxAnalysisTimeInForeground
         );
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(results));
@@ -226,8 +234,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return service;
     }
 
-    getWorkspaceForFile(filePath: string): WorkspaceServiceInstance {
-        return this._workspaceMap.getWorkspaceForFile(filePath);
+    async getWorkspaceForFile(filePath: string): Promise<WorkspaceServiceInstance> {
+        const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
+        await workspace.isInitialized.promise;
+        return workspace;
     }
 
     reanalyze() {
@@ -309,6 +319,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                             serviceInstance: this.createAnalyzerService(folder.name),
                             disableLanguageServices: false,
                             disableOrganizeImports: false,
+                            isInitialized: createDeferred<boolean>(),
                         });
                     });
                 } else if (params.rootPath) {
@@ -319,6 +330,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                         serviceInstance: this.createAnalyzerService(params.rootPath),
                         disableLanguageServices: false,
                         disableOrganizeImports: false,
+                        isInitialized: createDeferred<boolean>(),
                     });
                 }
 
@@ -365,7 +377,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this._connection.onCodeAction((params, token) => this.executeCodeAction(params, token));
 
-        this._connection.onDefinition((params, token) => {
+        this._connection.onDefinition(async (params, token) => {
             this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
@@ -375,7 +387,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 character: params.position.character,
             };
 
-            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = await this.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -386,7 +398,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return locations.map((loc) => Location.create(convertPathToUri(loc.path), loc.range));
         });
 
-        this._connection.onReferences((params, token) => {
+        this._connection.onReferences(async (params, token) => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -394,7 +406,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 character: params.position.character,
             };
 
-            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = await this.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -410,12 +422,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return locations.map((loc) => Location.create(convertPathToUri(loc.path), loc.range));
         });
 
-        this._connection.onDocumentSymbol((params, token) => {
+        this._connection.onDocumentSymbol(async (params, token) => {
             this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
 
-            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = await this.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return undefined;
             }
@@ -425,10 +437,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return symbolList;
         });
 
-        this._connection.onWorkspaceSymbol((params, token) => {
+        this._connection.onWorkspaceSymbol(async (params, token) => {
             const symbolList: SymbolInformation[] = [];
 
-            this._workspaceMap.forEach((workspace) => {
+            this._workspaceMap.forEach(async (workspace) => {
+                await workspace.isInitialized.promise;
                 if (!workspace.disableLanguageServices) {
                     workspace.serviceInstance.addSymbolsForWorkspace(symbolList, params.query, token);
                 }
@@ -437,7 +450,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return symbolList;
         });
 
-        this._connection.onHover((params, token) => {
+        this._connection.onHover(async (params, token) => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -445,12 +458,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 character: params.position.character,
             };
 
-            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = await this.getWorkspaceForFile(filePath);
             const hoverResults = workspace.serviceInstance.getHoverForPosition(filePath, position, token);
             return convertHoverResults(hoverResults);
         });
 
-        this._connection.onSignatureHelp((params, token) => {
+        this._connection.onSignatureHelp(async (params, token) => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -458,7 +471,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 character: params.position.character,
             };
 
-            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = await this.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -503,7 +516,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 character: params.position.character,
             };
 
-            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = await this.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -526,18 +539,16 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return completions;
         });
 
-        this._connection.onCompletionResolve((params, token) => {
+        this._connection.onCompletionResolve(async (params, token) => {
             const completionItemData = params.data as CompletionItemData;
-            if (completionItemData) {
-                const workspace = this._workspaceMap.get(completionItemData.workspacePath);
-                if (workspace && completionItemData.filePath) {
-                    workspace.serviceInstance.resolveCompletionItem(completionItemData.filePath, params, token);
-                }
+            if (completionItemData && completionItemData.filePath) {
+                const workspace = await this.getWorkspaceForFile(completionItemData.workspacePath);
+                workspace.serviceInstance.resolveCompletionItem(completionItemData.filePath, params, token);
             }
             return params;
         });
 
-        this._connection.onRenameRequest((params, token) => {
+        this._connection.onRenameRequest(async (params, token) => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -545,7 +556,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 character: params.position.character,
             };
 
-            const workspace = this._workspaceMap.getWorkspaceForFile(filePath);
+            const workspace = await this.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
                 return;
             }
@@ -579,24 +590,28 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return edits;
         });
 
-        this._connection.onDidOpenTextDocument((params) => {
+        this._connection.onDidOpenTextDocument(async (params) => {
             const filePath = convertUriToPath(params.textDocument.uri);
-            const service = this._workspaceMap.getWorkspaceForFile(filePath).serviceInstance;
-            service.setFileOpened(filePath, params.textDocument.version, params.textDocument.text);
+            const workspace = await this.getWorkspaceForFile(filePath);
+            workspace.serviceInstance.setFileOpened(filePath, params.textDocument.version, params.textDocument.text);
         });
 
-        this._connection.onDidChangeTextDocument((params) => {
+        this._connection.onDidChangeTextDocument(async (params) => {
             this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
-            const service = this._workspaceMap.getWorkspaceForFile(filePath).serviceInstance;
-            service.updateOpenFileContents(filePath, params.textDocument.version, params.contentChanges[0].text);
+            const workspace = await this.getWorkspaceForFile(filePath);
+            workspace.serviceInstance.updateOpenFileContents(
+                filePath,
+                params.textDocument.version,
+                params.contentChanges[0].text
+            );
         });
 
-        this._connection.onDidCloseTextDocument((params) => {
+        this._connection.onDidCloseTextDocument(async (params) => {
             const filePath = convertUriToPath(params.textDocument.uri);
-            const service = this._workspaceMap.getWorkspaceForFile(filePath).serviceInstance;
-            service.setFileClosed(filePath);
+            const workspace = await this.getWorkspaceForFile(filePath);
+            workspace.serviceInstance.setFileClosed(filePath);
         });
 
         this._connection.onDidChangeWatchedFiles((params) => {
@@ -627,6 +642,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                         serviceInstance: this.createAnalyzerService(workspace.name),
                         disableLanguageServices: false,
                         disableOrganizeImports: false,
+                        isInitialized: createDeferred<boolean>(),
                     };
                     this._workspaceMap.set(rootPath, newWorkspace);
                     await this.updateSettingsForWorkspace(newWorkspace);
@@ -718,6 +734,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this.updateOptionsAndRestartService(workspace, serverSettings);
         workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
         workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
+
+        // The workspace is now open for business.
+        workspace.isInitialized.resolve(true);
     }
 
     updateOptionsAndRestartService(

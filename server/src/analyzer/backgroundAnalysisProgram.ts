@@ -18,22 +18,25 @@ import { LanguageServiceExtension } from '../common/extensibility';
 import { Range } from '../common/textRange';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { ImportResolver } from './importResolver';
-import { Program } from './program';
+import { MaxAnalysisTime, Program } from './program';
 
 export class BackgroundAnalysisProgram {
     private _program: Program;
     private _backgroundAnalysis?: BackgroundAnalysisBase;
     private _onAnalysisCompletion?: AnalysisCompleteCallback;
+    private _maxAnalysisTime?: MaxAnalysisTime;
 
     constructor(
         private _console: ConsoleInterface,
         private _configOptions: ConfigOptions,
         private _importResolver: ImportResolver,
         extension?: LanguageServiceExtension,
-        backgroundAnalysis?: BackgroundAnalysisBase
+        backgroundAnalysis?: BackgroundAnalysisBase,
+        maxAnalysisTime?: MaxAnalysisTime
     ) {
         this._program = new Program(this._importResolver, this._configOptions, this._console, extension);
         this._backgroundAnalysis = backgroundAnalysis;
+        this._maxAnalysisTime = maxAnalysisTime;
     }
 
     get configOptions() {
@@ -116,10 +119,9 @@ export class BackgroundAnalysisProgram {
             return false;
         }
 
-        const maxTime = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
         return analyzeProgram(
             this._program,
-            maxTime,
+            this._maxAnalysisTime,
             this._configOptions,
             this._onAnalysisCompletion,
             this._console,

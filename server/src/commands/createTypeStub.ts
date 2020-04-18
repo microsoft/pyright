@@ -10,6 +10,7 @@ import { CancellationToken, ExecuteCommandParams } from 'vscode-languageserver';
 
 import { AnalyzerService } from '../analyzer/service';
 import { OperationCanceledException } from '../common/cancellationUtils';
+import { createDeferred } from '../common/deferred';
 import { convertPathToUri } from '../common/pathUtils';
 import { LanguageServerInterface, WorkspaceServiceInstance } from '../languageServerBase';
 import { AnalyzerServiceExecutor } from '../languageService/analyzerServiceExecutor';
@@ -24,7 +25,7 @@ export class CreateTypeStubCommand implements ServerCommand {
             const importName = cmdParams.arguments[1];
             const callingFile = cmdParams.arguments[2];
 
-            const service = this._createTypeStubService(callingFile);
+            const service = await this._createTypeStubService(callingFile);
 
             // Allocate a temporary pseudo-workspace to perform this job.
             const workspace: WorkspaceServiceInstance = {
@@ -34,10 +35,11 @@ export class CreateTypeStubCommand implements ServerCommand {
                 serviceInstance: service,
                 disableLanguageServices: true,
                 disableOrganizeImports: true,
+                isInitialized: createDeferred<boolean>(),
             };
 
             const serverSettings = await this._ls.getSettings(workspace);
-            AnalyzerServiceExecutor.withOptions(this._ls.rootPath, workspace, serverSettings, importName);
+            AnalyzerServiceExecutor.runWithOptions(this._ls.rootPath, workspace, serverSettings, importName, false);
 
             try {
                 await service.writeTypeStubInBG(token);
@@ -65,17 +67,17 @@ export class CreateTypeStubCommand implements ServerCommand {
 
     // Creates a service instance that's used for creating type
     // stubs for a specified target library.
-    private _createTypeStubService(callingFile?: string): AnalyzerService {
+    private async _createTypeStubService(callingFile?: string): Promise<AnalyzerService> {
         return this._createAnalyzerService(callingFile);
     }
 
-    private _createAnalyzerService(callingFile: string | undefined) {
+    private async _createAnalyzerService(callingFile: string | undefined) {
         this._ls.console.log('Starting type stub service instance');
 
         if (callingFile) {
             // this should let us to inherit all execution env of the calling file
             // if it is invoked from IDE through code action
-            const workspace = this._ls.getWorkspaceForFile(callingFile);
+            const workspace = await this._ls.getWorkspaceForFile(callingFile);
 
             // new service has its own background analysis running on its own thread
             // to not block main bg running background analysis

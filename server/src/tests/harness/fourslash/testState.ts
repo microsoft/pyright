@@ -19,6 +19,7 @@ import { ConfigOptions } from '../../../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../../../common/console';
 import { Comparison, isNumber, isString, toBoolean } from '../../../common/core';
 import * as debug from '../../../common/debug';
+import { createDeferred } from '../../../common/deferred';
 import { DiagnosticCategory } from '../../../common/diagnostic';
 import {
     combinePaths,
@@ -140,6 +141,7 @@ export class TestState {
             serviceInstance: service,
             disableLanguageServices: false,
             disableOrganizeImports: false,
+            isInitialized: createDeferred<boolean>(),
         };
 
         if (this._files.length > 0) {

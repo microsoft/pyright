@@ -17,11 +17,13 @@ import { convertUriToPath, getDirectoryPath, normalizeSlashes } from './common/p
 import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 
+const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
+
 class PyrightServer extends LanguageServerBase {
     private _controller: CommandController;
 
     constructor() {
-        super('Pyright', getDirectoryPath(__dirname));
+        super('Pyright', getDirectoryPath(__dirname), undefined, maxAnalysisTimeInForeground);
 
         this._controller = new CommandController(this);
     }
@@ -87,7 +89,7 @@ class PyrightServer extends LanguageServerBase {
         this.recordUserInteractionTime();
 
         const filePath = convertUriToPath(params.textDocument.uri);
-        const workspace = this.getWorkspaceForFile(filePath);
+        const workspace = await this.getWorkspaceForFile(filePath);
         return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range, token);
     }
 }
