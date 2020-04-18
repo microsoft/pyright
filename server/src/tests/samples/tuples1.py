@@ -77,17 +77,14 @@ def func10() -> int:
     c, *d = a
     if c:
         # This should generate an error because
-        # d should be a list type, not compatible
+        # d should be an iterable type, not compatible
         # with the declared return type.
         return d
 
-    if c:
-        return d[0]
-
     # This should generate an error because
     # there are not enough elements to populate
-    # the unpacked variable h.
-    e, f, g, *h = a
+    # the variable h.
+    e, f, g, h, *i = a
 
     return e
 
@@ -98,12 +95,9 @@ def func11() -> float:
     c, *d = b
     if c:
         # This should generate an error because
-        # d should be a list type, not compatible
+        # d should be an iterable type, not compatible
         # with the declared return type.
         return d
-
-    if c:
-        return d[0]
 
     return 3
 

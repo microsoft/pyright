@@ -2103,57 +2103,57 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             targetTypes[i] = [];
         }
 
+        // Do any of the targets use an unpack operator? If so, it will consume all of the
+        // entries at that location.
+        const unpackIndex = target.expressions.findIndex((expr) => expr.nodeType === ParseNodeType.Unpack);
+
         doForSubtypes(type, (subtype) => {
             // Is this subtype a tuple?
             const tupleType = getSpecializedTupleType(subtype);
             if (tupleType && tupleType.typeArguments) {
-                const entryTypes = tupleType.typeArguments;
-                let entryCount = entryTypes.length;
+                const sourceEntryTypes = tupleType.typeArguments;
+                const sourceEntryCount = sourceEntryTypes.length;
 
-                const sourceEndsInEllipsis = entryCount > 1 && isEllipsisType(entryTypes[entryCount - 1]);
-                if (sourceEndsInEllipsis) {
-                    entryCount--;
-                }
-
-                const targetEndsWithUnpackOperator =
-                    target.expressions.length > 0 &&
-                    target.expressions[target.expressions.length - 1].nodeType === ParseNodeType.Unpack;
-
-                if (targetEndsWithUnpackOperator) {
-                    if (entryCount >= target.expressions.length) {
-                        for (let index = 0; index < target.expressions.length - 1; index++) {
-                            const entryType = index < entryCount ? entryTypes[index] : UnknownType.create();
-                            targetTypes[index].push(entryType);
-                        }
-
-                        const remainingTypes: Type[] = [];
-                        for (let index = target.expressions.length - 1; index < entryCount; index++) {
-                            const entryType = entryTypes[index];
-                            remainingTypes.push(entryType);
-                        }
-
-                        targetTypes[target.expressions.length - 1].push(combineTypes(remainingTypes));
-                    } else {
-                        const fileInfo = getFileInfo(target);
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            `Tuple size mismatch: expected at least ${target.expressions.length} entries but got ${entryCount}`,
-                            target
-                        );
+                // Is this a homogenous tuple of indeterminate length?
+                if (sourceEntryCount === 2 && isEllipsisType(sourceEntryTypes[1])) {
+                    for (let index = 0; index < target.expressions.length; index++) {
+                        targetTypes[index].push(sourceEntryTypes[0]);
                     }
                 } else {
-                    if (target.expressions.length === entryCount || sourceEndsInEllipsis) {
-                        for (let index = 0; index < target.expressions.length; index++) {
-                            const entryType = index < entryCount ? entryTypes[index] : entryTypes[entryCount - 1];
-                            targetTypes[index].push(entryType);
+                    let sourceIndex = 0;
+                    let targetIndex = 0;
+                    for (targetIndex = 0; targetIndex < target.expressions.length; targetIndex++) {
+                        if (targetIndex === unpackIndex) {
+                            // Consume as many source entries as necessary to
+                            // make the remaining tuple entry counts match.
+                            const remainingTargetEntries = target.expressions.length - targetIndex - 1;
+                            const remainingSourceEntries = sourceEntryCount - sourceIndex;
+                            let entriesToPack = Math.max(remainingSourceEntries - remainingTargetEntries, 0);
+                            while (entriesToPack > 0) {
+                                targetTypes[targetIndex].push(sourceEntryTypes[sourceIndex]);
+                                sourceIndex++;
+                                entriesToPack--;
+                            }
+                        } else {
+                            if (sourceIndex >= sourceEntryCount) {
+                                // No more source entries to assign.
+                                break;
+                            }
+
+                            targetTypes[targetIndex].push(sourceEntryTypes[sourceIndex]);
+                            sourceIndex++;
                         }
-                    } else {
+                    }
+
+                    // Have we accounted for all of the targets and sources? If not, we have a size mismatch.
+                    if (targetIndex < target.expressions.length || sourceIndex < sourceEntryCount) {
                         const fileInfo = getFileInfo(target);
+                        const expectedEntryCount =
+                            unpackIndex >= 0 ? target.expressions.length - 1 : target.expressions.length;
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            `Tuple size mismatch: expected ${target.expressions.length} but got ${entryCount}`,
+                            `Tuple size mismatch: expected ${expectedEntryCount} but received ${sourceEntryCount}`,
                             target
                         );
                     }
@@ -2179,7 +2179,16 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         // Assign the resulting types to the individual names in the tuple target expression.
         target.expressions.forEach((expr, index) => {
             const typeList = targetTypes[index];
-            const targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
+            let targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
+
+            // If the target uses an unpack operator, wrap the target type in an iterable.
+            if (index === unpackIndex) {
+                const iterableType = getBuiltInType(expr, 'Iterable');
+                if (iterableType.category === TypeCategory.Class) {
+                    targetType = ObjectType.create(ClassType.cloneForSpecialization(iterableType, [targetType]));
+                }
+            }
+
             assignTypeToExpression(expr, targetType, srcExpr);
         });
 
@@ -2271,16 +2280,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             case ParseNodeType.Unpack: {
                 if (target.expression.nodeType === ParseNodeType.Name) {
-                    if (!isAnyOrUnknown(type)) {
-                        // Make a list type from the source.
-                        const listType = getBuiltInType(target, 'List');
-                        if (listType.category === TypeCategory.Class) {
-                            type = ObjectType.create(ClassType.cloneForSpecialization(listType, [type]));
-                        } else {
-                            type = UnknownType.create();
-                        }
-                    }
-                    assignTypeToNameNode(target.expression, type);
+                    assignTypeToNameNode(target.expression, type, srcExpr);
                 }
                 break;
             }

@@ -1,7 +1,7 @@
 # This sample tests the translation of a heterogenous tuple
 # into an Interable.
 
-from typing import Iterable, Iterator, List, Tuple, TypeVar, Union
+from typing import Iterable, TypeVar, Union
 
 _T = TypeVar('_T')
 def foo(x: Iterable[_T]):
