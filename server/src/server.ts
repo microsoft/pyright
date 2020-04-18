@@ -68,8 +68,8 @@ class PyrightServer extends LanguageServerBase {
 
     createBackgroundAnalysis(): BackgroundAnalysisBase | undefined {
         if (isDebugMode() || !getCancellationFolderName()) {
-            // either in debug mode or old client is used where
-            // cancellation is not supported
+            // Don't do background analysis if we're in debug mode or an old client
+            // is used where cancellation is not supported.
             return undefined;
         }
 

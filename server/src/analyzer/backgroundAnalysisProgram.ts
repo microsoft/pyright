@@ -3,8 +3,8 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * this makes sure same operation is applied to
- * both program and background analysis
+ * Applies operations to both the foreground program and a background
+ * analysis running in a worker process.
  */
 
 import { CancellationToken } from 'vscode-languageserver';
@@ -13,6 +13,7 @@ import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
+import { FileDiagnostics } from '../common/diagnosticSink';
 import { LanguageServiceExtension } from '../common/extensibility';
 import { Range } from '../common/textRange';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
@@ -36,14 +37,10 @@ export class BackgroundAnalysisProgram {
     }
 
     get configOptions() {
-        // not sure why program won't just expose configOptions it has
-        // rather than this has a separate reference to it
         return this._configOptions;
     }
 
     get importResolver() {
-        // not sure why program won't just expose importResolver it has
-        // rather than this has a separate reference to it
         return this._importResolver;
     }
 
@@ -65,15 +62,16 @@ export class BackgroundAnalysisProgram {
         this._importResolver = importResolver;
         this._program.setImportResolver(importResolver);
 
-        // nothing for background analysis.
-        // backgroundAnalysis updates importer when configOptions is changed rather than
-        // having 2 APIs to reduce chance of program and importer pointing to 2 different
-        // configOptions.
+        // Do nothing for background analysis.
+        // Background analysis updates importer when configOptions is changed rather than
+        // having two APIs to reduce the chance of the program and importer pointing to
+        // two different configOptions.
     }
 
     setTrackedFiles(filePaths: string[]) {
         this._backgroundAnalysis?.setTrackedFiles(filePaths);
-        this._program.setTrackedFiles(filePaths);
+        const diagnostics = this._program.setTrackedFiles(filePaths);
+        this._reportDiagnosticsForRemovedFiles(diagnostics);
     }
 
     setAllowedThirdPartyImports(importNames: string[]) {
@@ -93,7 +91,8 @@ export class BackgroundAnalysisProgram {
 
     setFileClosed(filePath: string) {
         this._backgroundAnalysis?.setFileClosed(filePath);
-        this._program.setFileClosed(filePath);
+        const diagnostics = this._program.setFileClosed(filePath);
+        this._reportDiagnosticsForRemovedFiles(diagnostics);
     }
 
     markAllFilesDirty(evenIfContentsAreSame: boolean) {
@@ -166,5 +165,24 @@ export class BackgroundAnalysisProgram {
 
     restart() {
         this._backgroundAnalysis?.restart();
+    }
+
+    private _reportDiagnosticsForRemovedFiles(fileDiags: FileDiagnostics[]) {
+        if (fileDiags.length > 0) {
+            // If analysis is running in the foreground process, report any
+            // diagnostics that resulted from the close operation (used to
+            // clear diagnostics that are no longer of interest).
+            if (!this._backgroundAnalysis && this._onAnalysisCompletion) {
+                this._onAnalysisCompletion({
+                    diagnostics: fileDiags,
+                    filesInProgram: this._program.getFileCount(),
+                    filesRequiringAnalysis: this._program.getFilesToAnalyzeCount(),
+                    checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
+                    fatalErrorOccurred: false,
+                    configParseErrorOccurred: false,
+                    elapsedTime: 0,
+                });
+            }
+        }
     }
 }
