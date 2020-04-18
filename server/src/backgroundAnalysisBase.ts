@@ -208,23 +208,27 @@ export class BackgroundAnalysisRunnerBase {
     start() {
         this.log(`background analysis started`);
 
-        // get requests from main thread
+        // Get requests from main thread.
         parentPort?.on('message', (msg: AnalysisRequest) => {
             switch (msg.requestType) {
                 case 'analyze': {
                     const port = msg.port!;
                     const token = getCancellationTokenFromId(msg.data);
 
-                    // this streams results at the interval of the max analysis time
+                    // Report results at the interval of the max analysis time.
                     const maxTime = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
-                    analyzeProgram(
-                        this._program,
-                        maxTime,
-                        this._configOptions,
-                        (result) => this._onAnalysisCompletion(port, result),
-                        this._getConsole(),
-                        token
-                    );
+                    let moreToAnalyze = true;
+
+                    while (moreToAnalyze) {
+                        moreToAnalyze = analyzeProgram(
+                            this._program,
+                            maxTime,
+                            this._configOptions,
+                            (result) => this._onAnalysisCompletion(port, result),
+                            this._getConsole(),
+                            token
+                        );
+                    }
 
                     this._analysisDone(port, msg.data);
                     break;

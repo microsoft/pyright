@@ -110,13 +110,21 @@ export class BackgroundAnalysisProgram {
         this._backgroundAnalysis?.setCompletionCallback(callback);
     }
 
-    startAnalysis(token: CancellationToken) {
+    startAnalysis(token: CancellationToken): boolean {
         if (this._backgroundAnalysis) {
             this._backgroundAnalysis.startAnalysis(token);
-            return;
+            return false;
         }
 
-        analyzeProgram(this._program, undefined, this._configOptions, this._onAnalysisCompletion, this._console, token);
+        const maxTime = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
+        return analyzeProgram(
+            this._program,
+            maxTime,
+            this._configOptions,
+            this._onAnalysisCompletion,
+            this._console,
+            token
+        );
     }
 
     async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {

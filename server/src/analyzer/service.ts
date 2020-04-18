@@ -1084,9 +1084,14 @@ export class AnalyzerService {
                 this._updateTrackedFileList(false);
             }
 
-            // this only creates cancellation source if it actually gets used.
+            // This creates a cancellation source only if it actually gets used.
             this._backgroundAnalysisCancellationSource = createAnalysisCancellationTokenSource();
-            this._backgroundAnalysisProgram.startAnalysis(this._backgroundAnalysisCancellationSource.token);
+            const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(
+                this._backgroundAnalysisCancellationSource.token
+            );
+            if (moreToAnalyze) {
+                this._scheduleReanalysis(false);
+            }
         }, timeUntilNextAnalysisInMs);
     }
 

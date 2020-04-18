@@ -39,39 +39,39 @@ export function analyzeProgram(
     callback: AnalysisCompleteCallback | undefined,
     console: ConsoleInterface,
     token: CancellationToken
-) {
+): boolean {
+    let moreToAnalyze = false;
+
     callback = callback ?? nullCallback;
+
     try {
-        let moreToAnalyze = false;
-        do {
-            throwIfCancellationRequested(token);
+        throwIfCancellationRequested(token);
 
-            const duration = new Duration();
-            moreToAnalyze = program.analyze(maxTime, token);
+        const duration = new Duration();
+        moreToAnalyze = program.analyze(maxTime, token);
 
-            const filesLeftToAnalyze = program.getFilesToAnalyzeCount();
-            debug.assert(filesLeftToAnalyze === 0 || moreToAnalyze);
+        const filesLeftToAnalyze = program.getFilesToAnalyzeCount();
+        debug.assert(filesLeftToAnalyze === 0 || moreToAnalyze);
 
-            const diagnostics = program.getDiagnostics(configOptions);
-            const diagnosticFileCount = diagnostics.length;
-            const elapsedTime = duration.getDurationInSeconds();
+        const diagnostics = program.getDiagnostics(configOptions);
+        const diagnosticFileCount = diagnostics.length;
+        const elapsedTime = duration.getDurationInSeconds();
 
-            // Report any diagnostics or completion.
-            if (diagnosticFileCount > 0 || !moreToAnalyze) {
-                callback({
-                    diagnostics,
-                    filesInProgram: program.getFileCount(),
-                    filesRequiringAnalysis: filesLeftToAnalyze,
-                    checkingOnlyOpenFiles: program.isCheckingOnlyOpenFiles(),
-                    fatalErrorOccurred: false,
-                    configParseErrorOccurred: false,
-                    elapsedTime,
-                });
-            }
-        } while (moreToAnalyze);
+        // Report any diagnostics or completion.
+        if (diagnosticFileCount > 0 || !moreToAnalyze) {
+            callback({
+                diagnostics,
+                filesInProgram: program.getFileCount(),
+                filesRequiringAnalysis: filesLeftToAnalyze,
+                checkingOnlyOpenFiles: program.isCheckingOnlyOpenFiles(),
+                fatalErrorOccurred: false,
+                configParseErrorOccurred: false,
+                elapsedTime,
+            });
+        }
     } catch (e) {
         if (OperationCanceledException.is(e)) {
-            return;
+            return false;
         }
 
         const message: string =
@@ -90,4 +90,6 @@ export function analyzeProgram(
             elapsedTime: 0,
         });
     }
+
+    return moreToAnalyze;
 }
