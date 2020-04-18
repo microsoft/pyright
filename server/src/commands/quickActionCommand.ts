@@ -1,5 +1,7 @@
 /*
  * quickActionCommand.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
  *
  * Implements command that maps to a quick action.
  */

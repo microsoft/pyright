@@ -1,5 +1,7 @@
 /*
  * commandController.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
  *
  * Implements language server commands execution functionality.
  */

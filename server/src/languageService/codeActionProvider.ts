@@ -2,6 +2,8 @@
  * codeActionProvider.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
+ *
+ * Handles 'code actions' requests from the client.
  */
 
 import { CancellationToken, CodeAction, CodeActionKind, Command } from 'vscode-languageserver';

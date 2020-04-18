@@ -108,9 +108,6 @@ export class AnalyzerService {
     }
 
     clone(instanceName: string, backgroundAnalysis?: BackgroundAnalysisBase): AnalyzerService {
-        // we need new background analysis for this cloned service.
-        // don't want to pass in factory method like ImportResolver, so instead
-        // caller must pass in new background analysis to use
         return new AnalyzerService(
             instanceName,
             this._fs,

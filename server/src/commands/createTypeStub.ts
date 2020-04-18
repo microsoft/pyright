@@ -1,5 +1,7 @@
 /*
  * createTypeStub.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
  *
  * Implements 'create stub' command functionality.
  */

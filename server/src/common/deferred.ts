@@ -21,31 +21,38 @@ class DeferredImpl<T> implements Deferred<T> {
     private _resolved = false;
     private _rejected = false;
     private _promise: Promise<T>;
+
     constructor(private scope: any = null) {
         this._promise = new Promise<T>((res, rej) => {
             this._resolve = res;
             this._reject = rej;
         });
     }
+
     public resolve(_value?: T | PromiseLike<T>) {
         // eslint-disable-next-line prefer-rest-params
         this._resolve.apply(this.scope ? this.scope : this, arguments as any);
         this._resolved = true;
     }
+
     public reject(_reason?: any) {
         // eslint-disable-next-line prefer-rest-params
         this._reject.apply(this.scope ? this.scope : this, arguments as any);
         this._rejected = true;
     }
+
     get promise(): Promise<T> {
         return this._promise;
     }
+
     get resolved(): boolean {
         return this._resolved;
     }
+
     get rejected(): boolean {
         return this._rejected;
     }
+
     get completed(): boolean {
         return this._rejected || this._resolved;
     }
@@ -63,6 +70,7 @@ export function createDeferredFrom<T>(...promises: Promise<T>[]): Deferred<T> {
 
     return deferred;
 }
+
 export function createDeferredFromPromise<T>(promise: Promise<T>): Deferred<T> {
     const deferred = createDeferred<T>();
     promise.then(deferred.resolve.bind(deferred)).catch(deferred.reject.bind(deferred));

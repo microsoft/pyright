@@ -1,5 +1,7 @@
 /*
  * restartServer.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
  *
  * Implements 'restart server' command functionality.
  */

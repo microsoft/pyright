@@ -4,7 +4,8 @@
  * Licensed under the MIT license.
  * Author: Eric Traut
  *
- * Run analyzer service of the given workspaceServiceInstance with the given option
+ * Runs the analyzer service of a given workspace service instance
+ * with a specified set of options.
  */
 
 import { CommandLineOptions } from '../common/commandLineOptions';

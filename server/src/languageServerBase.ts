@@ -1,5 +1,7 @@
 /*
  * languageServerBase.ts
+ * Copyright (c) Microsoft Corporation.
+ * Licensed under the MIT license.
  *
  * Implements common language server functionality.
  * This is split out as a base class to allow for
@@ -200,7 +202,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return this._connection.console;
     }
 
-    // provides access to the client windows
+    // Provides access to the client's window.
     get window(): RemoteWindow {
         return this._connection.window;
     }
@@ -484,15 +486,16 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 }),
                 activeSignature:
                     signatureHelpResults.activeSignature !== undefined ? signatureHelpResults.activeSignature : null,
-                // -1 is out of bounds but is legal within the LSP (should be treated as undefined).
-                // It produces a better result in VS Code by preventing it from highlighting the first parameter
-                // when no parameter works (as the LSP client converts null into zero).
+                // A value of -1 is out of bounds but is legal within the LSP (should be treated
+                // as undefined). It produces a better result in VS Code by preventing it from
+                // highlighting the first parameter when no parameter works, since the LSP client
+                // converts null into zero.
                 activeParameter:
                     signatureHelpResults.activeParameter !== undefined ? signatureHelpResults.activeParameter : -1,
             };
         });
 
-        this._connection.onCompletion((params, token) => {
+        this._connection.onCompletion(async (params, token) => {
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -649,11 +652,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             }
         });
 
-        // we support only 1 command to run at a time
+        // We support running only one command at a time.
         let lastCancellationSource: CancellationTokenSource;
         this._connection.onExecuteCommand(async (params, token) => {
             if (lastCancellationSource) {
-                // cancel command running if there is one
+                // Cancel running command if there is one.
                 lastCancellationSource.cancel();
             }
 
@@ -662,7 +665,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             lastCancellationSource = source;
 
             try {
-                // we probably want to pass in progress reporter to execute command
                 progress.begin(`executing command`, undefined, undefined, true);
                 return await this.executeCommand(params, source.token);
             } finally {
