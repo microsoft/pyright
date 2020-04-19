@@ -56,7 +56,7 @@ class FileBasedToken implements CancellationToken {
             this.isCancelled = true;
             if (this._emitter) {
                 this._emitter.fire(undefined);
-                this._diposeEmitter();
+                this._disposeEmitter();
             }
         }
     }
@@ -84,10 +84,10 @@ class FileBasedToken implements CancellationToken {
     }
 
     public dispose(): void {
-        this._diposeEmitter();
+        this._disposeEmitter();
     }
 
-    private _diposeEmitter() {
+    private _disposeEmitter() {
         if (this._emitter) {
             this._emitter.dispose();
             this._emitter = undefined;
