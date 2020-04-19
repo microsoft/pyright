@@ -606,9 +606,20 @@ export class Program {
 
         // For very large programs, we may need to discard the evaluator and
         // its cached types to avoid running out of heap space.
-        if (this._evaluator.hasGrownTooLarge()) {
-            this._console.log('Emptying type cache to avoid heap overflow');
-            this._createNewEvaluator();
+        const typeCacheSize = this._evaluator.getTypeCacheSize();
+
+        // If the type cache size has exceeded a high-water mark, query the heap usage.
+        // Don't bother doing this until we hit this point because the heap usage may not
+        // drop immediately after we empty the cache due to garbage collection timing.
+        if (typeCacheSize > 750000) {
+            const heapSizeInMb = Math.round(process.memoryUsage().heapUsed / (1024 * 1024));
+
+            // Don't allow the heap to get close to the 2GB limit imposed by
+            // the OS when running Node in a 32-bit process.
+            if (heapSizeInMb > 1536) {
+                this._console.log(`Emptying type cache to avoid heap overflow. Heap size used: ${heapSizeInMb}MB`);
+                this._createNewEvaluator();
+            }
         }
 
         fileToCheck.sourceFile.check(this._evaluator);
