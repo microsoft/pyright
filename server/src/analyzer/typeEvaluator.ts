@@ -11976,6 +11976,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 paramString += param.name;
             }
 
+            let defaultValueAssignment = '=';
             if (param.category === ParameterCategory.Simple) {
                 if (param.name) {
                     // Avoid printing type types if parameter have unknown type.
@@ -11984,6 +11985,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         const paramTypeString =
                             recursionCount < maxTypeRecursionCount ? printType(paramType, recursionCount + 1) : '';
                         paramString += ': ' + paramTypeString;
+
+                        // PEP8 indicates that the "=" for the default value should have surrounding
+                        // spaces when used with a type annotation.
+                        defaultValueAssignment = ' = ';
                     }
                 } else {
                     paramString += '/';
@@ -11994,7 +11999,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const adjustedIndex = type.ignoreFirstParamOfDeclaration ? index + 1 : index;
                 const paramNode = type.details.declaration.node.parameters[adjustedIndex];
                 if (paramNode.defaultValue) {
-                    paramString += ' = ' + ParseTreeUtils.printExpression(paramNode.defaultValue);
+                    paramString += defaultValueAssignment + ParseTreeUtils.printExpression(paramNode.defaultValue);
                 }
             }
 
