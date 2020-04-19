@@ -52,7 +52,7 @@ export const configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
 
 // How long since the last user activity should we wait until running
 // the analyzer on any files that have not yet been analyzed?
-const _userActivityBackoffTimeInMs = 500;
+const _userActivityBackoffTimeInMs = 250;
 
 export class AnalyzerService {
     private _instanceName: string;
