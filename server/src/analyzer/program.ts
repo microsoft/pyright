@@ -16,7 +16,7 @@ import {
     SymbolInformation,
 } from 'vscode-languageserver';
 
-import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { isDebugMode } from '../common/core';
@@ -1044,10 +1044,12 @@ export class Program {
                 return callback();
             }
         } catch (e) {
-            // An unexpected exception or cancellation occurred, potentially
-            // leaving the current evaluator in an inconsistent state. Discard
-            // it and replace it with a fresh one.
-            this._createNewEvaluator();
+            // An unexpected exception occurred, potentially leaving the current evaluator
+            // in an inconsistent state. Discard it and replace it with a fresh one. It is
+            // Cancellation exceptions are known to handle this correctly.
+            if (!(e instanceof OperationCanceledException)) {
+                this._createNewEvaluator();
+            }
             throw e;
         }
     }

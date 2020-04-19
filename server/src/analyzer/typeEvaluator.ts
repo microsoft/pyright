@@ -7809,101 +7809,107 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         if (!functionRecursionMap.has(node.id)) {
             functionRecursionMap.set(node.id, true);
 
-            const functionDecl = AnalyzerNodeInfo.getDeclaration(node) as FunctionDeclaration;
+            try {
+                const functionDecl = AnalyzerNodeInfo.getDeclaration(node) as FunctionDeclaration;
 
-            // Is it a generator?
-            if (functionDecl.yieldExpressions) {
-                const inferredYieldTypes: Type[] = [];
-                functionDecl.yieldExpressions.forEach((yieldNode) => {
-                    if (isNodeReachable(yieldNode)) {
-                        if (yieldNode.nodeType == ParseNodeType.YieldFrom) {
-                            const iteratorType = getTypeOfExpression(yieldNode.expression).type;
-                            const yieldType = getTypeFromIterable(
-                                iteratorType,
-                                /* isAsync */ false,
-                                yieldNode,
-                                /* supportGetItem */ false
-                            );
-                            inferredYieldTypes.push(yieldType || UnknownType.create());
-                        } else {
-                            if (yieldNode.expression) {
-                                const yieldType = getTypeOfExpression(yieldNode.expression).type;
+                // Is it a generator?
+                if (functionDecl.yieldExpressions) {
+                    const inferredYieldTypes: Type[] = [];
+                    functionDecl.yieldExpressions.forEach((yieldNode) => {
+                        if (isNodeReachable(yieldNode)) {
+                            if (yieldNode.nodeType == ParseNodeType.YieldFrom) {
+                                const iteratorType = getTypeOfExpression(yieldNode.expression).type;
+                                const yieldType = getTypeFromIterable(
+                                    iteratorType,
+                                    /* isAsync */ false,
+                                    yieldNode,
+                                    /* supportGetItem */ false
+                                );
                                 inferredYieldTypes.push(yieldType || UnknownType.create());
                             } else {
-                                inferredYieldTypes.push(NoneType.create());
-                            }
-                        }
-                    }
-                });
-
-                if (inferredYieldTypes.length === 0) {
-                    inferredYieldTypes.push(NoneType.create());
-                }
-                inferredReturnType = combineTypes(inferredYieldTypes);
-
-                // Inferred yield types need to be wrapped in a Generator to
-                // produce the final result.
-                const generatorType = getTypingType(node, 'Generator');
-                if (generatorType && generatorType.category === TypeCategory.Class) {
-                    inferredReturnType = ObjectType.create(
-                        ClassType.cloneForSpecialization(generatorType, [inferredReturnType])
-                    );
-                } else {
-                    inferredReturnType = UnknownType.create();
-                }
-            } else {
-                const functionNeverReturns = !isAfterNodeReachable(node);
-                const implicitlyReturnsNone = isAfterNodeReachable(node.suite);
-
-                // Infer the return type based on all of the return statements in the function's body.
-                if (getFileInfo(node).isStubFile) {
-                    // If a return type annotation is missing in a stub file, assume
-                    // it's an "unknown" type. In normal source files, we can infer the
-                    // type from the implementation.
-                    inferredReturnType = UnknownType.create();
-                } else if (functionNeverReturns) {
-                    // If the function always raises and never returns, assume a "NoReturn" type.
-                    // Skip this for abstract methods which often are implemented with "raise
-                    // NotImplementedError()".
-                    if (isAbstract) {
-                        inferredReturnType = UnknownType.create();
-                    } else {
-                        const noReturnClass = getTypingType(node, 'NoReturn');
-                        if (noReturnClass && noReturnClass.category === TypeCategory.Class) {
-                            inferredReturnType = ObjectType.create(noReturnClass);
-                        } else {
-                            inferredReturnType = UnknownType.create();
-                        }
-                    }
-                } else {
-                    const inferredReturnTypes: Type[] = [];
-                    if (functionDecl.returnExpressions) {
-                        functionDecl.returnExpressions.forEach((returnNode) => {
-                            if (isNodeReachable(returnNode)) {
-                                if (returnNode.returnExpression) {
-                                    const returnType = getTypeOfExpression(returnNode.returnExpression).type;
-                                    inferredReturnTypes.push(returnType || UnknownType.create());
+                                if (yieldNode.expression) {
+                                    const yieldType = getTypeOfExpression(yieldNode.expression).type;
+                                    inferredYieldTypes.push(yieldType || UnknownType.create());
                                 } else {
-                                    inferredReturnTypes.push(NoneType.create());
+                                    inferredYieldTypes.push(NoneType.create());
                                 }
                             }
-                        });
-                    }
+                        }
+                    });
 
-                    if (!functionNeverReturns && implicitlyReturnsNone) {
-                        inferredReturnTypes.push(NoneType.create());
+                    if (inferredYieldTypes.length === 0) {
+                        inferredYieldTypes.push(NoneType.create());
                     }
+                    inferredReturnType = combineTypes(inferredYieldTypes);
 
-                    inferredReturnType = combineTypes(inferredReturnTypes);
+                    // Inferred yield types need to be wrapped in a Generator to
+                    // produce the final result.
+                    const generatorType = getTypingType(node, 'Generator');
+                    if (generatorType && generatorType.category === TypeCategory.Class) {
+                        inferredReturnType = ObjectType.create(
+                            ClassType.cloneForSpecialization(generatorType, [inferredReturnType])
+                        );
+                    } else {
+                        inferredReturnType = UnknownType.create();
+                    }
+                } else {
+                    const functionNeverReturns = !isAfterNodeReachable(node);
+                    const implicitlyReturnsNone = isAfterNodeReachable(node.suite);
+
+                    // Infer the return type based on all of the return statements in the function's body.
+                    if (getFileInfo(node).isStubFile) {
+                        // If a return type annotation is missing in a stub file, assume
+                        // it's an "unknown" type. In normal source files, we can infer the
+                        // type from the implementation.
+                        inferredReturnType = UnknownType.create();
+                    } else if (functionNeverReturns) {
+                        // If the function always raises and never returns, assume a "NoReturn" type.
+                        // Skip this for abstract methods which often are implemented with "raise
+                        // NotImplementedError()".
+                        if (isAbstract) {
+                            inferredReturnType = UnknownType.create();
+                        } else {
+                            const noReturnClass = getTypingType(node, 'NoReturn');
+                            if (noReturnClass && noReturnClass.category === TypeCategory.Class) {
+                                inferredReturnType = ObjectType.create(noReturnClass);
+                            } else {
+                                inferredReturnType = UnknownType.create();
+                            }
+                        }
+                    } else {
+                        const inferredReturnTypes: Type[] = [];
+                        if (functionDecl.returnExpressions) {
+                            functionDecl.returnExpressions.forEach((returnNode) => {
+                                if (isNodeReachable(returnNode)) {
+                                    if (returnNode.returnExpression) {
+                                        const returnType = getTypeOfExpression(returnNode.returnExpression).type;
+                                        inferredReturnTypes.push(returnType || UnknownType.create());
+                                    } else {
+                                        inferredReturnTypes.push(NoneType.create());
+                                    }
+                                }
+                            });
+                        }
+
+                        if (!functionNeverReturns && implicitlyReturnsNone) {
+                            inferredReturnTypes.push(NoneType.create());
+                        }
+
+                        inferredReturnType = combineTypes(inferredReturnTypes);
+                    }
                 }
+
+                // Remove any unbound values since those would generate an exception
+                // before being returned.
+                inferredReturnType = removeUnboundFromUnion(inferredReturnType);
+
+                writeTypeCache(node.suite, inferredReturnType);
+                functionRecursionMap.delete(node.id);
+            } catch (e) {
+                // Clean up in the case of an exception.
+                functionRecursionMap.delete(node.id);
+                throw e;
             }
-
-            // Remove any unbound values since those would generate an exception
-            // before being returned.
-            inferredReturnType = removeUnboundFromUnion(inferredReturnType);
-
-            writeTypeCache(node.suite, inferredReturnType);
-            functionRecursionMap.delete(node.id);
         }
 
         return inferredReturnType;
@@ -9029,10 +9035,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return true;
         }
         isReachableRecursionMap.set(flowNode.id, true);
-        const isReachable = isFlowNodeReachableRecursive(flowNode);
-        isReachableRecursionMap.delete(flowNode.id);
 
-        return isReachable;
+        try {
+            const isReachable = isFlowNodeReachableRecursive(flowNode);
+            isReachableRecursionMap.delete(flowNode.id);
+            return isReachable;
+        } catch (e) {
+            isReachableRecursionMap.delete(flowNode.id);
+            throw e;
+        }
     }
 
     // Given a reference expression and a flow node, returns a callback that
@@ -9613,8 +9624,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function suppressDiagnostics(callback: () => void) {
         const wasSuppressed = isDiagnosticSuppressed;
         isDiagnosticSuppressed = true;
-        callback();
-        isDiagnosticSuppressed = wasSuppressed;
+        try {
+            callback();
+            isDiagnosticSuppressed = wasSuppressed;
+        } catch (e) {
+            isDiagnosticSuppressed = wasSuppressed;
+            throw e;
+        }
     }
 
     // Disables recording of errors and warnings and disables
@@ -9622,8 +9638,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // performing speculative evaluations.
     function useSpeculativeMode(speculativeNode: ParseNode, callback: () => void) {
         speculativeTypeTracker.enterSpeculativeContext(speculativeNode);
-        callback();
-        speculativeTypeTracker.leaveSpeculativeContext();
+
+        try {
+            callback();
+            speculativeTypeTracker.leaveSpeculativeContext();
+        } catch (e) {
+            // Clean up during an exception.
+            speculativeTypeTracker.leaveSpeculativeContext();
+            throw e;
+        }
     }
 
     // Determines whether the specified node is within a part of the parse tree that
@@ -9639,8 +9662,14 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
     function disableSpeculativeMode(callback: () => void) {
         const stack = speculativeTypeTracker.disableSpeculativeMode();
-        callback();
-        speculativeTypeTracker.enableSpeculativeMode(stack);
+        try {
+            callback();
+            speculativeTypeTracker.enableSpeculativeMode(stack);
+        } catch (e) {
+            // Clean up during an exception.
+            speculativeTypeTracker.enableSpeculativeMode(stack);
+            throw e;
+        }
     }
 
     function getFileInfo(node: ParseNode): AnalyzerFileInfo {
@@ -10059,24 +10088,30 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
         decls.forEach((decl) => {
             if (pushSymbolResolution(symbol, decl)) {
-                let type = getInferredTypeOfDeclaration(decl);
+                try {
+                    let type = getInferredTypeOfDeclaration(decl);
 
-                popSymbolResolution(symbol);
+                    popSymbolResolution(symbol);
 
-                if (type) {
-                    const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
+                    if (type) {
+                        const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
 
-                    type = stripLiteralTypeArgsValue(type);
+                        type = stripLiteralTypeArgsValue(type);
 
-                    if (decl.type === DeclarationType.Variable) {
-                        // If the symbol is private or constant, we can retain the literal
-                        // value. Otherwise, strip them off to make the type less specific,
-                        // allowing other values to be assigned to it in subclasses.
-                        if (!isPrivate && !isConstant && !isFinalVar) {
-                            type = stripLiteralValue(type);
+                        if (decl.type === DeclarationType.Variable) {
+                            // If the symbol is private or constant, we can retain the literal
+                            // value. Otherwise, strip them off to make the type less specific,
+                            // allowing other values to be assigned to it in subclasses.
+                            if (!isPrivate && !isConstant && !isFinalVar) {
+                                type = stripLiteralValue(type);
+                            }
                         }
+                        typesToCombine.push(type);
                     }
-                    typesToCombine.push(type);
+                } catch (e) {
+                    // Clean up the stack before rethrowing.
+                    popSymbolResolution(symbol);
+                    throw e;
                 }
             }
         });
@@ -10115,13 +10150,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             if (getIndexOfSymbolResolution(symbol, decl) < 0) {
                 if (pushSymbolResolution(symbol, decl)) {
-                    const type = getTypeForDeclaration(decl);
+                    try {
+                        const type = getTypeForDeclaration(decl);
 
-                    if (!popSymbolResolution(symbol)) {
-                        return undefined;
+                        if (!popSymbolResolution(symbol)) {
+                            return undefined;
+                        }
+
+                        return type;
+                    } catch (e) {
+                        // Clean up the stack before rethrowing.
+                        popSymbolResolution(symbol);
+                        throw e;
                     }
-
-                    return type;
                 }
 
                 break;
@@ -10253,50 +10294,57 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 functionNode,
                 codeFlowAnalyzer: createCodeFlowAnalyzer(),
             });
-            returnTypeInferenceTypeCache = new Map<number, CachedType>();
 
-            let allArgTypesAreUnknown = true;
-            functionNode.parameters.forEach((param, index) => {
-                if (param.name) {
-                    let paramType: Type | undefined;
-                    const arg = args.find((arg) => param.name!.value === arg.paramName);
-                    if (arg && arg.argument.valueExpression) {
-                        paramType = getTypeOfExpression(arg.argument.valueExpression).type;
-                        allArgTypesAreUnknown = false;
-                    } else if (param.defaultValue) {
-                        paramType = getTypeOfExpression(param.defaultValue).type;
-                        allArgTypesAreUnknown = false;
-                    } else if (index === 0) {
-                        // If this is an instance or class method, use the implied
-                        // parameter type for the "self" or "cls" parameter.
-                        if (
-                            FunctionType.isInstanceMethod(functionType.functionType) ||
-                            FunctionType.isClassMethod(functionType.functionType)
-                        ) {
-                            if (functionType.functionType.details.parameters.length > 0) {
-                                if (functionNode.parameters[0].name) {
-                                    paramType = functionType.functionType.details.parameters[0].type;
+            try {
+                returnTypeInferenceTypeCache = new Map<number, CachedType>();
+
+                let allArgTypesAreUnknown = true;
+                functionNode.parameters.forEach((param, index) => {
+                    if (param.name) {
+                        let paramType: Type | undefined;
+                        const arg = args.find((arg) => param.name!.value === arg.paramName);
+                        if (arg && arg.argument.valueExpression) {
+                            paramType = getTypeOfExpression(arg.argument.valueExpression).type;
+                            allArgTypesAreUnknown = false;
+                        } else if (param.defaultValue) {
+                            paramType = getTypeOfExpression(param.defaultValue).type;
+                            allArgTypesAreUnknown = false;
+                        } else if (index === 0) {
+                            // If this is an instance or class method, use the implied
+                            // parameter type for the "self" or "cls" parameter.
+                            if (
+                                FunctionType.isInstanceMethod(functionType.functionType) ||
+                                FunctionType.isClassMethod(functionType.functionType)
+                            ) {
+                                if (functionType.functionType.details.parameters.length > 0) {
+                                    if (functionNode.parameters[0].name) {
+                                        paramType = functionType.functionType.details.parameters[0].type;
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    if (!paramType) {
-                        paramType = UnknownType.create();
-                    }
+                        if (!paramType) {
+                            paramType = UnknownType.create();
+                        }
 
-                    writeTypeCache(param.name, paramType);
+                        writeTypeCache(param.name, paramType);
+                    }
+                });
+
+                // Don't bother trying to determine the contextual return
+                // type if none of the argument types are known.
+                if (!allArgTypesAreUnknown) {
+                    contextualReturnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
                 }
-            });
 
-            // Don't bother trying to determine the contextual return
-            // type if none of the argument types are known.
-            if (!allArgTypesAreUnknown) {
-                contextualReturnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
+                returnTypeInferenceContextStack.pop();
+                returnTypeInferenceTypeCache = prevTypeCache;
+            } catch (e) {
+                // Clean up on an exception.
+                returnTypeInferenceContextStack.pop();
+                throw e;
             }
-
-            returnTypeInferenceContextStack.pop();
-            returnTypeInferenceTypeCache = prevTypeCache;
         });
 
         if (contextualReturnType) {
