@@ -681,7 +681,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             lastCancellationSource = source;
 
             try {
-                progress.begin(`executing command`, undefined, undefined, true);
                 return await this.executeCommand(params, source.token);
             } finally {
                 progress.done();

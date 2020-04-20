@@ -206,7 +206,7 @@ export class BackgroundAnalysisRunnerBase {
     }
 
     start() {
-        this.log(`background analysis started`);
+        this.log(`Background analysis started`);
 
         // Get requests from main thread.
         parentPort?.on('message', (msg: AnalysisRequest) => {
