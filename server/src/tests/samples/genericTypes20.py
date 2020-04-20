@@ -4,10 +4,11 @@
 
 # We use "strict" here because we want to ensure that there are
 # no "unknown" types remaining in this file.
-# pyright: strict
+# pyright: strict, reportUnknownParameterType=false
+
 
 class Foo:
-    def __init__(self, a, b = 'hello'):
+    def __init__(self, a, b="hello"):
         self._foo_a = a
         self._foo_b = b
 
@@ -23,6 +24,7 @@ class Foo:
 def test_function(a: int, b: str):
     return
 
+
 foo1 = Foo(27)
 int_value_1 = foo1.value_a
 str_value_1 = foo1.value_b
@@ -33,4 +35,3 @@ foo2 = Foo("hello", 27)
 str_value_2 = foo2.value_a
 int_value_2 = foo2.value_b
 test_function(int_value_2, str_value_2)
-

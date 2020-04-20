@@ -164,7 +164,10 @@ export class Checker extends ParseTreeWalker {
             node.parameters.forEach((param, index) => {
                 if (param.name) {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;
-                    if (paramType.category === TypeCategory.Unknown) {
+                    if (
+                        paramType.category === TypeCategory.Unknown ||
+                        (paramType.category === TypeCategory.TypeVar && paramType.isSynthesized)
+                    ) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
                             DiagnosticRule.reportUnknownParameterType,
