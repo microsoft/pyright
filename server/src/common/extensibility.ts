@@ -12,7 +12,7 @@ import { ModuleNode } from '../parser/parseNodes';
 import { ConfigOptions } from './configOptions';
 
 export interface LanguageServiceExtension {
-    completionListExtension: CompletionListExtension;
+    readonly completionListExtension: CompletionListExtension;
 }
 
 export interface CompletionListExtension {

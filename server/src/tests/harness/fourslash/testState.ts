@@ -13,7 +13,7 @@ import { CancellationToken, Command, CompletionItem, Diagnostic, MarkupContent, 
 
 import { ImportResolver, ImportResolverFactory } from '../../../analyzer/importResolver';
 import { Program } from '../../../analyzer/program';
-import { AnalyzerService } from '../../../analyzer/service';
+import { AnalyzerService, configFileNames } from '../../../analyzer/service';
 import { CommandController } from '../../../commands/commandController';
 import { ConfigOptions } from '../../../common/configOptions';
 import { ConsoleInterface, NullConsole } from '../../../common/console';
@@ -49,7 +49,6 @@ import {
     Marker,
     MetadataOptionNames,
     MultiMap,
-    pythonSettingFilename,
     Range,
     TestCancellationToken,
 } from './fourSlashTypes';
@@ -443,15 +442,6 @@ export class TestState {
             return;
         }
 
-        // expected number of files
-        if (resultPerFile.size !== rangePerFile.size) {
-            this._raiseError(
-                `actual and expected doesn't match - expected: ${stringify(resultPerFile)}, actual: ${stringify(
-                    rangePerFile
-                )}`
-            );
-        }
-
         for (const [file, ranges] of rangePerFile.entries()) {
             const rangesPerCategory = this._createMultiMap<Range>(ranges, (r) => {
                 if (map) {
@@ -462,7 +452,17 @@ export class TestState {
                 return (r.marker!.data! as any).category as string;
             });
 
+            if (!rangesPerCategory.has('error')) {
+                rangesPerCategory.set('error', []);
+            }
+
+            if (!rangesPerCategory.has('warning')) {
+                rangesPerCategory.set('warning', []);
+            }
+
             const result = resultPerFile.get(file)!;
+            resultPerFile.delete(file);
+
             for (const [category, expected] of rangesPerCategory.entries()) {
                 const lines = result.parseResults!.tokenizerOutput.lines;
                 const actual =
@@ -474,11 +474,11 @@ export class TestState {
 
                 if (expected.length !== actual.length) {
                     this._raiseError(
-                        `contains unexpected result - expected: ${stringify(expected)}, actual: ${actual}`
+                        `contains unexpected result - expected: ${stringify(expected)}, actual: ${stringify(actual)}`
                     );
                 }
 
-                for (const range of ranges) {
+                for (const range of expected) {
                     const rangeSpan = TextRange.fromBounds(range.pos, range.end);
                     const matches = actual.filter((d) => {
                         const diagnosticSpan = TextRange.fromBounds(
@@ -507,6 +507,10 @@ export class TestState {
                     }
                 }
             }
+        }
+
+        if (hasDiagnostics(resultPerFile)) {
+            this._raiseError(`these diagnostics were unexpected: ${stringify(resultPerFile)}`);
         }
 
         function hasDiagnostics(
@@ -831,7 +835,7 @@ export class TestState {
 
     private _isConfig(file: FourSlashFile, ignoreCase: boolean): boolean {
         const comparer = getStringComparer(ignoreCase);
-        return comparer(getBaseFileName(file.fileName), pythonSettingFilename) === Comparison.EqualTo;
+        return configFileNames.some((f) => comparer(getBaseFileName(file.fileName), f) === Comparison.EqualTo);
     }
 
     private _convertGlobalOptionsToConfigOptions(globalOptions: CompilerSettings): ConfigOptions {

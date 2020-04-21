@@ -17,6 +17,7 @@ export const enum DiagnosticRule {
     reportGeneralTypeIssues = 'reportGeneralTypeIssues',
     reportTypeshedErrors = 'reportTypeshedErrors',
     reportMissingImports = 'reportMissingImports',
+    reportMissingModuleSource = 'reportMissingModuleSource',
     reportMissingTypeStubs = 'reportMissingTypeStubs',
     reportImportCycles = 'reportImportCycles',
     reportUnusedImport = 'reportUnusedImport',

@@ -65,4 +65,8 @@ export interface ImportResult {
     // imported as part of the package - used for both traditional and
     // namespace packages.
     implicitImports: ImplicitImport[];
+
+    // If resolved from a type hint (.pyi), then store the import result
+    // from .py here.
+    nonStubImportResult?: ImportResult;
 }

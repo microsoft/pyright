@@ -7,9 +7,6 @@
  */
 import * as debug from '../../../common/debug';
 
-/** setting file name */
-export const pythonSettingFilename = 'mspythonconfig.json';
-
 /** well known global option names */
 export const enum GlobalMetadataOptionNames {
     projectRoot = 'projectroot',
