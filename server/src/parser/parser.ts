@@ -161,6 +161,7 @@ export class Parser {
     private _parseOptions: ParseOptions = new ParseOptions();
     private _diagSink: DiagnosticSink = new DiagnosticSink();
     private _isInLoop = false;
+    private _isInFunction = false;
     private _isInFinally = false;
     private _isParsingTypeAnnotation = false;
     private _isParsingIndexTrailer = false;
@@ -335,11 +336,11 @@ export class Parser {
         const ifOrElifToken = this._getKeywordToken(keywordType);
 
         const test = this._parseTestExpression(true);
-        const suite = this._parseSuite();
+        const suite = this._parseSuite(this._isInFunction);
         const ifNode = IfNode.create(ifOrElifToken, test, suite);
 
         if (this._consumeTokenIfKeyword(KeywordType.Else)) {
-            ifNode.elseSuite = this._parseSuite();
+            ifNode.elseSuite = this._parseSuite(this._isInFunction);
             ifNode.elseSuite.parent = ifNode;
             extendRange(ifNode, ifNode.elseSuite);
         } else if (this._peekKeywordType() === KeywordType.Elif) {
@@ -358,7 +359,7 @@ export class Parser {
         this._isInLoop = true;
         this._isInFinally = false;
 
-        const suite = this._parseSuite();
+        const suite = this._parseSuite(this._isInFunction);
 
         this._isInLoop = wasInLoop;
         this._isInFinally = wasInFinally;
@@ -367,7 +368,7 @@ export class Parser {
     }
 
     // suite: ':' (simple_stmt | NEWLINE INDENT stmt+ DEDENT)
-    private _parseSuite(): SuiteNode {
+    private _parseSuite(isFunction = false): SuiteNode {
         const nextToken = this._peekToken();
         const suite = SuiteNode.create(nextToken);
 
@@ -375,6 +376,9 @@ export class Parser {
             this._addError('Expected ":"', nextToken);
             return suite;
         }
+
+        const wasFunction = this._isInFunction;
+        this._isInFunction = isFunction;
 
         if (this._consumeTokenIfType(TokenType.NewLine)) {
             const possibleIndent = this._peekToken();
@@ -431,6 +435,8 @@ export class Parser {
             extendRange(suite, suite.statements[suite.statements.length - 1]);
         }
 
+        this._isInFunction = wasFunction;
+
         return suite;
     }
 
@@ -455,7 +461,7 @@ export class Parser {
             forSuite = this._parseLoopSuite();
 
             if (this._consumeTokenIfKeyword(KeywordType.Else)) {
-                elseSuite = this._parseSuite();
+                elseSuite = this._parseSuite(this._isInFunction);
             }
         }
 
@@ -567,7 +573,7 @@ export class Parser {
         const whileNode = WhileNode.create(whileToken, this._parseTestExpression(true), this._parseLoopSuite());
 
         if (this._consumeTokenIfKeyword(KeywordType.Else)) {
-            whileNode.elseSuite = this._parseSuite();
+            whileNode.elseSuite = this._parseSuite(this._isInFunction);
             whileNode.elseSuite.parent = whileNode;
             extendRange(whileNode, whileNode.elseSuite);
         }
@@ -583,7 +589,7 @@ export class Parser {
     // except_clause: 'except' [test ['as' NAME]]
     private _parseTryStatement(): TryNode {
         const tryToken = this._getKeywordToken(KeywordType.Try);
-        const trySuite = this._parseSuite();
+        const trySuite = this._parseSuite(this._isInFunction);
         const tryNode = TryNode.create(tryToken, trySuite);
         let sawCatchAllExcept = false;
 
@@ -626,7 +632,7 @@ export class Parser {
                 }
             }
 
-            const exceptSuite = this._parseSuite();
+            const exceptSuite = this._parseSuite(this._isInFunction);
             const exceptNode = ExceptNode.create(exceptToken, exceptSuite);
             if (typeExpr) {
                 exceptNode.typeExpression = typeExpr;
@@ -646,14 +652,14 @@ export class Parser {
             extendRange(tryNode, tryNode.exceptClauses[tryNode.exceptClauses.length - 1]);
 
             if (this._consumeTokenIfKeyword(KeywordType.Else)) {
-                tryNode.elseSuite = this._parseSuite();
+                tryNode.elseSuite = this._parseSuite(this._isInFunction);
                 tryNode.elseSuite.parent = tryNode;
                 extendRange(tryNode, tryNode.elseSuite);
             }
         }
 
         if (this._consumeTokenIfKeyword(KeywordType.Finally)) {
-            tryNode.finallySuite = this._parseSuite();
+            tryNode.finallySuite = this._parseSuite(this._isInFunction);
             tryNode.finallySuite.parent = tryNode;
             extendRange(tryNode, tryNode.finallySuite);
         }
@@ -695,7 +701,7 @@ export class Parser {
             });
         }
 
-        const suite = this._parseSuite();
+        const suite = this._parseSuite(true);
 
         const functionNode = FunctionNode.create(defToken, NameNode.create(nameToken), suite);
         if (asyncToken) {
@@ -914,7 +920,7 @@ export class Parser {
             }
         }
 
-        const withSuite = this._parseSuite();
+        const withSuite = this._parseSuite(this._isInFunction);
         const withNode = WithNode.create(withToken, withSuite);
         if (asyncToken) {
             withNode.isAsync = true;
@@ -1062,7 +1068,7 @@ export class Parser {
             }
         }
 
-        const suite = this._parseSuite();
+        const suite = this._parseSuite(false);
 
         const classNode = ClassNode.create(classToken, NameNode.create(nameToken), suite);
         classNode.arguments = argList;
@@ -1114,6 +1120,10 @@ export class Parser {
         const returnToken = this._getKeywordToken(KeywordType.Return);
 
         const returnNode = ReturnNode.create(returnToken);
+
+        if (!this._isInFunction) {
+            this._addError('"return" can be used only within a function', returnToken);
+        }
 
         if (!this._isNextTokenNeverExpression()) {
             const returnExpr = this._parseTestOrStarListAsExpression(
