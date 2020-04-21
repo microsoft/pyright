@@ -61,6 +61,12 @@ export class BackgroundAnalysisBase {
                     debug.fail(`${msg.requestType} is not expected`);
             }
         });
+
+        // this will catch any exception thrown from background thread,
+        // print log and ignore exception
+        worker.on('error', (msg) => {
+            this.log(`Error occurred on background thread: ${JSON.stringify(msg)}`);
+        });
     }
 
     setCompletionCallback(callback?: AnalysisCompleteCallback) {
@@ -411,11 +417,11 @@ function run(code: () => any, port: MessagePort) {
         port.postMessage({ kind: 'ok', data: result });
     } catch (e) {
         if (OperationCanceledException.is(e)) {
-            port.postMessage({ kind: 'cancelled', data: e });
+            port.postMessage({ kind: 'cancelled', data: e.message });
             return;
         }
 
-        port.postMessage({ kind: 'failed', data: e });
+        port.postMessage({ kind: 'failed', data: `Exception: ${e.message} in ${e.stack}` });
     }
 }
 
