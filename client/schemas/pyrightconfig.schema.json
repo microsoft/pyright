@@ -134,6 +134,12 @@
       "title": "Controls reporting of imports that cannot be resolved",
       "default": "error"
     },
+    "reportMissingModuleSource": {
+      "$id": "#/properties/reportMissingModuleSource",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of imports that cannot be resolved to source files",
+      "default": "none"
+    },
     "reportMissingTypeStubs": {
       "$id": "#/properties/reportMissingTypeStubs",
       "$ref": "#/definitions/diagnostic",

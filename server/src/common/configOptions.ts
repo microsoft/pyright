@@ -65,6 +65,9 @@ export interface DiagnosticRuleSet {
     // Report missing imports?
     reportMissingImports: DiagnosticLevel;
 
+    // Report missing imported module source files?
+    reportMissingModuleSource: DiagnosticLevel;
+
     // Report missing type stub files?
     reportMissingTypeStubs: DiagnosticLevel;
 
@@ -190,6 +193,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportGeneralTypeIssues,
         DiagnosticRule.reportTypeshedErrors,
         DiagnosticRule.reportMissingImports,
+        DiagnosticRule.reportMissingModuleSource,
         DiagnosticRule.reportMissingTypeStubs,
         DiagnosticRule.reportImportCycles,
         DiagnosticRule.reportUnusedImport,
@@ -225,6 +229,12 @@ export function getDiagLevelDiagnosticRules() {
     ];
 }
 
+export function getStrictModeNotOverridenRules() {
+    // In strict mode, the value in the user config file should be honored and
+    // not overwritten by the value from the strict ruleset.
+    return [DiagnosticRule.reportMissingModuleSource];
+}
+
 export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         strictListInference: true,
@@ -234,6 +244,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportGeneralTypeIssues: 'error',
         reportTypeshedErrors: 'error',
         reportMissingImports: 'error',
+        reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'error',
         reportImportCycles: 'error',
         reportUnusedImport: 'error',
@@ -280,6 +291,7 @@ export function getNoTypeCheckingDiagnosticRuleSet(): DiagnosticRuleSet {
         reportGeneralTypeIssues: 'none',
         reportTypeshedErrors: 'none',
         reportMissingImports: 'none',
+        reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'none',
         reportImportCycles: 'none',
         reportUnusedImport: 'none',
@@ -326,6 +338,7 @@ export function getDefaultDiagnosticRuleSet(): DiagnosticRuleSet {
         reportGeneralTypeIssues: 'error',
         reportTypeshedErrors: 'none',
         reportMissingImports: 'error',
+        reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'none',
         reportImportCycles: 'none',
         reportUnusedImport: 'none',
@@ -675,6 +688,13 @@ export class ConfigOptions {
                 configObj.reportDuplicateImport,
                 DiagnosticRule.reportDuplicateImport,
                 defaultSettings.reportDuplicateImport
+            ),
+
+            // Read the "reportMissingModuleSource" entry.
+            reportMissingModuleSource: this._convertDiagnosticLevel(
+                configObj.reportMissingModuleSource,
+                DiagnosticRule.reportMissingModuleSource,
+                defaultSettings.reportMissingModuleSource
             ),
 
             // Read the "reportMissingTypeStubs" entry.

@@ -743,13 +743,13 @@ test('SetComprehension1', () => {
 test('Literals1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals1.py']);
 
-    validateResults(analysisResults, 6);
+    validateResults(analysisResults, 6, 1);
 });
 
 test('Literals2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals2.py']);
 
-    validateResults(analysisResults, 3);
+    validateResults(analysisResults, 3, 1);
 });
 
 test('TypeAlias1', () => {
@@ -1165,7 +1165,7 @@ test('TypedDict6', () => {
 test('TypedDict7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict7.py']);
 
-    validateResults(analysisResults, 0);
+    validateResults(analysisResults, 0, 1);
 });
 
 test('TypedDict8', () => {
