@@ -19,6 +19,7 @@ import {
     CodeActionKind,
     CodeActionParams,
     Command,
+    CompletionTriggerKind,
     ConfigurationItem,
     ConnectionOptions,
     createConnection,
@@ -508,7 +509,23 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             };
         });
 
+        let lastTriggerKind: CompletionTriggerKind | undefined = CompletionTriggerKind.Invoked;
         this._connection.onCompletion(async (params, token) => {
+            // we set completion incomplete for the very first invocation and next consecutive call
+            // but after that, we mark it as completed so that client doesn't repeatedly call us back.
+            // we mark the very first one as incomplete since completion could be invoked without
+            // any meaingful character written yet; such as explict completion invocation (ctrl+space)
+            // or pd. <= after dot. that might cause us to not include some items (ex, auto-imports)
+            // the next consecutive call is so that we have some characters written to help us to pick
+            // better completion items.
+            // after that, we are not going to introduce new items so we can let client to do the filtering
+            // and caching.
+            const completionIncomplete =
+                lastTriggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions ||
+                params.context?.triggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions;
+
+            lastTriggerKind = params.context?.triggerKind;
+
             const filePath = convertUriToPath(params.textDocument.uri);
 
             const position: Position = {
@@ -528,18 +545,20 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 token
             );
 
-            // Always mark as incomplete so we get called back when the
-            // user continues typing. Without this, the editor will assume
-            // that it has received a complete list and will filter that list
-            // on its own.
             if (completions) {
-                completions.isIncomplete = true;
+                completions.isIncomplete = completionIncomplete;
             }
 
             return completions;
         });
 
         this._connection.onCompletionResolve(async (params, token) => {
+            // cancellation bugs in vscode and lsp
+            // https://github.com/microsoft/vscode-languageserver-node/issues/615
+            // https://github.com/microsoft/vscode/issues/95485
+            //
+            // bugs are if resolver throws cancellation exception, lsp and vscode
+            // cache that result and never call us back
             const completionItemData = params.data as CompletionItemData;
             if (completionItemData && completionItemData.filePath) {
                 const workspace = await this.getWorkspaceForFile(completionItemData.workspacePath);
