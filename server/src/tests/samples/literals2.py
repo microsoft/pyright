@@ -1,24 +1,18 @@
 # This sample tests assignment of literals to declared
 # types that use literals in their type arguments.
 
-from typing import Dict, List, Set
-from typing_extensions import Literal
+from typing import Dict, List, Literal, Set
 
-Number = Literal['One', 'Two']
-
-# This should generate an error because 'Three' is not
-# allowed in the Number type.
-numbers_mapping: Dict[Number, int] = {
-    'One': 1,
-    'Two': 2,
-    'Three': 3
-}
+Number = Literal["One", "Two"]
 
 # This should generate an error because 'Three' is not
 # allowed in the Number type.
-a: List[Number] = ['Three']
+numbers_mapping: Dict[Number, int] = {"One": 1, "Two": 2, "Three": 3}
 
 # This should generate an error because 'Three' is not
 # allowed in the Number type.
-b: Set[Number] = { 'One', 'Three' }
+a: List[Number] = ["Three"]
 
+# This should generate an error because 'Three' is not
+# allowed in the Number type.
+b: Set[Number] = {"One", "Three"}
