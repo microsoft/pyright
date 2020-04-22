@@ -3590,13 +3590,13 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             } else if (constrainedClassType.category === TypeCategory.Object) {
                 const childClassType = constrainedClassType.classType;
                 if (targetClassType.category === TypeCategory.Class) {
-                    if (!derivesFromClassRecursive(childClassType, targetClassType)) {
+                    if (!derivesFromClassRecursive(childClassType, targetClassType, /* ignoreUnknown */ true)) {
                         reportError = true;
                     }
                 }
             } else if (constrainedClassType.category === TypeCategory.Class) {
                 if (targetClassType.category === TypeCategory.Class) {
-                    if (!derivesFromClassRecursive(constrainedClassType, targetClassType)) {
+                    if (!derivesFromClassRecursive(constrainedClassType, targetClassType, /* ignoreUnknown */ true)) {
                         reportError = true;
                     }
                 }
@@ -6863,7 +6863,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                         // Validate that the class isn't deriving from itself, creating a
                         // circular dependency.
-                        if (derivesFromClassRecursive(argType, classType)) {
+                        if (derivesFromClassRecursive(argType, classType, /* ignoreUnknown */ true)) {
                             addError(`Class cannot derive from itself`, arg);
                             argType = UnknownType.create();
                         }

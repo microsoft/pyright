@@ -800,17 +800,20 @@ export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] 
     return typeVarMap;
 }
 
-export function derivesFromClassRecursive(classType: ClassType, baseClassToFind: ClassType) {
+// If ignoreUnknown is true, an unknown base class is ignored when
+// checking for derivation. If ignoreUnknown is false, a return value
+// of true is assumed.
+export function derivesFromClassRecursive(classType: ClassType, baseClassToFind: ClassType, ignoreUnknown: boolean) {
     if (ClassType.isSameGenericClass(classType, baseClassToFind)) {
         return true;
     }
 
     for (const baseClass of classType.details.baseClasses) {
         if (baseClass.category === TypeCategory.Class) {
-            if (derivesFromClassRecursive(baseClass, baseClassToFind)) {
+            if (derivesFromClassRecursive(baseClass, baseClassToFind, ignoreUnknown)) {
                 return true;
             }
-        } else if (isAnyOrUnknown(baseClass)) {
+        } else if (!ignoreUnknown && isAnyOrUnknown(baseClass)) {
             // If the base class is unknown, we have to make a conservative assumption.
             return true;
         }

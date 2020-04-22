@@ -427,13 +427,19 @@ export class Checker extends ParseTreeWalker {
                 doForSubtypes(exceptionType, (subtype) => {
                     if (!isAnyOrUnknown(subtype)) {
                         if (subtype.category === TypeCategory.Class) {
-                            if (!derivesFromClassRecursive(subtype, baseExceptionType)) {
+                            if (!derivesFromClassRecursive(subtype, baseExceptionType, /* ignoreUnknown */ false)) {
                                 diagAddendum.addMessage(
                                     `"${this._evaluator.printType(subtype)}" does not derive from BaseException`
                                 );
                             }
                         } else if (subtype.category === TypeCategory.Object) {
-                            if (!derivesFromClassRecursive(subtype.classType, baseExceptionType)) {
+                            if (
+                                !derivesFromClassRecursive(
+                                    subtype.classType,
+                                    baseExceptionType,
+                                    /* ignoreUnknown */ false
+                                )
+                            ) {
                                 diagAddendum.addMessage(
                                     `"${this._evaluator.printType(subtype)}" does not derive from BaseException`
                                 );
@@ -469,7 +475,13 @@ export class Checker extends ParseTreeWalker {
                 doForSubtypes(exceptionType, (subtype) => {
                     if (!isAnyOrUnknown(subtype) && !isNoneOrNever(subtype)) {
                         if (subtype.category === TypeCategory.Object) {
-                            if (!derivesFromClassRecursive(subtype.classType, baseExceptionType)) {
+                            if (
+                                !derivesFromClassRecursive(
+                                    subtype.classType,
+                                    baseExceptionType,
+                                    /* ignoreUnknown */ false
+                                )
+                            ) {
                                 diagAddendum.addMessage(
                                     `"${this._evaluator.printType(subtype)}" does not derive from BaseException`
                                 );
@@ -674,7 +686,7 @@ export class Checker extends ParseTreeWalker {
                 return true;
             }
 
-            return derivesFromClassRecursive(classType, baseExceptionType);
+            return derivesFromClassRecursive(classType, baseExceptionType, /* ignoreUnknown */ false);
         };
 
         const diagAddendum = new DiagnosticAddendum();
@@ -1287,7 +1299,8 @@ export class Checker extends ParseTreeWalker {
                             if (
                                 derivesFromClassRecursive(
                                     enclosingClassTypeInfo.decoratedType,
-                                    declClassTypeInfo.decoratedType
+                                    declClassTypeInfo.decoratedType,
+                                    /* ignoreUnknown */ true
                                 )
                             ) {
                                 return;
@@ -1619,7 +1632,9 @@ export class Checker extends ParseTreeWalker {
                             classTypeInfo &&
                             classTypeInfo.classType.category === TypeCategory.Class
                         ) {
-                            if (derivesFromClassRecursive(classTypeInfo.classType, typeType)) {
+                            if (
+                                derivesFromClassRecursive(classTypeInfo.classType, typeType, /* ignoreUnknown */ true)
+                            ) {
                                 isLegalMetaclassName = true;
                             }
                         }
