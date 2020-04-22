@@ -810,6 +810,9 @@ export function derivesFromClassRecursive(classType: ClassType, baseClassToFind:
             if (derivesFromClassRecursive(baseClass, baseClassToFind)) {
                 return true;
             }
+        } else if (isAnyOrUnknown(baseClass)) {
+            // If the base class is unknown, we have to make a conservative assumption.
+            return true;
         }
     }
 
