@@ -14,6 +14,8 @@ The Pyright VS Code extension honors the following settings.
 
 **python.analysis.typeshedPaths** [array of paths]: Paths to look for typeshed modules. Pyright currently honors only the first path in the array.
 
+**python.analysis.autoSearchPaths** [boolean]: Determines whether pyright automatically adds common search paths like "src" if there are no execution environments defined in the config file.
+
 **python.pythonPath** [path]: Path to Python interpreter.
 
 **python.venvPath** [path]: Path to folder with subdirectories that contain virtual environments.

@@ -75,6 +75,12 @@
                     "description": "Paths to look for typeshed modules.",
                     "scope": "resource"
                 },
+                "python.analysis.autoSearchPaths": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Automatically add common search paths like 'src'?",
+                    "scope": "resource"
+                },
                 "python.pythonPath": {
                     "type": "string",
                     "default": "python",
