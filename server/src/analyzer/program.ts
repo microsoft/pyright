@@ -1118,10 +1118,14 @@ export class Program {
                     !fileInfo.isOpenByClient &&
                     fileInfo.diagnosticsVersion !== fileInfo.sourceFile.getDiagnosticVersion()
                 ) {
-                    fileDiagnostics.push({
-                        filePath: fileInfo.sourceFile.getFilePath(),
-                        diagnostics: [],
-                    });
+                    // If the old diagnostic version was undefined or zero, we haven't
+                    // reported any diagnostics for this file, so no need to clear them.
+                    if (fileInfo.diagnosticsVersion !== undefined && fileInfo.diagnosticsVersion > 0) {
+                        fileDiagnostics.push({
+                            filePath: fileInfo.sourceFile.getFilePath(),
+                            diagnostics: [],
+                        });
+                    }
 
                     fileInfo.diagnosticsVersion = fileInfo.sourceFile.getDiagnosticVersion();
                 }
