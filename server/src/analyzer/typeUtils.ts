@@ -566,16 +566,16 @@ export function lookUpClassMember(
     return undefined;
 }
 
-export function addDefaultFunctionParameters(functionType: FunctionType) {
+export function addDefaultFunctionParameters(functionType: FunctionType, useUnknown = false) {
     FunctionType.addParameter(functionType, {
         category: ParameterCategory.VarArgList,
         name: 'args',
-        type: AnyType.create(),
+        type: useUnknown ? UnknownType.create() : AnyType.create(),
     });
     FunctionType.addParameter(functionType, {
         category: ParameterCategory.VarArgDictionary,
         name: 'kwargs',
-        type: AnyType.create(),
+        type: useUnknown ? UnknownType.create() : AnyType.create(),
     });
 }
 
@@ -1034,6 +1034,10 @@ export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
                     return true;
                 }
             }
+        }
+
+        if (type.details.declaredReturnType && containsUnknown(type.details.declaredReturnType)) {
+            return true;
         }
 
         return false;

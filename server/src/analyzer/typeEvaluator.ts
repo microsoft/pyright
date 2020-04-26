@@ -6259,7 +6259,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 addError(`Expected parameter type list or "..."`, typeArgs[0].node);
             }
         } else {
-            addDefaultFunctionParameters(functionType);
+            addDefaultFunctionParameters(functionType, /* useUnknown */ true);
         }
 
         if (typeArgs && typeArgs.length > 1) {
@@ -6270,7 +6270,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
             functionType.details.declaredReturnType = convertClassToObject(typeArgs[1].type);
         } else {
-            functionType.details.declaredReturnType = AnyType.create();
+            functionType.details.declaredReturnType = UnknownType.create();
         }
 
         if (typeArgs && typeArgs.length > 2) {
