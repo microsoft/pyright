@@ -1106,9 +1106,8 @@ export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel = 0
         return specializeType(type.boundType, undefined, false, recursionLevel + 1);
     }
 
-    if (type.constraints.length > 0) {
-        return combineTypes(type.constraints);
-    }
+    // Note that we can't use constraints for specialization because
+    // the union of constraints is not the same as individual constraints.
 
     // In all other cases, treat as unknown.
     return UnknownType.create();
