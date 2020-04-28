@@ -887,7 +887,7 @@ export class AnalyzerService {
                     }
 
                     if (event === 'change') {
-                        this._backgroundAnalysisProgram.markFilesDirty([path]);
+                        this._backgroundAnalysisProgram.markFilesDirty([path], false);
                         this._scheduleReanalysis(false);
                     } else {
                         this._scheduleReanalysis(true);

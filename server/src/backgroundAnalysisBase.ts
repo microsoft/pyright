@@ -97,8 +97,8 @@ export class BackgroundAnalysisBase {
         this._enqueueRequest({ requestType: 'markAllFilesDirty', data: evenIfContentsAreSame });
     }
 
-    markFilesDirty(filePaths: string[]) {
-        this._enqueueRequest({ requestType: 'markFilesDirty', data: filePaths });
+    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean) {
+        this._enqueueRequest({ requestType: 'markFilesDirty', data: { filePaths, evenIfContentsAreSame } });
     }
 
     startAnalysis(token: CancellationToken) {
@@ -306,7 +306,8 @@ export class BackgroundAnalysisRunnerBase {
                 }
 
                 case 'markFilesDirty': {
-                    this._program.markFilesDirty(msg.data);
+                    const { filePaths, evenIfContentsAreSame } = msg.data;
+                    this._program.markFilesDirty(filePaths, evenIfContentsAreSame);
                     break;
                 }
 

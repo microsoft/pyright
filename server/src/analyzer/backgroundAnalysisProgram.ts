@@ -89,7 +89,7 @@ export class BackgroundAnalysisProgram {
 
     updateOpenFileContents(path: string, version: number | null, contents: string) {
         this.setFileOpened(path, version, contents);
-        this.markFilesDirty([path]);
+        this.markFilesDirty([path], true);
     }
 
     setFileClosed(filePath: string) {
@@ -103,9 +103,9 @@ export class BackgroundAnalysisProgram {
         this._program.markAllFilesDirty(evenIfContentsAreSame);
     }
 
-    markFilesDirty(filePaths: string[]) {
-        this._backgroundAnalysis?.markFilesDirty(filePaths);
-        this._program.markFilesDirty(filePaths);
+    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean) {
+        this._backgroundAnalysis?.markFilesDirty(filePaths, evenIfContentsAreSame);
+        this._program.markFilesDirty(filePaths, evenIfContentsAreSame);
     }
 
     setCompletionCallback(callback?: AnalysisCompleteCallback) {

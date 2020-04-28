@@ -244,16 +244,24 @@ export class Program {
         }
     }
 
-    markFilesDirty(filePaths: string[]) {
+    markFilesDirty(filePaths: string[], evenIfContentsAreSame: boolean) {
         const markDirtyMap = new Map<string, boolean>();
         filePaths.forEach((filePath) => {
             const sourceFileInfo = this._sourceFileMap.get(filePath);
             if (sourceFileInfo) {
-                sourceFileInfo.sourceFile.markDirty();
+                // If !evenIfContentsAreSame, see if the on-disk contents have
+                // changed. If the file is open, the on-disk contents don't matter
+                // because we'll receive updates directly from the client.
+                if (
+                    evenIfContentsAreSame ||
+                    (!sourceFileInfo.isOpenByClient && !sourceFileInfo.sourceFile.didContentsChangeOnDisk())
+                ) {
+                    sourceFileInfo.sourceFile.markDirty();
 
-                // Mark any files that depend on this file as dirty
-                // also. This will retrigger analysis of these other files.
-                this._markFileDirtyRecursive(sourceFileInfo, markDirtyMap);
+                    // Mark any files that depend on this file as dirty
+                    // also. This will retrigger analysis of these other files.
+                    this._markFileDirtyRecursive(sourceFileInfo, markDirtyMap);
+                }
             }
         });
 
