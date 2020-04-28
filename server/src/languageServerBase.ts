@@ -511,15 +511,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         let lastTriggerKind: CompletionTriggerKind | undefined = CompletionTriggerKind.Invoked;
         this._connection.onCompletion(async (params, token) => {
-            // we set completion incomplete for the very first invocation and next consecutive call
+            // We set completion incomplete for the very first invocation and next consecutive call
             // but after that, we mark it as completed so that client doesn't repeatedly call us back.
             // we mark the very first one as incomplete since completion could be invoked without
-            // any meaingful character written yet; such as explict completion invocation (ctrl+space)
-            // or pd. <= after dot. that might cause us to not include some items (ex, auto-imports)
+            // any meaningful character written yet; such as explicit completion invocation (ctrl+space)
+            // or pd. <= after dot. that might cause us to not include some items (e.g., auto-imports)
             // the next consecutive call is so that we have some characters written to help us to pick
-            // better completion items.
-            // after that, we are not going to introduce new items so we can let client to do the filtering
-            // and caching.
+            // better completion items. After that, we are not going to introduce new items, so we can
+            // let the client to do the filtering and caching.
             const completionIncomplete =
                 lastTriggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions ||
                 params.context?.triggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions;
@@ -553,12 +552,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
 
         this._connection.onCompletionResolve(async (params, token) => {
-            // cancellation bugs in vscode and lsp
+            // Cancellation bugs in vscode and LSP:
             // https://github.com/microsoft/vscode-languageserver-node/issues/615
             // https://github.com/microsoft/vscode/issues/95485
             //
-            // bugs are if resolver throws cancellation exception, lsp and vscode
-            // cache that result and never call us back
+            // If resolver throws cancellation exception, LSP and VSCode
+            // cache that result and never call us back.
             const completionItemData = params.data as CompletionItemData;
             if (completionItemData && completionItemData.filePath) {
                 const workspace = await this.getWorkspaceForFile(completionItemData.workspacePath);
@@ -579,6 +578,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             if (workspace.disableLanguageServices) {
                 return;
             }
+
             const editActions = workspace.serviceInstance.renameSymbolAtPosition(
                 filePath,
                 position,
@@ -593,6 +593,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             const edits: WorkspaceEdit = {
                 changes: {},
             };
+
             editActions.forEach((editAction) => {
                 const uri = convertPathToUri(editAction.filePath);
                 if (edits.changes![uri] === undefined) {
