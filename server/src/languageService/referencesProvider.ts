@@ -199,6 +199,14 @@ export class ReferencesProvider {
                 return true;
             }
 
+            // If the name node is a member variable, we need to do a global search.
+            if (
+                decl.node?.parent?.nodeType === ParseNodeType.MemberAccess &&
+                decl.node === decl.node.parent.memberName
+            ) {
+                return true;
+            }
+
             return false;
         });
 
