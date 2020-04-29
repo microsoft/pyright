@@ -374,7 +374,7 @@ export interface TypeEvaluator {
 
     getDeclarationsForNameNode: (node: NameNode) => Declaration[] | undefined;
     getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
-    resolveAliasDeclaration: (declaration: Declaration) => Declaration | undefined;
+    resolveAliasDeclaration: (declaration: Declaration, resolveLocalNames: boolean) => Declaration | undefined;
     getTypeFromIterable: (
         type: Type,
         isAsync: boolean,
@@ -8178,7 +8178,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return undefined;
         }
 
-        const resolvedDecl = resolveAliasDeclaration(aliasDecl);
+        const resolvedDecl = resolveAliasDeclaration(aliasDecl, /* resolveLocalNames */ true);
         if (!resolvedDecl) {
             return resolvedDecl;
         }
@@ -9701,18 +9701,43 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const nameValue = node.value;
 
         // If the node is part of a "from X import Y as Z" statement and the node
-        // is the "Y" (non-aliased) name, don't return any declarations for it
-        // because this name isn't in the symbol table.
+        // is the "Y" (non-aliased) name, we need to look up the alias symbol
+        // since the non-aliased name is not in the symbol table.
         if (
             node.parent &&
             node.parent.nodeType === ParseNodeType.ImportFromAs &&
             node.parent.alias &&
             node === node.parent.name
         ) {
-            return undefined;
-        }
+            const scope = ScopeUtils.getScopeForNode(node);
+            if (scope) {
+                // Look up the alias symbol.
+                const symbolInScope = scope.lookUpSymbolRecursive(node.parent.alias.value);
+                if (symbolInScope) {
+                    // The alias could have more decls that don't refer to this import. Filter
+                    // out the one(s) that specifically associated with this import statement.
+                    const declsForThisImport = symbolInScope.symbol.getDeclarations().filter((decl) => {
+                        return decl.type === DeclarationType.Alias && decl.node === node.parent;
+                    });
 
-        if (node.parent && node.parent.nodeType === ParseNodeType.MemberAccess && node === node.parent.memberName) {
+                    // Make a shallow copy and clear the "usesLocalName" field.
+                    const nonLocalDecls = declsForThisImport.map((localDecl) => {
+                        if (localDecl.type === DeclarationType.Alias) {
+                            const nonLocalDecl: AliasDeclaration = { ...localDecl };
+                            nonLocalDecl.usesLocalName = false;
+                            return nonLocalDecl;
+                        }
+                        return localDecl;
+                    });
+
+                    declarations.push(...nonLocalDecls);
+                }
+            }
+        } else if (
+            node.parent &&
+            node.parent.nodeType === ParseNodeType.MemberAccess &&
+            node === node.parent.memberName
+        ) {
             const baseType = getType(node.parent.leftExpression);
             if (baseType) {
                 const memberName = node.parent.memberName.value;
@@ -9771,6 +9796,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         path: importInfo.resolvedPaths[namePartIndex],
                         range: getEmptyRange(),
                         implicitImports: new Map<string, ModuleLoaderActions>(),
+                        usesLocalName: false,
                     };
                     declarations.push(aliasDeclaration);
                 }
@@ -9812,7 +9838,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (scope) {
                 const symbolInScope = scope.lookUpSymbolRecursive(nameValue);
                 if (!symbolInScope) {
-                    return;
+                    return undefined;
                 }
 
                 declarations.push(...symbolInScope.symbol.getDeclarations());
@@ -9918,7 +9944,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getInferredTypeOfDeclaration(decl: Declaration): Type | undefined {
-        const resolvedDecl = resolveAliasDeclaration(decl);
+        const resolvedDecl = resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
 
         // We couldn't resolve the alias. Substitute an unknown
         // type in this case.
@@ -10011,12 +10037,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return undefined;
     }
 
-    // If the specified declaration is an alias declaration that points
-    // to a symbol, it resolves the alias and looks up the symbol, then
-    // returns the first declaration associated with that symbol. It does
-    // this recursively if necessary. If a symbol lookup fails, undefined
-    // is returned.
-    function resolveAliasDeclaration(declaration: Declaration): Declaration | undefined {
+    // If the specified declaration is an alias declaration that points to a symbol,
+    // it resolves the alias and looks up the symbol, then returns the first declaration
+    // associated with that symbol. It does this recursively if necessary. If a symbol
+    // lookup fails, undefined is returned. If resolveLocalNames is true, the method
+    // resolves aliases through local renames ("as" clauses found in import statements).
+    function resolveAliasDeclaration(declaration: Declaration, resolveLocalNames: boolean): Declaration | undefined {
         let curDeclaration: Declaration | undefined = declaration;
         const alreadyVisited: Declaration[] = [];
 
@@ -10026,6 +10052,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (!curDeclaration.symbolName) {
+                return curDeclaration;
+            }
+
+            // If we are not supposed to follow local alias names and this
+            // is a local name, don't continue to follow the alias.
+            if (!resolveLocalNames && curDeclaration.usesLocalName) {
                 return curDeclaration;
             }
 
@@ -10042,7 +10074,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 : undefined;
             if (!symbol) {
                 if (curDeclaration.submoduleFallback) {
-                    return resolveAliasDeclaration(curDeclaration.submoduleFallback);
+                    return resolveAliasDeclaration(curDeclaration.submoduleFallback, resolveLocalNames);
                 }
                 return undefined;
             }

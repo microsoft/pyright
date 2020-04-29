@@ -45,7 +45,7 @@ export class DefinitionProvider {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             if (declarations) {
                 declarations.forEach((decl) => {
-                    const resolvedDecl = evaluator.resolveAliasDeclaration(decl);
+                    const resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
                     if (resolvedDecl && resolvedDecl.path) {
                         this._addIfUnique(definitions, {
                             path: resolvedDecl.path,

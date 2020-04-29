@@ -44,6 +44,18 @@ export function areDeclarationsSame(decl1: Declaration, decl2: Declaration): boo
         return false;
     }
 
+    // Alias declarations refer to the entire import statement.
+    // We need to further differentiate.
+    if (decl1.type === DeclarationType.Alias && decl2.type === DeclarationType.Alias) {
+        if (
+            decl1.symbolName !== decl2.symbolName ||
+            decl1.firstNamePart !== decl2.firstNamePart ||
+            decl1.usesLocalName !== decl2.usesLocalName
+        ) {
+            return false;
+        }
+    }
+
     return true;
 }
 

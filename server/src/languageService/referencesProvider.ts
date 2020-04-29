@@ -20,12 +20,13 @@ import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
-import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { ModuleNameNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface ReferencesResult {
     requiresGlobalSearch: boolean;
     nodeAtOffset: ParseNode;
+    symbolName: string;
     declarations: Declaration[];
     locations: DocumentRange[];
 }
@@ -65,8 +66,18 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
         }
     }
 
+    visitModuleName(node: ModuleNameNode): boolean {
+        // Don't ever look for references within a module name.
+        return false;
+    }
+
     visitName(node: NameNode): boolean {
         throwIfCancellationRequested(this._cancellationToken);
+
+        // No need to do any more work if the symbol name doesn't match.
+        if (node.value !== this._referencesResult.symbolName) {
+            return false;
+        }
 
         const declarations = this._evaluator.getDeclarationsForNameNode(node);
 
@@ -93,15 +104,32 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
     }
 
     private _resultsContainsDeclaration(declaration: Declaration) {
-        const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration);
+        // Resolve the declaration.
+        const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ false);
         if (!resolvedDecl) {
             return false;
         }
 
         // The reference results declarations are already resolved, so we don't
         // need to call resolveAliasDeclaration on them.
+        if (
+            this._referencesResult.declarations.some((decl) => DeclarationUtils.areDeclarationsSame(decl, resolvedDecl))
+        ) {
+            return true;
+        }
+
+        // We didn't find the declaration using local-only alias resolution. Attempt
+        // it again by fully resolving the alias.
+        const resolvedDeclNonlocal = this._evaluator.resolveAliasDeclaration(
+            resolvedDecl,
+            /* resolveLocalNames */ true
+        );
+        if (!resolvedDeclNonlocal || resolvedDeclNonlocal === resolvedDecl) {
+            return false;
+        }
+
         return this._referencesResult.declarations.some((decl) =>
-            DeclarationUtils.areDeclarationsSame(decl, resolvedDecl)
+            DeclarationUtils.areDeclarationsSame(decl, resolvedDeclNonlocal)
         );
     }
 }
@@ -127,7 +155,13 @@ export class ReferencesProvider {
             return undefined;
         }
 
+        // If this isn't a name node, there are no references to be found.
         if (node.nodeType !== ParseNodeType.Name) {
+            return undefined;
+        }
+
+        // Special case module names, which don't have references.
+        if (node.parent?.nodeType == ParseNodeType.ModuleName) {
             return undefined;
         }
 
@@ -138,7 +172,7 @@ export class ReferencesProvider {
 
         const resolvedDeclarations: Declaration[] = [];
         declarations.forEach((decl) => {
-            const resolvedDecl = evaluator.resolveAliasDeclaration(decl);
+            const resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ false);
             if (resolvedDecl) {
                 resolvedDeclarations.push(resolvedDecl);
             }
@@ -171,6 +205,7 @@ export class ReferencesProvider {
         const results: ReferencesResult = {
             requiresGlobalSearch,
             nodeAtOffset: node,
+            symbolName: node.value,
             declarations: resolvedDeclarations,
             locations: [],
         };

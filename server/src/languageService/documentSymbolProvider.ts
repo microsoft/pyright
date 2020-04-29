@@ -122,7 +122,7 @@ class FindSymbolTreeWalker extends ParseTreeWalker {
             }
         }
 
-        const resolvedSymbol = this._evaluator.resolveAliasDeclaration(declaration);
+        const resolvedSymbol = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
         if (!resolvedSymbol) {
             return;
         }

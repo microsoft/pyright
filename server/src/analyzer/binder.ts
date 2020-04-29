@@ -1136,6 +1136,7 @@ export class Binder extends ParseTreeWalker {
                     path: '',
                     range: getEmptyRange(),
                     firstNamePart: firstNamePartValue,
+                    usesLocalName: !!node.alias,
                 };
 
                 // Add the implicit imports for this module if it's the last
@@ -1193,6 +1194,7 @@ export class Binder extends ParseTreeWalker {
                     node,
                     path: '*** unresolved ***',
                     range: getEmptyRange(),
+                    usesLocalName: true,
                 };
                 symbol.addDeclaration(newDecl);
             }
@@ -1234,6 +1236,7 @@ export class Binder extends ParseTreeWalker {
                                     node,
                                     path: resolvedPath,
                                     range: getEmptyRange(),
+                                    usesLocalName: false,
                                     symbolName: name,
                                 };
                                 symbol.addDeclaration(aliasDecl);
@@ -1255,12 +1258,14 @@ export class Binder extends ParseTreeWalker {
                                 node,
                                 path: implicitImport.path,
                                 range: getEmptyRange(),
+                                usesLocalName: false,
                             };
 
                             const aliasDecl: AliasDeclaration = {
                                 type: DeclarationType.Alias,
                                 node,
                                 path: resolvedPath,
+                                usesLocalName: false,
                                 symbolName: implicitImport.name,
                                 submoduleFallback,
                                 range: getEmptyRange(),
@@ -1301,6 +1306,7 @@ export class Binder extends ParseTreeWalker {
                             node: importSymbolNode,
                             path: implicitImport.path,
                             range: getEmptyRange(),
+                            usesLocalName: false,
                         };
 
                         // Handle the case of "from . import X". In this case,
@@ -1315,6 +1321,7 @@ export class Binder extends ParseTreeWalker {
                         type: DeclarationType.Alias,
                         node: importSymbolNode,
                         path: resolvedPath,
+                        usesLocalName: !!importSymbolNode.alias,
                         symbolName: importedName,
                         submoduleFallback,
                         range: getEmptyRange(),

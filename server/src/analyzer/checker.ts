@@ -1255,7 +1255,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        primaryDeclaration = this._evaluator.resolveAliasDeclaration(primaryDeclaration);
+        primaryDeclaration = this._evaluator.resolveAliasDeclaration(primaryDeclaration, /* resolveLocalNames */ true);
         if (!primaryDeclaration || primaryDeclaration.node === node) {
             return;
         }

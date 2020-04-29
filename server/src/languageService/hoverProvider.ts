@@ -98,7 +98,7 @@ export class HoverProvider {
         node: NameNode,
         evaluator: TypeEvaluator
     ): void {
-        const resolvedDecl = evaluator.resolveAliasDeclaration(declaration);
+        const resolvedDecl = evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
         if (!resolvedDecl) {
             this._addResultsPart(parts, `(import) ` + node.value + this._getTypeText(node, evaluator), true);
             return;
@@ -113,7 +113,23 @@ export class HoverProvider {
 
             case DeclarationType.Variable: {
                 const label = resolvedDecl.isConstant || resolvedDecl.isFinal ? 'constant' : 'variable';
-                this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(node, evaluator), true);
+
+                // If the named node is an aliased import symbol, we can't call
+                // getType on the original name because it's not in the symbol
+                // table. Instead, use the node from the resolved alias.
+                let typeNode = node;
+                if (
+                    declaration.node.nodeType === ParseNodeType.ImportAs ||
+                    declaration.node.nodeType === ParseNodeType.ImportFromAs
+                ) {
+                    if (declaration.node.alias && node !== declaration.node.alias) {
+                        if (resolvedDecl.node.nodeType === ParseNodeType.Name) {
+                            typeNode = resolvedDecl.node;
+                        }
+                    }
+                }
+
+                this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(typeNode, evaluator), true);
                 this._addDocumentationPart(parts, node, evaluator);
                 break;
             }

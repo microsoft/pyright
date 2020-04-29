@@ -111,6 +111,11 @@ export interface AliasDeclaration extends DeclarationBase {
     type: DeclarationType.Alias;
     node: ImportAsNode | ImportFromAsNode | ImportFromNode;
 
+    // Does this declaration use a local name or use the
+    // imported symbol directly? This is used to find and
+    // rename references.
+    usesLocalName: boolean;
+
     // The name of the symbol being imported (used for "from X import Y"
     // statements, not applicable to "import X" statements).
     symbolName?: string;

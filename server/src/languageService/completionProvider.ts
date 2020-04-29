@@ -1132,7 +1132,7 @@ export class CompletionProvider {
         if (primaryDecl) {
             let itemKind: CompletionItemKind = CompletionItemKind.Variable;
 
-            primaryDecl = this._evaluator.resolveAliasDeclaration(primaryDecl);
+            primaryDecl = this._evaluator.resolveAliasDeclaration(primaryDecl, /* resolveLocalNames */ true);
             if (primaryDecl) {
                 itemKind = this._convertDeclarationTypeToItemKind(primaryDecl);
 
@@ -1395,7 +1395,7 @@ export class CompletionProvider {
     }
 
     private _convertDeclarationTypeToItemKind(declaration: Declaration): CompletionItemKind {
-        const resolvedDeclaration = this._evaluator.resolveAliasDeclaration(declaration);
+        const resolvedDeclaration = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
         if (!resolvedDeclaration) {
             return CompletionItemKind.Variable;
         }
