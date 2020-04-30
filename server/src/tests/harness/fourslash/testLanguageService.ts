@@ -7,17 +7,40 @@
  */
 
 import * as path from 'path';
+import { CancellationToken, CodeAction, ExecuteCommandParams } from 'vscode-languageserver';
 
+import { ImportResolverFactory } from '../../../analyzer/importResolver';
+import { AnalyzerService } from '../../../analyzer/service';
 import { BackgroundAnalysisBase } from '../../../backgroundAnalysisBase';
+import { CommandController } from '../../../commands/commandController';
 import { ConsoleInterface } from '../../../common/console';
 import * as debug from '../../../common/debug';
 import { FileSystem } from '../../../common/fileSystem';
+import { Range } from '../../../common/textRange';
 import {
     LanguageServerInterface,
     ServerSettings,
     WindowInterface,
     WorkspaceServiceInstance,
 } from '../../../languageServerBase';
+import { CodeActionProvider } from '../../../languageService/codeActionProvider';
+import { HostSpecificFeatures } from './testState';
+
+export class TestFeatures implements HostSpecificFeatures {
+    importResolverFactory: ImportResolverFactory = AnalyzerService.createImportResolver;
+    getCodeActionsForPosition(
+        workspace: WorkspaceServiceInstance,
+        filePath: string,
+        range: Range,
+        token: CancellationToken
+    ): Promise<CodeAction[]> {
+        return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, range, token);
+    }
+    execute(ls: LanguageServerInterface, params: ExecuteCommandParams, token: CancellationToken): Promise<any> {
+        const controller = new CommandController(ls);
+        return controller.execute(params, token);
+    }
+}
 
 export class TestLanguageService implements LanguageServerInterface {
     private readonly _workspace: WorkspaceServiceInstance;

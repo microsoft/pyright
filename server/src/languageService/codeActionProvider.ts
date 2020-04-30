@@ -11,6 +11,7 @@ import { CancellationToken, CodeAction, CodeActionKind, Command } from 'vscode-l
 import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { AddMissingOptionalToParamAction, CreateTypeStubFileAction } from '../common/diagnostic';
+import { convertPathToUri } from '../common/pathUtils';
 import { Range } from '../common/textRange';
 import { WorkspaceServiceInstance } from '../languageServerBase';
 
@@ -25,7 +26,7 @@ export class CodeActionProvider {
 
         const sortImportsCodeAction = CodeAction.create(
             'Organize Imports',
-            Command.create('Organize Imports', Commands.orderImports),
+            Command.create('Organize Imports', Commands.orderImports, convertPathToUri(filePath)),
             CodeActionKind.SourceOrganizeImports
         );
         const codeActions: CodeAction[] = [];

@@ -19,6 +19,7 @@ import {
     ImportNode,
     ModuleNameNode,
     ModuleNode,
+    ParseNode,
     ParseNodeType,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
@@ -332,4 +333,26 @@ function _formatModuleName(node: ModuleNameNode): string {
     moduleName += node.nameParts.map((part) => part.value).join('.');
 
     return moduleName;
+}
+
+export function getContainingImportStatement(node: ParseNode | undefined) {
+    while (node) {
+        if (node.nodeType === ParseNodeType.Import || node.nodeType === ParseNodeType.ImportFrom) {
+            break;
+        }
+
+        node = node.parent;
+    }
+
+    return node;
+}
+
+export function getAllImportNames(node: ImportNode | ImportFromNode) {
+    if (node.nodeType === ParseNodeType.Import) {
+        const importNode = node as ImportNode;
+        return importNode.list;
+    }
+
+    const importFromNode = node as ImportFromNode;
+    return importFromNode.imports;
 }

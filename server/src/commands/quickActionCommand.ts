@@ -6,9 +6,10 @@
  * Implements command that maps to a quick action.
  */
 
-import { CancellationToken, ExecuteCommandParams, TextEdit } from 'vscode-languageserver';
+import { CancellationToken, ExecuteCommandParams } from 'vscode-languageserver';
 
 import { convertUriToPath } from '../common/pathUtils';
+import { convertTextEdits } from '../common/textEditUtils';
 import { LanguageServerInterface } from '../languageServerBase';
 import { ServerCommand } from './commandController';
 import { Commands } from './commands';
@@ -33,19 +34,8 @@ export class QuickActionCommand implements ServerCommand {
                 otherArgs,
                 token
             );
-            if (!editActions) {
-                return [];
-            }
 
-            const edits: TextEdit[] = [];
-            editActions.forEach((editAction) => {
-                edits.push({
-                    range: editAction.range,
-                    newText: editAction.replacementText,
-                });
-            });
-
-            return edits;
+            return convertTextEdits(editActions);
         }
     }
 }

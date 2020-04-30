@@ -577,9 +577,8 @@ export class SourceFile {
         return DefinitionProvider.getDefinitionsForPosition(this._parseResults, position, evaluator, token);
     }
 
-    getReferencesForPosition(
+    getDeclarationForPosition(
         position: Position,
-        includeDeclaration: boolean,
         evaluator: TypeEvaluator,
         token: CancellationToken
     ): ReferencesResult | undefined {
@@ -588,11 +587,10 @@ export class SourceFile {
             return undefined;
         }
 
-        return ReferencesProvider.getReferencesForPosition(
+        return ReferencesProvider.getDeclarationForPosition(
             this._parseResults,
             this._filePath,
             position,
-            includeDeclaration,
             evaluator,
             token
         );
