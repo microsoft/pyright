@@ -301,7 +301,18 @@ export class Program {
         if (!sourceFileInfo) {
             return undefined;
         }
+
         return sourceFileInfo.sourceFile;
+    }
+
+    getBoundSourceFile(filePath: string): SourceFile | undefined {
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
+        if (!sourceFileInfo) {
+            return undefined;
+        }
+
+        this._bindFile(sourceFileInfo);
+        return this.getSourceFile(filePath);
     }
 
     // Performs parsing and analysis of any source files in the program
@@ -827,9 +838,8 @@ export class Program {
 
             this._bindFile(sourceFileInfo);
 
-            const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
+            const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
                 position,
-                includeDeclaration,
                 this._evaluator,
                 token
             );
@@ -841,17 +851,17 @@ export class Program {
             // Do we need to do a global search as well?
             if (referencesResult.requiresGlobalSearch) {
                 for (const curSourceFileInfo of this._sourceFileList) {
-                    if (curSourceFileInfo !== sourceFileInfo) {
-                        this._bindFile(curSourceFileInfo);
+                    this._bindFile(curSourceFileInfo);
 
-                        curSourceFileInfo.sourceFile.addReferences(
-                            referencesResult,
-                            includeDeclaration,
-                            this._evaluator,
-                            token
-                        );
-                    }
+                    curSourceFileInfo.sourceFile.addReferences(
+                        referencesResult,
+                        includeDeclaration,
+                        this._evaluator,
+                        token
+                    );
                 }
+            } else {
+                sourceFileInfo.sourceFile.addReferences(referencesResult, includeDeclaration, this._evaluator, token);
             }
 
             return referencesResult.locations;
@@ -998,9 +1008,10 @@ export class Program {
                 return undefined;
             }
 
-            const referencesResult = sourceFileInfo.sourceFile.getReferencesForPosition(
+            this._bindFile(sourceFileInfo);
+
+            const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
                 position,
-                true,
                 this._evaluator,
                 token
             );
@@ -1009,15 +1020,28 @@ export class Program {
                 return undefined;
             }
 
+            referencesResult.declarations = referencesResult.declarations.filter((d) =>
+                this._isUserCode(this._sourceFileMap.get(d.path))
+            );
+
+            if (referencesResult.declarations.length === 0) {
+                // There is no symbol we can rename
+                return undefined;
+            }
+
             // Do we need to do a global search as well?
             if (referencesResult.requiresGlobalSearch) {
                 for (const curSourceFileInfo of this._sourceFileList) {
-                    if (curSourceFileInfo !== sourceFileInfo) {
+                    // Make sure we only add user code to the references to prevent us
+                    // from accidentally changing third party library or type stub.
+                    if (this._isUserCode(curSourceFileInfo)) {
                         this._bindFile(curSourceFileInfo);
 
                         curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator, token);
                     }
                 }
+            } else if (this._isUserCode(sourceFileInfo)) {
+                sourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator, token);
             }
 
             const editActions: FileEditAction[] = [];
@@ -1048,6 +1072,10 @@ export class Program {
         this._bindFile(sourceFileInfo);
 
         return sourceFileInfo.sourceFile.performQuickAction(command, args, token);
+    }
+
+    private _isUserCode(fileInfo: SourceFileInfo | undefined) {
+        return fileInfo && fileInfo.isTracked && !fileInfo.isThirdPartyImport && !fileInfo.isTypeshedFile;
     }
 
     // Wrapper function that should be used when invoking this._evaluator

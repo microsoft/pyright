@@ -175,6 +175,10 @@ export class AnalyzerService {
         this._scheduleReanalysis(false);
     }
 
+    getParseResult(path: string) {
+        return this._program.getBoundSourceFile(path)?.getParseResults();
+    }
+
     getDefinitionForPosition(
         filePath: string,
         position: Position,
@@ -886,10 +890,14 @@ export class AnalyzerService {
                         this._console.log(`Received fs event '${event}' for path '${path}'`);
                     }
 
-                    if (event === 'change') {
+                    // Delete comes in as a change event, so try to distinguish them here
+                    if (event === 'change' && this._fs.existsSync(path)) {
                         this._backgroundAnalysisProgram.markFilesDirty([path], false);
                         this._scheduleReanalysis(false);
                     } else {
+                        // Added/deleted/renamed files impact imports,
+                        // clear the import resolver cache and reanalyze everything.
+                        this.invalidateAndForceReanalysis();
                         this._scheduleReanalysis(true);
                     }
                 });

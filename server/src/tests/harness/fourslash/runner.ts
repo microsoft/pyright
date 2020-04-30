@@ -8,11 +8,10 @@
 
 import * as ts from 'typescript';
 
-import { ImportResolverFactory } from '../../../analyzer/importResolver';
 import { combinePaths } from '../../../common/pathUtils';
 import * as host from '../host';
 import { parseTestData } from './fourSlashParser';
-import { TestState } from './testState';
+import { HostSpecificFeatures, TestState } from './testState';
 import { Consts } from './testState.Consts';
 
 /**
@@ -26,10 +25,10 @@ export function runFourSlashTest(
     fileName: string,
     cb?: jest.DoneCallback,
     mountPaths?: Map<string, string>,
-    importResolverFactory?: ImportResolverFactory
+    hostSpecificFeatures?: HostSpecificFeatures
 ) {
     const content = host.HOST.readFile(fileName)!;
-    runFourSlashTestContent(basePath, fileName, content, cb, mountPaths, importResolverFactory);
+    runFourSlashTestContent(basePath, fileName, content, cb, mountPaths, hostSpecificFeatures);
 }
 
 /**
@@ -46,7 +45,7 @@ export function runFourSlashTestContent(
     content: string,
     cb?: jest.DoneCallback,
     mountPaths?: Map<string, string>,
-    importResolverFactory?: ImportResolverFactory
+    hostSpecificFeatures?: HostSpecificFeatures
 ) {
     // give file paths an absolute path for the virtual file system
     const absoluteBasePath = combinePaths('/', basePath);
@@ -54,7 +53,7 @@ export function runFourSlashTestContent(
 
     // parse out the files and their metadata
     const testData = parseTestData(absoluteBasePath, content, absoluteFileName);
-    const state = new TestState(absoluteBasePath, testData, cb, mountPaths, importResolverFactory);
+    const state = new TestState(absoluteBasePath, testData, cb, mountPaths, hostSpecificFeatures);
     const output = ts.transpileModule(content, {
         reportDiagnostics: true,
         compilerOptions: { target: ts.ScriptTarget.ES2015 },

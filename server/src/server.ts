@@ -29,7 +29,9 @@ class PyrightServer extends LanguageServerBase {
     }
 
     async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings> {
-        const serverSettings: ServerSettings = {};
+        const serverSettings: ServerSettings = {
+            watchForSourceChanges: true,
+        };
         try {
             const pythonSection = await this.getConfiguration(workspace, 'python');
             if (pythonSection) {

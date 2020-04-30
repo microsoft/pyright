@@ -135,11 +135,10 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
 }
 
 export class ReferencesProvider {
-    static getReferencesForPosition(
+    static getDeclarationForPosition(
         parseResults: ParseResults,
         filePath: string,
         position: Position,
-        includeDeclaration: boolean,
         evaluator: TypeEvaluator,
         token: CancellationToken
     ): ReferencesResult | undefined {
@@ -210,25 +209,13 @@ export class ReferencesProvider {
             return false;
         });
 
-        const results: ReferencesResult = {
+        return {
             requiresGlobalSearch,
             nodeAtOffset: node,
             symbolName: node.value,
             declarations: resolvedDeclarations,
             locations: [],
         };
-
-        const refTreeWalker = new FindReferencesTreeWalker(
-            parseResults,
-            filePath,
-            results,
-            includeDeclaration,
-            evaluator,
-            token
-        );
-        refTreeWalker.findReferences();
-
-        return results;
     }
 
     static addReferences(
