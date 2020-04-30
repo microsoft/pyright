@@ -6249,6 +6249,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                         name: `p${index.toString()}`,
                         isNameSynthesized: true,
                         type: convertClassToObject(entry.type),
+                        hasDeclaredType: true,
                     });
                 });
             } else if (isEllipsisType(typeArgs[0].type)) {
