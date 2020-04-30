@@ -1370,3 +1370,9 @@ test('InconsistentSpaceTab', () => {
 
     validateResults(analysisResults, 4);
 });
+
+test('Callable1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callable1.py']);
+
+    validateResults(analysisResults, 3);
+});
