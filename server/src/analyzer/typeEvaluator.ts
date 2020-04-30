@@ -9360,6 +9360,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             });
 
             return combineTypes(remainingTypes);
+        } else if (isInstanceCheck && isPositiveTest && isAnyOrUnknown(effectiveType)) {
+            // If this is a positive test for isinstance and the effective
+            // type is Any or Unknown, we can assume that the type matches
+            // one of the specified types.
+            type = combineTypes(classTypeList.map((classType) => ObjectType.create(classType)));
         }
 
         // Return the original type.
