@@ -11,9 +11,9 @@ import { TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { convertPathToUri } from '../common/pathUtils';
 
-export function convertTextEdits(editActions: TextEditAction[] | undefined) {
+export function convertTextEdits(uri: string, editActions: TextEditAction[] | undefined): WorkspaceEdit {
     if (!editActions) {
-        return [];
+        return {};
     }
 
     const edits: TextEdit[] = [];
@@ -24,7 +24,11 @@ export function convertTextEdits(editActions: TextEditAction[] | undefined) {
         });
     });
 
-    return edits;
+    return {
+        changes: {
+            [uri]: edits,
+        },
+    };
 }
 
 export function convertWorkspaceEdits(edits: FileEditAction[]) {

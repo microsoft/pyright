@@ -35,7 +35,7 @@ export class QuickActionCommand implements ServerCommand {
                 token
             );
 
-            return convertTextEdits(editActions);
+            return convertTextEdits(docUri, editActions);
         }
     }
 }
