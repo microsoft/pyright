@@ -20,7 +20,9 @@ import { TextRange } from '../common/textRange';
 import { ImportAsNode, ImportFromAsNode, ImportFromNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
-const _maxLineLength = 80;
+// We choose a line length that matches the default for the popular
+// "black" formatter used in many Python projects.
+const _maxLineLength = 88;
 
 export const enum ImportGroup {
     // The ordering here is important because this is the order
@@ -215,45 +217,17 @@ export class ImportSorter {
         }
 
         // We need to split across multiple lines with parens.
-        cumulativeText += '(\n';
+        cumulativeText += '(' + this._parseResults.tokenizerOutput.predominantEndOfLineSequence;
 
-        let nextSymbolIndex = 0;
-        while (nextSymbolIndex < symbols.length) {
-            let curTextLine = this._parseResults.tokenizerOutput.predominantTabSequence + symbols[nextSymbolIndex];
-            if (nextSymbolIndex < symbols.length - 1) {
-                curTextLine += ',';
-            } else {
-                curTextLine += ')';
-            }
-            nextSymbolIndex++;
-
-            // See if we can add more.
-            let potentialTextLine = curTextLine;
-            while (nextSymbolIndex < symbols.length) {
-                potentialTextLine += ' ' + symbols[nextSymbolIndex];
-                if (nextSymbolIndex < symbols.length - 1) {
-                    potentialTextLine += ',';
-                } else {
-                    potentialTextLine += ')';
-                }
-
-                // If the potential text line went beyond our allowed
-                // max, break out of the inner loop.
-                if (potentialTextLine.length > _maxLineLength) {
-                    break;
-                }
-
-                // Commit the potential text to the current text since
-                // we know that it fits.
-                curTextLine = potentialTextLine;
-                nextSymbolIndex++;
-            }
-
-            cumulativeText += curTextLine;
-            if (nextSymbolIndex < symbols.length) {
-                cumulativeText += this._parseResults.tokenizerOutput.predominantEndOfLineSequence;
-            }
+        for (const symbol of symbols) {
+            cumulativeText +=
+                this._parseResults.tokenizerOutput.predominantTabSequence +
+                symbol +
+                ',' +
+                this._parseResults.tokenizerOutput.predominantEndOfLineSequence;
         }
+
+        cumulativeText += ')';
 
         return cumulativeText;
     }
