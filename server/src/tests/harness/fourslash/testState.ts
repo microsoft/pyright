@@ -640,8 +640,12 @@ export class TestState {
         if (command.command === 'pyright.createtypestub') {
             await this._verifyFiles(files);
         } else if (command.command === 'pyright.organizeimports') {
-            //organize imports command can only be used on 1 file at a time, so there is no looping over "commandResult" or "files"
-            const actualText = (commandResult as TextEdit[])[0].newText;
+            // Organize imports command can be used on only one file at a time,
+            // so there is no looping over "commandResult" or "files".
+            const workspaceEditResult = commandResult as WorkspaceEdit;
+            const uri = Object.keys(workspaceEditResult.changes!)[0];
+            const textEdit = workspaceEditResult.changes![uri][0];
+            const actualText = textEdit.newText;
             const expectedText: string = Object.values(files)[0];
 
             if (actualText != expectedText) {
