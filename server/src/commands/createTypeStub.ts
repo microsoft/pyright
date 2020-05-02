@@ -42,7 +42,7 @@ export class CreateTypeStubCommand implements ServerCommand {
             AnalyzerServiceExecutor.runWithOptions(this._ls.rootPath, workspace, serverSettings, importName, false);
 
             try {
-                await service.writeTypeStubInBG(token);
+                await service.writeTypeStubInBackground(token);
                 service.dispose();
                 const infoMessage = `Type stub was successfully created for '${importName}'.`;
                 this._ls.window.showInformationMessage(infoMessage);

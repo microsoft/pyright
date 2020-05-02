@@ -49,4 +49,14 @@ export class CommandController implements ServerCommand {
             }
         }
     }
+
+    isLongRunningCommand(command: string): boolean {
+        switch (command) {
+            case Commands.createTypeStub:
+                return true;
+
+            default:
+                return false;
+        }
+    }
 }

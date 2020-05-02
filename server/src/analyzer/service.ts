@@ -553,7 +553,7 @@ export class AnalyzerService {
         );
     }
 
-    writeTypeStubInBG(token: CancellationToken): Promise<any> {
+    writeTypeStubInBackground(token: CancellationToken): Promise<any> {
         const typingsSubdirPath = this._getTypeStubFolder();
 
         return this._backgroundAnalysisProgram.writeTypeStub(

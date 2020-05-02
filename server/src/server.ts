@@ -84,6 +84,10 @@ class PyrightServer extends LanguageServerBase {
         return this._controller.execute(params, token);
     }
 
+    protected isLongRunningCommand(command: string): boolean {
+        return this._controller.isLongRunningCommand(command);
+    }
+
     protected async executeCodeAction(
         params: CodeActionParams,
         token: CancellationToken

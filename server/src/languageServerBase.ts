@@ -136,6 +136,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     // Tracks active file system watchers.
     private _fileWatchers: InternalFileWatcher[] = [];
 
+    // We support running only one "find all reference" at a time.
+    private _pendingFindAllRefsCancellationSource: CancellationTokenSource | undefined;
+
+    // We support running only one command at a time.
+    private _pendingCommandCancellationSource: CancellationTokenSource | undefined;
+
     // Global root path - the basis for all global settings.
     rootPath = '';
 
@@ -177,6 +183,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     abstract createBackgroundAnalysis(): BackgroundAnalysisBase | undefined;
 
     protected abstract async executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
+    protected isLongRunningCommand(command: string): boolean {
+        // By default, all commands are considered "long-running" and should
+        // display a cancelable progress dialog. Servers can override this
+        // to avoid showing the progress dialog for commands that are
+        // guaranteed to be quick.
+        return true;
+    }
+
     protected abstract async executeCodeAction(
         params: CodeActionParams,
         token: CancellationToken
@@ -403,22 +417,18 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return locations.map((loc) => Location.create(convertPathToUri(loc.path), loc.range));
         });
 
-        // We support running only one "find all reference" at a time.
-        let lastFARCancellationSource: CancellationTokenSource;
         this._connection.onReferences(async (params, token, reporter) => {
-            if (lastFARCancellationSource) {
-                // Cancel running FAR if there is one.
-                lastFARCancellationSource.cancel();
+            if (this._pendingFindAllRefsCancellationSource) {
+                this._pendingFindAllRefsCancellationSource.cancel();
+                this._pendingFindAllRefsCancellationSource = undefined;
             }
 
-            // The vscode currently doesn't support cancellation on FAR.
-            // It is a problem for us since it will completely block any further messages
-            // from being processed.
-            // For now, we will start progress bar ourselves with the cancellation button
-            // so that the user can cancel any long-running FAR.
+            // VS Code doesn't support cancellation of "final all references".
+            // We provide a progress bar a cancellation button so the user can cancel
+            // any long-running actions.
             const progress = await this._getProgressReporter(params.workDoneToken, reporter, 'finding references');
             const source = CancelAfter(token, progress.token);
-            lastFARCancellationSource = source;
+            this._pendingFindAllRefsCancellationSource = source;
 
             try {
                 const filePath = convertUriToPath(params.textDocument.uri);
@@ -442,6 +452,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 if (!locations) {
                     return undefined;
                 }
+
                 return locations.map((loc) => Location.create(convertPathToUri(loc.path), loc.range));
             } finally {
                 progress.done();
@@ -537,14 +548,14 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         let lastTriggerKind: CompletionTriggerKind | undefined = CompletionTriggerKind.Invoked;
         this._connection.onCompletion(async (params, token) => {
-            // We set completion incomplete for the very first invocation and next consecutive call
-            // but after that, we mark it as completed so that client doesn't repeatedly call us back.
-            // we mark the very first one as incomplete since completion could be invoked without
-            // any meaningful character written yet; such as explicit completion invocation (ctrl+space)
-            // or pd. <= after dot. that might cause us to not include some items (e.g., auto-imports)
-            // the next consecutive call is so that we have some characters written to help us to pick
-            // better completion items. After that, we are not going to introduce new items, so we can
-            // let the client to do the filtering and caching.
+            // We set completion incomplete for the first invocation and next consecutive call,
+            // but after that we mark it as completed so the client doesn't repeatedly call back.
+            // We mark the first one as incomplete because completion could be invoked without
+            // any meaningful character provided, such as an explicit completion invocation (ctrl+space)
+            // or a period. That might cause us to not include some items (e.g., auto-imports).
+            // The next consecutive call provides some characters to help us to pick
+            // better completion items. After that, we are not going to introduce new items,
+            // so we can let the client to do the filtering and caching.
             const completionIncomplete =
                 lastTriggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions ||
                 params.context?.triggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions;
@@ -697,27 +708,35 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             }
         });
 
-        // We support running only one command at a time.
-        let lastCommandCancellationSource: CancellationTokenSource;
         this._connection.onExecuteCommand(async (params, token, reporter) => {
-            if (lastCommandCancellationSource) {
-                // Cancel running command if there is one.
-                lastCommandCancellationSource.cancel();
+            // Cancel running command if there is one.
+            if (this._pendingCommandCancellationSource) {
+                this._pendingCommandCancellationSource.cancel();
+                this._pendingCommandCancellationSource = undefined;
             }
 
-            const progress = await this._getProgressReporter(params.workDoneToken, reporter, 'executing a command');
-            const source = CancelAfter(token, progress.token);
-            lastCommandCancellationSource = source;
-
-            try {
-                const result = await this.executeCommand(params, source.token);
+            const executeCommand = async (token: CancellationToken) => {
+                const result = await this.executeCommand(params, token);
                 if (WorkspaceEdit.is(result)) {
-                    // tell client to apply edits
+                    // Tell client to apply edits.
                     this._connection.workspace.applyEdit(result);
                 }
-            } finally {
-                progress.done();
-                source.dispose();
+            };
+
+            if (this.isLongRunningCommand(params.command)) {
+                // Create a progress dialog for long-running commands.
+                const progress = await this._getProgressReporter(params.workDoneToken, reporter, 'Executing command');
+                const source = CancelAfter(token, progress.token);
+                this._pendingCommandCancellationSource = source;
+
+                try {
+                    executeCommand(source.token);
+                } finally {
+                    progress.done();
+                    source.dispose();
+                }
+            } else {
+                executeCommand(token);
             }
         });
     }
