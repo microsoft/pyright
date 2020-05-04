@@ -41,6 +41,51 @@ export interface ImportStatements {
     mapByFilePath: Map<string, ImportStatement>;
 }
 
+export const enum ImportGroup {
+    // The ordering here is important because this is the order
+    // in which PEP8 specifies that imports should be ordered.
+    BuiltIn = 0,
+    ThirdParty = 1,
+    Local = 2,
+    LocalRelative = 3,
+}
+
+// Determines which import grouping should be used when sorting imports.
+export function getImportGroup(statement: ImportStatement): ImportGroup {
+    if (statement.importResult) {
+        if (statement.importResult.importType === ImportType.BuiltIn) {
+            return ImportGroup.BuiltIn;
+        } else if (
+            statement.importResult.importType === ImportType.ThirdParty ||
+            statement.importResult.isLocalTypingsFile
+        ) {
+            return ImportGroup.ThirdParty;
+        }
+
+        if (statement.importResult.isRelative) {
+            return ImportGroup.LocalRelative;
+        }
+
+        return ImportGroup.Local;
+    } else {
+        return ImportGroup.Local;
+    }
+}
+
+// Compares sort order of two import statements.
+export function compareImportStatements(a: ImportStatement, b: ImportStatement) {
+    const aImportGroup = getImportGroup(a);
+    const bImportGroup = getImportGroup(b);
+
+    if (aImportGroup < bImportGroup) {
+        return -1;
+    } else if (aImportGroup > bImportGroup) {
+        return 1;
+    }
+
+    return a.moduleName < b.moduleName ? -1 : 1;
+}
+
 // Looks for top-level 'import' and 'import from' statements and provides
 // an ordered list and a map (by file path).
 export function getTopLevelImports(parseTree: ModuleNode): ImportStatements {
@@ -119,7 +164,7 @@ export function getTextEditsForAutoImportInsertion(
     symbolName: string,
     importStatements: ImportStatements,
     moduleName: string,
-    importType: ImportType,
+    importGroup: ImportGroup,
     parseResults: ParseResults
 ): TextEditAction[] {
     const textEditList: TextEditAction[] = [];
@@ -134,31 +179,29 @@ export function getTextEditsForAutoImportInsertion(
         // Find a good spot to insert the new import statement. Follow
         // the PEP8 standard sorting order whereby built-in imports are
         // followed by third-party, which are followed by local.
-        let prevImportType = ImportType.BuiltIn;
+        let prevImportGroup = ImportGroup.BuiltIn;
         for (const curImport of importStatements.orderedImports) {
             // If the import was resolved, use its import type. If it wasn't
             // resolved, assume that it's the same import type as the previous
             // one.
-            const curImportType: ImportType = curImport.importResult
-                ? curImport.importResult.importType
-                : prevImportType;
+            const curImportGroup: ImportGroup = curImport.importResult ? getImportGroup(curImport) : prevImportGroup;
 
-            if (importType < curImportType) {
-                if (!insertBefore && prevImportType < importType) {
+            if (importGroup < curImportGroup) {
+                if (!insertBefore && prevImportGroup < importGroup) {
                     // Add an extra line to create a new group.
                     newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
                 }
                 break;
             }
 
-            if (importType === curImportType && curImport.moduleName > moduleName) {
+            if (importGroup === curImportGroup && curImport.moduleName > moduleName) {
                 break;
             }
 
             // If we're about to hit the end of the import statements, don't go
             // any further.
             if (curImport.followsNonImportStatement) {
-                if (importType > prevImportType) {
+                if (importGroup > prevImportGroup) {
                     // Add an extra line to create a new group.
                     newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
                 }
@@ -167,20 +210,20 @@ export function getTextEditsForAutoImportInsertion(
 
             // If this is the last import, see if we need to create a new group.
             if (curImport === importStatements.orderedImports[importStatements.orderedImports.length - 1]) {
-                if (importType > curImportType) {
+                if (importGroup > curImportGroup) {
                     // Add an extra line to create a new group.
                     newImportStatement = parseResults.tokenizerOutput.predominantEndOfLineSequence + newImportStatement;
                 }
             }
 
             // Are we starting a new group?
-            if (!insertBefore && importType < prevImportType && importType === curImportType) {
+            if (!insertBefore && importGroup < prevImportGroup && importGroup === curImportGroup) {
                 insertBefore = true;
             } else {
                 insertBefore = false;
             }
 
-            prevImportType = curImportType;
+            prevImportGroup = curImportGroup;
             insertionImport = curImport;
         }
 

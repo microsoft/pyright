@@ -10,8 +10,12 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { ImportType } from '../analyzer/importResult';
-import * as ImportStatementUtils from '../analyzer/importStatementUtils';
+import {
+    compareImportStatements,
+    getImportGroup,
+    getTopLevelImports,
+    ImportStatement,
+} from '../analyzer/importStatementUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
@@ -24,15 +28,6 @@ import { ParseResults } from '../parser/parser';
 // "black" formatter used in many Python projects.
 const _maxLineLength = 88;
 
-export const enum ImportGroup {
-    // The ordering here is important because this is the order
-    // in which PEP8 specifies that imports should be ordered.
-    BuiltIn = 0,
-    ThirdParty = 1,
-    Local = 2,
-    LocalRelative = 3,
-}
-
 export class ImportSorter {
     constructor(private _parseResults: ParseResults, private _cancellationToken: CancellationToken) {}
 
@@ -40,12 +35,12 @@ export class ImportSorter {
         throwIfCancellationRequested(this._cancellationToken);
 
         const actions: TextEditAction[] = [];
-        const importStatements = ImportStatementUtils.getTopLevelImports(this._parseResults.parseTree);
+        const importStatements = getTopLevelImports(this._parseResults.parseTree);
 
         const sortedStatements = importStatements.orderedImports
             .map((s) => s)
             .sort((a, b) => {
-                return this._compareImportStatements(a, b);
+                return compareImportStatements(a, b);
             });
 
         if (sortedStatements.length === 0) {
@@ -65,44 +60,10 @@ export class ImportSorter {
         return actions;
     }
 
-    private _compareImportStatements(a: ImportStatementUtils.ImportStatement, b: ImportStatementUtils.ImportStatement) {
-        const aImportGroup = this._getImportGroup(a);
-        const bImportGroup = this._getImportGroup(b);
-
-        if (aImportGroup < bImportGroup) {
-            return -1;
-        } else if (aImportGroup > bImportGroup) {
-            return 1;
-        }
-
-        return a.moduleName < b.moduleName ? -1 : 1;
-    }
-
-    private _getImportGroup(statement: ImportStatementUtils.ImportStatement): ImportGroup {
-        if (statement.importResult) {
-            if (statement.importResult.importType === ImportType.BuiltIn) {
-                return ImportGroup.BuiltIn;
-            } else if (
-                statement.importResult.importType === ImportType.ThirdParty ||
-                statement.importResult.isLocalTypingsFile
-            ) {
-                return ImportGroup.ThirdParty;
-            }
-
-            if (statement.importResult.isRelative) {
-                return ImportGroup.LocalRelative;
-            }
-
-            return ImportGroup.Local;
-        } else {
-            return ImportGroup.Local;
-        }
-    }
-
     // Determines the text range for the existing primary block of import statements.
     // If there are other blocks of import statements separated by other statements,
     // we'll ignore these other blocks for now.
-    private _getPrimaryReplacementRange(statements: ImportStatementUtils.ImportStatement[]): Range {
+    private _getPrimaryReplacementRange(statements: ImportStatement[]): Range {
         let statementLimit = statements.findIndex((s) => s.followsNonImportStatement);
         if (statementLimit < 0) {
             statementLimit = statements.length;
@@ -117,10 +78,7 @@ export class ImportSorter {
 
     // If import statements are separated by other statements, we will remove the old
     // secondary blocks.
-    private _addSecondaryReplacementRanges(
-        statements: ImportStatementUtils.ImportStatement[],
-        actions: TextEditAction[]
-    ) {
+    private _addSecondaryReplacementRanges(statements: ImportStatement[], actions: TextEditAction[]) {
         let secondaryBlockStart = statements.findIndex((s) => s.followsNonImportStatement);
         if (secondaryBlockStart < 0) {
             return;
@@ -155,13 +113,13 @@ export class ImportSorter {
         }
     }
 
-    private _generateSortedImportText(sortedStatements: ImportStatementUtils.ImportStatement[]): string {
+    private _generateSortedImportText(sortedStatements: ImportStatement[]): string {
         let importText = '';
-        let prevImportGroup = this._getImportGroup(sortedStatements[0]);
+        let prevImportGroup = getImportGroup(sortedStatements[0]);
 
         for (const statement of sortedStatements) {
             // Insert a blank space between import type groups.
-            const curImportType = this._getImportGroup(statement);
+            const curImportType = getImportGroup(statement);
             if (prevImportGroup !== curImportType) {
                 importText += this._parseResults.tokenizerOutput.predominantEndOfLineSequence;
                 prevImportGroup = curImportType;

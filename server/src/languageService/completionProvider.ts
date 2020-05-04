@@ -24,7 +24,14 @@ import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
 import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
-import * as ImportStatementUtils from '../analyzer/importStatementUtils';
+import {
+    getImportGroup,
+    getTextEditsForAutoImportInsertion,
+    getTextEditsForAutoImportSymbolAddition,
+    getTopLevelImports,
+    ImportGroup,
+    ImportStatements,
+} from '../analyzer/importStatementUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
@@ -825,9 +832,20 @@ export class CompletionProvider {
         }
     }
 
+    private _getImportGroupFromModuleNameAndType(moduleNameAndType: ModuleNameAndType): ImportGroup {
+        let importGroup = ImportGroup.Local;
+        if (moduleNameAndType.isLocalTypingsFile || moduleNameAndType.importType === ImportType.ThirdParty) {
+            importGroup = ImportGroup.ThirdParty;
+        } else if (moduleNameAndType.importType === ImportType.BuiltIn) {
+            importGroup = ImportGroup.BuiltIn;
+        }
+
+        return importGroup;
+    }
+
     private _getAutoImportCompletions(priorWord: string, completionList: CompletionList) {
         const moduleSymbolMap = this._moduleSymbolsCallback();
-        const importStatements = ImportStatementUtils.getTopLevelImports(this._parseResults.parseTree);
+        const importStatements = getTopLevelImports(this._parseResults.parseTree);
 
         moduleSymbolMap.forEach((symbolTable, filePath) => {
             const fileName = stripFileExtension(getFileName(filePath));
@@ -859,13 +877,16 @@ export class CompletionProvider {
                                 if (declarations[0].path === filePath) {
                                     const localImport = importStatements.mapByFilePath.get(filePath);
                                     let importSource: string;
+                                    let importGroup = ImportGroup.Local;
                                     let moduleNameAndType: ModuleNameAndType | undefined;
 
                                     if (localImport) {
                                         importSource = localImport.moduleName;
+                                        importGroup = getImportGroup(localImport);
                                     } else {
                                         moduleNameAndType = this._getModuleNameAndTypeFromFilePath(filePath);
                                         importSource = moduleNameAndType.moduleName;
+                                        importGroup = this._getImportGroupFromModuleNameAndType(moduleNameAndType);
                                     }
 
                                     const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
@@ -873,7 +894,7 @@ export class CompletionProvider {
                                         importStatements,
                                         filePath,
                                         importSource,
-                                        moduleNameAndType ? moduleNameAndType.importType : ImportType.Local
+                                        importGroup
                                     );
 
                                     this._addSymbol(
@@ -921,12 +942,13 @@ export class CompletionProvider {
                         });
 
                         if (!isDuplicateEntry) {
+                            const importGroup = this._getImportGroupFromModuleNameAndType(moduleNameAndType);
                             const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
                                 name,
                                 importStatements,
                                 filePath,
                                 moduleNameAndType.moduleName,
-                                moduleNameAndType ? moduleNameAndType.importType : ImportType.Local
+                                importGroup
                             );
                             this._addNameToCompletionList(
                                 name,
@@ -956,26 +978,22 @@ export class CompletionProvider {
 
     private _getTextEditsForAutoImportByFilePath(
         symbolName: string,
-        importStatements: ImportStatementUtils.ImportStatements,
+        importStatements: ImportStatements,
         filePath: string,
         moduleName: string,
-        importType: ImportType
+        importGroup: ImportGroup
     ): TextEditAction[] {
         // Does an 'import from' statement already exist? If so, we'll reuse it.
         const importStatement = importStatements.mapByFilePath.get(filePath);
         if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
-            return ImportStatementUtils.getTextEditsForAutoImportSymbolAddition(
-                symbolName,
-                importStatement,
-                this._parseResults
-            );
+            return getTextEditsForAutoImportSymbolAddition(symbolName, importStatement, this._parseResults);
         }
 
-        return ImportStatementUtils.getTextEditsForAutoImportInsertion(
+        return getTextEditsForAutoImportInsertion(
             symbolName,
             importStatements,
             moduleName,
-            importType,
+            importGroup,
             this._parseResults
         );
     }

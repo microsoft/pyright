@@ -38,6 +38,7 @@ export interface ImportedModuleDescriptor {
 export interface ModuleNameAndType {
     moduleName: string;
     importType: ImportType;
+    isLocalTypingsFile: boolean;
 }
 
 type CachedImportResults = Map<string, ImportResult>;
@@ -349,6 +350,7 @@ export class ImportResolver {
     getModuleNameForImport(filePath: string, execEnv: ExecutionEnvironment): ModuleNameAndType {
         let moduleName: string | undefined;
         let importType = ImportType.BuiltIn;
+        let isLocalTypingsFile = false;
 
         const importFailureInfo: string[] = [];
 
@@ -357,7 +359,7 @@ export class ImportResolver {
         if (stdLibTypeshedPath) {
             moduleName = this._getModuleNameFromPath(stdLibTypeshedPath, filePath, true);
             if (moduleName) {
-                return { moduleName, importType };
+                return { moduleName, importType, isLocalTypingsFile };
             }
         }
 
@@ -386,6 +388,7 @@ export class ImportResolver {
 
                 // Treat the typings path as a local import so errors are reported for it.
                 importType = ImportType.Local;
+                isLocalTypingsFile = true;
             }
         }
 
@@ -416,11 +419,11 @@ export class ImportResolver {
         }
 
         if (moduleName) {
-            return { moduleName, importType };
+            return { moduleName, importType, isLocalTypingsFile };
         }
 
         // We didn't find any module name.
-        return { moduleName: '', importType: ImportType.Local };
+        return { moduleName: '', importType: ImportType.Local, isLocalTypingsFile };
     }
 
     private _lookUpResultsInCache(

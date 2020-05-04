@@ -9,8 +9,12 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { ImportType } from '../analyzer/importResult';
-import * as ImportStatementUtils from '../analyzer/importStatementUtils';
+import {
+    getTextEditsForAutoImportInsertion,
+    getTextEditsForAutoImportSymbolAddition,
+    getTopLevelImports,
+    ImportGroup,
+} from '../analyzer/importStatementUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -72,23 +76,23 @@ function _addMissingOptionalToParam(
     });
 
     // Add the import statement if necessary.
-    const importStatements = ImportStatementUtils.getTopLevelImports(parseResults.parseTree);
+    const importStatements = getTopLevelImports(parseResults.parseTree);
     const importStatement = importStatements.orderedImports.find((imp) => imp.moduleName === 'typing');
 
     // If there's an existing import statement, insert into it.
     if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
-        const additionalEditActions = ImportStatementUtils.getTextEditsForAutoImportSymbolAddition(
+        const additionalEditActions = getTextEditsForAutoImportSymbolAddition(
             'Optional',
             importStatement,
             parseResults
         );
         editActions.push(...additionalEditActions);
     } else {
-        const additionalEditActions = ImportStatementUtils.getTextEditsForAutoImportInsertion(
+        const additionalEditActions = getTextEditsForAutoImportInsertion(
             'Optional',
             importStatements,
             'typing',
-            ImportType.BuiltIn,
+            ImportGroup.BuiltIn,
             parseResults
         );
         editActions.push(...additionalEditActions);
