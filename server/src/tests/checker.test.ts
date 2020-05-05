@@ -294,6 +294,12 @@ test('TypeConstraint10', () => {
     validateResults(analysisResults, 0);
 });
 
+test('TypeConstraint11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint11.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('CircularBaseClass', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circularBaseClass.py']);
 
@@ -750,6 +756,12 @@ test('Literals2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals2.py']);
 
     validateResults(analysisResults, 3);
+});
+
+test('Literals3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['literals3.py']);
+
+    validateResults(analysisResults, 4);
 });
 
 test('TypeAlias1', () => {

@@ -70,7 +70,11 @@ export type Type =
     | UnionType
     | TypeVarType;
 
-export type LiteralValue = number | boolean | string;
+export class EnumLiteral {
+    constructor(public className: string, public itemName: string) {}
+}
+
+export type LiteralValue = number | boolean | string | EnumLiteral;
 
 export type TypeSourceId = number;
 export const maxTypeRecursionCount = 16;
@@ -548,6 +552,23 @@ export namespace ObjectType {
         newType.literalValue = value;
         return newType;
     }
+
+    export function isLiteralValueSame(type1: ObjectType, type2: ObjectType) {
+        if (type1.literalValue === undefined) {
+            return type2.literalValue === undefined;
+        } else if (type2.literalValue === undefined) {
+            return false;
+        }
+
+        if (type1.literalValue instanceof EnumLiteral) {
+            if (type2.literalValue instanceof EnumLiteral) {
+                return type1.literalValue.itemName === type2.literalValue.itemName;
+            }
+            return false;
+        }
+
+        return type1.literalValue === type2.literalValue;
+    }
 }
 
 export interface FunctionParameter {
@@ -991,7 +1012,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
         case TypeCategory.Object: {
             const objType2 = type2 as ObjectType;
 
-            if (type1.literalValue !== objType2.literalValue) {
+            if (!ObjectType.isLiteralValueSame(type1, objType2)) {
                 return false;
             }
 

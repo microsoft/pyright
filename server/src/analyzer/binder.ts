@@ -1745,19 +1745,12 @@ export class Binder extends ParseTreeWalker {
 
                     // Look for X == <literal>, X != <literal> or <literal> == X, <literal> != X
                     if (equalsOrNotEqualsOperator) {
-                        if (
-                            expression.leftExpression.nodeType === ParseNodeType.StringList ||
-                            expression.leftExpression.nodeType === ParseNodeType.Number ||
-                            expression.leftExpression.nodeType === ParseNodeType.Constant
-                        ) {
-                            return this._isNarrowingExpression(expression.rightExpression, expressionList);
-                        } else if (
-                            expression.rightExpression.nodeType === ParseNodeType.StringList ||
-                            expression.rightExpression.nodeType === ParseNodeType.Number ||
-                            expression.rightExpression.nodeType === ParseNodeType.Constant
-                        ) {
-                            return this._isNarrowingExpression(expression.leftExpression, expressionList);
-                        }
+                        const isLeftNarrowing = this._isNarrowingExpression(expression.leftExpression, expressionList);
+                        const isRightNarrowing = this._isNarrowingExpression(
+                            expression.rightExpression,
+                            expressionList
+                        );
+                        return isLeftNarrowing || isRightNarrowing;
                     }
                 }
 

@@ -15,6 +15,7 @@ import {
     AnyType,
     ClassType,
     combineTypes,
+    EnumLiteral,
     FunctionType,
     isAnyOrUnknown,
     isNoneOrNever,
@@ -146,6 +147,28 @@ export function stripLiteralValue(type: Type): Type {
     }
 
     return type;
+}
+
+export function enumerateLiteralsForType(type: ObjectType): ObjectType[] | undefined {
+    if (ClassType.isBuiltIn(type.classType, 'bool')) {
+        // Booleans have only two types: True and False.
+        return [ObjectType.cloneWithLiteral(type, true), ObjectType.cloneWithLiteral(type, false)];
+    }
+
+    if (ClassType.isEnumClass(type.classType)) {
+        // Enumerate all of the values in this enumeration.
+        const enumList: ObjectType[] = [];
+        const fields = type.classType.details.fields;
+        fields.forEach((symbol, name) => {
+            if (!symbol.isIgnoredForProtocolMatch() && !symbol.isInstanceMember()) {
+                enumList.push(ObjectType.cloneWithLiteral(type, new EnumLiteral(type.classType.details.name, name)));
+            }
+        });
+
+        return enumList;
+    }
+
+    return undefined;
 }
 
 export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type {
@@ -1378,6 +1401,8 @@ export function printLiteralValue(type: ObjectType): string {
         literalStr = `${prefix}'${literalValue.toString()}'`;
     } else if (typeof literalValue === 'boolean') {
         literalStr = literalValue ? 'True' : 'False';
+    } else if (literalValue instanceof EnumLiteral) {
+        literalStr = `${literalValue.className}.${literalValue.itemName}`;
     } else {
         literalStr = literalValue.toString();
     }

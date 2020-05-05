@@ -107,6 +107,7 @@ import {
     ClassTypeFlags,
     combineTypes,
     DataClassEntry,
+    EnumLiteral,
     FunctionParameter,
     FunctionType,
     FunctionTypeFlags,
@@ -148,6 +149,7 @@ import {
     convertClassToObject,
     derivesFromClassRecursive,
     doForSubtypes,
+    enumerateLiteralsForType,
     getConcreteTypeFromTypeVar,
     getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType,
@@ -3258,7 +3260,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
 
                 if (subtype.category === TypeCategory.Object && ClassType.isBuiltIn(subtype.classType, 'str')) {
-                    if (!subtype.literalValue) {
+                    if (subtype.literalValue === undefined) {
                         // If it's a plain str with no literal value, we can't
                         // make any determination about the resulting type.
                         return UnknownType.create();
@@ -6313,7 +6315,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             return UnknownType.create();
         }
 
-        // As per the specification, we support None, int, bool, str, and bytes literals.
+        // As per the specification, we support None, int, bool, str, bytes literals
+        // plus enum values.
         const literalTypes: Type[] = [];
 
         for (const item of node.items.items) {
@@ -6341,8 +6344,24 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 }
             }
 
+            // See if this is an enum type.
             if (!type) {
-                addError(`Type arguments for "Literal" must be None, int, bool, str, or bytes value`, item);
+                const possibleEnumType = getTypeOfExpression(item);
+                if (
+                    possibleEnumType.type.category === TypeCategory.Object &&
+                    ClassType.isEnumClass(possibleEnumType.type.classType) &&
+                    possibleEnumType.type.literalValue !== undefined
+                ) {
+                    type = possibleEnumType.type;
+                }
+            }
+
+            if (!type) {
+                addError(
+                    `Type arguments for "Literal" must be None, a literal value ` +
+                        `(int, bool, str, or bytes), or an enum value`,
+                    item
+                );
                 type = UnknownType.create();
             }
 
@@ -6535,7 +6554,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     }
                 }
 
-                return ObjectType.create(enumClassInfo.classType);
+                return ObjectType.cloneWithLiteral(
+                    ObjectType.create(enumClassInfo.classType),
+                    new EnumLiteral(enumClassInfo.classType.details.name, node.value)
+                );
             }
         }
 
@@ -9216,11 +9238,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 return doForSubtypes(type, (subtype) => {
                     if (isPositiveTest) {
                         if (canBeTruthy(subtype)) {
-                            return subtype;
+                            return removeFalsinessFromType(subtype);
                         }
                     } else {
                         if (canBeFalsy(subtype)) {
-                            return subtype;
+                            return removeTruthinessFromType(subtype);
                         }
                     }
                     return undefined;
@@ -9384,14 +9406,26 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const narrowedType = doForSubtypes(referenceType, (subtype) => {
             if (
                 subtype.category === TypeCategory.Object &&
-                ClassType.isSameGenericClass(literalType.classType, subtype.classType) &&
-                subtype.literalValue
+                ClassType.isSameGenericClass(literalType.classType, subtype.classType)
             ) {
-                const literalValueMatches = subtype.literalValue === literalType.literalValue;
-                if ((literalValueMatches && !isPositiveTest) || (!literalValueMatches && isPositiveTest)) {
-                    return undefined;
+                if (subtype.literalValue !== undefined) {
+                    const literalValueMatches = ObjectType.isLiteralValueSame(subtype, literalType);
+                    if ((literalValueMatches && !isPositiveTest) || (!literalValueMatches && isPositiveTest)) {
+                        return undefined;
+                    }
+                    return subtype;
+                } else if (isPositiveTest) {
+                    return literalType;
+                } else {
+                    // If we're able to enumerate all possible literal values
+                    // (for bool or enum), we can eliminate all others in a negative test.
+                    const allLiteralTypes = enumerateLiteralsForType(subtype);
+                    if (allLiteralTypes) {
+                        return combineTypes(
+                            allLiteralTypes.filter((type) => !ObjectType.isLiteralValueSame(type, literalType))
+                        );
+                    }
                 }
-                return subtype;
             }
             canNarrow = false;
             return subtype;
@@ -11218,13 +11252,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             if (srcType.category === TypeCategory.Object) {
-                const destLiteral = destType.literalValue;
-                if (destLiteral !== undefined) {
+                if (destType.literalValue !== undefined) {
                     const srcLiteral = srcType.literalValue;
-                    if (srcLiteral !== destLiteral) {
+                    if (srcLiteral === undefined || !ObjectType.isLiteralValueSame(srcType, destType)) {
                         diag.addMessage(
                             `"${
-                                srcLiteral ? printLiteralType(srcType) : printType(srcType)
+                                srcLiteral !== undefined ? printLiteralType(srcType) : printType(srcType)
                             }" cannot be assigned to "${printLiteralType(destType)}"`
                         );
 
@@ -11825,7 +11858,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (
                 keyType.category !== TypeCategory.Object ||
                 !ClassType.isBuiltIn(keyType.classType, 'str') ||
-                !keyType.literalValue
+                keyType.literalValue === undefined
             ) {
                 isMatch = false;
             } else {
