@@ -7107,6 +7107,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         } else if (decoratorType.category === TypeCategory.Function) {
             if (decoratorType.details.builtInName === 'final') {
                 originalClassType.details.flags |= ClassTypeFlags.Final;
+            } else if (decoratorType.details.builtInName === 'runtime_checkable') {
+                originalClassType.details.flags |= ClassTypeFlags.RuntimeCheckable;
             }
         }
 

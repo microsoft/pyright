@@ -1099,8 +1099,9 @@ export class Checker extends ParseTreeWalker {
         }
 
         // According to PEP 544, protocol classes cannot be used as the right-hand
-        // argument to isinstance or issubclass.
-        if (classTypeList.some((type) => ClassType.isProtocolClass(type))) {
+        // argument to isinstance or issubclass unless they are annotated as
+        // "runtime checkable".
+        if (classTypeList.some((type) => ClassType.isProtocolClass(type) && !ClassType.isRuntimeCheckable(type))) {
             this._evaluator.addError(
                 `Protocol class cannot be used in ${callName} call`,
                 node.arguments[1].valueExpression

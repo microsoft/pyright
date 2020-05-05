@@ -209,6 +209,10 @@ export const enum ClassTypeFlags {
     // annotated types and is treated as though each parameter
     // is a generic type for purposes of type inference.
     PseudoGenericClass = 1 << 12,
+
+    // A protocol class that is "runtime checkable" can be used
+    // in an isinstance call.
+    RuntimeCheckable = 1 << 13,
 }
 
 interface ClassDetails {
@@ -349,6 +353,10 @@ export namespace ClassType {
 
     export function getDataClassEntries(classType: ClassType): DataClassEntry[] {
         return classType.details.dataClassEntries || [];
+    }
+
+    export function isRuntimeCheckable(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.RuntimeCheckable);
     }
 
     export function getTypeParameters(classType: ClassType) {
