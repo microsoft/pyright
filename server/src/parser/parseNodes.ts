@@ -720,6 +720,7 @@ export namespace ErrorNode {
 export interface UnaryOperationNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.UnaryOperation;
     expression: ExpressionNode;
+    operatorToken: Token;
     operator: OperatorType;
 }
 
@@ -731,6 +732,7 @@ export namespace UnaryOperationNode {
             nodeType: ParseNodeType.UnaryOperation,
             id: _nextNodeId++,
             operator,
+            operatorToken,
             expression,
         };
 
@@ -745,18 +747,25 @@ export namespace UnaryOperationNode {
 export interface BinaryOperationNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.BinaryOperation;
     leftExpression: ExpressionNode;
+    operatorToken: Token;
     operator: OperatorType;
     rightExpression: ExpressionNode;
 }
 
 export namespace BinaryOperationNode {
-    export function create(leftExpression: ExpressionNode, rightExpression: ExpressionNode, operator: OperatorType) {
+    export function create(
+        leftExpression: ExpressionNode,
+        rightExpression: ExpressionNode,
+        operatorToken: Token,
+        operator: OperatorType
+    ) {
         const node: BinaryOperationNode = {
             start: leftExpression.start,
             length: leftExpression.length,
             nodeType: ParseNodeType.BinaryOperation,
             id: _nextNodeId++,
             leftExpression,
+            operatorToken,
             operator,
             rightExpression,
         };

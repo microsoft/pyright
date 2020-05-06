@@ -227,9 +227,7 @@ export class Parser {
 
         let parseTree: ExpressionNode | undefined;
         if (parseTypeAnnotation) {
-            this._parseTypeAnnotation(() => {
-                parseTree = this._parseAtomExpression();
-            });
+            parseTree = this._parseTypeAnnotation(/* allowUnionNotation */ false);
         } else {
             parseTree = this._parseTestExpression(false);
         }
@@ -696,9 +694,7 @@ export class Parser {
 
         let returnType: ExpressionNode | undefined;
         if (this._consumeTokenIfType(TokenType.Arrow)) {
-            this._parseTypeAnnotation(() => {
-                returnType = this._parseAtomExpression();
-            });
+            returnType = this._parseTypeAnnotation();
         }
 
         const suite = this._parseSuite(true);
@@ -887,11 +883,9 @@ export class Parser {
         }
 
         if (allowAnnotations && this._consumeTokenIfType(TokenType.Colon)) {
-            this._parseTypeAnnotation(() => {
-                paramNode.typeAnnotation = this._parseAtomExpression();
-                paramNode.typeAnnotation.parent = paramNode;
-                extendRange(paramNode, paramNode.typeAnnotation);
-            });
+            paramNode.typeAnnotation = this._parseTypeAnnotation();
+            paramNode.typeAnnotation.parent = paramNode;
+            extendRange(paramNode, paramNode.typeAnnotation);
         }
 
         if (this._consumeTokenIfOperator(OperatorType.Assign)) {
@@ -1743,9 +1737,13 @@ export class Parser {
             return leftExpr;
         }
 
-        while (this._consumeTokenIfKeyword(KeywordType.Or)) {
+        while (true) {
+            const peekToken = this._peekToken();
+            if (!this._consumeTokenIfKeyword(KeywordType.Or)) {
+                break;
+            }
             const rightExpr = this._parseAndTest();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.Or);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.Or);
         }
 
         return leftExpr;
@@ -1758,9 +1756,13 @@ export class Parser {
             return leftExpr;
         }
 
-        while (this._consumeTokenIfKeyword(KeywordType.And)) {
+        while (true) {
+            const peekToken = this._peekToken();
+            if (!this._consumeTokenIfKeyword(KeywordType.And)) {
+                break;
+            }
             const rightExpr = this._parseNotTest();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.And);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.And);
         }
 
         return leftExpr;
@@ -1787,6 +1789,7 @@ export class Parser {
 
         while (true) {
             let comparisonOperator: OperatorType | undefined;
+            const peekToken = this._peekToken();
 
             if (Tokenizer.isOperatorComparison(this._peekOperatorType())) {
                 comparisonOperator = this._peekOperatorType();
@@ -1816,7 +1819,7 @@ export class Parser {
             }
 
             const rightExpr = this._parseBitwiseOrExpression();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, comparisonOperator);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, comparisonOperator);
         }
 
         return leftExpr;
@@ -1829,9 +1832,13 @@ export class Parser {
             return leftExpr;
         }
 
-        while (this._consumeTokenIfOperator(OperatorType.BitwiseOr)) {
+        while (true) {
+            const peekToken = this._peekToken();
+            if (!this._consumeTokenIfOperator(OperatorType.BitwiseOr)) {
+                break;
+            }
             const rightExpr = this._parseBitwiseXorExpression();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.BitwiseOr);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseOr);
         }
 
         return leftExpr;
@@ -1844,9 +1851,13 @@ export class Parser {
             return leftExpr;
         }
 
-        while (this._consumeTokenIfOperator(OperatorType.BitwiseXor)) {
+        while (true) {
+            const peekToken = this._peekToken();
+            if (!this._consumeTokenIfOperator(OperatorType.BitwiseXor)) {
+                break;
+            }
             const rightExpr = this._parseBitwiseAndExpression();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.BitwiseXor);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseXor);
         }
 
         return leftExpr;
@@ -1859,9 +1870,13 @@ export class Parser {
             return leftExpr;
         }
 
-        while (this._consumeTokenIfOperator(OperatorType.BitwiseAnd)) {
+        while (true) {
+            const peekToken = this._peekToken();
+            if (!this._consumeTokenIfOperator(OperatorType.BitwiseAnd)) {
+                break;
+            }
             const rightExpr = this._parseShiftExpression();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.BitwiseAnd);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.BitwiseAnd);
         }
 
         return leftExpr;
@@ -1874,11 +1889,13 @@ export class Parser {
             return leftExpr;
         }
 
+        let peekToken = this._peekToken();
         let nextOperator = this._peekOperatorType();
         while (nextOperator === OperatorType.LeftShift || nextOperator === OperatorType.RightShift) {
             this._getNextToken();
             const rightExpr = this._parseArithmeticExpression();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, nextOperator);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, nextOperator);
+            peekToken = this._peekToken();
             nextOperator = this._peekOperatorType();
         }
 
@@ -1892,6 +1909,7 @@ export class Parser {
             return leftExpr;
         }
 
+        let peekToken = this._peekToken();
         let nextOperator = this._peekOperatorType();
         while (nextOperator === OperatorType.Add || nextOperator === OperatorType.Subtract) {
             this._getNextToken();
@@ -1900,7 +1918,8 @@ export class Parser {
                 return rightExpr;
             }
 
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, nextOperator);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, nextOperator);
+            peekToken = this._peekToken();
             nextOperator = this._peekOperatorType();
         }
 
@@ -1914,6 +1933,7 @@ export class Parser {
             return leftExpr;
         }
 
+        let peekToken = this._peekToken();
         let nextOperator = this._peekOperatorType();
         while (
             nextOperator === OperatorType.Multiply ||
@@ -1924,7 +1944,8 @@ export class Parser {
         ) {
             this._getNextToken();
             const rightExpr = this._parseArithmeticFactor();
-            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, nextOperator);
+            leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, nextOperator);
+            peekToken = this._peekToken();
             nextOperator = this._peekOperatorType();
         }
 
@@ -1951,9 +1972,10 @@ export class Parser {
             return leftExpr;
         }
 
+        const peekToken = this._peekToken();
         if (this._consumeTokenIfOperator(OperatorType.Power)) {
             const rightExpr = this._parseArithmeticFactor();
-            return BinaryOperationNode.create(leftExpr, rightExpr, OperatorType.Power);
+            return BinaryOperationNode.create(leftExpr, rightExpr, peekToken, OperatorType.Power);
         }
 
         return leftExpr;
@@ -2661,17 +2683,15 @@ export class Parser {
 
         // Is this a type annotation assignment?
         if (this._consumeTokenIfType(TokenType.Colon)) {
-            this._parseTypeAnnotation(() => {
-                annotationExpr = this._parseAtomExpression();
-                leftExpr = TypeAnnotationNode.create(leftExpr, annotationExpr);
+            annotationExpr = this._parseTypeAnnotation();
+            leftExpr = TypeAnnotationNode.create(leftExpr, annotationExpr);
 
-                if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V36) {
-                    this._addError(
-                        'Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with previous versions',
-                        annotationExpr
-                    );
-                }
-            });
+            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V36) {
+                this._addError(
+                    'Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with previous versions',
+                    annotationExpr
+                );
+            }
 
             if (!this._consumeTokenIfOperator(OperatorType.Assign)) {
                 return leftExpr;
@@ -2742,14 +2762,40 @@ export class Parser {
         return assignmentNode;
     }
 
-    private _parseTypeAnnotation(callback: () => void) {
+    private _parseTypeAnnotation(allowUnionNotation = true): ExpressionNode {
         // Temporary set a flag that indicates we're parsing a type annotation.
         const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
         this._isParsingTypeAnnotation = true;
 
-        callback();
+        let result: ExpressionNode | undefined;
+        let bitwiseOrToken: Token | undefined;
+
+        while (true) {
+            const annotationExpr = this._parseAtomExpression();
+
+            // Is this the first atom we've seen, or are we creating a
+            // union with previous types?
+            if (result === undefined || bitwiseOrToken === undefined) {
+                result = annotationExpr;
+            } else {
+                result = BinaryOperationNode.create(result, annotationExpr, bitwiseOrToken, OperatorType.BitwiseOr);
+            }
+
+            if (!allowUnionNotation) {
+                break;
+            }
+
+            bitwiseOrToken = this._peekToken();
+            if (this._peekOperatorType() === OperatorType.BitwiseOr) {
+                this._getNextToken();
+            } else {
+                break;
+            }
+        }
 
         this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
+
+        return result;
     }
 
     private _reportStringTokenErrors(stringToken: StringToken, unescapedResult: StringTokenUtils.UnescapedString) {
@@ -2827,7 +2873,7 @@ export class Parser {
             tokenOffset,
             typeString.length,
             this._parseOptions,
-            true
+            /* parseTypeAnnotation */ true
         );
 
         parseResults.diagnostics.forEach((diag) => {
@@ -2860,7 +2906,7 @@ export class Parser {
                     stringToken.start + stringToken.prefixLength + stringToken.quoteMarkLength + segment.offset,
                     segmentExprLength,
                     this._parseOptions,
-                    false
+                    /* parseTypeAnnotation */ false
                 );
 
                 parseResults.diagnostics.forEach((diag) => {
@@ -3017,7 +3063,7 @@ export class Parser {
                         tokenOffset + prefixLength,
                         unescapedString.length,
                         this._parseOptions,
-                        true
+                        /* parseTypeAnnotation */ true
                     );
 
                     parseResults.diagnostics.forEach((diag) => {

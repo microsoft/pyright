@@ -1394,3 +1394,17 @@ test('Callable1', () => {
 
     validateResults(analysisResults, 3);
 });
+
+test('Unions1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Analyze with Python 3.8 settings. This will generate errors.
+    configOptions.defaultPythonVersion = PythonVersion.V38;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['unions1.py'], configOptions);
+    validateResults(analysisResults38, 7);
+
+    // Analyze with Python 3.9 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V39;
+    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['unions1.py'], configOptions);
+    validateResults(analysisResults39, 0);
+});

@@ -1202,6 +1202,27 @@ export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolea
     return type;
 }
 
+// Determines whether the specified type is a type that can be
+// combined with other types for a union.
+export function canUnionType(type: Type): boolean {
+    switch (type.category) {
+        case TypeCategory.Any:
+        case TypeCategory.Class:
+        case TypeCategory.Function:
+        case TypeCategory.None:
+        case TypeCategory.OverloadedFunction:
+        case TypeCategory.TypeVar:
+            return true;
+
+        case TypeCategory.Union: {
+            return !type.subtypes.some((subtype) => !canUnionType(subtype));
+        }
+
+        default:
+            return false;
+    }
+}
+
 // Combines multiple types into a single type. If the types are
 // the same, only one is returned. If they differ, they
 // are combined into a UnionType. NeverTypes are filtered out.

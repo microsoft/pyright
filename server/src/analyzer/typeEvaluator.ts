@@ -103,6 +103,7 @@ import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { CachedType, isIncompleteType, SpeculativeTypeTracker, TypeCache } from './typeCache';
 import {
     AnyType,
+    canUnionType,
     ClassType,
     ClassTypeFlags,
     combineTypes,
@@ -227,24 +228,24 @@ export const enum EvaluatorFlags {
     None = 0,
 
     // Interpret an ellipsis type annotation to mean "Any".
-    ConvertEllipsisToAny = 1,
+    ConvertEllipsisToAny = 1 << 0,
 
     // Normally a generic named type is specialized with "Any"
     // types. This flag indicates that specialization shouldn't take
     // place.
-    DoNotSpecialize = 2,
+    DoNotSpecialize = 1 << 1,
 
     // Allow forward references. Don't report unbound errors.
-    AllowForwardReferences = 4,
+    AllowForwardReferences = 1 << 2,
 
     // Skip the check for unknown arguments.
-    DoNotCheckForUnknownArgs = 8,
+    DoNotCheckForUnknownArgs = 1 << 4,
 
     // Treat string literal as a type.
-    EvaluateStringLiteralAsType = 16,
+    EvaluateStringLiteralAsType = 1 << 5,
 
-    // 'Final' is not allowed in this context
-    FinalDisallowed = 32,
+    // 'Final' is not allowed in this context.
+    FinalDisallowed = 1 << 6,
 }
 
 interface EvaluatorUsage {
@@ -1807,19 +1808,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         return false;
     }
 
-    function addWarning(message: string, node: ParseNode) {
+    function addWarning(message: string, node: ParseNode, range?: TextRange) {
         if (!isDiagnosticSuppressed && !isSpeculativeMode(node)) {
             const fileInfo = getFileInfo(node);
-            return fileInfo.diagnosticSink.addWarningWithTextRange(message, node);
+            return fileInfo.diagnosticSink.addWarningWithTextRange(message, range || node);
         }
 
         return undefined;
     }
 
-    function addError(message: string, node: ParseNode) {
+    function addError(message: string, node: ParseNode, range?: TextRange) {
         if (!isDiagnosticSuppressed && !isSpeculativeMode(node)) {
             const fileInfo = getFileInfo(node);
-            return fileInfo.diagnosticSink.addErrorWithTextRange(message, node);
+            return fileInfo.diagnosticSink.addErrorWithTextRange(message, range || node);
         }
 
         return undefined;
@@ -3799,7 +3800,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (functionType) {
                     if (functionType.details.builtInName === 'cast' && argList.length === 2) {
                         // Verify that the cast is necessary.
-                        const castToType = getTypeForArgument(argList[0], true);
+                        const castToType = getTypeForArgument(argList[0], /* expectingType */ true);
                         const castFromType = getTypeForArgument(argList[1]);
                         if (
                             castToType.category === TypeCategory.Class &&
@@ -4780,7 +4781,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             argList[i].valueExpression || errorNode
                         );
                     } else {
-                        const argType = getTypeForArgument(argList[i], true);
+                        const argType = getTypeForArgument(argList[i], /* expectingType */ true);
                         if (requiresSpecialization(argType)) {
                             addError(`A TypeVar bound type cannot be generic`, argList[i].valueExpression || errorNode);
                         }
@@ -4817,7 +4818,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 if (typeVar.boundType) {
                     addError(`A TypeVar cannot be both bound and constrained`, argList[i].valueExpression || errorNode);
                 } else {
-                    const argType = getTypeForArgument(argList[i], true);
+                    const argType = getTypeForArgument(argList[i], /* expectingType */ true);
                     if (requiresSpecialization(argType)) {
                         addError(
                             `A TypeVar constraint type cannot be generic`,
@@ -4931,7 +4932,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         if (argList.length >= 2) {
-            const baseClass = getTypeForArgument(argList[1], true);
+            const baseClass = getTypeForArgument(argList[1], /* expectingType */ true);
 
             if (baseClass.category === TypeCategory.Class) {
                 const classFlags =
@@ -5459,6 +5460,24 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         let rightType = getTypeOfExpression(node.rightExpression).type;
         if (rightType.category === TypeCategory.TypeVar) {
             rightType = specializeType(rightType, undefined);
+        }
+
+        // Is this a "|" operator used in a context where it is supposed to be
+        // interpreted as a union operator?
+        if (node.operator === OperatorType.BitwiseOr) {
+            if (canUnionType(leftType) && canUnionType(rightType)) {
+                const fileInfo = getFileInfo(node);
+                const unionNotationSupported =
+                    fileInfo.isStubFile || fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V39;
+                if (!unionNotationSupported) {
+                    addError('Alternative syntax for unions requires Python 3.9 or newer', node, node.operatorToken);
+                }
+
+                return {
+                    type: combineTypes([leftType, rightType]),
+                    node,
+                };
+            }
         }
 
         // Optional checks apply to all operations except for boolean operations.
@@ -9236,7 +9255,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const arg0Expr = testExpression.arguments[0].valueExpression;
                     const arg1Expr = testExpression.arguments[1].valueExpression;
                     if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                        const arg1Type = getTypeOfExpression(arg1Expr).type;
+                        const arg1Type = getTypeOfExpression(
+                            arg1Expr,
+                            undefined,
+                            EvaluatorFlags.EvaluateStringLiteralAsType
+                        ).type;
                         const classTypeList = getIsInstanceClassTypes(arg1Type);
                         if (classTypeList) {
                             return (type: Type) => {
