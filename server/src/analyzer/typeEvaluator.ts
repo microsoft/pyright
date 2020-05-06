@@ -4064,8 +4064,34 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     typeVarMap,
                     skipUnknownArgCheck
                 );
-                if (!callResult.argumentErrors) {
+                if (callResult.argumentErrors) {
                     reportedErrors = true;
+                } else {
+                    const newReturnType = callResult.returnType;
+
+                    // If the constructor returned an object whose type matches the class of
+                    // the original type being constructed, use the return type in case it was
+                    // specialized.If it doesn't match, we'll fall back on the assumption that
+                    // the constructed type is an instance of the class type. We need to do this
+                    // in cases where we're inferring the return type based on a call to
+                    // super().__new__().
+                    if (newReturnType) {
+                        if (
+                            newReturnType.category === TypeCategory.Object &&
+                            ClassType.isSameGenericClass(newReturnType.classType, type)
+                        ) {
+                            // If the specialized return type derived from the __init__
+                            // method is "better" than the return type provided by the
+                            // __new__ method (where "better" means that the type arguments
+                            // are all known), stick with the __init__ result.
+                            if (
+                                (!containsUnknown(newReturnType) && !requiresSpecialization(newReturnType)) ||
+                                returnType === undefined
+                            ) {
+                                returnType = newReturnType;
+                            }
+                        }
+                    }
                 }
 
                 if (!returnType) {
