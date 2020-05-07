@@ -221,7 +221,7 @@ export class AnalyzerService {
         position: Position,
         workspacePath: string,
         token: CancellationToken
-    ): CompletionList | undefined {
+    ): Promise<CompletionList | undefined> {
         return this._program.getCompletionsForPosition(filePath, position, workspacePath, token);
     }
 
@@ -391,17 +391,24 @@ export class AnalyzerService {
                 }
 
                 // If the user has defined execution environments, then we ignore
-                // autoSearchPaths and leave it up to them to set extraPaths on them.
-                if (commandLineOptions.autoSearchPaths && configOptions.executionEnvironments.length === 0) {
-                    configOptions.addExecEnvironmentForAutoSearchPaths(this._fs);
+                // autoSearchPaths, extraPaths and leave it up to them to set
+                // extraPaths on the execution environments.
+                if (configOptions.executionEnvironments.length === 0) {
+                    configOptions.addExecEnvironmentForExtraPaths(
+                        this._fs,
+                        commandLineOptions.autoSearchPaths || false,
+                        commandLineOptions.extraPaths || []
+                    );
                 }
             }
             this._updateConfigFileWatcher();
             this._updateLibraryFileWatcher();
         } else {
-            if (commandLineOptions.autoSearchPaths) {
-                configOptions.addExecEnvironmentForAutoSearchPaths(this._fs);
-            }
+            configOptions.addExecEnvironmentForExtraPaths(
+                this._fs,
+                commandLineOptions.autoSearchPaths || false,
+                commandLineOptions.extraPaths || []
+            );
 
             configOptions.autoExcludeVenv = true;
         }

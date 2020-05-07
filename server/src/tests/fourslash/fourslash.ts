@@ -130,7 +130,7 @@ declare namespace _ {
             map: {
                 [marker: string]: { completions: { label: string; documentation?: { kind: string; value: string } }[] };
             }
-        ): void;
+        ): Promise<void>;
         verifySignature(map: {
             [marker: string]: {
                 noSig?: boolean;

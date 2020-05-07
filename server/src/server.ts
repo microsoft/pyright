@@ -46,6 +46,11 @@ class PyrightServer extends LanguageServerBase {
                     serverSettings.typeshedPath = normalizeSlashes(typeshedPaths[0]);
                 }
                 serverSettings.autoSearchPaths = !!pythonAnalysisSection.autoSearchPaths;
+
+                const extraPaths = pythonAnalysisSection.extraPaths;
+                if (extraPaths && isArray(extraPaths) && extraPaths.length > 0) {
+                    serverSettings.extraPaths = extraPaths.map((p) => normalizeSlashes(p));
+                }
             } else {
                 serverSettings.autoSearchPaths = true;
             }

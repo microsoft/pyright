@@ -648,7 +648,7 @@ export class TestState {
             const actualText = textEdit.newText;
             const expectedText: string = Object.values(files)[0];
 
-            if (actualText != expectedText) {
+            if (actualText !== expectedText) {
                 this._raiseError(
                     `doesn't contain expected result: ${stringify(expectedText)}, actual: ${stringify(actualText)}`
                 );
@@ -774,10 +774,10 @@ export class TestState {
         this._verifyTextMatches(this._rangeText(this._getOnlyRange()), !!includeWhiteSpace, expectedText);
     }
 
-    verifyCompletion(
+    async verifyCompletion(
         verifyMode: 'exact' | 'included' | 'excluded',
         map: { [marker: string]: { completions: { label: string; documentation?: { kind: string; value: string } }[] } }
-    ) {
+    ): Promise<void> {
         this._analyze();
 
         for (const marker of this.getMarkers()) {
@@ -785,7 +785,7 @@ export class TestState {
             const expectedCompletions = map[this.getMarkerName(marker)].completions;
             const completionPosition = this._convertOffsetToPosition(filePath, marker.position);
 
-            const result = this.program.getCompletionsForPosition(
+            const result = await this.program.getCompletionsForPosition(
                 filePath,
                 completionPosition,
                 this.workspace.rootPath,

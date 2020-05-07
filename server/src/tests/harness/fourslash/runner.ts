@@ -67,23 +67,41 @@ export function runFourSlashTestContent(
 
 function runCode(code: string, state: TestState): void {
     // Compile and execute the test
-    const wrappedCode = `(function(helper, Consts) {
-${code}
-})`;
 
-    // TODO: figure out how to use this with async
     try {
-        const f = eval(wrappedCode);
-        f(state, Consts);
-
-        markDone();
+        if (state.asyncTest) {
+            runAsyncCode();
+        } else {
+            runPlainCode();
+        }
     } catch (error) {
         markDone(error);
     }
 
+    function runAsyncCode() {
+        const wrappedCode = `(async function(helper, Consts) {
+            ${code}
+            })`;
+        const f = eval(wrappedCode);
+        f(state, Consts)
+            .then(() => {
+                markDone();
+            })
+            .catch((e: any) => {
+                markDone(e);
+            });
+    }
+
+    function runPlainCode() {
+        const wrappedCode = `(function(helper, Consts) {
+            ${code}
+            })`;
+        const f = eval(wrappedCode);
+        f(state, Consts);
+        markDone();
+    }
+
     function markDone(...args: any[]) {
-        if (!state.asyncTest) {
-            state.markTestDone(...args);
-        }
+        state.markTestDone(...args);
     }
 }

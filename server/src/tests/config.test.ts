@@ -261,3 +261,27 @@ test('AutoSearchPathsOnWithConfigExecEnv', () => {
 
     assert.deepEqual(configOptions.executionEnvironments, expectedExecEnvs);
 });
+
+test('AutoSearchPathsOnAndExtraPaths', () => {
+    const cwd = normalizePath(combinePaths(process.cwd(), '../server/src/tests/samples/project_src_with_extra_paths'));
+    const nullConsole = new NullConsole();
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
+    const commandLineOptions = new CommandLineOptions(cwd, false);
+    commandLineOptions.autoSearchPaths = true;
+    commandLineOptions.extraPaths = ['src/_vendored'];
+    service.setOptions(commandLineOptions);
+
+    const configOptions = service.test_getConfigOptions(commandLineOptions);
+
+    // An execution environment is automatically created with src and src/_vendored as extra paths
+    const expectedExecEnvs = [
+        {
+            pythonPlatform: undefined,
+            pythonVersion: 776,
+            root: cwd,
+            extraPaths: [normalizePath(combinePaths(cwd, 'src')), normalizePath(combinePaths(cwd, 'src', '_vendored'))],
+        },
+    ];
+
+    assert.deepEqual(configOptions.executionEnvironments, expectedExecEnvs);
+});

@@ -6,7 +6,7 @@
 * Defines language service completion list extensibility.
 */
 
-import { CompletionList } from 'vscode-languageserver';
+import { CancellationToken, CompletionList } from 'vscode-languageserver';
 
 import { ModuleNode } from '../parser/parseNodes';
 import { ConfigOptions } from './configOptions';
@@ -21,6 +21,7 @@ export interface CompletionListExtension {
         ast: ModuleNode,
         content: string,
         position: number,
-        options: ConfigOptions
-    ): CompletionList;
+        options: ConfigOptions,
+        token: CancellationToken
+    ): Promise<CompletionList>;
 }

@@ -160,7 +160,7 @@ export class ReferencesProvider {
         }
 
         // Special case module names, which don't have references.
-        if (node.parent?.nodeType == ParseNodeType.ModuleName) {
+        if (node.parent?.nodeType === ParseNodeType.ModuleName) {
             return undefined;
         }
 

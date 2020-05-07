@@ -930,21 +930,21 @@ export class Program {
         });
     }
 
-    getCompletionsForPosition(
+    async getCompletionsForPosition(
         filePath: string,
         position: Position,
         workspacePath: string,
         token: CancellationToken
-    ): CompletionList | undefined {
-        return this._runEvaluatorWithCancellationToken(token, () => {
-            const sourceFileInfo = this._sourceFileMap.get(filePath);
-            if (!sourceFileInfo) {
-                return undefined;
-            }
+    ): Promise<CompletionList | undefined> {
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
+        if (!sourceFileInfo) {
+            return undefined;
+        }
 
+        let completionList = this._runEvaluatorWithCancellationToken(token, () => {
             this._bindFile(sourceFileInfo);
 
-            let completionList = sourceFileInfo.sourceFile.getCompletionsForPosition(
+            return sourceFileInfo.sourceFile.getCompletionsForPosition(
                 position,
                 workspacePath,
                 this._configOptions,
@@ -954,25 +954,29 @@ export class Program {
                 () => this._buildModuleSymbolsMap(sourceFileInfo),
                 token
             );
-
-            if (completionList && this._extension?.completionListExtension) {
-                const pr = sourceFileInfo.sourceFile.getParseResults();
-                if (pr?.parseTree) {
-                    const offset = convertPositionToOffset(position, pr.tokenizerOutput.lines);
-                    if (offset) {
-                        completionList = this._extension.completionListExtension.updateCompletionList(
-                            completionList,
-                            pr.parseTree,
-                            filePath,
-                            offset,
-                            this._configOptions
-                        );
-                    }
-                }
-            }
-
-            return completionList;
         });
+
+        if (!completionList || !this._extension?.completionListExtension) {
+            return completionList;
+        }
+
+        const pr = sourceFileInfo.sourceFile.getParseResults();
+        const content = sourceFileInfo.sourceFile.getFileContents();
+        if (pr?.parseTree && content) {
+            const offset = convertPositionToOffset(position, pr.tokenizerOutput.lines);
+            if (offset) {
+                completionList = await this._extension.completionListExtension.updateCompletionList(
+                    completionList,
+                    pr.parseTree,
+                    content,
+                    offset,
+                    this._configOptions,
+                    token
+                );
+            }
+        }
+
+        return completionList;
     }
 
     resolveCompletionItem(filePath: string, completionItem: CompletionItem, token: CancellationToken) {

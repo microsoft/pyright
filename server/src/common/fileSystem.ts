@@ -36,9 +36,15 @@ export interface Stats {
     isSocket(): boolean;
 }
 
+export interface MkDirOptions {
+    recursive: boolean;
+    // Not supported on Windows so commented out.
+    // mode: string | number;
+}
+
 export interface FileSystem {
     existsSync(path: string): boolean;
-    mkdirSync(path: string): void;
+    mkdirSync(path: string, options?: MkDirOptions | number): void;
     chdir(path: string): void;
     readdirSync(path: string): string[];
     readFileSync(path: string, encoding?: null): Buffer;
@@ -84,8 +90,8 @@ class RealFileSystem implements FileSystem {
         return fs.existsSync(path);
     }
 
-    mkdirSync(path: string) {
-        fs.mkdirSync(path);
+    mkdirSync(path: string, options?: MkDirOptions | number) {
+        fs.mkdirSync(path, options);
     }
 
     chdir(path: string) {

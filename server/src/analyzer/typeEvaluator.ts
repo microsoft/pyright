@@ -7912,7 +7912,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     const inferredYieldTypes: Type[] = [];
                     functionDecl.yieldExpressions.forEach((yieldNode) => {
                         if (isNodeReachable(yieldNode)) {
-                            if (yieldNode.nodeType == ParseNodeType.YieldFrom) {
+                            if (yieldNode.nodeType === ParseNodeType.YieldFrom) {
                                 const iteratorType = getTypeOfExpression(yieldNode.expression).type;
                                 const yieldType = getTypeFromIterable(
                                     iteratorType,

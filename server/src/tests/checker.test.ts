@@ -1431,6 +1431,12 @@ test('Callable1', () => {
     validateResults(analysisResults, 3);
 });
 
+test('ThreePartVersion1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['threePartVersion1.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Unions1', () => {
     const configOptions = new ConfigOptions('.');
 

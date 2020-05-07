@@ -61,6 +61,10 @@ export class CommandLineOptions {
     // execution environments.
     autoSearchPaths?: boolean;
 
+    // Extra paths to add to the default execution environment
+    // when user has not explicitly defined execution environments.
+    extraPaths?: string[];
+
     // Default type-checking rule set. Should be one of 'off',
     // 'basic', or 'strict'.
     typeCheckingMode?: string;
