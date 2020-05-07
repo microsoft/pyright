@@ -635,6 +635,7 @@ export const enum FunctionTypeFlags {
 }
 
 interface FunctionDetails {
+    name: string;
     flags: FunctionTypeFlags;
     parameters: FunctionParameter[];
     declaredReturnType?: Type;
@@ -666,10 +667,11 @@ export interface FunctionType extends TypeBase {
 }
 
 export namespace FunctionType {
-    export function create(flags: FunctionTypeFlags, docString?: string) {
+    export function create(name: string, flags: FunctionTypeFlags, docString?: string) {
         const newFunctionType: FunctionType = {
             category: TypeCategory.Function,
             details: {
+                name,
                 flags,
                 parameters: [],
                 docString,
@@ -681,10 +683,11 @@ export namespace FunctionType {
     // Creates a deep copy of the function type, including a fresh
     // version of _functionDetails.
     export function clone(type: FunctionType, deleteFirstParam = false): FunctionType {
-        const newFunction = create(type.details.flags, type.details.docString);
+        const newFunction = create(type.details.name, type.details.flags, type.details.docString);
         const startParam = deleteFirstParam ? 1 : 0;
 
         newFunction.details = {
+            name: type.details.name,
             flags: type.details.flags,
             parameters: type.details.parameters.slice(startParam),
             declaredReturnType: type.details.declaredReturnType,
@@ -720,7 +723,7 @@ export namespace FunctionType {
         type: FunctionType,
         specializedTypes: SpecializedFunctionTypes
     ): FunctionType {
-        const newFunction = create(type.details.flags, type.details.docString);
+        const newFunction = create(type.details.name, type.details.flags, type.details.docString);
         newFunction.details = type.details;
 
         assert(specializedTypes.parameterTypes.length === type.details.parameters.length);

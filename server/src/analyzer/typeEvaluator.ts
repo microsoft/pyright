@@ -1517,8 +1517,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function synthesizeDataClassMethods(node: ClassNode, classType: ClassType, skipSynthesizeInit: boolean) {
         assert(ClassType.isDataClass(classType));
 
-        const newType = FunctionType.create(FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod);
-        const initType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
+        const newType = FunctionType.create(
+            '__new__',
+            FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
+        );
+        const initType = FunctionType.create('__init__', FunctionTypeFlags.SynthesizedMethod);
 
         FunctionType.addParameter(newType, {
             category: ParameterCategory.Simple,
@@ -1661,7 +1664,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         assert(ClassType.isTypedDictClass(classType));
 
         // Synthesize a __new__ method.
-        const newType = FunctionType.create(FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod);
+        const newType = FunctionType.create(
+            '__new__',
+            FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
+        );
         FunctionType.addParameter(newType, {
             category: ParameterCategory.Simple,
             name: 'cls',
@@ -1671,7 +1677,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         newType.details.declaredReturnType = ObjectType.create(classType);
 
         // Synthesize an __init__ method.
-        const initType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
+        const initType = FunctionType.create('__init__', FunctionTypeFlags.SynthesizedMethod);
         FunctionType.addParameter(initType, {
             category: ParameterCategory.Simple,
             name: 'self',
@@ -1706,6 +1712,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             entries.forEach((entry, name) => {
                 const getOverload = FunctionType.create(
+                    'get',
                     FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
                 );
                 FunctionType.addParameter(getOverload, {
@@ -4631,7 +4638,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 useSpeculativeMode(errorNode, () => {
                     validateArgTypeParams.forEach((argParam) => {
                         if (argParam.requiresTypeVarMatching) {
-                            validateArgType(argParam, typeVarMap, skipUnknownArgCheck);
+                            validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck);
                         }
                     });
                 });
@@ -4643,7 +4650,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         validateArgTypeParams.forEach((argParam) => {
-            if (!validateArgType(argParam, typeVarMap, skipUnknownArgCheck)) {
+            if (!validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck)) {
                 reportedArgError = true;
             }
         });
@@ -4676,6 +4683,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     function validateArgType(
         argParam: ValidateArgTypeParams,
         typeVarMap: TypeVarMap,
+        functionName: string,
         skipUnknownCheck: boolean
     ): boolean {
         let argType: Type | undefined;
@@ -4700,15 +4708,18 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         }
 
         const diag = new DiagnosticAddendum();
+        const optionalParamName = argParam.paramName ? ` "${argParam.paramName}"` : '';
+        const optionalFunctionName = functionName ? ` in function "${functionName}"` : '';
+
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
-            const optionalParamName = argParam.paramName ? `"${argParam.paramName}" ` : '';
             const fileInfo = getFileInfo(argParam.errorNode);
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 `Argument of type "${printType(
                     argType
-                )}" cannot be assigned to parameter ${optionalParamName}of type "${printType(argParam.paramType)}"` +
+                )}" cannot be assigned to parameter${optionalParamName} of type ` +
+                    `"${printType(argParam.paramType)}"${optionalFunctionName}` +
                     diag.getString(),
                 argParam.errorNode
             );
@@ -4716,11 +4727,20 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         } else if (!skipUnknownCheck) {
             const simplifiedType = removeUnboundFromUnion(argType);
             const fileInfo = getFileInfo(argParam.errorNode);
+
+            const diagAddendum = new DiagnosticAddendum();
+            if (argParam.paramName) {
+                diagAddendum.addMessage(
+                    `Argument corresponds to parameter "${argParam.paramName}"${optionalFunctionName}` +
+                        diagAddendum.getString()
+                );
+            }
+
             if (simplifiedType.category === TypeCategory.Unknown) {
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
                     DiagnosticRule.reportUnknownArgumentType,
-                    `Type of argument is unknown`,
+                    `Argument type is unknown` + diagAddendum.getString(),
                     argParam.errorNode
                 );
             } else if (containsUnknown(simplifiedType, true)) {
@@ -4732,12 +4752,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // the error because it's likely that the partially-unknown type
                 // arose due to bidirectional type matching.
                 if (!containsUnknown(argParam.paramType) && simplifiedType.category !== TypeCategory.Class) {
-                    const diagAddendum = new DiagnosticAddendum();
                     diagAddendum.addMessage(`Argument type is "${printType(simplifiedType)}"`);
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
                         DiagnosticRule.reportUnknownArgumentType,
-                        `Type of argument is partially unknown` + diagAddendum.getString(),
+                        `Argument type is partially unknown` + diagAddendum.getString(),
                         argParam.errorNode
                     );
                 }
@@ -5144,6 +5163,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         const builtInTupleType = getBuiltInType(errorNode, 'Tuple');
         if (builtInTupleType.category === TypeCategory.Class) {
             const constructorType = FunctionType.create(
+                '__new__',
                 FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
             );
             constructorType.details.declaredReturnType = ObjectType.create(classType);
@@ -5315,6 +5335,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // parameter processing for __new__ (see isAssignmentToDefaultsFollowingNamedTuple),
             // and we don't want to do it for __init__ as well.
             const initType = FunctionType.create(
+                '__init__',
                 FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.SkipConstructorCheck
             );
             FunctionType.addParameter(initType, selfParameter);
@@ -5324,20 +5345,22 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
             classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
-            const keysItemType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
+            const keysItemType = FunctionType.create('keys', FunctionTypeFlags.SynthesizedMethod);
+            const itemsItemType = FunctionType.create('items', FunctionTypeFlags.SynthesizedMethod);
             keysItemType.details.declaredReturnType = getBuiltInObject(errorNode, 'list', [
                 getBuiltInObject(errorNode, 'str'),
             ]);
+            itemsItemType.details.declaredReturnType = keysItemType.details.declaredReturnType;
             classFields.set('keys', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
-            classFields.set('items', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
+            classFields.set('items', Symbol.createWithType(SymbolFlags.InstanceMember, itemsItemType));
 
-            const lenType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
+            const lenType = FunctionType.create('__len__', FunctionTypeFlags.SynthesizedMethod);
             lenType.details.declaredReturnType = getBuiltInObject(errorNode, 'int');
             FunctionType.addParameter(lenType, selfParameter);
             classFields.set('__len__', Symbol.createWithType(SymbolFlags.ClassMember, lenType));
 
             if (addGenericGetAttribute) {
-                const getAttribType = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
+                const getAttribType = FunctionType.create('__getattribute__', FunctionTypeFlags.SynthesizedMethod);
                 getAttribType.details.declaredReturnType = AnyType.create();
                 FunctionType.addParameter(getAttribType, selfParameter);
                 FunctionType.addParameter(getAttribType, {
@@ -6125,7 +6148,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     }
 
     function getTypeFromLambda(node: LambdaNode, expectedType?: Type): TypeResult {
-        const functionType = FunctionType.create(FunctionTypeFlags.None);
+        const functionType = FunctionType.create('', FunctionTypeFlags.None);
 
         // Pre-cache the newly-created function type.
         writeTypeCache(node, functionType);
@@ -6282,7 +6305,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
     // either an ellipsis or a list of parameter types. The second parameter, if
     // present, should specify the return type.
     function createCallableType(typeArgs?: TypeResult[]): FunctionType {
-        const functionType = FunctionType.create(FunctionTypeFlags.None);
+        const functionType = FunctionType.create('', FunctionTypeFlags.None);
         functionType.details.declaredReturnType = AnyType.create();
 
         if (typeArgs && typeArgs.length > 0) {
@@ -7223,7 +7246,11 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             functionFlags |= FunctionTypeFlags.Async;
         }
 
-        functionType = FunctionType.create(functionFlags, ParseTreeUtils.getDocString(node.suite.statements));
+        functionType = FunctionType.create(
+            node.name.value,
+            functionFlags,
+            ParseTreeUtils.getDocString(node.suite.statements)
+        );
 
         if (fileInfo.isBuiltInStubFile || fileInfo.isTypingStubFile) {
             // Stash away the name of the function since we need to handle
@@ -7598,7 +7625,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         fields.set('fget', fgetSymbol);
 
         // Fill in the __get__ method.
-        const getFunction = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
+        const getFunction = FunctionType.create('__get__', FunctionTypeFlags.SynthesizedMethod);
         getFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
@@ -7615,22 +7642,22 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         fields.set('__get__', getSymbol);
 
         // Fill in the getter, setter and deleter methods.
-        const accessorFunction = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
-        accessorFunction.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'self',
-            type: propertyObject,
+        ['getter', 'setter', 'deleter'].forEach((accessorName) => {
+            const accessorFunction = FunctionType.create(accessorName, FunctionTypeFlags.SynthesizedMethod);
+            accessorFunction.details.parameters.push({
+                category: ParameterCategory.Simple,
+                name: 'self',
+                type: propertyObject,
+            });
+            accessorFunction.details.parameters.push({
+                category: ParameterCategory.Simple,
+                name: 'accessor',
+                type: AnyType.create(),
+            });
+            accessorFunction.details.declaredReturnType = propertyObject;
+            const accessorSymbol = Symbol.createWithType(SymbolFlags.ClassMember, accessorFunction);
+            fields.set(accessorName, accessorSymbol);
         });
-        accessorFunction.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'accessor',
-            type: AnyType.create(),
-        });
-        accessorFunction.details.declaredReturnType = propertyObject;
-        const accessorSymbol = Symbol.createWithType(SymbolFlags.ClassMember, accessorFunction);
-        fields.set('getter', accessorSymbol);
-        fields.set('setter', accessorSymbol);
-        fields.set('deleter', accessorSymbol);
 
         return propertyObject;
     }
@@ -7663,7 +7690,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         fields.set('fset', fsetSymbol);
 
         // Fill in the __set__ method.
-        const setFunction = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
+        const setFunction = FunctionType.create('__set__', FunctionTypeFlags.SynthesizedMethod);
         setFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
@@ -7722,7 +7749,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         fields.set('fdel', fdelSymbol);
 
         // Fill in the __delete__ method.
-        const delFunction = FunctionType.create(FunctionTypeFlags.SynthesizedMethod);
+        const delFunction = FunctionType.create('__delete__', FunctionTypeFlags.SynthesizedMethod);
         delFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
@@ -11424,6 +11451,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             } else if (srcType.category === TypeCategory.Class) {
                 // Synthesize a function that represents the constructor for this class.
                 const constructorFunction = FunctionType.create(
+                    '__new__',
                     FunctionTypeFlags.StaticMethod |
                         FunctionTypeFlags.ConstructorMethod |
                         FunctionTypeFlags.SynthesizedMethod
