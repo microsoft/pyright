@@ -1311,7 +1311,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                             const boundFunction = bindFunctionToClassOrObject(baseType, setItemType);
                             if (boundFunction.category === TypeCategory.Function) {
                                 if (boundFunction.details.parameters.length === 2) {
-                                    return FunctionType.getEffectiveParameterType(boundFunction, 1);
+                                    const paramType = FunctionType.getEffectiveParameterType(boundFunction, 1);
+                                    if (!isAnyOrUnknown(paramType)) {
+                                        return paramType;
+                                    }
                                 }
                             }
                         }
