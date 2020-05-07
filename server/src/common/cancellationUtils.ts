@@ -207,7 +207,7 @@ export class OperationCanceledException extends ResponseError<void> {
     }
 
     static is(e: any) {
-        return e.code == ErrorCodes.RequestCancelled;
+        return e.code === ErrorCodes.RequestCancelled;
     }
 }
 

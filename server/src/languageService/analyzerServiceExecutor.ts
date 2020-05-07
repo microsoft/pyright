@@ -81,6 +81,7 @@ function _getCommandLineOptions(
     }
 
     commandLineOptions.autoSearchPaths = serverSettings.autoSearchPaths;
+    commandLineOptions.extraPaths = serverSettings.extraPaths;
 
     return commandLineOptions;
 }

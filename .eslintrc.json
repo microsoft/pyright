@@ -17,6 +17,7 @@
         "simple-import-sort"
     ],
     "rules": {
+        "eqeqeq": "error",
         "no-constant-condition": 0,
         "no-inner-declarations": 0,
         "no-undef": 0,

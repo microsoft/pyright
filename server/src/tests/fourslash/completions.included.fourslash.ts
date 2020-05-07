@@ -1,4 +1,5 @@
 /// <reference path="fourslash.ts" />
+// @asynctest: true
 
 // @filename: test.py
 //// a = 42

@@ -290,7 +290,7 @@ export function getNoTypeCheckingDiagnosticRuleSet(): DiagnosticRuleSet {
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'none',
         reportTypeshedErrors: 'none',
-        reportMissingImports: 'none',
+        reportMissingImports: 'warning',
         reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'none',
         reportImportCycles: 'none',
@@ -494,17 +494,31 @@ export class ConfigOptions {
         return execEnv;
     }
 
-    addExecEnvironmentForAutoSearchPaths(fs: FileSystem) {
-        // Auto-detect the common scenario where the sources are under the src folder
-        const srcPath = combinePaths(this.projectRoot, pathConsts.src);
-        if (fs.existsSync(srcPath) && !fs.existsSync(combinePaths(srcPath, '__init__.py'))) {
+    addExecEnvironmentForExtraPaths(fs: FileSystem, autoSearchPaths: boolean, extraPaths: string[]) {
+        const paths: string[] = [];
+
+        if (autoSearchPaths) {
+            // Auto-detect the common scenario where the sources are under the src folder
+            const srcPath = normalizePath(combinePaths(this.projectRoot, pathConsts.src));
+            if (fs.existsSync(srcPath) && !fs.existsSync(combinePaths(srcPath, '__init__.py'))) {
+                paths.push(srcPath);
+            }
+        }
+
+        if (extraPaths.length > 0) {
+            for (const p of extraPaths) {
+                paths.push(normalizePath(combinePaths(this.projectRoot, p)));
+            }
+        }
+
+        if (paths.length > 0) {
             const execEnv = new ExecutionEnvironment(
                 this.projectRoot,
                 this.defaultPythonVersion,
                 this.defaultPythonPlatform
             );
 
-            execEnv.extraPaths.push(srcPath);
+            execEnv.extraPaths.push(...paths);
 
             this.executionEnvironments.push(execEnv);
         }

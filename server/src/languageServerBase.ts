@@ -81,6 +81,7 @@ export interface ServerSettings {
     disableLanguageServices?: boolean;
     disableOrganizeImports?: boolean;
     autoSearchPaths?: boolean;
+    extraPaths?: string[];
     watchForSourceChanges?: boolean;
     watchForLibraryChanges?: boolean;
 }
@@ -574,7 +575,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return;
             }
 
-            const completions = workspace.serviceInstance.getCompletionsForPosition(
+            const completions = await workspace.serviceInstance.getCompletionsForPosition(
                 filePath,
                 position,
                 workspace.rootPath,

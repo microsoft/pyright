@@ -117,7 +117,8 @@ export function evaluateStaticBoolLikeExpression(
 
 function _convertTupleToVersion(node: TupleNode): number | undefined {
     let comparisonVersion: number | undefined;
-    if (node.expressions.length === 2) {
+    // Ignore patch versions.
+    if (node.expressions.length >= 2) {
         if (
             node.expressions[0].nodeType === ParseNodeType.Number &&
             !node.expressions[0].isImaginary &&
