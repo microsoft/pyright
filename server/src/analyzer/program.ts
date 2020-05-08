@@ -214,10 +214,10 @@ export class Program {
             sourceFileInfo.sourceFile.setClientVersion(null, '');
 
             if (this._configOptions.checkOnlyOpenFiles) {
-                // Reset the diagnostic version so we force an update
-                // to the diagnostics, which can change based on whether
+                // Set the diagnostic version to an invalid value so we force an
+                // update to the diagnostics, which can change based on whether
                 // the file is open.
-                sourceFileInfo.diagnosticsVersion = undefined;
+                sourceFileInfo.diagnosticsVersion = -1;
             }
         }
 
@@ -1160,7 +1160,7 @@ export class Program {
                 ) {
                     // If the old diagnostic version was undefined or zero, we haven't
                     // reported any diagnostics for this file, so no need to clear them.
-                    if (fileInfo.diagnosticsVersion !== undefined && fileInfo.diagnosticsVersion > 0) {
+                    if (fileInfo.diagnosticsVersion !== undefined && fileInfo.diagnosticsVersion !== 0) {
                         fileDiagnostics.push({
                             filePath: fileInfo.sourceFile.getFilePath(),
                             diagnostics: [],
