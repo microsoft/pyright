@@ -232,9 +232,9 @@ export class ImportResolver {
                     moduleDescriptor,
                     importName,
                     importFailureInfo,
-                    true,
-                    true,
-                    true,
+                    /* allowPartial */ true,
+                    /* allowPydFile */ true,
+                    /* allowStubsFolder */ true,
                     allowPyi
                 );
                 if (thirdPartyImport) {
@@ -490,6 +490,14 @@ export class ImportResolver {
 
         if (parts.length === 0) {
             return undefined;
+        }
+
+        // Handle the case where the symbol was resolved to a stubs package
+        // rather than the real package. We'll strip off the "-stubs" suffix
+        // in this case.
+        const stubsSuffix = '-stubs';
+        if (parts[0].endsWith(stubsSuffix)) {
+            parts[0] = parts[0].substr(0, parts[0].length - stubsSuffix.length);
         }
 
         return parts.join('.');
