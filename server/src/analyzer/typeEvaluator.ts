@@ -8107,6 +8107,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             exprType = removeNoneFromUnion(exprType);
         }
 
+        // Verify that the target has an __enter__ or __aenter__ method defined.
         const enterMethodName = isAsync ? '__aenter__' : '__enter__';
         const scopedType = doForSubtypes(exprType, (subtype) => {
             if (subtype.category === TypeCategory.TypeVar) {
@@ -8121,7 +8122,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             let additionalHelp = '';
 
             if (subtype.category === TypeCategory.Object) {
-                const memberType = getTypeFromObjectMember(
+                const enterType = getTypeFromObjectMember(
                     node.expression,
                     subtype,
                     enterMethodName,
@@ -8130,10 +8131,10 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                     MemberAccessFlags.None
                 );
 
-                if (memberType) {
+                if (enterType) {
                     let memberReturnType: Type;
-                    if (memberType.category === TypeCategory.Function) {
-                        memberReturnType = getFunctionEffectiveReturnType(memberType);
+                    if (enterType.category === TypeCategory.Function) {
+                        memberReturnType = getFunctionEffectiveReturnType(enterType);
                     } else {
                         memberReturnType = UnknownType.create();
                     }
@@ -8167,12 +8168,50 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 DiagnosticRule.reportGeneralTypeIssues,
                 `Object of type "${printType(
                     subtype
-                )}" cannot be used with "with" because it does not implement ${enterMethodName}` +
-                    additionalHelp +
-                    diag.getString(),
+                )}" cannot be used with "with" because it does not implement ${enterMethodName}` + additionalHelp,
                 node.expression
             );
             return UnknownType.create();
+        });
+
+        // Verify that the target has an __exit__ or __aexit__ method defined.
+        const exitMethodName = isAsync ? '__aexit__' : '__exit__';
+        doForSubtypes(exprType, (subtype) => {
+            if (subtype.category === TypeCategory.TypeVar) {
+                subtype = specializeType(subtype, undefined);
+            }
+
+            if (isAnyOrUnknown(subtype)) {
+                return undefined;
+            }
+
+            const diag = new DiagnosticAddendum();
+
+            if (subtype.category === TypeCategory.Object) {
+                const exitType = getTypeFromObjectMember(
+                    node.expression,
+                    subtype,
+                    exitMethodName,
+                    { method: 'get' },
+                    diag,
+                    MemberAccessFlags.None
+                );
+
+                if (exitType) {
+                    return undefined;
+                }
+            }
+
+            const fileInfo = getFileInfo(node);
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                `Object of type "${printType(
+                    subtype
+                )}" cannot be used with "with" because it does not implement ${exitMethodName}`,
+                node.expression
+            );
+            return undefined;
         });
 
         if (node.target) {

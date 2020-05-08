@@ -1,5 +1,8 @@
 # This sample tests use of "Optional" types.
 
+from typing import Any, Optional
+
+
 class Foo:
     def __init__(self):
         self.value = 3
@@ -9,6 +12,15 @@ class Foo:
 
     def __enter__(self):
         return 3
+
+    def __exit__(
+        self,
+        t: Optional[type] = None,
+        exc: Optional[BaseException] = None,
+        tb: Optional[Any] = None,
+    ) -> bool:
+        return True
+
 
 a = None
 if 1:
@@ -21,6 +33,7 @@ a.value = 3
 
 def foo():
     pass
+
 
 b = None
 if 1:

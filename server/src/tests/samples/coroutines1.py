@@ -1,11 +1,13 @@
 # This same tests the type checker's ability to validate
 # types related to coroutines (and async/await) statements.
 
-from typing import Generator, Any
+from typing import Generator, Any, Optional
 from asyncio import coroutine
+
 
 async def coroutine1():
     return 1
+
 
 a = coroutine1()
 
@@ -17,6 +19,7 @@ await a
 def needs_int(val: int):
     pass
 
+
 async def consumer1():
     # This should generate an error because
     # a is not an int
@@ -25,7 +28,6 @@ async def consumer1():
     needs_int(await a)
 
     needs_int(await coroutine1())
-
 
 
 class ScopedClass1:
@@ -37,6 +39,15 @@ class ScopedClass1:
         yield 3
         return 3
 
+    def __aexit__(
+        self,
+        t: Optional[type] = None,
+        exc: Optional[BaseException] = None,
+        tb: Optional[Any] = None,
+    ) -> bool:
+        return True
+
+
 async def consumer2():
     a = ScopedClass1()
 
@@ -47,4 +58,3 @@ async def consumer2():
 
     async with a as b:
         needs_int(b)
-

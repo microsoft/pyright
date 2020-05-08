@@ -710,6 +710,12 @@ test('With1', () => {
     validateResults(analysisResults, 3);
 });
 
+test('With2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with2.py']);
+
+    validateResults(analysisResults, 3);
+});
+
 test('ForLoops1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoops1.py']);
 
