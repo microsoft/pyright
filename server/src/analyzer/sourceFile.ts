@@ -172,7 +172,8 @@ export class SourceFile {
                 fileName === '_importlib_modulespec.pyi' ||
                 fileName === 'dataclasses.pyi' ||
                 fileName === 'abc.pyi' ||
-                fileName === 'enum.pyi'
+                fileName === 'enum.pyi' ||
+                fileName === 'types.pyi'
             ) {
                 this._isBuiltInStubFile = true;
             }

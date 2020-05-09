@@ -1078,9 +1078,17 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Several built-in classes don't follow the normal class hierarchy
+        // rules, so we'll avoid emitting false-positive diagnostics if these
+        // are used.
+        const nonstandardClassTypes = ['FunctionType', 'LambdaType', 'BuiltinFunctionType', 'BuiltinMethodType'];
+
         const classTypeList: ClassType[] = [];
         if (arg1Type.category === TypeCategory.Class) {
             classTypeList.push(arg1Type);
+            if (ClassType.isBuiltIn(arg1Type) && nonstandardClassTypes.some((name) => name === arg1Type.details.name)) {
+                return;
+            }
         } else if (arg1Type.category === TypeCategory.Object) {
             // The isinstance and issubclass call supports a variation where the second
             // parameter is a tuple of classes.
@@ -1093,6 +1101,9 @@ export class Checker extends ParseTreeWalker {
                         return;
                     }
                 });
+            }
+            if (ClassType.isBuiltIn(objClass) && nonstandardClassTypes.some((name) => name === objClass.details.name)) {
+                return;
             }
         } else {
             return;
