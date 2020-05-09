@@ -7,7 +7,7 @@
  */
 
 /* eslint-disable no-dupe-class-members */
-import { ReadStream, WriteStream } from 'fs';
+import { Dirent, ReadStream, WriteStream } from 'fs';
 
 import { FileSystem, FileWatcher, FileWatcherEventHandler } from '../../../common/fileSystem';
 import * as pathUtil from '../../../common/pathUtils';
@@ -550,6 +550,25 @@ export class TestFileSystem implements FileSystem {
     }
 
     /**
+     * Read a directory. If `path` is a symbolic link, it is dereferenced.
+     *
+     * @link http://pubs.opengroup.org/onlinepubs/9699919799/functions/readdir.html
+     *
+     * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
+     */
+    readdirEntriesSync(path: string): Dirent[] {
+        const { node } = this._walk(this._resolve(path));
+        if (!node) {
+            throw createIOError('ENOENT');
+        }
+        if (!isDirectory(node)) {
+            throw createIOError('ENOTDIR');
+        }
+        const entries = Array.from(this._getLinks(node).entries());
+        return entries.map(([k, v]) => makeDirEnt(k, v));
+    }
+
+    /**
      * Make a directory.
      *
      * @link http://pubs.opengroup.org/onlinepubs/9699919799/functions/mkdir.html
@@ -829,6 +848,10 @@ export class TestFileSystem implements FileSystem {
         throw new Error('Not implemented in test file system.');
     }
     createWriteStream(path: string): WriteStream {
+        throw new Error('Not implemented in test file system.');
+    }
+
+    copyFileSync(src: string, dst: string): void {
         throw new Error('Not implemented in test file system.');
     }
 
@@ -1711,6 +1734,20 @@ function formatPatchWorker(dirname: string, container: FileSet): string {
         }
     }
     return text;
+}
+
+function makeDirEnt(name: string, node: Inode): Dirent {
+    const de: Dirent = {
+        isFile: () => isFile(node),
+        isDirectory: () => isDirectory(node),
+        isBlockDevice: () => false,
+        isCharacterDevice: () => false,
+        isFIFO: () => false,
+        isSocket: () => false,
+        isSymbolicLink: () => isSymlink(node),
+        name,
+    };
+    return de;
 }
 
 class Stats {

@@ -121,9 +121,12 @@ declare namespace _ {
             [marker: string]: { codeActions: { title: string; kind: string; command: Command }[] };
         }): void;
         verifyCommand(command: Command, files: { [filePath: string]: string }): void;
-        verifyInvokeCodeAction(map: {
-            [marker: string]: { title: string; files?: { [filePath: string]: string }; edits?: TextEdit[] };
-        }): void;
+        verifyInvokeCodeAction(
+            map: {
+                [marker: string]: { title: string; files?: { [filePath: string]: string }; edits?: TextEdit[] };
+            },
+            verifyCodeActionCount?: boolean
+        ): void;
         verifyHover(map: { [marker: string]: { value: string; kind: string } }): void;
         verifyCompletion(
             verifyMode: 'exact' | 'included' | 'excluded',

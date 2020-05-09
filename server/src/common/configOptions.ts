@@ -168,6 +168,12 @@ export interface DiagnosticRuleSet {
 
     // Report implicit concatenation of string literals.
     reportImplicitStringConcatenation: DiagnosticLevel;
+
+    // Report usage of undefined variables.
+    reportUndefinedVariable: DiagnosticLevel;
+
+    // Report usage of unbound or possibly unbound variables.
+    reportUnboundVariable: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -226,6 +232,8 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportAssertAlwaysTrue,
         DiagnosticRule.reportSelfClsParameterName,
         DiagnosticRule.reportImplicitStringConcatenation,
+        DiagnosticRule.reportUndefinedVariable,
+        DiagnosticRule.reportUnboundVariable,
     ];
 }
 
@@ -277,6 +285,8 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportAssertAlwaysTrue: 'error',
         reportSelfClsParameterName: 'error',
         reportImplicitStringConcatenation: 'none',
+        reportUnboundVariable: 'error',
+        reportUndefinedVariable: 'error',
     };
 
     return diagSettings;
@@ -324,6 +334,8 @@ export function getNoTypeCheckingDiagnosticRuleSet(): DiagnosticRuleSet {
         reportAssertAlwaysTrue: 'none',
         reportSelfClsParameterName: 'none',
         reportImplicitStringConcatenation: 'none',
+        reportUnboundVariable: 'warning',
+        reportUndefinedVariable: 'warning',
     };
 
     return diagSettings;
@@ -371,6 +383,8 @@ export function getDefaultDiagnosticRuleSet(): DiagnosticRuleSet {
         reportAssertAlwaysTrue: 'warning',
         reportSelfClsParameterName: 'warning',
         reportImplicitStringConcatenation: 'none',
+        reportUnboundVariable: 'error',
+        reportUndefinedVariable: 'error',
     };
 
     return diagSettings;
@@ -898,6 +912,20 @@ export class ConfigOptions {
                 configObj.reportImplicitStringConcatenation,
                 DiagnosticRule.reportImplicitStringConcatenation,
                 defaultSettings.reportImplicitStringConcatenation
+            ),
+
+            // Read the "reportUndefinedVariable" entry.
+            reportUndefinedVariable: this._convertDiagnosticLevel(
+                configObj.reportUndefinedVariable,
+                DiagnosticRule.reportUndefinedVariable,
+                defaultSettings.reportUndefinedVariable
+            ),
+
+            // Read the "reportUnboundVariable" entry.
+            reportUnboundVariable: this._convertDiagnosticLevel(
+                configObj.reportUnboundVariable,
+                DiagnosticRule.reportUnboundVariable,
+                defaultSettings.reportUnboundVariable
             ),
         };
 

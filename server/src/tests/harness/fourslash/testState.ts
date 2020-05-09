@@ -658,9 +658,12 @@ export class TestState {
         this.markTestDone();
     }
 
-    async verifyInvokeCodeAction(map: {
-        [marker: string]: { title: string; files?: { [filePath: string]: string }; edits?: TextEdit[] };
-    }): Promise<any> {
+    async verifyInvokeCodeAction(
+        map: {
+            [marker: string]: { title: string; files?: { [filePath: string]: string }; edits?: TextEdit[] };
+        },
+        verifyCodeActionCount?: boolean
+    ): Promise<any> {
         this._analyze();
 
         for (const range of this.getRanges()) {
@@ -672,7 +675,22 @@ export class TestState {
             const ls = new TestLanguageService(this.workspace, this.console, this.fs);
 
             const codeActions = await this._getCodeActions(range);
-            for (const codeAction of codeActions.filter((c) => c.title === map[name].title)) {
+            if (verifyCodeActionCount) {
+                if (codeActions.length !== Object.keys(map).length) {
+                    this._raiseError(
+                        `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(codeActions)}`
+                    );
+                }
+            }
+
+            const matches = codeActions.filter((c) => c.title === map[name].title);
+            if (matches.length === 0) {
+                this._raiseError(
+                    `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(codeActions)}`
+                );
+            }
+
+            for (const codeAction of matches) {
                 const results = await this._hostSpecificFeatures.execute(
                     ls,
                     {
@@ -686,11 +704,17 @@ export class TestState {
                     const workspaceEdits = results as WorkspaceEdit;
                     for (const edits of Object.values(workspaceEdits.changes!)) {
                         for (const edit of edits) {
-                            assert(
+                            if (
                                 map[name].edits!.filter(
                                     (e) => rangesAreEqual(e.range, edit.range) && e.newText === edit.newText
-                                ).length === 1
-                            );
+                                ).length !== 1
+                            ) {
+                                this._raiseError(
+                                    `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(
+                                        edits
+                                    )}`
+                                );
+                            }
                         }
                     }
                 }
@@ -856,6 +880,8 @@ export class TestState {
                 assert.fail('Failed to get completions');
             }
         }
+
+        this.markTestDone();
     }
 
     verifySignature(map: {
