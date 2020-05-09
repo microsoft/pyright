@@ -56,3 +56,17 @@ export function convertPositionToOffset(position: Position, lines: TextRangeColl
 
     return lines.getItemAt(position.line).start + position.character;
 }
+
+export function convertRangeToTextRange(range: Range, lines: TextRangeCollection<TextRange>): TextRange | undefined {
+    const start = convertPositionToOffset(range.start, lines);
+    if (!start) {
+        return undefined;
+    }
+
+    const end = convertPositionToOffset(range.end, lines);
+    if (!end) {
+        return undefined;
+    }
+
+    return TextRange.fromBounds(start, end);
+}

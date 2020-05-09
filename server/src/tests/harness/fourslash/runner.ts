@@ -83,13 +83,7 @@ function runCode(code: string, state: TestState): void {
             ${code}
             })`;
         const f = eval(wrappedCode);
-        f(state, Consts)
-            .then(() => {
-                markDone();
-            })
-            .catch((e: any) => {
-                markDone(e);
-            });
+        f(state, Consts);
     }
 
     function runPlainCode() {

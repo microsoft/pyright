@@ -33,10 +33,15 @@ import {
     normalizePath,
     stripFileExtension,
 } from '../common/pathUtils';
-import { convertPositionToOffset } from '../common/positionUtils';
+import { convertPositionToOffset, convertRangeToTextRange } from '../common/positionUtils';
 import { DocumentRange, doRangesOverlap, Position, Range } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
-import { ModuleSymbolMap } from '../languageService/completionProvider';
+import {
+    AutoImporter,
+    AutoImportResult,
+    buildModuleSymbolsMap,
+    ModuleSymbolMap,
+} from '../languageService/autoImporter';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportLookupResult } from './analyzerFileInfo';
@@ -44,9 +49,10 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
+import { findNodeByOffset } from './parseTreeUtils';
 import { Scope } from './scope';
+import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
-import { SymbolTable } from './symbol';
 import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
 import { TypeStubWriter } from './typeStubWriter';
 
@@ -580,19 +586,11 @@ export class Program {
 
     // Build a map of all modules within this program and the module-
     // level scope that contains the symbol table for the module.
-    private _buildModuleSymbolsMap(sourceFileToExclude?: SourceFileInfo): ModuleSymbolMap {
-        const moduleSymbolMap = new Map<string, SymbolTable>();
-
-        this._sourceFileList.forEach((fileInfo) => {
-            if (fileInfo !== sourceFileToExclude) {
-                const symbolTable = fileInfo.sourceFile.getModuleSymbolTable();
-                if (symbolTable) {
-                    moduleSymbolMap.set(fileInfo.sourceFile.getFilePath(), symbolTable);
-                }
-            }
-        });
-
-        return moduleSymbolMap;
+    private _buildModuleSymbolsMap(sourceFileToExclude: SourceFileInfo, token: CancellationToken): ModuleSymbolMap {
+        return buildModuleSymbolsMap(
+            this._sourceFileList.filter((s) => s !== sourceFileToExclude).map((s) => s.sourceFile),
+            token
+        );
     }
 
     private _checkTypes(fileToCheck: SourceFileInfo) {
@@ -764,6 +762,56 @@ export class Program {
                 this._markFileDirtyRecursive(dep, markMap);
             });
         }
+    }
+
+    getAutoImports(
+        filePath: string,
+        range: Range,
+        similarityLimit: number,
+        token: CancellationToken
+    ): AutoImportResult[] {
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
+        if (!sourceFileInfo) {
+            return [];
+        }
+
+        const sourceFile = sourceFileInfo.sourceFile;
+        const fileContents = sourceFile.getFileContents();
+        if (!fileContents) {
+            // this only works with opened file
+            return [];
+        }
+
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            this._bindFile(sourceFileInfo);
+
+            const parseTree = sourceFile.getParseResults()!;
+            const textRange = convertRangeToTextRange(range, parseTree.tokenizerOutput.lines);
+            if (!textRange) {
+                return [];
+            }
+
+            const currentNode = findNodeByOffset(parseTree.parseTree, textRange.start);
+            if (!currentNode) {
+                return [];
+            }
+
+            const word = fileContents.substr(textRange.start, textRange.length);
+            const map = this._buildModuleSymbolsMap(sourceFileInfo, token);
+            const autoImporter = new AutoImporter(
+                this._configOptions,
+                sourceFile.getFilePath(),
+                this._importResolver,
+                parseTree,
+                map
+            );
+
+            // Filter out any name that is already defined in the current scope.
+            const currentScope = getScopeForNode(currentNode);
+            return autoImporter
+                .getAutoImportCandidates(word, similarityLimit, [], token)
+                .filter((r) => !currentScope.lookUpSymbolRecursive(r.name));
+        });
     }
 
     getDiagnostics(options: ConfigOptions): FileDiagnostics[] {
@@ -951,7 +999,7 @@ export class Program {
                 this._importResolver,
                 this._lookUpImport,
                 this._evaluator,
-                () => this._buildModuleSymbolsMap(sourceFileInfo),
+                () => this._buildModuleSymbolsMap(sourceFileInfo, token),
                 token
             );
         });
@@ -993,7 +1041,7 @@ export class Program {
                 this._importResolver,
                 this._lookUpImport,
                 this._evaluator,
-                () => this._buildModuleSymbolsMap(sourceFileInfo),
+                () => this._buildModuleSymbolsMap(sourceFileInfo, token),
                 completionItem,
                 token
             );

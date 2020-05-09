@@ -50,4 +50,6 @@ export const enum DiagnosticRule {
     reportAssertAlwaysTrue = 'reportAssertAlwaysTrue',
     reportSelfClsParameterName = 'reportSelfClsParameterName',
     reportImplicitStringConcatenation = 'reportImplicitStringConcatenation',
+    reportUndefinedVariable = 'reportUndefinedVariable',
+    reportUnboundVariable = 'reportUnboundVariable',
 }

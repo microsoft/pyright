@@ -22,16 +22,7 @@ import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
-import { ImportedModuleDescriptor, ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
-import { ImportType } from '../analyzer/importResult';
-import {
-    getImportGroup,
-    getTextEditsForAutoImportInsertion,
-    getTextEditsForAutoImportSymbolAddition,
-    getTopLevelImports,
-    ImportGroup,
-    ImportStatements,
-} from '../analyzer/importStatementUtils';
+import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
@@ -42,7 +33,6 @@ import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analy
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
-import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position } from '../common/textRange';
@@ -62,6 +52,7 @@ import {
     StringNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { AutoImporter, ModuleSymbolMap } from './autoImporter';
 
 const _keywords: string[] = [
     // Expression keywords
@@ -167,8 +158,6 @@ const similarityLimit = 0.25;
 
 // We'll remember this many completions in the MRU list.
 const maxRecentCompletions = 128;
-
-export type ModuleSymbolMap = Map<string, SymbolTable>;
 
 export class CompletionProvider {
     private static _mostRecentCompletions: RecentCompletionInfo[] = [];
@@ -832,170 +821,46 @@ export class CompletionProvider {
         }
     }
 
-    private _getImportGroupFromModuleNameAndType(moduleNameAndType: ModuleNameAndType): ImportGroup {
-        let importGroup = ImportGroup.Local;
-        if (moduleNameAndType.isLocalTypingsFile || moduleNameAndType.importType === ImportType.ThirdParty) {
-            importGroup = ImportGroup.ThirdParty;
-        } else if (moduleNameAndType.importType === ImportType.BuiltIn) {
-            importGroup = ImportGroup.BuiltIn;
-        }
-
-        return importGroup;
-    }
-
     private _getAutoImportCompletions(priorWord: string, completionList: CompletionList) {
         const moduleSymbolMap = this._moduleSymbolsCallback();
-        const importStatements = getTopLevelImports(this._parseResults.parseTree);
-
-        moduleSymbolMap.forEach((symbolTable, filePath) => {
-            const fileName = stripFileExtension(getFileName(filePath));
-
-            // Don't offer imports from files that are named with private
-            // naming semantics like "_ast.py".
-            if (!SymbolNameUtils.isPrivateOrProtectedName(fileName)) {
-                symbolTable.forEach((symbol, name) => {
-                    // For very short matching strings, we will require an exact match. Otherwise
-                    // we will tend to return a list that's too long. Once we get beyond two
-                    // characters, we can do a fuzzy match.
-                    const isSimilar =
-                        priorWord.length > 2
-                            ? StringUtils.computeCompletionSimilarity(priorWord, name) > similarityLimit
-                            : priorWord.length > 0 && name.startsWith(priorWord);
-
-                    if (isSimilar) {
-                        if (!symbol.isExternallyHidden()) {
-                            // If there's already a local completion suggestion with
-                            // this name, don't add an auto-import suggestion with
-                            // the same name.
-                            const localDuplicate = completionList.items.find(
-                                (item) => item.label === name && !item.data.autoImport
-                            );
-                            const declarations = symbol.getDeclarations();
-                            if (declarations && declarations.length > 0 && localDuplicate === undefined) {
-                                // Don't include imported symbols, only those that
-                                // are declared within this file.
-                                if (declarations[0].path === filePath) {
-                                    const localImport = importStatements.mapByFilePath.get(filePath);
-                                    let importSource: string;
-                                    let importGroup = ImportGroup.Local;
-                                    let moduleNameAndType: ModuleNameAndType | undefined;
-
-                                    if (localImport) {
-                                        importSource = localImport.moduleName;
-                                        importGroup = getImportGroup(localImport);
-                                    } else {
-                                        moduleNameAndType = this._getModuleNameAndTypeFromFilePath(filePath);
-                                        importSource = moduleNameAndType.moduleName;
-                                        importGroup = this._getImportGroupFromModuleNameAndType(moduleNameAndType);
-                                    }
-
-                                    const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
-                                        name,
-                                        importStatements,
-                                        filePath,
-                                        importSource,
-                                        importGroup
-                                    );
-
-                                    this._addSymbol(
-                                        name,
-                                        symbol,
-                                        priorWord,
-                                        completionList,
-                                        importSource,
-                                        undefined,
-                                        autoImportTextEdits
-                                    );
-                                }
-                            }
-                        }
-                    }
-                });
-
-                // See if this file should be offered as an implicit import.
-                const fileDir = getDirectoryPath(filePath);
-                const initPathPy = combinePaths(fileDir, '__init__.py');
-                const initPathPyi = initPathPy + 'i';
-
-                // If the current file is in a directory that also contains an "__init__.py[i]"
-                // file, we can use that directory name as an implicit import target.
-                if (moduleSymbolMap.has(initPathPy) || moduleSymbolMap.has(initPathPyi)) {
-                    const name = getFileName(fileDir);
-                    const moduleNameAndType = this._getModuleNameAndTypeFromFilePath(getDirectoryPath(fileDir));
-                    if (moduleNameAndType.moduleName) {
-                        const autoImportText = `Auto-import from ${moduleNameAndType.moduleName}`;
-
-                        const isDuplicateEntry = completionList.items.find((item) => {
-                            if (item.label === name) {
-                                // Don't add if there's already a local completion suggestion.
-                                if (!item.data.autoImport) {
-                                    return true;
-                                }
-
-                                // Don't add the same auto-import suggestion twice.
-                                if (item.data && item.data.autoImport === autoImportText) {
-                                    return true;
-                                }
-                            }
-
-                            return false;
-                        });
-
-                        if (!isDuplicateEntry) {
-                            const importGroup = this._getImportGroupFromModuleNameAndType(moduleNameAndType);
-                            const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
-                                name,
-                                importStatements,
-                                filePath,
-                                moduleNameAndType.moduleName,
-                                importGroup
-                            );
-                            this._addNameToCompletionList(
-                                name,
-                                CompletionItemKind.Module,
-                                priorWord,
-                                completionList,
-                                name,
-                                '',
-                                autoImportText,
-                                undefined,
-                                autoImportTextEdits
-                            );
-                        }
-                    }
-                }
-            }
-        });
-    }
-
-    // Given the file path of a module that we want to import,
-    // convert to a module name that can be used in an
-    // 'import from' statement.
-    private _getModuleNameAndTypeFromFilePath(filePath: string): ModuleNameAndType {
-        const execEnvironment = this._configOptions.findExecEnvironment(this._filePath);
-        return this._importResolver.getModuleNameForImport(filePath, execEnvironment);
-    }
-
-    private _getTextEditsForAutoImportByFilePath(
-        symbolName: string,
-        importStatements: ImportStatements,
-        filePath: string,
-        moduleName: string,
-        importGroup: ImportGroup
-    ): TextEditAction[] {
-        // Does an 'import from' statement already exist? If so, we'll reuse it.
-        const importStatement = importStatements.mapByFilePath.get(filePath);
-        if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
-            return getTextEditsForAutoImportSymbolAddition(symbolName, importStatement, this._parseResults);
-        }
-
-        return getTextEditsForAutoImportInsertion(
-            symbolName,
-            importStatements,
-            moduleName,
-            importGroup,
-            this._parseResults
+        const autoImporter = new AutoImporter(
+            this._configOptions,
+            this._filePath,
+            this._importResolver,
+            this._parseResults,
+            moduleSymbolMap
         );
+
+        for (const result of autoImporter.getAutoImportCandidates(
+            priorWord,
+            similarityLimit,
+            completionList.items.filter((i) => !i.data?.autoImport).map((i) => i.label),
+            this._cancellationToken
+        )) {
+            if (result.symbol) {
+                this._addSymbol(
+                    result.name,
+                    result.symbol,
+                    priorWord,
+                    completionList,
+                    result.source,
+                    undefined,
+                    result.edits
+                );
+            } else {
+                this._addNameToCompletionList(
+                    result.name,
+                    CompletionItemKind.Module,
+                    priorWord,
+                    completionList,
+                    result.name,
+                    '',
+                    `Auto-import from ${result.source}`,
+                    undefined,
+                    result.edits
+                );
+            }
+        }
     }
 
     private _getImportFromCompletions(importFromNode: ImportFromNode, priorWord: string): CompletionList | undefined {

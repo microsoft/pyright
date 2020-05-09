@@ -326,6 +326,18 @@
       "title": "Controls reporting assert expressions that will always evaluate to true",
       "default": "warning"
     },
+    "reportUndefinedVariable": {
+      "$id": "#/properties/reportUndefinedVariable",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to use an undefined variable",
+      "default": "error"
+    },
+    "reportUnboundVariable": {
+      "$id": "#/properties/reportUnboundVariable",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to use an unbound or possibly unbound variable",
+      "default": "error"
+    },
     "reportImplicitStringConcatenation": {
       "$id": "#/properties/reportImplicitStringConcatenation",
       "$ref": "#/definitions/diagnostic",

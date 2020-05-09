@@ -2569,15 +2569,15 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
             if (isUnbound(type)) {
                 addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                    DiagnosticRule.reportUnboundVariable,
                     `"${name}" is unbound`,
                     node
                 );
             } else if (isPossiblyUnbound(type)) {
                 addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                    DiagnosticRule.reportUnboundVariable,
                     `"${name}" is possibly unbound`,
                     node
                 );
@@ -2588,8 +2588,8 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             // Handle the special case of "reveal_type".
             if (name !== 'reveal_type') {
                 addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    fileInfo.diagnosticRuleSet.reportUndefinedVariable,
+                    DiagnosticRule.reportUndefinedVariable,
                     `"${name}" is not defined`,
                     node
                 );
