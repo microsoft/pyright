@@ -260,7 +260,7 @@ export class Program {
                 // because we'll receive updates directly from the client.
                 if (
                     evenIfContentsAreSame ||
-                    (!sourceFileInfo.isOpenByClient && !sourceFileInfo.sourceFile.didContentsChangeOnDisk())
+                    (!sourceFileInfo.isOpenByClient && sourceFileInfo.sourceFile.didContentsChangeOnDisk())
                 ) {
                     sourceFileInfo.sourceFile.markDirty();
 
