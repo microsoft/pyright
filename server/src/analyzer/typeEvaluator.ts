@@ -2949,7 +2949,9 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
 
                             if (usage.method === 'get') {
                                 type = getFunctionEffectiveReturnType(accessMethodType);
-                                type = partiallySpecializeType(type, classType);
+                                if (memberInfo.classType.category === TypeCategory.Class) {
+                                    type = partiallySpecializeType(type, memberInfo.classType);
+                                }
                             } else {
                                 if (usage.method === 'set') {
                                     // Verify that the setter's parameter type matches
