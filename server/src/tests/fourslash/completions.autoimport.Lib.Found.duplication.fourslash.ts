@@ -2,7 +2,7 @@
 // @asynctest: true
 
 // @filename: test1.py
-//// testLib[|/*marker*/|]
+//// test[|/*marker*/|]
 
 // @filename: test2.py
 //// import testLib
@@ -30,10 +30,10 @@ helper.verifyCompletion('included', {
     marker: {
         completions: [
             {
-                label: 'testLib',
+                label: 'test1',
                 documentation: {
                     kind: 'markdown',
-                    value: 'Auto-import from lib.site-packages\n\n```python\ntestLib\n```\n',
+                    value: 'Auto-import from testLib\n\n```python\ntest1\n```\n',
                 },
             },
         ],

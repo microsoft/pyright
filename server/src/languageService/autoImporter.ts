@@ -141,8 +141,8 @@ export class AutoImporter {
                 return;
             }
 
-            const name = getFileName(fileDir);
-            const moduleNameAndType = this._getModuleNameAndTypeFromFilePath(getDirectoryPath(fileDir));
+            const name = stripFileExtension(getFileName(filePath));
+            const moduleNameAndType = this._getModuleNameAndTypeFromFilePath(getDirectoryPath(filePath));
             const importSource = moduleNameAndType.moduleName;
             if (!importSource) {
                 return;
