@@ -50,8 +50,8 @@ export interface ImportResult {
     // a python (.py) file.
     isStubFile: boolean;
 
-    // True if resolved file is a Windows DLL (.pyd) file.
-    isPydFile: boolean;
+    // True if resolved file is a native DLL.
+    isNativeLib: boolean;
 
     // True if the resolved file is a type hint (.pyi) file that comes
     // from typeshed.

@@ -8274,7 +8274,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             assert(!parentNode.isWildcardImport);
 
             const importInfo = AnalyzerNodeInfo.getImportInfo(parentNode.module);
-            if (importInfo && importInfo.isImportFound) {
+            if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib) {
                 const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
 
                 // If we were able to resolve the import, report the error as
@@ -9946,7 +9946,12 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
         } else if (node.parent && node.parent.nodeType === ParseNodeType.ModuleName) {
             const namePartIndex = node.parent.nameParts.findIndex((part) => part === node);
             const importInfo = AnalyzerNodeInfo.getImportInfo(node.parent);
-            if (namePartIndex >= 0 && importInfo && namePartIndex < importInfo.resolvedPaths.length) {
+            if (
+                namePartIndex >= 0 &&
+                importInfo &&
+                !importInfo.isNativeLib &&
+                namePartIndex < importInfo.resolvedPaths.length
+            ) {
                 if (importInfo.resolvedPaths[namePartIndex]) {
                     // Synthesize an alias declaration for this name part. The only
                     // time this case is used is for the hover provider.

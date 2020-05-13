@@ -15,6 +15,7 @@ import {
     ensureTrailingDirectorySeparator,
     getDirectoryPath,
     getFileExtension,
+    getFileName,
     getFileSystemEntries,
     getPathComponents,
     isDirectory,
@@ -23,6 +24,7 @@ import {
     stripTrailingDirectorySeparator,
 } from '../common/pathUtils';
 import { versionToString } from '../common/pythonVersion';
+import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import * as StringUtils from '../common/stringUtils';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as PythonPathUtils from './pythonPathUtils';
@@ -42,6 +44,9 @@ export interface ModuleNameAndType {
 }
 
 type CachedImportResults = Map<string, ImportResult>;
+
+const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
+const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExtensions];
 
 export class ImportResolver {
     private _configOptions: ConfigOptions;
@@ -80,7 +85,7 @@ export class ImportResolver {
             resolvedPaths: [],
             importType: ImportType.Local,
             isStubFile: false,
-            isPydFile: false,
+            isNativeLib: false,
             implicitImports: [],
             nonStubImportResult: undefined,
         };
@@ -134,7 +139,7 @@ export class ImportResolver {
                 execEnv,
                 moduleDescriptor,
                 importName,
-                true,
+                /* isStdLib */ true,
                 importFailureInfo
             );
             if (builtInImport) {
@@ -211,7 +216,7 @@ export class ImportResolver {
                 execEnv,
                 moduleDescriptor,
                 importName,
-                false,
+                /* isStdLib */ false,
                 importFailureInfo
             );
             if (typeshedImport) {
@@ -233,7 +238,7 @@ export class ImportResolver {
                     importName,
                     importFailureInfo,
                     /* allowPartial */ true,
-                    /* allowPydFile */ true,
+                    /* allowNativeLib */ true,
                     /* allowStubsFolder */ true,
                     allowPyi
                 );
@@ -714,7 +719,7 @@ export class ImportResolver {
         importName: string,
         importFailureInfo: string[],
         allowPartial = false,
-        allowPydFile = false,
+        allowNativeLib = false,
         allowStubsFolder = false,
         allowPyi = true
     ): ImportResult | undefined {
@@ -726,14 +731,14 @@ export class ImportResolver {
         let dirPath = rootPath;
         let isNamespacePackage = false;
         let isStubFile = false;
-        let isPydFile = false;
+        let isNativeLib = false;
         let implicitImports: ImplicitImport[] = [];
 
         // Handle the "from . import XXX" case.
         if (moduleDescriptor.nameParts.length === 0) {
-            const pyFilePath = combinePaths(dirPath, '__init__.py');
-            const pyiFilePath = pyFilePath + 'i';
-            const pydFilePath = pyFilePath + 'd';
+            const fileNameWithoutExtension = '__init__';
+            const pyFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.py');
+            const pyiFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.pyi');
 
             if (allowPyi && this.fileSystem.existsSync(pyiFilePath) && isFile(this.fileSystem, pyiFilePath)) {
                 importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
@@ -742,14 +747,6 @@ export class ImportResolver {
             } else if (this.fileSystem.existsSync(pyFilePath) && isFile(this.fileSystem, pyFilePath)) {
                 importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
                 resolvedPaths.push(pyFilePath);
-            } else if (
-                allowPydFile &&
-                this.fileSystem.existsSync(pydFilePath) &&
-                isFile(this.fileSystem, pydFilePath)
-            ) {
-                importFailureInfo.push(`Resolved import with file '${pydFilePath}'`);
-                resolvedPaths.push(pydFilePath);
-                isPydFile = true;
             } else {
                 importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
                 resolvedPaths.push('');
@@ -789,8 +786,9 @@ export class ImportResolver {
                     }
 
                     // See if we can find an __init__.py[i] in this directory.
-                    const pyFilePath = combinePaths(dirPath, '__init__.py');
-                    const pyiFilePath = pyFilePath + 'i';
+                    const fileNameWithoutExtension = '__init__';
+                    const pyFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.py');
+                    const pyiFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.pyi');
                     let foundInit = false;
 
                     if (allowPyi && this.fileSystem.existsSync(pyiFilePath) && isFile(this.fileSystem, pyiFilePath)) {
@@ -815,9 +813,11 @@ export class ImportResolver {
                 // We weren't able to find a directory or we found a directory with
                 // no __init__.py[i] file. See if we can find a ".py" or ".pyi" file
                 // with this name.
-                const pyFilePath = stripTrailingDirectorySeparator(dirPath) + '.py';
-                const pyiFilePath = pyFilePath + 'i';
-                const pydFilePath = pyFilePath + 'd';
+                let fileDirectory = stripTrailingDirectorySeparator(dirPath);
+                const fileNameWithoutExtension = getFileName(fileDirectory);
+                fileDirectory = getDirectoryPath(fileDirectory);
+                const pyFilePath = combinePaths(fileDirectory, fileNameWithoutExtension + '.py');
+                const pyiFilePath = combinePaths(fileDirectory, fileNameWithoutExtension + '.pyi');
 
                 if (allowPyi && this.fileSystem.existsSync(pyiFilePath) && isFile(this.fileSystem, pyiFilePath)) {
                     importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
@@ -828,27 +828,42 @@ export class ImportResolver {
                 } else if (this.fileSystem.existsSync(pyFilePath) && isFile(this.fileSystem, pyFilePath)) {
                     importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
                     resolvedPaths.push(pyFilePath);
-                } else if (
-                    allowPydFile &&
-                    this.fileSystem.existsSync(pydFilePath) &&
-                    isFile(this.fileSystem, pydFilePath)
-                ) {
-                    importFailureInfo.push(`Resolved import with file '${pydFilePath}'`);
-                    resolvedPaths.push(pydFilePath);
-                    if (isLastPart) {
-                        isPydFile = true;
-                    }
-                } else if (foundDirectory) {
-                    importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
-                    resolvedPaths.push('');
-                    if (isLastPart) {
-                        implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
-                        isNamespacePackage = true;
-                    }
                 } else {
-                    importFailureInfo.push(
-                        `Did not find file '${pyiFilePath}',` + ` '${pyFilePath}' or '${pydFilePath}'`
-                    );
+                    if (allowNativeLib) {
+                        const filesInDir = this._getFilesInDirectory(fileDirectory);
+                        const nativeLibFileName = filesInDir.find((f) => {
+                            // Strip off the final file extension and the part of the file name
+                            // that excludes all (multi-part) file extensions. This allows us to
+                            // handle file names like "foo.cpython-32m.so".
+                            const fileExtension = getFileExtension(f, /* multiDotExtension */ false).toLowerCase();
+                            const withoutExtension = stripFileExtension(f, /* multiDotExtension */ true);
+                            if (supportedNativeLibExtensions.some((ext) => ext === fileExtension)) {
+                                if (equateStringsCaseInsensitive(fileNameWithoutExtension, withoutExtension)) {
+                                    return true;
+                                }
+                            }
+
+                            return false;
+                        });
+
+                        if (nativeLibFileName) {
+                            const nativeLibPath = combinePaths(fileDirectory, nativeLibFileName);
+                            importFailureInfo.push(`Resolved import with file '${nativeLibPath}'`);
+                            resolvedPaths.push(nativeLibPath);
+                            isNativeLib = true;
+                        }
+                    }
+
+                    if (!isNativeLib && foundDirectory) {
+                        importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
+                        resolvedPaths.push('');
+                        if (isLastPart) {
+                            implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
+                            isNamespacePackage = true;
+                        }
+                    } else {
+                        importFailureInfo.push(`Did not find file '${pyiFilePath}' or '${pyFilePath}'`);
+                    }
                 }
                 break;
             }
@@ -875,9 +890,16 @@ export class ImportResolver {
             resolvedPaths,
             searchPath: rootPath,
             isStubFile,
-            isPydFile,
+            isNativeLib,
             implicitImports,
         };
+    }
+
+    private _getFilesInDirectory(dirPath: string): string[] {
+        return this.fileSystem
+            .readdirEntriesSync(dirPath)
+            .filter((f) => f.isFile())
+            .map((f) => f.name);
     }
 
     private _getCompletionSuggestionsAbsolute(
@@ -921,10 +943,12 @@ export class ImportResolver {
         const entries = getFileSystemEntries(this.fileSystem, dirPath);
 
         entries.files.forEach((file) => {
-            const fileWithoutExtension = stripFileExtension(file);
-            const fileExtension = getFileExtension(file);
+            // Strip multi-dot extensions to handle file names like "foo.cpython-32m.so". We want
+            // to detect the ".so" but strip off the entire ".cpython-32m.so" extension.
+            const fileExtension = getFileExtension(file, /* multiDotExtension */ false).toLowerCase();
+            const fileWithoutExtension = stripFileExtension(file, /* multiDotExtension */ true);
 
-            if (fileExtension === '.py' || fileExtension === '.pyi' || fileExtension === '.pyd') {
+            if (supportedFileExtensions.some((ext) => ext === fileExtension)) {
                 if (fileWithoutExtension !== '__init__') {
                     if (
                         !filter ||

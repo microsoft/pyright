@@ -701,7 +701,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                             };
                         }),
                         {
-                            globPattern: '**/*.{py,pyi,pyd}',
+                            globPattern: '**/*.{py,pyi}',
                             kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
                         },
                     ],

@@ -41,14 +41,12 @@ import {
 
 test('getPathComponents1', () => {
     const components = getPathComponents('');
-
     assert.equal(components.length, 1);
     assert.equal(components[0], '');
 });
 
 test('getPathComponents2', () => {
     const components = getPathComponents('/users/');
-
     assert.equal(components.length, 2);
     assert.equal(components[0], path.sep);
     assert.equal(components[1], 'users');
@@ -56,7 +54,6 @@ test('getPathComponents2', () => {
 
 test('getPathComponents3', () => {
     const components = getPathComponents('/users/hello.py');
-
     assert.equal(components.length, 3);
     assert.equal(components[0], path.sep);
     assert.equal(components[1], 'users');
@@ -65,7 +62,6 @@ test('getPathComponents3', () => {
 
 test('getPathComponents4', () => {
     const components = getPathComponents('/users/hello/../');
-
     assert.equal(components.length, 2);
     assert.equal(components[0], path.sep);
     assert.equal(components[1], 'users');
@@ -73,7 +69,6 @@ test('getPathComponents4', () => {
 
 test('getPathComponents5', () => {
     const components = getPathComponents('./hello.py');
-
     assert.equal(components.length, 2);
     assert.equal(components[0], '');
     assert.equal(components[1], 'hello.py');
@@ -81,13 +76,11 @@ test('getPathComponents5', () => {
 
 test('combinePaths1', () => {
     const p = combinePaths('/user', '1', '2', '3');
-
     assert.equal(p, normalizeSlashes('/user/1/2/3'));
 });
 
 test('ensureTrailingDirectorySeparator1', () => {
     const p = ensureTrailingDirectorySeparator('hello');
-
     assert.equal(p, normalizeSlashes('hello/'));
 });
 
@@ -99,26 +92,41 @@ test('hasTrailingDirectorySeparator1', () => {
 
 test('stripTrailingDirectorySeparator1', () => {
     const path = stripTrailingDirectorySeparator('hello/');
-
     assert.equal(path, 'hello');
 });
 
 test('getFileExtension1', () => {
-    const ext = getFileExtension('blah/hello.JsOn');
-
+    const ext = getFileExtension('blah.blah/hello.JsOn');
     assert.equal(ext, '.JsOn');
 });
 
-test('getFileName1', () => {
-    const fileName = getFileName('blah/HeLLo.JsOn');
+test('getFileExtension2', () => {
+    const ext1 = getFileExtension('blah.blah/hello.cpython-32m.so', true);
+    assert.equal(ext1, '.cpython-32m.so');
+    const ext2 = getFileExtension('blah.blah/hello.cpython-32m.so', false);
+    assert.equal(ext2, '.so');
+});
 
+test('getFileName1', () => {
+    const fileName = getFileName('blah.blah/HeLLo.JsOn');
     assert.equal(fileName, 'HeLLo.JsOn');
 });
 
-test('stripFileExtension', () => {
-    const path = stripFileExtension('blah/HeLLo.JsOn');
+test('getFileName2', () => {
+    const fileName1 = getFileName('blah.blah/hello.cpython-32m.so');
+    assert.equal(fileName1, 'hello.cpython-32m.so');
+});
 
-    assert.equal(path, 'blah/HeLLo');
+test('stripFileExtension1', () => {
+    const path = stripFileExtension('blah.blah/HeLLo.JsOn');
+    assert.equal(path, 'blah.blah/HeLLo');
+});
+
+test('stripFileExtension2', () => {
+    const path1 = stripFileExtension('blah.blah/hello.cpython-32m.so', true);
+    assert.equal(path1, 'blah.blah/hello');
+    const path2 = stripFileExtension('blah.blah/hello.cpython-32m.so', false);
+    assert.equal(path2, 'blah.blah/hello.cpython-32m');
 });
 
 test('getWildcardRegexPattern1', () => {
@@ -130,19 +138,16 @@ test('getWildcardRegexPattern1', () => {
 test('getWildcardRegexPattern2', () => {
     const pattern = getWildcardRegexPattern('/users/me', './**/*.py?/');
     const sep = getRegexEscapedSeparator();
-
     assert.equal(pattern, `${sep}users${sep}me(${sep}[^${sep}.][^${sep}]*)*?${sep}[^${sep}]*\\.py[^${sep}]`);
 });
 
 test('getWildcardRoot1', () => {
     const p = getWildcardRoot('/users/me', './blah/');
-
     assert.equal(p, normalizeSlashes('/users/me/blah'));
 });
 
 test('getWildcardRoot2', () => {
     const p = getWildcardRoot('/users/me', './**/*.py?/');
-
     assert.equal(p, normalizeSlashes('/users/me'));
 });
 
