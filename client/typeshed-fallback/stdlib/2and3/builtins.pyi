@@ -1444,6 +1444,16 @@ if sys.version_info < (3,):
     def unichr(__i: int) -> unicode: ...
 def vars(__object: Any = ...) -> Dict[str, Any]: ...
 if sys.version_info >= (3,):
+    # Some overloads to better support zipping heterogeneous tuples
+    @overload
+    def zip(*iterables: Tuple[_T1, _T2]) -> Tuple[Tuple[_T1, ...], Tuple[_T2, ...]]: ...  # type: ignore
+    @overload
+    def zip(*iterables: Tuple[_T1, _T2, _T3]) -> Tuple[Tuple[_T1, ...], Tuple[_T2, ...], Tuple[_T3, ...]]: ...  # type: ignore
+    @overload
+    def zip(*iterables: Tuple[_T1, _T2, _T3, _T4]) -> Tuple[Tuple[_T1, ...], Tuple[_T2, ...], Tuple[_T3, ...], Tuple[_T4, ...]]: ...  # type: ignore
+    @overload
+    def zip(*iterables: Tuple[_T1, _T2, _T3, _T4, _T5]) -> Tuple[Tuple[_T1, ...], Tuple[_T2, ...], Tuple[_T3, ...], Tuple[_T4, ...], Tuple[_T5, ...]]: ...  # type: ignore
+
     @overload
     def zip(__iter1: Iterable[_T1]) -> Iterator[Tuple[_T1]]: ...
     @overload

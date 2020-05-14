@@ -203,7 +203,7 @@ class TextIOWrapper(TextIO):
     def tell(self) -> int: ...
 
 class StringIO(TextIOWrapper):
-    def __init__(self, initial_value: str = ...,
+    def __init__(self, initial_value: Optional[str] = ...,
                  newline: Optional[str] = ...) -> None: ...
     # StringIO does not contain a "name" field. This workaround is necessary
     # to allow StringIO sub-classes to add this field, as it is defined

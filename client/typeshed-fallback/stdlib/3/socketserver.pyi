@@ -1,7 +1,7 @@
 # NB: SocketServer.pyi and socketserver.pyi must remain consistent!
 # Stubs for socketserver
 
-from typing import Any, BinaryIO, Callable, List, Optional, Tuple, Type, Text, Union
+from typing import Any, BinaryIO, Callable, ClassVar, List, Optional, Tuple, Type, Text, Union
 from socket import SocketType
 import sys
 import types
@@ -118,9 +118,16 @@ class BaseRequestHandler:
     def finish(self) -> None: ...
 
 class StreamRequestHandler(BaseRequestHandler):
+    rbufsize: ClassVar[int]  # Undocumented
+    wbufsize: ClassVar[int]  # Undocumented
+    timeout: ClassVar[Optional[float]]  # Undocumented
+    disable_nagle_algorithm: ClassVar[bool]  # Undocumented
+    connection: SocketType  # Undocumented
     rfile: BinaryIO
     wfile: BinaryIO
 
 class DatagramRequestHandler(BaseRequestHandler):
+    packet: SocketType  # Undocumented
+    socket: SocketType  # Undocumented
     rfile: BinaryIO
     wfile: BinaryIO

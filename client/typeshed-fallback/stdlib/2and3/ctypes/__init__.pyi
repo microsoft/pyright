@@ -26,7 +26,7 @@ class CDLL(object):
     _FuncPtr: Type[_FuncPointer] = ...
     def __init__(
         self,
-        name: str,
+        name: Optional[str],
         mode: int = ...,
         handle: Optional[int] = ...,
         use_errno: bool = ...,

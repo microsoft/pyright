@@ -293,9 +293,14 @@ class Attribute(expr):
     attr: _identifier
     ctx: expr_context
 
+if sys.version_info >= (3, 9):
+    _SliceT = expr
+else:
+    _SliceT = _slice
+
 class Subscript(expr):
     value: expr
-    slice: _slice
+    slice: _SliceT
     ctx: expr_context
 
 class Starred(expr):

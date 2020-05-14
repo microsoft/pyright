@@ -638,13 +638,11 @@ class socket:
     else:
         def listen(self, __backlog: int) -> None: ...
     # Note that the makefile's documented windows-specific behavior is not represented
-    if sys.version_info < (3,):
-        def makefile(self, mode: unicode = ..., buffering: int = ...) -> BinaryIO: ...
-    else:
+    if sys.version_info >= (3,):
         # mode strings with duplicates are intentionally excluded
         @overload
         def makefile(self,
-                     mode: Literal['r', 'w', 'rw', 'wr', ''],
+                     mode: Literal['r', 'w', 'rw', 'wr', ''] = ...,
                      buffering: Optional[int] = ...,
                      *,
                      encoding: Optional[str] = ...,
@@ -652,12 +650,14 @@ class socket:
                      newline: Optional[str] = ...) -> TextIO: ...
         @overload
         def makefile(self,
-                     mode: Literal['b', 'rb', 'br', 'wb', 'bw', 'rwb', 'rbw', 'wrb', 'wbr', 'brw', 'bwr'] = ...,
+                     mode: Literal['b', 'rb', 'br', 'wb', 'bw', 'rwb', 'rbw', 'wrb', 'wbr', 'brw', 'bwr'],
                      buffering: Optional[int] = ...,
                      *,
                      encoding: Optional[str] = ...,
                      errors: Optional[str] = ...,
                      newline: Optional[str] = ...) -> BinaryIO: ...
+    else:
+        def makefile(self, mode: unicode = ..., buffering: int = ...) -> BinaryIO: ...
     def recv(self, bufsize: int, flags: int = ...) -> bytes: ...
     def recvfrom(self, bufsize: int, flags: int = ...) -> Tuple[bytes, _RetAddress]: ...
 

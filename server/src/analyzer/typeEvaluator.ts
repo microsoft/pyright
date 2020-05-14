@@ -6725,6 +6725,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             Final: { alias: '', module: 'builtins' },
             Literal: { alias: '', module: 'builtins' },
             TypedDict: { alias: '_TypedDict', module: 'self' },
+            Union: { alias: '', module: 'builtins' },
+            Optional: { alias: '', module: 'builtins' },
         };
 
         const aliasMapEntry = specialTypes[assignedName];
@@ -6755,8 +6757,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             _promote: { alias: '', module: 'builtins' },
             no_type_check: { alias: '', module: 'builtins' },
             NoReturn: { alias: '', module: 'builtins' },
-            Union: { alias: '', module: 'builtins' },
-            Optional: { alias: '', module: 'builtins' },
             List: { alias: 'list', module: 'builtins' },
             Dict: { alias: 'dict', module: 'builtins' },
             DefaultDict: { alias: 'defaultdict', module: 'collections' },

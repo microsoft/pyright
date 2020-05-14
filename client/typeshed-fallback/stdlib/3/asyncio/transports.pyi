@@ -1,4 +1,5 @@
 import sys
+from socket import _Address
 from typing import Any, Mapping, List, Optional, Tuple
 from asyncio.protocols import BaseProtocol
 from asyncio.events import AbstractEventLoop
@@ -32,7 +33,7 @@ class WriteTransport(BaseTransport):
 class Transport(ReadTransport, WriteTransport): ...
 
 class DatagramTransport(BaseTransport):
-    def sendto(self, data: Any, addr: Optional[Tuple[str, int]] = ...) -> None: ...
+    def sendto(self, data: Any, addr: Optional[_Address] = ...) -> None: ...
     def abort(self) -> None: ...
 
 class SubprocessTransport(BaseTransport):

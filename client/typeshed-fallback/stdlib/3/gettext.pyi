@@ -1,10 +1,16 @@
 import sys
-from typing import overload, Any, Container, IO, Iterable, Optional, Type, TypeVar
+from typing import overload, Any, Container, IO, Iterable, Optional, Type, TypeVar, Union
 
 if sys.version_info >= (3, 8):
     from typing import Literal
 else:
     from typing_extensions import Literal
+
+if sys.version_info >= (3, 6):
+    from os import PathLike
+    _Path = Union[str, PathLike[str]]
+else:
+    _Path = str
 
 class NullTranslations:
     def __init__(self, fp: IO[str] = ...) -> None: ...
@@ -26,25 +32,25 @@ class GNUTranslations(NullTranslations):
     LE_MAGIC: int
     BE_MAGIC: int
 
-def find(domain: str, localedir: Optional[str] = ..., languages: Optional[Iterable[str]] = ...,
+def find(domain: str, localedir: Optional[_Path] = ..., languages: Optional[Iterable[str]] = ...,
          all: bool = ...) -> Any: ...
 
 _T = TypeVar('_T')
 @overload
-def translation(domain: str, localedir: Optional[str] = ..., languages: Optional[Iterable[str]] = ...,
+def translation(domain: str, localedir: Optional[_Path] = ..., languages: Optional[Iterable[str]] = ...,
                 class_: None = ..., fallback: bool = ..., codeset: Optional[str] = ...) -> NullTranslations: ...
 @overload
-def translation(domain: str, localedir: Optional[str] = ..., languages: Optional[Iterable[str]] = ...,
+def translation(domain: str, localedir: Optional[_Path] = ..., languages: Optional[Iterable[str]] = ...,
                 class_: Type[_T] = ..., fallback: Literal[False] = ..., codeset: Optional[str] = ...) -> _T: ...
 @overload
-def translation(domain: str, localedir: Optional[str] = ..., languages: Optional[Iterable[str]] = ...,
+def translation(domain: str, localedir: Optional[_Path] = ..., languages: Optional[Iterable[str]] = ...,
                 class_: Type[_T] = ..., fallback: Literal[True] = ..., codeset: Optional[str] = ...) -> Any: ...
 
-def install(domain: str, localedir: Optional[str] = ..., codeset: Optional[str] = ...,
+def install(domain: str, localedir: Optional[_Path] = ..., codeset: Optional[str] = ...,
             names: Optional[Container[str]] = ...) -> None: ...
 
 def textdomain(domain: Optional[str] = ...) -> str: ...
-def bindtextdomain(domain: str, localedir: Optional[str] = ...) -> str: ...
+def bindtextdomain(domain: str, localedir: Optional[_Path] = ...) -> str: ...
 def bind_textdomain_codeset(domain: str, codeset: Optional[str] = ...) -> str: ...
 def dgettext(domain: str, message: str) -> str: ...
 def ldgettext(domain: str, message: str) -> str: ...

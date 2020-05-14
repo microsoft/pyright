@@ -1,9 +1,28 @@
 # Stubs for mock
 
 import sys
-from typing import Any, List, Optional, Text, Tuple, Type, TypeVar
+from typing import Any, List, Optional, Sequence, Text, Tuple, Type, TypeVar
 
 _T = TypeVar("_T")
+
+__all__ = [
+    'Mock',
+    'MagicMock',
+    'patch',
+    'sentinel',
+    'DEFAULT',
+    'ANY',
+    'call',
+    'create_autospec',
+    'AsyncMock',
+    'FILTER_DIR',
+    'NonCallableMock',
+    'NonCallableMagicMock',
+    'mock_open',
+    'PropertyMock',
+    'seal',
+]
+__version__: str
 
 FILTER_DIR: Any
 
@@ -82,7 +101,7 @@ class NonCallableMock(Base, Any):  # type: ignore
         def _get_call_signature_from_name(self, name: str) -> Any: ...
 
     def assert_any_call(self, *args: Any, **kwargs: Any) -> None: ...
-    def assert_has_calls(self, calls: _CallList, any_order: bool = ...) -> None: ...
+    def assert_has_calls(self, calls: Sequence[_Call], any_order: bool = ...) -> None: ...
     def mock_add_spec(self, spec: Any, spec_set: bool = ...) -> None: ...
     def _mock_add_spec(self, spec: Any, spec_set, _spec_as_instance: bool = ..., _eat_self: bool = ...) -> None: ...
     def attach_mock(self, mock: NonCallableMock, attribute: str) -> None: ...
