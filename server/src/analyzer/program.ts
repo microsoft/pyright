@@ -53,7 +53,7 @@ import { findNodeByOffset } from './parseTreeUtils';
 import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
-import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
+import { createTypeEvaluator, PrintTypeFlags, TypeEvaluator } from './typeEvaluator';
 import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
@@ -109,13 +109,16 @@ export class Program {
         private _extension?: LanguageServiceExtension
     ) {
         this._console = console || new StandardConsole();
-        this._evaluator = createTypeEvaluator(this._lookUpImport);
+        this._evaluator = createTypeEvaluator(this._lookUpImport, Program._getPrintTypeFlags(initialConfigOptions));
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
     }
 
     setConfigOptions(configOptions: ConfigOptions) {
         this._configOptions = configOptions;
+
+        // Create a new evaluator with the updated config options.
+        this._evaluator = createTypeEvaluator(this._lookUpImport, Program._getPrintTypeFlags(this._configOptions));
     }
 
     setImportResolver(importResolver: ImportResolver) {
@@ -474,6 +477,20 @@ export class Program {
         }
     }
 
+    private static _getPrintTypeFlags(configOptions: ConfigOptions): PrintTypeFlags {
+        let flags = PrintTypeFlags.None;
+
+        if (configOptions.diagnosticRuleSet.printUnknownAsAny) {
+            flags |= PrintTypeFlags.PrintUnknownWithAny;
+        }
+
+        if (configOptions.diagnosticRuleSet.omitTypeArgsIfAny) {
+            flags |= PrintTypeFlags.OmitTypeArgumentsIfAny;
+        }
+
+        return flags;
+    }
+
     private get _fs() {
         return this._importResolver.fileSystem;
     }
@@ -507,7 +524,7 @@ export class Program {
     }
 
     private _createNewEvaluator() {
-        this._evaluator = createTypeEvaluator(this._lookUpImport);
+        this._evaluator = createTypeEvaluator(this._lookUpImport, Program._getPrintTypeFlags(this._configOptions));
     }
 
     private _parseFile(fileToParse: SourceFileInfo) {

@@ -171,6 +171,8 @@ export class BackgroundAnalysisProgram {
 
     initializeFromJson(configJsonObj: any, typeCheckingMode: string | undefined) {
         this._configOptions.initializeFromJson(configJsonObj, typeCheckingMode, this._console);
+        this._backgroundAnalysis?.setConfigOptions(this._configOptions);
+        this._program.setConfigOptions(this._configOptions);
     }
 
     restart() {

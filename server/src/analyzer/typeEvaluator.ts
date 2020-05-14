@@ -291,6 +291,16 @@ export const enum MemberAccessFlags {
     SkipForMethodLookup = SkipInstanceMembers | SkipGetAttributeCheck | SkipGetCheck,
 }
 
+export const enum PrintTypeFlags {
+    None = 0,
+
+    // Avoid printing "Unknown" and always use "Any" instead.
+    PrintUnknownWithAny = 1 << 0,
+
+    // Omit type arguments for generic classes if they are "Any".
+    OmitTypeArgumentsIfAny = 1 << 1,
+}
+
 interface ParamAssignmentInfo {
     argsNeeded: number;
     argsReceived: number;
@@ -470,7 +480,7 @@ interface ReturnTypeInferenceContext {
 // performance.
 const maxReturnTypeInferenceStackSize = 3;
 
-export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
+export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: PrintTypeFlags): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const isReachableRecursionMap = new Map<number, true>();
     const functionRecursionMap = new Map<number, true>();
@@ -12128,14 +12138,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             if (type.typeArguments) {
                 // Handle Tuple[()] as a special case.
                 if (type.typeArguments.length > 0) {
-                    objName +=
-                        '[' +
-                        type.typeArguments
-                            .map((typeArg) => {
-                                return printType(typeArg, recursionCount + 1);
-                            })
-                            .join(', ') +
-                        ']';
+                    if (
+                        (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
+                        type.typeArguments.some((typeArg) => !isAnyOrUnknown(typeArg))
+                    ) {
+                        objName +=
+                            '[' +
+                            type.typeArguments
+                                .map((typeArg) => {
+                                    return printType(typeArg, recursionCount + 1);
+                                })
+                                .join(', ') +
+                            ']';
+                    }
                 } else {
                     if (ClassType.isBuiltIn(type, 'Tuple')) {
                         objName += '[()]';
@@ -12145,14 +12160,19 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 const typeParams = ClassType.getTypeParameters(type);
 
                 if (typeParams.length > 0) {
-                    objName +=
-                        '[' +
-                        typeParams
-                            .map((typeArg) => {
-                                return printType(typeArg, recursionCount + 1);
-                            })
-                            .join(', ') +
-                        ']';
+                    if (
+                        (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
+                        typeParams.some((typeParam) => !isAnyOrUnknown(typeParam))
+                    ) {
+                        objName +=
+                            '[' +
+                            typeParams
+                                .map((typeParam) => {
+                                    return printType(typeParam, recursionCount + 1);
+                                })
+                                .join(', ') +
+                            ']';
+                    }
                 }
             }
         }
@@ -12220,7 +12240,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
             }
 
             case TypeCategory.Unknown: {
-                return 'Unknown';
+                return (printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0 ? 'Any' : 'Unknown';
             }
 
             case TypeCategory.Module: {
@@ -12309,7 +12329,7 @@ export function createTypeEvaluator(importLookup: ImportLookup): TypeEvaluator {
                 // If it's synthesized, don't expose the internal
                 // name we generated. This will confuse users.
                 if (type.isSynthesized) {
-                    return 'Unknown';
+                    return (printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0 ? 'Any' : 'Unknown';
                 }
 
                 const typeName = type.name;

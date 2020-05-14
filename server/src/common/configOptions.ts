@@ -44,6 +44,13 @@ export class ExecutionEnvironment {
 export type DiagnosticLevel = 'none' | 'warning' | 'error';
 
 export interface DiagnosticRuleSet {
+    // Should "Unknown" types be reported as "Any"?
+    printUnknownAsAny: boolean;
+
+    // Should type arguments to a generic class be omitted
+    // when printed if all arguments are Unknown or Any?
+    omitTypeArgsIfAny: boolean;
+
     // Use strict inference rules for list expressions?
     strictListInference: boolean;
 
@@ -245,6 +252,8 @@ export function getStrictModeNotOverriddenRules() {
 
 export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
+        printUnknownAsAny: false,
+        omitTypeArgsIfAny: false,
         strictListInference: true,
         strictDictionaryInference: true,
         strictParameterNoneValue: true,
@@ -294,6 +303,8 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
 
 export function getNoTypeCheckingDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
+        printUnknownAsAny: true,
+        omitTypeArgsIfAny: true,
         strictListInference: false,
         strictDictionaryInference: false,
         strictParameterNoneValue: false,
@@ -343,6 +354,8 @@ export function getNoTypeCheckingDiagnosticRuleSet(): DiagnosticRuleSet {
 
 export function getDefaultDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
+        printUnknownAsAny: false,
+        omitTypeArgsIfAny: false,
         strictListInference: false,
         strictDictionaryInference: false,
         strictParameterNoneValue: false,
@@ -633,6 +646,9 @@ export class ConfigOptions {
         const defaultSettings = ConfigOptions.getDiagnosticRuleSet(configTypeCheckingMode || typeCheckingMode);
 
         this.diagnosticRuleSet = {
+            printUnknownAsAny: defaultSettings.printUnknownAsAny,
+            omitTypeArgsIfAny: defaultSettings.omitTypeArgsIfAny,
+
             // Use strict inference rules for list expressions?
             strictListInference: this._convertBoolean(
                 configObj.strictListInference,
