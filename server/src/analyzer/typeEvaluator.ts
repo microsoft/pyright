@@ -10422,7 +10422,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 });
 
                 // Do we need to wrap this in an awaitable?
-                if (returnType && FunctionType.isWrapReturnTypeInAwait(type) && !isNoReturnType(returnType)) {
+                if (returnType && FunctionType.isWrapReturnTypeInAwait(type)) {
                     returnType = createAwaitableReturnType(functionNode, returnType);
                 }
             }
