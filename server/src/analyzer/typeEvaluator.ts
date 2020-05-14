@@ -3979,23 +3979,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         let validOverload: FunctionType | undefined;
 
         for (const overload of callType.overloads) {
-            // Temporarily disable diagnostic output.
-            useSpeculativeMode(errorNode, () => {
-                const callResult = validateCallArguments(
-                    errorNode,
-                    argList,
-                    overload,
-                    new TypeVarMap(),
-                    /* skipUnknownArgCheck */ true,
-                    /* inferReturnTypeIfNeeded */ false
-                );
-                if (!callResult.argumentErrors) {
-                    validOverload = overload;
-                }
-            });
+            // Only iterate through the functions that have the @overload
+            // decorator, not the final function that omits the overload.
+            // This is the intended behavior according to PEP 484.
+            if (FunctionType.isOverloaded(overload)) {
+                // Temporarily disable diagnostic output.
+                useSpeculativeMode(errorNode, () => {
+                    const callResult = validateCallArguments(
+                        errorNode,
+                        argList,
+                        overload,
+                        new TypeVarMap(),
+                        /* skipUnknownArgCheck */ true,
+                        /* inferReturnTypeIfNeeded */ false
+                    );
+                    if (!callResult.argumentErrors) {
+                        validOverload = overload;
+                    }
+                });
 
-            if (validOverload) {
-                break;
+                if (validOverload) {
+                    break;
+                }
             }
         }
 
