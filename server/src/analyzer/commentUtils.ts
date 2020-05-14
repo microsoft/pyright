@@ -15,7 +15,7 @@ import {
     getBooleanDiagnosticRules,
     getDiagLevelDiagnosticRules,
     getStrictDiagnosticRuleSet,
-    getStrictModeNotOverridenRules,
+    getStrictModeNotOverriddenRules,
 } from '../common/configOptions';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Token } from '../parser/tokenizerTypes';
@@ -49,7 +49,7 @@ function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
     const strictRuleSet = getStrictDiagnosticRuleSet();
     const boolRuleNames = getBooleanDiagnosticRules();
     const diagRuleNames = getDiagLevelDiagnosticRules();
-    const skipRuleNames = getStrictModeNotOverridenRules();
+    const skipRuleNames = getStrictModeNotOverriddenRules();
 
     // Enable the strict rules as appropriate.
     for (const ruleName of boolRuleNames) {

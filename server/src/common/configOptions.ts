@@ -237,9 +237,9 @@ export function getDiagLevelDiagnosticRules() {
     ];
 }
 
-export function getStrictModeNotOverridenRules() {
+export function getStrictModeNotOverriddenRules() {
     // In strict mode, the value in the user config file should be honored and
-    // not overwritten by the value from the strict ruleset.
+    // not overwritten by the value from the strict rule set.
     return [DiagnosticRule.reportMissingModuleSource];
 }
 
