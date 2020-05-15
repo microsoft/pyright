@@ -68,12 +68,6 @@ export class CreateTypeStubCommand implements ServerCommand {
     // Creates a service instance that's used for creating type
     // stubs for a specified target library.
     private async _createTypeStubService(callingFile?: string): Promise<AnalyzerService> {
-        return this._createAnalyzerService(callingFile);
-    }
-
-    private async _createAnalyzerService(callingFile: string | undefined) {
-        this._ls.console.log('Starting type stub service instance');
-
         if (callingFile) {
             // this should let us to inherit all execution env of the calling file
             // if it is invoked from IDE through code action

@@ -140,15 +140,15 @@ export class BackgroundAnalysisProgram {
     async writeTypeStub(
         targetImportPath: string,
         targetIsSingleFile: boolean,
-        typingsPath: string,
+        stubPath: string,
         token: CancellationToken
     ): Promise<any> {
         if (this._backgroundAnalysis) {
-            return this._backgroundAnalysis.writeTypeStub(targetImportPath, targetIsSingleFile, typingsPath, token);
+            return this._backgroundAnalysis.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
         }
 
         analyzeProgram(this._program, undefined, this._configOptions, this._onAnalysisCompletion, this._console, token);
-        return this._program.writeTypeStub(targetImportPath, targetIsSingleFile, typingsPath, token);
+        return this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
     }
 
     invalidateAndForceReanalysis() {

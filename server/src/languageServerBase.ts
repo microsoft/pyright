@@ -75,6 +75,7 @@ export interface ServerSettings {
     venvPath?: string;
     pythonPath?: string;
     typeshedPath?: string;
+    stubPath?: string;
     openFilesOnly?: boolean;
     typeCheckingMode?: string;
     useLibraryCodeForTypes?: boolean;
@@ -214,6 +215,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         }
 
         return undefined;
+    }
+
+    protected isOpenFilesOnly(diagnosticMode: string): boolean {
+        return diagnosticMode !== 'workspace';
     }
 
     protected createImportResolver(fs: FileSystem, options: ConfigOptions): ImportResolver {

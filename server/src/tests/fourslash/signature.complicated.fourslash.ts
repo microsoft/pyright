@@ -31,8 +31,8 @@ const xInitSignatures = [
 
 const xComplicatedSignatures = [
     {
-        label: '(a: int, b: int, c: int = 1234, d: Optional[str] = None, **kwargs) -> Union[int, str]',
-        parameters: ['a: int', 'b: int', 'c: int = 1234', 'd: Optional[str] = None', '**kwargs'],
+        label: '(a: int, b: int, c: int = 1234, d: str | None = None, **kwargs) -> int | str',
+        parameters: ['a: int', 'b: int', 'c: int = 1234', 'd: str | None = None', '**kwargs'],
     },
 ];
 

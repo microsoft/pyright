@@ -575,23 +575,37 @@ export class TestState {
         }
     }
 
-    async verifyCodeActions(map: {
-        [marker: string]: { codeActions: { title: string; kind: string; command: Command }[] };
-    }): Promise<any> {
+    async verifyCodeActions(
+        map: {
+            [marker: string]: { codeActions: { title: string; kind: string; command: Command }[] };
+        },
+        verifyCodeActionCount?: boolean
+    ): Promise<any> {
         this._analyze();
 
         for (const range of this.getRanges()) {
             const name = this.getMarkerName(range.marker!);
-            for (const expected of map[name].codeActions) {
-                const actual = await this._getCodeActions(range);
+            if (!map[name]) {
+                continue;
+            }
 
+            const codeActions = await this._getCodeActions(range);
+            if (verifyCodeActionCount) {
+                if (codeActions.length !== map[name].codeActions.length) {
+                    this._raiseError(
+                        `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(codeActions)}`
+                    );
+                }
+            }
+
+            for (const expected of map[name].codeActions) {
                 const expectedCommand = {
                     title: expected.command.title,
                     command: expected.command.command,
                     arguments: convertToString(expected.command.arguments),
                 };
 
-                const matches = actual.filter((a) => {
+                const matches = codeActions.filter((a) => {
                     const actualCommand = a.command
                         ? {
                               title: a.command.title,
@@ -609,7 +623,7 @@ export class TestState {
 
                 if (matches.length !== 1) {
                     this._raiseError(
-                        `doesn't contain expected result: ${stringify(expected)}, actual: ${stringify(actual)}`
+                        `doesn't contain expected result: ${stringify(expected)}, actual: ${stringify(codeActions)}`
                     );
                 }
             }
@@ -1035,8 +1049,8 @@ export class TestState {
         configOptions.defaultVenv = vfs.MODULE_PATH;
 
         // make sure we set typing path
-        if (configOptions.typingsPath === undefined) {
-            configOptions.typingsPath = normalizePath(combinePaths(vfs.MODULE_PATH, 'typings'));
+        if (configOptions.stubPath === undefined) {
+            configOptions.stubPath = normalizePath(combinePaths(vfs.MODULE_PATH, 'typings'));
         }
 
         return configOptions;

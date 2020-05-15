@@ -73,7 +73,15 @@ function _getCommandLineOptions(
         // Pyright supports only one typeshed path currently, whereas the
         // official VS Code Python extension supports multiple typeshed paths.
         // We'll use the first one specified and ignore the rest.
-        commandLineOptions.typeshedPath = _expandPathVariables(languageServiceRootPath, serverSettings.typeshedPath);
+        commandLineOptions.typeshedPath = normalizePath(
+            _expandPathVariables(languageServiceRootPath, serverSettings.typeshedPath)
+        );
+    }
+
+    if (serverSettings.stubPath) {
+        commandLineOptions.stubPath = normalizePath(
+            _expandPathVariables(languageServiceRootPath, serverSettings.stubPath)
+        );
     }
 
     if (typeStubTargetImportName) {

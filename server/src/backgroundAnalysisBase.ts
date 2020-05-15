@@ -152,7 +152,7 @@ export class BackgroundAnalysisBase {
     async writeTypeStub(
         targetImportPath: string,
         targetIsSingleFile: boolean,
-        typingsPath: string,
+        stubPath: string,
         token: CancellationToken
     ): Promise<any> {
         throwIfCancellationRequested(token);
@@ -163,7 +163,7 @@ export class BackgroundAnalysisBase {
         const cancellationId = getCancellationTokenId(token);
         this._enqueueRequest({
             requestType: 'writeTypeStub',
-            data: { targetImportPath, targetIsSingleFile, typingsPath, cancellationId },
+            data: { targetImportPath, targetIsSingleFile, stubPath, cancellationId },
             port: port2,
         });
 
@@ -253,7 +253,7 @@ export class BackgroundAnalysisRunnerBase {
 
                 case 'writeTypeStub': {
                     run(() => {
-                        const { targetImportPath, targetIsSingleFile, typingsPath, cancellationId } = msg.data;
+                        const { targetImportPath, targetIsSingleFile, stubPath, cancellationId } = msg.data;
                         const token = getCancellationTokenFromId(cancellationId);
 
                         analyzeProgram(
@@ -264,7 +264,7 @@ export class BackgroundAnalysisRunnerBase {
                             this._getConsole(),
                             token
                         );
-                        this._program.writeTypeStub(targetImportPath, targetIsSingleFile, typingsPath, token);
+                        this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
                     }, msg.port!);
                     break;
                 }
@@ -392,7 +392,7 @@ function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
 
     configOptions.pythonPath = jsonObject.pythonPath;
     configOptions.typeshedPath = jsonObject.typeshedPath;
-    configOptions.typingsPath = jsonObject.typingsPath;
+    configOptions.stubPath = jsonObject.stubPath;
     configOptions.autoExcludeVenv = jsonObject.autoExcludeVenv;
     configOptions.verboseOutput = jsonObject.verboseOutput;
     configOptions.checkOnlyOpenFiles = jsonObject.checkOnlyOpenFiles;

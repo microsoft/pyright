@@ -51,6 +51,9 @@ export interface DiagnosticRuleSet {
     // when printed if all arguments are Unknown or Any?
     omitTypeArgsIfAny: boolean;
 
+    // Should Union and Optional types be printed in PEP 604 format?
+    pep604Printing: boolean;
+
     // Use strict inference rules for list expressions?
     strictListInference: boolean;
 
@@ -254,6 +257,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: false,
         omitTypeArgsIfAny: false,
+        pep604Printing: true,
         strictListInference: true,
         strictDictionaryInference: true,
         strictParameterNoneValue: true,
@@ -305,6 +309,7 @@ export function getNoTypeCheckingDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: true,
         omitTypeArgsIfAny: true,
+        pep604Printing: true,
         strictListInference: false,
         strictDictionaryInference: false,
         strictParameterNoneValue: false,
@@ -356,6 +361,7 @@ export function getDefaultDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: false,
         omitTypeArgsIfAny: false,
+        pep604Printing: true,
         strictListInference: false,
         strictDictionaryInference: false,
         strictParameterNoneValue: false,
@@ -422,7 +428,7 @@ export class ConfigOptions {
     typeshedPath?: string;
 
     // Path to custom typings (stub) modules.
-    typingsPath?: string;
+    stubPath?: string;
 
     // A list of file specs to include in the analysis. Can contain
     // directories, in which case all "*.py" files within those directories
@@ -648,6 +654,7 @@ export class ConfigOptions {
         this.diagnosticRuleSet = {
             printUnknownAsAny: defaultSettings.printUnknownAsAny,
             omitTypeArgsIfAny: defaultSettings.omitTypeArgsIfAny,
+            pep604Printing: defaultSettings.pep604Printing,
 
             // Use strict inference rules for list expressions?
             strictListInference: this._convertBoolean(
@@ -1002,13 +1009,24 @@ export class ConfigOptions {
             }
         }
 
-        // Read the "typingsPath" setting.
-        this.typingsPath = undefined;
+        // Read the "stubPath" setting.
+        this.stubPath = undefined;
+
+        // Keep this for backward compatibility
         if (configObj.typingsPath !== undefined) {
             if (typeof configObj.typingsPath !== 'string') {
                 console.log(`Config "typingsPath" field must contain a string.`);
             } else {
-                this.typingsPath = normalizePath(combinePaths(this.projectRoot, configObj.typingsPath));
+                console.log(`Config "typingsPath" is now deprecated. Please, use stubPath instead.`);
+                this.stubPath = normalizePath(combinePaths(this.projectRoot, configObj.typingsPath));
+            }
+        }
+
+        if (configObj.stubPath !== undefined) {
+            if (typeof configObj.stubPath !== 'string') {
+                console.log(`Config "stubPath" field must contain a string.`);
+            } else {
+                this.stubPath = normalizePath(combinePaths(this.projectRoot, configObj.stubPath));
             }
         }
 

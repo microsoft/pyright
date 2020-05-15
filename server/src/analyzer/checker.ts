@@ -12,6 +12,7 @@
  * cannot (or should not be) performed lazily.
  */
 
+import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
@@ -963,7 +964,8 @@ export class Checker extends ParseTreeWalker {
                             TextRange.extend(textRange, nameParts[nameParts.length - 1]);
                             this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
                                 `"${multipartName}" is not accessed`,
-                                textRange
+                                textRange,
+                                { action: Commands.unusedImport }
                             );
 
                             this._evaluator.addDiagnosticForTextRange(
@@ -1033,7 +1035,12 @@ export class Checker extends ParseTreeWalker {
         }
 
         if (nameNode && rule !== undefined && message) {
-            this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(`"${nameNode.value}" is not accessed`, nameNode);
+            const action = rule === DiagnosticRule.reportUnusedImport ? { action: Commands.unusedImport } : undefined;
+            this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
+                `"${nameNode.value}" is not accessed`,
+                nameNode,
+                action
+            );
             this._evaluator.addDiagnostic(diagnosticLevel, rule, message, nameNode);
         }
     }

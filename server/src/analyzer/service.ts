@@ -458,9 +458,17 @@ export class AnalyzerService {
         configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
         configOptions.useLibraryCodeForTypes = !!commandLineOptions.useLibraryCodeForTypes;
 
-        // If there was no typings path specified, use a default path.
-        if (configOptions.typingsPath === undefined) {
-            configOptions.typingsPath = normalizePath(combinePaths(configOptions.projectRoot, 'typings'));
+        // If there was no stub path specified, use a default path.
+        if (commandLineOptions.stubPath) {
+            if (!configOptions.stubPath) {
+                configOptions.stubPath = commandLineOptions.stubPath;
+            } else {
+                reportDuplicateSetting('stubPath');
+            }
+        } else {
+            if (!configOptions.stubPath) {
+                configOptions.stubPath = normalizePath(combinePaths(configOptions.projectRoot, 'typings'));
+            }
         }
 
         // Do some sanity checks on the specified settings and report missing
@@ -544,9 +552,9 @@ export class AnalyzerService {
             }
         }
 
-        if (configOptions.typingsPath) {
-            if (!this._fs.existsSync(configOptions.typingsPath) || !isDirectory(this._fs, configOptions.typingsPath)) {
-                this._console.log(`typingsPath ${configOptions.typingsPath} is not a valid directory.`);
+        if (configOptions.stubPath) {
+            if (!this._fs.existsSync(configOptions.stubPath) || !isDirectory(this._fs, configOptions.stubPath)) {
+                this._console.log(`stubPath ${configOptions.stubPath} is not a valid directory.`);
             }
         }
 
@@ -604,13 +612,13 @@ export class AnalyzerService {
     }
 
     private _getTypeStubFolder() {
-        const typingsPath = this._configOptions.typingsPath;
+        const stubPath = this._configOptions.stubPath;
         if (!this._typeStubTargetPath || !this._typeStubTargetImportName) {
             const errMsg = `Import '${this._typeStubTargetImportName}'` + ` could not be resolved`;
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
-        if (!typingsPath) {
+        if (!stubPath) {
             // We should never get here because we always generate a
             // default typings path if none was specified.
             const errMsg = 'No typings path was specified';
@@ -627,16 +635,16 @@ export class AnalyzerService {
         }
         try {
             // Generate a new typings directory if necessary.
-            if (!this._fs.existsSync(typingsPath)) {
-                this._fs.mkdirSync(typingsPath);
+            if (!this._fs.existsSync(stubPath)) {
+                this._fs.mkdirSync(stubPath);
             }
         } catch (e) {
-            const errMsg = `Could not create typings directory '${typingsPath}'`;
+            const errMsg = `Could not create typings directory '${stubPath}'`;
             this._console.error(errMsg);
             throw new Error(errMsg);
         }
         // Generate a typings subdirectory.
-        const typingsSubdirPath = combinePaths(typingsPath, typeStubInputTargetParts[0]);
+        const typingsSubdirPath = combinePaths(stubPath, typeStubInputTargetParts[0]);
         try {
             // Generate a new typings subdirectory if necessary.
             if (!this._fs.existsSync(typingsSubdirPath)) {

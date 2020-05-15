@@ -120,7 +120,32 @@ test('Configuration', () => {
 
     assert.equal(state.configOptions.diagnosticRuleSet.reportMissingImports, 'error');
     assert.equal(state.configOptions.diagnosticRuleSet.reportMissingModuleSource, 'warning');
-    assert.equal(state.configOptions.typingsPath, normalizeSlashes('/src/typestubs'));
+    assert.equal(state.configOptions.stubPath, normalizeSlashes('/src/typestubs'));
+});
+
+test('stubPath configuration', () => {
+    const code = `
+// @filename: mspythonconfig.json
+//// {
+////   "stubPath": "src/typestubs"
+//// }
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    assert.equal(state.configOptions.stubPath, normalizeSlashes('/src/typestubs'));
+});
+
+test('Duplicated stubPath configuration', () => {
+    const code = `
+// @filename: mspythonconfig.json
+//// {
+////   "typingsPath": "src/typestubs1",
+////   "stubPath": "src/typestubs2"
+//// }
+    `;
+
+    const state = parseAndGetTestState(code).state;
+    assert.equal(state.configOptions.stubPath, normalizeSlashes('/src/typestubs2'));
 });
 
 test('ProjectRoot', () => {

@@ -8,6 +8,9 @@
  * import statements in a python source file.
  */
 
+import { CancellationToken } from 'vscode-languageserver';
+
+import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition } from '../common/positionUtils';
 import { Position } from '../common/textRange';
@@ -378,8 +381,10 @@ function _formatModuleName(node: ModuleNameNode): string {
     return moduleName;
 }
 
-export function getContainingImportStatement(node: ParseNode | undefined) {
+export function getContainingImportStatement(node: ParseNode | undefined, token: CancellationToken) {
     while (node) {
+        throwIfCancellationRequested(token);
+
         if (node.nodeType === ParseNodeType.Import || node.nodeType === ParseNodeType.ImportFrom) {
             break;
         }

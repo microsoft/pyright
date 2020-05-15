@@ -40,6 +40,9 @@ export class CommandLineOptions {
     // Path of typeshed stubs.
     typeshedPath?: string;
 
+    // Path of typing folder
+    stubPath?: string;
+
     // Absolute execution root (current working directory).
     executionRoot: string;
 

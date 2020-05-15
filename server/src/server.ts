@@ -12,7 +12,7 @@ import { BackgroundAnalysis } from './backgroundAnalysis';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
-import { isDebugMode } from './common/core';
+import { isDebugMode, isString } from './common/core';
 import { convertUriToPath, getDirectoryPath, normalizeSlashes } from './common/pathUtils';
 import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
@@ -45,6 +45,16 @@ class PyrightServer extends LanguageServerBase {
                 if (typeshedPaths && isArray(typeshedPaths) && typeshedPaths.length > 0) {
                     serverSettings.typeshedPath = normalizeSlashes(typeshedPaths[0]);
                 }
+
+                const stubPath = pythonAnalysisSection.stubPath;
+                if (stubPath && isString(stubPath)) {
+                    serverSettings.stubPath = normalizeSlashes(stubPath);
+                }
+
+                if (pythonAnalysisSection.diagnosticMode !== undefined) {
+                    serverSettings.openFilesOnly = this.isOpenFilesOnly(pythonAnalysisSection.diagnosticMode);
+                }
+
                 serverSettings.autoSearchPaths = !!pythonAnalysisSection.autoSearchPaths;
 
                 const extraPaths = pythonAnalysisSection.extraPaths;
@@ -57,13 +67,17 @@ class PyrightServer extends LanguageServerBase {
 
             const pyrightSection = await this.getConfiguration(workspace, 'pyright');
             if (pyrightSection) {
-                serverSettings.openFilesOnly = !!pyrightSection.openFilesOnly;
+                if (pyrightSection.openFilesOnly !== undefined) {
+                    serverSettings.openFilesOnly = !!pyrightSection.openFilesOnly;
+                }
+
                 serverSettings.useLibraryCodeForTypes = !!pyrightSection.useLibraryCodeForTypes;
                 serverSettings.disableLanguageServices = !!pyrightSection.disableLanguageServices;
                 serverSettings.disableOrganizeImports = !!pyrightSection.disableOrganizeImports;
                 serverSettings.typeCheckingMode = pyrightSection.typeCheckingMode;
             } else {
-                serverSettings.openFilesOnly = true;
+                // Unless openFilesOnly is set explicitly, set it to true by default.
+                serverSettings.openFilesOnly = serverSettings.openFilesOnly ?? true;
                 serverSettings.useLibraryCodeForTypes = false;
                 serverSettings.disableLanguageServices = false;
                 serverSettings.disableOrganizeImports = false;
