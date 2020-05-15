@@ -53,6 +53,8 @@ class PyrightServer extends LanguageServerBase {
 
                 if (pythonAnalysisSection.diagnosticMode !== undefined) {
                     serverSettings.openFilesOnly = this.isOpenFilesOnly(pythonAnalysisSection.diagnosticMode);
+                } else if (pythonAnalysisSection.openFilesOnly !== undefined) {
+                    serverSettings.openFilesOnly = !!pythonAnalysisSection.openFilesOnly;
                 }
 
                 serverSettings.autoSearchPaths = !!pythonAnalysisSection.autoSearchPaths;

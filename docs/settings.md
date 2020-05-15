@@ -6,6 +6,8 @@ The Pyright VS Code extension honors the following settings.
 
 **pyright.disableOrganizeImports** [boolean]: Disables the “Organize Imports” command. This is useful if you are using another extension that provides similar functionality and you don’t want the two extensions to fight each other.
 
+**pyright.openFilesOnly** [boolean]: Determines whether pyright analyzes (and reports errors for) all files in the workspace, as indicated by the config file. If this option is set to true, pyright analyzes only open files. This setting is deprecated in favor of python.analysis.diagnosticMode. It will be removed at a future time.
+
 **pyright.typeCheckingMode** ["off", "basic", "strict"]: Determines the default type-checking level used by pyright. This can be overridden in the configuration file.
 
 **pyright.useLibraryCodeForTypes** [boolean]: Determines whether pyright reads, parses and analyzes library code to extract type information in the absence of type stub files. This can add significant overhead and may result in poor-quality type information. The default value for this option is false.
@@ -16,11 +18,11 @@ The Pyright VS Code extension honors the following settings.
 
 **python.analysis.extraPaths** [array of paths]: Paths to add to the default execution environment extra paths if there are no execution environments defined in the config file.
 
-**python.pythonPath** [path]: Path to Python interpreter.
-
-**python.venvPath** [path]: Path to folder with subdirectories that contain virtual environments.
-
 **python.analysis.stubPath** [path]: Path to directory containing custom type stub files.
 
 **python.analysis.diagnosticMode** ["openFilesOnly", "workspace"]: Determines whether pyright analyzes (and reports errors for) all files in the workspace, as indicated by the config file. If this option is set to "openFilesOnly", pyright analyzes only open files.
+
+**python.pythonPath** [path]: Path to Python interpreter.
+
+**python.venvPath** [path]: Path to folder with subdirectories that contain virtual environments.
 
