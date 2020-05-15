@@ -127,13 +127,13 @@ export class TypeStubWriter extends ParseTreeWalker {
     private _trackedImportFrom = new Map<string, TrackedImportFrom>();
     private _accessedImportedSymbols = new Map<string, boolean>();
 
-    constructor(private _typingsPath: string, private _sourceFile: SourceFile, private _evaluator: TypeEvaluator) {
+    constructor(private _stubPath: string, private _sourceFile: SourceFile, private _evaluator: TypeEvaluator) {
         super();
 
         // As a heuristic, we'll include all of the import statements
         // in "__init__.pyi" files even if they're not locally referenced
         // because these are often used as ways to re-export symbols.
-        if (this._typingsPath.endsWith('__init__.pyi')) {
+        if (this._stubPath.endsWith('__init__.pyi')) {
             this._includeAllImports = true;
         }
     }
@@ -662,6 +662,6 @@ export class TypeStubWriter extends ParseTreeWalker {
         finalText += this._printTrackedImports();
         finalText += this._typeStubText;
 
-        this._sourceFile.fileSystem.writeFileSync(this._typingsPath, finalText, 'utf8');
+        this._sourceFile.fileSystem.writeFileSync(this._stubPath, finalText, 'utf8');
     }
 }

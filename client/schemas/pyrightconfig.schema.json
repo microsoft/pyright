@@ -82,8 +82,8 @@
       "default": "",
       "pattern": "^(.*)$"
     },
-    "typingsPath": {
-      "$id": "#/properties/typingsPath",
+    "stubPath": {
+      "$id": "#/properties/stubPath",
       "type": "string",
       "title": "Path to directory containing custom type stub files",
       "default": "",

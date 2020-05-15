@@ -511,8 +511,8 @@ export function getFileExtension(fileName: string, multiDotExtension = false) {
         return path.extname(fileName);
     }
 
-    const lastDividerIndex = fileName.lastIndexOf(path.sep);
-    const firstDotIndex = fileName.indexOf('.', lastDividerIndex + 1);
+    fileName = getFileName(fileName);
+    const firstDotIndex = fileName.indexOf('.');
     return fileName.substr(firstDotIndex);
 }
 

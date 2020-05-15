@@ -7,7 +7,7 @@
  * Class that represents errors and warnings.
  */
 
-import { Diagnostic, DiagnosticCategory } from './diagnostic';
+import { Diagnostic, DiagnosticAction, DiagnosticCategory } from './diagnostic';
 import { convertOffsetsToRange } from './positionUtils';
 import { Range, TextRange } from './textRange';
 import { TextRangeCollection } from './textRangeCollection';
@@ -43,8 +43,12 @@ export class DiagnosticSink {
         return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Warning, message, range));
     }
 
-    addUnusedCode(message: string, range: Range) {
-        return this.addDiagnostic(new Diagnostic(DiagnosticCategory.UnusedCode, message, range));
+    addUnusedCode(message: string, range: Range, action?: DiagnosticAction) {
+        const diag = new Diagnostic(DiagnosticCategory.UnusedCode, message, range);
+        if (action) {
+            diag.addAction(action);
+        }
+        return this.addDiagnostic(diag);
     }
 
     addDiagnostic(diag: Diagnostic) {
@@ -91,7 +95,11 @@ export class TextRangeDiagnosticSink extends DiagnosticSink {
         return this.addWarning(message, convertOffsetsToRange(range.start, range.start + range.length, this._lines));
     }
 
-    addUnusedCodeWithTextRange(message: string, range: TextRange) {
-        return this.addUnusedCode(message, convertOffsetsToRange(range.start, range.start + range.length, this._lines));
+    addUnusedCodeWithTextRange(message: string, range: TextRange, action?: DiagnosticAction) {
+        return this.addUnusedCode(
+            message,
+            convertOffsetsToRange(range.start, range.start + range.length, this._lines),
+            action
+        );
     }
 }

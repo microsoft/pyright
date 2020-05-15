@@ -81,6 +81,25 @@
                     "description": "Automatically add common search paths like 'src'?",
                     "scope": "resource"
                 },
+                "python.analysis.stubPath": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Path to directory containing custom type stub files.",
+                    "scope": "resource"
+                },
+                "python.analysis.diagnosticMode": {
+                    "type": "string",
+                    "default": "openFilesOnly",
+                    "enum": [
+                        "openFilesOnly",
+                        "workspace"
+                    ],
+                    "enumDescriptions": [
+                        "Analyzes and reports errors on only open files.",
+                        "Analyzes and reports errors on all files in the workspace."
+                    ],
+                    "scope": "resource"
+                },
                 "python.pythonPath": {
                     "type": "string",
                     "default": "python",
@@ -103,12 +122,6 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Disables the “Organize Imports” command.",
-                    "scope": "resource"
-                },
-                "pyright.openFilesOnly": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Report errors only for currently-open files.",
                     "scope": "resource"
                 },
                 "pyright.useLibraryCodeForTypes": {

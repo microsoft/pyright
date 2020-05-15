@@ -109,16 +109,16 @@ export class Program {
         private _extension?: LanguageServiceExtension
     ) {
         this._console = console || new StandardConsole();
-        this._evaluator = createTypeEvaluator(this._lookUpImport, Program._getPrintTypeFlags(initialConfigOptions));
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
+        this._createNewEvaluator();
     }
 
     setConfigOptions(configOptions: ConfigOptions) {
         this._configOptions = configOptions;
 
         // Create a new evaluator with the updated config options.
-        this._evaluator = createTypeEvaluator(this._lookUpImport, Program._getPrintTypeFlags(this._configOptions));
+        this._createNewEvaluator();
     }
 
     setImportResolver(importResolver: ImportResolver) {
@@ -432,12 +432,7 @@ export class Program {
         }
     }
 
-    writeTypeStub(
-        targetImportPath: string,
-        targetIsSingleFile: boolean,
-        typingsPath: string,
-        token: CancellationToken
-    ) {
+    writeTypeStub(targetImportPath: string, targetIsSingleFile: boolean, stubPath: string, token: CancellationToken) {
         for (const sourceFileInfo of this._sourceFileList) {
             throwIfCancellationRequested(token);
 
@@ -447,7 +442,7 @@ export class Program {
             // not any files that the target module happened to import.
             const relativePath = getRelativePath(filePath, targetImportPath);
             if (relativePath !== undefined) {
-                let typeStubPath = normalizePath(combinePaths(typingsPath, relativePath));
+                let typeStubPath = normalizePath(combinePaths(stubPath, relativePath));
 
                 // If the target is a single file implementation, as opposed to
                 // a package in a directory, transform the name of the type stub
@@ -461,7 +456,7 @@ export class Program {
                 const typeStubDir = getDirectoryPath(typeStubPath);
 
                 try {
-                    makeDirectories(this._fs, typeStubDir, typingsPath);
+                    makeDirectories(this._fs, typeStubDir, stubPath);
                 } catch (e) {
                     const errMsg = `Could not create directory for '${typeStubDir}'`;
                     throw new Error(errMsg);
@@ -486,6 +481,10 @@ export class Program {
 
         if (configOptions.diagnosticRuleSet.omitTypeArgsIfAny) {
             flags |= PrintTypeFlags.OmitTypeArgumentsIfAny;
+        }
+
+        if (configOptions.diagnosticRuleSet.pep604Printing) {
+            flags |= PrintTypeFlags.PEP604;
         }
 
         return flags;

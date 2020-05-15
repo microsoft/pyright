@@ -193,11 +193,11 @@ export class ImportResolver {
         }
 
         if (allowPyi) {
-            // Check for a typings file.
-            if (this._configOptions.typingsPath) {
-                importFailureInfo.push(`Looking in typingsPath '${this._configOptions.typingsPath}'`);
+            // Check for a stub file.
+            if (this._configOptions.stubPath) {
+                importFailureInfo.push(`Looking in stubPath '${this._configOptions.stubPath}'`);
                 const typingsImport = this.resolveAbsoluteImport(
-                    this._configOptions.typingsPath,
+                    this._configOptions.stubPath,
                     moduleDescriptor,
                     importName,
                     importFailureInfo
@@ -327,9 +327,9 @@ export class ImportResolver {
             }
 
             // Check for a typings file.
-            if (this._configOptions.typingsPath) {
+            if (this._configOptions.stubPath) {
                 this._getCompletionSuggestionsAbsolute(
-                    this._configOptions.typingsPath,
+                    this._configOptions.stubPath,
                     moduleDescriptor,
                     suggestions,
                     similarityLimit
@@ -383,8 +383,8 @@ export class ImportResolver {
         }
 
         // Check for a typings file.
-        if (this._configOptions.typingsPath) {
-            const candidateModuleName = this._getModuleNameFromPath(this._configOptions.typingsPath, filePath);
+        if (this._configOptions.stubPath) {
+            const candidateModuleName = this._getModuleNameFromPath(this._configOptions.stubPath, filePath);
 
             // Does this candidate look better than the previous best module name?
             // We'll always try to use the shortest version.

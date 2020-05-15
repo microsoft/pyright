@@ -299,6 +299,9 @@ export const enum PrintTypeFlags {
 
     // Omit type arguments for generic classes if they are "Any".
     OmitTypeArgumentsIfAny = 1 << 1,
+
+    // Print Union and Optional in PEP 604 format.
+    PEP604 = 1 << 2,
 }
 
 interface ParamAssignmentInfo {
@@ -12229,8 +12232,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         });
 
         const returnType = getFunctionEffectiveReturnType(type);
-        const returnTypeString =
-            recursionCount < maxTypeRecursionCount ? printType(returnType, recursionCount + 1) : '';
+        let returnTypeString = recursionCount < maxTypeRecursionCount ? printType(returnType, recursionCount + 1) : '';
+
+        if (
+            printTypeFlags & PrintTypeFlags.PEP604 &&
+            returnType.category === TypeCategory.Union &&
+            recursionCount > 0
+        ) {
+            returnTypeString = `(${returnTypeString})`;
+        }
+
         return [paramTypeStrings, returnTypeString];
     }
 
@@ -12293,6 +12304,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (subtypes.find((t) => t.category === TypeCategory.None) !== undefined) {
                     const optionalType = printType(removeNoneFromUnion(unionType), recursionCount + 1);
+
+                    if (printTypeFlags & PrintTypeFlags.PEP604) {
+                        return optionalType + ' | None';
+                    }
+
                     return 'Optional[' + optionalType + ']';
                 }
 
@@ -12325,6 +12341,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (subtypeStrings.length === 1) {
                     return subtypeStrings[0];
+                }
+
+                if (printTypeFlags & PrintTypeFlags.PEP604) {
+                    return subtypeStrings.join(' | ');
                 }
 
                 return `Union[${subtypeStrings.join(', ')}]`;

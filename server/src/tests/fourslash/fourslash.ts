@@ -117,9 +117,12 @@ declare namespace _ {
         moveCaretRight(count: number): void;
 
         verifyDiagnostics(map?: { [marker: string]: { category: string; message: string } }): void;
-        verifyCodeActions(map: {
-            [marker: string]: { codeActions: { title: string; kind: string; command: Command }[] };
-        }): void;
+        verifyCodeActions(
+            map: {
+                [marker: string]: { codeActions: { title: string; kind: string; command: Command }[] };
+            },
+            verifyCodeActionCount?: boolean
+        ): void;
         verifyCommand(command: Command, files: { [filePath: string]: string }): void;
         verifyInvokeCodeAction(
             map: {
