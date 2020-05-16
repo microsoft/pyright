@@ -642,6 +642,10 @@ interface FunctionDetails {
     declaration?: FunctionDeclaration;
     builtInName?: string;
     docString?: string;
+
+    // Parameter specification used only for Callable types created
+    // with a ParameterSpecification representing the parameters.
+    parameterSpecification?: TypeVarType;
 }
 
 export interface SpecializedFunctionTypes {
@@ -730,6 +734,40 @@ export namespace FunctionType {
         newFunction.specializedTypes = specializedTypes;
 
         return newFunction;
+    }
+
+    // Creates a new function based on the parameters of another function. If
+    // paramTemplate is undefined, use default (generic) parameters.
+    export function cloneForParameterSpecification(type: FunctionType, paramTemplate: FunctionType | undefined) {
+        const newFunction = create(type.details.name, type.details.flags, type.details.docString);
+
+        // Make a shallow clone of the details.
+        newFunction.details = { ...type.details };
+
+        // The clone should no longer have a parameter specification
+        // since we're replacing it.
+        delete newFunction.details.parameterSpecification;
+
+        if (paramTemplate) {
+            newFunction.details.parameters = paramTemplate.details.parameters;
+        } else {
+            FunctionType.addDefaultParameters(newFunction);
+        }
+
+        return newFunction;
+    }
+
+    export function addDefaultParameters(functionType: FunctionType, useUnknown = false) {
+        FunctionType.addParameter(functionType, {
+            category: ParameterCategory.VarArgList,
+            name: 'args',
+            type: useUnknown ? UnknownType.create() : AnyType.create(),
+        });
+        FunctionType.addParameter(functionType, {
+            category: ParameterCategory.VarArgDictionary,
+            name: 'kwargs',
+            type: useUnknown ? UnknownType.create() : AnyType.create(),
+        });
     }
 
     export function isInstanceMethod(type: FunctionType): boolean {
@@ -921,19 +959,21 @@ export interface TypeVarType extends TypeBase {
     boundType?: Type;
     isCovariant: boolean;
     isContravariant: boolean;
+    isParameterSpec: boolean;
 
     // Internally created (e.g. for pseudo-generic classes)
     isSynthesized: boolean;
 }
 
 export namespace TypeVarType {
-    export function create(name: string, isSynthesized = false) {
+    export function create(name: string, isParameterSpec: boolean, isSynthesized = false) {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
             name,
             constraints: [],
             isCovariant: false,
             isContravariant: false,
+            isParameterSpec,
             isSynthesized,
         };
         return newTypeVarType;

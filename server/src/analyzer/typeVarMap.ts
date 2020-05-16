@@ -10,23 +10,29 @@
  */
 
 import { assert } from '../common/debug';
-import { Type } from './types';
+import { FunctionType, Type } from './types';
 
 export class TypeVarMap {
-    private _typeMap: Map<string, Type>;
+    private _typeVarMap: Map<string, Type>;
+    private _parameterSpecificationMap: Map<string, FunctionType>;
     private _isNarrowableMap: Map<string, boolean>;
     private _isLocked = false;
 
     constructor() {
-        this._typeMap = new Map<string, Type>();
+        this._typeVarMap = new Map<string, Type>();
+        this._parameterSpecificationMap = new Map<string, FunctionType>();
         this._isNarrowableMap = new Map<string, boolean>();
     }
 
     clone() {
         const newTypeVarMap = new TypeVarMap();
 
-        this._typeMap.forEach((value, name) => {
-            newTypeVarMap.set(name, value, this.isNarrowable(name));
+        this._typeVarMap.forEach((value, name) => {
+            newTypeVarMap.setTypeVar(name, value, this.isNarrowable(name));
+        });
+
+        this._parameterSpecificationMap.forEach((value, name) => {
+            newTypeVarMap.setParameterSpecification(name, value);
         });
 
         newTypeVarMap._isLocked = this._isLocked;
@@ -34,26 +40,35 @@ export class TypeVarMap {
         return newTypeVarMap;
     }
 
-    has(name: string): boolean {
-        return this._typeMap.has(name);
+    hasTypeVar(name: string): boolean {
+        return this._typeVarMap.has(name);
     }
 
-    get(name: string): Type | undefined {
-        return this._typeMap.get(name);
+    getTypeVar(name: string): Type | undefined {
+        return this._typeVarMap.get(name);
     }
 
-    forEach(callback: (value: Type, key: string) => void) {
-        return this._typeMap.forEach(callback);
-    }
-
-    set(name: string, type: Type, isNarrowable: boolean) {
+    setTypeVar(name: string, type: Type, isNarrowable: boolean) {
         assert(!this._isLocked);
-        this._typeMap.set(name, type);
+        this._typeVarMap.set(name, type);
         this._isNarrowableMap.set(name, isNarrowable);
     }
 
-    size() {
-        return this._typeMap.size;
+    hasParameterSpecification(name: string): boolean {
+        return this._parameterSpecificationMap.has(name);
+    }
+
+    getParameterSpecification(name: string): FunctionType | undefined {
+        return this._parameterSpecificationMap.get(name);
+    }
+
+    setParameterSpecification(name: string, type: FunctionType) {
+        assert(!this._isLocked);
+        this._parameterSpecificationMap.set(name, type);
+    }
+
+    typeVarCount() {
+        return this._typeVarMap.size;
     }
 
     isNarrowable(name: string): boolean {

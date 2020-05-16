@@ -136,7 +136,6 @@ import {
     UnknownType,
 } from './types';
 import {
-    addDefaultFunctionParameters,
     addTypeVarsToListIfUnique,
     areTypesSame,
     buildTypeVarMapFromSpecializedClass,
@@ -160,6 +159,7 @@ import {
     isEllipsisType,
     isNoReturnType,
     isOptionalType,
+    isParameterSpecificationType,
     isProperty,
     lookUpClassMember,
     lookUpObjectMember,
@@ -246,6 +246,9 @@ export const enum EvaluatorFlags {
 
     // 'Final' is not allowed in this context.
     FinalDisallowed = 1 << 6,
+
+    // A ParameterSpecification isn't allowed
+    ParameterSpecificationDisallowed = 1 << 7,
 }
 
 interface EvaluatorUsage {
@@ -877,7 +880,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 typeResult = getTypeOfExpression(
                     node.typeAnnotation,
                     undefined,
-                    EvaluatorFlags.EvaluateStringLiteralAsType
+                    EvaluatorFlags.EvaluateStringLiteralAsType | EvaluatorFlags.ParameterSpecificationDisallowed
                 );
                 break;
             }
@@ -919,7 +922,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        let evaluatorFlags = EvaluatorFlags.ConvertEllipsisToAny | EvaluatorFlags.EvaluateStringLiteralAsType;
+        let evaluatorFlags =
+            EvaluatorFlags.ConvertEllipsisToAny |
+            EvaluatorFlags.EvaluateStringLiteralAsType |
+            EvaluatorFlags.ParameterSpecificationDisallowed;
 
         const isAnnotationEvaluationPostponed =
             fileInfo.futureImports.get('annotations') !== undefined || fileInfo.isStubFile;
@@ -932,7 +938,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             evaluatorFlags |= EvaluatorFlags.FinalDisallowed;
         }
 
-        return convertClassToObject(getTypeOfExpression(node, undefined, evaluatorFlags).type);
+        const classType = getTypeOfExpression(node, undefined, evaluatorFlags).type;
+
+        return convertClassToObject(classType);
     }
 
     function getTypeFromDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
@@ -1541,7 +1549,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             name: 'cls',
             type: classType,
         });
-        addDefaultFunctionParameters(newType);
+        FunctionType.addDefaultParameters(newType);
         newType.details.declaredReturnType = ObjectType.create(classType);
 
         FunctionType.addParameter(initType, {
@@ -1686,7 +1694,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             name: 'cls',
             type: classType,
         });
-        addDefaultFunctionParameters(newType);
+        FunctionType.addDefaultParameters(newType);
         newType.details.declaredReturnType = ObjectType.create(classType);
 
         // Synthesize an __init__ method.
@@ -2610,6 +2618,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             type = UnknownType.create();
         }
 
+        if (type.category === TypeCategory.TypeVar && type.isParameterSpec) {
+            if (flags & EvaluatorFlags.ParameterSpecificationDisallowed) {
+                addError('ParameterSpecification not allowed in this context', node);
+            }
+        }
+
         return { type, node };
     }
 
@@ -2660,6 +2674,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case TypeCategory.TypeVar: {
+                if (baseType.isParameterSpec) {
+                    if (memberName === 'args' || memberName === 'kwargs') {
+                        return { type: AnyType.create(), node };
+                    }
+                    const fileInfo = getFileInfo(node);
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        `"${memberName}" is not a known member of ParameterSpecification`,
+                        node.memberName
+                    );
+                    return { type: UnknownType.create(), node };
+                }
+
                 return getTypeFromMemberAccessWithBaseType(
                     node,
                     {
@@ -3433,9 +3461,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     function getTypeArgs(node: IndexItemsNode, flags: EvaluatorFlags): TypeResult[] {
         const typeArgs: TypeResult[] = [];
+        const adjFlags = flags & ~EvaluatorFlags.ParameterSpecificationDisallowed;
 
         node.items.forEach((expr) => {
-            typeArgs.push(getTypeArg(expr, flags));
+            typeArgs.push(getTypeArg(expr, adjFlags));
         });
 
         return typeArgs;
@@ -3714,7 +3743,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             type = AnyType.create();
                         }
                     } else if (className === 'TypeVar') {
-                        type = createTypeVarType(errorNode, argList);
+                        type = createTypeVarType(errorNode, argList, /* isParamSpec */ false);
+                    } else if (className === 'ParameterSpecification') {
+                        type = createTypeVarType(errorNode, argList, /* isParamSpec */ true);
                     } else if (className === 'NamedTuple') {
                         type = createNamedTupleType(errorNode, argList, true);
                     } else if (
@@ -4786,10 +4817,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return true;
     }
 
-    function createTypeVarType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
+    function createTypeVarType(
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        isParamSpec: boolean
+    ): Type | undefined {
         let typeVarName = '';
+
+        if (isParamSpec) {
+            const fileInfo = getFileInfo(errorNode);
+            if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V39) {
+                addError('ParameterSpecification requires Python 3.9 or newer', errorNode);
+            }
+        }
+
+        const typeVarTypeName = isParamSpec ? 'ParameterSpecification' : 'TypeVar';
         if (argList.length === 0) {
-            addError('Expected name of TypeVar as first parameter', errorNode);
+            addError(`Expected name of ${typeVarTypeName} as first parameter`, errorNode);
             return undefined;
         }
 
@@ -4797,10 +4841,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
             typeVarName = firstArg.valueExpression.strings.map((s) => s.value).join('');
         } else {
-            addError('Expected name of TypeVar as first parameter', firstArg.valueExpression || errorNode);
+            addError(`Expected name of ${typeVarTypeName} as first parameter`, firstArg.valueExpression || errorNode);
         }
 
-        const typeVar = TypeVarType.create(typeVarName);
+        const typeVar = TypeVarType.create(typeVarName, isParamSpec);
 
         // Parse the remaining parameters.
         for (let i = 1; i < argList.length; i++) {
@@ -4816,7 +4860,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     );
                 }
 
-                if (paramName === 'bound') {
+                if (paramName === 'bound' && !isParamSpec) {
                     if (typeVar.constraints.length > 0) {
                         addError(
                             `A TypeVar cannot be both bound and constrained`,
@@ -4829,7 +4873,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         }
                         typeVar.boundType = convertClassToObject(argType);
                     }
-                } else if (paramName === 'covariant') {
+                } else if (paramName === 'covariant' && !isParamSpec) {
                     if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
                         if (typeVar.isContravariant) {
                             addError(
@@ -4840,7 +4884,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             typeVar.isCovariant = true;
                         }
                     }
-                } else if (paramName === 'contravariant') {
+                } else if (paramName === 'contravariant' && !isParamSpec) {
                     if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
                         if (typeVar.isContravariant) {
                             addError(
@@ -4852,11 +4896,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         }
                     }
                 } else {
-                    addError(`"${paramName}" is unknown parameter to TypeVar`, argList[i].valueExpression || errorNode);
+                    addError(
+                        `"${paramName}" is unknown parameter to ${typeVarTypeName}`,
+                        argList[i].valueExpression || errorNode
+                    );
                 }
 
                 paramNameMap.set(paramName, paramName);
-            } else {
+            } else if (!isParamSpec) {
                 if (typeVar.boundType) {
                     addError(`A TypeVar cannot be both bound and constrained`, argList[i].valueExpression || errorNode);
                 } else {
@@ -4869,6 +4916,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                     TypeVarType.addConstraint(typeVar, convertClassToObject(argType));
                 }
+            } else {
+                addError(
+                    `A ParameterSpec declaration does not support more than one argument`,
+                    argList[i].valueExpression || errorNode
+                );
+                break;
             }
         }
 
@@ -5275,7 +5328,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                     const entryTypeInfo = getTypeOfExpression(
                                         entryTypeNode,
                                         undefined,
-                                        EvaluatorFlags.EvaluateStringLiteralAsType
+                                        EvaluatorFlags.EvaluateStringLiteralAsType |
+                                            EvaluatorFlags.ParameterSpecificationDisallowed
                                     );
                                     if (entryTypeInfo) {
                                         entryType = convertClassToObject(entryTypeInfo.type);
@@ -5347,7 +5401,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             if (addGenericGetAttribute) {
-                addDefaultFunctionParameters(constructorType);
+                FunctionType.addDefaultParameters(constructorType);
             }
 
             // Always use generic parameters for __init__. The __new__ method
@@ -5359,7 +5413,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.SkipConstructorCheck
             );
             FunctionType.addParameter(initType, selfParameter);
-            addDefaultFunctionParameters(initType);
+            FunctionType.addDefaultParameters(initType);
             initType.details.declaredReturnType = NoneType.create();
 
             classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
@@ -6335,6 +6389,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addError(`"..." not allowed in this context`, entry.node);
                     } else if (entry.type.category === TypeCategory.Module) {
                         addError(`Module not allowed in this context`, entry.node);
+                    } else if (isParameterSpecificationType(entry.type)) {
+                        addError(`ParameterSpecification not allowed in this context`, entry.node);
                     }
 
                     FunctionType.addParameter(functionType, {
@@ -6346,12 +6402,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     });
                 });
             } else if (isEllipsisType(typeArgs[0].type)) {
-                addDefaultFunctionParameters(functionType);
+                FunctionType.addDefaultParameters(functionType);
+            } else if (isParameterSpecificationType(typeArgs[0].type)) {
+                FunctionType.addDefaultParameters(functionType);
+                functionType.details.parameterSpecification = typeArgs[0].type as TypeVarType;
             } else {
                 addError(`Expected parameter type list or "..."`, typeArgs[0].node);
             }
         } else {
-            addDefaultFunctionParameters(functionType, /* useUnknown */ true);
+            FunctionType.addDefaultParameters(functionType, /* useUnknown */ true);
         }
 
         if (typeArgs && typeArgs.length > 1) {
@@ -6359,6 +6418,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addError(`"..." not allowed in this context`, typeArgs[1].node);
             } else if (typeArgs[1].type.category === TypeCategory.Module) {
                 addError(`Module not allowed in this context`, typeArgs[1].node);
+            } else if (isParameterSpecificationType(typeArgs[1].type)) {
+                addError(`ParameterSpecification not allowed in this context`, typeArgs[1].node);
             }
             functionType.details.declaredReturnType = convertClassToObject(typeArgs[1].type);
         } else {
@@ -6383,6 +6444,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addError(`"..." not allowed in this context`, typeArgs[0].node);
         } else if (typeArgs[0].type.category === TypeCategory.Module) {
             addError(`Module not allowed in this context`, typeArgs[0].node);
+        } else if (isParameterSpecificationType(typeArgs[0].type)) {
+            addError(`ParameterSpecification not allowed in this context`, typeArgs[1].node);
         }
 
         return combineTypes([typeArgs[0].type, NoneType.create()]);
@@ -6520,9 +6583,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     } else if (typeArgs!.length !== 2 || index !== 1) {
                         addError(`"..." allowed only as the second of two arguments`, typeArg.node);
                     }
-                    if (typeArg.type.category === TypeCategory.Module) {
-                        addError(`Module not allowed in this context`, typeArg.node);
-                    }
+                } else if (typeArg.type.category === TypeCategory.Module) {
+                    addError(`Module not allowed in this context`, typeArg.node);
+                } else if (isParameterSpecificationType(typeArg.type)) {
+                    addError(`ParameterSpecification not allowed in this context`, typeArg.node);
                 }
             });
 
@@ -6586,6 +6650,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addError(`"..." not allowed in this context`, typeArg.node);
                 } else if (typeArg.type.category === TypeCategory.Module) {
                     addError(`Module not allowed in this context`, typeArg.node);
+                } else if (isParameterSpecificationType(typeArg.type)) {
+                    addError(`ParameterSpecification not allowed in this context`, typeArg.node);
                 }
             }
         }
@@ -7116,7 +7182,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             // Create a type parameter for each simple, named parameter
                             // in the __init__ method.
                             classType.details.typeParameters = genericParams.map((param) =>
-                                TypeVarType.create(`__type_of_${param.name!.value}`, true)
+                                TypeVarType.create(
+                                    `__type_of_${param.name!.value}`,
+                                    /* isParameterSpec */ false,
+                                    /* isSynthesized */ true
+                                )
                             );
                         }
                     }
@@ -9347,7 +9417,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         const arg1Type = getTypeOfExpression(
                             arg1Expr,
                             undefined,
-                            EvaluatorFlags.EvaluateStringLiteralAsType
+                            EvaluatorFlags.EvaluateStringLiteralAsType | EvaluatorFlags.ParameterSpecificationDisallowed
                         ).type;
                         const classTypeList = getIsInstanceClassTypes(arg1Type);
                         if (classTypeList) {
@@ -9718,6 +9788,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addError(`"..." not allowed in this context`, typeArg.node);
                 } else if (typeArg.type.category === TypeCategory.Module) {
                     addError(`Module not allowed in this context`, typeArg.node);
+                } else if (isParameterSpecificationType(typeArg.type)) {
+                    addError(`ParameterSpecification not allowed in this context`, typeArg.node);
                 }
             });
         }
@@ -9761,7 +9833,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return getTypeOfExpression(
             arg.valueExpression!,
             undefined,
-            expectingType ? EvaluatorFlags.EvaluateStringLiteralAsType : EvaluatorFlags.None
+            expectingType
+                ? EvaluatorFlags.EvaluateStringLiteralAsType | EvaluatorFlags.ParameterSpecificationDisallowed
+                : EvaluatorFlags.None
         ).type;
     }
 
@@ -11032,7 +11106,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         flags = CanAssignFlags.Default,
         recursionCount = 0
     ): boolean {
-        const curTypeVarMapping = typeVarMap.get(destType.name);
+        const curTypeVarMapping = typeVarMap.getTypeVar(destType.name);
+
+        if (destType.isParameterSpec) {
+            diag.addMessage(
+                `Type "${printType(srcType)}" is not compatible with ParameterSpecification "${destType.name}"`
+            );
+            return false;
+        }
 
         // Handle the constrained case.
         if (destType.constraints.length > 0) {
@@ -11062,7 +11143,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             } else {
                 // Assign the type to the type var.
                 if (!typeVarMap.isLocked()) {
-                    typeVarMap.set(destType.name, constrainedType, false);
+                    typeVarMap.setTypeVar(destType.name, constrainedType, false);
                 }
             }
 
@@ -11163,7 +11244,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (!typeVarMap.isLocked()) {
-            typeVarMap.set(destType.name, updatedType, updatedTypeIsNarrowable);
+            typeVarMap.setTypeVar(destType.name, updatedType, updatedTypeIsNarrowable);
         }
 
         return true;
@@ -11460,7 +11541,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         // manually set to the corresponding enum object type.
                         if (typeVarMap && ClassType.isBuiltIn(metaclass, 'EnumMeta')) {
                             if (!typeVarMap.isLocked()) {
-                                typeVarMap.set('_T', ObjectType.create(srcType), false);
+                                typeVarMap.setTypeVar('_T', ObjectType.create(srcType), false);
                             }
                         }
 
@@ -11536,7 +11617,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         }
                     });
                 } else {
-                    addDefaultFunctionParameters(constructorFunction);
+                    FunctionType.addDefaultParameters(constructorFunction);
                 }
 
                 srcFunction = constructorFunction;
@@ -11771,6 +11852,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 );
                 canAssign = false;
             }
+        }
+
+        // Are we assigning to a function with a ParameterSpecification?
+        if (destType.details.parameterSpecification && typeVarMap && !typeVarMap.isLocked()) {
+            typeVarMap.setParameterSpecification(destType.details.parameterSpecification.name, srcType);
         }
 
         return canAssign;
@@ -12288,7 +12374,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case TypeCategory.Function: {
+                // If it's a Callable with a ParameterSpecification, use the
+                // Callable notation.
                 const parts = printFunctionParts(type, recursionCount);
+                if (type.details.parameterSpecification) {
+                    return `Callable[${type.details.parameterSpecification.name}, ${parts[1]}]`;
+                }
                 return `(${parts[0].join(', ')}) -> ${parts[1]}`;
             }
 
@@ -12358,6 +12449,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 const typeName = type.name;
+
+                if (type.isParameterSpec) {
+                    return `ParameterSpecification["${typeName}"]`;
+                }
 
                 // Print the name in a simplified form if it's embedded
                 // inside another type string.

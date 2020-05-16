@@ -342,6 +342,14 @@ export function isNoReturnType(type: Type): boolean {
     return false;
 }
 
+export function isParameterSpecificationType(type: Type): boolean {
+    if (type.category !== TypeCategory.TypeVar) {
+        return false;
+    }
+
+    return type.isParameterSpec;
+}
+
 export function isProperty(type: Type): boolean {
     return type.category === TypeCategory.Object && ClassType.isPropertyClass(type.classType);
 }
@@ -382,7 +390,7 @@ export function specializeType(
     }
 
     // Shortcut if there are no type variables defined.
-    if (typeVarMap && !makeConcrete && typeVarMap.size() === 0) {
+    if (typeVarMap && !makeConcrete && typeVarMap.typeVarCount() === 0) {
         return type;
     }
 
@@ -396,7 +404,7 @@ export function specializeType(
 
     if (type.category === TypeCategory.TypeVar) {
         if (typeVarMap) {
-            const replacementType = typeVarMap.get(type.name);
+            const replacementType = typeVarMap.getTypeVar(type.name);
             if (replacementType) {
                 return replacementType;
             }
@@ -430,7 +438,7 @@ export function specializeType(
                     return specializeType(firstTypeArg.classType, typeVarMap, makeConcrete, recursionLevel + 1);
                 } else if (firstTypeArg.category === TypeCategory.TypeVar) {
                     if (typeVarMap) {
-                        const replacementType = typeVarMap.get(firstTypeArg.name);
+                        const replacementType = typeVarMap.getTypeVar(firstTypeArg.name);
                         if (replacementType && replacementType.category === TypeCategory.Object) {
                             return replacementType.classType;
                         }
@@ -587,19 +595,6 @@ export function lookUpClassMember(
     }
 
     return undefined;
-}
-
-export function addDefaultFunctionParameters(functionType: FunctionType, useUnknown = false) {
-    FunctionType.addParameter(functionType, {
-        category: ParameterCategory.VarArgList,
-        name: 'args',
-        type: useUnknown ? UnknownType.create() : AnyType.create(),
-    });
-    FunctionType.addParameter(functionType, {
-        category: ParameterCategory.VarArgDictionary,
-        name: 'kwargs',
-        type: useUnknown ? UnknownType.create() : AnyType.create(),
-    });
 }
 
 export function getMetaclass(type: ClassType, recursionCount = 0): ClassType | UnknownType | undefined {
@@ -764,8 +759,8 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
             break;
 
         case TypeCategory.TypeVar:
-            if (!typeVarMap.has(destType.name)) {
-                typeVarMap.set(destType.name, srcType, typeVarMap.isNarrowable(destType.name));
+            if (!typeVarMap.hasTypeVar(destType.name)) {
+                typeVarMap.setTypeVar(destType.name, srcType, typeVarMap.isNarrowable(destType.name));
             }
             break;
     }
@@ -817,7 +812,7 @@ export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] 
             typeArgType = getConcreteTypeFromTypeVar(typeParam);
         }
 
-        typeVarMap.set(typeVarName, typeArgType, false);
+        typeVarMap.setTypeVar(typeVarName, typeArgType, false);
     });
 
     return typeVarMap;
@@ -1096,10 +1091,10 @@ function _specializeClassType(
         ClassType.getTypeParameters(classType).forEach((typeParam) => {
             let typeArgType: Type;
 
-            if (typeVarMap && typeVarMap.get(typeParam.name)) {
+            if (typeVarMap && typeVarMap.getTypeVar(typeParam.name)) {
                 // If the type var map already contains this type var, use
                 // the existing type.
-                typeArgType = typeVarMap.get(typeParam.name)!;
+                typeArgType = typeVarMap.getTypeVar(typeParam.name)!;
                 specializationNeeded = true;
             } else {
                 // If the type var map wasn't provided or doesn't contain this
@@ -1157,11 +1152,19 @@ function _specializeOverloadedFunctionType(
 }
 
 function _specializeFunctionType(
-    functionType: FunctionType,
+    sourceType: FunctionType,
     typeVarMap: TypeVarMap | undefined,
     makeConcrete: boolean,
     recursionLevel: number
 ): FunctionType {
+    let functionType = sourceType;
+
+    // Handle functions with a parameter specification in a special manner.
+    if (functionType.details.parameterSpecification) {
+        const paramSpec = typeVarMap?.getParameterSpecification(functionType.details.parameterSpecification.name);
+        functionType = FunctionType.cloneForParameterSpecification(functionType, paramSpec);
+    }
+
     const declaredReturnType =
         functionType.specializedTypes && functionType.specializedTypes.returnType
             ? functionType.specializedTypes.returnType

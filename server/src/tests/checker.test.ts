@@ -1467,3 +1467,23 @@ test('Unions1', () => {
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['unions1.py'], configOptions);
     validateResults(analysisResults39, 0);
 });
+
+test('ParamSpec1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V39;
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec1.py'], configOptions);
+    validateResults(results, 7);
+});
+
+test('ParamSpec2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V38;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
+    validateResults(analysisResults38, 1);
+
+    configOptions.defaultPythonVersion = PythonVersion.V39;
+    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
+    validateResults(analysisResults39, 0);
+});
