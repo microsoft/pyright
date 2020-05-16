@@ -1487,3 +1487,11 @@ test('ParamSpec2', () => {
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
     validateResults(analysisResults39, 0);
 });
+
+test('ParamSpec3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V39;
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec3.py'], configOptions);
+    validateResults(results, 1);
+});
