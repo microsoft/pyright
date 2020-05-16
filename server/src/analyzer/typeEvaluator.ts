@@ -934,6 +934,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
         }
 
+        // If the annotation is part of 
+        if (node?.parent?.nodeType === ParseNodeType.Assignment && node.parent.typeAnnotationComment === node) {
+            evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+        }
+
         if (!allowFinal) {
             evaluatorFlags |= EvaluatorFlags.FinalDisallowed;
         }
