@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Various debug helper methods to show user friendly debugging info
+ * Helper functions that display user friendly debugging info.
  */
 
 import { stableSort } from './collectionUtils';

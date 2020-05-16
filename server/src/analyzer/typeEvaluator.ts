@@ -934,7 +934,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
         }
 
-        // If the annotation is part of 
+        // If the annotation is part of a comment, allow forward references
+        // even if it's not enclosed in quotes.
         if (node?.parent?.nodeType === ParseNodeType.Assignment && node.parent.typeAnnotationComment === node) {
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
         }

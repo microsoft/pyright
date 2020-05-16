@@ -3,7 +3,7 @@
 * Copyright (c) Microsoft Corporation.
 * Licensed under the MIT license.
 
-* Defines language service completion list extensibility.
+* Language service completion list extensibility.
 */
 
 import { CancellationToken, CompletionList } from 'vscode-languageserver';

@@ -909,7 +909,7 @@ export class AnalyzerService {
                         this._console.log(`Received fs event '${event}' for path '${path}'`);
                     }
 
-                    // Delete comes in as a change event, so try to distinguish them here
+                    // Delete comes in as a change event, so try to distinguish here.
                     if (event === 'change' && this._fs.existsSync(path)) {
                         this._backgroundAnalysisProgram.markFilesDirty([path], false);
                         this._scheduleReanalysis(false);
@@ -942,7 +942,7 @@ export class AnalyzerService {
             return;
         }
 
-        // Watch the library paths for package install/uninstall
+        // Watch the library paths for package install/uninstall.
         const importFailureInfo: string[] = [];
         const watchList = findPythonSearchPaths(
             this._fs,
@@ -981,7 +981,7 @@ export class AnalyzerService {
 
     private _scheduleLibraryAnalysis() {
         if (this._disposed) {
-            // already disposed
+            // Already disposed.
             return;
         }
 
@@ -993,7 +993,8 @@ export class AnalyzerService {
         this._libraryReanalysisTimer = setTimeout(() => {
             this._clearLibraryReanalysisTimer();
 
-            // Invalidate import resolver, mark all files dirty unconditionally and reanalyze
+            // Invalidate import resolver, mark all files dirty unconditionally,
+            // and reanalyze.
             this.invalidateAndForceReanalysis();
             this._scheduleReanalysis(false);
         }, 100);

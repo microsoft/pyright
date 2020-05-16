@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Various helper functions around collection/array
+ * Helper functions relating to collections and arrays.
  */
 
 import { compareValues, Comparison, equateValues, isArray } from './core';

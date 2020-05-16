@@ -3,9 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Various misc code snippets that doesn't have any dependency to other user code.
- * This is a place one can put code to break circular references between files.
- * make sure this doesn't have any dependency to other files.
+ * Various helpers that don't have a dependency on other code files.
  */
 
 export const enum Comparison {

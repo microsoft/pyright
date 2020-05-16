@@ -3,9 +3,9 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Defines a "file system provider" abstraction used throughout the
- * code base. This abstraction allows us to swap out a real file system
- * implementation for a virtual (mocked) implementation for testing.
+ * A "file system provider" abstraction that allows us to swap out a
+ * real file system implementation for a virtual (mocked) implementation
+ * for testing.
  */
 
 /* eslint-disable no-dupe-class-members */
@@ -144,6 +144,7 @@ class RealFileSystem implements FileSystem {
     createReadStream(path: string): fs.ReadStream {
         return fs.createReadStream(path);
     }
+
     createWriteStream(path: string): fs.WriteStream {
         return fs.createWriteStream(path);
     }

@@ -184,7 +184,7 @@ export function getFileSize(fs: FileSystem, path: string) {
             return stat.size;
         }
     } catch {
-        /*ignore*/
+        // Ignore the exception.
     }
     return 0;
 }
