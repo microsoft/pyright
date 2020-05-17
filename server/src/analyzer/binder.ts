@@ -1461,6 +1461,7 @@ export class Binder extends ParseTreeWalker {
                 const addedSymbols = new Map<string, Symbol>();
                 if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
                     this._bindPossibleTupleNamedTarget(compr.targetExpression, addedSymbols);
+                    this._addInferredTypeAssignmentForVariable(compr.targetExpression, node);
                 }
                 boundSymbols.push(addedSymbols);
             }
