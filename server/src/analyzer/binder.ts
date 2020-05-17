@@ -822,6 +822,7 @@ export class Binder extends ParseTreeWalker {
                     type: DeclarationType.Variable,
                     node: node.name,
                     isConstant: isConstantName(node.name.value),
+                    inferredTypeSource: node,
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
                 };
@@ -1461,7 +1462,7 @@ export class Binder extends ParseTreeWalker {
                 const addedSymbols = new Map<string, Symbol>();
                 if (compr.nodeType === ParseNodeType.ListComprehensionFor) {
                     this._bindPossibleTupleNamedTarget(compr.targetExpression, addedSymbols);
-                    this._addInferredTypeAssignmentForVariable(compr.targetExpression, node);
+                    this._addInferredTypeAssignmentForVariable(compr.targetExpression, compr);
                 }
                 boundSymbols.push(addedSymbols);
             }
