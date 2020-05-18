@@ -901,10 +901,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (!typeResult) {
             // We shouldn't get here. If we do, report an error.
             fail(`Unhandled expression type '${ParseTreeUtils.printExpression(node)}'`);
-            typeResult = { type: UnknownType.create(), node };
         }
 
-        writeTypeCache(node, typeResult.type);
+        // Don't update the type cache with an unbound type that results from
+        // a resolution cycle. The cache will be updated when the stack unwinds
+        // and the type is fully evaluated.
+        if (!typeResult.isResolutionCyclical) {
+            writeTypeCache(node, typeResult.type);
+        }
 
         return typeResult;
     }
@@ -2527,6 +2531,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const fileInfo = getFileInfo(node);
         const name = node.value;
         let type: Type | undefined;
+        let isResolutionCyclical = false;
 
         // Look for the scope that contains the value definition and
         // see if it has a declared type.
@@ -2536,6 +2541,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const symbol = symbolWithScope.symbol;
 
             const effectiveType = getEffectiveTypeOfSymbol(symbol);
+
+            // If the effective type is unbound, that means we were unable to
+            // infer the effective type because of a cyclical dependency
+            // in type evaluation.
+            if (effectiveType.category === TypeCategory.Unbound) {
+                isResolutionCyclical = true;
+            }
 
             const isSpecialBuiltIn =
                 !!effectiveType &&
@@ -2594,20 +2606,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
             }
 
-            if (isUnbound(type)) {
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportUnboundVariable,
-                    DiagnosticRule.reportUnboundVariable,
-                    `"${name}" is unbound`,
-                    node
-                );
-            } else if (isPossiblyUnbound(type)) {
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportUnboundVariable,
-                    DiagnosticRule.reportUnboundVariable,
-                    `"${name}" is possibly unbound`,
-                    node
-                );
+            // If there is a resolution cycle, don't report it as an unbound symbol
+            // at this time. It will be re-evaluated as the call stack unwinds, and
+            // its actual type will be known then.
+            if (!isResolutionCyclical) {
+                if (isUnbound(type)) {
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                        DiagnosticRule.reportUnboundVariable,
+                        `"${name}" is unbound`,
+                        node
+                    );
+                } else if (isPossiblyUnbound(type)) {
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                        DiagnosticRule.reportUnboundVariable,
+                        `"${name}" is possibly unbound`,
+                        node
+                    );
+                }
             }
 
             setSymbolAccessed(fileInfo, symbol, node);
@@ -2630,7 +2647,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        return { type, node };
+        return { type, node, isResolutionCyclical };
     }
 
     function getTypeFromMemberAccess(node: MemberAccessNode, flags: EvaluatorFlags): TypeResult {
@@ -6860,6 +6877,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // Is this type already cached?
         let rightHandType = readTypeCache(node.rightExpression);
+        let isResolutionCycle = false;
 
         // If there was a cached value and no target of interest or the entire
         // LHS is the target of interest, there's no need to do additional work.
@@ -6885,7 +6903,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // An assignment of ellipsis means "Any" within a type stub file.
                     flags |= EvaluatorFlags.ConvertEllipsisToAny;
                 }
-                let srcType = getTypeOfExpression(node.rightExpression, declaredType, flags).type;
+                const srcTypeResult = getTypeOfExpression(node.rightExpression, declaredType, flags);
+                let srcType = srcTypeResult.type;
+                if (srcTypeResult.isResolutionCyclical) {
+                    isResolutionCycle = true;
+                }
 
                 // Determine if the RHS is a constant boolean expression.
                 // If so, assign it a literal type.
@@ -6917,9 +6939,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        assignTypeToExpression(node.leftExpression, rightHandType, node.rightExpression);
+        // Don't write back an unbound type that results from a resolution cycle. We'll
+        // write back the type when the stack unwinds and the type is fully evaluated.
+        if (!isResolutionCycle) {
+            assignTypeToExpression(node.leftExpression, rightHandType, node.rightExpression);
 
-        writeTypeCache(node, rightHandType);
+            writeTypeCache(node, rightHandType);
+        }
     }
 
     function evaluateTypesForAugmentedAssignment(node: AugmentedAssignmentNode): void {
@@ -8924,10 +8950,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // evaluate it.
                     evaluateTypesForStatement(flowNode.node);
                     cachedType = readTypeCache(nodeForCacheLookup);
-                    if (!cachedType) {
-                        fail('evaluateAssignmentFlowNode failed to evaluate target');
-                        cachedType = UnknownType.create();
-                    }
                 }
 
                 return cachedType;
