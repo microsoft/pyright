@@ -2196,6 +2196,18 @@ export class Binder extends ParseTreeWalker {
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
+
+                    // Is this annotation indicating that the variable is a "ClassVar"? Note
+                    // that this check is somewhat fragile because we can't verify here that
+                    // "ClassVar" maps to the typing module symbol by this name.
+                    const isClassVar =
+                        typeAnnotation.nodeType === ParseNodeType.Index &&
+                        typeAnnotation.baseExpression.nodeType === ParseNodeType.Name &&
+                        typeAnnotation.baseExpression.value === 'ClassVar';
+
+                    if (isClassVar) {
+                        symbolWithScope.symbol.setIsClassVar();
+                    }
                 }
 
                 declarationHandled = true;

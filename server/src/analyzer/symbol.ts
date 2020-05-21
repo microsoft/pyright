@@ -41,6 +41,10 @@ export const enum SymbolFlags {
     // Indicates that the symbol is not considered for protocol
     // matching. This applies to some built-in symbols like __class__.
     IgnoredForProtocolMatch = 1 << 5,
+
+    // Indicates that the symbol is a ClassVar, so it cannot be
+    // set when accessed through a class instance.
+    ClassVar = 1 << 6,
 }
 
 let nextSymbolId = 1;
@@ -114,6 +118,14 @@ export class Symbol {
 
     isInstanceMember() {
         return !!(this._flags & SymbolFlags.InstanceMember);
+    }
+
+    setIsClassVar() {
+        this._flags |= SymbolFlags.ClassVar;
+    }
+
+    isClassVar() {
+        return !!(this._flags & SymbolFlags.ClassVar);
     }
 
     setIsPrivateMember() {

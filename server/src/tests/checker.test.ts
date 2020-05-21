@@ -1507,3 +1507,15 @@ test('ParamSpec3', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec3.py'], configOptions);
     validateResults(results, 1);
 });
+
+test('ClassVar1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classVar1.py']);
+
+    validateResults(analysisResults, 1);
+});
+
+test('ClassVar2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classVar2.py']);
+
+    validateResults(analysisResults, 1);
+});

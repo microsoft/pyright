@@ -290,6 +290,9 @@ export const enum MemberAccessFlags {
     // technique.
     SkipGetCheck = 1 << 4,
 
+    // Consider writes to symbols flagged as ClassVars as an error.
+    DisallowClassVarWrites = 1 << 5,
+
     // This set of flags is appropriate for looking up methods.
     SkipForMethodLookup = SkipInstanceMembers | SkipGetAttributeCheck | SkipGetCheck,
 }
@@ -1017,7 +1020,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             memberName,
             usage,
             diag,
-            memberAccessFlags
+            memberAccessFlags | MemberAccessFlags.DisallowClassVarWrites
         );
 
         let resultType = memberInfo ? memberInfo.type : undefined;
@@ -2113,6 +2116,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 memberName,
                 ClassMemberLookupFlags.DeclaredTypesOnly
             );
+
             if (memberInfo) {
                 const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
                 if (declaredType && !isAnyOrUnknown(declaredType)) {
@@ -2921,6 +2925,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // only the declared type to avoid circular
                 // type evaluation.
                 type = getDeclaredTypeOfSymbol(memberInfo.symbol) || UnknownType.create();
+            }
+
+            if (usage.method === 'set' && memberInfo.symbol.isClassVar()) {
+                if (flags & MemberAccessFlags.DisallowClassVarWrites) {
+                    diag.addMessage(
+                        `Member "${memberName}" cannot be set through a class instance because it is a ClassVar`
+                    );
+                    return undefined;
+                }
             }
 
             // Don't include variables within typed dict classes.
@@ -10754,6 +10767,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             diag.addMessage(`"${name}" is an incompatible type`);
                             typesAreConsistent = false;
                         }
+                    }
+
+                    if (symbol.isClassVar() && !memberInfo.symbol.isClassMember()) {
+                        diag.addMessage(`"${name}" is not a class variable`);
+                        typesAreConsistent = false;
                     }
                 }
             }
