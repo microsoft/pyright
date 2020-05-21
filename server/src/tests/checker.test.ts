@@ -1519,3 +1519,9 @@ test('ClassVar2', () => {
 
     validateResults(analysisResults, 1);
 });
+
+test('TypeVar1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar1.py']);
+
+    validateResults(analysisResults, 2);
+});

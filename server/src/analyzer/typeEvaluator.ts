@@ -2248,6 +2248,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     }
 
     function assignTypeToExpression(target: ExpressionNode, type: Type, srcExpr?: ExpressionNode) {
+        // Is the source expression a TypeVar() call?
+        if (type.category === TypeCategory.TypeVar) {
+            if (srcExpr && srcExpr.nodeType === ParseNodeType.Call) {
+                const callType = getTypeOfExpression(srcExpr.leftExpression).type;
+                if (
+                    callType.category === TypeCategory.Class &&
+                    (ClassType.isBuiltIn(callType, 'TypeVar') ||
+                        ClassType.isBuiltIn(callType, 'ParameterSpecification'))
+                ) {
+                    if (target.nodeType !== ParseNodeType.Name || target.value !== type.name) {
+                        addError(
+                            `${
+                                type.isParameterSpec ? 'ParameterSpecification' : 'TypeVar'
+                            } must be assigned to a variable named "${type.name}"`,
+                            target
+                        );
+                    }
+                }
+            }
+        }
+
         switch (target.nodeType) {
             case ParseNodeType.Name: {
                 const name = target;

@@ -8,8 +8,8 @@
 
 from typing import Generic, TypeVar
 
-_A = TypeVar('A')
-_B = TypeVar('B')
+_A = TypeVar('_A')
+_B = TypeVar('_B')
 
 class Foo(Generic[_A, _B]):
     def __init__(self, a: _A, b: _B = 'hello'):

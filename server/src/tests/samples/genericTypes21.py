@@ -3,7 +3,7 @@
 
 from typing import Optional, TypeVar
 
-_T = TypeVar("T")
+_T = TypeVar("_T")
 
 
 def foo1(v: Optional[_T]) -> _T:
