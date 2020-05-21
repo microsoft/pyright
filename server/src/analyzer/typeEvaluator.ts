@@ -10937,6 +10937,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         recursionCount: number
     ): boolean {
         let curSrcType = srcType;
+        let curTypeVarMap = typeVarMap;
 
         for (let ancestorIndex = inheritanceChain.length - 1; ancestorIndex >= 0; ancestorIndex--) {
             const ancestorType = inheritanceChain[ancestorIndex];
@@ -10990,7 +10991,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                         expectedDestType,
                                         expectedSrcType,
                                         diag.createAddendum(),
-                                        typeVarMap,
+                                        curTypeVarMap,
                                         CanAssignFlags.Default,
                                         recursionCount + 1
                                     )
@@ -11024,9 +11025,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             // Validate that the type arguments match.
-            if (!verifyTypeArgumentsAssignable(ancestorType, curSrcType, diag, typeVarMap, recursionCount)) {
+            if (!verifyTypeArgumentsAssignable(ancestorType, curSrcType, diag, curTypeVarMap, recursionCount)) {
                 return false;
             }
+
+            // Allocate a new type var map for the next time through the loop.
+            curTypeVarMap = new TypeVarMap();
         }
 
         // If the dest type is specialized, make sure the specialized source
