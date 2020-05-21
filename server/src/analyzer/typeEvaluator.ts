@@ -3185,9 +3185,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         usage: EvaluatorUsage,
         flags: EvaluatorFlags
     ): TypeResult {
-        // Handle the special case where we're specializing a
-        // generic union of classes or callable.
-        if (baseType.category === TypeCategory.Union || baseType.category === TypeCategory.Function) {
+        // Handle the special case where we're specializing a generic union
+        // of classes, a callable, or a specialized class.
+        if (
+            baseType.category === TypeCategory.Union ||
+            baseType.category === TypeCategory.Function ||
+            (baseType.category === TypeCategory.Class && baseType.typeArguments)
+        ) {
             const typeParameters: TypeVarType[] = [];
             let isUnionOfClasses = true;
 
@@ -3216,7 +3220,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 const typeVarMap = new TypeVarMap();
                 const diag = new DiagnosticAddendum();
-                // const typeVarMap = buildTypeVarMap(typeParameters, typeArgs);
                 typeParameters.forEach((param, index) => {
                     if (index < typeArgs.length) {
                         assignTypeToTypeVar(param, typeArgs[index], false, diag, typeVarMap);
