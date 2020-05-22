@@ -6632,7 +6632,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         classType: ClassType,
         typeArgs: TypeResult[] | undefined,
         paramLimit?: number,
-        allowEllipsis = false
+        allowEllipsis = false,
+        allowParamSpec = false
     ): Type {
         if (typeArgs) {
             // Verify that we didn't receive any inappropriate ellipses or modules.
@@ -6645,7 +6646,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 } else if (typeArg.type.category === TypeCategory.Module) {
                     addError(`Module not allowed in this context`, typeArg.node);
-                } else if (isParameterSpecificationType(typeArg.type)) {
+                } else if (!allowParamSpec && isParameterSpecificationType(typeArg.type)) {
                     addError(`ParameterSpecification not allowed in this context`, typeArg.node);
                 }
             });
@@ -6750,7 +6751,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             });
         }
 
-        return createSpecialType(classType, typeArgs);
+        return createSpecialType(
+            classType,
+            typeArgs,
+            /* paramLimit */ undefined,
+            /* allowEllipsis */ false,
+            /* allowParamSpec */ true
+        );
     }
 
     function transformTypeForPossibleEnumClass(node: NameNode, typeOfExpr: Type): Type {
@@ -9853,8 +9860,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addError(`"..." not allowed in this context`, typeArg.node);
                 } else if (typeArg.type.category === TypeCategory.Module) {
                     addError(`Module not allowed in this context`, typeArg.node);
-                } else if (isParameterSpecificationType(typeArg.type)) {
-                    addError(`ParameterSpecification not allowed in this context`, typeArg.node);
                 }
             });
         }
