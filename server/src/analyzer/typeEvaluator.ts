@@ -2707,6 +2707,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const baseType = baseTypeResult.type;
         const memberName = node.memberName.value;
         const diag = new DiagnosticAddendum();
+        const fileInfo = getFileInfo(node);
         let type: Type | undefined;
 
         switch (baseType.category) {
@@ -2726,7 +2727,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (memberName === 'args' || memberName === 'kwargs') {
                         return { type: AnyType.create(), node };
                     }
-                    const fileInfo = getFileInfo(node);
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -2788,7 +2788,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         type = UnknownType.create();
                     }
                 } else {
-                    const fileInfo = getFileInfo(node);
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -2834,7 +2833,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             case TypeCategory.OverloadedFunction: {
                 // TODO - not yet sure what to do about members of functions,
                 // which have associated dictionaries.
-                type = UnknownType.create();
+                type = AnyType.create();
                 break;
             }
 
@@ -2851,7 +2850,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 operationName = 'delete';
             }
 
-            const fileInfo = getFileInfo(node);
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -2866,6 +2864,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (type.category === TypeCategory.Class && !type.typeArguments) {
                 type = createSpecializedClassType(type, undefined, flags, node);
             }
+        }
+
+        if (usage.method === 'get') {
+            reportPossibleUnknownAssignment(
+                fileInfo.diagnosticRuleSet.reportUnknownMemberType,
+                DiagnosticRule.reportUnknownMemberType,
+                node.memberName,
+                type,
+                node
+            );
         }
 
         return { type, node };
