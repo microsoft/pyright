@@ -58,7 +58,6 @@ export class AnalyzerService {
     private _instanceName: string;
     private _importResolverFactory: ImportResolverFactory;
     private _executionRootPath: string;
-    private _typeStubTargetImportName: string | undefined;
     private _typeStubTargetPath: string | undefined;
     private _typeStubTargetIsSingleFile = false;
     private _console: ConsoleInterface;
@@ -69,10 +68,7 @@ export class AnalyzerService {
     private _configFileWatcher: FileWatcher | undefined;
     private _libraryFileWatcher: FileWatcher | undefined;
     private _onCompletionCallback: AnalysisCompleteCallback | undefined;
-    private _watchForSourceChanges = false;
-    private _watchForLibraryChanges = false;
-    private _typeCheckingMode: string | undefined;
-    private _verboseOutput = false;
+    private _commandLineOptions: CommandLineOptions | undefined;
     private _analyzeTimer: any;
     private _requireTrackedFileUpdate = true;
     private _lastUserInteractionTime = Date.now();
@@ -95,7 +91,6 @@ export class AnalyzerService {
         this._instanceName = instanceName;
         this._console = console || new StandardConsole();
         this._executionRootPath = '';
-        this._typeStubTargetImportName = undefined;
         this._extension = extension;
         this._importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;
         this._maxAnalysisTimeInForeground = maxAnalysisTime;
@@ -145,14 +140,10 @@ export class AnalyzerService {
     }
 
     setOptions(commandLineOptions: CommandLineOptions, reanalyze = true): void {
-        this._watchForSourceChanges = !!commandLineOptions.watchForSourceChanges;
-        this._watchForLibraryChanges = !!commandLineOptions.watchForLibraryChanges;
-        this._typeCheckingMode = commandLineOptions.typeCheckingMode;
-        this._verboseOutput = !!commandLineOptions.verboseOutput;
+        this._commandLineOptions = commandLineOptions;
 
         const configOptions = this._getConfigOptions(commandLineOptions);
         this._backgroundAnalysisProgram.setConfigOptions(configOptions);
-        this._typeStubTargetImportName = commandLineOptions.typeStubTargetImportName;
 
         this._executionRootPath = normalizePath(
             combinePaths(commandLineOptions.executionRoot, configOptions.projectRoot)
@@ -263,7 +254,7 @@ export class AnalyzerService {
         this._program.printDependencies(this._executionRootPath, verbose);
     }
 
-    async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
+    getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
         return this._backgroundAnalysisProgram.getDiagnosticsForRange(filePath, range, token);
     }
 
@@ -371,7 +362,12 @@ export class AnalyzerService {
             this._console.log(`Loading configuration file at ${configFilePath}`);
             const configJsonObj = this._parseConfigFile(configFilePath);
             if (configJsonObj) {
-                configOptions.initializeFromJson(configJsonObj, this._typeCheckingMode, this._console);
+                configOptions.initializeFromJson(
+                    configJsonObj,
+                    this._typeCheckingMode,
+                    this._console,
+                    commandLineOptions.diagnosticSeverityOverrides
+                );
 
                 const configFileDir = getDirectoryPath(configFilePath);
 
@@ -415,6 +411,7 @@ export class AnalyzerService {
             );
 
             configOptions.autoExcludeVenv = true;
+            configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
         }
 
         const reportDuplicateSetting = (settingName: string) => {
@@ -609,6 +606,26 @@ export class AnalyzerService {
 
     private get _configOptions() {
         return this._backgroundAnalysisProgram.configOptions;
+    }
+
+    private get _watchForSourceChanges() {
+        return !!this._commandLineOptions?.watchForSourceChanges;
+    }
+
+    private get _watchForLibraryChanges() {
+        return !!this._commandLineOptions?.watchForLibraryChanges;
+    }
+
+    private get _typeCheckingMode() {
+        return this._commandLineOptions?.typeCheckingMode;
+    }
+
+    private get _verboseOutput() {
+        return !!this._commandLineOptions?.verboseOutput;
+    }
+
+    private get _typeStubTargetImportName() {
+        return this._commandLineOptions?.typeStubTargetImportName;
     }
 
     private _getTypeStubFolder() {
@@ -1045,10 +1062,11 @@ export class AnalyzerService {
             this._updateConfigFileWatcher();
 
             this._console.log(`Reloading configuration file at ${this._configFilePath}`);
-            const configJsonObj = this._parseConfigFile(this._configFilePath);
-            if (configJsonObj) {
-                this._backgroundAnalysisProgram.initializeFromJson(configJsonObj, this._typeCheckingMode);
-            }
+
+            // We can't just reload config file when it is changed; we need to consider
+            // command line options as well to construct new config Options.
+            const configOptions = this._getConfigOptions(this._commandLineOptions!);
+            this._backgroundAnalysisProgram.setConfigOptions(configOptions);
 
             this._applyConfigOptions();
         }

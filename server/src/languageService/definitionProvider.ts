@@ -13,6 +13,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
@@ -22,6 +23,7 @@ import { ParseResults } from '../parser/parser';
 
 export class DefinitionProvider {
     static getDefinitionsForPosition(
+        sourceMapper: SourceMapper,
         parseResults: ParseResults,
         position: Position,
         evaluator: TypeEvaluator,
@@ -51,6 +53,16 @@ export class DefinitionProvider {
                             path: resolvedDecl.path,
                             range: resolvedDecl.range,
                         });
+
+                        if (isStubFile(resolvedDecl.path)) {
+                            const implDecl = sourceMapper.findDeclaration(resolvedDecl);
+                            if (implDecl && implDecl.path) {
+                                this._addIfUnique(definitions, {
+                                    path: implDecl.path,
+                                    range: implDecl.range,
+                                });
+                            }
+                        }
                     }
                 });
             }

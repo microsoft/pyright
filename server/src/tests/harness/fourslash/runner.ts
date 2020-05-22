@@ -53,7 +53,7 @@ export function runFourSlashTestContent(
 
     // parse out the files and their metadata
     const testData = parseTestData(absoluteBasePath, content, absoluteFileName);
-    const state = new TestState(absoluteBasePath, testData, cb, mountPaths, hostSpecificFeatures);
+    const state = new TestState(absoluteBasePath, testData, mountPaths, hostSpecificFeatures);
     const output = ts.transpileModule(content, {
         reportDiagnostics: true,
         compilerOptions: { target: ts.ScriptTarget.ES2015 },
@@ -62,40 +62,25 @@ export function runFourSlashTestContent(
         throw new Error(`Syntax error in ${absoluteBasePath}: ${output.diagnostics![0].messageText}`);
     }
 
-    runCode(output.outputText, state);
+    runCode(output.outputText, state, cb);
 }
 
-function runCode(code: string, state: TestState): void {
+async function runCode(code: string, state: TestState, cb?: jest.DoneCallback) {
     // Compile and execute the test
-
     try {
-        if (state.asyncTest) {
-            runAsyncCode();
-        } else {
-            runPlainCode();
-        }
-    } catch (error) {
-        markDone(error);
-    }
-
-    function runAsyncCode() {
         const wrappedCode = `(async function(helper, Consts) {
-            ${code}
-            })`;
+${code}
+})`;
         const f = eval(wrappedCode);
-        f(state, Consts);
-    }
-
-    function runPlainCode() {
-        const wrappedCode = `(function(helper, Consts) {
-            ${code}
-            })`;
-        const f = eval(wrappedCode);
-        f(state, Consts);
+        await f(state, Consts);
         markDone();
+    } catch (ex) {
+        markDone(ex);
     }
 
     function markDone(...args: any[]) {
-        state.markTestDone(...args);
+        if (cb) {
+            cb(...args);
+        }
     }
 }

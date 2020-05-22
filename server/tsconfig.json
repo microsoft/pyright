@@ -9,7 +9,7 @@
 		"module": "commonjs",
 		"moduleResolution": "node",
 		"sourceMap": true,
-		"lib" : [ "es2016" ],
+		"lib" : [ "es2019" ],
 		"outDir": "../client/server",
 		"composite": true,
 		"declaration": true

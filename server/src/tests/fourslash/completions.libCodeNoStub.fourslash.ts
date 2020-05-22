@@ -1,5 +1,4 @@
 /// <reference path="fourslash.ts" />
-// @asynctest: true
 
 // @filename: mspythonconfig.json
 //// {
@@ -19,7 +18,8 @@
 //// obj = testLib.[|/*marker1*/Validator|]()
 //// obj.is[|/*marker2*/|]
 
-helper.verifyCompletion('included', {
+// @ts-ignore
+await helper.verifyCompletion('included', {
     marker1: {
         completions: [
             {

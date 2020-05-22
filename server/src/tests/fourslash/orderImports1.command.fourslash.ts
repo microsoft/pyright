@@ -1,12 +1,12 @@
 /// <reference path="fourslash.ts" />
-// @asynctest: true
 
 // @filename: quickActionOrganizeImportTest1.py
 //// import time
 //// import os
 //// import sys
 
-helper.verifyCommand(
+// @ts-ignore
+await helper.verifyCommand(
     {
         title: 'Quick action order imports 1',
         command: Consts.Commands.orderImports,

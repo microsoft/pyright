@@ -8,12 +8,27 @@
  */
 
 import { Commands } from '../commands/commands';
+import { DiagnosticLevel } from './configOptions';
 import { Range } from './textRange';
 
 export const enum DiagnosticCategory {
     Error,
     Warning,
+    Information,
     UnusedCode,
+}
+
+export function convertLevelToCategory(level: DiagnosticLevel) {
+    switch (level) {
+        case 'error':
+            return DiagnosticCategory.Error;
+        case 'warning':
+            return DiagnosticCategory.Warning;
+        case 'information':
+            return DiagnosticCategory.Information;
+        default:
+            throw new Error(`${level} is not expected`);
+    }
 }
 
 export interface DiagnosticAction {

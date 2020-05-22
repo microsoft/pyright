@@ -131,9 +131,11 @@ export class BackgroundAnalysisProgram {
 
     async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
         if (this._backgroundAnalysis) {
+            // backgroundAnalysis returns Promise<Diagnostics[]>
             return this._backgroundAnalysis.getDiagnosticsForRange(filePath, range, token);
         }
 
+        // program returns Promise<Diagnostics[]>
         return this._program.getDiagnosticsForRange(filePath, range);
     }
 
@@ -167,12 +169,6 @@ export class BackgroundAnalysisProgram {
         // imports that are no longer valid because a source file has
         // been deleted or added.
         this._importResolver.invalidateCache();
-    }
-
-    initializeFromJson(configJsonObj: any, typeCheckingMode: string | undefined) {
-        this._configOptions.initializeFromJson(configJsonObj, typeCheckingMode, this._console);
-        this._backgroundAnalysis?.setConfigOptions(this._configOptions);
-        this._program.setConfigOptions(this._configOptions);
     }
 
     restart() {

@@ -67,9 +67,23 @@ export interface Position {
     character: number;
 }
 
+namespace Position {
+    export function is(value: any): value is Position {
+        const candidate = value as Position;
+        return candidate && candidate.line !== void 0 && candidate.character !== void 0;
+    }
+}
+
 export interface Range {
     start: Position;
     end: Position;
+}
+
+namespace Range {
+    export function is(value: any): value is Range {
+        const candidate = value as Range;
+        return candidate && candidate.start !== void 0 && candidate.end !== void 0;
+    }
 }
 
 // Represents a range within a particular document.
@@ -107,8 +121,12 @@ export function doRangesOverlap(a: Range, b: Range) {
     return true;
 }
 
-export function doesRangeContain(range: Range, position: Position) {
-    return comparePositions(range.start, position) <= 0 && comparePositions(range.end, position) >= 0;
+export function doesRangeContain(range: Range, positionOrRange: Position | Range): boolean {
+    if (Position.is(positionOrRange)) {
+        return comparePositions(range.start, positionOrRange) <= 0 && comparePositions(range.end, positionOrRange) >= 0;
+    }
+
+    return doesRangeContain(range, positionOrRange.start) && doesRangeContain(range, positionOrRange.end);
 }
 
 export function rangesAreEqual(a: Range, b: Range) {

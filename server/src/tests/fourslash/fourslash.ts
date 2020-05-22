@@ -116,20 +116,22 @@ declare namespace _ {
 
         moveCaretRight(count: number): void;
 
+        openFile(indexOrName: number | string, content?: string): void;
+
         verifyDiagnostics(map?: { [marker: string]: { category: string; message: string } }): void;
         verifyCodeActions(
             map: {
                 [marker: string]: { codeActions: { title: string; kind: string; command: Command }[] };
             },
             verifyCodeActionCount?: boolean
-        ): void;
-        verifyCommand(command: Command, files: { [filePath: string]: string }): void;
+        ): Promise<any>;
+        verifyCommand(command: Command, files: { [filePath: string]: string }): Promise<any>;
         verifyInvokeCodeAction(
             map: {
                 [marker: string]: { title: string; files?: { [filePath: string]: string }; edits?: TextEdit[] };
             },
             verifyCodeActionCount?: boolean
-        ): void;
+        ): Promise<any>;
         verifyHover(map: { [marker: string]: { value: string; kind: string } }): void;
         verifyCompletion(
             verifyMode: 'exact' | 'included' | 'excluded',
@@ -153,6 +155,11 @@ declare namespace _ {
                 references: DocumentRange[];
             };
         }): void;
+        verifyFindDefinitions(map: {
+            [marker: string]: {
+                definitions: DocumentRange[];
+            };
+        }): void;
         verifyRename(map: {
             [marker: string]: {
                 newName: string;
@@ -161,7 +168,6 @@ declare namespace _ {
         }): void;
 
         /* not tested yet
-        openFile(indexOrName: number | string, content?: string): void;
         paste(text: string): void;
 
         type(text: string): void;

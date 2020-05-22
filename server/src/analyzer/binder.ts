@@ -18,8 +18,8 @@
 
 import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
-import { assert, fail } from '../common/debug';
-import { CreateTypeStubFileAction } from '../common/diagnostic';
+import { assert, assertNever, fail } from '../common/debug';
+import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
@@ -2516,16 +2516,28 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) {
-        if (diagLevel === 'error') {
-            const diagnostic = this._addError(message, textRange);
-            diagnostic.setRule(rule);
-            return diagnostic;
-        } else if (diagLevel === 'warning') {
-            const diagnostic = this._addWarning(message, textRange);
-            diagnostic.setRule(rule);
-            return diagnostic;
+        let diagnostic: Diagnostic | undefined;
+        switch (diagLevel) {
+            case 'error':
+                diagnostic = this._addError(message, textRange);
+                break;
+            case 'warning':
+                diagnostic = this._addWarning(message, textRange);
+                break;
+            case 'information':
+                diagnostic = this._addInformation(message, textRange);
+                break;
+            case 'none':
+                break;
+            default:
+                return assertNever(diagLevel, `${diagLevel} is not expected`);
         }
-        return undefined;
+
+        if (diagnostic) {
+            diagnostic.setRule(rule);
+        }
+
+        return diagnostic;
     }
 
     private _addUnusedCode(textRange: TextRange) {
@@ -2533,11 +2545,15 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _addError(message: string, textRange: TextRange) {
-        return this._fileInfo.diagnosticSink.addErrorWithTextRange(message, textRange);
+        return this._fileInfo.diagnosticSink.addDiagnosticWithTextRange('error', message, textRange);
     }
 
     private _addWarning(message: string, textRange: TextRange) {
-        return this._fileInfo.diagnosticSink.addWarningWithTextRange(message, textRange);
+        return this._fileInfo.diagnosticSink.addDiagnosticWithTextRange('warning', message, textRange);
+    }
+
+    private _addInformation(message: string, textRange: TextRange) {
+        return this._fileInfo.diagnosticSink.addDiagnosticWithTextRange('information', message, textRange);
     }
 }
 

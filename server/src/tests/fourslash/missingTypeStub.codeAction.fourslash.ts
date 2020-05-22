@@ -1,5 +1,4 @@
 /// <reference path="fourslash.ts" />
-// @asynctest: true
 
 // @filename: mspythonconfig.json
 //// {
@@ -16,7 +15,8 @@
 // @filename: .src/test.py
 //// import [|/*marker*/testLi|]b
 
-helper.verifyCodeActions({
+// @ts-ignore
+await helper.verifyCodeActions({
     marker: {
         codeActions: [
             {

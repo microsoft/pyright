@@ -7,8 +7,8 @@
 
 // @filename: testLib1/__init__.py
 // @library: true
-//// class [|Test1|]:
-////    def M(self, a: Test1):
+//// class [|/*lib*/Test1|]:
+////    def M(self, a: [|Test1|]):
 ////     pass
 
 // @filename: test.py
@@ -23,6 +23,9 @@
 
 {
     const ranges = helper.getRanges();
+
+    const libMarker = helper.getMarkerByName('lib');
+    helper.openFile(libMarker.fileName);
 
     helper.verifyFindAllReferences({
         marker: {

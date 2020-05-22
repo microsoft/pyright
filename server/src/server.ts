@@ -31,7 +31,9 @@ class PyrightServer extends LanguageServerBase {
     async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings> {
         const serverSettings: ServerSettings = {
             watchForSourceChanges: true,
+            diagnosticSeverityOverrides: {},
         };
+
         try {
             const pythonSection = await this.getConfiguration(workspace, 'python');
             if (pythonSection) {
@@ -49,6 +51,17 @@ class PyrightServer extends LanguageServerBase {
                 const stubPath = pythonAnalysisSection.stubPath;
                 if (stubPath && isString(stubPath)) {
                     serverSettings.stubPath = normalizeSlashes(stubPath);
+                }
+
+                const diagnosticSeverityOverrides = pythonAnalysisSection.diagnosticSeverityOverrides;
+                if (diagnosticSeverityOverrides) {
+                    for (const [name, value] of Object.entries(diagnosticSeverityOverrides)) {
+                        const ruleName = this.getDiagnosticRuleName(name);
+                        const severity = this.getSeverityOverrides(value as string);
+                        if (ruleName && severity) {
+                            serverSettings.diagnosticSeverityOverrides![ruleName] = severity!;
+                        }
+                    }
                 }
 
                 if (pythonAnalysisSection.diagnosticMode !== undefined) {

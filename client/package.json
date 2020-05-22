@@ -100,6 +100,12 @@
                     ],
                     "scope": "resource"
                 },
+                "python.analysis.diagnosticSeverityOverrides": {
+                    "type": "object",
+                    "default": {},
+                    "description": "Allows a user to override the severity levels for individual diagnostics.",
+                    "scope": "resource"
+                },
                 "python.pythonPath": {
                     "type": "string",
                     "default": "python",

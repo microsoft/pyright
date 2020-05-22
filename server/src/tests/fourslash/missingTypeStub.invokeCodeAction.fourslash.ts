@@ -1,5 +1,4 @@
 /// <reference path="fourslash.ts" />
-// @asynctest: true
 
 // @filename: mspythonconfig.json
 //// {
@@ -16,7 +15,8 @@
 // @filename: test.py
 //// import [|/*marker*/testLi|]b
 
-helper.verifyInvokeCodeAction({
+// @ts-ignore
+await helper.verifyInvokeCodeAction({
     marker: {
         title: `Create Type Stub For "testLib"`,
         files: {

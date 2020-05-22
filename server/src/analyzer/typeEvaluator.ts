@@ -431,6 +431,8 @@ export interface TypeEvaluator {
 
     addError: (message: string, node: ParseNode) => Diagnostic | undefined;
     addWarning: (message: string, node: ParseNode) => Diagnostic | undefined;
+    addInformation: (message: string, node: ParseNode) => Diagnostic | undefined;
+
     addDiagnostic: (
         diagLevel: DiagnosticLevel,
         rule: string,
@@ -1852,33 +1854,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return false;
     }
 
-    function addWarning(message: string, node: ParseNode, range?: TextRange) {
-        if (!isDiagnosticSuppressed && !isSpeculativeMode(node)) {
-            const fileInfo = getFileInfo(node);
-            return fileInfo.diagnosticSink.addWarningWithTextRange(message, range || node);
-        }
+    function addInformation(message: string, node: ParseNode, range?: TextRange) {
+        return addDiagnosticWithSuppressionCheck('information', message, node, range);
+    }
 
-        return undefined;
+    function addWarning(message: string, node: ParseNode, range?: TextRange) {
+        return addDiagnosticWithSuppressionCheck('warning', message, node, range);
     }
 
     function addError(message: string, node: ParseNode, range?: TextRange) {
+        return addDiagnosticWithSuppressionCheck('error', message, node, range);
+    }
+
+    function addDiagnosticWithSuppressionCheck(
+        diagLevel: DiagnosticLevel,
+        message: string,
+        node: ParseNode,
+        range?: TextRange
+    ) {
         if (!isDiagnosticSuppressed && !isSpeculativeMode(node)) {
             const fileInfo = getFileInfo(node);
-            return fileInfo.diagnosticSink.addErrorWithTextRange(message, range || node);
+            return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range || node);
         }
 
         return undefined;
     }
 
     function addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, node: ParseNode) {
-        let diagnostic: Diagnostic | undefined;
-
-        if (diagLevel === 'error') {
-            diagnostic = addError(message, node);
-        } else if (diagLevel === 'warning') {
-            diagnostic = addWarning(message, node);
+        if (diagLevel === 'none') {
+            return undefined;
         }
 
+        const diagnostic = addDiagnosticWithSuppressionCheck(diagLevel, message, node);
         if (diagnostic) {
             diagnostic.setRule(rule);
         }
@@ -1893,17 +1900,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         message: string,
         range: TextRange
     ) {
-        let diagnostic: Diagnostic | undefined;
-
-        if (diagLevel === 'error') {
-            diagnostic = fileInfo.diagnosticSink.addErrorWithTextRange(message, range);
-        } else if (diagLevel === 'warning') {
-            diagnostic = fileInfo.diagnosticSink.addWarningWithTextRange(message, range);
+        if (diagLevel === 'none') {
+            return undefined;
         }
 
-        if (diagnostic) {
-            diagnostic.setRule(rule);
-        }
+        const diagnostic = fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range);
+        diagnostic.setRule(rule);
 
         return diagnostic;
     }
@@ -12651,6 +12653,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         canOverrideMethod,
         addError,
         addWarning,
+        addInformation,
         addDiagnostic,
         addDiagnosticForTextRange,
         printType,

@@ -11,6 +11,7 @@
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { FileSystem } from '../common/fileSystem';
 import {
+    changeAnyExtension,
     combinePaths,
     ensureTrailingDirectorySeparator,
     getDirectoryPath,
@@ -112,7 +113,7 @@ export class ImportResolver {
 
             const bestImport = this._resolveBestAbsoluteImport(sourceFilePath, execEnv, moduleDescriptor, true);
             if (bestImport) {
-                if (bestImport.isStubFile && bestImport.importType !== ImportType.BuiltIn) {
+                if (bestImport.isStubFile) {
                     bestImport.nonStubImportResult =
                         this._resolveBestAbsoluteImport(sourceFilePath, execEnv, moduleDescriptor, false) ||
                         notFoundResult;
@@ -347,6 +348,40 @@ export class ImportResolver {
         }
 
         return suggestions;
+    }
+
+    // Returns the implementation file(s) for the given stub file.
+    getSourceFilesFromStub(stubFilePath: string): string[] {
+        const sourceFilePaths: string[] = [];
+
+        // When ImportResolver resolves an import to a stub file, a second resolve is done
+        // ignoring stub files, which gives us an approximation of where the implementation
+        // for that stub is located.
+        this._cachedImportResults.forEach((map, env) => {
+            map.forEach((result, importName) => {
+                if (result.isStubFile && result.isImportFound && result.nonStubImportResult) {
+                    if (result.resolvedPaths.some((f) => f === stubFilePath)) {
+                        if (result.nonStubImportResult.isImportFound) {
+                            const nonEmptyPaths = result.nonStubImportResult.resolvedPaths.filter((p) =>
+                                p.endsWith('.py')
+                            );
+                            sourceFilePaths.push(...nonEmptyPaths);
+                        }
+                    }
+                }
+            });
+        });
+
+        // We haven't seen an import of that stub, attempt to find the source
+        // in some other ways.
+        if (sourceFilePaths.length === 0) {
+            // Simple case where the stub and source files are next to each other.
+            const sourceFilePath = changeAnyExtension(stubFilePath, '.py');
+            if (this.fileSystem.existsSync(sourceFilePath)) {
+                sourceFilePaths.push(sourceFilePath);
+            }
+        }
+        return sourceFilePaths;
     }
 
     // Returns the module name (of the form X.Y.Z) that needs to be imported
