@@ -19,7 +19,7 @@ import { OperationCanceledException } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, getDefaultDiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
-import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
+import { convertLevelToCategory, Diagnostic, DiagnosticCategory } from '../common/diagnostic';
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
@@ -49,6 +49,7 @@ import { ImportResolver } from './importResolver';
 import { ImportResult } from './importResult';
 import { ParseTreeCleanerWalker } from './parseTreeCleaner';
 import { Scope } from './scope';
+import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluator';
@@ -228,10 +229,7 @@ export class SourceFile {
         }
 
         if (options.diagnosticRuleSet.reportImportCycles !== 'none' && this._circularDependencies.length > 0) {
-            const category =
-                options.diagnosticRuleSet.reportImportCycles === 'warning'
-                    ? DiagnosticCategory.Warning
-                    : DiagnosticCategory.Error;
+            const category = convertLevelToCategory(options.diagnosticRuleSet.reportImportCycles);
 
             this._circularDependencies.forEach((cirDep) => {
                 diagList.push(
@@ -261,11 +259,12 @@ export class SourceFile {
         if (this._isTypeshedStubFile) {
             if (options.diagnosticRuleSet.reportTypeshedErrors === 'none') {
                 includeWarningsAndErrors = false;
-            } else if (options.diagnosticRuleSet.reportTypeshedErrors === 'warning') {
-                // Convert all the errors to warnings.
+            } else {
+                // convert category to effective ones
+                const effectiveCategory = convertLevelToCategory(options.diagnosticRuleSet.reportTypeshedErrors);
                 diagList = diagList.map((diag) => {
-                    if (diag.category === DiagnosticCategory.Error) {
-                        return new Diagnostic(DiagnosticCategory.Warning, diag.message, diag.range);
+                    if (diag.category !== effectiveCategory) {
+                        return new Diagnostic(effectiveCategory, diag.message, diag.range);
                     }
                     return diag;
                 });
@@ -567,6 +566,7 @@ export class SourceFile {
     }
 
     getDefinitionsForPosition(
+        sourceMapper: SourceMapper,
         position: Position,
         evaluator: TypeEvaluator,
         token: CancellationToken
@@ -576,7 +576,13 @@ export class SourceFile {
             return undefined;
         }
 
-        return DefinitionProvider.getDefinitionsForPosition(this._parseResults, position, evaluator, token);
+        return DefinitionProvider.getDefinitionsForPosition(
+            sourceMapper,
+            this._parseResults,
+            position,
+            evaluator,
+            token
+        );
     }
 
     getDeclarationForPosition(
@@ -654,6 +660,7 @@ export class SourceFile {
     }
 
     getHoverForPosition(
+        sourceMapper: SourceMapper,
         position: Position,
         evaluator: TypeEvaluator,
         token: CancellationToken
@@ -663,7 +670,7 @@ export class SourceFile {
             return undefined;
         }
 
-        return HoverProvider.getHoverForPosition(this._parseResults, position, evaluator, token);
+        return HoverProvider.getHoverForPosition(sourceMapper, this._parseResults, position, evaluator, token);
     }
 
     getSignatureHelpForPosition(
@@ -687,6 +694,7 @@ export class SourceFile {
         importResolver: ImportResolver,
         importLookup: ImportLookup,
         evaluator: TypeEvaluator,
+        sourceMapper: SourceMapper,
         moduleSymbolsCallback: () => ModuleSymbolMap,
         token: CancellationToken
     ): CompletionList | undefined {
@@ -711,6 +719,7 @@ export class SourceFile {
             configOptions,
             importLookup,
             evaluator,
+            sourceMapper,
             moduleSymbolsCallback,
             token
         );
@@ -723,6 +732,7 @@ export class SourceFile {
         importResolver: ImportResolver,
         importLookup: ImportLookup,
         evaluator: TypeEvaluator,
+        sourceMapper: SourceMapper,
         moduleSymbolsCallback: () => ModuleSymbolMap,
         completionItem: CompletionItem,
         token: CancellationToken
@@ -742,6 +752,7 @@ export class SourceFile {
             configOptions,
             importLookup,
             evaluator,
+            sourceMapper,
             moduleSymbolsCallback,
             token
         );

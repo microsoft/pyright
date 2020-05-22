@@ -11,9 +11,16 @@
 
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
-import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { Declaration, DeclarationBase, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { SourceMapper } from '../analyzer/sourceMapper';
+import {
+    getClassDocString,
+    getFunctionDocString,
+    getModuleDocString,
+    getOverloadedFunctionDocStrings,
+} from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { ClassMemberLookupFlags, isProperty, lookUpClassMember } from '../analyzer/typeUtils';
@@ -36,6 +43,7 @@ export interface HoverResults {
 
 export class HoverProvider {
     static getHoverForPosition(
+        sourceMapper: SourceMapper,
         parseResults: ParseResults,
         position: Position,
         evaluator: TypeEvaluator,
@@ -64,7 +72,7 @@ export class HoverProvider {
         if (node.nodeType === ParseNodeType.Name) {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             if (declarations && declarations.length > 0) {
-                this._addResultsForDeclaration(results.parts, declarations[0], node, evaluator);
+                this._addResultsForDeclaration(sourceMapper, results.parts, declarations[0], node, evaluator);
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
@@ -84,7 +92,7 @@ export class HoverProvider {
                     }
 
                     this._addResultsPart(results.parts, typeText, true);
-                    this._addDocumentationPart(results.parts, node, evaluator);
+                    this._addDocumentationPart(sourceMapper, results.parts, node, evaluator, undefined);
                 }
             }
         }
@@ -93,6 +101,7 @@ export class HoverProvider {
     }
 
     private static _addResultsForDeclaration(
+        sourceMapper: SourceMapper,
         parts: HoverTextPart[],
         declaration: Declaration,
         node: NameNode,
@@ -107,7 +116,7 @@ export class HoverProvider {
         switch (resolvedDecl.type) {
             case DeclarationType.Intrinsic: {
                 this._addResultsPart(parts, node.value + this._getTypeText(node, evaluator), true);
-                this._addDocumentationPart(parts, node, evaluator);
+                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
 
@@ -130,13 +139,13 @@ export class HoverProvider {
                 }
 
                 this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(typeNode, evaluator), true);
-                this._addDocumentationPart(parts, node, evaluator);
+                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
 
             case DeclarationType.Parameter: {
                 this._addResultsPart(parts, '(parameter) ' + node.value + this._getTypeText(node, evaluator), true);
-                this._addDocumentationPart(parts, node, evaluator);
+                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
 
@@ -184,7 +193,7 @@ export class HoverProvider {
                 }
 
                 this._addResultsPart(parts, '(class) ' + classText, true);
-                this._addDocumentationPart(parts, node, evaluator);
+                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
 
@@ -196,13 +205,13 @@ export class HoverProvider {
                 }
 
                 this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(node, evaluator), true);
-                this._addDocumentationPart(parts, node, evaluator);
+                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
 
             case DeclarationType.Alias: {
                 this._addResultsPart(parts, '(module) ' + node.value, true);
-                this._addDocumentationPart(parts, node, evaluator);
+                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
         }
@@ -213,24 +222,45 @@ export class HoverProvider {
         return ': ' + evaluator.printType(type);
     }
 
-    private static _addDocumentationPart(parts: HoverTextPart[], node: NameNode, evaluator: TypeEvaluator) {
+    private static _addDocumentationPart(
+        sourceMapper: SourceMapper,
+        parts: HoverTextPart[],
+        node: NameNode,
+        evaluator: TypeEvaluator,
+        resolvedDecl: DeclarationBase | undefined
+    ) {
         const type = evaluator.getType(node);
         if (type) {
-            this._addDocumentationPartForType(parts, type);
+            this._addDocumentationPartForType(sourceMapper, parts, type, resolvedDecl);
         }
     }
 
-    private static _addDocumentationPartForType(parts: HoverTextPart[], type: Type) {
+    private static _addDocumentationPartForType(
+        sourceMapper: SourceMapper,
+        parts: HoverTextPart[],
+        type: Type,
+        resolvedDecl: DeclarationBase | undefined
+    ) {
         if (type.category === TypeCategory.Module) {
-            this._addDocumentationResultsPart(parts, type.docString);
+            const docString = getModuleDocString(type, resolvedDecl, sourceMapper);
+            if (docString) {
+                this._addDocumentationResultsPart(parts, docString);
+            }
         } else if (type.category === TypeCategory.Class) {
-            this._addDocumentationResultsPart(parts, type.details.docString);
+            const docString = getClassDocString(type, resolvedDecl, sourceMapper);
+            if (docString) {
+                this._addDocumentationResultsPart(parts, docString);
+            }
         } else if (type.category === TypeCategory.Function) {
-            this._addDocumentationResultsPart(parts, type.details.docString);
+            const docString = getFunctionDocString(type, sourceMapper);
+            if (docString) {
+                this._addDocumentationResultsPart(parts, docString);
+            }
         } else if (type.category === TypeCategory.OverloadedFunction) {
-            type.overloads.forEach((overload) => {
-                this._addDocumentationResultsPart(parts, overload.details.docString);
-            });
+            const docStrings = getOverloadedFunctionDocStrings(type, resolvedDecl, sourceMapper);
+            for (const docString of docStrings) {
+                this._addDocumentationResultsPart(parts, docString);
+            }
         }
     }
 

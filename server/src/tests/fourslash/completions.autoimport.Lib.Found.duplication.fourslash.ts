@@ -1,5 +1,4 @@
 /// <reference path="fourslash.ts" />
-// @asynctest: true
 
 // @filename: test1.py
 //// test[|/*marker*/|]
@@ -26,7 +25,8 @@
 //// class Test2:
 ////     pass
 
-helper.verifyCompletion('included', {
+// @ts-ignore
+await helper.verifyCompletion('included', {
     marker: {
         completions: [
             {

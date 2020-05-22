@@ -7,6 +7,7 @@
  * Class that represents errors and warnings.
  */
 
+import { DiagnosticLevel } from './configOptions';
 import { Diagnostic, DiagnosticAction, DiagnosticCategory } from './diagnostic';
 import { convertOffsetsToRange } from './positionUtils';
 import { Range, TextRange } from './textRange';
@@ -41,6 +42,10 @@ export class DiagnosticSink {
 
     addWarning(message: string, range: Range) {
         return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Warning, message, range));
+    }
+
+    addInformation(message: string, range: Range) {
+        return this.addDiagnostic(new Diagnostic(DiagnosticCategory.Information, message, range));
     }
 
     addUnusedCode(message: string, range: Range, action?: DiagnosticAction) {
@@ -87,12 +92,18 @@ export class TextRangeDiagnosticSink extends DiagnosticSink {
         this._lines = lines;
     }
 
-    addErrorWithTextRange(message: string, range: TextRange) {
-        return this.addError(message, convertOffsetsToRange(range.start, range.start + range.length, this._lines));
-    }
-
-    addWarningWithTextRange(message: string, range: TextRange) {
-        return this.addWarning(message, convertOffsetsToRange(range.start, range.start + range.length, this._lines));
+    addDiagnosticWithTextRange(level: DiagnosticLevel, message: string, range: TextRange) {
+        const positionRange = convertOffsetsToRange(range.start, range.start + range.length, this._lines);
+        switch (level) {
+            case 'error':
+                return this.addError(message, positionRange);
+            case 'warning':
+                return this.addWarning(message, positionRange);
+            case 'information':
+                return this.addInformation(message, positionRange);
+            default:
+                throw new Error(`${level} is not expected value`);
+        }
     }
 
     addUnusedCodeWithTextRange(message: string, range: TextRange, action?: DiagnosticAction) {

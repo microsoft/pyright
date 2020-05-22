@@ -1,5 +1,4 @@
 /// <reference path="fourslash.ts" />
-// @asynctest: true
 
 // @filename: test.py
 //// import time
@@ -14,7 +13,8 @@
 ////     pass
 //// some_fun[|/*marker3*/|]
 
-helper.verifyCompletion('exact', {
+// @ts-ignore
+await helper.verifyCompletion('exact', {
     marker1: { completions: [{ label: 'localtime' }] },
     marker2: { completions: [{ label: 'aaaaaa' }] },
     marker3: {

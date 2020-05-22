@@ -90,6 +90,7 @@ function _getCommandLineOptions(
 
     commandLineOptions.autoSearchPaths = serverSettings.autoSearchPaths;
     commandLineOptions.extraPaths = serverSettings.extraPaths;
+    commandLineOptions.diagnosticSeverityOverrides = serverSettings.diagnosticSeverityOverrides;
 
     return commandLineOptions;
 }

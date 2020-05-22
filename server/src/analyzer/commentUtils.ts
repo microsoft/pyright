@@ -70,7 +70,11 @@ function _applyStrictRules(ruleSet: DiagnosticRuleSet) {
         const strictValue: DiagnosticLevel = (strictRuleSet as any)[ruleName];
         const prevValue: DiagnosticLevel = (ruleSet as any)[ruleName];
 
-        if (strictValue === 'error' || (strictValue === 'warning' && prevValue !== 'error')) {
+        if (
+            strictValue === 'error' ||
+            (strictValue === 'warning' && prevValue !== 'error') ||
+            (strictValue === 'information' && prevValue !== 'error' && prevValue !== 'warning')
+        ) {
             (ruleSet as any)[ruleName] = strictValue;
         }
     }
@@ -124,15 +128,20 @@ function _parsePyrightOperand(operand: string, ruleSet: DiagnosticRuleSet) {
 }
 
 function _parseDiagLevel(value: string): DiagnosticLevel | undefined {
-    if (value === 'false' || value === 'none') {
-        return 'none';
-    } else if (value === 'warning') {
-        return 'warning';
-    } else if (value === 'true' || value === 'error') {
-        return 'error';
+    switch (value) {
+        case 'false':
+        case 'none':
+            return 'none';
+        case 'true':
+        case 'error':
+            return 'error';
+        case 'warning':
+            return 'warning';
+        case 'information':
+            return 'information';
+        default:
+            return undefined;
     }
-
-    return undefined;
 }
 
 function _parseBoolSetting(value: string): boolean | undefined {

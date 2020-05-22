@@ -10,6 +10,7 @@
 import { isAbsolute } from 'path';
 
 import * as pathConsts from '../common/pathConsts';
+import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { ConsoleInterface } from './console';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
@@ -41,7 +42,7 @@ export class ExecutionEnvironment {
     venv?: string;
 }
 
-export type DiagnosticLevel = 'none' | 'warning' | 'error';
+export type DiagnosticLevel = 'none' | 'information' | 'warning' | 'error';
 
 export interface DiagnosticRuleSet {
     // Should "Unknown" types be reported as "Any"?
@@ -558,7 +559,12 @@ export class ConfigOptions {
     }
 
     // Initialize the structure from a JSON object.
-    initializeFromJson(configObj: any, typeCheckingMode: string | undefined, console: ConsoleInterface) {
+    initializeFromJson(
+        configObj: any,
+        typeCheckingMode: string | undefined,
+        console: ConsoleInterface,
+        diagnosticOverrides?: DiagnosticSeverityOverridesMap
+    ) {
         // Read the "include" entry.
         this.include = [];
         if (configObj.include !== undefined) {
@@ -650,6 +656,9 @@ export class ConfigOptions {
         }
 
         const defaultSettings = ConfigOptions.getDiagnosticRuleSet(configTypeCheckingMode || typeCheckingMode);
+
+        // Apply host provided overrides first and then overrides from the config file
+        this.applyDiagnosticOverrides(diagnosticOverrides);
 
         this.diagnosticRuleSet = {
             printUnknownAsAny: defaultSettings.printUnknownAsAny,
@@ -1068,6 +1077,16 @@ export class ConfigOptions {
         }
     }
 
+    applyDiagnosticOverrides(diagnosticSeverityOverrides: DiagnosticSeverityOverridesMap | undefined) {
+        if (!diagnosticSeverityOverrides) {
+            return;
+        }
+
+        for (const [ruleName, severity] of Object.entries(diagnosticSeverityOverrides)) {
+            (this.diagnosticRuleSet as any)[ruleName] = severity;
+        }
+    }
+
     private _convertBoolean(value: any, fieldName: string, defaultValue: boolean): boolean {
         if (value === undefined) {
             return defaultValue;
@@ -1085,12 +1104,12 @@ export class ConfigOptions {
         } else if (typeof value === 'boolean') {
             return value ? 'error' : 'none';
         } else if (typeof value === 'string') {
-            if (value === 'error' || value === 'warning' || value === 'none') {
+            if (value === 'error' || value === 'warning' || value === 'information' || value === 'none') {
                 return value;
             }
         }
 
-        console.log(`Config "${fieldName}" entry must be true, false, "error", "warning" or "none".`);
+        console.log(`Config "${fieldName}" entry must be true, false, "error", "warning", "information" or "none".`);
         return defaultValue;
     }
 

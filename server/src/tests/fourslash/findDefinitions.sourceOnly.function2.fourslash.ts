@@ -7,26 +7,20 @@
 
 // @filename: testLib1/__init__.py
 // @library: true
-//// class [|Test1|]:
-////    def M(self, a: Test1):
+//// def [|func1|](a):
 ////     pass
 
 // @filename: test.py
-//// from testLib1 import [|Test1|]
+//// from testLib1 import func1 as test_func1
 ////
-//// a = [|/*marker*/Test1|]()
-
-// @filename: test2.py
-//// from testLib1 import [|Test1|]
-////
-//// b = [|Test1|]()
+//// [|/*marker*/test_func1|]('')
 
 {
-    const ranges = helper.getRanges();
+    const ranges = helper.getRanges().filter((r) => !r.marker);
 
-    helper.verifyFindAllReferences({
+    helper.verifyFindDefinitions({
         marker: {
-            references: ranges.map((r) => {
+            definitions: ranges.map((r) => {
                 return { path: r.fileName, range: helper.convertPositionRange(r) };
             }),
         },

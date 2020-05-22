@@ -22,6 +22,8 @@ The Pyright VS Code extension honors the following settings.
 
 **python.analysis.diagnosticMode** ["openFilesOnly", "workspace"]: Determines whether pyright analyzes (and reports errors for) all files in the workspace, as indicated by the config file. If this option is set to "openFilesOnly", pyright analyzes only open files.
 
+**python.analysis.diagnosticSeverityOverrides** [map]: Allows a user to override the severity levels for individual diagnostic rules. "reportXXX" rules in the type check diagnostics settings in [configuration](https://github.com/microsoft/pyright/blob/master/docs/configuration.md#type-check-diagnostics-settings) are supported. Use the rule name as a key and one of "error," "warning," "information," "true," "false," or "none" as value.
+
 **python.pythonPath** [path]: Path to Python interpreter.
 
 **python.venvPath** [path]: Path to folder with subdirectories that contain virtual environments.

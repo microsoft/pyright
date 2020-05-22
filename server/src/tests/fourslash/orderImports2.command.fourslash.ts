@@ -1,5 +1,4 @@
 /// <reference path="fourslash.ts" />
-// @asynctest: true
 
 // @filename: quickActionOrganizeImportTest2.py
 //// import time
@@ -9,7 +8,8 @@
 //// import math
 //// import os
 
-helper.verifyCommand(
+// @ts-ignore
+await helper.verifyCommand(
     {
         title: 'Quick action order imports',
         command: Consts.Commands.orderImports,
