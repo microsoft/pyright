@@ -7456,6 +7456,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (node.returnTypeAnnotation) {
             const returnType = getTypeOfAnnotation(node.returnTypeAnnotation);
             functionType.details.declaredReturnType = returnType;
+        } else {
+            // If there was no return type annotation and this is a type stub,
+            // we have no opportunity to infer the return type, so we'll indicate
+            // that it's unknown.
+            if (fileInfo.isStubFile) {
+                // Special-case the __init__ method, which is commonly left without
+                // an annotated return type, but we can assume it returns None.
+                if (node.name.value === '__init__') {
+                    functionType.details.declaredReturnType = NoneType.create();
+                } else {
+                    functionType.details.declaredReturnType = UnknownType.create();
+                }
+            }
         }
 
         const paramTypes: Type[] = [];
