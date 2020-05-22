@@ -116,6 +116,10 @@ export class AutoImporter {
                 } else {
                     moduleNameAndType = this._getModuleNameAndTypeFromFilePath(filePath);
                     importSource = moduleNameAndType.moduleName;
+                    if (!importSource) {
+                        return;
+                    }
+
                     importGroup = this._getImportGroupFromModuleNameAndType(moduleNameAndType);
                 }
 
