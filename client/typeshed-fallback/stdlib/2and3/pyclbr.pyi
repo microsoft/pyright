@@ -1,3 +1,4 @@
+import sys
 from typing import List, Union, Sequence, Optional, Dict
 
 
@@ -9,12 +10,10 @@ class Class:
     file: int
     lineno: int
 
-    def __init__(self,
-                 module: str,
-                 name: str,
-                 super: Optional[List[Union[Class, str]]],
-                 file: str,
-                 lineno: int) -> None: ...
+    if sys.version_info >= (3, 7):
+        def __init__(self, module: str, name: str, super: Optional[List[Union[Class, str]]], file: str, lineno: int, parent: Optional[Class] = ...) -> None: ...
+    else:
+        def __init__(self, module: str, name: str, super: Optional[List[Union[Class, str]]], file: str, lineno: int) -> None: ...
 
 
 class Function:
@@ -23,11 +22,10 @@ class Function:
     file: int
     lineno: int
 
-    def __init__(self,
-                 module: str,
-                 name: str,
-                 file: str,
-                 lineno: int) -> None: ...
+    if sys.version_info >= (3, 7):
+        def __init__(self, module: str, name: str, file: str, lineno: int, parent: Optional[Function] = ...) -> None: ...
+    else:
+        def __init__(self, module: str, name: str, file: str, lineno: int) -> None: ...
 
 
 def readmodule(module: str,

@@ -46,9 +46,6 @@ class Interactive(mod):
 class Expression(mod):
     body: expr
 
-class Suite(mod):
-    body: typing.List[stmt]
-
 
 class stmt(AST): ...
 
@@ -166,24 +163,6 @@ class Pass(stmt): ...
 class Break(stmt): ...
 class Continue(stmt): ...
 
-
-class slice(AST):
-    ...
-
-_slice = slice  # this lets us type the variable named 'slice' below
-
-class Slice(slice):
-    lower: Optional[expr]
-    upper: Optional[expr]
-    step: Optional[expr]
-
-class ExtSlice(slice):
-    dims: typing.List[slice]
-
-class Index(slice):
-    value: expr
-
-
 class expr(AST): ...
 
 class BoolOp(expr):
@@ -296,7 +275,21 @@ class Attribute(expr):
 if sys.version_info >= (3, 9):
     _SliceT = expr
 else:
-    _SliceT = _slice
+    class slice(AST):
+        ...
+    _SliceT = slice
+
+class Slice(_SliceT):
+    lower: Optional[expr]
+    upper: Optional[expr]
+    step: Optional[expr]
+
+if sys.version_info < (3, 9):
+    class ExtSlice(slice):
+        dims: typing.List[slice]
+
+    class Index(slice):
+        value: expr
 
 class Subscript(expr):
     value: expr
@@ -323,11 +316,15 @@ class Tuple(expr):
 class expr_context(AST):
     ...
 
-class AugLoad(expr_context): ...
-class AugStore(expr_context): ...
+if sys.version_info < (3, 9):
+    class AugLoad(expr_context): ...
+    class AugStore(expr_context): ...
+    class Param(expr_context): ...
+    class Suite(mod):
+        body: typing.List[stmt]
+
 class Del(expr_context): ...
 class Load(expr_context): ...
-class Param(expr_context): ...
 class Store(expr_context): ...
 
 

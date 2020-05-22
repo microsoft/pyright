@@ -22,11 +22,18 @@ if sys.version_info >= (3, 3):
              newline: Optional[str] = ...) -> IO[Any]: ...
 
 class BZ2File(io.BufferedIOBase, IO[bytes]):  # type: ignore  # python/mypy#5027
-    def __init__(self,
-                 filename: _PathOrFile,
-                 mode: str = ...,
-                 buffering: Optional[Any] = ...,
-                 compresslevel: int = ...) -> None: ...
+    if sys.version_info >= (3, 9):
+        def __init__(self,
+                     filename: _PathOrFile,
+                     mode: str = ...,
+                     *,
+                     compresslevel: int = ...) -> None: ...
+    else:
+        def __init__(self,
+                     filename: _PathOrFile,
+                     mode: str = ...,
+                     buffering: Optional[Any] = ...,
+                     compresslevel: int = ...) -> None: ...
 
 class BZ2Compressor(object):
     def __init__(self, compresslevel: int = ...) -> None: ...

@@ -45,6 +45,8 @@ path: List[str]
 path_hooks: List[Any]  # TODO precise type; function, path to finder
 path_importer_cache: Dict[str, Any]  # TODO precise type
 platform: str
+if sys.version_info >= (3, 9):
+    platlibdir: str
 prefix: str
 if sys.version_info >= (3, 8):
     pycache_prefix: Optional[str]
@@ -137,7 +139,6 @@ def __excepthook__(type_: Type[BaseException], value: BaseException,
 def exc_info() -> _OptExcInfo: ...
 # sys.exit() accepts an optional argument of anything printable
 def exit(__status: object = ...) -> NoReturn: ...
-def getcheckinterval() -> int: ...  # deprecated
 def getdefaultencoding() -> str: ...
 if sys.platform != 'win32':
     # Unix only
@@ -189,12 +190,15 @@ if sys.version_info >= (3, 7):
     __breakpointhook__: Any  # contains the original value of breakpointhook
     def breakpointhook(*args: Any, **kwargs: Any) -> Any: ...
 
-def setcheckinterval(__n: int) -> None: ...  # deprecated
 def setdlopenflags(__flags: int) -> None: ...  # Linux only
 def setrecursionlimit(__limit: int) -> None: ...
 def setswitchinterval(__interval: float) -> None: ...
 
 def gettotalrefcount() -> int: ...  # Debug builds only
+
+if sys.version_info < (3, 9):
+    def getcheckinterval() -> int: ...  # deprecated
+    def setcheckinterval(__n: int) -> None: ...  # deprecated
 
 if sys.version_info >= (3, 8):
     # not exported by sys
