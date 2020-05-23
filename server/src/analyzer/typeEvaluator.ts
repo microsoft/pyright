@@ -2790,13 +2790,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         type = UnknownType.create();
                     }
                 } else {
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        `"${memberName}" is not a known member of module`,
-                        node.memberName
-                    );
-                    type = UnknownType.create();
+                    // Does the module export a top-level __getattr__ function?
+                    if (usage.method === 'get') {
+                        const getAttrSymbol = ModuleType.getField(baseType, '__getattr__');
+                        if (getAttrSymbol) {
+                            const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
+                            if (getAttrType.category === TypeCategory.Function) {
+                                type = getFunctionEffectiveReturnType(getAttrType);
+                            }
+                        }
+                    }
+
+                    if (!type) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            `"${memberName}" is not a known member of module`,
+                            node.memberName
+                        );
+                        type = UnknownType.create();
+                    }
                 }
                 break;
             }
