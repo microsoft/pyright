@@ -70,9 +70,6 @@ export interface DiagnosticRuleSet {
     // Report general type issues?
     reportGeneralTypeIssues: DiagnosticLevel;
 
-    // Report diagnostics in typeshed files?
-    reportTypeshedErrors: DiagnosticLevel;
-
     // Report missing imports?
     reportMissingImports: DiagnosticLevel;
 
@@ -208,7 +205,6 @@ export function getBooleanDiagnosticRules() {
 export function getDiagLevelDiagnosticRules() {
     return [
         DiagnosticRule.reportGeneralTypeIssues,
-        DiagnosticRule.reportTypeshedErrors,
         DiagnosticRule.reportMissingImports,
         DiagnosticRule.reportMissingModuleSource,
         DiagnosticRule.reportMissingTypeStubs,
@@ -264,7 +260,6 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         strictParameterNoneValue: true,
         enableTypeIgnoreComments: true, // Not overridden by strict mode
         reportGeneralTypeIssues: 'error',
-        reportTypeshedErrors: 'error',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'error',
@@ -316,7 +311,6 @@ export function getNoTypeCheckingDiagnosticRuleSet(): DiagnosticRuleSet {
         strictParameterNoneValue: false,
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'none',
-        reportTypeshedErrors: 'none',
         reportMissingImports: 'warning',
         reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'none',
@@ -368,7 +362,6 @@ export function getDefaultDiagnosticRuleSet(): DiagnosticRuleSet {
         strictParameterNoneValue: false,
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'error',
-        reportTypeshedErrors: 'none',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'none',
@@ -699,13 +692,6 @@ export class ConfigOptions {
                 configObj.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 defaultSettings.reportGeneralTypeIssues
-            ),
-
-            // Read the "reportTypeshedErrors" entry.
-            reportTypeshedErrors: this._convertDiagnosticLevel(
-                configObj.reportTypeshedErrors,
-                DiagnosticRule.reportTypeshedErrors,
-                defaultSettings.reportTypeshedErrors
             ),
 
             // Read the "reportMissingImports" entry.

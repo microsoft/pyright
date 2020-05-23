@@ -174,7 +174,7 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
-        const sourceFile = new SourceFile(this._fs, filePath, false, false, this._console);
+        const sourceFile = new SourceFile(this._fs, filePath, false, this._console);
         sourceFileInfo = {
             sourceFile,
             isTracked: true,
@@ -192,7 +192,7 @@ export class Program {
     setFileOpened(filePath: string, version: number | null, contents: string) {
         let sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
-            const sourceFile = new SourceFile(this._fs, filePath, false, false, this._console);
+            const sourceFile = new SourceFile(this._fs, filePath, false, this._console);
             sourceFileInfo = {
                 sourceFile,
                 isTracked: false,
@@ -509,7 +509,7 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
-        const sourceFile = new SourceFile(this._fs, filePath, false, false, this._console);
+        const sourceFile = new SourceFile(this._fs, filePath, false, this._console);
         sourceFileInfo = {
             sourceFile,
             isTracked: true,
@@ -624,10 +624,7 @@ export class Program {
         }
 
         // Don't bother checking third-party imports or typeshed files unless they're open.
-        if (
-            fileToCheck.isThirdPartyImport ||
-            (fileToCheck.isTypeshedFile && this._configOptions.diagnosticRuleSet.reportTypeshedErrors === 'none')
-        ) {
+        if (fileToCheck.isThirdPartyImport || fileToCheck.isTypeshedFile) {
             if (!fileToCheck.isOpenByClient) {
                 return false;
             }
@@ -1427,16 +1424,14 @@ export class Program {
                     }
                 });
             } else if (options.verboseOutput) {
-                if (!sourceFileInfo.isTypeshedFile || options.diagnosticRuleSet.reportTypeshedErrors !== 'none') {
-                    this._console.log(
-                        `Could not import '${importResult.importName}' ` +
-                            `in file '${sourceFileInfo.sourceFile.getFilePath()}'`
-                    );
-                    if (importResult.importFailureInfo) {
-                        importResult.importFailureInfo.forEach((diag) => {
-                            this._console.log(`  ${diag}`);
-                        });
-                    }
+                this._console.log(
+                    `Could not import '${importResult.importName}' ` +
+                        `in file '${sourceFileInfo.sourceFile.getFilePath()}'`
+                );
+                if (importResult.importFailureInfo) {
+                    importResult.importFailureInfo.forEach((diag) => {
+                        this._console.log(`  ${diag}`);
+                    });
                 }
             }
         });
@@ -1467,7 +1462,6 @@ export class Program {
                     const sourceFile = new SourceFile(
                         this._fs,
                         importPath,
-                        importInfo.isTypeshedFile,
                         importInfo.isThirdPartyImport,
                         this._console
                     );

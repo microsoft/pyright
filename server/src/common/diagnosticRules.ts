@@ -15,7 +15,6 @@ export const enum DiagnosticRule {
     enableTypeIgnoreComments = 'enableTypeIgnoreComments',
 
     reportGeneralTypeIssues = 'reportGeneralTypeIssues',
-    reportTypeshedErrors = 'reportTypeshedErrors',
     reportMissingImports = 'reportMissingImports',
     reportMissingModuleSource = 'reportMissingModuleSource',
     reportMissingTypeStubs = 'reportMissingTypeStubs',

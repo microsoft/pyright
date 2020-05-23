@@ -122,12 +122,6 @@
       "title": "Controls reporting of general type issues",
       "default": "error"
     },
-    "reportTypeshedErrors": {
-      "$id": "#/properties/reportTypeshedErrors",
-      "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of errors found within typeshed stub files",
-      "default": "none"
-    },
     "reportMissingImports": {
       "$id": "#/properties/reportMissingImports",
       "$ref": "#/definitions/diagnostic",

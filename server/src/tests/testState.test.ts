@@ -71,7 +71,6 @@ test('Configuration', () => {
 ////   "typingsPath": "src/typestubs",
 ////   "venvPath": "/home/foo/.venvs",
 ////
-////   "reportTypeshedErrors": false,
 ////   "reportMissingImports": true,
 ////   "reportMissingTypeStubs": false,
 ////

@@ -67,9 +67,6 @@ export class SourceFile {
     // (.py) file.
     private readonly _isStubFile: boolean;
 
-    // True if the file is a typeshed stub file.
-    private readonly _isTypeshedStubFile: boolean;
-
     // True if the file was imported as a third-party import.
     private readonly _isThirdPartyImport: boolean;
 
@@ -148,18 +145,11 @@ export class SourceFile {
 
     readonly fileSystem: FileSystem;
 
-    constructor(
-        fs: FileSystem,
-        filePath: string,
-        isTypeshedStubFile: boolean,
-        isThirdPartyImport: boolean,
-        console?: ConsoleInterface
-    ) {
+    constructor(fs: FileSystem, filePath: string, isThirdPartyImport: boolean, console?: ConsoleInterface) {
         this.fileSystem = fs;
         this._console = console || new StandardConsole();
         this._filePath = filePath;
         this._isStubFile = filePath.endsWith('.pyi');
-        this._isTypeshedStubFile = isTypeshedStubFile;
         this._isThirdPartyImport = isThirdPartyImport;
         const fileName = getFileName(filePath);
         this._isTypingStubFile =
@@ -254,21 +244,6 @@ export class SourceFile {
                     getEmptyRange()
                 )
             );
-        }
-
-        if (this._isTypeshedStubFile) {
-            if (options.diagnosticRuleSet.reportTypeshedErrors === 'none') {
-                includeWarningsAndErrors = false;
-            } else {
-                // convert category to effective ones
-                const effectiveCategory = convertLevelToCategory(options.diagnosticRuleSet.reportTypeshedErrors);
-                diagList = diagList.map((diag) => {
-                    if (diag.category !== effectiveCategory) {
-                        return new Diagnostic(effectiveCategory, diag.message, diag.range);
-                    }
-                    return diag;
-                });
-            }
         }
 
         // If the file is in the ignore list, clear the diagnostic list.
