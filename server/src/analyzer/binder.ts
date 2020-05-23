@@ -557,7 +557,6 @@ export class Binder extends ParseTreeWalker {
 
     visitAssignmentExpression(node: AssignmentExpressionNode) {
         this.walk(node.rightExpression);
-        this._addInferredTypeAssignmentForVariable(node.name, node.rightExpression);
 
         const evaluationNode = ParseTreeUtils.getEvaluationNodeForAssignmentExpression(node);
         if (!evaluationNode) {
@@ -588,6 +587,7 @@ export class Binder extends ParseTreeWalker {
             }
 
             this._bindNameToScope(containerScope, node.name.value);
+            this._addInferredTypeAssignmentForVariable(node.name, node.rightExpression);
         }
 
         this._createAssignmentTargetFlowNodes(node.name, true, false);
