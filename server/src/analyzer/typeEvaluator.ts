@@ -6635,6 +6635,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return typeArgs[0].type;
     }
 
+    function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
+        if (!typeArgs || typeArgs.length < 1) {
+            addError(`Expected at least one type argument after "Annotated"`, errorNode);
+            return AnyType.create();
+        }
+
+        if (isEllipsisType(typeArgs[0].type)) {
+            addError(`"..." not allowed in this context`, typeArgs[0].node);
+        } else if (typeArgs[0].type.category === TypeCategory.Module) {
+            addError(`Module not allowed in this context`, typeArgs[0].node);
+        } else if (isParameterSpecificationType(typeArgs[0].type)) {
+            addError(`ParameterSpecification not allowed in this context`, typeArgs[1].node);
+        }
+
+        return typeArgs[0].type;
+    }
+
     // Creates one of several "special" types that are defined in typing.pyi
     // but not declared in their entirety. This includes the likes of "Tuple",
     // "Dict", etc.
@@ -6873,6 +6890,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             TypedDict: { alias: '_TypedDict', module: 'self' },
             Union: { alias: '', module: 'builtins' },
             Optional: { alias: '', module: 'builtins' },
+            Annotated: { alias: '', module: 'builtins' },
         };
 
         const aliasMapEntry = specialTypes[assignedName];
@@ -9847,6 +9865,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 case 'Final': {
                     return createFinalType(errorNode, typeArgs, flags);
+                }
+
+                case 'Annotated': {
+                    return createAnnotatedType(errorNode, typeArgs);
                 }
             }
         }

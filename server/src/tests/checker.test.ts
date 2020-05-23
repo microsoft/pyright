@@ -1525,3 +1525,15 @@ test('TypeVar1', () => {
 
     validateResults(analysisResults, 2);
 });
+
+test('Annotated1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V38;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['annotated1.py'], configOptions);
+    validateResults(analysisResults38, 1);
+
+    configOptions.defaultPythonVersion = PythonVersion.V39;
+    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['annotated1.py'], configOptions);
+    validateResults(analysisResults39, 0);
+});
