@@ -2059,12 +2059,15 @@ export class Parser {
 
                 // This is an unfortunate hack that's necessary to accommodate 'Literal'
                 // type annotations properly. We need to suspend treating strings as
-                // type annotations within a Literal subscript.
+                // type annotations within a Literal subscript. Note that the code previously
+                // looked for "typing.Literal", but someone submitted a bug report because
+                // they were using an aliased version of 'typing'.
                 const isLiteralSubscript =
                     (atomExpression.nodeType === ParseNodeType.Name && atomExpression.value === 'Literal') ||
                     (atomExpression.nodeType === ParseNodeType.MemberAccess &&
                         atomExpression.leftExpression.nodeType === ParseNodeType.Name &&
-                        atomExpression.leftExpression.value === 'typing' &&
+                        (atomExpression.leftExpression.value === 'typing' ||
+                            atomExpression.leftExpression.value === 't') &&
                         atomExpression.memberName.value === 'Literal');
 
                 const wasParsingIndexTrailer = this._isParsingIndexTrailer;
