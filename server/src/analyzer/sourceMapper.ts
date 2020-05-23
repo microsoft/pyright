@@ -15,15 +15,14 @@ import { ImportResolver } from './importResolver';
 import { SourceFile } from './sourceFile';
 import { TypeEvaluator } from './typeEvaluator';
 
-// Given a Python file path, creates a SourceFile and binds it.
-// Abstracted as a callback to avoid a dependency on Program.
-export type SourceMapperFileBinder = (sourceFilePath: string) => SourceFile | undefined;
+// Creates and binds a shadowed file within the program.
+export type ShadowFileBinder = (stubFilePath: string, implFilePath: string) => SourceFile | undefined;
 
 export class SourceMapper {
     constructor(
         private _importResolver: ImportResolver,
         private _evaluator: TypeEvaluator,
-        private _fileBinder: SourceMapperFileBinder
+        private _fileBinder: ShadowFileBinder
     ) {}
 
     public findModules(stubFilePath: string): ModuleNode[] {
@@ -199,7 +198,7 @@ export class SourceMapper {
 
     private _getBoundSourceFiles(stubFilePath: string): SourceFile[] {
         const paths = this._importResolver.getSourceFilesFromStub(stubFilePath);
-        return paths.map((fp) => this._fileBinder(fp)).filter(_isDefined);
+        return paths.map((fp) => this._fileBinder(stubFilePath, fp)).filter(_isDefined);
     }
 }
 

@@ -60,16 +60,27 @@ import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
 
+// Tracks information about each source file in a program,
+// including the reason it was added to the program and any
+// dependencies that it has on other files in the program.
 export interface SourceFileInfo {
+    // Reference to the source file
     sourceFile: SourceFile;
-    isTracked: boolean;
-    isOpenByClient: boolean;
+
+    // Information about the source file
     isTypeshedFile: boolean;
     isThirdPartyImport: boolean;
     diagnosticsVersion?: number;
-    imports: SourceFileInfo[];
     builtinsImport?: SourceFileInfo;
+
+    // Information about why the file is included in the program
+    // and its relation to other source files in the program.
+    isTracked: boolean;
+    isOpenByClient: boolean;
+    imports: SourceFileInfo[];
     importedBy: SourceFileInfo[];
+    shadows: SourceFileInfo[];
+    shadowedBy: SourceFileInfo[];
 }
 
 export interface MaxAnalysisTime {
@@ -95,6 +106,7 @@ interface UpdateImportInfo {
 //  Tracked - specified by the config options
 //  Referenced - part of the transitive closure
 //  Opened - temporarily opened in the editor
+//  Shadowed - implementation file that shadows a type stub file
 export class Program {
     private _console: ConsoleInterface;
     private _sourceFileList: SourceFileInfo[] = [];
@@ -184,6 +196,8 @@ export class Program {
             diagnosticsVersion: sourceFile.getDiagnosticVersion(),
             imports: [],
             importedBy: [],
+            shadows: [],
+            shadowedBy: [],
         };
         this._addToSourceFileListAndMap(sourceFileInfo);
         return sourceFile;
@@ -202,17 +216,17 @@ export class Program {
                 diagnosticsVersion: sourceFile.getDiagnosticVersion(),
                 imports: [],
                 importedBy: [],
+                shadows: [],
+                shadowedBy: [],
             };
             this._addToSourceFileListAndMap(sourceFileInfo);
         } else {
             sourceFileInfo.isOpenByClient = true;
 
-            if (this._configOptions.checkOnlyOpenFiles) {
-                // Reset the diagnostic version so we force an update
-                // to the diagnostics, which can change based on whether
-                // the file is open.
-                sourceFileInfo.diagnosticsVersion = undefined;
-            }
+            // Reset the diagnostic version so we force an update
+            // to the diagnostics, which can change based on whether
+            // the file is open.
+            sourceFileInfo.diagnosticsVersion = -1;
         }
 
         sourceFileInfo.sourceFile.setClientVersion(version, contents);
@@ -224,12 +238,10 @@ export class Program {
             sourceFileInfo.isOpenByClient = false;
             sourceFileInfo.sourceFile.setClientVersion(null, '');
 
-            if (this._configOptions.checkOnlyOpenFiles) {
-                // Set the diagnostic version to an invalid value so we force an
-                // update to the diagnostics, which can change based on whether
-                // the file is open.
-                sourceFileInfo.diagnosticsVersion = -1;
-            }
+            // Set the diagnostic version to an invalid value so we force an
+            // update to the diagnostics, which can change based on whether
+            // the file is open.
+            sourceFileInfo.diagnosticsVersion = -1;
         }
 
         return this._removeUnneededFiles();
@@ -294,7 +306,7 @@ export class Program {
                 fileInfo.sourceFile.isBindingRequired() ||
                 fileInfo.sourceFile.isCheckingRequired()
             ) {
-                if ((!this._configOptions.checkOnlyOpenFiles && fileInfo.isTracked) || fileInfo.isOpenByClient) {
+                if (this._shouldCheckFile(fileInfo)) {
                     sourceFileCount++;
                 }
             }
@@ -519,9 +531,46 @@ export class Program {
             diagnosticsVersion: sourceFile.getDiagnosticVersion(),
             imports: [],
             importedBy: [],
+            shadows: [],
+            shadowedBy: [],
         };
         this._addToSourceFileListAndMap(sourceFileInfo);
         return sourceFile;
+    }
+
+    // A "shadowed" file is a python source file that has been added to the program because
+    // it "shadows" a type stub file for purposes of finding doc strings and definitions.
+    // We need to track the relationship so if the original type stub is removed from the
+    // program, we can remove the corresponding shadowed file and any files it imports.
+    private _addShadowedFile(stubFile: SourceFileInfo, shadowImplPath: string): SourceFile {
+        let shadowFileInfo = this._sourceFileMap.get(shadowImplPath);
+
+        if (!shadowFileInfo) {
+            const sourceFile = new SourceFile(this._fs, shadowImplPath, false, this._console);
+            shadowFileInfo = {
+                sourceFile,
+                isTracked: false,
+                isOpenByClient: false,
+                isTypeshedFile: false,
+                isThirdPartyImport: false,
+                diagnosticsVersion: sourceFile.getDiagnosticVersion(),
+                imports: [],
+                importedBy: [],
+                shadows: [],
+                shadowedBy: [],
+            };
+            this._addToSourceFileListAndMap(shadowFileInfo);
+        }
+
+        if (!shadowFileInfo.shadows.includes(stubFile)) {
+            shadowFileInfo.shadows.push(stubFile);
+        }
+
+        if (!stubFile.shadowedBy.includes(shadowFileInfo)) {
+            stubFile.shadowedBy.push(shadowFileInfo);
+        }
+
+        return shadowFileInfo.sourceFile;
     }
 
     private _createNewEvaluator() {
@@ -611,6 +660,21 @@ export class Program {
         );
     }
 
+    private _shouldCheckFile(fileInfo: SourceFileInfo) {
+        // Always do a full checking for a file that's open in the editor.
+        if (fileInfo.isOpenByClient) {
+            return true;
+        }
+
+        // If the file isn't currently open, only perform full checking for
+        // files that are tracked, and only if the checkOnlyOpenFiles is disabled.
+        if (!this._configOptions.checkOnlyOpenFiles && fileInfo.isTracked) {
+            return true;
+        }
+
+        return false;
+    }
+
     private _checkTypes(fileToCheck: SourceFileInfo) {
         // If the file isn't needed because it was eliminated from the
         // transitive closure or deleted, skip the file rather than wasting
@@ -623,14 +687,7 @@ export class Program {
             return false;
         }
 
-        // Don't bother checking third-party imports or typeshed files unless they're open.
-        if (fileToCheck.isThirdPartyImport || fileToCheck.isTypeshedFile) {
-            if (!fileToCheck.isOpenByClient) {
-                return false;
-            }
-        }
-
-        if (this._configOptions.checkOnlyOpenFiles && !fileToCheck.isOpenByClient) {
+        if (!this._shouldCheckFile(fileToCheck)) {
             return false;
         }
 
@@ -1227,7 +1284,7 @@ export class Program {
     private _removeUnneededFiles(): FileDiagnostics[] {
         const fileDiagnostics: FileDiagnostics[] = [];
 
-        // If a file is no longer tracked or opened, it can
+        // If a file is no longer tracked, opened or shadowed, it can
         // be removed from the program.
         for (let i = 0; i < this._sourceFileList.length; ) {
             const fileInfo = this._sourceFileList[i];
@@ -1266,12 +1323,17 @@ export class Program {
                         }
                     }
                 });
+
+                // Remove any shadowed files corresponding to this file.
+                fileInfo.shadowedBy.forEach((shadowedFile) => {
+                    shadowedFile.shadows = shadowedFile.shadows.filter((f) => f !== fileInfo);
+                });
+                fileInfo.shadowedBy = [];
             } else {
                 // If we're showing the user errors only for open files, clear
                 // out the errors for the now-closed file.
                 if (
-                    this._configOptions.checkOnlyOpenFiles &&
-                    !fileInfo.isOpenByClient &&
+                    !this._shouldCheckFile(fileInfo) &&
                     fileInfo.diagnosticsVersion !== fileInfo.sourceFile.getDiagnosticVersion()
                 ) {
                     // If the old diagnostic version was undefined or zero, we haven't
@@ -1302,6 +1364,10 @@ export class Program {
             return true;
         }
 
+        if (fileInfo.shadows.length > 0) {
+            return true;
+        }
+
         if (fileInfo.importedBy.length === 0) {
             return false;
         }
@@ -1314,7 +1380,7 @@ export class Program {
     }
 
     private _isImportNeededRecursive(fileInfo: SourceFileInfo, recursionMap: Map<string, boolean>) {
-        if (fileInfo.isTracked || fileInfo.isOpenByClient) {
+        if (fileInfo.isTracked || fileInfo.isOpenByClient || fileInfo.shadows.length > 0) {
             return true;
         }
 
@@ -1337,10 +1403,18 @@ export class Program {
     }
 
     private _createSourceMapper() {
-        const sourceMapper = new SourceMapper(this._importResolver, this._evaluator, (sourceFilePath: string) => {
-            this.addTrackedFile(sourceFilePath);
-            return this.getBoundSourceFile(sourceFilePath);
-        });
+        const sourceMapper = new SourceMapper(
+            this._importResolver,
+            this._evaluator,
+            (stubFilePath: string, implFilePath: string) => {
+                const stubFileInfo = this._sourceFileMap.get(stubFilePath);
+                if (!stubFileInfo) {
+                    return undefined;
+                }
+                this._addShadowedFile(stubFileInfo, implFilePath);
+                return this.getBoundSourceFile(implFilePath);
+            }
+        );
         return sourceMapper;
     }
 
@@ -1474,6 +1548,8 @@ export class Program {
                         diagnosticsVersion: sourceFile.getDiagnosticVersion(),
                         imports: [],
                         importedBy: [],
+                        shadows: [],
+                        shadowedBy: [],
                     };
 
                     this._addToSourceFileListAndMap(importedFileInfo);
