@@ -1712,12 +1712,8 @@ export class Binder extends ParseTreeWalker {
             }
 
             case ParseNodeType.AssignmentExpression: {
-                if (this._isNarrowingExpression(expression.rightExpression, expressionList)) {
-                    expressionList.push(expression.name);
-                    return true;
-                }
-
-                return false;
+                expressionList.push(expression.name);
+                return true;
             }
 
             case ParseNodeType.BinaryOperation: {
