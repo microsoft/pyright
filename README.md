@@ -13,8 +13,12 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 * [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
 * [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
 * [PEP 589](https://www.python.org/dev/peps/pep-0589/) typed dictionaries
+* [PEP 593](https://www.python.org/dev/peps/pep-0593/) flexible variable annotations
+* [PEP 604](https://www.python.org/dev/peps/pep-0604/) complementary syntax for unions
+* [PEP 612](https://www.python.org/dev/peps/pep-0612/) parameter specification variables
+* [PEP 613](https://www.python.org/dev/peps/pep-0613/) explicit type aliases
 * Type inference for function return values, instance variables, class variables, and globals
-* Smart type constraints that understand conditional code flow constructs like if/else statements
+* Type guards that understand conditional code flow constructs like if/else statements
 
 ### VS Code Integration
 Pyright ships as both a command-line tool and a VS Code extension that provides many powerful features that help improve programming efficiency.
@@ -66,7 +70,7 @@ To update to the latest version:
 
 
 ## Using Pyright with VS Code Python Extension
-Pyright provides some features that overlap with functionality provided by the standard VS Code Python extension: “hover”, type completion, definitions, references, rename symbols, etc. You may see duplicate results if Pyright is installed alongside the Python extension. There is currently no way to disable this functionality in the Python extension. If you want to disable these features in Pyright, there is a setting to do so: `pyright.disableLanguageServices`.
+Pyright provides some features that overlap with functionality provided by the standard VS Code Python extension: “hover”, type completion, definitions, references, rename symbols, etc. You may see duplicate results if Pyright is installed alongside the Python extension. You can disable the duplicate language service functionality in the Python extension by setting `python.languageServer` to `None`. If you want to disable language service features in Pyright, set `pyright.disableLanguageServices` to `true`.
 
 
 ## Documentation
@@ -83,7 +87,7 @@ Pyright provides some features that overlap with functionality provided by the s
 
 
 ## Limitations
-Pyright currently provides support for Python 3.0 and newer. There is currently no plan to support older versions.
+Pyright provides support for Python 3.0 and newer. There is currently no plan to support older versions.
 
 
 ## Community

@@ -31,9 +31,9 @@ The [tokenizer](https://github.com/Microsoft/pyright/blob/master/server/src/pars
 
 The [parser](https://github.com/Microsoft/pyright/blob/master/server/src/parser/parser.ts) is responsible for converting the token stream into a parse tree. A generalized [parseTreeWalker](https://github.com/Microsoft/pyright/blob/master/server/src/analyzer/parseTreeWalker.ts) provides a convenient way to traverse the parse tree. All subsequent analysis phases utilize the parseTreeWalker.
 
-The [binder](https://github.com/Microsoft/pyright/blob/master/server/src/analyzer/binder.ts) is responsible for building scopes and populating the symbol table for each scope. It does not perform any type checking, but it detects and reports some semantic errors that will result in unintended runtime exceptions. It also detects and reports inconsistent name bindings (e.g. a variable that uses both a global and nonlocal binding in the same scope). The binder also builds a "reverse code flow graph" for each scope, allowing the type analyzer to determine a symbol's type at any point in the code flow based on its antecedents.
+The [binder](https://github.com/Microsoft/pyright/blob/master/server/src/analyzer/binder.ts) is responsible for building scopes and populating the symbol table for each scope. It does not perform any type checking, but it detects and reports some semantic errors that will result in unintended runtime exceptions. It also detects and reports inconsistent name bindings (e.g. a variable that uses both a global and nonlocal binding in the same scope). The binder also builds a “reverse code flow graph” for each scope, allowing the type analyzer to determine a symbol’s type at any point in the code flow based on its antecedents.
 
-The [checker](https://github.com/Microsoft/pyright/blob/master/server/src/analyzer/checker.ts) is responsible for checking all of the statements and expressions within a source file. It relies heavily on the [typeEvaluator](https://github.com/Microsoft/pyright/blob/master/server/src/analyzer/typeEvaluator.ts) module, which performs most of the heavy lifting. The checker doesn't run on all files, only those that require full diagnostic output. For example, if a source file is not part of the program but is imported by the program, the checker doesn't need to run on it.
+The [checker](https://github.com/Microsoft/pyright/blob/master/server/src/analyzer/checker.ts) is responsible for checking all of the statements and expressions within a source file. It relies heavily on the [typeEvaluator](https://github.com/Microsoft/pyright/blob/master/server/src/analyzer/typeEvaluator.ts) module, which performs most of the heavy lifting. The checker doesn’t run on all files, only those that require full diagnostic output. For example, if a source file is not part of the program but is imported by the program, the checker doesn’t need to run on it.
 
 ## Type Checking Concepts
 
@@ -41,7 +41,7 @@ Pyright uses an internal type called “Unknown” to represent types that are n
 
 Pyright attempts to infer the types of global (module-level) variables, class variables, instance variables, and local variables. Return and yield types are also inferred. If type annotations are provided in these cases, the type annotation overrides any inferred types.
 
-Pyright supports type constraints (sometimes called “path constraints” or "type guards") to track assumptions that apply within certain code flow paths. For example, consider the following code:
+Pyright supports type constraints (sometimes called “path constraints” or “type guards”) to track assumptions that apply within certain code flow paths. For example, consider the following code:
 ```python
 def (a: Optional[Union[str, List[str]]):
     if isinstance(a, str):

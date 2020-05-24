@@ -10,12 +10,16 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 
 ### Type Checking Features
 
--   [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints including generics
--   [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
--   [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
--   [PEP 589](https://www.python.org/dev/peps/pep-0589/) typed dictionaries
--   Type inference for function return values, instance variables, class variables, and globals
--   Smart type constraints that understand conditional code flow constructs like if/else statements
+* [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints including generics
+* [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
+* [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
+* [PEP 589](https://www.python.org/dev/peps/pep-0589/) typed dictionaries
+* [PEP 593](https://www.python.org/dev/peps/pep-0593/) flexible variable annotations
+* [PEP 604](https://www.python.org/dev/peps/pep-0604/) complementary syntax for unions
+* [PEP 612](https://www.python.org/dev/peps/pep-0612/) parameter specification variables
+* [PEP 613](https://www.python.org/dev/peps/pep-0613/) explicit type aliases
+* Type inference for function return values, instance variables, class variables, and globals
+* Type guards that understand conditional code flow constructs like if/else statements
 
 ### VS Code Language Features
 
