@@ -725,13 +725,18 @@ export namespace FunctionType {
     // with the object being cloned.
     export function cloneForSpecialization(
         type: FunctionType,
-        specializedTypes: SpecializedFunctionTypes
+        specializedTypes: SpecializedFunctionTypes,
+        specializedInferredReturnType: Type | undefined
     ): FunctionType {
         const newFunction = create(type.details.name, type.details.flags, type.details.docString);
         newFunction.details = type.details;
 
         assert(specializedTypes.parameterTypes.length === type.details.parameters.length);
         newFunction.specializedTypes = specializedTypes;
+
+        if (specializedInferredReturnType) {
+            newFunction.inferredReturnType = specializedInferredReturnType;
+        }
 
         return newFunction;
     }

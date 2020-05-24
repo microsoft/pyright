@@ -209,7 +209,7 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
                     ? stripLiteralTypeArgsValue(stripLiteralValue(type.specializedTypes.returnType), recursionCount + 1)
                     : undefined,
             };
-            type = FunctionType.cloneForSpecialization(type, strippedSpecializedTypes);
+            type = FunctionType.cloneForSpecialization(type, strippedSpecializedTypes, type.inferredReturnType);
         }
 
         return type;
@@ -410,8 +410,12 @@ export function specializeType(
             }
         }
 
-        if (!typeVarMap || makeConcrete) {
-            return getConcreteTypeFromTypeVar(type, recursionLevel + 1);
+        if (!typeVarMap) {
+            if (type.boundType) {
+                return specializeType(type.boundType, undefined, false, recursionLevel + 1);
+            }
+
+            return makeConcrete ? UnknownType.create() : type;
         }
 
         return type;
@@ -1193,7 +1197,17 @@ function _specializeFunctionType(
         return functionType;
     }
 
-    return FunctionType.cloneForSpecialization(functionType, specializedParameters);
+    let specializedInferredReturnType: Type | undefined;
+    if (functionType.inferredReturnType) {
+        specializedInferredReturnType = specializeType(
+            functionType.inferredReturnType,
+            typeVarMap,
+            makeConcrete,
+            recursionLevel + 1
+        );
+    }
+
+    return FunctionType.cloneForSpecialization(functionType, specializedParameters, specializedInferredReturnType);
 }
 
 // If the declared return type for the function is a Generator, AsyncGenerator,
@@ -1260,6 +1274,10 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
                     : type.details.declaredReturnType;
             if (declaredReturnType) {
                 if (requiresSpecialization(declaredReturnType, recursionCount + 1)) {
+                    return true;
+                }
+            } else if (type.inferredReturnType) {
+                if (requiresSpecialization(type.inferredReturnType, recursionCount + 1)) {
                     return true;
                 }
             }
