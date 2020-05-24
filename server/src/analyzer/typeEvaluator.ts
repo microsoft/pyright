@@ -93,6 +93,7 @@ import {
     ModuleLoaderActions,
     VariableDeclaration,
 } from './declaration';
+import { isTypeAliasDeclaration } from './declarationUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
@@ -161,6 +162,7 @@ import {
     isOptionalType,
     isParameterSpecificationType,
     isProperty,
+    isValidTypeAliasType,
     lookUpClassMember,
     lookUpObjectMember,
     partiallySpecializeType,
@@ -1290,6 +1292,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             callNode,
             signatures,
         };
+    }
+
+    // Determines whether the specified expression is an explicit TypeAlias declaration.
+    function isDeclaredTypeAlias(expression: ExpressionNode): boolean {
+        if (expression.nodeType === ParseNodeType.TypeAnnotation) {
+            if (expression.valueExpression.nodeType === ParseNodeType.Name) {
+                const symbolWithScope = lookUpSymbolRecursive(expression, expression.valueExpression.value);
+                if (symbolWithScope) {
+                    const symbol = symbolWithScope.symbol;
+                    return symbol.getDeclarations().find((decl) => isTypeAliasDeclaration(decl)) !== undefined;
+                }
+            }
+        }
+
+        return false;
     }
 
     // Determines whether the specified expression is a symbol with a declared type
@@ -6907,6 +6924,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             Union: { alias: '', module: 'builtins' },
             Optional: { alias: '', module: 'builtins' },
             Annotated: { alias: '', module: 'builtins' },
+            TypeAlias: { alias: '', module: 'builtins' },
         };
 
         const aliasMapEntry = specialTypes[assignedName];
@@ -6991,10 +7009,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // An assignment of ellipsis means "Any" within a type stub file.
                     flags |= EvaluatorFlags.ConvertEllipsisToAny;
                 }
+                const isTypeAlias = isDeclaredTypeAlias(node.leftExpression);
+                if (isTypeAlias) {
+                    flags |=
+                        EvaluatorFlags.EvaluateStringLiteralAsType | EvaluatorFlags.ParameterSpecificationDisallowed;
+                }
                 const srcTypeResult = getTypeOfExpression(node.rightExpression, declaredType, flags);
                 let srcType = srcTypeResult.type;
                 if (srcTypeResult.isResolutionCyclical) {
                     isResolutionCycle = true;
+                }
+
+                if (isTypeAlias && !isValidTypeAliasType(srcType)) {
+                    addError(`Expression is is not valid type for TypeAlias`, node.rightExpression);
                 }
 
                 // Determine if the RHS is a constant boolean expression.

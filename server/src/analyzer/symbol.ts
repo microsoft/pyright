@@ -156,12 +156,16 @@ export class Symbol {
                         }
                     }
                 } else if (declaration.type === DeclarationType.Variable) {
-                    // If it's marked "final", this should be reflected in the
-                    // existing declaration. Likewise, if the existing declaration
+                    // If it's marked "final" or "type alias", this should be reflected
+                    // in the existing declaration. Likewise, if the existing declaration
                     // doesn't have a type source, add it.
                     if (curDecl.type === DeclarationType.Variable) {
                         if (declaration.isFinal) {
                             curDecl.isFinal = true;
+                        }
+
+                        if (declaration.isTypeAlias) {
+                            curDecl.isTypeAlias = true;
                         }
 
                         if (!curDecl.inferredTypeSource && declaration.inferredTypeSource) {

@@ -63,7 +63,7 @@ import {
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
-import { isFinalVariableDeclaration } from './declarationUtils';
+import { isFinalVariableDeclaration, isTypeAliasDeclaration } from './declarationUtils';
 import { getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -758,6 +758,8 @@ export class Checker extends ParseTreeWalker {
                 this._reportIncompatibleDeclarations(name, symbol);
 
                 this._reportMultipleFinalDeclarations(name, symbol);
+
+                this._reportMultipleTypeAliasDeclarations(name, symbol);
             });
         }
     }
@@ -793,6 +795,23 @@ export class Checker extends ParseTreeWalker {
             if (firstDecl) {
                 this._evaluator.addError(`"${name}" is declared Final, but value is not assigned`, firstDecl.node);
             }
+        }
+    }
+
+    private _reportMultipleTypeAliasDeclarations(name: string, symbol: Symbol) {
+        const decls = symbol.getDeclarations();
+        const typeAliasDecl = decls.find((decl) => isTypeAliasDeclaration(decl));
+
+        // If this is a type alias, there should be only one declaration.
+        if (typeAliasDecl && decls.length > 1) {
+            decls.forEach((decl) => {
+                if (decl !== typeAliasDecl) {
+                    this._evaluator.addError(
+                        `"${name}" is declared as a TypeAlias and can be assigned only once`,
+                        decl.node
+                    );
+                }
+            });
         }
     }
 

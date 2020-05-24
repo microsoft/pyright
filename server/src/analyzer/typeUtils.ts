@@ -1135,6 +1135,28 @@ export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel = 0
     return UnknownType.create();
 }
 
+export function isValidTypeAliasType(type: Type): boolean {
+    switch (type.category) {
+        case TypeCategory.Any:
+        case TypeCategory.Unknown:
+        case TypeCategory.Class:
+        case TypeCategory.Function:
+        case TypeCategory.OverloadedFunction:
+        case TypeCategory.None:
+        case TypeCategory.TypeVar:
+            return true;
+
+        case TypeCategory.Unbound:
+        case TypeCategory.Never:
+        case TypeCategory.Object:
+        case TypeCategory.Module:
+            return false;
+
+        case TypeCategory.Union:
+            return type.subtypes.find((t) => !isValidTypeAliasType(t)) === undefined;
+    }
+}
+
 function _specializeOverloadedFunctionType(
     type: OverloadedFunctionType,
     typeVarMap: TypeVarMap | undefined,

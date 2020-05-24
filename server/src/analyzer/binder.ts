@@ -2186,13 +2186,28 @@ export class Binder extends ParseTreeWalker {
                 const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
                 if (symbolWithScope && symbolWithScope.symbol) {
                     const finalInfo = this._isAnnotationFinal(typeAnnotation);
+                    const isTypeAlias = this._isAnnotationTypeAlias(typeAnnotation);
+
+                    let typeAnnotationNode: ExpressionNode | undefined = typeAnnotation;
+                    if (isTypeAlias) {
+                        typeAnnotationNode = undefined;
+
+                        // Type aliases are allowed only in the global scope.
+                        if (this._currentScope.type !== ScopeType.Module) {
+                            this._addError('A TypeAlias can be defined only within a module scope', typeAnnotation);
+                        }
+                    } else if (finalInfo.isFinal) {
+                        typeAnnotationNode = finalInfo.finalTypeNode;
+                    }
+
                     const declaration: VariableDeclaration = {
                         type: DeclarationType.Variable,
                         node: target,
                         isConstant: isConstantName(name.value),
                         isFinal: finalInfo.isFinal,
+                        isTypeAlias,
                         path: this._fileInfo.filePath,
-                        typeAnnotationNode: finalInfo.isFinal ? finalInfo.finalTypeNode : typeAnnotation,
+                        typeAnnotationNode,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
@@ -2269,6 +2284,28 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
+    private _isTypingAnnotation(typeAnnotation: ExpressionNode, name: string): boolean {
+        if (typeAnnotation.nodeType === ParseNodeType.Name) {
+            // We need to make an assumption in this code that the symbol "Final"
+            // will resolve to typing.Final. This is because of the poor way
+            // the "Final" support was specified. We need to evaluate it
+            // in the binder before we have a way to resolve symbol names.
+            if (typeAnnotation.value === name) {
+                return true;
+            }
+        } else if (typeAnnotation.nodeType === ParseNodeType.MemberAccess) {
+            if (
+                typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
+                (typeAnnotation.leftExpression.value === 'typing' || typeAnnotation.leftExpression.value === 't') &&
+                typeAnnotation.memberName.value === name
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // Determines if the specified type annotation expression is a "Final".
     // It returns two boolean values indicating if the expression is a "Final"
     // expression and whether it's a "raw" Final with no type arguments.
@@ -2277,22 +2314,8 @@ export class Binder extends ParseTreeWalker {
         let finalTypeNode: ExpressionNode | undefined;
 
         if (typeAnnotation) {
-            if (typeAnnotation.nodeType === ParseNodeType.Name) {
-                // We need to make an assumption in this code that the symbol "Final"
-                // will resolve to typing.Final. This is because of the poor way
-                // the "Final" support was specified. We need to evaluate it
-                // in the binder before we have a way to resolve symbol names.
-                if (typeAnnotation.value === 'Final') {
-                    isFinal = true;
-                }
-            } else if (typeAnnotation.nodeType === ParseNodeType.MemberAccess) {
-                if (
-                    typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
-                    typeAnnotation.leftExpression.value === 'typing' &&
-                    typeAnnotation.memberName.value === 'Final'
-                ) {
-                    isFinal = true;
-                }
+            if (this._isTypingAnnotation(typeAnnotation, 'Final')) {
+                isFinal = true;
             } else if (typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.items.length === 1) {
                 // Recursively call to see if the base expression is "Final".
                 const finalInfo = this._isAnnotationFinal(typeAnnotation.baseExpression);
@@ -2304,6 +2327,14 @@ export class Binder extends ParseTreeWalker {
         }
 
         return { isFinal, finalTypeNode };
+    }
+
+    private _isAnnotationTypeAlias(typeAnnotation: ExpressionNode | undefined) {
+        if (!typeAnnotation) {
+            return false;
+        }
+
+        return this._isTypingAnnotation(typeAnnotation, 'TypeAlias');
     }
 
     // Determines whether a member access expression is referring to a
@@ -2443,6 +2474,7 @@ export class Binder extends ParseTreeWalker {
             Union: true,
             Optional: true,
             Annotated: true,
+            TypeAlias: true,
         };
 
         const assignedName = assignedNameNode.value;

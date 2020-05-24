@@ -800,6 +800,18 @@ test('TypeAlias3', () => {
     validateResults(analysisResults, 0);
 });
 
+test('TypeAlias4', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V38;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
+    validateResults(analysisResults38, 8);
+
+    configOptions.defaultPythonVersion = PythonVersion.V39;
+    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
+    validateResults(analysisResults39, 8);
+});
+
 test('Dictionary1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dictionary1.py']);
 
@@ -1499,7 +1511,7 @@ test('ParamSpec2', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V38;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
-    validateResults(analysisResults38, 1);
+    validateResults(analysisResults38, 6);
 
     configOptions.defaultPythonVersion = PythonVersion.V39;
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);

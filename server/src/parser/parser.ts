@@ -1981,6 +1981,24 @@ export class Parser {
         return leftExpr;
     }
 
+    private _isTypingAnnotation(typeAnnotation: ExpressionNode, name: string): boolean {
+        if (typeAnnotation.nodeType === ParseNodeType.Name) {
+            if (typeAnnotation.value === name) {
+                return true;
+            }
+        } else if (typeAnnotation.nodeType === ParseNodeType.MemberAccess) {
+            if (
+                typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
+                (typeAnnotation.leftExpression.value === 'typing' || typeAnnotation.leftExpression.value === 't') &&
+                typeAnnotation.memberName.value === name
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     // atom_expr: ['await'] atom trailer*
     // trailer: '(' [arglist] ')' | '[' subscriptlist ']' | '.' NAME
     private _parseAtomExpression(): ExpressionNode {
@@ -2062,14 +2080,7 @@ export class Parser {
                 // type annotations within a Literal subscript. Note that the code previously
                 // looked for "typing.Literal", but someone submitted a bug report because
                 // they were using an aliased version of 'typing'.
-                const isLiteralSubscript =
-                    (atomExpression.nodeType === ParseNodeType.Name && atomExpression.value === 'Literal') ||
-                    (atomExpression.nodeType === ParseNodeType.MemberAccess &&
-                        atomExpression.leftExpression.nodeType === ParseNodeType.Name &&
-                        (atomExpression.leftExpression.value === 'typing' ||
-                            atomExpression.leftExpression.value === 't') &&
-                        atomExpression.memberName.value === 'Literal');
-
+                const isLiteralSubscript = this._isTypingAnnotation(atomExpression, 'Literal');
                 const wasParsingIndexTrailer = this._isParsingIndexTrailer;
                 const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
                 if (isLiteralSubscript) {
@@ -2716,7 +2727,21 @@ export class Parser {
                 return leftExpr;
             }
 
+            // This is an unfortunate hack that's necessary to accommodate 'TypeAlias'
+            // declarations properly. We need to treat this assignment differently than
+            // most because the expression on the right side is treated like a type
+            // annotation and therefore allows string-literal forward declarations.
+            const isTypeAliasDeclaration = this._isTypingAnnotation(annotationExpr, 'TypeAlias');
+
+            const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
+            if (isTypeAliasDeclaration) {
+                this._isParsingTypeAnnotation = true;
+            }
+
             const rightExpr = this._parseTestExpression(false);
+
+            this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
+
             return AssignmentNode.create(leftExpr, rightExpr);
         }
 

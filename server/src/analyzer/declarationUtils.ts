@@ -62,3 +62,7 @@ export function areDeclarationsSame(decl1: Declaration, decl2: Declaration): boo
 export function isFinalVariableDeclaration(decl: Declaration) {
     return decl.type === DeclarationType.Variable && !!decl.isFinal;
 }
+
+export function isTypeAliasDeclaration(decl: Declaration) {
+    return decl.type === DeclarationType.Variable && !!decl.isTypeAlias;
+}

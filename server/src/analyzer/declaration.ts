@@ -103,6 +103,9 @@ export interface VariableDeclaration extends DeclarationBase {
     // Is the declaration considered "final" (similar to
     // constant in that reassignment is not permitted)?
     isFinal?: boolean;
+
+    // Is the declaration an explicit TypeAlias?
+    isTypeAlias?: boolean;
 }
 
 // Alias declarations are used for imports. They are resolved
