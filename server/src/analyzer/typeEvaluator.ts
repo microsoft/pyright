@@ -1854,6 +1854,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return isFlowNodeReachable(returnFlowNode);
     }
 
+    // Determines whether there is a code flow path from sourceNode to sinkNode.
+    function isFlowPathBetweenNodes(sourceNode: ParseNode, sinkNode: ParseNode) {
+        const sourceFlowNode = AnalyzerNodeInfo.getFlowNode(sourceNode);
+        const sinkFlowNode = AnalyzerNodeInfo.getFlowNode(sinkNode);
+        if (!sourceFlowNode || !sinkFlowNode) {
+            return false;
+        }
+        if (sourceFlowNode === sinkFlowNode) {
+            return true;
+        }
+
+        return isFlowNodeReachable(sinkFlowNode, sourceFlowNode);
+    }
+
     // Determines whether the specified string literal is part
     // of a Literal['xxx'] statement. If so, we will not treat
     // the string as a normal forward-declared type annotation.
@@ -2591,7 +2605,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (symbolWithScope) {
             const symbol = symbolWithScope.symbol;
 
-            const effectiveType = getEffectiveTypeOfSymbol(symbol);
+            const effectiveType = getEffectiveTypeOfSymbol(symbol, node);
 
             // If the effective type is unbound, that means we were unable to
             // infer the effective type because of a cyclical dependency
@@ -9334,10 +9348,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         };
     }
 
-    function isFlowNodeReachable(flowNode: FlowNode): boolean {
+    // Determines whether the specified flowNode can be reached by any
+    // control flow path within the execution context. If sourceFlowNode
+    // is specified, it returns true only if at least one control flow
+    // path passes through sourceFlowNode.
+    function isFlowNodeReachable(flowNode: FlowNode, sourceFlowNode?: FlowNode): boolean {
         const visitedFlowNodeMap = new Map<number, true>();
 
-        function isFlowNodeReachableRecursive(flowNode: FlowNode): boolean {
+        function isFlowNodeReachableRecursive(flowNode: FlowNode, sourceFlowNode: FlowNode | undefined): boolean {
             let curFlowNode = flowNode;
 
             while (true) {
@@ -9352,6 +9370,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (curFlowNode.flags & FlowFlags.Unreachable) {
                     return false;
+                }
+
+                if (curFlowNode === sourceFlowNode) {
+                    return true;
                 }
 
                 if (curFlowNode.flags & FlowFlags.Call) {
@@ -9383,7 +9405,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
                     const labelNode = curFlowNode as FlowLabel;
                     for (const antecedent of labelNode.antecedents) {
-                        if (isFlowNodeReachableRecursive(antecedent)) {
+                        if (isFlowNodeReachableRecursive(antecedent, sourceFlowNode)) {
                             return true;
                         }
                     }
@@ -9409,13 +9431,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const postFinallyFlowNode = curFlowNode as FlowPostFinally;
                     const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
                     postFinallyFlowNode.preFinallyGate.isGateClosed = true;
-                    const isReachable = isFlowNodeReachableRecursive(postFinallyFlowNode.antecedent);
+                    const isReachable = isFlowNodeReachableRecursive(postFinallyFlowNode.antecedent, sourceFlowNode);
                     postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
                     return isReachable;
                 }
 
                 if (curFlowNode.flags & FlowFlags.Start) {
-                    return true;
+                    // If we hit the start but were looking for a particular source flow
+                    // node, return false. Otherwise, the start is what we're looking for.
+                    return sourceFlowNode ? false : true;
                 }
 
                 if (curFlowNode.flags & FlowFlags.WildcardImport) {
@@ -9437,7 +9461,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         isReachableRecursionMap.set(flowNode.id, true);
 
         try {
-            const isReachable = isFlowNodeReachableRecursive(flowNode);
+            const isReachable = isFlowNodeReachableRecursive(flowNode, sourceFlowNode);
             isReachableRecursionMap.delete(flowNode.id);
             return isReachable;
         } catch (e) {
@@ -10538,7 +10562,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
     }
 
-    function getEffectiveTypeOfSymbol(symbol: Symbol): Type {
+    // Returns the type of the symbol. If the type is explicitly declared, that type
+    // is returned. If not, the type is inferred from assignments to the symbol. All
+    // assigned types are evaluated and combined into a union. If a "usageNode"
+    // node is specified, only declarations that are outside of the current execution
+    // scope or that are reachable (as determined by code flow analysis) are considered.
+    // This helps in cases where there are cyclical dependencies between symbols.
+    function getEffectiveTypeOfSymbol(symbol: Symbol, usageNode?: ParseNode): Type {
         // If there's a declared type, it takes precedence over
         // inferred types.
         if (symbol.hasTypedDeclarations()) {
@@ -10552,31 +10582,47 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const isFinalVar = isFinalVariable(symbol);
 
         decls.forEach((decl) => {
-            if (pushSymbolResolution(symbol, decl)) {
-                try {
-                    let type = getInferredTypeOfDeclaration(decl);
-
-                    popSymbolResolution(symbol);
-
-                    if (type) {
-                        const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
-
-                        type = stripLiteralTypeArgsValue(type);
-
-                        if (decl.type === DeclarationType.Variable) {
-                            // If the symbol is private or constant, we can retain the literal
-                            // value. Otherwise, strip them off to make the type less specific,
-                            // allowing other values to be assigned to it in subclasses.
-                            if (!isPrivate && !isConstant && !isFinalVar) {
-                                type = stripLiteralValue(type);
-                            }
+            let considerDecl = true;
+            if (usageNode !== undefined) {
+                if (decl.type !== DeclarationType.Alias) {
+                    // Is the declaration in the same execution scope as the "usageNode" node?
+                    const usageScope = ParseTreeUtils.getExecutionScopeNode(usageNode);
+                    const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
+                    if (usageScope === declScope) {
+                        if (!isFlowPathBetweenNodes(decl.node, usageNode)) {
+                            considerDecl = false;
                         }
-                        typesToCombine.push(type);
                     }
-                } catch (e) {
-                    // Clean up the stack before rethrowing.
-                    popSymbolResolution(symbol);
-                    throw e;
+                }
+            }
+
+            if (considerDecl) {
+                if (pushSymbolResolution(symbol, decl)) {
+                    try {
+                        let type = getInferredTypeOfDeclaration(decl);
+
+                        popSymbolResolution(symbol);
+
+                        if (type) {
+                            const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
+
+                            type = stripLiteralTypeArgsValue(type);
+
+                            if (decl.type === DeclarationType.Variable) {
+                                // If the symbol is private or constant, we can retain the literal
+                                // value. Otherwise, strip them off to make the type less specific,
+                                // allowing other values to be assigned to it in subclasses.
+                                if (!isPrivate && !isConstant && !isFinalVar) {
+                                    type = stripLiteralValue(type);
+                                }
+                            }
+                            typesToCombine.push(type);
+                        }
+                    } catch (e) {
+                        // Clean up the stack before rethrowing.
+                        popSymbolResolution(symbol);
+                        throw e;
+                    }
                 }
             }
         });
