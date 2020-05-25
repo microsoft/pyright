@@ -251,6 +251,10 @@ export const enum EvaluatorFlags {
 
     // A ParameterSpecification isn't allowed
     ParameterSpecificationDisallowed = 1 << 7,
+
+    // Expression is expected to be a type (class) rather
+    // than an instance (object)
+    ExpectingType = 1 << 8,
 }
 
 interface EvaluatorUsage {
@@ -712,7 +716,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         typeResult = getTypeOfExpression(
                             node.typeAnnotation,
                             undefined,
-                            flags | EvaluatorFlags.AllowForwardReferences
+                            flags | EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.ExpectingType
                         );
                     } else if (!node.typeAnnotation && node.strings.length === 1) {
                         // We didn't know at parse time that this string node was going
@@ -723,7 +727,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             typeResult = getTypeOfExpression(
                                 expr,
                                 undefined,
-                                flags | EvaluatorFlags.AllowForwardReferences
+                                flags | EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.ExpectingType
                             );
                         }
                     }
@@ -799,7 +803,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case ParseNodeType.BinaryOperation: {
-                typeResult = getTypeFromBinaryOperation(node);
+                typeResult = getTypeFromBinaryOperation(node, flags);
                 break;
             }
 
@@ -887,7 +891,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 typeResult = getTypeOfExpression(
                     node.typeAnnotation,
                     undefined,
-                    EvaluatorFlags.EvaluateStringLiteralAsType | EvaluatorFlags.ParameterSpecificationDisallowed
+                    EvaluatorFlags.EvaluateStringLiteralAsType |
+                        EvaluatorFlags.ParameterSpecificationDisallowed |
+                        EvaluatorFlags.ExpectingType
                 );
                 break;
             }
@@ -934,6 +940,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         let evaluatorFlags =
+            EvaluatorFlags.ExpectingType |
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.ParameterSpecificationDisallowed;
@@ -3589,6 +3596,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         const adjustedFlags =
             flags |
+            EvaluatorFlags.ExpectingType |
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.FinalDisallowed;
@@ -5445,7 +5453,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                     const entryTypeInfo = getTypeOfExpression(
                                         entryTypeNode,
                                         undefined,
-                                        EvaluatorFlags.EvaluateStringLiteralAsType |
+                                        EvaluatorFlags.ExpectingType |
+                                            EvaluatorFlags.EvaluateStringLiteralAsType |
                                             EvaluatorFlags.ParameterSpecificationDisallowed
                                     );
                                     if (entryTypeInfo) {
@@ -5655,7 +5664,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return { type, node };
     }
 
-    function getTypeFromBinaryOperation(node: BinaryOperationNode): TypeResult {
+    function getTypeFromBinaryOperation(node: BinaryOperationNode, flags: EvaluatorFlags): TypeResult {
         let leftExpression = node.leftExpression;
 
         // If this is a comparison and the left expression is also a comparison,
@@ -5682,7 +5691,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Is this a "|" operator used in a context where it is supposed to be
         // interpreted as a union operator?
         if (node.operator === OperatorType.BitwiseOr) {
-            if (canUnionType(leftType) && canUnionType(rightType)) {
+            const expectingType = (flags & EvaluatorFlags.ExpectingType) !== 0;
+            if (canUnionType(leftType, expectingType) && canUnionType(rightType, expectingType)) {
                 const fileInfo = getFileInfo(node);
                 const unionNotationSupported =
                     fileInfo.isStubFile || fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V39;
@@ -7026,7 +7036,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const isTypeAlias = isDeclaredTypeAlias(node.leftExpression);
                 if (isTypeAlias) {
                     flags |=
-                        EvaluatorFlags.EvaluateStringLiteralAsType | EvaluatorFlags.ParameterSpecificationDisallowed;
+                        EvaluatorFlags.ExpectingType |
+                        EvaluatorFlags.EvaluateStringLiteralAsType |
+                        EvaluatorFlags.ParameterSpecificationDisallowed;
                 }
                 const srcTypeResult = getTypeOfExpression(node.rightExpression, declaredType, flags);
                 let srcType = srcTypeResult.type;
@@ -10036,7 +10048,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             arg.valueExpression!,
             undefined,
             expectingType
-                ? EvaluatorFlags.EvaluateStringLiteralAsType | EvaluatorFlags.ParameterSpecificationDisallowed
+                ? EvaluatorFlags.ExpectingType |
+                      EvaluatorFlags.EvaluateStringLiteralAsType |
+                      EvaluatorFlags.ParameterSpecificationDisallowed
                 : EvaluatorFlags.None
         ).type;
     }

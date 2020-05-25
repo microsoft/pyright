@@ -1509,6 +1509,15 @@ test('Unions1', () => {
     validateResults(analysisResults39, 0);
 });
 
+test('Unions2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Analyze with Python 3.8 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V38;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['unions2.py'], configOptions);
+    validateResults(analysisResults38, 0);
+});
+
 test('ParamSpec1', () => {
     const configOptions = new ConfigOptions('.');
 

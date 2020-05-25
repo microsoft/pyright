@@ -1252,9 +1252,13 @@ export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolea
 
 // Determines whether the specified type is a type that can be
 // combined with other types for a union.
-export function canUnionType(type: Type): boolean {
+export function canUnionType(type: Type, expectingType: boolean): boolean {
     switch (type.category) {
+        // Any can be interpreted as either a class or
+        // an instance depending on context.
         case TypeCategory.Any:
+            return expectingType;
+
         case TypeCategory.Class:
         case TypeCategory.Function:
         case TypeCategory.None:
@@ -1263,7 +1267,7 @@ export function canUnionType(type: Type): boolean {
             return true;
 
         case TypeCategory.Union: {
-            return !type.subtypes.some((subtype) => !canUnionType(subtype));
+            return !type.subtypes.some((subtype) => !canUnionType(subtype, expectingType));
         }
 
         default:
