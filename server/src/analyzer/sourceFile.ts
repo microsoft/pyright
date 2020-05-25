@@ -16,7 +16,7 @@ import {
 } from 'vscode-languageserver';
 
 import { OperationCanceledException } from '../common/cancellationUtils';
-import { ConfigOptions, ExecutionEnvironment, getDefaultDiagnosticRuleSet } from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { assert } from '../common/debug';
 import { convertLevelToCategory, Diagnostic, DiagnosticCategory } from '../common/diagnostic';
@@ -123,7 +123,7 @@ export class SourceFile {
     private _checkerDiagnostics: Diagnostic[] = [];
 
     // Settings that control which diagnostics should be output.
-    private _diagnosticRuleSet = getDefaultDiagnosticRuleSet();
+    private _diagnosticRuleSet = getBasicDiagnosticRuleSet();
 
     // Circular dependencies that have been reported in this file.
     private _circularDependencies: CircularDependency[] = [];

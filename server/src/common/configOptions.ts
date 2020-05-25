@@ -250,58 +250,7 @@ export function getStrictModeNotOverriddenRules() {
     return [DiagnosticRule.reportMissingModuleSource];
 }
 
-export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
-    const diagSettings: DiagnosticRuleSet = {
-        printUnknownAsAny: false,
-        omitTypeArgsIfAny: false,
-        pep604Printing: true,
-        strictListInference: true,
-        strictDictionaryInference: true,
-        strictParameterNoneValue: true,
-        enableTypeIgnoreComments: true, // Not overridden by strict mode
-        reportGeneralTypeIssues: 'error',
-        reportMissingImports: 'error',
-        reportMissingModuleSource: 'warning',
-        reportMissingTypeStubs: 'error',
-        reportImportCycles: 'error',
-        reportUnusedImport: 'error',
-        reportUnusedClass: 'error',
-        reportUnusedFunction: 'error',
-        reportUnusedVariable: 'error',
-        reportDuplicateImport: 'error',
-        reportOptionalSubscript: 'error',
-        reportOptionalMemberAccess: 'error',
-        reportOptionalCall: 'error',
-        reportOptionalIterable: 'error',
-        reportOptionalContextManager: 'error',
-        reportOptionalOperand: 'error',
-        reportUntypedFunctionDecorator: 'error',
-        reportUntypedClassDecorator: 'error',
-        reportUntypedBaseClass: 'error',
-        reportUntypedNamedTuple: 'error',
-        reportPrivateUsage: 'error',
-        reportConstantRedefinition: 'error',
-        reportIncompatibleMethodOverride: 'error',
-        reportInvalidStringEscapeSequence: 'error',
-        reportUnknownParameterType: 'error',
-        reportUnknownArgumentType: 'error',
-        reportUnknownLambdaType: 'error',
-        reportUnknownVariableType: 'error',
-        reportUnknownMemberType: 'error',
-        reportCallInDefaultInitializer: 'none',
-        reportUnnecessaryIsInstance: 'error',
-        reportUnnecessaryCast: 'error',
-        reportAssertAlwaysTrue: 'error',
-        reportSelfClsParameterName: 'error',
-        reportImplicitStringConcatenation: 'none',
-        reportUnboundVariable: 'error',
-        reportUndefinedVariable: 'error',
-    };
-
-    return diagSettings;
-}
-
-export function getNoTypeCheckingDiagnosticRuleSet(): DiagnosticRuleSet {
+export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: true,
         omitTypeArgsIfAny: true,
@@ -352,7 +301,7 @@ export function getNoTypeCheckingDiagnosticRuleSet(): DiagnosticRuleSet {
     return diagSettings;
 }
 
-export function getDefaultDiagnosticRuleSet(): DiagnosticRuleSet {
+export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: false,
         omitTypeArgsIfAny: false,
@@ -395,6 +344,57 @@ export function getDefaultDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnnecessaryCast: 'none',
         reportAssertAlwaysTrue: 'warning',
         reportSelfClsParameterName: 'warning',
+        reportImplicitStringConcatenation: 'none',
+        reportUnboundVariable: 'error',
+        reportUndefinedVariable: 'error',
+    };
+
+    return diagSettings;
+}
+
+export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
+    const diagSettings: DiagnosticRuleSet = {
+        printUnknownAsAny: false,
+        omitTypeArgsIfAny: false,
+        pep604Printing: true,
+        strictListInference: true,
+        strictDictionaryInference: true,
+        strictParameterNoneValue: true,
+        enableTypeIgnoreComments: true, // Not overridden by strict mode
+        reportGeneralTypeIssues: 'error',
+        reportMissingImports: 'error',
+        reportMissingModuleSource: 'warning',
+        reportMissingTypeStubs: 'error',
+        reportImportCycles: 'error',
+        reportUnusedImport: 'error',
+        reportUnusedClass: 'error',
+        reportUnusedFunction: 'error',
+        reportUnusedVariable: 'error',
+        reportDuplicateImport: 'error',
+        reportOptionalSubscript: 'error',
+        reportOptionalMemberAccess: 'error',
+        reportOptionalCall: 'error',
+        reportOptionalIterable: 'error',
+        reportOptionalContextManager: 'error',
+        reportOptionalOperand: 'error',
+        reportUntypedFunctionDecorator: 'error',
+        reportUntypedClassDecorator: 'error',
+        reportUntypedBaseClass: 'error',
+        reportUntypedNamedTuple: 'error',
+        reportPrivateUsage: 'error',
+        reportConstantRedefinition: 'error',
+        reportIncompatibleMethodOverride: 'error',
+        reportInvalidStringEscapeSequence: 'error',
+        reportUnknownParameterType: 'error',
+        reportUnknownArgumentType: 'error',
+        reportUnknownLambdaType: 'error',
+        reportUnknownVariableType: 'error',
+        reportUnknownMemberType: 'error',
+        reportCallInDefaultInitializer: 'none',
+        reportUnnecessaryIsInstance: 'error',
+        reportUnnecessaryCast: 'error',
+        reportAssertAlwaysTrue: 'error',
+        reportSelfClsParameterName: 'error',
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'error',
         reportUndefinedVariable: 'error',
@@ -498,10 +498,10 @@ export class ConfigOptions {
         }
 
         if (typeCheckingMode === 'off') {
-            return getNoTypeCheckingDiagnosticRuleSet();
+            return getOffDiagnosticRuleSet();
         }
 
-        return getDefaultDiagnosticRuleSet();
+        return getBasicDiagnosticRuleSet();
     }
 
     // Finds the best execution environment for a given file path. The
