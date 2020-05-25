@@ -39,7 +39,7 @@ export function versionToString(version: PythonVersion): string {
 
 export function versionFromString(verString: string): PythonVersion | undefined {
     const split = verString.split('.');
-    if (split.length !== 2) {
+    if (split.length < 2) {
         return undefined;
     }
 

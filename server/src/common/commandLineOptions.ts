@@ -27,7 +27,10 @@ export function getDiagnosticSeverityOverrides() {
 
 export type DiagnosticSeverityOverridesMap = { [ruleName: string]: DiagnosticSeverityOverrides };
 
-// Some options can be specified by command line.
+// Some options can be specified from a source other than the pyright config file.
+// This can be from command-line parameters or some other settings mechanism, like
+// that provided through a language client like the VS Code editor. These options
+// are later combined with those from the config file to produce the final configuration.
 export class CommandLineOptions {
     constructor(executionRoot: string, fromVsCodeExtension: boolean) {
         this.executionRoot = executionRoot;

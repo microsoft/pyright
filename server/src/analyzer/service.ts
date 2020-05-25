@@ -366,7 +366,8 @@ export class AnalyzerService {
                     configJsonObj,
                     this._typeCheckingMode,
                     this._console,
-                    commandLineOptions.diagnosticSeverityOverrides
+                    commandLineOptions.diagnosticSeverityOverrides,
+                    commandLineOptions.pythonPath
                 );
 
                 const configFileDir = getDirectoryPath(configFilePath);

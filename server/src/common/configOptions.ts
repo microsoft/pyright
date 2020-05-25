@@ -7,6 +7,7 @@
  * Class that holds the configuration options for the analyzer.
  */
 
+import * as child_process from 'child_process';
 import { isAbsolute } from 'path';
 
 import * as pathConsts from '../common/pathConsts';
@@ -15,7 +16,7 @@ import { ConsoleInterface } from './console';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
 import { combinePaths, ensureTrailingDirectorySeparator, FileSpec, getFileSpec, normalizePath } from './pathUtils';
-import { latestStablePythonVersion, PythonVersion, versionFromString } from './pythonVersion';
+import { latestStablePythonVersion, PythonVersion, versionFromString, versionToString } from './pythonVersion';
 
 export class ExecutionEnvironment {
     // Default to "." which indicates every file in the project.
@@ -556,7 +557,8 @@ export class ConfigOptions {
         configObj: any,
         typeCheckingMode: string | undefined,
         console: ConsoleInterface,
-        diagnosticOverrides?: DiagnosticSeverityOverridesMap
+        diagnosticOverrides?: DiagnosticSeverityOverridesMap,
+        pythonPath?: string
     ) {
         // Read the "include" entry.
         this.include = [];
@@ -982,6 +984,15 @@ export class ConfigOptions {
             }
         }
 
+        // If no default python version was specified, retrieve the version
+        // from the currently-selected python interpreter.
+        if (this.defaultPythonVersion === undefined) {
+            this.defaultPythonVersion = this._getPythonVersionFromPythonInterpreter(pythonPath, console);
+            if (this.defaultPythonVersion !== undefined) {
+                console.log(`Assuming Python version ${versionToString(this.defaultPythonVersion)}`);
+            }
+        }
+
         // Read the default "pythonPlatform".
         this.defaultPythonPlatform = undefined;
         if (configObj.pythonPlatform !== undefined) {
@@ -989,6 +1000,22 @@ export class ConfigOptions {
                 console.log(`Config "pythonPlatform" field must contain a string.`);
             } else {
                 this.defaultPythonPlatform = configObj.pythonPlatform;
+            }
+        }
+
+        // If no default python platform was specified, assume that the
+        // user wants to use the current platform.
+        if (this.defaultPythonPlatform === undefined) {
+            if (process.platform === 'darwin') {
+                this.defaultPythonPlatform = 'Darwin';
+            } else if (process.platform === 'linux') {
+                this.defaultPythonPlatform = 'Linux';
+            } else if (process.platform === 'win32') {
+                this.defaultPythonPlatform = 'Windows';
+            }
+
+            if (this.defaultPythonPlatform !== undefined) {
+                console.log(`Assuming Python platform ${this.defaultPythonPlatform}`);
             }
         }
 
@@ -1175,5 +1202,45 @@ export class ConfigOptions {
         }
 
         return undefined;
+    }
+
+    private _getPythonVersionFromPythonInterpreter(
+        interpreterPath: string | undefined,
+        console: ConsoleInterface
+    ): PythonVersion | undefined {
+        try {
+            const commandLineArgs: string[] = ['--version'];
+            let execOutput: string;
+
+            if (interpreterPath) {
+                execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
+            } else {
+                execOutput = child_process.execFileSync('python', commandLineArgs, { encoding: 'utf8' });
+            }
+
+            // Parse the execOutput. It should be something like "Python 3.x.y".
+            const match = execOutput.match(/[0-9]+.[0-9]+.[0-9]+/);
+            if (!match) {
+                console.log(`Unable to get Python version from interpreter. Received "${execOutput}"`);
+                return undefined;
+            }
+
+            const versionString = match[0];
+            const version = versionFromString(versionString);
+            if (version === undefined) {
+                console.log(`Unable to get Python version from interpreter. Received "${execOutput}"`);
+                return undefined;
+            }
+
+            if (version < PythonVersion.V30) {
+                console.log(`Python version from interpreter is unsupported: "${execOutput}"`);
+                return undefined;
+            }
+
+            return version;
+        } catch {
+            console.log('Unable to get Python version from interpreter');
+            return undefined;
+        }
     }
 }
