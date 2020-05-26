@@ -249,11 +249,11 @@ test('AutoSearchPathsOnWithConfigExecEnv', () => {
     const configOptions = service.test_getConfigOptions(commandLineOptions);
 
     // Execution environments are found in the config file, we do not modify them
-    // (so auto seach path option is ignored)
+    // (so auto search path option is ignored)
     const expectedExecEnvs = [
         {
-            pythonPlatform: undefined,
-            pythonVersion: 773,
+            pythonPlatform: 'Windows',
+            pythonVersion: 0x0305,
             root: cwd,
             extraPaths: [],
         },
