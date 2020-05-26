@@ -101,7 +101,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
-import { CachedType, isIncompleteType, SpeculativeTypeTracker, TypeCache } from './typeCache';
+import { CachedType, IncompleteTypeTracker, isIncompleteType, SpeculativeTypeTracker, TypeCache } from './typeCache';
 import {
     AnyType,
     canUnionType,
@@ -475,6 +475,7 @@ interface CodeFlowAnalyzer {
 interface FlowNodeTypeResult {
     type: Type | undefined;
     isIncomplete: boolean;
+    incompleteTypes?: (Type | undefined)[];
 }
 
 interface SymbolResolutionStackEntry {
@@ -510,6 +511,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
     const typeCache: TypeCache = new Map<number, CachedType>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
+    const incompleteTypeTracker = new IncompleteTypeTracker();
     let cancellationToken: CancellationToken | undefined;
     let isDiagnosticSuppressed = false;
 
@@ -571,6 +573,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (speculativeNode && ParseTreeUtils.isNodeContainedWithin(node, speculativeNode)) {
             speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
         }
+
+        incompleteTypeTracker.trackEntry(typeCacheToUse, node.id);
     }
 
     // Determines whether the specified node is contained within
@@ -1918,7 +1922,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         node: ParseNode,
         range?: TextRange
     ) {
-        if (!isDiagnosticSuppressed && !isSpeculativeMode(node)) {
+        if (!isDiagnosticSuppressed && !isSpeculativeMode(node) && !incompleteTypeTracker.isIncompleteTypeMode()) {
             const fileInfo = getFileInfo(node);
             return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range || node);
         }
@@ -2506,7 +2510,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     }
 
     function setSymbolAccessed(fileInfo: AnalyzerFileInfo, symbol: Symbol, node: ParseNode) {
-        if (!isSpeculativeMode(node)) {
+        if (!isSpeculativeMode(node) && !incompleteTypeTracker.isIncompleteTypeMode()) {
             fileInfo.accessedSymbolMap.set(symbol.id, true);
         }
     }
@@ -2726,25 +2730,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     function getTypeFromMemberAccess(node: MemberAccessNode, flags: EvaluatorFlags): TypeResult {
         const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
-        const memberType = getTypeFromMemberAccessWithBaseType(node, baseTypeResult, { method: 'get' }, flags);
+        const memberTypeResult = getTypeFromMemberAccessWithBaseType(node, baseTypeResult, { method: 'get' }, flags);
 
         if (isCodeFlowSupportedForReference(node)) {
-            // Before performing code fow analysis, update the cache to prevent
-            // recursion.
-            writeTypeCache(node, memberType.type);
-            writeTypeCache(node.memberName, memberType.type);
+            // Before performing code fow analysis, update the cache to prevent recursion.
+            writeTypeCache(node, memberTypeResult.type);
+            writeTypeCache(node.memberName, memberTypeResult.type);
 
             // See if we can refine the type based on code flow analysis.
-            const codeFlowType = getFlowTypeOfReference(node, indeterminateSymbolId, memberType.type);
+            const codeFlowType = getFlowTypeOfReference(node, indeterminateSymbolId, memberTypeResult.type);
             if (codeFlowType) {
-                memberType.type = codeFlowType;
+                memberTypeResult.type = codeFlowType;
             }
         }
 
         // Cache the type information in the member name node as well.
-        writeTypeCache(node.memberName, memberType.type);
+        writeTypeCache(node.memberName, memberTypeResult.type);
 
-        return memberType;
+        return memberTypeResult;
     }
 
     function getTypeFromMemberAccessWithBaseType(
@@ -4836,7 +4839,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Run through all the args that were not validated and evaluate their types
         // to ensure that we haven't missed any (due to arg/param mismatches). This will
         // ensure that referenced symbols are not reported as unaccessed.
-        if (!isSpeculativeMode(undefined)) {
+        if (!isSpeculativeMode(undefined) && !incompleteTypeTracker.isIncompleteTypeMode()) {
             argList.forEach((arg) => {
                 if (arg.valueExpression) {
                     if (!validateArgTypeParams.some((validatedArg) => validatedArg.argument === arg)) {
@@ -9037,7 +9040,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        return analyzer.getTypeFromCodeFlow(reference, targetSymbolId, initialType).type;
+        const wasIncompleteTypeMode = incompleteTypeTracker.isIncompleteTypeMode();
+        const codeFlowResult = analyzer.getTypeFromCodeFlow(reference, targetSymbolId, initialType);
+
+        if (codeFlowResult.isIncomplete) {
+            incompleteTypeTracker.enterIncompleteTypeMode();
+        } else if (!wasIncompleteTypeMode) {
+            incompleteTypeTracker.leaveIncompleteTypeMode();
+        }
+
+        return codeFlowResult.type;
     }
 
     // Creates a new code flow analyzer that can be used to narrow the types
@@ -9071,7 +9083,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const entry: CachedType | undefined = isIncomplete
                     ? {
                           isIncompleteType: true,
-                          type,
+                          incompleteTypes: [],
                       }
                     : type;
 
@@ -9081,7 +9093,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return {
                     type,
                     isIncomplete,
+                    incompleteTypes: isIncomplete ? [] : undefined,
                 };
+            }
+
+            function setIncompleteType(flowNode: FlowNode, index: number, type: Type | undefined) {
+                const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
+                if (cachedEntry === undefined || !isIncompleteType(cachedEntry)) {
+                    fail('setIncompleteType can be called only on a valid incomplete cache entry');
+                }
+
+                const incompleteEntries = cachedEntry.incompleteTypes;
+                if (index < incompleteEntries.length) {
+                    incompleteEntries[index] = type;
+                } else {
+                    assert(incompleteEntries.length === index);
+                    incompleteEntries.push(type);
+                }
+
+                return getCacheEntry(flowNode);
             }
 
             function deleteCacheEntry(flowNode: FlowNode) {
@@ -9101,9 +9131,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     };
                 }
 
+                // Recompute the effective type based on all of the incomplete
+                // types we've accumulated so far.
+                const typesToCombine: Type[] = [];
+                cachedEntry.incompleteTypes.forEach((t) => {
+                    if (t) {
+                        typesToCombine.push(t);
+                    }
+                });
+
                 return {
-                    type: cachedEntry.type,
+                    type: typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined,
                     isIncomplete: true,
+                    incompleteTypes: cachedEntry.incompleteTypes,
                 };
             }
 
@@ -9149,7 +9189,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 while (true) {
                     // Have we already been here? If so, use the cached value.
                     const cachedEntry = getCacheEntry(curFlowNode);
-                    if (cachedEntry) {
+                    if (cachedEntry && !cachedEntry.isIncomplete) {
                         return cachedEntry;
                     }
 
@@ -9157,7 +9197,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         // We can get here if there are nodes in a compound logical expression
                         // (e.g. "False and x") that are never executed but are evaluated.
                         // The type doesn't matter in this case.
-                        return setCacheEntry(curFlowNode, undefined, false);
+                        return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
                     }
 
                     if (curFlowNode.flags & FlowFlags.Call) {
@@ -9167,7 +9207,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         // it always raises an exception or otherwise doesn't return,
                         // so we can assume that the code before this is unreachable.
                         if (isCallNoReturn(callFlowNode.node)) {
-                            return setCacheEntry(curFlowNode, undefined, false);
+                            return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
                         }
 
                         curFlowNode = callFlowNode.antecedent;
@@ -9186,15 +9226,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             // Is this a special "unbind" assignment? If so,
                             // we can handle it immediately without any further evaluation.
                             if (curFlowNode.flags & FlowFlags.Unbind) {
-                                return setCacheEntry(curFlowNode, UnboundType.create(), false);
+                                return setCacheEntry(curFlowNode, UnboundType.create(), /* isIncomplete */ false);
                             }
 
                             // Set the cache entry to undefined before evaluating the
                             // expression in case it depends on itself. This will prevent
                             // an infinite loop.
-                            setCacheEntry(curFlowNode, undefined, false);
+                            setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
                             const flowType = evaluateAssignmentFlowNode(assignmentFlowNode);
-                            return setCacheEntry(curFlowNode, flowType, false);
+                            return setCacheEntry(curFlowNode, flowType, /* isIncomplete */ false);
                         }
 
                         curFlowNode = assignmentFlowNode.antecedent;
@@ -9213,20 +9253,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         continue;
                     }
 
-                    if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
+                    if (curFlowNode.flags & FlowFlags.BranchLabel) {
                         const labelNode = curFlowNode as FlowLabel;
                         const typesToCombine: Type[] = [];
 
-                        let effectiveType: Type | undefined;
                         let sawIncomplete = false;
-                        let firstWasIncomplete = false;
-                        const isLoop = (curFlowNode.flags & FlowFlags.LoopLabel) !== 0;
 
-                        if (isLoop) {
-                            setCacheEntry(curFlowNode, undefined, true);
-                        }
-
-                        labelNode.antecedents.map((antecedent, index) => {
+                        labelNode.antecedents.forEach((antecedent) => {
                             const flowTypeResult = getTypeFromFlowNode(
                                 antecedent,
                                 reference,
@@ -9236,34 +9269,75 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                             if (flowTypeResult.isIncomplete) {
                                 sawIncomplete = true;
-                                if (index === 0) {
-                                    firstWasIncomplete = true;
-                                }
                             }
 
                             if (flowTypeResult.type) {
                                 typesToCombine.push(flowTypeResult.type);
-                                effectiveType = combineTypes(typesToCombine);
-                                if (isLoop) {
-                                    setCacheEntry(curFlowNode, effectiveType, true);
-                                }
                             }
                         });
 
-                        if (isLoop) {
-                            // If this is a loop label, the result is incomplete only if the first
-                            // antecedent (the edge that feeds the loop) is incomplete.
-                            if (firstWasIncomplete) {
-                                deleteCacheEntry(curFlowNode);
-                                return { type: effectiveType, isIncomplete: true };
-                            }
-                            return setCacheEntry(curFlowNode, effectiveType, firstWasIncomplete);
-                        }
+                        const effectiveType = combineTypes(typesToCombine);
 
-                        // For branch labels, don't write back the result if it's incomplete.
+                        // Don't write back the result if it's incomplete.
                         return sawIncomplete
                             ? { type: effectiveType, isIncomplete: true }
-                            : setCacheEntry(curFlowNode, effectiveType, false);
+                            : setCacheEntry(curFlowNode, effectiveType, /* isIncomplete */ false);
+                    }
+
+                    if (curFlowNode.flags & FlowFlags.LoopLabel) {
+                        const labelNode = curFlowNode as FlowLabel;
+
+                        let firstWasIncomplete = false;
+                        let isFirstTimeInLoop = false;
+
+                        // See if we've been here before. If so, there will be an incomplete cache entry.
+                        let cacheEntry = getCacheEntry(curFlowNode);
+                        if (cacheEntry === undefined) {
+                            // We haven't been here before, so create a new incomplete cache entry.
+                            isFirstTimeInLoop = true;
+                            cacheEntry = setCacheEntry(curFlowNode, undefined, /* isIncomplete */ true);
+                        }
+
+                        labelNode.antecedents.forEach((antecedent, index) => {
+                            // Have we already been here? If so, there will be an entry
+                            // for this index, and we can use the type that was already
+                            // computed.
+                            if (index >= cacheEntry!.incompleteTypes!.length) {
+                                // Set the incomplete type for this index to undefined to prevent
+                                // infinite recursion. We'll set it to the computed value below.
+                                cacheEntry = setIncompleteType(curFlowNode, index, undefined);
+                                const flowTypeResult = getTypeFromFlowNode(
+                                    antecedent,
+                                    reference,
+                                    targetSymbolId,
+                                    initialType
+                                );
+
+                                if (flowTypeResult.isIncomplete && index === 0) {
+                                    firstWasIncomplete = true;
+                                }
+
+                                cacheEntry = setIncompleteType(curFlowNode, index, flowTypeResult.type);
+                            }
+                        });
+
+                        // If this is a loop label, the result is incomplete only if the first
+                        // antecedent (the edge that feeds the loop) is incomplete.
+                        if (firstWasIncomplete) {
+                            deleteCacheEntry(curFlowNode);
+                            return { type: cacheEntry!.type, isIncomplete: true };
+                        }
+
+                        // If this was the first time we encountered the loop, we have made
+                        // it all the way through, and we can mark the type as complete.
+                        if (isFirstTimeInLoop) {
+                            return setCacheEntry(curFlowNode, cacheEntry!.type, /* isIncomplete */ false);
+                        }
+
+                        // This was not the first time through the loop, so we are recursively trying
+                        // to resolve other parts of the incomplete type. It will be marked complete
+                        // once the stack pops back up to the first caller.
+                        return cacheEntry;
                     }
 
                     if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
@@ -9284,7 +9358,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             // If the type is incomplete, don't write back to the cache.
                             return flowTypeResult.isIncomplete
                                 ? { type: flowType, isIncomplete: true }
-                                : setCacheEntry(curFlowNode, flowType, false);
+                                : setCacheEntry(curFlowNode, flowType, /* isIncomplete */ false);
                         }
 
                         curFlowNode = conditionalFlowNode.antecedent;
@@ -9315,11 +9389,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         // If the type is incomplete, don't write back to the cache.
                         return flowTypeResult.isIncomplete
                             ? flowTypeResult
-                            : setCacheEntry(curFlowNode, flowTypeResult.type, false);
+                            : setCacheEntry(curFlowNode, flowTypeResult.type, /* isIncomplete */ false);
                     }
 
                     if (curFlowNode.flags & FlowFlags.Start) {
-                        return setCacheEntry(curFlowNode, initialType, false);
+                        return setCacheEntry(curFlowNode, initialType, /* isIncomplete */ false);
                     }
 
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
@@ -9328,7 +9402,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             const nameValue = reference.value;
                             if (wildcardImportFlowNode.names.some((name) => name === nameValue)) {
                                 const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);
-                                return setCacheEntry(curFlowNode, type, false);
+                                return setCacheEntry(curFlowNode, type, /* isIncomplete */ false);
                             }
                         }
 
@@ -9338,7 +9412,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                     // We shouldn't get here.
                     fail('Unexpected flow node flags');
-                    return setCacheEntry(curFlowNode, undefined, false);
+                    return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
                 }
             }
 

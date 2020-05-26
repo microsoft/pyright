@@ -704,6 +704,12 @@ test('Loops2', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Loops3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops3.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Constants1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constants1.py']);
 

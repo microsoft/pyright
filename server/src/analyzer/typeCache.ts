@@ -21,7 +21,9 @@ export type CachedType = Type | IncompleteType;
 
 export interface IncompleteType {
     isIncompleteType?: true;
-    type: Type | undefined;
+
+    // Array of incomplete subtypes that have been computed so far
+    incompleteTypes: (Type | undefined)[];
 }
 
 // Define a user type guard function for IncompleteType.
@@ -31,14 +33,14 @@ export function isIncompleteType(cachedType: CachedType): cachedType is Incomple
 
 // Define an interface to track speculative entries that need to
 // be cleaned up when they go out of scope.
-interface SpeculativeTypeCacheEntry {
+interface TypeCacheEntry {
     cache: TypeCache;
     id: number;
 }
 
 interface SpeculativeContext {
     speculativeRootNode: ParseNode;
-    entriesToUndo: SpeculativeTypeCacheEntry[];
+    entriesToUndo: TypeCacheEntry[];
 }
 
 // This class maintains a stack of "speculative type contexts". When
@@ -100,5 +102,44 @@ export class SpeculativeTypeTracker {
     enableSpeculativeMode(stack: SpeculativeContext[]) {
         assert(this._speculativeContextStack.length === 0);
         this._speculativeContextStack = stack;
+    }
+}
+
+// This class tracks a list of cache entries that need to be
+// undone because they were based on an "incomplete type" -
+// a type that is calculated during code flow analysis and
+// is incomplete because not all paths have been exhaustively
+// explored.
+export class IncompleteTypeTracker {
+    private _entriesToUndo: TypeCacheEntry[] = [];
+    private _requiresUndo = false;
+
+    trackEntry(cache: TypeCache, id: number) {
+        if (this._requiresUndo) {
+            this._entriesToUndo.push({
+                cache,
+                id,
+            });
+        }
+    }
+
+    leaveIncompleteTypeMode() {
+        this._entriesToUndo.forEach((entry) => {
+            entry.cache.delete(entry.id);
+        });
+
+        this._requiresUndo = false;
+        this._entriesToUndo = [];
+    }
+
+    enterIncompleteTypeMode() {
+        // Note that subsequent types are based on incomplete
+        // type information and should be tracked and ultimately
+        // removed from the cache.
+        this._requiresUndo = true;
+    }
+
+    isIncompleteTypeMode() {
+        return this._requiresUndo;
     }
 }

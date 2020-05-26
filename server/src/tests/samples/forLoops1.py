@@ -1,4 +1,4 @@
-# THis sample tests 'for' operations (both simple for loops
+# This sample tests 'for' operations (both simple for loops
 # and list comprehension for loops).
 
 from typing import AsyncIterator, List, Iterator
