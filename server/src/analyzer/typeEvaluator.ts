@@ -191,6 +191,11 @@ interface TypeResult {
     isResolutionCyclical?: boolean;
 }
 
+interface EffectiveTypeResult {
+    type: Type;
+    isResolutionCyclical: boolean;
+}
+
 interface FunctionArgument {
     argumentCategory: ArgumentCategory;
     name?: NameNode;
@@ -2610,27 +2615,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const symbolWithScope = lookUpSymbolRecursive(node, name);
 
         if (symbolWithScope) {
-            const symbol = symbolWithScope.symbol;
-
-            const effectiveType = getEffectiveTypeOfSymbol(symbol, node);
-
-            // If the effective type is unbound, that means we were unable to
-            // infer the effective type because of a cyclical dependency
-            // in type evaluation.
-            if (effectiveType.category === TypeCategory.Unbound) {
-                isResolutionCyclical = true;
-            }
-
-            const isSpecialBuiltIn =
-                !!effectiveType &&
-                effectiveType.category === TypeCategory.Class &&
-                ClassType.isSpecialBuiltIn(effectiveType);
-            let useCodeFlowAnalysis = !isSpecialBuiltIn;
-
-            // Don't use code-flow analysis if forward references are allowed.
-            if (flags & EvaluatorFlags.AllowForwardReferences) {
-                useCodeFlowAnalysis = false;
-            }
+            let useCodeFlowAnalysis = (flags & EvaluatorFlags.AllowForwardReferences) === 0;
 
             // If the symbol is implicitly imported from the builtin
             // scope, there's no need to use code flow analysis.
@@ -2647,8 +2632,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
             }
 
+            const symbol = symbolWithScope.symbol;
+
+            // Get the effective type (either the declared type or the inferred type).
+            // If we're using code flow analysis, pass the usage node so we consider
+            // only the assignment nodes that are reachable from this usage.
+            const effectiveTypeInfo = getEffectiveTypeOfSymbolForUsage(symbol, useCodeFlowAnalysis ? node : undefined);
+            const effectiveType = effectiveTypeInfo.type;
+
+            if (effectiveTypeInfo.isResolutionCyclical) {
+                isResolutionCyclical = true;
+            }
+
+            const isSpecialBuiltIn =
+                !!effectiveType &&
+                effectiveType.category === TypeCategory.Class &&
+                ClassType.isSpecialBuiltIn(effectiveType);
+
             type = effectiveType;
-            if (useCodeFlowAnalysis) {
+            if (useCodeFlowAnalysis && !isSpecialBuiltIn) {
                 // See if code flow analysis can tell us anything more about the type.
                 // If the symbol is declared outside of our execution scope, use its effective
                 // type. If it's declared inside our execution scope, it generally starts
@@ -7009,8 +7011,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         let rightHandType = readTypeCache(node.rightExpression);
         let isResolutionCycle = false;
 
-        // If there was a cached value and no target of interest or the entire
-        // LHS is the target of interest, there's no need to do additional work.
         if (!rightHandType) {
             // Special-case the typing.pyi file, which contains some special
             // types that the type analyzer needs to interpret differently.
@@ -7025,14 +7025,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Determine whether there is a declared type.
                 const declaredType = getDeclaredTypeForExpression(node.leftExpression);
 
-                // Evaluate the type of the right-hand side.
-                // Don't specialize it in case it's a type alias with generic
-                // type arguments.
+                // Evaluate the type of the right-hand side. Don't specialize it in
+                // case it's a type alias with generic type arguments.
                 let flags: EvaluatorFlags = EvaluatorFlags.DoNotSpecialize;
                 if (fileInfo.isStubFile) {
                     // An assignment of ellipsis means "Any" within a type stub file.
                     flags |= EvaluatorFlags.ConvertEllipsisToAny;
                 }
+
                 const isTypeAlias = isDeclaredTypeAlias(node.leftExpression);
                 if (isTypeAlias) {
                     flags |=
@@ -7040,6 +7040,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         EvaluatorFlags.EvaluateStringLiteralAsType |
                         EvaluatorFlags.ParameterSpecificationDisallowed;
                 }
+
                 const srcTypeResult = getTypeOfExpression(node.rightExpression, declaredType, flags);
                 let srcType = srcTypeResult.type;
                 if (srcTypeResult.isResolutionCyclical) {
@@ -7050,12 +7051,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addError(`Expression is is not valid type for TypeAlias`, node.rightExpression);
                 }
 
-                // Determine if the RHS is a constant boolean expression.
-                // If so, assign it a literal type.
+                // If the RHS is a constant boolean expression, assign it a literal type.
                 const constExprValue = evaluateStaticBoolExpression(
                     node.rightExpression,
                     fileInfo.executionEnvironment
                 );
+
                 if (constExprValue !== undefined) {
                     const boolType = getBuiltInObject(node, 'bool');
                     if (boolType.category === TypeCategory.Object) {
@@ -9391,11 +9392,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (curFlowNode.flags & FlowFlags.Call) {
                     const callFlowNode = curFlowNode as FlowCall;
 
-                    // If this function returns a "NoReturn" type, that means
-                    // it always raises an exception or otherwise doesn't return,
-                    // so we can assume that the code before this is unreachable.
-                    if (isCallNoReturn(callFlowNode.node)) {
-                        return false;
+                    // If we're determining whether a specified source flow node is
+                    // reachable, don't take into consideration possible "no return"
+                    // calls.
+                    if (sourceFlowNode === undefined) {
+                        // If this function returns a "NoReturn" type, that means
+                        // it always raises an exception or otherwise doesn't return,
+                        // so we can assume that the code before this is unreachable.
+                        if (isCallNoReturn(callFlowNode.node)) {
+                            return false;
+                        }
                     }
 
                     curFlowNode = callFlowNode.antecedent;
@@ -10582,11 +10588,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // node is specified, only declarations that are outside of the current execution
     // scope or that are reachable (as determined by code flow analysis) are considered.
     // This helps in cases where there are cyclical dependencies between symbols.
-    function getEffectiveTypeOfSymbol(symbol: Symbol, usageNode?: ParseNode): Type {
+    function getEffectiveTypeOfSymbol(symbol: Symbol): Type {
+        return getEffectiveTypeOfSymbolForUsage(symbol).type;
+    }
+
+    function getEffectiveTypeOfSymbolForUsage(symbol: Symbol, usageNode?: NameNode): EffectiveTypeResult {
         // If there's a declared type, it takes precedence over
         // inferred types.
         if (symbol.hasTypedDeclarations()) {
-            return getDeclaredTypeOfSymbol(symbol) || UnknownType.create();
+            return {
+                type: getDeclaredTypeOfSymbol(symbol) || UnknownType.create(),
+                isResolutionCyclical: false,
+            };
         }
 
         // Infer the type.
@@ -10594,6 +10607,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const isPrivate = symbol.isPrivateMember();
         const decls = symbol.getDeclarations();
         const isFinalVar = isFinalVariable(symbol);
+        let isResolutionCyclical = false;
 
         decls.forEach((decl) => {
             let considerDecl = true;
@@ -10637,11 +10651,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         popSymbolResolution(symbol);
                         throw e;
                     }
+                } else {
+                    isResolutionCyclical = true;
                 }
             }
         });
 
-        return typesToCombine.length > 0 ? combineTypes(typesToCombine) : UnboundType.create();
+        if (typesToCombine.length > 0) {
+            return {
+                type: combineTypes(typesToCombine),
+                isResolutionCyclical: false,
+            };
+        }
+
+        return {
+            type: UnboundType.create(),
+            isResolutionCyclical,
+        };
     }
 
     function getDeclaredTypeOfSymbol(symbol: Symbol): Type | undefined {
