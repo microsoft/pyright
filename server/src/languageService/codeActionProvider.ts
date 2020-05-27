@@ -14,6 +14,7 @@ import { AddMissingOptionalToParamAction, CreateTypeStubFileAction } from '../co
 import { convertPathToUri } from '../common/pathUtils';
 import { Range } from '../common/textRange';
 import { WorkspaceServiceInstance } from '../languageServerBase';
+import { Localizer } from '../localization/localize';
 
 export class CodeActionProvider {
     static async getCodeActionsForPosition(
@@ -25,8 +26,8 @@ export class CodeActionProvider {
         throwIfCancellationRequested(token);
 
         const sortImportsCodeAction = CodeAction.create(
-            'Organize Imports',
-            Command.create('Organize Imports', Commands.orderImports, convertPathToUri(filePath)),
+            Localizer.CodeAction.organizeImports(),
+            Command.create(Localizer.CodeAction.organizeImports(), Commands.orderImports, convertPathToUri(filePath)),
             CodeActionKind.SourceOrganizeImports
         );
         const codeActions: CodeAction[] = [];
@@ -48,9 +49,9 @@ export class CodeActionProvider {
                     .find((a) => a.action === Commands.createTypeStub) as CreateTypeStubFileAction;
                 if (action) {
                     const createTypeStubAction = CodeAction.create(
-                        `Create Type Stub For "${action.moduleName}"`,
+                        Localizer.CodeAction.createTypeStubFor().format({ moduleName: action.moduleName }),
                         Command.create(
-                            'Create Type Stub',
+                            Localizer.CodeAction.createTypeStub(),
                             Commands.createTypeStub,
                             workspace.rootPath,
                             action.moduleName,
@@ -73,9 +74,9 @@ export class CodeActionProvider {
                     .find((a) => a.action === Commands.addMissingOptionalToParam) as AddMissingOptionalToParamAction;
                 if (action) {
                     const addMissingOptionalAction = CodeAction.create(
-                        `Add "Optional" to type annotation`,
+                        Localizer.CodeAction.addOptionalToAnnotation(),
                         Command.create(
-                            `Add "Optional" to type annotation`,
+                            Localizer.CodeAction.addOptionalToAnnotation(),
                             Commands.addMissingOptionalToParam,
                             action.offsetOfTypeNode
                         ),

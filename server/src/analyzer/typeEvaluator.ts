@@ -27,6 +27,7 @@ import { PythonVersion } from '../common/pythonVersion';
 import { getEmptyRange } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
+import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
     AssignmentNode,
@@ -748,7 +749,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            `Expected type but received a string literal`,
+                            Localizer.Diagnostic.expectedTypeNotString(),
                             node
                         );
                         typeResult = { node, type: UnknownType.create() };
@@ -1463,7 +1464,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    `"${printType(subtype)}" is not awaitable`,
+                    Localizer.Diagnostic.typeNotAwaitable().format({ type: printType(subtype) }),
                     errorNode
                 );
             }
@@ -1493,7 +1494,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
                     DiagnosticRule.reportOptionalIterable,
-                    `Object of type "None" cannot be used as iterable value`,
+                    Localizer.Diagnostic.noneNotIterable(),
                     errorNode
                 );
             }
@@ -1518,7 +1519,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 }
 
-                diag.addMessage(`"${iterMethodName}" method not defined`);
+                diag.addMessage(Localizer.Diagnostic.methodNotDefined().format({ name: iterMethodName }));
             } else {
                 if (isAnyOrUnknown(iterReturnType)) {
                     return iterReturnType;
@@ -1529,7 +1530,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                     if (!nextReturnType) {
                         diag.addMessage(
-                            `"${nextMethodName}" method not defined on type "${printType(iterReturnType)}"`
+                            Localizer.Diagnostic.methodNotDefinedOnType().format({
+                                name: nextMethodName,
+                                type: printType(iterReturnType),
+                            })
                         );
                     } else {
                         if (!isAsync) {
@@ -1541,7 +1545,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         return getTypeFromAwaitable(nextReturnType, errorNode);
                     }
                 } else {
-                    diag.addMessage(`"${iterMethodName}" method does not return an object`);
+                    diag.addMessage(Localizer.Diagnostic.methodReturnsNonObject().format({ name: iterMethodName }));
                 }
             }
 
@@ -1576,7 +1580,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             if (errorNode) {
-                addError(`"${printType(subtype)}" is not iterable` + diag.getString(), errorNode);
+                addError(
+                    Localizer.Diagnostic.typeNotIterable().format({ type: printType(subtype) }) + diag.getString(),
+                    errorNode
+                );
             }
 
             return UnknownType.create();
@@ -1684,10 +1691,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         // all subsequent entries must also have default values.
                         const firstDefaultValueIndex = fullDataClassEntries.findIndex((p) => p.hasDefault);
                         if (!hasDefaultValue && firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
-                            addError(
-                                `Data fields without default value cannot appear after data fields with default values`,
-                                variableNameNode
-                            );
+                            addError(Localizer.Diagnostic.dataClassFieldWithDefault(), variableNameNode);
                         }
                     }
                 });
@@ -1982,9 +1986,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    `Expression of type "${printType(type)}" cannot be assigned to declared type "${printType(
-                        declaredType
-                    )}"` + diagAddendum.getString(),
+                    Localizer.Diagnostic.typeAssignmentMismatch().format({
+                        sourceType: printType(type),
+                        destType: printType(declaredType),
+                    }) + diagAddendum.getString(),
                     srcExpression || nameNode
                 );
                 destType = declaredType;
@@ -2021,7 +2026,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportConstantRedefinition,
                         DiagnosticRule.reportConstantRedefinition,
-                        `"${nameValue}" is constant and cannot be redefined`,
+                        Localizer.Diagnostic.constantRedefinition().format({ name: nameValue }),
                         nameNode
                     );
                 }
@@ -2060,10 +2065,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // Assignments to instance or class variables through "self" or "cls" is not
                     // allowed for protocol classes.
                     if (ClassType.isProtocolClass(classTypeResults.classType)) {
-                        addError(
-                            `Assignment to instance or class variables not allowed within a Protocol class`,
-                            target.memberName
-                        );
+                        addError(Localizer.Diagnostic.assignmentInProtocol(), target.memberName);
                     }
                 }
             }
@@ -2130,7 +2132,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             addDiagnostic(
                                 fileInfo.diagnosticRuleSet.reportConstantRedefinition,
                                 DiagnosticRule.reportConstantRedefinition,
-                                `"${node.memberName.value}" is constant and cannot be redefined`,
+                                Localizer.Diagnostic.constantRedefinition().format({ name: node.memberName.value }),
                                 node.memberName
                             );
                         }
@@ -2144,7 +2146,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                         if (isFinalVar) {
                             addError(
-                                `"${node.memberName.value}" is declared as Final and cannot be reassigned`,
+                                Localizer.Diagnostic.finalReassigned().format({ name: node.memberName.value }),
                                 node.memberName
                             );
                         }
@@ -2261,7 +2263,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            `Tuple size mismatch: expected ${expectedEntryCount} but received ${sourceEntryCount}`,
+                            Localizer.Diagnostic.tupleSizeMismatch().format({
+                                expected: expectedEntryCount,
+                                received: sourceEntryCount,
+                            }),
                             target
                         );
                     }
@@ -2315,9 +2320,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 ) {
                     if (target.nodeType !== ParseNodeType.Name || target.value !== type.name) {
                         addError(
-                            `${
-                                type.isParameterSpec ? 'ParameterSpecification' : 'TypeVar'
-                            } must be assigned to a variable named "${type.name}"`,
+                            type.isParameterSpec
+                                ? Localizer.Diagnostic.paramSpecAssignedName().format({ name: type.name })
+                                : Localizer.Diagnostic.typeVarAssignedName().format({ name: type.name }),
                             target
                         );
                     }
@@ -2445,7 +2450,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    `Expression cannot be assignment target`,
+                    Localizer.Diagnostic.assignmentTargetExpr(),
                     target
                 );
                 break;
@@ -2501,7 +2506,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    `Expression cannot be deleted`,
+                    Localizer.Diagnostic.delTargetExpr(),
                     node
                 );
                 break;
@@ -2692,14 +2697,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUnboundVariable,
                         DiagnosticRule.reportUnboundVariable,
-                        `"${name}" is unbound`,
+                        Localizer.Diagnostic.symbolIsUnbound().format({ name }),
                         node
                     );
                 } else if (isPossiblyUnbound(type)) {
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUnboundVariable,
                         DiagnosticRule.reportUnboundVariable,
-                        `"${name}" is possibly unbound`,
+                        Localizer.Diagnostic.symbolIsPossiblyUnbound().format({ name }),
                         node
                     );
                 }
@@ -2712,7 +2717,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportUndefinedVariable,
                     DiagnosticRule.reportUndefinedVariable,
-                    `"${name}" is not defined`,
+                    Localizer.Diagnostic.symbolIsUndefined().format({ name }),
                     node
                 );
             }
@@ -2721,7 +2726,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (type.category === TypeCategory.TypeVar && type.isParameterSpec) {
             if (flags & EvaluatorFlags.ParameterSpecificationDisallowed) {
-                addError('ParameterSpecification not allowed in this context', node);
+                addError(Localizer.Diagnostic.paramSpecContext(), node);
             }
         }
 
@@ -2782,7 +2787,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        `"${memberName}" is not a known member of ParameterSpecification`,
+                        Localizer.Diagnostic.paramSpecUnknownMember().format({ name: memberName }),
                         node.memberName
                     );
                     return { type: UnknownType.create(), node };
@@ -2848,7 +2853,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            `"${memberName}" is not a known member of module`,
+                            Localizer.Diagnostic.moduleUnknownMember().format({ name: memberName }),
                             node.memberName
                         );
                         type = UnknownType.create();
@@ -2863,7 +2868,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addDiagnostic(
                             getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
                             DiagnosticRule.reportOptionalMemberAccess,
-                            `"${memberName}" is not a known member of "None"`,
+                            Localizer.Diagnostic.noneUnknownMember().format({ name: memberName }),
                             node.memberName
                         );
                         return undefined;
@@ -2896,22 +2901,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             default:
-                diag.addMessage(`Unsupported type "${printType(baseType)}"`);
+                diag.addMessage(Localizer.DiagnosticAddendum.typeUnsupported().format({ type: printType(baseType) }));
                 break;
         }
 
         if (!type) {
-            let operationName = 'access';
+            let diagMessage = Localizer.Diagnostic.memberAccess();
             if (usage.method === 'set') {
-                operationName = 'assign';
+                diagMessage = Localizer.Diagnostic.memberSet();
             } else if (usage.method === 'del') {
-                operationName = 'delete';
+                diagMessage = Localizer.Diagnostic.memberDelete();
             }
 
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                `Cannot ${operationName} member "${memberName}" for type "${printType(baseType)}"` + diag.getString(),
+                diagMessage.format({ name: memberName, type: printType(baseType) }) + diag.getString(),
                 node.memberName
             );
             type = UnknownType.create();
@@ -3016,9 +3021,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             if (usage.method === 'set' && memberInfo.symbol.isClassVar()) {
                 if (flags & MemberAccessFlags.DisallowClassVarWrites) {
-                    diag.addMessage(
-                        `Member "${memberName}" cannot be set through a class instance because it is a ClassVar`
-                    );
+                    diag.addMessage(Localizer.DiagnosticAddendum.memberSetClassVar().format({ name: memberName }));
                     return undefined;
                 }
             }
@@ -3027,7 +3030,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (ClassType.isTypedDictClass(classType)) {
                 const typedDecls = memberInfo.symbol.getTypedDeclarations();
                 if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Variable) {
-                    diag.addMessage(`Member "${memberName}" is unknown`);
+                    diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
                     return undefined;
                 }
             }
@@ -3064,12 +3067,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (ClassType.isPropertyClass(type.classType)) {
                         if (usage.method === 'set') {
                             if (!accessMethod) {
-                                diag.addMessage(`Property "${memberName}" has no defined setter`);
+                                diag.addMessage(
+                                    Localizer.DiagnosticAddendum.propertyMissingSetter().format({ name: memberName })
+                                );
                                 return undefined;
                             }
                         } else if (usage.method === 'del') {
                             if (!accessMethod) {
-                                diag.addMessage(`Property "${memberName}" has no defined deleter`);
+                                diag.addMessage(
+                                    Localizer.DiagnosticAddendum.propertyMissingDeleter().format({ name: memberName })
+                                );
                                 return undefined;
                             }
                         }
@@ -3176,11 +3183,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // Verify that the assigned type is compatible.
                     if (!canAssignType(effectiveType, usage.setType!, diag.createAddendum())) {
                         diag.addMessage(
-                            `Expression of type "${printType(
-                                usage.setType!
-                            )}" cannot be assigned to member "${memberName}" of class "${printObjectTypeForClass(
-                                classType
-                            )}"`
+                            Localizer.DiagnosticAddendum.memberAssignment().format({
+                                type: printType(usage.setType!),
+                                name: memberName,
+                                classType: printObjectTypeForClass(classType),
+                            })
                         );
                         return undefined;
                     }
@@ -3265,7 +3272,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        diag.addMessage(`Member "${memberName}" is unknown`);
+        diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
         return undefined;
     }
 
@@ -3313,7 +3320,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const typeArgs = getTypeArgs(node.items, flags).map((t) => convertClassToObject(t.type));
                 if (typeArgs.length > typeParameters.length) {
                     addError(
-                        `Too many type arguments provided; expected ${typeParameters.length} but got ${typeArgs.length}`,
+                        Localizer.Diagnostic.typeArgsTooMany().format({
+                            expected: typeParameters.length,
+                            received: typeArgs.length,
+                        }),
                         node.items
                     );
                 }
@@ -3327,7 +3337,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 });
 
                 if (diag.getMessageCount() > 0) {
-                    addError(`Could not specialize type "${printType(baseType)}"` + diag.getString(), node.items);
+                    addError(
+                        Localizer.Diagnostic.typeNotSpecializable().format({ type: printType(baseType) }) +
+                            diag.getString(),
+                        node.items
+                    );
                 }
 
                 const type = specializeType(baseType, typeVarMap);
@@ -3348,9 +3362,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Setting the value of an indexed class will always result
                 // in an exception.
                 if (usage.method === 'set') {
-                    addError(`Generic class type cannot be assigned`, node.baseExpression);
+                    addError(Localizer.Diagnostic.genericClassAssigned(), node.baseExpression);
                 } else if (usage.method === 'del') {
-                    addError(`Generic class type cannot be deleted`, node.baseExpression);
+                    addError(Localizer.Diagnostic.genericClassDeleted(), node.baseExpression);
                 }
 
                 if (ClassType.isSpecialBuiltIn(subtype, 'Literal')) {
@@ -3365,7 +3379,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         return typeArgs[0].type;
                     } else {
                         addError(
-                            `Expected one type argument for "InitVar" but got ${typeArgs.length}`,
+                            Localizer.Diagnostic.typeArgsMismatchOne().format({ received: typeArgs.length }),
                             node.baseExpression
                         );
                         return UnknownType.create();
@@ -3393,7 +3407,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
                     DiagnosticRule.reportOptionalSubscript,
-                    `Object of type "None" cannot be subscripted`,
+                    Localizer.Diagnostic.noneNotSubscriptable(),
                     node.baseExpression
                 );
 
@@ -3405,7 +3419,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    `Object of type "${printType(subtype)}" cannot be subscripted`,
+                    Localizer.Diagnostic.typeNotSubscriptable().format({ type: printType(subtype) }),
                     node.baseExpression
                 );
             }
@@ -3426,7 +3440,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Handle index operations for TypedDict classes specially.
         if (ClassType.isTypedDictClass(baseType.classType)) {
             if (node.items.items.length !== 1) {
-                addError('Expected one type argument', node);
+                addError(
+                    Localizer.Diagnostic.typeArgsMismatchOne().format({ received: node.items.items.length }),
+                    node
+                );
                 return UnknownType.create();
             }
 
@@ -3450,7 +3467,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const entryName = subtype.literalValue as string;
                     const entry = entries.get(entryName);
                     if (!entry) {
-                        diag.addMessage(`"${entryName}" is not a defined key in "${printType(baseType)}"`);
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.keyUndefined().format({
+                                name: entryName,
+                                type: printType(baseType),
+                            })
+                        );
                         return UnknownType.create();
                     }
 
@@ -3461,7 +3483,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            `"${entryName}" is a required key and cannot be deleted`,
+                            Localizer.Diagnostic.keyRequiredDeleted().format({ name: entryName }),
                             node
                         );
                     }
@@ -3469,23 +3491,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     return entry.valueType;
                 }
 
-                diag.addMessage(`"${printType(subtype)}" is not a string literal`);
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.typeNotStringLiteral().format({ type: printType(subtype) })
+                );
                 return UnknownType.create();
             });
 
             if (diag.getMessageCount() > 0) {
-                let operationName = 'access';
+                let typedDictDiag: string;
                 if (usage.method === 'set') {
-                    operationName = 'assign';
+                    typedDictDiag = Localizer.Diagnostic.typedDictSet();
                 } else if (usage.method === 'del') {
-                    operationName = 'delete';
+                    typedDictDiag = Localizer.Diagnostic.typedDictDelete();
+                } else {
+                    typedDictDiag = Localizer.Diagnostic.typedDictAccess();
                 }
 
                 const fileInfo = getFileInfo(node);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    `Could not ${operationName} item in TypedDict` + diag.getString(),
+                    typedDictDiag + diag.getString(),
                     node
                 );
             }
@@ -3517,7 +3543,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                `Object of type "${printType(baseType)}" does not define "${magicMethodName}"`,
+                Localizer.Diagnostic.methodNotDefinedOnType().format({
+                    name: magicMethodName,
+                    type: printType(baseType),
+                }),
                 node.baseExpression
             );
             return UnknownType.create();
@@ -3732,7 +3761,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     function getTypeFromSuperCall(node: CallNode): Type {
         if (node.arguments.length > 2) {
-            addError(`Expecting no more than two arguments to "super" call`, node.arguments[2]);
+            addError(Localizer.Diagnostic.superCallArgCount(), node.arguments[2]);
         }
 
         // Determine which class the "super" call is applied to. If
@@ -3743,9 +3772,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             if (!isAnyOrUnknown(targetClassType) && !(targetClassType.category === TypeCategory.Class)) {
                 addError(
-                    `Expected class type as first argument to "super" call but received "${printType(
-                        targetClassType
-                    )}"`,
+                    Localizer.Diagnostic.superCallFirstArg().format({ type: printType(targetClassType) }),
                     node.arguments[0].valueExpression
                 );
             }
@@ -3755,7 +3782,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const classTypeInfo = getTypeOfClass(enclosingClass);
                 targetClassType = classTypeInfo ? classTypeInfo.classType : UnknownType.create();
             } else {
-                addError(`Zero-argument form of "super" call is valid only within a class`, node.leftExpression);
+                addError(Localizer.Diagnostic.superCallZeroArgForm(), node.leftExpression);
                 targetClassType = UnknownType.create();
             }
         }
@@ -3794,9 +3821,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    `Second argument to "super" call must be object or class that derives from "${printType(
-                        targetClassType
-                    )}"`,
+                    Localizer.Diagnostic.superCallSecondArg().format({ type: printType(targetClassType) }),
                     node.arguments[1].valueExpression
                 );
             }
@@ -3888,7 +3913,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            `"${className}" cannot be instantiated directly`,
+                            Localizer.Diagnostic.typeNotIntantiable().format({ type: className }),
                             errorNode
                         );
                     } else if (
@@ -3912,11 +3937,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                     abstractMethods.forEach((abstractMethod, index) => {
                         if (index === errorsToDisplay) {
-                            diagAddendum.addMessage(`and ${abstractMethods.length - errorsToDisplay} more...`);
+                            diagAddendum.addMessage(
+                                Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
+                                    count: abstractMethods.length - errorsToDisplay,
+                                })
+                            );
                         } else if (index < errorsToDisplay) {
                             if (abstractMethod.classType.category === TypeCategory.Class) {
                                 const className = abstractMethod.classType.details.name;
-                                diagAddendum.addMessage(`"${className}.${abstractMethod.symbolName}" is abstract`);
+                                diagAddendum.addMessage(
+                                    Localizer.DiagnosticAddendum.memberIsAbstract().format({
+                                        type: className,
+                                        name: abstractMethod.symbolName,
+                                    })
+                                );
                             }
                         }
                     });
@@ -3925,7 +3959,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        `Cannot instantiate abstract class "${callType.details.name}"` + diagAddendum.getString(),
+                        Localizer.Diagnostic.typeAbstract().format({ type: callType.details.name }) +
+                            diagAddendum.getString(),
                         errorNode
                     );
                 }
@@ -3945,7 +3980,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         getFileInfo(errorNode).diagnosticRuleSet.reportUntypedNamedTuple,
                         DiagnosticRule.reportUntypedNamedTuple,
-                        `"namedtuple" provides no types for tuple entries; use "NamedTuple" instead`,
+                        Localizer.Diagnostic.namedTupleNoTypes(),
                         errorNode
                     );
                     type = createNamedTupleType(errorNode, argList, false);
@@ -3996,7 +4031,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 addDiagnostic(
                                     getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
                                     DiagnosticRule.reportUnnecessaryCast,
-                                    `Unnecessary "cast" call; type is already ${printType(castFromType)}`,
+                                    Localizer.Diagnostic.unnecessaryCast().format({ type: printType(castFromType) }),
                                     errorNode
                                 );
                             }
@@ -4019,12 +4054,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const exprString = ParseTreeUtils.printExpression(errorNode);
                     const diagAddendum = new DiagnosticAddendum();
                     const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
-                    diagAddendum.addMessage(`Argument types: (${argTypes.join(', ')})`);
+                    diagAddendum.addMessage(
+                        Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
+                    );
                     const fileInfo = getFileInfo(errorNode);
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        `No overloads for "${exprString}" match parameters` + diagAddendum.getString(),
+                        Localizer.Diagnostic.noOverload().format({ expression: exprString }) + diagAddendum.getString(),
                         errorNode
                     );
                     type = UnknownType.create();
@@ -4079,7 +4116,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
                             DiagnosticRule.reportOptionalCall,
-                            `Object of type "None" cannot be called`,
+                            Localizer.Diagnostic.noneNotCallable(),
                             errorNode
                         );
                     } else {
@@ -4119,7 +4156,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                `"${ParseTreeUtils.printExpression(errorNode)}" has type "${printType(callType)}" and is not callable`,
+                Localizer.Diagnostic.typeNotCallable().format({
+                    expression: ParseTreeUtils.printExpression(errorNode),
+                    type: printType(callType),
+                }),
                 errorNode
             );
             type = UnknownType.create();
@@ -4312,7 +4352,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                `Expected no arguments to "${type.details.name}" constructor`,
+                Localizer.Diagnostic.constructorNoArgs().format({ type: type.details.name }),
                 errorNode
             );
         } else if (!returnType) {
@@ -4421,12 +4461,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const exprString = ParseTreeUtils.printExpression(errorNode);
                     const diagAddendum = new DiagnosticAddendum();
                     const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
-                    diagAddendum.addMessage(`Argument types: (${argTypes.join(', ')})`);
+                    diagAddendum.addMessage(
+                        Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
+                    );
                     const fileInfo = getFileInfo(errorNode);
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        `No overloads for "${exprString}" match parameters` + diagAddendum.getString(),
+                        Localizer.Diagnostic.noOverload().format({ expression: exprString }) + diagAddendum.getString(),
                         errorNode
                     );
                 }
@@ -4441,7 +4483,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        `"${callType.details.name}" cannot be instantiated`,
+                        Localizer.Diagnostic.typeNotIntantiable().format({ type: callType.details.name }),
                         errorNode
                     );
                 }
@@ -4480,7 +4522,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
                             DiagnosticRule.reportOptionalCall,
-                            `Object of type "None" cannot be called`,
+                            Localizer.Diagnostic.noneNotCallable(),
                             errorNode
                         );
                     } else {
@@ -4610,7 +4652,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    `Expected positional argument`,
+                    Localizer.Diagnostic.argPositional(),
                     argList[argIndex].name!
                 );
             }
@@ -4622,7 +4664,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        `Expected ${adjustedCount} positional ${adjustedCount === 1 ? 'argument' : 'arguments'}`,
+                        adjustedCount === 1
+                            ? Localizer.Diagnostic.argPositionalExpectedOne()
+                            : Localizer.Diagnostic.argPositionalExpectedCount().format({ expected: adjustedCount }),
                         argList[argIndex].valueExpression || errorNode
                     );
                     reportedArgError = true;
@@ -4707,7 +4751,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         const paramEntry = paramMap.get(paramNameValue);
                         if (paramEntry) {
                             if (paramEntry.argsReceived > 0) {
-                                addError(`Parameter "${paramNameValue}" is already assigned`, paramName);
+                                addError(
+                                    Localizer.Diagnostic.paramAlreadyAssigned().format({ name: paramNameValue }),
+                                    paramName
+                                );
                                 reportedArgError = true;
                             } else {
                                 paramMap.get(paramName.value)!.argsReceived++;
@@ -4735,7 +4782,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             });
                             trySetActive(argList[argIndex], varArgDictParam);
                         } else {
-                            addError(`No parameter named "${paramName.value}"`, paramName);
+                            addError(
+                                Localizer.Diagnostic.paramNameMissing().format({ name: paramName.value }),
+                                paramName
+                            );
                             reportedArgError = true;
                         }
                     }
@@ -4759,9 +4809,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 });
 
                 if (unassignedParams.length > 0) {
+                    const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
                     addError(
-                        `Argument missing for parameter${unassignedParams.length === 1 ? '' : 's'} ` +
-                            unassignedParams.map((p) => `"${p}"`).join(', '),
+                        unassignedParams.length === 1
+                            ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
+                            : Localizer.Diagnostic.argMissingForParams().format({ names: missingParamNames }),
                         errorNode
                     );
                     reportedArgError = true;
@@ -4889,19 +4941,47 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         const diag = new DiagnosticAddendum();
-        const optionalParamName = argParam.paramName ? ` "${argParam.paramName}"` : '';
-        const optionalFunctionName = functionName ? ` in function "${functionName}"` : '';
 
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
             const fileInfo = getFileInfo(argParam.errorNode);
+            const argTypeText = printType(argType);
+            const paramTypeText = printType(argParam.paramType);
+
+            let message: string;
+            if (argParam.paramName) {
+                if (functionName) {
+                    message = Localizer.Diagnostic.argAssignmentParamFunction().format({
+                        argType: argTypeText,
+                        paramType: paramTypeText,
+                        functionName,
+                        paramName: argParam.paramName,
+                    });
+                } else {
+                    message = Localizer.Diagnostic.argAssignmentParam().format({
+                        argType: argTypeText,
+                        paramType: paramTypeText,
+                        paramName: argParam.paramName,
+                    });
+                }
+            } else {
+                if (functionName) {
+                    message = Localizer.Diagnostic.argAssignmentFunction().format({
+                        argType: argTypeText,
+                        paramType: paramTypeText,
+                        functionName,
+                    });
+                } else {
+                    message = Localizer.Diagnostic.argAssignment().format({
+                        argType: argTypeText,
+                        paramType: paramTypeText,
+                    });
+                }
+            }
+
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                `Argument of type "${printType(
-                    argType
-                )}" cannot be assigned to parameter${optionalParamName} of type ` +
-                    `"${printType(argParam.paramType)}"${optionalFunctionName}` +
-                    diag.getString(),
+                message + diag.getString(),
                 argParam.errorNode
             );
             return false;
@@ -4912,7 +4992,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const diagAddendum = new DiagnosticAddendum();
             if (argParam.paramName) {
                 diagAddendum.addMessage(
-                    `Argument corresponds to parameter "${argParam.paramName}"${optionalFunctionName}` +
+                    (functionName
+                        ? Localizer.DiagnosticAddendum.argParamFunction().format({
+                              paramName: argParam.paramName,
+                              functionName,
+                          })
+                        : Localizer.DiagnosticAddendum.argParam().format({ paramName: argParam.paramName })) +
                         diagAddendum.getString()
                 );
             }
@@ -4921,7 +5006,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
                     DiagnosticRule.reportUnknownArgumentType,
-                    `Argument type is unknown` + diagAddendum.getString(),
+                    Localizer.Diagnostic.argTypeUnknown() + diagAddendum.getString(),
                     argParam.errorNode
                 );
             } else if (containsUnknown(simplifiedType, true)) {
@@ -4933,11 +5018,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // the error because it's likely that the partially-unknown type
                 // arose due to bidirectional type matching.
                 if (!containsUnknown(argParam.paramType) && simplifiedType.category !== TypeCategory.Class) {
-                    diagAddendum.addMessage(`Argument type is "${printType(simplifiedType)}"`);
+                    diagAddendum.addMessage(
+                        Localizer.DiagnosticAddendum.argumentType().format({ type: printType(simplifiedType) })
+                    );
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
                         DiagnosticRule.reportUnknownArgumentType,
-                        `Argument type is partially unknown` + diagAddendum.getString(),
+                        Localizer.Diagnostic.argTypePartiallyUnknown() + diagAddendum.getString(),
                         argParam.errorNode
                     );
                 }
@@ -4957,13 +5044,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (isParamSpec) {
             const fileInfo = getFileInfo(errorNode);
             if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V39) {
-                addError('ParameterSpecification requires Python 3.9 or newer', errorNode);
+                addError(Localizer.Diagnostic.paramSpecIllegal(), errorNode);
             }
         }
 
-        const typeVarTypeName = isParamSpec ? 'ParameterSpecification' : 'TypeVar';
         if (argList.length === 0) {
-            addError(`Expected name of ${typeVarTypeName} as first parameter`, errorNode);
+            addError(
+                isParamSpec ? Localizer.Diagnostic.paramSpecFirstArg() : Localizer.Diagnostic.typeVarFirstArg(),
+                errorNode
+            );
             return undefined;
         }
 
@@ -4971,7 +5060,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (firstArg.valueExpression && firstArg.valueExpression.nodeType === ParseNodeType.StringList) {
             typeVarName = firstArg.valueExpression.strings.map((s) => s.value).join('');
         } else {
-            addError(`Expected name of ${typeVarTypeName} as first parameter`, firstArg.valueExpression || errorNode);
+            addError(
+                isParamSpec ? Localizer.Diagnostic.paramSpecFirstArg() : Localizer.Diagnostic.typeVarFirstArg(),
+                firstArg.valueExpression || errorNode
+            );
         }
 
         const typeVar = TypeVarType.create(typeVarName, isParamSpec);
@@ -4985,7 +5077,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (paramName) {
                 if (paramNameMap.get(paramName)) {
                     addError(
-                        `Duplicate parameter name "${paramName}" not allowed`,
+                        Localizer.Diagnostic.duplicateParam().format({ name: paramName }),
                         argList[i].valueExpression || errorNode
                     );
                 }
@@ -4993,23 +5085,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (paramName === 'bound' && !isParamSpec) {
                     if (typeVar.constraints.length > 0) {
                         addError(
-                            `A TypeVar cannot be both bound and constrained`,
+                            Localizer.Diagnostic.typeVarBoundAndConstrained(),
                             argList[i].valueExpression || errorNode
                         );
                     } else {
                         const argType = getTypeForArgument(argList[i], /* expectingType */ true);
                         if (requiresSpecialization(argType)) {
-                            addError(`A TypeVar bound type cannot be generic`, argList[i].valueExpression || errorNode);
+                            addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                         }
                         typeVar.boundType = convertClassToObject(argType);
                     }
                 } else if (paramName === 'covariant' && !isParamSpec) {
                     if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
                         if (typeVar.isContravariant) {
-                            addError(
-                                `A TypeVar cannot be both covariant and contravariant`,
-                                argList[i].valueExpression!
-                            );
+                            addError(Localizer.Diagnostic.typeVarVariance(), argList[i].valueExpression!);
                         } else {
                             typeVar.isCovariant = true;
                         }
@@ -5017,17 +5106,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 } else if (paramName === 'contravariant' && !isParamSpec) {
                     if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
                         if (typeVar.isContravariant) {
-                            addError(
-                                `A TypeVar cannot be both covariant and contravariant`,
-                                argList[i].valueExpression!
-                            );
+                            addError(Localizer.Diagnostic.typeVarVariance(), argList[i].valueExpression!);
                         } else {
                             typeVar.isContravariant = true;
                         }
                     }
                 } else {
                     addError(
-                        `"${paramName}" is unknown parameter to ${typeVarTypeName}`,
+                        isParamSpec
+                            ? Localizer.Diagnostic.paramSpecUnknownParam().format({ name: paramName })
+                            : Localizer.Diagnostic.typeVarUnknownParam().format({ name: paramName }),
                         argList[i].valueExpression || errorNode
                     );
                 }
@@ -5035,22 +5123,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 paramNameMap.set(paramName, paramName);
             } else if (!isParamSpec) {
                 if (typeVar.boundType) {
-                    addError(`A TypeVar cannot be both bound and constrained`, argList[i].valueExpression || errorNode);
+                    addError(
+                        Localizer.Diagnostic.typeVarBoundAndConstrained(),
+                        argList[i].valueExpression || errorNode
+                    );
                 } else {
                     const argType = getTypeForArgument(argList[i], /* expectingType */ true);
                     if (requiresSpecialization(argType)) {
-                        addError(
-                            `A TypeVar constraint type cannot be generic`,
-                            argList[i].valueExpression || errorNode
-                        );
+                        addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                     }
                     TypeVarType.addConstraint(typeVar, convertClassToObject(argType));
                 }
             } else {
-                addError(
-                    `A ParameterSpec declaration does not support more than one argument`,
-                    argList[i].valueExpression || errorNode
-                );
+                addError(Localizer.Diagnostic.paramSpecUnknownArg(), argList[i].valueExpression || errorNode);
                 break;
             }
         }
@@ -5067,7 +5152,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        addError('Expected True or False', node);
+        addError(Localizer.Diagnostic.expectedBoolLiteral(), node);
         return false;
     }
 
@@ -5075,11 +5160,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     function createEnumType(errorNode: ExpressionNode, enumClass: ClassType, argList: FunctionArgument[]): ClassType {
         let className = 'enum';
         if (argList.length === 0) {
-            addError('Expected enum class name as first parameter', errorNode);
+            addError(Localizer.Diagnostic.enumFirstArg(), errorNode);
         } else {
             const nameArg = argList[0];
             if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
-                addError('Expected enum class name as first parameter', argList[0].valueExpression || errorNode);
+                addError(Localizer.Diagnostic.enumFirstArg(), argList[0].valueExpression || errorNode);
             } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
                 className = nameArg.valueExpression.strings.map((s) => s.value).join('');
             }
@@ -5096,7 +5181,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         );
 
         if (argList.length < 2) {
-            addError('Expected enum item string as second parameter', errorNode);
+            addError(Localizer.Diagnostic.enumSecondArg(), errorNode);
         } else {
             const entriesArg = argList[1];
             if (
@@ -5104,7 +5189,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 !entriesArg.valueExpression ||
                 entriesArg.valueExpression.nodeType !== ParseNodeType.StringList
             ) {
-                addError('Expected enum item string as second parameter', errorNode);
+                addError(Localizer.Diagnostic.enumSecondArg(), errorNode);
             } else {
                 const entries = entriesArg.valueExpression.strings
                     .map((s) => s.value)
@@ -5176,7 +5261,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     function createType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
         const arg0Type = getTypeForArgument(argList[0]);
         if (arg0Type.category !== TypeCategory.Object || !ClassType.isBuiltIn(arg0Type.classType, 'str')) {
-            addError('Expected name of type as first argument', argList[0].valueExpression || errorNode);
+            addError(Localizer.Diagnostic.typeClassFirstArg(), argList[0].valueExpression || errorNode);
             return undefined;
         }
         const className = (arg0Type.literalValue as string) || '_';
@@ -5187,7 +5272,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             !ClassType.isBuiltIn(arg1Type.classType, 'Tuple') ||
             arg1Type.classType.typeArguments === undefined
         ) {
-            addError('Expected tuple of base class types as second argument', argList[1].valueExpression || errorNode);
+            addError(Localizer.Diagnostic.typeClassSecondArg(), argList[1].valueExpression || errorNode);
             return undefined;
         }
 
@@ -5197,14 +5282,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 classType.details.baseClasses.push(baseClass);
             } else {
                 addError(
-                    `Expected class type but received "${printType(baseClass)}"`,
+                    Localizer.Diagnostic.typeExpectedClass().format({ type: printType(baseClass) }),
                     argList[1].valueExpression || errorNode
                 );
             }
         });
 
         if (!computeMroLinearization(classType)) {
-            addError('Cannot create consistent method ordering', errorNode);
+            addError(Localizer.Diagnostic.methodOrdering(), errorNode);
         }
 
         return classType;
@@ -5219,7 +5304,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     ): ClassType {
         let className = 'TypedDict';
         if (argList.length === 0) {
-            addError('Expected TypedDict class name as first parameter', errorNode);
+            addError(Localizer.Diagnostic.typedDictFirstArg(), errorNode);
         } else {
             const nameArg = argList[0];
             if (
@@ -5227,7 +5312,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 !nameArg.valueExpression ||
                 nameArg.valueExpression.nodeType !== ParseNodeType.StringList
             ) {
-                addError('Expected TypedDict class name as first parameter', argList[0].valueExpression || errorNode);
+                addError(Localizer.Diagnostic.typedDictFirstArg(), argList[0].valueExpression || errorNode);
             } else {
                 className = nameArg.valueExpression.strings.map((s) => s.value).join('');
             }
@@ -5248,17 +5333,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     argList[2].valueExpression.constType === KeywordType.True
                 )
             ) {
-                addError(
-                    `Expected "total" parameter to have a value of "True" or "False"`,
-                    argList[2].valueExpression || errorNode
-                );
+                addError(Localizer.Diagnostic.typedDictTotalParam(), argList[2].valueExpression || errorNode);
             } else if (argList[2].valueExpression.constType === KeywordType.False) {
                 classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
             }
         }
 
         if (argList.length > 3) {
-            addError('Extra TypedDict arguments not supported', argList[3].valueExpression || errorNode);
+            addError(Localizer.Diagnostic.typedDictExtraArgs(), argList[3].valueExpression || errorNode);
         }
 
         const classFields = classType.details.fields;
@@ -5268,7 +5350,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         );
 
         if (argList.length < 2) {
-            addError('Expected dict as second parameter', errorNode);
+            addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
         } else {
             const entriesArg = argList[1];
             if (
@@ -5276,30 +5358,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 !entriesArg.valueExpression ||
                 entriesArg.valueExpression.nodeType !== ParseNodeType.Dictionary
             ) {
-                addError('Expected dict as second parameter', errorNode);
+                addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
             } else {
                 const entryDict = entriesArg.valueExpression;
                 const entryMap = new Map<string, boolean>();
 
                 entryDict.entries.forEach((entry) => {
                     if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
-                        addError('Expected simple dictionary entry', entry);
+                        addError(Localizer.Diagnostic.typedDictSecondArgDictEntry(), entry);
                         return;
                     }
 
                     if (entry.keyExpression.nodeType !== ParseNodeType.StringList) {
-                        addError('Expected string literal for entry name', entry.keyExpression);
+                        addError(Localizer.Diagnostic.typedDictEntryName(), entry.keyExpression);
                         return;
                     }
 
                     const entryName = entry.keyExpression.strings.map((s) => s.value).join('');
                     if (!entryName) {
-                        addError('Names within a TypedDict cannot be empty', entry.keyExpression);
+                        addError(Localizer.Diagnostic.typedDictEmptyName(), entry.keyExpression);
                         return;
                     }
 
                     if (entryMap.get(entryName)) {
-                        addError('Names within a named tuple must be unique', entry.keyExpression);
+                        addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.keyExpression);
                         return;
                     }
 
@@ -5342,11 +5424,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     ): ClassType {
         let className = 'namedtuple';
         if (argList.length === 0) {
-            addError('Expected named tuple class name as first parameter', errorNode);
+            addError(Localizer.Diagnostic.namedTupleFirstArg(), errorNode);
         } else {
             const nameArg = argList[0];
             if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
-                addError('Expected named tuple class name as first parameter', argList[0].valueExpression || errorNode);
+                addError(Localizer.Diagnostic.namedTupleFirstArg(), argList[0].valueExpression || errorNode);
             } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
                 className = nameArg.valueExpression.strings.map((s) => s.value).join('');
             }
@@ -5388,7 +5470,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             let addGenericGetAttribute = false;
 
             if (argList.length < 2) {
-                addError('Expected named tuple entry list as second parameter', errorNode);
+                addError(Localizer.Diagnostic.namedTupleSecondArg(), errorNode);
                 addGenericGetAttribute = true;
             } else {
                 const entriesArg = argList[1];
@@ -5466,7 +5548,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                         entryType = convertClassToObject(entryTypeInfo.type);
                                     }
                                 } else {
-                                    addError('Expected two-entry tuple specifying entry name and type', entry);
+                                    addError(Localizer.Diagnostic.namedTupleNameType(), entry);
                                 }
                             } else {
                                 entryNameNode = entry;
@@ -5476,10 +5558,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             if (entryNameNode && entryNameNode.nodeType === ParseNodeType.StringList) {
                                 entryName = entryNameNode.strings.map((s) => s.value).join('');
                                 if (!entryName) {
-                                    addError('Names within a named tuple cannot be empty', entryNameNode);
+                                    addError(Localizer.Diagnostic.namedTupleEmptyName(), entryNameNode);
                                 }
                             } else {
-                                addError('Expected string literal for entry name', entryNameNode || entry);
+                                addError(Localizer.Diagnostic.namedTupleNameString(), entryNameNode || entry);
                             }
 
                             if (!entryName) {
@@ -5487,7 +5569,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             }
 
                             if (entryMap.has(entryName)) {
-                                addError('Names within a named tuple must be unique', entryNameNode || entry);
+                                addError(Localizer.Diagnostic.namedTupleNameUnique(), entryNameNode || entry);
                             }
 
                             // Record names in a map to detect duplicates.
@@ -5631,7 +5713,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
                     DiagnosticRule.reportOptionalOperand,
-                    `Operator "${ParseTreeUtils.printOperator(node.operator)}" not supported for "None" type`,
+                    Localizer.Diagnostic.noneOperator().format({
+                        operator: ParseTreeUtils.printOperator(node.operator),
+                    }),
                     node.expression
                 );
                 exprType = removeNoneFromUnion(exprType);
@@ -5657,9 +5741,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    `Operator "${ParseTreeUtils.printOperator(node.operator)}" not supported for type "${printType(
-                        exprType
-                    )}"`,
+                    Localizer.Diagnostic.typeNotSupportUnaryOperator().format({
+                        operator: ParseTreeUtils.printOperator(node.operator),
+                        type: printType(exprType),
+                    }),
                     node
                 );
                 type = UnknownType.create();
@@ -5702,7 +5787,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const unionNotationSupported =
                     fileInfo.isStubFile || fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V39;
                 if (!unionNotationSupported) {
-                    addError('Alternative syntax for unions requires Python 3.9 or newer', node, node.operatorToken);
+                    addError(Localizer.Diagnostic.unionSyntaxIllegal(), node, node.operatorToken);
                 }
 
                 return {
@@ -5721,7 +5806,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         getFileInfo(node).diagnosticRuleSet.reportOptionalOperand,
                         DiagnosticRule.reportOptionalOperand,
-                        `Operator "${ParseTreeUtils.printOperator(node.operator)}" not supported for "None" type`,
+                        Localizer.Diagnostic.noneOperator().format({
+                            operator: ParseTreeUtils.printOperator(node.operator),
+                        }),
                         node.leftExpression
                     );
                 }
@@ -5912,9 +5999,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                `Operator "${ParseTreeUtils.printOperator(operator)}" not supported for types "${printType(
-                    leftType
-                )}" and "${printType(rightType)}"`,
+                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                    operator: ParseTreeUtils.printOperator(operator),
+                    leftType: printType(leftType),
+                    rightType: printType(rightType),
+                }),
                 errorNode
             );
             type = UnknownType.create();
@@ -6430,14 +6519,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const simplifiedType = removeUnboundFromUnion(type);
 
         if (simplifiedType.category === TypeCategory.Unknown) {
-            addDiagnostic(diagLevel, rule, `Type of "${nameValue}" is unknown`, errorNode);
+            addDiagnostic(diagLevel, rule, Localizer.Diagnostic.typeUnknown().format({ name: nameValue }), errorNode);
         } else if (containsUnknown(simplifiedType)) {
             const diagAddendum = new DiagnosticAddendum();
-            diagAddendum.addMessage(`Type of "${nameValue}" is "${printType(simplifiedType)}"`);
+            diagAddendum.addMessage(
+                Localizer.DiagnosticAddendum.typeOfSymbol().format({ name: nameValue, type: printType(simplifiedType) })
+            );
             addDiagnostic(
                 diagLevel,
                 rule,
-                `Type of "${nameValue}" is partially unknown` + diagAddendum.getString(),
+                Localizer.Diagnostic.typeUnknown().format({ name: nameValue }) + diagAddendum.getString(),
                 errorNode
             );
         }
@@ -6518,11 +6609,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (typeArgs[0].typeList) {
                 typeArgs[0].typeList.forEach((entry, index) => {
                     if (isEllipsisType(entry.type)) {
-                        addError(`"..." not allowed in this context`, entry.node);
+                        addError(Localizer.Diagnostic.ellipsisContext(), entry.node);
                     } else if (entry.type.category === TypeCategory.Module) {
-                        addError(`Module not allowed in this context`, entry.node);
+                        addError(Localizer.Diagnostic.moduleContext(), entry.node);
                     } else if (isParameterSpecificationType(entry.type)) {
-                        addError(`ParameterSpecification not allowed in this context`, entry.node);
+                        addError(Localizer.Diagnostic.paramSpecContext(), entry.node);
                     }
 
                     FunctionType.addParameter(functionType, {
@@ -6539,7 +6630,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 FunctionType.addDefaultParameters(functionType);
                 functionType.details.parameterSpecification = typeArgs[0].type as TypeVarType;
             } else {
-                addError(`Expected parameter type list or "..."`, typeArgs[0].node);
+                addError(Localizer.Diagnostic.callableFirstArg(), typeArgs[0].node);
             }
         } else {
             FunctionType.addDefaultParameters(functionType, /* useUnknown */ true);
@@ -6547,11 +6638,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (typeArgs && typeArgs.length > 1) {
             if (isEllipsisType(typeArgs[1].type)) {
-                addError(`"..." not allowed in this context`, typeArgs[1].node);
+                addError(Localizer.Diagnostic.ellipsisContext(), typeArgs[1].node);
             } else if (typeArgs[1].type.category === TypeCategory.Module) {
-                addError(`Module not allowed in this context`, typeArgs[1].node);
+                addError(Localizer.Diagnostic.moduleContext(), typeArgs[1].node);
             } else if (isParameterSpecificationType(typeArgs[1].type)) {
-                addError(`ParameterSpecification not allowed in this context`, typeArgs[1].node);
+                addError(Localizer.Diagnostic.paramSpecContext(), typeArgs[1].node);
             }
             functionType.details.declaredReturnType = convertClassToObject(typeArgs[1].type);
         } else {
@@ -6559,7 +6650,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (typeArgs && typeArgs.length > 2) {
-            addError(`Expected only two type arguments to "Callable"`, typeArgs[2].node);
+            addError(Localizer.Diagnostic.callableExtraArgs(), typeArgs[2].node);
         }
 
         return functionType;
@@ -6568,16 +6659,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // Creates an Optional[X, Y, Z] type.
     function createOptionalType(errorNode: ParseNode, typeArgs?: TypeResult[]): Type {
         if (!typeArgs || typeArgs.length !== 1) {
-            addError(`Expected one type argument after "Optional"`, errorNode);
+            addError(Localizer.Diagnostic.optionalExtraArgs(), errorNode);
             return UnknownType.create();
         }
 
         if (isEllipsisType(typeArgs[0].type)) {
-            addError(`"..." not allowed in this context`, typeArgs[0].node);
+            addError(Localizer.Diagnostic.ellipsisContext(), typeArgs[0].node);
         } else if (typeArgs[0].type.category === TypeCategory.Module) {
-            addError(`Module not allowed in this context`, typeArgs[0].node);
+            addError(Localizer.Diagnostic.moduleContext(), typeArgs[0].node);
         } else if (isParameterSpecificationType(typeArgs[0].type)) {
-            addError(`ParameterSpecification not allowed in this context`, typeArgs[1].node);
+            addError(Localizer.Diagnostic.paramSpecContext(), typeArgs[1].node);
         }
 
         return combineTypes([typeArgs[0].type, NoneType.create()]);
@@ -6597,7 +6688,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // https://mypy.readthedocs.io/en/latest/literal_types.html
     function createLiteralType(node: IndexNode): Type {
         if (node.items.items.length === 0) {
-            addError(`Expected one or more type arguments after "Literal"`, node.baseExpression);
+            addError(Localizer.Diagnostic.literalEmptyArgs(), node.baseExpression);
             return UnknownType.create();
         }
 
@@ -6643,11 +6734,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             if (!type) {
-                addError(
-                    `Type arguments for "Literal" must be None, a literal value ` +
-                        `(int, bool, str, or bytes), or an enum value`,
-                    item
-                );
+                addError(Localizer.Diagnostic.literalUnsupportedType(), item);
                 type = UnknownType.create();
             }
 
@@ -6660,10 +6747,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // Creates a ClassVar type.
     function createClassVarType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
         if (!typeArgs || typeArgs.length === 0) {
-            addError(`Expected a type argument after "ClassVar"`, errorNode);
+            addError(Localizer.Diagnostic.classVarFirstArgMissing(), errorNode);
             return UnknownType.create();
         } else if (typeArgs.length > 1) {
-            addError(`Expected only one type argument after "ClassVar"`, typeArgs[1].node);
+            addError(Localizer.Diagnostic.classVarTooManyArgs(), typeArgs[1].node);
             return UnknownType.create();
         }
 
@@ -6682,7 +6769,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // Creates a "Final" type.
     function createFinalType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined, flags: EvaluatorFlags): Type {
         if (flags & EvaluatorFlags.FinalDisallowed) {
-            addError(`"Final" is not allowed in this context`, errorNode);
+            addError(Localizer.Diagnostic.finalContext(), errorNode);
             return AnyType.create();
         }
 
@@ -6691,7 +6778,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (typeArgs.length > 1) {
-            addError(`Expected a single type argument after "Final"`, errorNode);
+            addError(Localizer.Diagnostic.finalTooManyArgs(), errorNode);
         }
 
         return typeArgs[0].type;
@@ -6699,16 +6786,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
         if (!typeArgs || typeArgs.length < 1) {
-            addError(`Expected at least one type argument after "Annotated"`, errorNode);
+            addError(Localizer.Diagnostic.annotatedTypeArgMissing(), errorNode);
             return AnyType.create();
         }
 
         if (isEllipsisType(typeArgs[0].type)) {
-            addError(`"..." not allowed in this context`, typeArgs[0].node);
+            addError(Localizer.Diagnostic.ellipsisContext(), typeArgs[0].node);
         } else if (typeArgs[0].type.category === TypeCategory.Module) {
-            addError(`Module not allowed in this context`, typeArgs[0].node);
+            addError(Localizer.Diagnostic.moduleContext(), typeArgs[0].node);
         } else if (isParameterSpecificationType(typeArgs[0].type)) {
-            addError(`ParameterSpecification not allowed in this context`, typeArgs[1].node);
+            addError(Localizer.Diagnostic.paramSpecContext(), typeArgs[1].node);
         }
 
         return typeArgs[0].type;
@@ -6729,14 +6816,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             typeArgs.forEach((typeArg, index) => {
                 if (isEllipsisType(typeArg.type)) {
                     if (!allowEllipsis) {
-                        addError(`"..." not allowed in this context`, typeArg.node);
+                        addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
                     } else if (typeArgs!.length !== 2 || index !== 1) {
-                        addError(`"..." allowed only as the second of two arguments`, typeArg.node);
+                        addError(Localizer.Diagnostic.ellipsisSecondArg(), typeArg.node);
                     }
                 } else if (typeArg.type.category === TypeCategory.Module) {
-                    addError(`Module not allowed in this context`, typeArg.node);
+                    addError(Localizer.Diagnostic.moduleContext(), typeArg.node);
                 } else if (!allowParamSpec && isParameterSpecificationType(typeArg.type)) {
-                    addError(`ParameterSpecification not allowed in this context`, typeArg.node);
+                    addError(Localizer.Diagnostic.paramSpecContext(), typeArg.node);
                 }
             });
 
@@ -6762,7 +6849,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (paramLimit !== undefined) {
             if (typeArgs && typeArgTypes.length > paramLimit) {
                 addError(
-                    `Expected at most ${paramLimit} type ${paramLimit === 1 ? 'argument' : 'arguments'}`,
+                    Localizer.Diagnostic.typeArgsTooMany().format({
+                        expected: paramLimit,
+                        received: typeArgTypes.length,
+                    }),
                     typeArgs[paramLimit].node
                 );
                 typeArgTypes = typeArgTypes.slice(0, paramLimit);
@@ -6797,11 +6887,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 // Verify that we didn't receive any inappropriate ellipses.
                 if (isEllipsisType(typeArg.type)) {
-                    addError(`"..." not allowed in this context`, typeArg.node);
+                    addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
                 } else if (typeArg.type.category === TypeCategory.Module) {
-                    addError(`Module not allowed in this context`, typeArg.node);
+                    addError(Localizer.Diagnostic.moduleContext(), typeArg.node);
                 } else if (isParameterSpecificationType(typeArg.type)) {
-                    addError(`ParameterSpecification not allowed in this context`, typeArg.node);
+                    addError(Localizer.Diagnostic.paramSpecContext(), typeArg.node);
                 }
             }
         }
@@ -6818,7 +6908,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     function createGenericType(errorNode: ParseNode, classType: ClassType, typeArgs?: TypeResult[]): Type {
         // Make sure there's at least one type arg.
         if (!typeArgs || typeArgs.length === 0) {
-            addError(`"Generic" requires at least one type argument`, errorNode);
+            addError(Localizer.Diagnostic.genericClassDeleted(), errorNode);
         }
 
         // Make sure that all of the type args are typeVars and are unique.
@@ -6826,11 +6916,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (typeArgs) {
             typeArgs.forEach((typeArg) => {
                 if (!(typeArg.type.category === TypeCategory.TypeVar)) {
-                    addError(`Type argument for "Generic" must be a type variable`, typeArg.node);
+                    addError(Localizer.Diagnostic.genericTypeArgTypeVar(), typeArg.node);
                 } else {
                     for (const typeVar of uniqueTypeVars) {
                         if (typeVar === typeArg.type) {
-                            addError(`Type arguments for "Generic" must be unique`, typeArg.node);
+                            addError(Localizer.Diagnostic.genericTypeArgUnique(), typeArg.node);
                             break;
                         }
                     }
@@ -7051,7 +7141,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 if (isTypeAlias && !isValidTypeAliasType(srcType)) {
-                    addError(`Expression is is not valid type for TypeAlias`, node.rightExpression);
+                    addError(Localizer.Diagnostic.typeAliasInvalidType(), node.rightExpression);
                 }
 
                 // If the RHS is a constant boolean expression, assign it a literal type.
@@ -7160,7 +7250,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (isMetaclass) {
                     if (sawMetaclass) {
-                        addError(`Only one metaclass can be provided`, arg);
+                        addError(Localizer.Diagnostic.metaclassDuplicate(), arg);
                     }
                     sawMetaclass = true;
                 }
@@ -7179,7 +7269,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            `Argument to class must be a base class`,
+                            Localizer.Diagnostic.baseClassInvalid(),
                             arg
                         );
                         argType = UnknownType.create();
@@ -7189,7 +7279,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 !fileInfo.isStubFile &&
                                 fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37
                             ) {
-                                addError(`Use of "Protocol" requires Python 3.7 or newer`, arg.valueExpression);
+                                addError(Localizer.Diagnostic.protocolIllegal(), arg.valueExpression);
                             }
                             classType.details.flags |= ClassTypeFlags.ProtocolClass;
                         }
@@ -7213,13 +7303,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         } else if (ClassType.isTypedDictClass(classType) && !ClassType.isTypedDictClass(argType)) {
                             // TypedDict classes must derive only from other
                             // TypedDict classes.
-                            addError(`All base classes for "TypedDict" classes must also be "TypedDict" classes`, arg);
+                            addError(Localizer.Diagnostic.typedDictBaseClass(), arg);
                         }
 
                         // Validate that the class isn't deriving from itself, creating a
                         // circular dependency.
                         if (derivesFromClassRecursive(argType, classType, /* ignoreUnknown */ true)) {
-                            addError(`Class cannot derive from itself`, arg);
+                            addError(Localizer.Diagnostic.baseClassCircular(), arg);
                             argType = UnknownType.create();
                         }
                     }
@@ -7233,7 +7323,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUntypedBaseClass,
                         DiagnosticRule.reportUntypedBaseClass,
-                        `Base class type is unknown, obscuring type of derived class`,
+                        Localizer.Diagnostic.baseClassUnknown(),
                         arg
                     );
                 }
@@ -7267,7 +7357,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         if (ClassType.isFinal(argType)) {
                             const className = printObjectTypeForClass(argType);
                             addError(
-                                `Base class "${className}" is marked final and cannot be subclassed`,
+                                Localizer.Diagnostic.baseClassFinal().format({ type: className }),
                                 arg.valueExpression
                             );
                         }
@@ -7277,7 +7367,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(argType));
                 if (argType.category === TypeCategory.Class && ClassType.isBuiltIn(argType, 'Generic')) {
                     if (genericTypeParameters) {
-                        addError(`Class cannot derive from "Generic" more than once`, arg.valueExpression);
+                        addError(Localizer.Diagnostic.baseClassDoubleGeneric(), arg.valueExpression);
                     } else {
                         genericTypeParameters = [];
                         addTypeVarsToListIfUnique(genericTypeParameters, getTypeVarArgumentsRecursive(argType));
@@ -7296,7 +7386,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         fileInfo.executionEnvironment
                     );
                     if (constArgValue === undefined) {
-                        addError('Value for total parameter must be "True" or "False"', arg.valueExpression);
+                        addError(Localizer.Diagnostic.typedDictTotalParam(), arg.valueExpression);
                     } else if (!constArgValue) {
                         classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
                     }
@@ -7319,7 +7409,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         classType.details.typeParameters = genericTypeParameters || typeParameters;
 
         if (!computeMroLinearization(classType)) {
-            addError('Cannot create consistent method ordering', node.name);
+            addError(Localizer.Diagnostic.methodOrdering(), node.name);
         }
 
         // The scope for this class becomes the "fields" for the corresponding type.
@@ -7385,7 +7475,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUntypedClassDecorator,
                         DiagnosticRule.reportUntypedClassDecorator,
-                        `Untyped class decorator obscures type of class; ignoring decorator`,
+                        Localizer.Diagnostic.classDecoratorTypeUnknown(),
                         node.decorators[i].leftExpression
                     );
 
@@ -7618,10 +7708,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         const diag = addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            `Value of type "${printType(
-                                defaultValueType
-                            )}" cannot be assigned to parameter of type "${printType(annotatedType)}"` +
-                                diagAddendum.getString(),
+                            Localizer.Diagnostic.paramAssignmentMismatch().format({
+                                sourceType: printType(defaultValueType),
+                                paramType: printType(annotatedType),
+                            }) + diagAddendum.getString(),
                             param.defaultValue
                         );
 
@@ -7702,7 +7792,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUntypedFunctionDecorator,
                         DiagnosticRule.reportUntypedFunctionDecorator,
-                        `Untyped function decorator obscures type of function; ignoring decorator`,
+                        Localizer.Diagnostic.functionDecoratorTypeUnknown(),
                         node.decorators[i].leftExpression
                     );
 
@@ -8397,7 +8487,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportOptionalContextManager,
                 DiagnosticRule.reportOptionalContextManager,
-                `Object of type "None" cannot be used with "with"`,
+                Localizer.Diagnostic.noneNotUsableWith(),
                 node.expression
             );
             exprType = removeNoneFromUnion(exprType);
@@ -8415,7 +8505,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             const diag = new DiagnosticAddendum();
-            let additionalHelp = '';
+            const additionalHelp = new DiagnosticAddendum();
 
             if (subtype.category === TypeCategory.Object) {
                 const enterType = getTypeFromObjectMember(
@@ -8453,7 +8543,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         MemberAccessFlags.None
                     );
                     if (memberType) {
-                        additionalHelp = `; did you mean "async with"?`;
+                        additionalHelp.addMessage(Localizer.DiagnosticAddendum.asyncHelp());
                     }
                 }
             }
@@ -8462,9 +8552,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                `Object of type "${printType(
-                    subtype
-                )}" cannot be used with "with" because it does not implement ${enterMethodName}` + additionalHelp,
+                Localizer.Diagnostic.typeNotUsableWith().format({ type: printType(subtype), method: enterMethodName }) +
+                    additionalHelp.getString(),
                 node.expression
             );
             return UnknownType.create();
@@ -8502,9 +8591,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                `Object of type "${printType(
-                    subtype
-                )}" cannot be used with "with" because it does not implement ${exitMethodName}`,
+                Localizer.Diagnostic.typeNotUsableWith().format({ type: printType(subtype), method: exitMethodName }),
                 node.expression
             );
             return undefined;
@@ -8586,7 +8673,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            `"${node.name.value}" is unknown import symbol`,
+                            Localizer.Diagnostic.importSymbolUnknown().format({ name: node.name.value }),
                             node.name
                         );
                     }
@@ -10065,12 +10152,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (typeArgs && typeArgCount > typeParameters.length) {
             if (typeParameters.length === 0) {
-                addError(`Expected no type arguments`, typeArgs[typeParameters.length].node);
+                addError(Localizer.Diagnostic.typeArgsExpectingNone(), typeArgs[typeParameters.length].node);
             } else {
                 addError(
-                    `Expected at most ${typeParameters.length} type ${
-                        typeParameters.length === 1 ? 'argument' : 'arguments'
-                    } `,
+                    Localizer.Diagnostic.typeArgsTooMany().format({
+                        expected: typeParameters.length,
+                        received: typeArgCount,
+                    }),
                     typeArgs[typeParameters.length].node
                 );
             }
@@ -10081,9 +10169,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             typeArgs.forEach((typeArg) => {
                 // Verify that we didn't receive any inappropriate ellipses or modules.
                 if (isEllipsisType(typeArg.type)) {
-                    addError(`"..." not allowed in this context`, typeArg.node);
+                    addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
                 } else if (typeArg.type.category === TypeCategory.Module) {
-                    addError(`Module not allowed in this context`, typeArg.node);
+                    addError(Localizer.Diagnostic.moduleContext(), typeArg.node);
                 }
             });
         }
@@ -10103,9 +10191,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        `Type "${printType(typeArgType)}" cannot be assigned to TypeVar "${
-                            typeParameters[index].name
-                        }"` + diag.getString(),
+                        Localizer.Diagnostic.typeVarAssignmentMismatch().format({
+                            type: printType(typeArgType),
+                            name: typeParameters[index].name,
+                        }) + diag.getString(),
                         typeArgs![index].node
                     );
                 }
@@ -11037,7 +11126,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
                 const memberInfo = lookUpClassMember(srcType, name);
                 if (!memberInfo) {
-                    diag.addMessage(`"${name}" is not present`);
+                    diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
                 } else {
                     const declaredType = getDeclaredTypeOfSymbol(symbol);
@@ -11059,13 +11148,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 recursionCount + 1
                             )
                         ) {
-                            diag.addMessage(`"${name}" is an incompatible type`);
+                            diag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
                             typesAreConsistent = false;
                         }
                     }
 
                     if (symbol.isClassVar() && !memberInfo.symbol.isClassMember()) {
-                        diag.addMessage(`"${name}" is not a class variable`);
+                        diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberClassVar().format({ name }));
                         typesAreConsistent = false;
                     }
                 }
@@ -11117,19 +11206,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         destEntries.forEach((destEntry, name) => {
             const srcEntry = srcEntries.get(name);
             if (!srcEntry) {
-                diag.addMessage(`"${name}" is missing from ${printType(srcType)}`);
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.typedDictFieldMissing().format({ name, type: printType(srcType) })
+                );
                 typesAreConsistent = false;
             } else {
                 if (destEntry.isRequired && !srcEntry.isRequired) {
-                    diag.addMessage(`"${name}" is required in ${printType(destType)}`);
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
+                            name,
+                            type: printType(destType),
+                        })
+                    );
                     typesAreConsistent = false;
                 } else if (!destEntry.isRequired && srcEntry.isRequired) {
-                    diag.addMessage(`"${name}" is not required in ${printType(destType)}`);
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typedDictFieldNotRequired().format({
+                            name,
+                            type: printType(destType),
+                        })
+                    );
                     typesAreConsistent = false;
                 }
 
                 if (!isTypeSame(destEntry.valueType, srcEntry.valueType, recursionCount + 1)) {
-                    diag.addMessage(`"${name}" is an incompatible type`);
+                    diag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
                     typesAreConsistent = false;
                 }
             }
@@ -11222,7 +11323,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
         const srcErrorType = reportErrorsUsingObjType ? ObjectType.create(srcType) : srcType;
-        diag.addMessage(`"${printType(srcErrorType)}" is incompatible with "${printType(destErrorType)}"`);
+        diag.addMessage(
+            Localizer.DiagnosticAddendum.typeIncompatible().format({
+                sourceType: printType(srcErrorType),
+                destType: printType(destErrorType),
+            })
+        );
         return false;
     }
 
@@ -11312,13 +11418,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                         recursionCount + 1
                                     )
                                 ) {
-                                    diag.addMessage(`Tuple entry ${i + 1} is incorrect type`);
+                                    diag.addMessage(
+                                        Localizer.DiagnosticAddendum.tupleEntryTypeMismatch().format({ entry: i + 1 })
+                                    );
                                     return false;
                                 }
                             }
                         } else {
                             diag.addMessage(
-                                `Tuple size mismatch; expected ${destArgCount} but got ${srcTypeArgs.length}`
+                                Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
+                                    expected: destArgCount,
+                                    received: srcTypeArgs.length,
+                                })
                             );
                             return false;
                         }
@@ -11399,7 +11510,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             )
                         ) {
                             if (destTypeParam) {
-                                diag.addMessage(`TypeVar "${destTypeParam.name}" is covariant`);
+                                diag.addMessage(
+                                    Localizer.DiagnosticAddendum.typeVarIsCovariant().format({
+                                        name: destTypeParam.name,
+                                    })
+                                );
                             }
                             return false;
                         }
@@ -11414,7 +11529,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 recursionCount + 1
                             )
                         ) {
-                            diag.addMessage(`TypeVar "${destTypeParam.name}" is contravariant`);
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
+                                    name: destTypeParam.name,
+                                })
+                            );
                             return false;
                         }
                     } else {
@@ -11428,7 +11547,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 recursionCount + 1
                             )
                         ) {
-                            diag.addMessage(`TypeVar "${destTypeParam.name}" is invariant`);
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.typeVarIsInvariant().format({
+                                    name: destTypeParam.name,
+                                })
+                            );
                             return false;
                         }
                     }
@@ -11458,7 +11581,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (destType.isParameterSpec) {
             diag.addMessage(
-                `Type "${printType(srcType)}" is not compatible with ParameterSpecification "${destType.name}"`
+                Localizer.DiagnosticAddendum.typeParamSpec().format({
+                    type: printType(srcType),
+                    name: destType.name,
+                })
             );
             return false;
         }
@@ -11472,9 +11598,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             if (!constrainedType) {
                 diag.addMessage(
-                    `Type "${printType(srcType)}" is not compatible with constraints imposed by TypeVar "${
-                        destType.name
-                    }"`
+                    Localizer.DiagnosticAddendum.typeConstraint().format({
+                        type: printType(srcType),
+                        name: destType.name,
+                    })
                 );
                 return false;
             }
@@ -11482,9 +11609,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (curTypeVarMapping) {
                 if (!isTypeSame(curTypeVarMapping, constrainedType)) {
                     diag.addMessage(
-                        `Type "${printType(srcType)}" is not compatible with constrained type "${printType(
-                            curTypeVarMapping
-                        )}"`
+                        Localizer.DiagnosticAddendum.typeConstraint().format({
+                            type: printType(srcType),
+                            name: printType(curTypeVarMapping),
+                        })
                     );
                     return false;
                 }
@@ -11527,7 +11655,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     )
                 ) {
                     diag.addMessage(
-                        `Type "${printType(srcType)}" cannot be assigned to type "${printType(curTypeVarMapping)}"`
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(curTypeVarMapping),
+                        })
                     );
                     return false;
                 }
@@ -11548,7 +11679,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 } else {
                     if (typeVarMap.isLocked()) {
                         diag.addMessage(
-                            `Type "${printType(curTypeVarMapping)}" cannot be assigned to type "${printType(srcType)}"`
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: printType(curTypeVarMapping),
+                                destType: printType(srcType),
+                            })
                         );
                         return false;
                     }
@@ -11583,9 +11717,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 )
             ) {
                 diag.addMessage(
-                    `Type "${printType(updatedType)}" is not compatible with bound type "${printType(
-                        destType.boundType
-                    )}" for TypeVar "${destType.name}"`
+                    Localizer.DiagnosticAddendum.typeBound().format({
+                        sourceType: printType(updatedType),
+                        destType: printType(destType.boundType),
+                        name: destType.name,
+                    })
                 );
                 return false;
             }
@@ -11683,7 +11819,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (flags & CanAssignFlags.EnforceInvariance) {
             if (srcType.category === TypeCategory.Union || destType.category === TypeCategory.Union) {
                 if (!isTypeSame(srcType, destType)) {
-                    diag.addMessage(`Type "${printType(srcType)}" cannot be assigned to type "${printType(destType)}"`);
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(destType),
+                        })
+                    );
                     return false;
                 }
 
@@ -11697,7 +11838,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // For union sources, all of the types need to be assignable to the dest.
             srcType.subtypes.forEach((t) => {
                 if (!canAssignType(destType, t, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)) {
-                    diag.addMessage(`Type "${printType(t)}" cannot be assigned to type "${printType(destType)}"`);
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(t),
+                            destType: printType(destType),
+                        })
+                    );
                     isIncompatible = true;
                 }
             });
@@ -11828,9 +11974,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const srcLiteral = srcType.literalValue;
                     if (srcLiteral === undefined || !ObjectType.isLiteralValueSame(srcType, destType)) {
                         diag.addMessage(
-                            `"${
-                                srcLiteral !== undefined ? printLiteralType(srcType) : printType(srcType)
-                            }" cannot be assigned to "${printLiteralType(destType)}"`
+                            Localizer.DiagnosticAddendum.literalAssignmentMismatch().format({
+                                sourceType: srcLiteral !== undefined ? printLiteralType(srcType) : printType(srcType),
+                                destType: printLiteralType(destType),
+                            })
                         );
 
                         return false;
@@ -11927,7 +12074,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     );
                 });
                 if (overloadIndex < 0) {
-                    diag.addMessage(`No overloaded function matches type "${printType(destType)}".`);
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.noOverloadAssignable().format({ type: printType(destType) })
+                    );
                     return false;
                 }
                 srcFunction = overloads[overloadIndex];
@@ -11994,11 +12143,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (isNoneOrNever(destType)) {
-            diag.addMessage(`Cannot assign to "None"`);
+            diag.addMessage(Localizer.DiagnosticAddendum.assignToNone());
             return false;
         }
 
-        diag.addMessage(`Type "${printType(srcType)}" cannot be assigned to type "${printType(destType)}"`);
+        diag.addMessage(
+            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                sourceType: printType(srcType),
+                destType: printType(destType),
+            })
+        );
         return false;
     }
 
@@ -12081,9 +12235,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 )
             ) {
                 paramDiag.addMessage(
-                    `Parameter ${paramIndex + 1} of type "${printType(
-                        specializedDestParamType
-                    )}" cannot be assigned to type "${printType(srcParamType)}"`
+                    Localizer.DiagnosticAddendum.paramAssignment().format({
+                        index: paramIndex + 1,
+                        sourceType: printType(specializedDestParamType),
+                        destType: printType(srcParamType),
+                    })
                 );
                 canAssign = false;
             }
@@ -12119,7 +12275,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         const destParam = destParamMap.get(param.name);
                         const paramDiag = diag.createAddendum();
                         if (!destParam) {
-                            paramDiag.addMessage(`Named parameter "${param.name}" is missing in destination`);
+                            paramDiag.addMessage(
+                                Localizer.DiagnosticAddendum.namedParamMissingInDest().format({ name: param.name })
+                            );
                             canAssign = false;
                         } else {
                             const specializedDestParamType = specializeType(
@@ -12139,9 +12297,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 )
                             ) {
                                 paramDiag.addMessage(
-                                    `Named parameter "${param.name}" of type "${printType(
-                                        specializedDestParamType
-                                    )}" cannot be assigned to type "${printType(param.type)}"`
+                                    Localizer.DiagnosticAddendum.namedParamTypeMismatch().format({
+                                        name: param.name,
+                                        sourceType: printType(specializedDestParamType),
+                                        destType: printType(param.type),
+                                    })
                                 );
                                 canAssign = false;
                             }
@@ -12156,7 +12316,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // See if there are any unmatched named parameters.
             destParamMap.forEach((_, paramName) => {
                 const paramDiag = diag.createAddendum();
-                paramDiag.addMessage(`Named parameter "${paramName}" is missing in source`);
+                paramDiag.addMessage(
+                    Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName })
+                );
                 canAssign = false;
             });
         }
@@ -12170,14 +12332,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             if (destParamCount < nonDefaultSrcParamCount) {
                 diag.addMessage(
-                    `Function accepts too few parameters; expected ${nonDefaultSrcParamCount} but got ${destParamCount}`
+                    Localizer.DiagnosticAddendum.functionTooFewParams().format({
+                        expected: nonDefaultSrcParamCount,
+                        received: destParamCount,
+                    })
                 );
                 canAssign = false;
             }
 
             if (destParamCount > srcParamCount) {
                 diag.addMessage(
-                    `Function accepts too many parameters; expected ${srcParamCount} but got ${destParamCount}`
+                    Localizer.DiagnosticAddendum.functionTooManyParams().format({
+                        expected: srcParamCount,
+                        received: destParamCount,
+                    })
                 );
                 canAssign = false;
             }
@@ -12199,9 +12367,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 )
             ) {
                 diag.addMessage(
-                    `Function return type "${printType(srcReturnType)}" is not compatible with type "${printType(
-                        destReturnType
-                    )}"`
+                    Localizer.DiagnosticAddendum.functionReturnTypeMismatch().format({
+                        sourceType: printType(srcReturnType),
+                        destType: printType(destReturnType),
+                    })
                 );
                 canAssign = false;
             }
@@ -12254,7 +12423,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // If we're overriding a non-method with a method, report it as an error.
         // This occurs when a non-property overrides a property.
         if (baseMethod.category !== TypeCategory.Function) {
-            diag.addMessage(`Base class defines type as "${printType(baseMethod)}"`);
+            diag.addMessage(Localizer.DiagnosticAddendum.overrideType().format({ type: printType(baseMethod) }));
             return false;
         }
 
@@ -12264,7 +12433,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (baseParams.length !== overrideParams.length) {
             diag.addMessage(
-                `Parameter count mismatch; base method has ${baseParams.length}, but override has ${overrideParams.length}`
+                Localizer.DiagnosticAddendum.overrideParamCount().format({
+                    baseCount: baseParams.length,
+                    overrideCount: overrideParams.length,
+                })
             );
             return false;
         }
@@ -12276,9 +12448,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             if (baseParam.name !== overrideParam.name) {
                 diag.addMessage(
-                    `Parameter ${i + 1} name mismatch: base parameter is named "${
-                        baseParam.name || '*'
-                    }", override parameter is named "${overrideParam.name || '*'}"`
+                    Localizer.DiagnosticAddendum.overrideParamName().format({
+                        index: i + 1,
+                        baseName: baseParam.name || '*',
+                        overrideName: overrideParam.name || '*',
+                    })
                 );
                 canOverride = false;
             } else {
@@ -12287,9 +12461,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (!canAssignType(baseParamType, overrideParamType, diag.createAddendum())) {
                     diag.addMessage(
-                        `Parameter ${i + 1} type mismatch: base method parameter is type "${printType(
-                            baseParamType
-                        )}", override is type "${printType(overrideParamType)}"`
+                        Localizer.DiagnosticAddendum.overrideParamType().format({
+                            index: i + 1,
+                            baseType: printType(baseParamType),
+                            overrideType: printType(overrideParamType),
+                        })
                     );
                     canOverride = false;
                 }
@@ -12300,9 +12476,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const overrideReturnType = getFunctionEffectiveReturnType(overrideMethod);
         if (!canAssignType(baseReturnType, overrideReturnType, diag.createAddendum())) {
             diag.addMessage(
-                `Return type mismatch: base method returns type "${printType(
-                    baseReturnType
-                )}", override returns type "${printType(overrideReturnType)}"`
+                Localizer.DiagnosticAddendum.overrideReturnType().format({
+                    baseType: printType(baseReturnType),
+                    overrideType: printType(overrideReturnType),
+                })
             );
 
             canOverride = false;
@@ -12347,9 +12524,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 !canAssignType(boundType, effectiveSrcType, diag.createAddendum(), undefined, flags, recursionCount + 1)
             ) {
                 diag.addMessage(
-                    `Type "${printType(effectiveSrcType)}" is not compatible with bound type "${printType(
-                        boundType
-                    )}" for TypeVar "${destType.name}"`
+                    Localizer.DiagnosticAddendum.typeBound().format({
+                        sourceType: printType(effectiveSrcType),
+                        destType: printType(boundType),
+                        name: destType.name,
+                    })
                 );
                 return false;
             }
@@ -12376,9 +12555,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         diag.addMessage(
-            `Type "${printType(effectiveSrcType)}" is not compatible with constraints imposed by TypeVar "${
-                destType.name
-            }"`
+            Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
+                type: printType(effectiveSrcType),
+                name: destType.name,
+            })
         );
 
         return false;

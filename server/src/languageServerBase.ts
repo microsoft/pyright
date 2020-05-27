@@ -75,6 +75,7 @@ import { Position } from './common/textRange';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CompletionItemData } from './languageService/completionProvider';
 import { convertHoverResults } from './languageService/hoverProvider';
+import { Localizer } from './localization/localize';
 import { WorkspaceMap } from './workspaceMap';
 
 export interface ServerSettings {
@@ -457,7 +458,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             // VS Code doesn't support cancellation of "final all references".
             // We provide a progress bar a cancellation button so the user can cancel
             // any long-running actions.
-            const progress = await this._getProgressReporter(params.workDoneToken, reporter, 'finding references');
+            const progress = await this._getProgressReporter(
+                params.workDoneToken,
+                reporter,
+                Localizer.CodeAction.findingReferences()
+            );
             const source = CancelAfter(token, progress.token);
             this._pendingFindAllRefsCancellationSource = source;
 
@@ -756,7 +761,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
             if (this.isLongRunningCommand(params.command)) {
                 // Create a progress dialog for long-running commands.
-                const progress = await this._getProgressReporter(params.workDoneToken, reporter, 'Executing command');
+                const progress = await this._getProgressReporter(
+                    params.workDoneToken,
+                    reporter,
+                    Localizer.CodeAction.executingCommand()
+                );
                 const source = CancelAfter(token, progress.token);
                 this._pendingCommandCancellationSource = source;
 
@@ -796,10 +805,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                         this._connection.sendNotification('pyright/beginProgress');
                     }
 
-                    const fileOrFiles = results.filesRequiringAnalysis !== 1 ? 'files' : 'file';
                     this._connection.sendNotification(
                         'pyright/reportProgress',
-                        `${results.filesRequiringAnalysis} ${fileOrFiles} to analyze`
+                        results.filesRequiringAnalysis === 1
+                            ? Localizer.CodeAction.filesToAnalyzeOne()
+                            : Localizer.CodeAction.filesToAnalyzeCount().format({
+                                  count: results.filesRequiringAnalysis,
+                              })
                     );
                 }
             } else {

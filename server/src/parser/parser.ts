@@ -19,6 +19,7 @@ import { latestStablePythonVersion, PythonVersion } from '../common/pythonVersio
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
+import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
     ArgumentNode,
@@ -186,9 +187,9 @@ export class Parser {
                         this._getNextToken();
                         const indentToken = nextToken as IndentToken;
                         if (indentToken.isIndentAmbiguous) {
-                            this._addError('Inconsistent use of tabs and spaces in indentation', indentToken);
+                            this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
                         } else {
-                            this._addError('Unexpected indentation', nextToken);
+                            this._addError(Localizer.Diagnostic.unexpectedIndent(), nextToken);
                         }
                     }
 
@@ -237,7 +238,7 @@ export class Parser {
         }
 
         if (!this._atEof()) {
-            this._addError('Unexpected token at end of expression', this._peekToken());
+            this._addError(Localizer.Diagnostic.unexpectedExprToken(), this._peekToken());
         }
 
         return {
@@ -271,7 +272,7 @@ export class Parser {
         // Handle the errant condition of a dedent token here to provide
         // better recovery.
         if (this._consumeTokenIfType(TokenType.Dedent)) {
-            this._addError('Unindent not expected', this._peekToken());
+            this._addError(Localizer.Diagnostic.unexpectedUnindent(), this._peekToken());
         }
 
         switch (this._peekKeywordType()) {
@@ -322,7 +323,7 @@ export class Parser {
                 return this._parseForStatement(asyncToken);
         }
 
-        this._addError('Expected "def", "with" or "for" to follow "async"', asyncToken);
+        this._addError(Localizer.Diagnostic.unexpectedAsyncToken(), asyncToken);
 
         return undefined;
     }
@@ -371,7 +372,7 @@ export class Parser {
         const suite = SuiteNode.create(nextToken);
 
         if (!this._consumeTokenIfType(TokenType.Colon)) {
-            this._addError('Expected ":"', nextToken);
+            this._addError(Localizer.Diagnostic.expectedColon(), nextToken);
             return suite;
         }
 
@@ -381,11 +382,11 @@ export class Parser {
         if (this._consumeTokenIfType(TokenType.NewLine)) {
             const possibleIndent = this._peekToken();
             if (!this._consumeTokenIfType(TokenType.Indent)) {
-                this._addError('Expected indented block', this._peekToken());
+                this._addError(Localizer.Diagnostic.expectedIndentedBlock(), this._peekToken());
             } else {
                 const indentToken = possibleIndent as IndentToken;
                 if (indentToken.isIndentAmbiguous) {
-                    this._addError('Inconsistent use of tabs and spaces in indentation', indentToken);
+                    this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
                 }
             }
 
@@ -396,9 +397,9 @@ export class Parser {
                     this._getNextToken();
                     const indentToken = nextToken as IndentToken;
                     if (indentToken.isIndentAmbiguous) {
-                        this._addError('Inconsistent use of tabs and spaces in indentation', indentToken);
+                        this._addError(Localizer.Diagnostic.inconsistentTabs(), indentToken);
                     } else {
-                        this._addError('Indent not expected', nextToken);
+                        this._addError(Localizer.Diagnostic.unexpectedIndent(), nextToken);
                     }
                 }
 
@@ -414,7 +415,7 @@ export class Parser {
                 const dedentToken = this._peekToken() as DedentToken;
                 if (this._consumeTokenIfType(TokenType.Dedent)) {
                     if (!dedentToken.matchesIndent) {
-                        this._addError('Unindent amount does not match previous indent', dedentToken);
+                        this._addError(Localizer.Diagnostic.inconsistentIndent(), dedentToken);
                     }
                     break;
                 }
@@ -449,12 +450,15 @@ export class Parser {
         let elseSuite: SuiteNode | undefined;
 
         if (!this._consumeTokenIfKeyword(KeywordType.In)) {
-            seqExpr = this._handleExpressionParseError(ErrorExpressionCategory.MissingIn, 'Expected "in"');
+            seqExpr = this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingIn,
+                Localizer.Diagnostic.expectedIn()
+            );
             forSuite = SuiteNode.create(this._peekToken());
         } else {
             seqExpr = this._parseTestListAsExpression(
                 ErrorExpressionCategory.MissingExpression,
-                'Expected expression after "in"'
+                Localizer.Diagnostic.expectedInExpr()
             );
             forSuite = this._parseLoopSuite();
 
@@ -533,7 +537,10 @@ export class Parser {
         let seqExpr: ExpressionNode | undefined;
 
         if (!this._consumeTokenIfKeyword(KeywordType.In)) {
-            seqExpr = this._handleExpressionParseError(ErrorExpressionCategory.MissingIn, 'Expected "in"');
+            seqExpr = this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingIn,
+                Localizer.Diagnostic.expectedIn()
+            );
         } else {
             this._disallowAssignmentExpression(() => {
                 seqExpr = this._parseOrTest();
@@ -605,13 +612,13 @@ export class Parser {
                 if (this._consumeTokenIfKeyword(KeywordType.As)) {
                     symbolName = this._getTokenIfIdentifier();
                     if (!symbolName) {
-                        this._addError('Expected symbol name after "as"', this._peekToken());
+                        this._addError(Localizer.Diagnostic.expectedNameAfterAs(), this._peekToken());
                     }
                 } else {
                     // Handle the python 2.x syntax in a graceful manner.
                     const peekToken = this._peekToken();
                     if (this._consumeTokenIfType(TokenType.Comma)) {
-                        this._addError(`Expected "as" after exception type`, peekToken);
+                        this._addError(Localizer.Diagnostic.expectedAsAfterException(), peekToken);
 
                         // Parse the expression expected in python 2.x, but discard it.
                         this._parseTestExpression(false);
@@ -621,12 +628,12 @@ export class Parser {
 
             if (!typeExpr) {
                 if (sawCatchAllExcept) {
-                    this._addError('Only one catch-all except clause is allowed', exceptToken);
+                    this._addError(Localizer.Diagnostic.duplicateCatchAll(), exceptToken);
                 }
                 sawCatchAllExcept = true;
             } else {
                 if (sawCatchAllExcept) {
-                    this._addError('A named except clause cannot appear after catch-all except clause', typeExpr);
+                    this._addError(Localizer.Diagnostic.namedExceptAfterCatchAll(), typeExpr);
                 }
             }
 
@@ -672,12 +679,12 @@ export class Parser {
 
         const nameToken = this._getTokenIfIdentifier();
         if (!nameToken) {
-            this._addError('Expected function name after "def"', defToken);
+            this._addError(Localizer.Diagnostic.expectedFunctionName(), defToken);
             return ErrorNode.create(defToken, ErrorExpressionCategory.MissingFunctionParameterList);
         }
 
         if (!this._consumeTokenIfType(TokenType.OpenParenthesis)) {
-            this._addError('Expected "("', this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedOpenParen(), this._peekToken());
             return ErrorNode.create(
                 nameToken,
                 ErrorExpressionCategory.MissingFunctionParameterList,
@@ -688,7 +695,7 @@ export class Parser {
         const paramList = this._parseVarArgsList(TokenType.CloseParenthesis, true);
 
         if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-            this._addError('Expected ")"', this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
             this._consumeTokensUntilType(TokenType.Colon);
         }
 
@@ -765,17 +772,19 @@ export class Parser {
 
             if (param.name) {
                 const name = param.name.value;
-                if (!paramMap.set(name, name)) {
-                    this._addError(`Duplicate parameter "${name}"`, param.name);
+                if (paramMap.has(name)) {
+                    this._addError(Localizer.Diagnostic.duplicateParam().format({ name }), param.name);
+                } else {
+                    paramMap.set(name, name);
                 }
             }
 
             if (param.category === ParameterCategory.Simple) {
                 if (!param.name) {
                     if (sawPositionOnlySeparator) {
-                        this._addError(`Only one "/" parameter is allowed`, param);
+                        this._addError(Localizer.Diagnostic.duplicatePositionOnly(), param);
                     } else if (sawKwSeparator) {
-                        this._addError(`"/" parameter must appear before "*" parameter`, param);
+                        this._addError(Localizer.Diagnostic.positionOnlyAfterNameOnly(), param);
                     }
                     sawPositionOnlySeparator = true;
                 } else {
@@ -784,7 +793,7 @@ export class Parser {
                     } else if (sawDefaultParam && !sawKwSeparator) {
                         // Report this error only once.
                         if (!reportedNonDefaultParamErr) {
-                            this._addError(`Non-default argument follows default argument`, param);
+                            this._addError(Localizer.Diagnostic.nonDefaultAfterDefault(), param);
                             reportedNonDefaultParamErr = true;
                         }
                     }
@@ -796,12 +805,12 @@ export class Parser {
             if (param.category === ParameterCategory.VarArgList) {
                 if (!param.name) {
                     if (sawKwSeparator) {
-                        this._addError(`Only one "*" separator is allowed`, param);
+                        this._addError(Localizer.Diagnostic.duplicateNameOnly(), param);
                     }
                     sawKwSeparator = true;
                 } else {
                     if (sawVarArgs) {
-                        this._addError(`Only one "*" parameter is allowed`, param);
+                        this._addError(Localizer.Diagnostic.duplicateArgsParam(), param);
                     }
                     sawVarArgs = true;
                 }
@@ -809,11 +818,11 @@ export class Parser {
 
             if (param.category === ParameterCategory.VarArgDictionary) {
                 if (sawKwArgs) {
-                    this._addError(`Only one "**" parameter is allowed`, param);
+                    this._addError(Localizer.Diagnostic.duplicateKwargsParam(), param);
                 }
                 sawKwArgs = true;
             } else if (sawKwArgs) {
-                this._addError(`Parameter cannot follow "**" parameter`, param);
+                this._addError(Localizer.Diagnostic.paramAfterKwargsParam(), param);
             }
 
             if (!this._consumeTokenIfType(TokenType.Comma)) {
@@ -824,7 +833,7 @@ export class Parser {
         if (paramList.length > 0) {
             const lastParam = paramList[paramList.length - 1];
             if (lastParam.category === ParameterCategory.VarArgList && !lastParam.name) {
-                this._addError(`Named argument must follow "*"`, lastParam);
+                this._addError(Localizer.Diagnostic.expectedNamedArgument(), lastParam);
             }
         }
 
@@ -842,7 +851,7 @@ export class Parser {
             starCount = 2;
         } else if (this._consumeTokenIfOperator(OperatorType.Divide)) {
             if (this._getLanguageVersion() < PythonVersion.V38) {
-                this._addError(`Position-only argument separator requires Python 3.8 or greater`, firstToken);
+                this._addError(Localizer.Diagnostic.positionOnlyIncompatible(), firstToken);
             }
             slashCount = 1;
         }
@@ -863,9 +872,9 @@ export class Parser {
                 if (this._consumeTokensUntilType(TokenType.CloseParenthesis)) {
                     this._getNextToken();
                 }
-                this._addError(`Sublist parameters are not supported in Python 3.x`, sublistStart);
+                this._addError(Localizer.Diagnostic.sublistParamsIncompatible(), sublistStart);
             } else {
-                this._addError('Expected parameter name', this._peekToken());
+                this._addError(Localizer.Diagnostic.expectedParamName(), this._peekToken());
             }
         }
 
@@ -894,7 +903,7 @@ export class Parser {
             extendRange(paramNode, paramNode.defaultValue);
 
             if (starCount > 0) {
-                this._addError(`Parameter with "*" or "**" cannot have default value`, paramNode.defaultValue);
+                this._addError(Localizer.Diagnostic.defaultValueNotAllowed(), paramNode.defaultValue);
             }
         }
 
@@ -962,7 +971,7 @@ export class Parser {
                 this._getNextToken();
 
                 if (this._peekKeywordType() !== KeywordType.Def) {
-                    this._addError('Expected function definition after "async"', this._peekToken());
+                    this._addError(Localizer.Diagnostic.expectedFunctionAfterAsync(), this._peekToken());
                 } else {
                     return this._parseFunctionDef(nextToken, decoratorList);
                 }
@@ -973,7 +982,7 @@ export class Parser {
             }
         }
 
-        this._addError('Expected function or class declaration after decorator', this._peekToken());
+        this._addError(Localizer.Diagnostic.expectedAfterDecorator(), this._peekToken());
 
         // Return a dummy class declaration so the completion provider has
         // some parse nodes to work with.
@@ -989,7 +998,7 @@ export class Parser {
         while (true) {
             const namePart = this._getTokenIfIdentifier();
             if (!namePart) {
-                this._addError('Expected decorator name', this._peekToken());
+                this._addError(Localizer.Diagnostic.expectedDecoratorName(), this._peekToken());
                 if (callNameExpr) {
                     callNameExpr = ErrorNode.create(
                         this._peekToken(),
@@ -1029,14 +1038,14 @@ export class Parser {
 
             const nextToken = this._peekToken();
             if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                this._addError('Expected ")"', this._peekToken());
+                this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
             } else {
                 extendRange(decoratorNode, nextToken);
             }
         }
 
         if (!this._consumeTokenIfType(TokenType.NewLine)) {
-            this._addError('Expected new line at end of decorator', this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedDecoratorNewline(), this._peekToken());
             this._consumeTokensUntilType(TokenType.NewLine);
         }
 
@@ -1049,7 +1058,7 @@ export class Parser {
 
         let nameToken = this._getTokenIfIdentifier();
         if (!nameToken) {
-            this._addError('Expected class name', this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedClassName(), this._peekToken());
             nameToken = IdentifierToken.create(0, 0, '', undefined);
         }
 
@@ -1058,7 +1067,7 @@ export class Parser {
             argList = this._parseArgList();
 
             if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                this._addError('Expected ")"', this._peekToken());
+                this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
             }
         }
 
@@ -1091,7 +1100,7 @@ export class Parser {
         const breakToken = this._getKeywordToken(KeywordType.Break);
 
         if (!this._isInLoop) {
-            this._addError('"break" can be used only within a loop', breakToken);
+            this._addError(Localizer.Diagnostic.breakOutsideLoop(), breakToken);
         }
 
         return BreakNode.create(breakToken);
@@ -1101,9 +1110,9 @@ export class Parser {
         const continueToken = this._getKeywordToken(KeywordType.Continue);
 
         if (!this._isInLoop) {
-            this._addError('"continue" can be used only within a loop', continueToken);
+            this._addError(Localizer.Diagnostic.continueOutsideLoop(), continueToken);
         } else if (this._isInFinally) {
-            this._addError('"continue" cannot be used within a finally clause', continueToken);
+            this._addError(Localizer.Diagnostic.continueInFinally(), continueToken);
         }
 
         return ContinueNode.create(continueToken);
@@ -1116,14 +1125,14 @@ export class Parser {
         const returnNode = ReturnNode.create(returnToken);
 
         if (!this._isInFunction) {
-            this._addError('"return" can be used only within a function', returnToken);
+            this._addError(Localizer.Diagnostic.returnOutsideFunction(), returnToken);
         }
 
         if (!this._isNextTokenNeverExpression()) {
             const returnExpr = this._parseTestOrStarListAsExpression(
                 true,
                 ErrorExpressionCategory.MissingExpression,
-                'Expected expression after "return"'
+                Localizer.Diagnostic.expectedReturnExpr()
             );
             this._reportConditionalErrorForStarTupleElement(returnExpr);
             returnNode.returnExpression = returnExpr;
@@ -1151,7 +1160,7 @@ export class Parser {
 
         const possibleInputToken = this._peekToken();
         if (!this._consumeTokenIfKeyword(KeywordType.Import)) {
-            this._addError('Expected "import"', this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedImport(), this._peekToken());
             if (!modName.hasTrailingDot) {
                 importFromNode.missingImportKeyword = true;
             }
@@ -1178,7 +1187,7 @@ export class Parser {
                     if (this._consumeTokenIfKeyword(KeywordType.As)) {
                         const aliasName = this._getTokenIfIdentifier();
                         if (!aliasName) {
-                            this._addError('Expected alias symbol name', this._peekToken());
+                            this._addError(Localizer.Diagnostic.expectedImportAlias(), this._peekToken());
                         } else {
                             importFromAsNode.alias = NameNode.create(aliasName);
                             importFromAsNode.alias.parent = importFromAsNode;
@@ -1201,7 +1210,7 @@ export class Parser {
                 }
 
                 if (importFromNode.imports.length === 0) {
-                    this._addError('Expected one or more symbol names after import', this._peekToken());
+                    this._addError(Localizer.Diagnostic.expectedImportSymbols(), this._peekToken());
                 }
 
                 if (inParen) {
@@ -1209,7 +1218,7 @@ export class Parser {
 
                     const nextToken = this._peekToken();
                     if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                        this._addError('Expected ")"', this._peekToken());
+                        this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
                     } else {
                         extendRange(importFromNode, nextToken);
                     }
@@ -1246,7 +1255,7 @@ export class Parser {
                     importAsNode.alias.parent = importAsNode;
                     extendRange(importAsNode, importAsNode.alias);
                 } else {
-                    this._addError('Expected identifier after "as"', this._peekToken());
+                    this._addError(Localizer.Diagnostic.expectedImportAlias(), this._peekToken());
                 }
             }
 
@@ -1291,7 +1300,7 @@ export class Parser {
             const identifier = this._getTokenIfIdentifier([KeywordType.Import]);
             if (!identifier) {
                 if (!allowJustDots || moduleNameNode.leadingDots === 0) {
-                    this._addError('Expected module name', this._peekToken());
+                    this._addError(Localizer.Diagnostic.expectedModuleName(), this._peekToken());
                     moduleNameNode.hasTrailingDot = true;
                 }
                 break;
@@ -1348,7 +1357,7 @@ export class Parser {
         while (true) {
             const name = this._getTokenIfIdentifier();
             if (!name) {
-                this._addError('Expected identifier', this._peekToken());
+                this._addError(Localizer.Diagnostic.expectedIdentifier(), this._peekToken());
                 break;
             }
 
@@ -1419,7 +1428,7 @@ export class Parser {
 
         const exprListResult = this._parseExpressionList(true);
         if (!exprListResult.parseError && exprListResult.list.length === 0) {
-            this._addError('Expected expression after "del"', this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedDelExpr(), this._peekToken());
         }
         const delNode = DelNode.create(delToken);
         delNode.expressions = exprListResult.list;
@@ -1440,7 +1449,7 @@ export class Parser {
         const nextToken = this._peekToken();
         if (this._consumeTokenIfKeyword(KeywordType.From)) {
             if (this._getLanguageVersion() < PythonVersion.V33) {
-                this._addError(`Use of "yield from" requires Python 3.3 or newer`, nextToken);
+                this._addError(Localizer.Diagnostic.yieldFromIllegal(), nextToken);
             }
             return YieldFromNode.create(yieldToken, this._parseTestExpression(true));
         }
@@ -1450,7 +1459,7 @@ export class Parser {
             exprList = this._parseTestOrStarListAsExpression(
                 true,
                 ErrorExpressionCategory.MissingExpression,
-                'Expected expression in yield statement'
+                Localizer.Diagnostic.expectedYieldExpr()
             );
             this._reportConditionalErrorForStarTupleElement(exprList);
         }
@@ -1478,7 +1487,7 @@ export class Parser {
 
                 // Remove any non-printable characters.
                 const cleanedText = text.replace(/[\S\W]/g, '');
-                this._addError(`Invalid character in token "${cleanedText}"`, invalidToken);
+                this._addError(Localizer.Diagnostic.invalidTokenChars().format({ text: cleanedText }), invalidToken);
                 this._consumeTokensUntilType(TokenType.NewLine);
                 break;
             }
@@ -1506,7 +1515,7 @@ export class Parser {
         }
 
         if (!this._consumeTokenIfType(TokenType.NewLine)) {
-            this._addError('Statements must be separated by newlines or semicolons', this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedNewlineOrSemicolon(), this._peekToken());
         }
 
         return statement;
@@ -1631,7 +1640,7 @@ export class Parser {
             for (const expr of exprListResult.list) {
                 if (expr.nodeType === ParseNodeType.Unpack) {
                     if (sawStar) {
-                        this._addError('Only one unpack operation allowed in list', expr);
+                        this._addError(Localizer.Diagnostic.duplicateUnpack(), expr);
                         break;
                     }
                     sawStar = true;
@@ -1685,7 +1694,10 @@ export class Parser {
         }
 
         if (!this._consumeTokenIfKeyword(KeywordType.Else)) {
-            return this._handleExpressionParseError(ErrorExpressionCategory.MissingElse, 'Expected "else"');
+            return this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingElse,
+                Localizer.Diagnostic.expectedElse()
+            );
         }
 
         const elseExpr = this._parseTestExpression(true);
@@ -1713,11 +1725,11 @@ export class Parser {
         }
 
         if (!this._assignmentExpressionsAllowed) {
-            this._addError(`Operator ":=" not allowed in this context`, walrusToken);
+            this._addError(Localizer.Diagnostic.walrusNotAllowed(), walrusToken);
         }
 
         if (this._getLanguageVersion() < PythonVersion.V38) {
-            this._addError(`Operator ":=" requires Python 3.8 or newer`, walrusToken);
+            this._addError(Localizer.Diagnostic.walrusIllegal(), walrusToken);
         }
 
         let rightExpr: ExpressionNode;
@@ -2006,7 +2018,7 @@ export class Parser {
         if (this._peekKeywordType() === KeywordType.Await && !this._isParsingTypeAnnotation) {
             awaitToken = this._getKeywordToken(KeywordType.Await);
             if (this._getLanguageVersion() < PythonVersion.V35) {
-                this._addError(`Use of "await" requires Python 3.5 or newer`, awaitToken);
+                this._addError(Localizer.Diagnostic.awaitIllegal(), awaitToken);
             }
         }
 
@@ -2039,7 +2051,7 @@ export class Parser {
                 const nextToken = this._peekToken();
                 let isArgListTerminated = false;
                 if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                    this._addError('Expected ")"', this._peekToken());
+                    this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
 
                     // Consume the remainder of tokens on the line for error
                     // recovery.
@@ -2058,11 +2070,8 @@ export class Parser {
                 if (this._isParsingTypeAnnotation) {
                     const diag = new DiagnosticAddendum();
                     if (atomExpression.nodeType === ParseNodeType.Name && atomExpression.value === 'type') {
-                        diag.addMessage('Use Type[T] instead');
-                        this._addError(
-                            `type() call should not be used in type annotation` + diag.getString(),
-                            callNode
-                        );
+                        diag.addMessage(Localizer.DiagnosticAddendum.useTypeInstead());
+                        this._addError(Localizer.Diagnostic.typeCallNotAllowed() + diag.getString(), callNode);
                     }
                 }
 
@@ -2099,7 +2108,7 @@ export class Parser {
                 if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
                     return this._handleExpressionParseError(
                         ErrorExpressionCategory.MissingIndexCloseBracket,
-                        'Expected "]"',
+                        Localizer.Diagnostic.expectedCloseBracket(),
                         indexNode
                     );
                 }
@@ -2111,7 +2120,7 @@ export class Parser {
                 if (!memberName) {
                     return this._handleExpressionParseError(
                         ErrorExpressionCategory.MissingMemberAccessName,
-                        'Expected member name after "."',
+                        Localizer.Diagnostic.expectedMemberName(),
                         atomExpression
                     );
                 }
@@ -2150,7 +2159,7 @@ export class Parser {
             return [
                 this._handleExpressionParseError(
                     ErrorExpressionCategory.MissingIndexOrSlice,
-                    'Expected index or slice expression'
+                    Localizer.Diagnostic.expectedSliceIndex()
                 ),
             ];
         }
@@ -2228,7 +2237,7 @@ export class Parser {
             if (arg.name) {
                 sawKeywordArg = true;
             } else if (sawKeywordArg && arg.argumentCategory === ArgumentCategory.Simple) {
-                this._addError('Positional argument cannot appear after named arguments', arg);
+                this._addError(Localizer.Diagnostic.positionArgAfterNamedArg(), arg);
             }
             argList.push(arg);
 
@@ -2265,7 +2274,7 @@ export class Parser {
                 if (nameExpr.nodeType === ParseNodeType.Name) {
                     nameIdentifier = nameExpr.token;
                 } else {
-                    this._addError('Expected parameter name', nameExpr);
+                    this._addError(Localizer.Diagnostic.expectedParamName(), nameExpr);
                 }
             } else {
                 const listComp = this._tryParseListComprehension(valueExpr);
@@ -2298,7 +2307,7 @@ export class Parser {
         if (nextToken.type === TokenType.Number) {
             const numberNode = NumberNode.create(this._getNextToken() as NumberToken);
             if (this._isParsingTypeAnnotation) {
-                this._addError('Numeric literal not allowed in type annotation', numberNode);
+                this._addError(Localizer.Diagnostic.numericLiteralInAnnotation(), numberNode);
             }
             return numberNode;
         }
@@ -2317,14 +2326,11 @@ export class Parser {
             // Atoms with backticks are no longer allowed in Python 3.x, but they
             // were a thing in Python 2.x. We'll parse them to improve parse recovery
             // and emit an error.
-            this._addError(
-                'Expressions surrounded by backticks are not supported in Python 3.x; use repr instead',
-                nextToken
-            );
+            this._addError(Localizer.Diagnostic.backticksIllegal(), nextToken);
 
             const expressionNode = this._parseTestListAsExpression(
                 ErrorExpressionCategory.MissingExpression,
-                'Expected expression'
+                Localizer.Diagnostic.expectedExpr()
             );
 
             this._consumeTokenIfType(TokenType.Backtick);
@@ -2338,24 +2344,24 @@ export class Parser {
                 // to support Tuple[()], which is the documented way to annotate
                 // a zero-length tuple.
                 const diag = new DiagnosticAddendum();
-                diag.addMessage('Use Tuple[T1, ..., Tn] instead');
-                this._addError('Tuple expression not allowed in type annotation' + diag.getString(), tupleNode);
+                diag.addMessage(Localizer.DiagnosticAddendum.useTupleInstead());
+                this._addError(Localizer.Diagnostic.tupleInAnnotation() + diag.getString(), tupleNode);
             }
             return tupleNode;
         } else if (nextToken.type === TokenType.OpenBracket) {
             const listNode = this._parseListAtom();
             if (this._isParsingTypeAnnotation && !this._isParsingIndexTrailer) {
                 const diag = new DiagnosticAddendum();
-                diag.addMessage('Use List[T] instead');
-                this._addError('List expression not allowed in type annotation' + diag.getString(), listNode);
+                diag.addMessage(Localizer.DiagnosticAddendum.useListInstead());
+                this._addError(Localizer.Diagnostic.listInAnnotation() + diag.getString(), listNode);
             }
             return listNode;
         } else if (nextToken.type === TokenType.OpenCurlyBrace) {
             const dictNode = this._parseDictionaryOrSetAtom();
             if (this._isParsingTypeAnnotation) {
                 const diag = new DiagnosticAddendum();
-                diag.addMessage('Use Dict[T1, T2] instead');
-                this._addError('Dictionary expression not allowed in type annotation' + diag.getString(), dictNode);
+                diag.addMessage(Localizer.DiagnosticAddendum.useDictInstead());
+                this._addError(Localizer.Diagnostic.dictInAnnotation() + diag.getString(), dictNode);
             }
             return dictNode;
         }
@@ -2372,7 +2378,7 @@ export class Parser {
 
                 if (this._isParsingTypeAnnotation) {
                     if (keywordToken.keywordType !== KeywordType.None) {
-                        this._addError('Keyword not allowed in type annotation', constNode);
+                        this._addError(Localizer.Diagnostic.keywordInAnnotation(), constNode);
                     }
                 }
 
@@ -2386,7 +2392,10 @@ export class Parser {
             }
         }
 
-        return this._handleExpressionParseError(ErrorExpressionCategory.MissingExpression, 'Expected expression');
+        return this._handleExpressionParseError(
+            ErrorExpressionCategory.MissingExpression,
+            Localizer.Diagnostic.expectedExpr()
+        );
     }
 
     // Allocates a dummy "error expression" and consumes the remainder
@@ -2411,7 +2420,7 @@ export class Parser {
         const argList = this._parseVarArgsList(TokenType.Colon, false);
 
         if (!this._consumeTokenIfType(TokenType.Colon)) {
-            this._addError('Expected ":"', this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedColon(), this._peekToken());
         }
 
         let testExpr: ExpressionNode;
@@ -2446,7 +2455,10 @@ export class Parser {
         const yieldExpr = this._tryParseYieldExpression();
         if (yieldExpr) {
             if (this._peekTokenType() !== TokenType.CloseParenthesis) {
-                return this._handleExpressionParseError(ErrorExpressionCategory.MissingTupleCloseParen, 'Expected ")"');
+                return this._handleExpressionParseError(
+                    ErrorExpressionCategory.MissingTupleCloseParen,
+                    Localizer.Diagnostic.expectedCloseParen()
+                );
             } else {
                 extendRange(yieldExpr, this._getNextToken());
             }
@@ -2458,7 +2470,10 @@ export class Parser {
         const tupleOrExpression = this._makeExpressionOrTuple(exprListResult);
 
         if (this._peekTokenType() !== TokenType.CloseParenthesis) {
-            return this._handleExpressionParseError(ErrorExpressionCategory.MissingTupleCloseParen, 'Expected ")"');
+            return this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingTupleCloseParen,
+                Localizer.Diagnostic.expectedCloseParen()
+            );
         } else {
             extendRange(tupleOrExpression, this._getNextToken());
         }
@@ -2475,7 +2490,10 @@ export class Parser {
         const exprListResult = this._parseTestListWithComprehension();
         const closeBracket: Token | undefined = this._peekToken();
         if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
-            return this._handleExpressionParseError(ErrorExpressionCategory.MissingListCloseBracket, 'Expected "]"');
+            return this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingListCloseBracket,
+                Localizer.Diagnostic.expectedCloseBracket()
+            );
         }
 
         const listAtom = ListNode.create(startBracket);
@@ -2547,11 +2565,11 @@ export class Parser {
 
             if (keyExpression && valueExpression) {
                 if (keyExpression.nodeType === ParseNodeType.Unpack) {
-                    this._addError('Unpack operation not allowed in dictionaries', keyExpression);
+                    this._addError(Localizer.Diagnostic.unpackInDict(), keyExpression);
                 }
 
                 if (isSet) {
-                    this._addError('Key/value pairs are not allowed within a set', valueExpression);
+                    this._addError(Localizer.Diagnostic.keyValueInSet(), valueExpression);
                 } else {
                     const keyEntryNode = DictionaryKeyEntryNode.create(keyExpression, valueExpression);
                     let dictEntry: DictionaryEntryNode = keyEntryNode;
@@ -2561,7 +2579,7 @@ export class Parser {
                         sawListComprehension = true;
 
                         if (!isFirstEntry) {
-                            this._addError('Comprehension cannot be used with other dictionary entries', dictEntry);
+                            this._addError(Localizer.Diagnostic.comprehensionInDict(), dictEntry);
                         }
                     }
                     dictionaryEntries.push(dictEntry);
@@ -2569,7 +2587,7 @@ export class Parser {
                 }
             } else if (doubleStarExpression) {
                 if (isSet) {
-                    this._addError('Unpack operator not allowed within a set', doubleStarExpression);
+                    this._addError(Localizer.Diagnostic.unpackInSet(), doubleStarExpression);
                 } else {
                     const listEntryNode = DictionaryExpandEntryNode.create(doubleStarExpression);
                     let expandEntryNode: DictionaryEntryNode = listEntryNode;
@@ -2579,10 +2597,7 @@ export class Parser {
                         sawListComprehension = true;
 
                         if (!isFirstEntry) {
-                            this._addError(
-                                'Comprehension cannot be used with other dictionary entries',
-                                doubleStarExpression
-                            );
+                            this._addError(Localizer.Diagnostic.comprehensionInDict(), doubleStarExpression);
                         }
                     }
                     dictionaryEntries.push(expandEntryNode);
@@ -2592,7 +2607,7 @@ export class Parser {
                 assert(keyExpression !== undefined);
                 if (keyExpression) {
                     if (isDictionary) {
-                        this._addError('Dictionary entries must contain key/value pairs', keyExpression);
+                        this._addError(Localizer.Diagnostic.dictKeyValuePairs(), keyExpression);
                     } else {
                         const listComp = this._tryParseListComprehension(keyExpression);
                         if (listComp) {
@@ -2600,7 +2615,7 @@ export class Parser {
                             sawListComprehension = true;
 
                             if (!isFirstEntry) {
-                                this._addError('Comprehension cannot be used with other set entries', keyExpression);
+                                this._addError(Localizer.Diagnostic.comprehensionInSet(), keyExpression);
                             }
                         }
                         setEntries.push(keyExpression);
@@ -2623,7 +2638,7 @@ export class Parser {
 
         let closeCurlyBrace: Token | undefined = this._peekToken();
         if (!this._consumeTokenIfType(TokenType.CloseCurlyBrace)) {
-            this._addError('Expected "}"', this._peekToken());
+            this._addError(Localizer.Diagnostic.expectedCloseBrace(), this._peekToken());
             closeCurlyBrace = undefined;
         }
 
@@ -2703,7 +2718,7 @@ export class Parser {
         let leftExpr = this._parseTestOrStarListAsExpression(
             false,
             ErrorExpressionCategory.MissingExpression,
-            'Expected expression'
+            Localizer.Diagnostic.expectedExpr()
         );
         let annotationExpr: ExpressionNode | undefined;
 
@@ -2717,10 +2732,7 @@ export class Parser {
             leftExpr = TypeAnnotationNode.create(leftExpr, annotationExpr);
 
             if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V36) {
-                this._addError(
-                    'Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with previous versions',
-                    annotationExpr
-                );
+                this._addError(Localizer.Diagnostic.varAnnotationIllegal(), annotationExpr);
             }
 
             if (!this._consumeTokenIfOperator(OperatorType.Assign)) {
@@ -2757,7 +2769,7 @@ export class Parser {
                 this._tryParseYieldExpression() ||
                 this._parseTestListAsExpression(
                     ErrorExpressionCategory.MissingExpression,
-                    'Expected expression to the right of operator'
+                    Localizer.Diagnostic.expectedBinaryRightHandExpr()
                 );
 
             // Make a shallow copy of the dest expression but give it a new ID.
@@ -2777,7 +2789,7 @@ export class Parser {
             rightExpr = this._parseTestOrStarListAsExpression(
                 false,
                 ErrorExpressionCategory.MissingExpression,
-                'Expected expression to the right of "="'
+                Localizer.Diagnostic.expectedAssignRightHandExpr()
             );
         }
 
@@ -2844,24 +2856,24 @@ export class Parser {
 
     private _reportStringTokenErrors(stringToken: StringToken, unescapedResult: StringTokenUtils.UnescapedString) {
         if (stringToken.flags & StringTokenFlags.Unterminated) {
-            this._addError('String literal is unterminated', stringToken);
+            this._addError(Localizer.Diagnostic.stringUnterminated(), stringToken);
         }
 
         if (unescapedResult.nonAsciiInBytes) {
-            this._addError('Non-ASCII character not allowed in bytes string literal', stringToken);
+            this._addError(Localizer.Diagnostic.stringNonAsciiBytes(), stringToken);
         }
 
         if (stringToken.flags & StringTokenFlags.Format) {
             if (this._getLanguageVersion() < PythonVersion.V36) {
-                this._addError('Format string literals (f-strings) require Python 3.6 or newer', stringToken);
+                this._addError(Localizer.Diagnostic.formatStringIllegal(), stringToken);
             }
 
             if (stringToken.flags & StringTokenFlags.Bytes) {
-                this._addError('Format string literals (f-strings) cannot be binary', stringToken);
+                this._addError(Localizer.Diagnostic.formatStringBytes(), stringToken);
             }
 
             if (stringToken.flags & StringTokenFlags.Unicode) {
-                this._addError('Format string literals (f-strings) cannot be unicode', stringToken);
+                this._addError(Localizer.Diagnostic.formatStringUnicode(), stringToken);
             }
         }
     }
@@ -3084,11 +3096,11 @@ export class Parser {
             // Don't allow multiple strings because we have no way of reporting
             // parse errors that span strings.
             if (stringNode.strings.length > 1) {
-                this._addError('Type annotations cannot span multiple string literals', stringNode);
+                this._addError(Localizer.Diagnostic.annotationSpansStrings(), stringNode);
             } else if (stringNode.strings[0].token.flags & StringTokenFlags.Triplicate) {
-                this._addError('Type annotations cannot use triple quotes', stringNode);
+                this._addError(Localizer.Diagnostic.annotationTripleQuote(), stringNode);
             } else if (stringNode.strings[0].token.flags & StringTokenFlags.Format) {
-                this._addError('Type annotations cannot use format string literals (f-strings)', stringNode);
+                this._addError(Localizer.Diagnostic.annotationFormatString(), stringNode);
             } else {
                 const stringToken = stringNode.strings[0].token;
                 const stringValue = StringTokenUtils.getUnescapedString(stringNode.strings[0].token);
@@ -3099,7 +3111,7 @@ export class Parser {
                 // Don't allow escape characters because we have no way of mapping
                 // error ranges back to the escaped text.
                 if (unescapedString.length !== stringToken.length - prefixLength - stringToken.quoteMarkLength) {
-                    this._addError('Type annotations cannot contain escape characters', stringNode);
+                    this._addError(Localizer.Diagnostic.annotationStringEscape(), stringNode);
                 } else {
                     const parser = new Parser();
                     const parseResults = parser.parseTextExpression(
@@ -3138,7 +3150,7 @@ export class Parser {
 
         for (const expr of possibleTupleExpr.expressions) {
             if (expr.nodeType === ParseNodeType.Unpack) {
-                this._addError('Unpack operation not allowed in tuples prior to Python 3.8', expr);
+                this._addError(Localizer.Diagnostic.unpackTuplesIllegal(), expr);
                 return;
             }
         }
@@ -3262,7 +3274,7 @@ export class Parser {
         // If the next token is invalid, treat it as an identifier.
         if (nextToken.type === TokenType.Invalid) {
             this._getNextToken();
-            this._addError(`Invalid character in identifier`, nextToken);
+            this._addError(Localizer.Diagnostic.invalidIdentifierChar(), nextToken);
             return IdentifierToken.create(nextToken.start, nextToken.length, '', nextToken.comments);
         }
 
