@@ -15,6 +15,7 @@ import { Declaration } from '../analyzer/declaration';
 import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
+import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
@@ -136,6 +137,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
 
 export class ReferencesProvider {
     static getDeclarationForPosition(
+        sourceMapper: SourceMapper,
         parseResults: ParseResults,
         filePath: string,
         position: Position,
@@ -174,6 +176,15 @@ export class ReferencesProvider {
             const resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ false);
             if (resolvedDecl) {
                 resolvedDeclarations.push(resolvedDecl);
+
+                if (isStubFile(resolvedDecl.path)) {
+                    const implDecls = sourceMapper.findDeclarations(resolvedDecl);
+                    for (const implDecl of implDecls) {
+                        if (implDecl && implDecl.path) {
+                            this._addIfUnique(resolvedDeclarations, implDecl);
+                        }
+                    }
+                }
             }
         });
 
@@ -216,6 +227,16 @@ export class ReferencesProvider {
             declarations: resolvedDeclarations,
             locations: [],
         };
+    }
+
+    private static _addIfUnique(declarations: Declaration[], itemToAdd: Declaration) {
+        for (const def of declarations) {
+            if (DeclarationUtils.areDeclarationsSame(def, itemToAdd)) {
+                return;
+            }
+        }
+
+        declarations.push(itemToAdd);
     }
 
     static addReferences(

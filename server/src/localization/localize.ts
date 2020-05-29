@@ -542,7 +542,7 @@ export namespace Localizer {
         export const unaccessedFunction = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unaccessedFunction'));
         export const unaccessedImport = () =>
-            new ParameterizedString<{ importName: string }>(getRawString('Diagnostic.unaccessedImport'));
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unaccessedImport'));
         export const unaccessedSymbol = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unaccessedSymbol'));
         export const unaccessedVariable = () =>

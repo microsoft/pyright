@@ -23,7 +23,8 @@ class PyrightServer extends LanguageServerBase {
     private _controller: CommandController;
 
     constructor() {
-        super('Pyright', getDirectoryPath(__dirname), undefined, maxAnalysisTimeInForeground);
+        const version = require('../package.json').version || '';
+        super('Pyright', getDirectoryPath(__dirname), version, undefined, maxAnalysisTimeInForeground);
 
         this._controller = new CommandController(this);
     }

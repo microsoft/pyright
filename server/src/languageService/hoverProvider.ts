@@ -11,13 +11,14 @@
 
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
-import { Declaration, DeclarationBase, DeclarationType } from '../analyzer/declaration';
+import { Declaration, DeclarationBase, DeclarationType, FunctionDeclaration } from '../analyzer/declaration';
 import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import {
     getClassDocString,
-    getFunctionDocString,
+    getFunctionDocStringFromDeclaration,
+    getFunctionDocStringFromType,
     getModuleDocString,
     getOverloadedFunctionDocStrings,
 } from '../analyzer/typeDocStringUtils';
@@ -241,24 +242,23 @@ export class HoverProvider {
         type: Type,
         resolvedDecl: DeclarationBase | undefined
     ) {
+        const docStrings: (string | undefined)[] = [];
+
         if (type.category === TypeCategory.Module) {
-            const docString = getModuleDocString(type, resolvedDecl, sourceMapper);
-            if (docString) {
-                this._addDocumentationResultsPart(parts, docString);
-            }
+            docStrings.push(getModuleDocString(type, resolvedDecl, sourceMapper));
         } else if (type.category === TypeCategory.Class) {
-            const docString = getClassDocString(type, resolvedDecl, sourceMapper);
-            if (docString) {
-                this._addDocumentationResultsPart(parts, docString);
-            }
+            docStrings.push(getClassDocString(type, resolvedDecl, sourceMapper));
         } else if (type.category === TypeCategory.Function) {
-            const docString = getFunctionDocString(type, sourceMapper);
-            if (docString) {
-                this._addDocumentationResultsPart(parts, docString);
-            }
+            docStrings.push(getFunctionDocStringFromType(type, sourceMapper));
         } else if (type.category === TypeCategory.OverloadedFunction) {
-            const docStrings = getOverloadedFunctionDocStrings(type, resolvedDecl, sourceMapper);
-            for (const docString of docStrings) {
+            docStrings.push(...getOverloadedFunctionDocStrings(type, resolvedDecl, sourceMapper));
+        } else if (resolvedDecl?.type === DeclarationType.Function) {
+            // @property functions
+            docStrings.push(getFunctionDocStringFromDeclaration(resolvedDecl as FunctionDeclaration, sourceMapper));
+        }
+
+        for (const docString of docStrings) {
+            if (docString) {
                 this._addDocumentationResultsPart(parts, docString);
             }
         }

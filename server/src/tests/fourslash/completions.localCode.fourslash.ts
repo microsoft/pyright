@@ -1,31 +1,25 @@
 /// <reference path="fourslash.ts" />
 
-// @filename: mspythonconfig.json
-//// {
-////   "useLibraryCodeForTypes": true
-//// }
-
 // @filename: test.py
 //// import testLib
 //// obj = testLib.[|/*marker1*/Validator|]()
 //// obj.is[|/*marker2*/|]
 //// obj.read[|/*marker3*/|]
 
-// @filename: testLib/__init__.pyi
-// @library: true
+// @filename: testLib/__init__.py
 //// class Validator:
 ////     '''The validator class'''
 ////     def is_valid(self, text: str) -> bool:
 ////         '''Checks if the input string is valid.'''
-////         pass
+////         return True
 ////     @property
 ////     def read_only_prop(self) -> bool:
 ////         '''The read-only property.'''
-////         pass
+////         return True
 ////     @property
 ////     def read_write_prop(self) -> bool:
 ////         '''The read-write property.'''
-////         pass
+////         return True
 ////     @read_write_prop.setter
 ////     def read_write_prop(self, val: bool):
 ////         '''The read-write property.'''
