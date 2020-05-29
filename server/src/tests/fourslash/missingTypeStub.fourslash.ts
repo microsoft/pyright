@@ -13,7 +13,7 @@
 ////         pass
 
 // @filename: test.py
-//// import [|/*marker*/testLi|]b
+//// import [|/*marker*/testLib|]
 
 helper.verifyDiagnostics({
     marker: { category: 'warning', message: `Stub file not found for "testLib"` },
