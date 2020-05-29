@@ -161,11 +161,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     constructor(
         private _productName: string,
         rootDirectory: string,
+        version: string,
         private _extension?: LanguageServiceExtension,
         private _maxAnalysisTimeInForeground?: MaxAnalysisTime,
         supportedCommands?: string[]
     ) {
-        this._connection.console.log(`${_productName} language server starting`);
+        this._connection.console.log(`${_productName} language server ${version && version + ' '}starting`);
         this.fs = createFromRealFileSystem(this._connection.console, this);
 
         // Set the working directory to a known location within

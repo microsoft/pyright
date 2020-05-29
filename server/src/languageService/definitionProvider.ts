@@ -55,12 +55,14 @@ export class DefinitionProvider {
                         });
 
                         if (isStubFile(resolvedDecl.path)) {
-                            const implDecl = sourceMapper.findDeclaration(resolvedDecl);
-                            if (implDecl && implDecl.path) {
-                                this._addIfUnique(definitions, {
-                                    path: implDecl.path,
-                                    range: implDecl.range,
-                                });
+                            const implDecls = sourceMapper.findDeclarations(resolvedDecl);
+                            for (const implDecl of implDecls) {
+                                if (implDecl && implDecl.path) {
+                                    this._addIfUnique(definitions, {
+                                        path: implDecl.path,
+                                        range: implDecl.range,
+                                    });
+                                }
                             }
                         }
                     }

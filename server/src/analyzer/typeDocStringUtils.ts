@@ -66,14 +66,19 @@ export function getClassDocString(
     return docString;
 }
 
-export function getFunctionDocString(type: FunctionType, sourceMapper: SourceMapper) {
+export function getFunctionDocStringFromType(type: FunctionType, sourceMapper: SourceMapper) {
     let docString = type.details.docString;
-    if (!docString) {
-        const decl = type.details.declaration;
-        if (decl && isStubFile(decl.path)) {
-            const implDecls = sourceMapper.findFunctionDeclarations(decl);
-            docString = _getFunctionOrClassDeclDocString(implDecls);
-        }
+    if (!docString && type.details.declaration) {
+        docString = getFunctionDocStringFromDeclaration(type.details.declaration, sourceMapper);
+    }
+    return docString;
+}
+
+export function getFunctionDocStringFromDeclaration(resolvedDecl: FunctionDeclaration, sourceMapper: SourceMapper) {
+    let docString = _getFunctionOrClassDeclDocString([resolvedDecl]);
+    if (!docString && isStubFile(resolvedDecl.path)) {
+        const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
+        docString = _getFunctionOrClassDeclDocString(implDecls);
     }
     return docString;
 }

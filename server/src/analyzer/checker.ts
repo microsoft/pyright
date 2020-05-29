@@ -1020,7 +1020,7 @@ export class Checker extends ParseTreeWalker {
                                 this._fileInfo,
                                 this._fileInfo.diagnosticRuleSet.reportUnusedImport,
                                 DiagnosticRule.reportUnusedImport,
-                                Localizer.Diagnostic.unaccessedImport().format({ importName: multipartName }),
+                                Localizer.Diagnostic.unaccessedImport().format({ name: multipartName }),
                                 textRange
                             );
                             return;
@@ -1041,7 +1041,7 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 if (nameNode) {
-                    message = Localizer.Diagnostic.unaccessedImport().format({ importName: nameNode.value });
+                    message = Localizer.Diagnostic.unaccessedImport().format({ name: nameNode.value });
                 }
                 break;
 

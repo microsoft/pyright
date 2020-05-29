@@ -30,24 +30,14 @@ export class SourceMapper {
         return sourceFiles.map((sf) => sf.getParseResults()?.parseTree).filter(_isDefined);
     }
 
-    public findDeclaration(stubDecl: Declaration): Declaration | undefined {
+    public findDeclarations(stubDecl: Declaration): Declaration[] {
         if (stubDecl.type === DeclarationType.Class) {
-            const decls = this.findClassDeclarations(stubDecl);
-            if (decls.length > 0) {
-                return decls[0];
-            } else {
-                return undefined;
-            }
+            return this.findClassDeclarations(stubDecl);
         } else if (stubDecl.type === DeclarationType.Function) {
-            const decls = this.findFunctionDeclarations(stubDecl);
-            if (decls.length > 0) {
-                return decls[0];
-            } else {
-                return undefined;
-            }
+            return this.findFunctionDeclarations(stubDecl);
         }
 
-        return undefined;
+        return [];
     }
 
     public findClassDeclarations(stubDecl: ClassDeclaration): ClassDeclaration[] {

@@ -561,6 +561,7 @@ export class SourceFile {
     }
 
     getDeclarationForPosition(
+        sourceMapper: SourceMapper,
         position: Position,
         evaluator: TypeEvaluator,
         token: CancellationToken
@@ -571,6 +572,7 @@ export class SourceFile {
         }
 
         return ReferencesProvider.getDeclarationForPosition(
+            sourceMapper,
             this._parseResults,
             this._filePath,
             position,
