@@ -23,8 +23,10 @@ export function convertOffsetToPosition(offset: number, lines: TextRangeCollecti
     }
 
     // Handle the case where we're pointing to the last line of the file.
+    let offsetAdjustment = 0;
     if (offset >= lines.end) {
         offset = lines.end - 1;
+        offsetAdjustment = 1;
     }
 
     const itemIndex = lines.getItemContaining(offset);
@@ -33,7 +35,7 @@ export function convertOffsetToPosition(offset: number, lines: TextRangeCollecti
     assert(lineRange !== undefined);
     return {
         line: itemIndex,
-        character: offset - lineRange.start,
+        character: offset - lineRange.start + offsetAdjustment,
     };
 }
 
