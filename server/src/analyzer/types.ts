@@ -372,6 +372,10 @@ export namespace ClassType {
         return classType.details.typeParameters;
     }
 
+    export function hasUnknownBaseClass(classType: ClassType) {
+        return classType.details.mro.some((baseClass) => isAnyOrUnknown(baseClass));
+    }
+
     // Same as isSame except that it doesn't compare type arguments.
     export function isSameGenericClass(
         classType: ClassType,

@@ -131,6 +131,28 @@ export function areTypesSame(types: Type[]): boolean {
     return true;
 }
 
+export function derivesFromAnyOrUnknown(type: Type): boolean {
+    let anyOrUnknown = false;
+
+    doForSubtypes(type, (subtype) => {
+        if (isAnyOrUnknown(type)) {
+            anyOrUnknown = true;
+        } else if (subtype.category === TypeCategory.Class) {
+            if (ClassType.hasUnknownBaseClass(subtype)) {
+                anyOrUnknown = true;
+            }
+        } else if (subtype.category === TypeCategory.Object) {
+            if (ClassType.hasUnknownBaseClass(subtype.classType)) {
+                anyOrUnknown = true;
+            }
+        }
+
+        return undefined;
+    });
+
+    return anyOrUnknown;
+}
+
 export function stripLiteralValue(type: Type): Type {
     if (type.category === TypeCategory.Object) {
         if (type.literalValue !== undefined) {

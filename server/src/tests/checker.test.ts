@@ -970,6 +970,12 @@ test('UnnecessaryIsInstance1', () => {
     validateResults(analysisResults, 4);
 });
 
+test('UnnecessaryIsInstance2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance2.py']);
+
+    validateResults(analysisResults, 1);
+});
+
 test('UnnecessaryIsSubclass1', () => {
     const configOptions = new ConfigOptions('.');
 

@@ -89,6 +89,7 @@ import {
 import {
     ClassMemberLookupFlags,
     containsUnknown,
+    derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
     doForSubtypes,
     getDeclaredGeneratorReturnType,
@@ -1125,7 +1126,7 @@ export class Checker extends ParseTreeWalker {
             return transformTypeObjectToClass(subtype);
         });
 
-        if (isAnyOrUnknown(arg0Type)) {
+        if (derivesFromAnyOrUnknown(arg0Type)) {
             return;
         }
 
