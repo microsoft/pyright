@@ -9687,7 +9687,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     testExpression.rightExpression.nodeType === ParseNodeType.Constant &&
                     testExpression.rightExpression.constType === KeywordType.None
                 ) {
-                    if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
+                    // Allow the LHS to be either a simple expression or an assignment
+                    // expression that assigns to a simple name.
+                    let leftExpression = testExpression.leftExpression;
+                    if (leftExpression.nodeType === ParseNodeType.AssignmentExpression) {
+                        leftExpression = leftExpression.name;
+                    }
+
+                    if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
                         // Narrow the type by filtering on "None".
                         return (type: Type) => {
                             if (type.category === TypeCategory.Union) {
