@@ -164,7 +164,8 @@ export class Checker extends ParseTreeWalker {
         if (functionTypeResult) {
             // Report any unknown parameter types.
             node.parameters.forEach((param, index) => {
-                if (param.name) {
+                // Allow unknown param types if the param is named '_'.
+                if (param.name && param.name.value !== '_') {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;
                     if (
                         paramType.category === TypeCategory.Unknown ||
