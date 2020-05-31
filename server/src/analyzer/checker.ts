@@ -291,7 +291,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitCall(node: CallNode): boolean {
-        this._evaluator.getType(node);
+        const returnType = this._evaluator.getType(node);
 
         this._validateIsInstanceCallNecessary(node);
 
@@ -302,6 +302,19 @@ export class Checker extends ParseTreeWalker {
                 Localizer.Diagnostic.defaultValueContainsCall(),
                 node
             );
+        }
+
+        // Is this calling a "NoReturn" function? If so, mark the remainder
+        // of the suite as unreachable.
+        if (returnType) {
+            if (isNoReturnType(returnType)) {
+                const suiteOrModule = ParseTreeUtils.getEnclosingSuiteOrModule(node);
+                if (suiteOrModule) {
+                    const start = node.start + node.length;
+                    const length = suiteOrModule.start + suiteOrModule.length - start;
+                    this._evaluator.addUnusedCode(suiteOrModule, { start, length });
+                }
+            }
         }
 
         return true;

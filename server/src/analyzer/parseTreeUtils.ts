@@ -512,6 +512,23 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
     return undefined;
 }
 
+export function getEnclosingSuiteOrModule(node: ParseNode): SuiteNode | ModuleNode | undefined {
+    let curNode = node.parent;
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Suite) {
+            return curNode;
+        }
+
+        if (curNode.nodeType === ParseNodeType.Module) {
+            return curNode;
+        }
+
+        curNode = curNode.parent;
+    }
+
+    return undefined;
+}
+
 export function getEvaluationNodeForAssignmentExpression(
     node: AssignmentExpressionNode
 ): LambdaNode | FunctionNode | ModuleNode | undefined {

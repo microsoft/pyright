@@ -444,6 +444,7 @@ export interface TypeEvaluator {
     addError: (message: string, node: ParseNode) => Diagnostic | undefined;
     addWarning: (message: string, node: ParseNode) => Diagnostic | undefined;
     addInformation: (message: string, node: ParseNode) => Diagnostic | undefined;
+    addUnusedCode: (node: ParseNode, textRange: TextRange) => void;
 
     addDiagnostic: (
         diagLevel: DiagnosticLevel,
@@ -1918,6 +1919,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     function addError(message: string, node: ParseNode, range?: TextRange) {
         return addDiagnosticWithSuppressionCheck('error', message, node, range);
+    }
+
+    function addUnusedCode(node: ParseNode, textRange: TextRange) {
+        if (!isDiagnosticSuppressed && !isSpeculativeMode(node) && !incompleteTypeTracker.isIncompleteTypeMode()) {
+            const fileInfo = getFileInfo(node);
+            fileInfo.diagnosticSink.addUnusedCodeWithTextRange(Localizer.Diagnostic.unreachableCode(), textRange);
+        }
     }
 
     function addDiagnosticWithSuppressionCheck(
@@ -13102,6 +13110,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         addError,
         addWarning,
         addInformation,
+        addUnusedCode,
         addDiagnostic,
         addDiagnosticForTextRange,
         printType,
