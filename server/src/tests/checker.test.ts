@@ -1599,3 +1599,9 @@ test('Annotated1', () => {
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['annotated1.py'], configOptions);
     validateResults(analysisResults39, 0);
 });
+
+test('Circular1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circular1.py']);
+
+    validateResults(analysisResults, 0);
+});

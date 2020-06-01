@@ -9214,9 +9214,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             function getCacheEntry(flowNode: FlowNode): FlowNodeTypeResult | undefined {
-                const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
-                if (!cachedEntry) {
+                if (!flowNodeTypeCache!.has(flowNode.id)) {
                     return undefined;
+                }
+
+                const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
+                if (cachedEntry === undefined) {
+                    return {
+                        type: cachedEntry,
+                        isIncomplete: false,
+                    };
                 }
 
                 if (!isIncompleteType(cachedEntry)) {
