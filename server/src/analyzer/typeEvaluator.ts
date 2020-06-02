@@ -3045,7 +3045,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             if (usage.method === 'get') {
                 // Mark the member accessed if it's not coming from a parent class.
-                if (memberInfo.classType === classType) {
+                if (
+                    memberInfo.classType.category === TypeCategory.Class &&
+                    ClassType.isSameGenericClass(memberInfo.classType, classType)
+                ) {
                     setSymbolAccessed(getFileInfo(errorNode), memberInfo.symbol, errorNode);
                 }
             }
