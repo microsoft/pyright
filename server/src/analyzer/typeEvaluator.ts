@@ -8396,11 +8396,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 inferredReturnType = removeUnboundFromUnion(inferredReturnType);
 
                 writeTypeCache(node.suite, inferredReturnType);
+            } finally {
                 functionRecursionMap.delete(node.id);
-            } catch (e) {
-                // Clean up in the case of an exception.
-                functionRecursionMap.delete(node.id);
-                throw e;
             }
         }
 
@@ -9482,19 +9479,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (curFlowNode.flags & FlowFlags.PostFinally) {
                         const postFinallyFlowNode = curFlowNode as FlowPostFinally;
                         const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
-                        postFinallyFlowNode.preFinallyGate.isGateClosed = true;
-                        const flowTypeResult = getTypeFromFlowNode(
-                            postFinallyFlowNode.antecedent,
-                            reference,
-                            targetSymbolId,
-                            initialType
-                        );
-                        postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
+                        try {
+                            postFinallyFlowNode.preFinallyGate.isGateClosed = true;
+                            const flowTypeResult = getTypeFromFlowNode(
+                                postFinallyFlowNode.antecedent,
+                                reference,
+                                targetSymbolId,
+                                initialType
+                            );
 
-                        // If the type is incomplete, don't write back to the cache.
-                        return flowTypeResult.isIncomplete
-                            ? flowTypeResult
-                            : setCacheEntry(curFlowNode, flowTypeResult.type, /* isIncomplete */ false);
+                            // If the type is incomplete, don't write back to the cache.
+                            return flowTypeResult.isIncomplete
+                                ? flowTypeResult
+                                : setCacheEntry(curFlowNode, flowTypeResult.type, /* isIncomplete */ false);
+                        } finally {
+                            postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
+                        }
                     }
 
                     if (curFlowNode.flags & FlowFlags.Start) {
@@ -9627,10 +9627,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (curFlowNode.flags & FlowFlags.PostFinally) {
                     const postFinallyFlowNode = curFlowNode as FlowPostFinally;
                     const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
-                    postFinallyFlowNode.preFinallyGate.isGateClosed = true;
-                    const isReachable = isFlowNodeReachableRecursive(postFinallyFlowNode.antecedent, sourceFlowNode);
-                    postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
-                    return isReachable;
+
+                    try {
+                        postFinallyFlowNode.preFinallyGate.isGateClosed = true;
+                        return isFlowNodeReachableRecursive(postFinallyFlowNode.antecedent, sourceFlowNode);
+                    } finally {
+                        postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
+                    }
                 }
 
                 if (curFlowNode.flags & FlowFlags.Start) {
@@ -9658,12 +9661,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         isReachableRecursionMap.set(flowNode.id, true);
 
         try {
-            const isReachable = isFlowNodeReachableRecursive(flowNode, sourceFlowNode);
+            return isFlowNodeReachableRecursive(flowNode, sourceFlowNode);
+        } finally {
             isReachableRecursionMap.delete(flowNode.id);
-            return isReachable;
-        } catch (e) {
-            isReachableRecursionMap.delete(flowNode.id);
-            throw e;
         }
     }
 
@@ -10285,10 +10285,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         isDiagnosticSuppressed = true;
         try {
             callback();
+        } finally {
             isDiagnosticSuppressed = wasSuppressed;
-        } catch (e) {
-            isDiagnosticSuppressed = wasSuppressed;
-            throw e;
         }
     }
 
@@ -10300,11 +10298,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         try {
             callback();
+        } finally {
             speculativeTypeTracker.leaveSpeculativeContext();
-        } catch (e) {
-            // Clean up during an exception.
-            speculativeTypeTracker.leaveSpeculativeContext();
-            throw e;
         }
     }
 
@@ -10323,11 +10318,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const stack = speculativeTypeTracker.disableSpeculativeMode();
         try {
             callback();
+        } finally {
             speculativeTypeTracker.enableSpeculativeMode(stack);
-        } catch (e) {
-            // Clean up during an exception.
-            speculativeTypeTracker.enableSpeculativeMode(stack);
-            throw e;
         }
     }
 
@@ -11076,13 +11068,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (!allArgTypesAreUnknown) {
                     contextualReturnType = inferFunctionReturnType(functionNode, FunctionType.isAbstractMethod(type));
                 }
-
+            } finally {
                 returnTypeInferenceContextStack.pop();
                 returnTypeInferenceTypeCache = prevTypeCache;
-            } catch (e) {
-                // Clean up on an exception.
-                returnTypeInferenceContextStack.pop();
-                throw e;
             }
         });
 
