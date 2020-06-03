@@ -12957,6 +12957,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 subtypes = [];
                 subtypes = subtypes.concat(...unionType.subtypes);
 
+                // If we're printing "Unknown" as "Any", remove redundant
+                // unknowns so we don't see two Any's appear in the union.
+                if ((printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0) {
+                    if (subtypes.some((t) => t.category === TypeCategory.Any)) {
+                        subtypes = subtypes.filter((t) => t.category !== TypeCategory.Unknown);
+                    }
+                }
+
                 const isLiteral = (type: Type) =>
                     type.category === TypeCategory.Object && type.literalValue !== undefined;
 
