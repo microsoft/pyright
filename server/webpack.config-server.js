@@ -17,9 +17,13 @@ module.exports = {
     output: {
         filename: 'server.bundle.js',
         path: path.resolve(__dirname, '../client/server'),
+        libraryTarget: 'commonjs2',
     },
     optimization: {
         usedExports: true,
+    },
+    externals: {
+        vscode: 'commonjs vscode',
     },
     resolve: {
         modules: [path.resolve(__dirname, '.'), 'node_modules'],

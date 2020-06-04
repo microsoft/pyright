@@ -5,6 +5,7 @@
  */
 
 import { isArray } from 'util';
+import * as vscode from 'vscode';
 import { CancellationToken, CodeAction, CodeActionParams, Command, ExecuteCommandParams } from 'vscode-languageserver';
 import { isMainThread } from 'worker_threads';
 
@@ -37,9 +38,20 @@ class PyrightServer extends LanguageServerBase {
 
         try {
             const pythonSection = await this.getConfiguration(workspace, 'python');
+            let pythonPath: string | undefined;
             if (pythonSection) {
-                serverSettings.pythonPath = normalizeSlashes(pythonSection.pythonPath);
                 serverSettings.venvPath = normalizeSlashes(pythonSection.venvPath);
+                pythonPath = pythonSection.pythonPath;
+            }
+
+            // If the pythonPath wasn't available as a setting, try to get
+            // it from the Python extension's private interface.
+            if (!pythonPath) {
+                pythonPath = await this._getPythonPathFromPythonExtension(workspace);
+            }
+
+            if (pythonPath) {
+                serverSettings.pythonPath = normalizeSlashes(pythonPath);
             }
 
             const pythonAnalysisSection = await this.getConfiguration(workspace, 'python.analysis');
@@ -132,6 +144,31 @@ class PyrightServer extends LanguageServerBase {
         const filePath = convertUriToPath(params.textDocument.uri);
         const workspace = await this.getWorkspaceForFile(filePath);
         return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range, token);
+    }
+
+    // The "pythonPath" setting was previously managed as a standard LSP setting
+    // with the full name of "python.pythonPath". More recently, it was moved to
+    // a private setting for the Python extension. This method handles the
+    // latter case.
+    private async _getPythonPathFromPythonExtension(workspace: WorkspaceServiceInstance) {
+        try {
+            const extension = vscode.extensions.getExtension('ms-python.python');
+            if (!extension) {
+                return undefined;
+            }
+            const usingNewInterpreterStorage = extension.packageJSON?.featureFlags?.usingNewInterpreterStorage;
+            if (usingNewInterpreterStorage) {
+                if (!extension.isActive) {
+                    await extension.activate();
+                }
+
+                return extension.exports.settings.getExecutionCommand(workspace.rootUri).join(' ');
+            }
+        } catch {
+            // Ignore exception.
+        }
+
+        return undefined;
     }
 }
 
