@@ -6,7 +6,7 @@ from dataclasses import dataclass, InitVar
 class Bar():
     bbb: int
     ccc: str
-    aaa = 'string'
+    aaa: str = 'string'
 
 bar1 = Bar(bbb=5, ccc='hello')
 bar2 = Bar(5, 'hello')
@@ -35,7 +35,7 @@ bar = Bar(2, 'hello', 'hello', 4)
 @dataclass
 class Baz1():
     bbb: int
-    aaa = 'string'
+    aaa: str = 'string'
 
     # This should generate an error because variables
     # with no default cannot come after those with

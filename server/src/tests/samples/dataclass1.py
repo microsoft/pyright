@@ -11,6 +11,7 @@ class DataTuple(NamedTuple):
     id: int
     aid: Other
     value: str = ''
+    not_annotated = 5
     name: Optional[str] = None
 
 d1 = DataTuple(id=1, aid=Other())

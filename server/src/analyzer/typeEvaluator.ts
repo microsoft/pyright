@@ -1637,11 +1637,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     let hasDefaultValue = false;
 
                     if (statement.nodeType === ParseNodeType.Assignment) {
-                        if (statement.leftExpression.nodeType === ParseNodeType.Name) {
-                            variableNameNode = statement.leftExpression;
-                            variableTypeEvaluator = () =>
-                                stripLiteralValue(getTypeOfExpression(statement.rightExpression).type);
-                        } else if (
+                        if (
                             statement.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
                             statement.leftExpression.valueExpression.nodeType === ParseNodeType.Name
                         ) {
