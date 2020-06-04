@@ -1,0 +1,6 @@
+- id: pyright
+  name: pyright
+  entry: pyright
+  language: node
+  types: [python]
+  pass_filenames: false
