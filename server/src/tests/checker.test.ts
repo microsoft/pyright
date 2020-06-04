@@ -1605,3 +1605,9 @@ test('Circular1', () => {
 
     validateResults(analysisResults, 0);
 });
+
+test('TryExcept2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept2.py']);
+
+    validateResults(analysisResults, 0);
+});

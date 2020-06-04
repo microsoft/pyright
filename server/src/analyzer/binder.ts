@@ -178,7 +178,7 @@ export class Binder extends ParseTreeWalker {
     private _currentExceptTargets?: FlowLabel[];
 
     // Flow nodes used within try/finally flows.
-    private _currentFinallyTarget?: FlowLabel;
+    private _finallyTargets: FlowLabel[] = [];
 
     // Flow nodes used for return statements.
     private _currentReturnTarget?: FlowLabel;
@@ -696,9 +696,9 @@ export class Binder extends ParseTreeWalker {
         if (this._currentReturnTarget) {
             this._addAntecedent(this._currentReturnTarget, this._currentFlowNode);
         }
-        if (this._currentFinallyTarget) {
-            this._addAntecedent(this._currentFinallyTarget, this._currentFlowNode);
-        }
+        this._finallyTargets.forEach((target) => {
+            this._addAntecedent(target, this._currentFlowNode);
+        });
         this._currentFlowNode = Binder._unreachableFlowNode;
         return false;
     }
@@ -859,9 +859,9 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.tracebackExpression);
         }
 
-        if (this._currentFinallyTarget) {
-            this._addAntecedent(this._currentFinallyTarget, this._currentFlowNode);
-        }
+        this._finallyTargets.forEach((target) => {
+            this._addAntecedent(target, this._currentFlowNode);
+        });
 
         this._currentFlowNode = Binder._unreachableFlowNode;
         return false;
@@ -930,12 +930,14 @@ export class Binder extends ParseTreeWalker {
             this._addAntecedent(exceptLabel, this._currentFlowNode);
         });
 
-        // We don't properly handle nested finally clauses, which are not
-        // feasible to model within a static analyzer, but we do handle
-        // a single level of finally statements. Returns or raises within
-        // the try/except/raise block will execute the finally target.
-        const prevFinallyTarget = this._currentFinallyTarget;
-        this._currentFinallyTarget = node.finallySuite ? preFinallyReturnOrRaiseLabel : undefined;
+        // We don't perfectly handle nested finally clauses, which are not
+        // possible to model fully within a static analyzer, but we do handle
+        // a single level of finally statements, and we handle most cases
+        // involving nesting. Returns or raises within the try/except/raise
+        // block will execute the finally target(s).
+        if (node.finallySuite) {
+            this._finallyTargets.push(preFinallyReturnOrRaiseLabel);
+        }
 
         // Handle the try block.
         const prevExceptTargets = this._currentExceptTargets;
@@ -965,7 +967,9 @@ export class Binder extends ParseTreeWalker {
         });
         this._nestedExceptDepth--;
 
-        this._currentFinallyTarget = prevFinallyTarget;
+        if (node.finallySuite) {
+            this._finallyTargets.pop();
+        }
 
         // Handle the finally block.
         this._currentFlowNode = this._finishFlowLabel(preFinallyLabel);
