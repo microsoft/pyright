@@ -4945,7 +4945,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             argType = exprType.type;
 
             if (argParam.argument && argParam.argument.name && !isSpeculativeMode(argParam.errorNode)) {
-                writeTypeCache(argParam.argument.name, argType);
+                writeTypeCache(argParam.argument.name, expectedType || argType);
             }
         } else {
             argType = getTypeForArgument(argParam.argument);
