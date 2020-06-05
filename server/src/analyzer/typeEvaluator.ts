@@ -5772,6 +5772,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 node.leftExpression.nodeType === ParseNodeType.BinaryOperation &&
                 comparisonOperatorMap[node.leftExpression.operator]
             ) {
+                // Evaluate the left expression so it is type checked.
+                getTypeFromBinaryOperation(node.leftExpression, flags);
+
+                // Use the right side of the left expression for comparison purposes.
                 leftExpression = node.leftExpression.rightExpression;
             }
         }
