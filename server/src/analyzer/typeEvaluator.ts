@@ -4562,6 +4562,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
+        if (!callResult.returnType) {
+            // Touch all of the args so they're marked accessed.
+            argList.forEach((arg) => getTypeForArgument(arg));
+        }
+
         return callResult;
     }
 
