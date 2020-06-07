@@ -4517,6 +4517,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         skipUnknownArgCheck,
                         inferReturnTypeIfNeeded
                     );
+                } else {
+                    const fileInfo = getFileInfo(errorNode);
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.objectNotCallable().format({ type: printType(callType) }),
+                        errorNode
+                    );
                 }
                 break;
             }

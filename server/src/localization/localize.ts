@@ -387,6 +387,8 @@ export namespace Localizer {
         export const noReturnContainsYield = () => getRawString('Diagnostic.noReturnContainsYield');
         export const noReturnReturnsNone = () => getRawString('Diagnostic.noReturnReturnsNone');
         export const numericLiteralInAnnotation = () => getRawString('Diagnostic.numericLiteralInAnnotation');
+        export const objectNotCallable = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.objectNotCallable'));
         export const obscuredClassDeclaration = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.obscuredClassDeclaration'));
         export const obscuredFunctionDeclaration = () =>
