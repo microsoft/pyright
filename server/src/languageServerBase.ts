@@ -804,47 +804,27 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     protected onAnalysisCompletedHandler(results: AnalysisResults): void {
-        // Start.
-        if (
-            results.diagnostics.length === 0 &&
-            results.filesRequiringAnalysis > 0 &&
-            this._progressReporter.isEnabled(results)
-        ) {
-            this._progressReporter.begin();
-            this._progressReporter.report(getProgressMessage(results));
-            return;
-        }
-
+        // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
-            const diagnostics = this._convertDiagnostics(fileDiag.diagnostics);
-
-            // Send the computed diagnostics to the client.
             this._connection.sendDiagnostics({
                 uri: convertPathToUri(fileDiag.filePath),
-                diagnostics,
+                diagnostics: this._convertDiagnostics(fileDiag.diagnostics),
             });
-
-            // Update
-            if (results.filesRequiringAnalysis > 0) {
-                this._progressReporter.begin();
-                this._progressReporter.report(getProgressMessage(results));
-            } else {
-                this._progressReporter.end();
-            }
         });
 
-        // End.
-        if (results.diagnostics.length === 0 && results.filesRequiringAnalysis === 0) {
-            this._progressReporter.end();
-            return;
-        }
+        // Update progress.
+        if (results.filesRequiringAnalysis > 0) {
+            this._progressReporter.begin();
 
-        function getProgressMessage(results: AnalysisResults) {
-            return results.filesRequiringAnalysis === 1
-                ? Localizer.CodeAction.filesToAnalyzeOne()
-                : Localizer.CodeAction.filesToAnalyzeCount().format({
-                      count: results.filesRequiringAnalysis,
-                  });
+            const progressMessage =
+                results.filesRequiringAnalysis === 1
+                    ? Localizer.CodeAction.filesToAnalyzeOne()
+                    : Localizer.CodeAction.filesToAnalyzeCount().format({
+                          count: results.filesRequiringAnalysis,
+                      });
+            this._progressReporter.report(progressMessage);
+        } else {
+            this._progressReporter.end();
         }
     }
 
