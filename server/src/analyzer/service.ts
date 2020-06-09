@@ -938,10 +938,26 @@ export class AnalyzerService {
                         this._backgroundAnalysisProgram.markFilesDirty([path], false);
                         this._scheduleReanalysis(false);
                     } else {
-                        // Added/deleted/renamed files impact imports,
-                        // clear the import resolver cache and reanalyze everything.
-                        this.invalidateAndForceReanalysis();
-                        this._scheduleReanalysis(true);
+                        // Determine if this is an add or delete event related to a temporary
+                        // file. Some tools (like auto-formatters) create temporary files
+                        // alongside the original file and name them "x.py.<temp-id>.py" where
+                        // <temp-id> is a 32-character random string of hex digits. We don't
+                        // want these events to trigger a full reanalysis.
+                        const fileName = getFileName(path);
+                        const fileNameSplit = fileName.split('.');
+                        let isTemporaryFile = false;
+                        if (fileNameSplit.length === 4) {
+                            if (fileNameSplit[3] === fileNameSplit[1] && fileNameSplit[2].length === 32) {
+                                isTemporaryFile = true;
+                            }
+                        }
+
+                        if (!isTemporaryFile) {
+                            // Added/deleted/renamed files impact imports,
+                            // clear the import resolver cache and reanalyze everything.
+                            this.invalidateAndForceReanalysis();
+                            this._scheduleReanalysis(true);
+                        }
                     }
                 });
             } catch {
