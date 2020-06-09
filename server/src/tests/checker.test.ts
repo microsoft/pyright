@@ -301,7 +301,7 @@ test('TypeConstraint11', () => {
 });
 
 test('TypeConstraint12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['TypeConstraint12.py']);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint12.py']);
 
     validateResults(analysisResults, 0);
 });

@@ -70,6 +70,7 @@ import {
     FileWatcherEventType,
 } from './common/fileSystem';
 import { containsPath, convertPathToUri, convertUriToPath } from './common/pathUtils';
+import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { convertWorkspaceEdits } from './common/textEditUtils';
 import { Position } from './common/textRange';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
@@ -124,6 +125,18 @@ export interface LanguageServerInterface {
     readonly fs: FileSystem;
 }
 
+export interface ServerOptions {
+    productName: string;
+    rootDirectory: string;
+    version: string;
+    extension?: LanguageServiceExtension;
+    maxAnalysisTimeInForeground?: MaxAnalysisTime;
+    supportedCommands?: string[];
+    progressReporterFactory?: (connection: {
+        sendNotification: (method: string, params?: any) => void;
+    }) => ProgressReporter;
+}
+
 interface InternalFileWatcher extends FileWatcher {
     // Paths that are being watched within the workspace
     workspacePaths: string[];
@@ -140,9 +153,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _hasWatchFileCapability = false;
     protected _defaultClientConfig: any;
 
-    // Tracks whether we're currently displaying progress.
-    private _isDisplayingProgress = false;
-
     // Tracks active file system watchers.
     private _fileWatchers: InternalFileWatcher[] = [];
 
@@ -152,21 +162,20 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     // We support running only one command at a time.
     private _pendingCommandCancellationSource: CancellationTokenSource | undefined;
 
+    private _progressReporter: ProgressReporter;
+
     // Global root path - the basis for all global settings.
     rootPath = '';
 
     // File system abstraction.
     fs: FileSystem;
 
-    constructor(
-        private _productName: string,
-        rootDirectory: string,
-        version: string,
-        private _extension?: LanguageServiceExtension,
-        private _maxAnalysisTimeInForeground?: MaxAnalysisTime,
-        supportedCommands?: string[]
-    ) {
-        this._connection.console.log(`${_productName} language server ${version && version + ' '}starting`);
+    constructor(private _serverOptions: ServerOptions) {
+        this._connection.console.log(
+            `${_serverOptions.productName} language server ${
+                _serverOptions.version && _serverOptions.version + ' '
+            }starting`
+        );
         this.fs = createFromRealFileSystem(this._connection.console, this);
 
         // Set the working directory to a known location within
@@ -178,14 +187,20 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         }
 
         // Stash the base directory into a global variable.
-        (global as any).__rootDirectory = rootDirectory;
-        this._connection.console.log(`Server root directory: ${rootDirectory}`);
+        (global as any).__rootDirectory = _serverOptions.rootDirectory;
+        this._connection.console.log(`Server root directory: ${_serverOptions.rootDirectory}`);
 
         // Create workspace map.
         this._workspaceMap = new WorkspaceMap(this);
 
         // Set up callbacks.
-        this._setupConnection(supportedCommands ?? []);
+        this._setupConnection(_serverOptions.supportedCommands ?? []);
+
+        this._progressReporter = new ProgressReportTracker(
+            this._serverOptions.progressReporterFactory
+                ? this._serverOptions.progressReporterFactory(this._connection)
+                : undefined
+        );
 
         // Listen on the connection.
         this._connection.listen();
@@ -253,7 +268,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     protected setExtension(extension: any): void {
-        this._extension = extension;
+        this._serverOptions.extension = extension;
     }
 
     // Provides access to logging to the client output window.
@@ -276,9 +291,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             this._connection.console,
             this.createImportResolver.bind(this),
             undefined,
-            this._extension,
+            this._serverOptions.extension,
             this.createBackgroundAnalysis(),
-            this._maxAnalysisTimeInForeground
+            this._serverOptions.maxAnalysisTimeInForeground
         );
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(results));
@@ -789,6 +804,17 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     protected onAnalysisCompletedHandler(results: AnalysisResults): void {
+        // Start.
+        if (
+            results.diagnostics.length === 0 &&
+            results.filesRequiringAnalysis > 0 &&
+            this._progressReporter.isEnabled(results)
+        ) {
+            this._progressReporter.begin();
+            this._progressReporter.report(getProgressMessage(results));
+            return;
+        }
+
         results.diagnostics.forEach((fileDiag) => {
             const diagnostics = this._convertDiagnostics(fileDiag.diagnostics);
 
@@ -798,30 +824,28 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 diagnostics,
             });
 
+            // Update
             if (results.filesRequiringAnalysis > 0) {
-                if (!results.checkingOnlyOpenFiles) {
-                    // Display a progress spinner if we're checking the entire program.
-                    if (!this._isDisplayingProgress) {
-                        this._isDisplayingProgress = true;
-                        this._connection.sendNotification('pyright/beginProgress');
-                    }
-
-                    this._connection.sendNotification(
-                        'pyright/reportProgress',
-                        results.filesRequiringAnalysis === 1
-                            ? Localizer.CodeAction.filesToAnalyzeOne()
-                            : Localizer.CodeAction.filesToAnalyzeCount().format({
-                                  count: results.filesRequiringAnalysis,
-                              })
-                    );
-                }
+                this._progressReporter.begin();
+                this._progressReporter.report(getProgressMessage(results));
             } else {
-                if (this._isDisplayingProgress) {
-                    this._isDisplayingProgress = false;
-                    this._connection.sendNotification('pyright/endProgress');
-                }
+                this._progressReporter.end();
             }
         });
+
+        // End.
+        if (results.diagnostics.length === 0 && results.filesRequiringAnalysis === 0) {
+            this._progressReporter.end();
+            return;
+        }
+
+        function getProgressMessage(results: AnalysisResults) {
+            return results.filesRequiringAnalysis === 1
+                ? Localizer.CodeAction.filesToAnalyzeOne()
+                : Localizer.CodeAction.filesToAnalyzeCount().format({
+                      count: results.filesRequiringAnalysis,
+                  });
+        }
     }
 
     async updateSettingsForWorkspace(workspace: WorkspaceServiceInstance): Promise<void> {
@@ -865,7 +889,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return diags.map((diag) => {
             const severity = convertCategoryToSeverity(diag.category);
 
-            let source = this._productName;
+            let source = this._serverOptions.productName;
             const rule = diag.getRule();
             if (rule) {
                 source = `${source} (${rule})`;

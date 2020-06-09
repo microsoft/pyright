@@ -5,15 +5,24 @@
  */
 
 import { isArray } from 'util';
-import { CancellationToken, CodeAction, CodeActionParams, Command, ExecuteCommandParams } from 'vscode-languageserver';
+import {
+    CancellationToken,
+    CodeAction,
+    CodeActionParams,
+    Command,
+    ExecuteCommandParams,
+    IConnection,
+} from 'vscode-languageserver';
 import { isMainThread } from 'worker_threads';
 
+import { AnalysisResults } from './analyzer/analysis';
 import { BackgroundAnalysis } from './backgroundAnalysis';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
 import { isDebugMode, isString } from './common/core';
 import { convertUriToPath, getDirectoryPath, normalizeSlashes } from './common/pathUtils';
+import { ProgressReporter } from './common/progressReporter';
 import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 
@@ -24,7 +33,13 @@ class PyrightServer extends LanguageServerBase {
 
     constructor() {
         const version = require('../package.json').version || '';
-        super('Pyright', getDirectoryPath(__dirname), version, undefined, maxAnalysisTimeInForeground);
+        super({
+            productName: 'Pyright',
+            rootDirectory: getDirectoryPath(__dirname),
+            version,
+            maxAnalysisTimeInForeground,
+            progressReporterFactory: reporterFactory,
+        });
 
         this._controller = new CommandController(this);
     }
@@ -133,6 +148,26 @@ class PyrightServer extends LanguageServerBase {
         const workspace = await this.getWorkspaceForFile(filePath);
         return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range, token);
     }
+}
+
+function reporterFactory(connection: IConnection): ProgressReporter {
+    return {
+        isEnabled(data: AnalysisResults): boolean {
+            return !data.checkingOnlyOpenFiles;
+        },
+
+        begin(): void {
+            connection.sendNotification('pyright/beginProgress');
+        },
+
+        report(message: string): void {
+            connection.sendNotification('pyright/reportProgress', message);
+        },
+
+        end(): void {
+            connection.sendNotification('pyright/endProgress');
+        },
+    };
 }
 
 if (isMainThread) {

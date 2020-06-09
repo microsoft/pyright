@@ -221,6 +221,19 @@ export class BackgroundAnalysisRunnerBase {
                     const port = msg.port!;
                     const token = getCancellationTokenFromId(msg.data);
 
+                    // Report files to analyze first.
+                    const filesLeftToAnalyze = this._program.getFilesToAnalyzeCount();
+
+                    this._onAnalysisCompletion(port, {
+                        diagnostics: [],
+                        filesInProgram: this._program.getFileCount(),
+                        filesRequiringAnalysis: filesLeftToAnalyze,
+                        checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
+                        fatalErrorOccurred: false,
+                        configParseErrorOccurred: false,
+                        elapsedTime: 0,
+                    });
+
                     // Report results at the interval of the max analysis time.
                     const maxTime = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
                     let moreToAnalyze = true;
