@@ -725,6 +725,9 @@ export class TestState {
         for (const range of this.getRanges()) {
             const name = this.getMarkerName(range.marker!);
             const expected = map[name];
+            if (!expected) {
+                continue;
+            }
 
             const rangePos = this._convertOffsetsToRange(range.fileName, range.pos, range.end);
 

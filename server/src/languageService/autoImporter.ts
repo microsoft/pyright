@@ -38,6 +38,13 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
 
     files.forEach((file) => {
         throwIfCancellationRequested(token);
+
+        if (file.shadows.length > 0) {
+            // There is corresponding stub file. Don't add
+            // duplicated files in the map.
+            return;
+        }
+
         const symbolTable = file.sourceFile.getModuleSymbolTable();
         if (symbolTable) {
             moduleSymbolMap.set(file.sourceFile.getFilePath(), symbolTable);
