@@ -23,11 +23,12 @@ foo2: Final[str] = 3
 
 # This should generate an error because
 # we expect only one type argument for Final.
-foo3: Final[str, int] = 'hello'
+foo3: Final[str, int] = "hello"
+
 
 class Foo:
     member1: Final = 4
-    
+
     # This should generate an error because only
     # one declaration can have a Final attribute.
     member1: Final
@@ -63,6 +64,11 @@ class Foo:
         # can occur only within class bodies or __init__ methods.
         self.member6 = 4
 
+        # This should generate an error because 'Final' cannot
+        # be used to annotate instance variables outside of
+        # an __init__ method.
+        self.member7: Final = 6
+
 
 class Bar(Foo):
     # This should generate an error because we are overriding
@@ -73,14 +79,14 @@ class Bar(Foo):
         # This should generate an error because we are overriding
         # a member that is marked Final in the parent class.
         self.member6 = 5
-    
+
 
 # This should generate an error because Final isn't allowed for
 # function parameters.
 def bar(a: Final[int]):
     pass
 
+
 # This should generate an error because Final must the outermost
 # type in assignments.
 b: List[Final[int]] = []
-

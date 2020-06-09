@@ -932,7 +932,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return typeResult;
     }
 
-    function getTypeOfAnnotation(node: ExpressionNode, allowFinal = true): Type {
+    function getTypeOfAnnotation(node: ExpressionNode, allowFinal = false): Type {
         const fileInfo = getFileInfo(node);
 
         // Special-case the typing.pyi file, which contains some special
@@ -2401,7 +2401,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case ParseNodeType.TypeAnnotation: {
-                const typeHintType = getTypeOfAnnotation(target.typeAnnotation);
+                const typeHintType = getTypeOfAnnotation(
+                    target.typeAnnotation,
+                    ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.valueExpression)
+                );
                 const diagAddendum = new DiagnosticAddendum();
                 if (canAssignType(typeHintType, type, diagAddendum)) {
                     type = narrowDeclaredTypeBasedOnAssignedType(typeHintType, type);
@@ -7681,7 +7684,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             let isNoneWithoutOptional = false;
 
             if (param.typeAnnotation) {
-                annotatedType = getTypeOfAnnotation(param.typeAnnotation, false);
+                annotatedType = getTypeOfAnnotation(param.typeAnnotation);
             } else if (addGenericParamTypes) {
                 if (index > 0 && param.category === ParameterCategory.Simple && param.name) {
                     annotatedType = containingClassType!.details.typeParameters[typeParamIndex];
@@ -8780,7 +8783,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const parent = lastContextualExpression.parent!;
         if (parent.nodeType === ParseNodeType.Assignment) {
             if (lastContextualExpression === parent.typeAnnotationComment) {
-                getTypeOfAnnotation(lastContextualExpression);
+                getTypeOfAnnotation(
+                    lastContextualExpression,
+                    ParseTreeUtils.isFinalAllowedForAssignmentTarget(parent.leftExpression)
+                );
             } else {
                 evaluateTypesForAssignmentStatement(parent);
             }
@@ -8794,14 +8800,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (parent.nodeType === ParseNodeType.TypeAnnotation) {
             const annotationParent = parent.parent;
-            if (
-                annotationParent &&
-                annotationParent.nodeType === ParseNodeType.Assignment &&
-                annotationParent.leftExpression === parent
-            ) {
+            if (annotationParent?.nodeType === ParseNodeType.Assignment && annotationParent.leftExpression === parent) {
                 evaluateTypesForAssignmentStatement(annotationParent);
             } else {
-                getTypeOfAnnotation(parent.typeAnnotation);
+                getTypeOfAnnotation(
+                    parent.typeAnnotation,
+                    ParseTreeUtils.isFinalAllowedForAssignmentTarget(parent.valueExpression)
+                );
             }
             return;
         }
@@ -10573,7 +10578,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 if (typeAnnotationNode) {
-                    const declaredType = getTypeOfAnnotation(typeAnnotationNode, false);
+                    const declaredType = getTypeOfAnnotation(typeAnnotationNode);
 
                     if (declaredType) {
                         return convertClassToObject(declaredType);
