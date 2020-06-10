@@ -1652,38 +1652,43 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (variableNameNode && variableTypeEvaluator) {
                         const variableName = variableNameNode.value;
 
-                        // Create a new data class entry, but defer evaluation of the type until
-                        // we've compiled the full list of data class entries for this class. This
-                        // allows us to handle circular references in types.
-                        const dataClassEntry: DataClassEntry = {
-                            name: variableName,
-                            hasDefault: hasDefaultValue,
-                            type: UnknownType.create(),
-                        };
-                        localEntryTypeEvaluator.push({ entry: dataClassEntry, evaluator: variableTypeEvaluator });
+                        // Don't include class vars. PEP 557 indicates that they shouldn't
+                        // be considered data class entries.
+                        const variableSymbol = classType.details.fields.get(variableName);
+                        if (!variableSymbol?.isClassVar()) {
+                            // Create a new data class entry, but defer evaluation of the type until
+                            // we've compiled the full list of data class entries for this class. This
+                            // allows us to handle circular references in types.
+                            const dataClassEntry: DataClassEntry = {
+                                name: variableName,
+                                hasDefault: hasDefaultValue,
+                                type: UnknownType.create(),
+                            };
+                            localEntryTypeEvaluator.push({ entry: dataClassEntry, evaluator: variableTypeEvaluator });
 
-                        // Add the new entry to the local entry list.
-                        let insertIndex = localDataClassEntries.findIndex((e) => e.name === variableName);
-                        if (insertIndex >= 0) {
-                            localDataClassEntries[insertIndex] = dataClassEntry;
-                        } else {
-                            localDataClassEntries.push(dataClassEntry);
-                        }
+                            // Add the new entry to the local entry list.
+                            let insertIndex = localDataClassEntries.findIndex((e) => e.name === variableName);
+                            if (insertIndex >= 0) {
+                                localDataClassEntries[insertIndex] = dataClassEntry;
+                            } else {
+                                localDataClassEntries.push(dataClassEntry);
+                            }
 
-                        // Add the new entry to the full entry list.
-                        insertIndex = fullDataClassEntries.findIndex((p) => p.name === variableName);
-                        if (insertIndex >= 0) {
-                            fullDataClassEntries[insertIndex] = dataClassEntry;
-                        } else {
-                            fullDataClassEntries.push(dataClassEntry);
-                            insertIndex = fullDataClassEntries.length - 1;
-                        }
+                            // Add the new entry to the full entry list.
+                            insertIndex = fullDataClassEntries.findIndex((p) => p.name === variableName);
+                            if (insertIndex >= 0) {
+                                fullDataClassEntries[insertIndex] = dataClassEntry;
+                            } else {
+                                fullDataClassEntries.push(dataClassEntry);
+                                insertIndex = fullDataClassEntries.length - 1;
+                            }
 
-                        // If we've already seen a entry with a default value defined,
-                        // all subsequent entries must also have default values.
-                        const firstDefaultValueIndex = fullDataClassEntries.findIndex((p) => p.hasDefault);
-                        if (!hasDefaultValue && firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
-                            addError(Localizer.Diagnostic.dataClassFieldWithDefault(), variableNameNode);
+                            // If we've already seen a entry with a default value defined,
+                            // all subsequent entries must also have default values.
+                            const firstDefaultValueIndex = fullDataClassEntries.findIndex((p) => p.hasDefault);
+                            if (!hasDefaultValue && firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
+                                addError(Localizer.Diagnostic.dataClassFieldWithDefault(), variableNameNode);
+                            }
                         }
                     }
                 });

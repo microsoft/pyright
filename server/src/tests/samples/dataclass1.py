@@ -1,22 +1,32 @@
 # This sample validates the Python 3.7 data class feature.
 
-from typing import NamedTuple, Optional
+from typing import ClassVar, NamedTuple, Optional
+
 
 class Other:
     pass
 
+
 class DataTuple(NamedTuple):
     def _m(self):
         pass
+
+    # ClassVar variables should not be included.
+    class_var: ClassVar[int] = 4
+
     id: int
     aid: Other
-    value: str = ''
+    value: str = ""
+
+    # Unannotated variables should not be included.
     not_annotated = 5
+
     name: Optional[str] = None
 
+
 d1 = DataTuple(id=1, aid=Other())
-d2 = DataTuple(id=1, aid=Other(), value='v')
-d3 = DataTuple(id=1, aid=Other(), name='hello')
+d2 = DataTuple(id=1, aid=Other(), value="v")
+d3 = DataTuple(id=1, aid=Other(), name="hello")
 d4 = DataTuple(id=1, aid=Other(), name=None)
 id = d1.id
 
