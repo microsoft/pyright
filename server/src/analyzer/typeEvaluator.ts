@@ -1686,7 +1686,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             // If we've already seen a entry with a default value defined,
                             // all subsequent entries must also have default values.
                             const firstDefaultValueIndex = fullDataClassEntries.findIndex((p) => p.hasDefault);
-                            if (!hasDefaultValue && firstDefaultValueIndex >= 0 && firstDefaultValueIndex < insertIndex) {
+                            if (
+                                !hasDefaultValue &&
+                                firstDefaultValueIndex >= 0 &&
+                                firstDefaultValueIndex < insertIndex
+                            ) {
                                 addError(Localizer.Diagnostic.dataClassFieldWithDefault(), variableNameNode);
                             }
                         }
@@ -9349,8 +9353,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                             // Set the cache entry to undefined before evaluating the
                             // expression in case it depends on itself. This will prevent
-                            // an infinite loop.
-                            setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                            // an infinite loop. If there was already a cached entry
+                            // marked as incomplete, mark it as complete; this is needed
+                            // for certain circular cases like "int: int = 4".
+                            setCacheEntry(curFlowNode, undefined, /* isIncomplete */ !cachedEntry?.isIncomplete);
                             const flowType = evaluateAssignmentFlowNode(assignmentFlowNode);
                             return setCacheEntry(curFlowNode, flowType, /* isIncomplete */ false);
                         }
@@ -10825,7 +10831,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     try {
                         let type = getInferredTypeOfDeclaration(decl);
 
-                        popSymbolResolution(symbol);
+                        if (popSymbolResolution(symbol)) {
+                            isResolutionCyclical = true;
+                        }
 
                         if (type) {
                             const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
