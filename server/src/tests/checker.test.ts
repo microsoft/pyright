@@ -1634,3 +1634,9 @@ test('Decorator1', () => {
 
     validateResults(analysisResults, 0);
 });
+
+test('Decorator2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator2.py']);
+
+    validateResults(analysisResults, 0);
+});

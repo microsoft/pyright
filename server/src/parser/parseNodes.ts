@@ -652,7 +652,8 @@ export type ExpressionNode =
     | DictionaryNode
     | DictionaryExpandEntryNode
     | ListNode
-    | SetNode;
+    | SetNode
+    | DecoratorNode;
 
 export function isExpressionNode(node: ParseNode) {
     switch (node.nodeType) {

@@ -993,7 +993,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // because these errors will already be reported as unknown
             // parameters.
             decoratorCall = getTypeFromCallWithBaseType(
-                node.leftExpression,
+                node,
                 argList,
                 decoratorCall,
                 undefined,
@@ -1009,7 +1009,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         ];
 
         return getTypeFromCallWithBaseType(
-            node.leftExpression,
+            node,
             argList,
             decoratorCall,
             undefined,
