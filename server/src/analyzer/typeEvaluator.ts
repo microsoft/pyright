@@ -6518,8 +6518,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     function getTypeFromListComprehension(node: ListComprehensionNode): TypeResult {
         const elementType = getElementTypeFromListComprehension(node);
 
+        const isAsync = node.comprehensions.some((comp) => {
+            return comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync;
+        });
         let type: Type = UnknownType.create();
-        const builtInIteratorType = getTypingType(node, 'Generator');
+        const builtInIteratorType = getTypingType(node, isAsync ? 'AsyncGenerator' : 'Generator');
 
         if (builtInIteratorType && builtInIteratorType.category === TypeCategory.Class) {
             type = ObjectType.create(ClassType.cloneForSpecialization(builtInIteratorType, [elementType]));
