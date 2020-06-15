@@ -790,7 +790,7 @@ export class Parser {
                 } else {
                     if (param.defaultValue) {
                         sawDefaultParam = true;
-                    } else if (sawDefaultParam && !sawKwSeparator) {
+                    } else if (sawDefaultParam && !sawKwSeparator && !sawVarArgs) {
                         // Report this error only once.
                         if (!reportedNonDefaultParamErr) {
                             this._addError(Localizer.Diagnostic.nonDefaultAfterDefault(), param);
