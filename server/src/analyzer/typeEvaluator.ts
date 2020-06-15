@@ -6751,6 +6751,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 } else if (item.constType === KeywordType.None) {
                     type = NoneType.create();
                 }
+            } else if (item.nodeType === ParseNodeType.UnaryOperation && item.operator === OperatorType.Subtract) {
+                if (item.expression.nodeType === ParseNodeType.Number) {
+                    if (!item.expression.isImaginary && item.expression.isInteger) {
+                        type = cloneBuiltinTypeWithLiteral(node, 'int', -item.expression.value);
+                    }
+                }
             }
 
             // See if this is an enum type.
