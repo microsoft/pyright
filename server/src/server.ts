@@ -107,8 +107,9 @@ class PyrightServer extends LanguageServerBase {
                 serverSettings.disableOrganizeImports = !!pyrightSection.disableOrganizeImports;
                 serverSettings.typeCheckingMode = pyrightSection.typeCheckingMode;
             } else {
-                // Unless openFilesOnly is set explicitly, set it to true by default.
-                serverSettings.openFilesOnly = serverSettings.openFilesOnly ?? true;
+                // Unless openFilesOnly is set explicitly, set it to false by default.
+                // true analyses files that are _not_ currently open.
+                serverSettings.openFilesOnly = serverSettings.openFilesOnly ??  false;
                 serverSettings.useLibraryCodeForTypes = false;
                 serverSettings.disableLanguageServices = false;
                 serverSettings.disableOrganizeImports = false;
