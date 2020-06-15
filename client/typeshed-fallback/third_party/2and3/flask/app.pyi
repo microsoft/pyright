@@ -5,7 +5,6 @@
 from .blueprints import Blueprint
 from .config import Config, ConfigAttribute
 from .ctx import AppContext, RequestContext, _AppCtxGlobals
-from .globals import _request_ctx_stack, g, request, session
 from .helpers import _PackageBoundObject, find_package, get_debug_flag, get_env, get_flashed_messages, get_load_dotenv, locked_cached_property, url_for
 from .logging import create_logger
 from .sessions import SecureCookieSessionInterface

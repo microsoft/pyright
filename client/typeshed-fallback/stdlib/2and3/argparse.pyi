@@ -21,7 +21,8 @@ SUPPRESS: str
 ZERO_OR_MORE: str
 _UNRECOGNIZED_ARGS_ATTR: str  # undocumented
 
-class ArgumentError(Exception): ...
+class ArgumentError(Exception):
+    def __init__(self, argument: Optional[Action], message: str) -> None: ...
 
 # undocumented
 class _AttributeHolder:
@@ -96,7 +97,22 @@ class ArgumentParser(_AttributeHolder, _ActionsContainer):
     _optionals: _ArgumentGroup
     _subparsers: Optional[_ArgumentGroup]
 
-    if sys.version_info >= (3, 5):
+    if sys.version_info >= (3, 9):
+        def __init__(self,
+                     prog: Optional[str] = ...,
+                     usage: Optional[str] = ...,
+                     description: Optional[str] = ...,
+                     epilog: Optional[str] = ...,
+                     parents: Sequence[ArgumentParser] = ...,
+                     formatter_class: _FormatterClass = ...,
+                     prefix_chars: str = ...,
+                     fromfile_prefix_chars: Optional[str] = ...,
+                     argument_default: Optional[str] = ...,
+                     conflict_handler: str = ...,
+                     add_help: bool = ...,
+                     allow_abbrev: bool = ...,
+                     exit_on_error: bool = ...) -> None: ...
+    elif sys.version_info >= (3, 5):
         def __init__(self,
                      prog: Optional[str] = ...,
                      usage: Optional[str] = ...,
@@ -255,8 +271,8 @@ class Action(_AttributeHolder):
                  option_strings: Sequence[Text],
                  dest: Text,
                  nargs: Optional[Union[int, Text]] = ...,
-                 const: Any = ...,
-                 default: Any = ...,
+                 const: Optional[_T] = ...,
+                 default: Union[_T, str, None] = ...,
                  type: Optional[Union[Callable[[Text], _T], Callable[[str], _T], FileType]] = ...,
                  choices: Optional[Iterable[_T]] = ...,
                  required: bool = ...,
@@ -265,6 +281,23 @@ class Action(_AttributeHolder):
     def __call__(self, parser: ArgumentParser, namespace: Namespace,
                  values: Union[Text, Sequence[Any], None],
                  option_string: Optional[Text] = ...) -> None: ...
+    if sys.version_info >= (3, 9):
+        def format_usage(self) -> str: ...
+
+if sys.version_info >= (3, 9):
+    class BooleanOptionalAction(Action):
+        def __init__(
+            self,
+            option_strings: Sequence[str],
+            dest: str,
+            const: None = ...,  # unused in implementation
+            default: Union[_T, str, None] = ...,
+            type: Optional[Union[Callable[[Text], _T], Callable[[str], _T], FileType]] = ...,
+            choices: Optional[Iterable[_T]] = ...,
+            required: bool = ...,
+            help: Optional[Text] = ...,
+            metavar: Optional[Union[Text, Tuple[Text, ...]]] = ...,
+        ) -> None: ...
 
 class Namespace(_AttributeHolder):
     def __init__(self, **kwargs: Any) -> None: ...

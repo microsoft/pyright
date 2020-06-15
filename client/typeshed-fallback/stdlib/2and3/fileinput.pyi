@@ -1,30 +1,24 @@
-from typing import Iterable, Callable, IO, AnyStr, Generic, Any, Text, Union, Iterator, Optional
-
-import os
+from typing import Iterable, Callable, IO, AnyStr, Generic, Any, Union, Iterator, Optional
+from _typeshed import AnyPath
 import sys
-
-if sys.version_info >= (3, 6):
-    _Path = Union[Text, bytes, os.PathLike[Any]]
-else:
-    _Path = Union[Text, bytes]
 
 if sys.version_info >= (3, 8):
     def input(
-        files: Union[_Path, Iterable[_Path], None] = ...,
+        files: Union[AnyPath, Iterable[AnyPath], None] = ...,
         inplace: bool = ...,
         backup: str = ...,
         *,
         mode: str = ...,
-        openhook: Callable[[_Path, str], IO[AnyStr]] = ...,
+        openhook: Callable[[AnyPath, str], IO[AnyStr]] = ...,
     ) -> FileInput[AnyStr]: ...
 else:
     def input(
-        files: Union[_Path, Iterable[_Path], None] = ...,
+        files: Union[AnyPath, Iterable[AnyPath], None] = ...,
         inplace: bool = ...,
         backup: str = ...,
         bufsize: int = ...,
         mode: str = ...,
-        openhook: Callable[[_Path, str], IO[AnyStr]] = ...,
+        openhook: Callable[[AnyPath, str], IO[AnyStr]] = ...,
     ) -> FileInput[AnyStr]: ...
 
 def close() -> None: ...
@@ -40,22 +34,22 @@ class FileInput(Iterable[AnyStr], Generic[AnyStr]):
     if sys.version_info >= (3, 8):
         def __init__(
             self,
-            files: Union[None, _Path, Iterable[_Path]] = ...,
+            files: Union[None, AnyPath, Iterable[AnyPath]] = ...,
             inplace: bool = ...,
             backup: str = ...,
             *,
             mode: str = ...,
-            openhook: Callable[[_Path, str], IO[AnyStr]] = ...
+            openhook: Callable[[AnyPath, str], IO[AnyStr]] = ...
         ) -> None: ...
     else:
         def __init__(
             self,
-            files: Union[None, _Path, Iterable[_Path]] = ...,
+            files: Union[None, AnyPath, Iterable[AnyPath]] = ...,
             inplace: bool = ...,
             backup: str = ...,
             bufsize: int = ...,
             mode: str = ...,
-            openhook: Callable[[_Path, str], IO[AnyStr]] = ...
+            openhook: Callable[[AnyPath, str], IO[AnyStr]] = ...
         ) -> None: ...
 
     def __del__(self) -> None: ...
@@ -75,8 +69,8 @@ class FileInput(Iterable[AnyStr], Generic[AnyStr]):
     def isfirstline(self) -> bool: ...
     def isstdin(self) -> bool: ...
 
-def hook_compressed(filename: _Path, mode: str) -> IO[Any]: ...
+def hook_compressed(filename: AnyPath, mode: str) -> IO[Any]: ...
 if sys.version_info >= (3, 6):
-    def hook_encoded(encoding: str, errors: Optional[str] = ...) -> Callable[[_Path, str], IO[Any]]: ...
+    def hook_encoded(encoding: str, errors: Optional[str] = ...) -> Callable[[AnyPath, str], IO[Any]]: ...
 else:
-    def hook_encoded(encoding: str) -> Callable[[_Path, str], IO[Any]]: ...
+    def hook_encoded(encoding: str) -> Callable[[AnyPath, str], IO[Any]]: ...

@@ -83,4 +83,5 @@ class Au_write:
 
 # Returns a Au_read if mode is rb and Au_write if mode is wb
 def open(f: _File, mode: Optional[str] = ...) -> Any: ...
-openfp = open
+if sys.version_info < (3, 9):
+    openfp = open

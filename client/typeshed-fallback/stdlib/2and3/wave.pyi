@@ -72,4 +72,5 @@ class Wave_write:
 
 # Returns a Wave_read if mode is rb and Wave_write if mode is wb
 def open(f: _File, mode: Optional[str] = ...) -> Any: ...
-openfp = open
+if sys.version_info < (3, 9):
+    openfp = open

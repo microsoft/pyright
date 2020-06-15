@@ -1,14 +1,15 @@
 import io
-import sys
-from typing import Any, IO, Mapping, Optional, Sequence, Union
+from typing import IO, Any, Mapping, Optional, Sequence, TextIO, TypeVar, Union, overload
+from _typeshed import AnyPath
+from typing_extensions import Literal
 
-if sys.version_info >= (3, 6):
-    from os import PathLike
-    _PathOrFile = Union[str, bytes, IO[Any], PathLike[Any]]
-else:
-    _PathOrFile = Union[str, bytes, IO[Any]]
+_OpenBinaryWritingMode = Literal["w", "wb", "x", "xb", "a", "ab"]
+_OpenTextWritingMode = Literal["wt", "xt", "at"]
+
+_PathOrFile = Union[AnyPath, IO[bytes]]
 
 _FilterChain = Sequence[Mapping[str, Any]]
+_T = TypeVar("_T")
 
 FORMAT_AUTO: int
 FORMAT_XZ: int
@@ -41,7 +42,9 @@ PRESET_EXTREME: int
 
 # from _lzma.c
 class LZMADecompressor(object):
-    def __init__(self, format: Optional[int] = ..., memlimit: Optional[int] = ..., filters: Optional[_FilterChain] = ...) -> None: ...
+    def __init__(
+        self, format: Optional[int] = ..., memlimit: Optional[int] = ..., filters: Optional[_FilterChain] = ...
+    ) -> None: ...
     def decompress(self, data: bytes, max_length: int = ...) -> bytes: ...
     @property
     def check(self) -> int: ...
@@ -54,27 +57,26 @@ class LZMADecompressor(object):
 
 # from _lzma.c
 class LZMACompressor(object):
-    def __init__(self,
-                 format: Optional[int] = ...,
-                 check: int = ...,
-                 preset: Optional[int] = ...,
-                 filters: Optional[_FilterChain] = ...) -> None: ...
+    def __init__(
+        self, format: Optional[int] = ..., check: int = ..., preset: Optional[int] = ..., filters: Optional[_FilterChain] = ...
+    ) -> None: ...
     def compress(self, data: bytes) -> bytes: ...
     def flush(self) -> bytes: ...
 
-
 class LZMAError(Exception): ...
 
-
-class LZMAFile(io.BufferedIOBase, IO[bytes]):  # type: ignore  # python/mypy#5027
-    def __init__(self,
-                 filename: Optional[_PathOrFile] = ...,
-                 mode: str = ...,
-                 *,
-                 format: Optional[int] = ...,
-                 check: int = ...,
-                 preset: Optional[int] = ...,
-                 filters: Optional[_FilterChain] = ...) -> None: ...
+class LZMAFile(io.BufferedIOBase, IO[bytes]):
+    def __init__(
+        self,
+        filename: Optional[_PathOrFile] = ...,
+        mode: str = ...,
+        *,
+        format: Optional[int] = ...,
+        check: int = ...,
+        preset: Optional[int] = ...,
+        filters: Optional[_FilterChain] = ...,
+    ) -> None: ...
+    def __enter__(self: _T) -> _T: ...
     def close(self) -> None: ...
     @property
     def closed(self) -> bool: ...
@@ -85,22 +87,78 @@ class LZMAFile(io.BufferedIOBase, IO[bytes]):  # type: ignore  # python/mypy#502
     def peek(self, size: int = ...) -> bytes: ...
     def read(self, size: Optional[int] = ...) -> bytes: ...
     def read1(self, size: int = ...) -> bytes: ...
-    def readline(self, size: int = ...) -> bytes: ...
+    def readline(self, size: Optional[int] = ...) -> bytes: ...
     def write(self, data: bytes) -> int: ...
     def seek(self, offset: int, whence: int = ...) -> int: ...
     def tell(self) -> int: ...
 
-
-def open(filename: _PathOrFile,
-         mode: str = ...,
-         *,
-         format: Optional[int] = ...,
-         check: int = ...,
-         preset: Optional[int] = ...,
-         filters: Optional[_FilterChain] = ...,
-         encoding: Optional[str] = ...,
-         errors: Optional[str] = ...,
-         newline: Optional[str] = ...) -> IO[Any]: ...
-def compress(data: bytes, format: int = ..., check: int = ..., preset: Optional[int] = ..., filters: Optional[_FilterChain] = ...) -> bytes: ...
+@overload
+def open(
+    filename: _PathOrFile,
+    mode: Literal["r", "rb"] = ...,
+    *,
+    format: Optional[int] = ...,
+    check: Literal[-1] = ...,
+    preset: None = ...,
+    filters: Optional[_FilterChain] = ...,
+    encoding: None = ...,
+    errors: None = ...,
+    newline: None = ...,
+) -> LZMAFile: ...
+@overload
+def open(
+    filename: _PathOrFile,
+    mode: _OpenBinaryWritingMode,
+    *,
+    format: Optional[int] = ...,
+    check: int = ...,
+    preset: Optional[int] = ...,
+    filters: Optional[_FilterChain] = ...,
+    encoding: None = ...,
+    errors: None = ...,
+    newline: None = ...,
+) -> LZMAFile: ...
+@overload
+def open(
+    filename: AnyPath,
+    mode: Literal["rt"],
+    *,
+    format: Optional[int] = ...,
+    check: Literal[-1] = ...,
+    preset: None = ...,
+    filters: Optional[_FilterChain] = ...,
+    encoding: Optional[str] = ...,
+    errors: Optional[str] = ...,
+    newline: Optional[str] = ...,
+) -> TextIO: ...
+@overload
+def open(
+    filename: AnyPath,
+    mode: _OpenTextWritingMode,
+    *,
+    format: Optional[int] = ...,
+    check: int = ...,
+    preset: Optional[int] = ...,
+    filters: Optional[_FilterChain] = ...,
+    encoding: Optional[str] = ...,
+    errors: Optional[str] = ...,
+    newline: Optional[str] = ...,
+) -> TextIO: ...
+@overload
+def open(
+    filename: _PathOrFile,
+    mode: str,
+    *,
+    format: Optional[int] = ...,
+    check: int = ...,
+    preset: Optional[int] = ...,
+    filters: Optional[_FilterChain] = ...,
+    encoding: Optional[str] = ...,
+    errors: Optional[str] = ...,
+    newline: Optional[str] = ...,
+) -> Union[LZMAFile, TextIO]: ...
+def compress(
+    data: bytes, format: int = ..., check: int = ..., preset: Optional[int] = ..., filters: Optional[_FilterChain] = ...
+) -> bytes: ...
 def decompress(data: bytes, format: int = ..., memlimit: Optional[int] = ..., filters: Optional[_FilterChain] = ...) -> bytes: ...
 def is_check_supported(check: int) -> bool: ...

@@ -1,8 +1,7 @@
-# Stubs for traceback
-
-from typing import Any, Dict, Generator, IO, Iterator, List, Mapping, Optional, Protocol, Tuple, Type, Iterable
+from typing import Any, Dict, Generator, IO, Iterator, List, Mapping, Optional, Tuple, Type, Iterable
 from types import FrameType, TracebackType
 import sys
+from _typeshed import SupportsWrite
 
 _PT = Tuple[str, int, str, Optional[str]]
 
@@ -36,10 +35,8 @@ if sys.version_info >= (3, 5):
     def extract_stack(f: Optional[FrameType] = ...,
                       limit: Optional[int] = ...) -> StackSummary: ...
     def format_list(extracted_list: List[FrameSummary]) -> List[str]: ...
-    class _Writer(Protocol):
-        def write(self, s: str) -> Any: ...
     # undocumented
-    def print_list(extracted_list: List[FrameSummary], file: Optional[_Writer] = ...) -> None: ...
+    def print_list(extracted_list: List[FrameSummary], file: Optional[SupportsWrite[str]] = ...) -> None: ...
 else:
     def extract_tb(tb: Optional[TracebackType], limit: Optional[int] = ...) -> List[_PT]: ...
     def extract_stack(f: Optional[FrameType] = ...,

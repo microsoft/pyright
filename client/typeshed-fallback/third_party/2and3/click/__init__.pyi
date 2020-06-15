@@ -14,7 +14,6 @@
     :license: BSD, see LICENSE for more details.
 """
 
-# Core classes
 from .core import (
     Context as Context,
     BaseCommand as BaseCommand,
@@ -26,11 +25,7 @@ from .core import (
     Option as Option,
     Argument as Argument,
 )
-
-# Globals
 from .globals import get_current_context as get_current_context
-
-# Decorators
 from .decorators import (
     pass_context as pass_context,
     pass_obj as pass_obj,
@@ -44,8 +39,6 @@ from .decorators import (
     version_option as version_option,
     help_option as help_option,
 )
-
-# Types
 from .types import (
     ParamType as ParamType,
     File as File,
@@ -62,8 +55,6 @@ from .types import (
     UUID as UUID,
     UNPROCESSED as UNPROCESSED,
 )
-
-# Utilities
 from .utils import (
     echo as echo,
     get_binary_stream as get_binary_stream,
@@ -73,8 +64,6 @@ from .utils import (
     get_app_dir as get_app_dir,
     get_os_args as get_os_args,
 )
-
-# Terminal functions
 from .termui import (
     prompt as prompt,
     confirm as confirm,
@@ -90,8 +79,6 @@ from .termui import (
     getchar as getchar,
     pause as pause,
 )
-
-# Exceptions
 from .exceptions import (
     ClickException as ClickException,
     UsageError as UsageError,
@@ -103,11 +90,7 @@ from .exceptions import (
     BadArgumentUsage as BadArgumentUsage,
     MissingParameter as MissingParameter,
 )
-
-# Formatting
 from .formatting import HelpFormatter as HelpFormatter, wrap_text as wrap_text
-
-# Parsing
 from .parser import OptionParser as OptionParser
 
 # Controls if click should emit the warning about the use of unicode

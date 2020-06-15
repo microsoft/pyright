@@ -3,14 +3,10 @@ import sys
 from typing import (
     Any, TypeVar, Set, List, TextIO, Union, Tuple, Generic, Generator, Iterable, Awaitable, overload, Iterator, Optional,
 )
+from typing_extensions import Literal
 from types import FrameType
 from .events import AbstractEventLoop
 from .futures import Future
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
 
 _T = TypeVar('_T')
 _T1 = TypeVar('_T1')
@@ -113,7 +109,10 @@ class Task(Future[_T], Generic[_T]):
         def set_name(self, __value: object) -> None: ...
     def get_stack(self, *, limit: int = ...) -> List[FrameType]: ...
     def print_stack(self, *, limit: int = ..., file: TextIO = ...) -> None: ...
-    def cancel(self) -> bool: ...
+    if sys.version_info >= (3, 9):
+        def cancel(self, msg: Optional[str] = ...) -> bool: ...
+    else:
+        def cancel(self) -> bool: ...
     if sys.version_info < (3, 7):
         def _wakeup(self, fut: Future[Any]) -> None: ...
 

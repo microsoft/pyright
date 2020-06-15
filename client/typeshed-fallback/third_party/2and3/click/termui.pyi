@@ -6,7 +6,6 @@ from typing import (
     IO,
     List,
     Optional,
-    Text,
     overload,
     Text,
     Tuple,

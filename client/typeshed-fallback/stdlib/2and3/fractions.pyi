@@ -25,17 +25,13 @@ if sys.version_info < (3, 9):
 
 class Fraction(Rational):
     @overload
-    def __init__(self,
-                 numerator: Union[int, Rational] = ...,
-                 denominator: Optional[Union[int, Rational]] = ...,
-                 *,
-                 _normalize: bool = ...) -> None: ...
+    def __new__(cls,
+                numerator: Union[int, Rational] = ...,
+                denominator: Optional[Union[int, Rational]] = ...,
+                *,
+                _normalize: bool = ...) -> Fraction: ...
     @overload
-    def __init__(self, value: float, *, _normalize: bool = ...) -> None: ...
-    @overload
-    def __init__(self, value: Decimal, *, _normalize: bool = ...) -> None: ...
-    @overload
-    def __init__(self, value: str, *, _normalize: bool = ...) -> None: ...
+    def __new__(cls, __value: Union[float, Decimal, str], *, _normalize: bool = ...) -> Fraction: ...
 
     @classmethod
     def from_float(cls, f: float) -> Fraction: ...

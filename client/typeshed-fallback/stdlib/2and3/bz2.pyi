@@ -1,27 +1,48 @@
 import io
 import sys
-from typing import Any, IO, Optional, Union
+from typing import IO, Any, Optional, TextIO, Union, overload, TypeVar
+from _typeshed import AnyPath
+from typing_extensions import Literal
 
-if sys.version_info >= (3, 6):
-    from os import PathLike
-    _PathOrFile = Union[str, bytes, IO[Any], PathLike[Any]]
-elif sys.version_info >= (3, 3):
-    _PathOrFile = Union[str, bytes, IO[Any]]
-else:
-    _PathOrFile = str
+_PathOrFile = Union[AnyPath, IO[bytes]]
+_T = TypeVar("_T")
 
 def compress(data: bytes, compresslevel: int = ...) -> bytes: ...
 def decompress(data: bytes) -> bytes: ...
 
 if sys.version_info >= (3, 3):
-    def open(filename: _PathOrFile,
-             mode: str = ...,
-             compresslevel: int = ...,
-             encoding: Optional[str] = ...,
-             errors: Optional[str] = ...,
-             newline: Optional[str] = ...) -> IO[Any]: ...
+    _OpenBinaryMode = Literal["r", "rb", "w", "wb", "x", "xb", "a", "ab"]
+    _OpenTextMode = Literal["rt", "wt", "xt", "at"]
+    @overload
+    def open(
+        filename: _PathOrFile,
+        mode: _OpenBinaryMode = ...,
+        compresslevel: int = ...,
+        encoding: None = ...,
+        errors: None = ...,
+        newline: None = ...,
+    ) -> BZ2File: ...
+    @overload
+    def open(
+        filename: AnyPath,
+        mode: _OpenTextMode,
+        compresslevel: int = ...,
+        encoding: Optional[str] = ...,
+        errors: Optional[str] = ...,
+        newline: Optional[str] = ...,
+    ) -> TextIO: ...
+    @overload
+    def open(
+        filename: _PathOrFile,
+        mode: str,
+        compresslevel: int = ...,
+        encoding: Optional[str] = ...,
+        errors: Optional[str] = ...,
+        newline: Optional[str] = ...,
+    ) -> Union[BZ2File, TextIO]: ...
 
-class BZ2File(io.BufferedIOBase, IO[bytes]):  # type: ignore  # python/mypy#5027
+class BZ2File(io.BufferedIOBase, IO[bytes]):
+    def __enter__(self: _T) -> _T: ...
     if sys.version_info >= (3, 9):
         def __init__(self,
                      filename: _PathOrFile,

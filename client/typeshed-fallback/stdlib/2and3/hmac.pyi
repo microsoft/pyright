@@ -1,6 +1,6 @@
 # Stubs for hmac
 
-from typing import Any, Callable, Optional, Union, overload, AnyStr
+from typing import Any, AnyStr, Callable, Optional, Union, overload
 from types import ModuleType
 import sys
 
@@ -11,7 +11,15 @@ _Hash = Any
 
 digest_size: None
 
-if sys.version_info >= (3, 4):
+if sys.version_info >= (3, 8):
+    _DigestMod = Union[str, Callable[[], _Hash], ModuleType]
+    # In reality digestmod has a default value, but the function always throws an error
+    # if the argument is not given, so we pretend it is a required argument.
+    @overload
+    def new(key: _B, msg: Optional[_B], digestmod: _DigestMod) -> HMAC: ...
+    @overload
+    def new(key: _B, *, digestmod: _DigestMod) -> HMAC: ...
+elif sys.version_info >= (3, 4):
     def new(key: _B, msg: Optional[_B] = ...,
             digestmod: Optional[Union[str, Callable[[], _Hash], ModuleType]] = ...) -> HMAC: ...
 else:

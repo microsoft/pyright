@@ -1,12 +1,10 @@
-# Stubs for contextlib
-
+# ContextManager aliased here for backwards compatibility; TODO eventually remove this
 from typing import (
     Any, Callable, Generator, IO, Iterable, Iterator, Optional, Type,
     Generic, TypeVar, overload
 )
 from types import TracebackType
 import sys
-# Aliased here for backwards compatibility; TODO eventually remove this
 from typing import ContextManager as ContextManager
 
 if sys.version_info >= (3, 5):

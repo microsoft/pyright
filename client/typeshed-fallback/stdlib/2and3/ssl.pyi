@@ -1,18 +1,12 @@
-# Stubs for ssl
-
+from _typeshed import StrPath
 from typing import (
-    Any, Callable, ClassVar, Dict, List, NamedTuple, Optional, Set, Text, Type, Tuple, Union,
+    Any, Callable, ClassVar, Dict, Iterable, List, NamedTuple, Optional, Set, Text, Type, Tuple, Union,
     overload
 )
+from typing_extensions import Literal
 import enum
 import socket
 import sys
-import os
-
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
 
 _PCTRTT = Tuple[Tuple[str, str], ...]
 _PCTRTTT = Tuple[_PCTRTT, ...]
@@ -20,11 +14,6 @@ _PeerCertRetDictType = Dict[str, Union[str, _PCTRTTT, _PCTRTT]]
 _PeerCertRetType = Union[_PeerCertRetDictType, bytes, None]
 _EnumRetType = List[Tuple[bytes, str, Union[Set[str], bool]]]
 _PasswordType = Union[Callable[[], Union[str, bytes]], str, bytes]
-
-if sys.version_info < (3, 6):
-    _Path = Text
-else:
-    _Path = Union[str, os.PathLike[Any]]
 
 if sys.version_info >= (3, 5):
     _SC1ArgT = Union[SSLSocket, SSLObject]
@@ -139,18 +128,33 @@ if sys.version_info >= (3, 6):
     PROTOCOL_TLS_CLIENT: int
     PROTOCOL_TLS_SERVER: int
 
-OP_ALL: int
-OP_NO_SSLv2: int
-OP_NO_SSLv3: int
-OP_NO_TLSv1: int
-OP_NO_TLSv1_1: int
-OP_NO_TLSv1_2: int
-OP_CIPHER_SERVER_PREFERENCE: int
-OP_SINGLE_DH_USE: int
-OP_SINGLE_ECDH_USE: int
-OP_NO_COMPRESSION: int
 if sys.version_info >= (3, 6):
-    OP_NO_TICKET: int
+    class Options(enum.IntFlag):
+        OP_ALL: int
+        OP_NO_SSLv2: int
+        OP_NO_SSLv3: int
+        OP_NO_TLSv1: int
+        OP_NO_TLSv1_1: int
+        OP_NO_TLSv1_2: int
+        OP_CIPHER_SERVER_PREFERENCE: int
+        OP_SINGLE_DH_USE: int
+        OP_SINGLE_ECDH_USE: int
+        OP_NO_COMPRESSION: int
+        OP_NO_TICKET: int
+        OP_ENABLE_MIDDLEBOX_COMPAT: int
+        if sys.version_info >= (3, 7):
+            OP_NO_RENEGOTIATION: int
+else:
+    OP_ALL: int
+    OP_NO_SSLv2: int
+    OP_NO_SSLv3: int
+    OP_NO_TLSv1: int
+    OP_NO_TLSv1_1: int
+    OP_NO_TLSv1_2: int
+    OP_CIPHER_SERVER_PREFERENCE: int
+    OP_SINGLE_DH_USE: int
+    OP_SINGLE_ECDH_USE: int
+    OP_NO_COMPRESSION: int
 
 HAS_ALPN: int
 HAS_ECDH: bool
@@ -248,7 +252,10 @@ if sys.version_info >= (3, 7):
 
 class SSLContext:
     check_hostname: bool
-    options: int
+    if sys.version_info >= (3, 6):
+        options: Options
+    else:
+        options: int
     if sys.version_info >= (3, 8):
         post_handshake_auth: bool
     @property
@@ -260,23 +267,23 @@ class SSLContext:
     else:
         def __init__(self, protocol: int) -> None: ...
     def cert_store_stats(self) -> Dict[str, int]: ...
-    def load_cert_chain(self, certfile: _Path, keyfile: Optional[_Path] = ...,
+    def load_cert_chain(self, certfile: StrPath, keyfile: Optional[StrPath] = ...,
                         password: Optional[_PasswordType] = ...) -> None: ...
     def load_default_certs(self, purpose: Purpose = ...) -> None: ...
     def load_verify_locations(
         self,
-        cafile: Optional[str] = ...,
-        capath: Optional[str] = ...,
+        cafile: Optional[StrPath] = ...,
+        capath: Optional[StrPath] = ...,
         cadata: Union[Text, bytes, None] = ...,
     ) -> None: ...
     def get_ca_certs(self, binary_form: bool = ...) -> Union[List[_PeerCertRetDictType], List[bytes]]: ...
     def set_default_verify_paths(self) -> None: ...
     def set_ciphers(self, __cipherlist: str) -> None: ...
-    def set_alpn_protocols(self, alpn_protocols: List[str]) -> None: ...
+    def set_alpn_protocols(self, alpn_protocols: Iterable[str]) -> None: ...
     if sys.version_info >= (3, 7):
         sni_callback: Optional[Callable[[SSLObject, str, SSLContext], Union[None, int]]]
         sslobject_class: Type[SSLObject]
-    def set_npn_protocols(self, npn_protocols: List[str]) -> None: ...
+    def set_npn_protocols(self, npn_protocols: Iterable[str]) -> None: ...
     if sys.version_info >= (3, 7):
         def set_servername_callback(self, server_name_callback: Optional[_SrvnmeCbType]) -> None: ...
     else:
@@ -305,6 +312,7 @@ class SSLContext:
                      server_hostname: Optional[str] = ...) -> SSLObject: ...
     def session_stats(self) -> Dict[str, int]: ...
     if sys.version_info >= (3, 7):
+        hostname_checks_common_name: bool
         maximum_version: TLSVersion
         minimum_version: TLSVersion
 

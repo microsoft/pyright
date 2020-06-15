@@ -1,13 +1,12 @@
 from typing import Any, IO, Mapping, Optional, Sequence, Text, Union
-from typing_extensions import Protocol
+from _typeshed import SupportsRead
 
 from yaml.constructor import BaseConstructor, Constructor, SafeConstructor
 from yaml.representer import BaseRepresenter, Representer, SafeRepresenter
 from yaml.resolver import BaseResolver, Resolver
 from yaml.serializer import Serializer
 
-class _Readable(Protocol):
-    def read(self, size: int) -> Union[Text, bytes]: ...
+_Readable = SupportsRead[Union[Text, bytes]]
 
 class CParser:
     def __init__(self, stream: Union[str, bytes, _Readable]) -> None: ...

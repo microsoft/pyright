@@ -54,7 +54,7 @@ class _mmap(Generic[AnyStr]):
 if sys.version_info >= (3,):
     class mmap(_mmap[bytes], ContextManager[mmap], Iterable[bytes], Sized):
         closed: bool
-        if sys.version_info >= (3, 8):
+        if sys.version_info >= (3, 8) and sys.platform != "win32":
             def madvise(self, option: int, start: int = ..., length: int = ...) -> None: ...
         def rfind(self, sub: bytes, start: int = ..., stop: int = ...) -> int: ...
         @overload

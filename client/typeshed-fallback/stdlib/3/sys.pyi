@@ -19,14 +19,16 @@ _ExcInfo = Tuple[Type[BaseException], BaseException, TracebackType]
 _OptExcInfo = Union[_ExcInfo, Tuple[None, None, None]]
 
 # ----- sys variables -----
-abiflags: str
+if sys.platform != "win32":
+    abiflags: str
 argv: List[str]
 base_exec_prefix: str
 base_prefix: str
 byteorder: str
 builtin_module_names: Sequence[str]  # actually a tuple of strings
 copyright: str
-# dllhandle = 0  # Windows only
+if sys.platform == "win32":
+    dllhandle: int
 dont_write_bytecode: bool
 displayhook: Callable[[object], Any]
 excepthook: Callable[[Type[BaseException], BaseException, TracebackType], Any]
@@ -64,7 +66,8 @@ api_version: int
 warnoptions: Any
 #  Each entry is a tuple of the form (action, message, category, module,
 #    lineno)
-# winver = ''  # Windows only
+if sys.platform == "win32":
+    winver: str
 _xoptions: Dict[Any, Any]
 
 
@@ -141,7 +144,6 @@ def exc_info() -> _OptExcInfo: ...
 def exit(__status: object = ...) -> NoReturn: ...
 def getdefaultencoding() -> str: ...
 if sys.platform != 'win32':
-    # Unix only
     def getdlopenflags() -> int: ...
 def getfilesystemencoding() -> str: ...
 def getrefcount(__object: Any) -> int: ...
@@ -179,8 +181,8 @@ class _WinVersion(Tuple[int, int, int, int,
     product_type: int
     platform_version: Tuple[int, int, int]
 
-
-def getwindowsversion() -> _WinVersion: ...  # Windows only
+if sys.platform == "win32":
+    def getwindowsversion() -> _WinVersion: ...
 
 def intern(__string: str) -> str: ...
 
@@ -190,7 +192,8 @@ if sys.version_info >= (3, 7):
     __breakpointhook__: Any  # contains the original value of breakpointhook
     def breakpointhook(*args: Any, **kwargs: Any) -> Any: ...
 
-def setdlopenflags(__flags: int) -> None: ...  # Linux only
+if sys.platform != "win32":
+    def setdlopenflags(__flags: int) -> None: ...
 def setrecursionlimit(__limit: int) -> None: ...
 def setswitchinterval(__interval: float) -> None: ...
 
@@ -211,3 +214,12 @@ if sys.version_info >= (3, 8):
     unraisablehook: Callable[[UnraisableHookArgs], Any]
     def addaudithook(hook: Callable[[str, Tuple[Any, ...]], Any]) -> None: ...
     def audit(__event: str, *args: Any) -> None: ...
+
+if sys.version_info >= (3, 6):
+    from typing import AsyncGenerator
+    _AsyncgenHook = Optional[Callable[[AsyncGenerator[Any, Any]], None]]
+    class _asyncgen_hooks(Tuple[_AsyncgenHook, _AsyncgenHook]):
+        firstiter: _AsyncgenHook
+        finalizer: _AsyncgenHook
+    def get_asyncgen_hooks() -> _asyncgen_hooks: ...
+    def set_asyncgen_hooks(firstiter: _AsyncgenHook = ..., finalizer: _AsyncgenHook = ...) -> None: ...

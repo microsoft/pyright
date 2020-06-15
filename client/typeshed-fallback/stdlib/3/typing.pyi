@@ -10,7 +10,15 @@ import collections  # Needed by aliases like DefaultDict, see mypy issue 2986
 
 overload = object()
 Any = object()
-TypeVar = object()
+
+class TypeVar:
+    __name__: str
+    __bound__: Optional[Type[Any]]
+    __constraints__: Tuple[Type[Any], ...]
+    __covariant__: bool
+    __contravariant__: bool
+    def __init__(self, name: str, *constraints: Type[Any], bound: Optional[Type[Any]] = ..., covariant: bool = ..., contravariant: bool = ...) -> None: ...
+
 _promote = object()
 
 class _SpecialForm:
@@ -517,13 +525,6 @@ class BinaryIO(IO[bytes]):
     # TODO readinto
     # TODO read1?
     # TODO peek?
-    @overload
-    @abstractmethod
-    def write(self, s: bytearray) -> int: ...
-    @overload
-    @abstractmethod
-    def write(self, s: bytes) -> int: ...
-
     @abstractmethod
     def __enter__(self) -> BinaryIO: ...
 
@@ -682,6 +683,6 @@ if sys.version_info >= (3, 7):
         def __init__(self, arg: str, is_argument: bool = ...) -> None: ...
         def _evaluate(self, globalns: Optional[Dict[str, Any]],
                       localns: Optional[Dict[str, Any]]) -> Optional[Any]: ...
-        def __eq__(self, other: Any) -> Union[bool, NotImplemented]: ...
+        def __eq__(self, other: Any) -> bool: ...
         def __hash__(self) -> int: ...
         def __repr__(self) -> str: ...

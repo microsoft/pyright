@@ -1,6 +1,6 @@
 from typing import Any, Container, Iterable, Optional, Text
 
-from bleach.linkifier import DEFAULT_CALLBACKS as DEFAULT_CALLBACKS, Linker as Linker
+from bleach.linkifier import DEFAULT_CALLBACKS as DEFAULT_CALLBACKS, Linker as Linker, _Callback
 from bleach.sanitizer import (
     ALLOWED_ATTRIBUTES as ALLOWED_ATTRIBUTES,
     ALLOWED_PROTOCOLS as ALLOWED_PROTOCOLS,
@@ -9,7 +9,6 @@ from bleach.sanitizer import (
     Cleaner as Cleaner,
 )
 
-from .linkifier import _Callback
 
 __releasedate__: Text
 __version__: Text

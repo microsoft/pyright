@@ -158,7 +158,7 @@ export interface DataClassEntry {
 export const enum ClassTypeFlags {
     None = 0,
 
-    // Class is defined in the "builtins" or "typings" file.
+    // Class is defined in the "builtins" or "typing" file.
     BuiltInClass = 1 << 0,
 
     // Class requires special-case handling because it
