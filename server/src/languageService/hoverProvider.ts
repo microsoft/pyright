@@ -137,6 +137,13 @@ export class HoverProvider {
                             typeNode = resolvedDecl.node;
                         }
                     }
+                } else if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.name === node) {
+                    // If this is a named argument, we would normally have received a Parameter declaration
+                    // rather than a variable declaration, but we can get here in the case of a dataclass.
+                    // Replace the typeNode with the node of the variable declaration.
+                    if (declaration.node.nodeType === ParseNodeType.Name) {
+                        typeNode = declaration.node;
+                    }
                 }
 
                 this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(typeNode, evaluator), true);

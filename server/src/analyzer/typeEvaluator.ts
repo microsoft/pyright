@@ -10406,14 +10406,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     }
 
     function getDeclarationFromFunctionNamedParameter(type: FunctionType, paramName: string): Declaration | undefined {
-        if (type.category === TypeCategory.Function && type.details.declaration) {
-            const functionDecl = type.details.declaration;
-            if (functionDecl.type === DeclarationType.Function) {
-                const functionNode = functionDecl.node;
-                const functionScope = AnalyzerNodeInfo.getScope(functionNode)!;
-                const paramSymbol = functionScope.lookUpSymbol(paramName)!;
-                if (paramSymbol) {
-                    return paramSymbol.getDeclarations().find((decl) => decl.type === DeclarationType.Parameter);
+        if (type.category === TypeCategory.Function) {
+            if (type.details.declaration) {
+                const functionDecl = type.details.declaration;
+                if (functionDecl.type === DeclarationType.Function) {
+                    const functionNode = functionDecl.node;
+                    const functionScope = AnalyzerNodeInfo.getScope(functionNode)!;
+                    const paramSymbol = functionScope.lookUpSymbol(paramName)!;
+                    if (paramSymbol) {
+                        return paramSymbol.getDeclarations().find((decl) => decl.type === DeclarationType.Parameter);
+                    }
                 }
             }
         }
@@ -10559,10 +10561,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             new DiagnosticAddendum(),
                             MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
                         );
+
                         if (initMethodType && initMethodType.category === TypeCategory.Function) {
                             const paramDecl = getDeclarationFromFunctionNamedParameter(initMethodType, paramName);
                             if (paramDecl) {
                                 declarations.push(paramDecl);
+                            } else if (ClassType.isDataClass(baseType)) {
+                                const lookupResults = lookUpClassMember(baseType, paramName);
+                                if (lookupResults) {
+                                    declarations.push(...lookupResults.symbol.getDeclarations());
+                                }
                             }
                         }
                     }
