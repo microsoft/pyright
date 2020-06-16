@@ -8862,10 +8862,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (annotationParent?.nodeType === ParseNodeType.Assignment && annotationParent.leftExpression === parent) {
                 evaluateTypesForAssignmentStatement(annotationParent);
             } else {
-                getTypeOfAnnotation(
+                const annotationType = getTypeOfAnnotation(
                     parent.typeAnnotation,
                     ParseTreeUtils.isFinalAllowedForAssignmentTarget(parent.valueExpression)
                 );
+                if (annotationType) {
+                    writeTypeCache(parent.valueExpression, annotationType);
+                }
             }
             return;
         }
