@@ -5321,12 +5321,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     }
 
     // Creates a new custom TypedDict factory class.
-    // Supports both typed and untyped variants.
     function createTypedDictType(
         errorNode: ExpressionNode,
         typedDictClass: ClassType,
         argList: FunctionArgument[]
     ): ClassType {
+        // TypedDict supports two different syntaxes:
+        // Point2D = TypedDict('Point2D', {'x': int, 'y': int, 'label': str})
+        // Point2D = TypedDict('Point2D', x=int, y=int, label=str)
         let className = 'TypedDict';
         if (argList.length === 0) {
             addError(Localizer.Diagnostic.typedDictFirstArg(), errorNode);
@@ -5347,46 +5349,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         classType.details.baseClasses.push(typedDictClass);
         computeMroLinearization(classType);
 
-        if (argList.length >= 3) {
-            if (
-                !argList[2].name ||
-                argList[2].name.value !== 'total' ||
-                !argList[2].valueExpression ||
-                argList[2].valueExpression.nodeType !== ParseNodeType.Constant ||
-                !(
-                    argList[2].valueExpression.constType === KeywordType.False ||
-                    argList[2].valueExpression.constType === KeywordType.True
-                )
-            ) {
-                addError(Localizer.Diagnostic.typedDictTotalParam(), argList[2].valueExpression || errorNode);
-            } else if (argList[2].valueExpression.constType === KeywordType.False) {
-                classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
-            }
-        }
-
-        if (argList.length > 3) {
-            addError(Localizer.Diagnostic.typedDictExtraArgs(), argList[3].valueExpression || errorNode);
-        }
-
         const classFields = classType.details.fields;
         classFields.set(
             '__class__',
             Symbol.createWithType(SymbolFlags.ClassMember | SymbolFlags.IgnoredForProtocolMatch, classType)
         );
 
+        let usingDictSyntax = false;
         if (argList.length < 2) {
             addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
         } else {
             const entriesArg = argList[1];
+            const entryMap = new Map<string, boolean>();
+
             if (
-                entriesArg.argumentCategory !== ArgumentCategory.Simple ||
-                !entriesArg.valueExpression ||
-                entriesArg.valueExpression.nodeType !== ParseNodeType.Dictionary
+                entriesArg.argumentCategory === ArgumentCategory.Simple &&
+                entriesArg.valueExpression &&
+                entriesArg.valueExpression.nodeType === ParseNodeType.Dictionary
             ) {
-                addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
-            } else {
+                usingDictSyntax = true;
                 const entryDict = entriesArg.valueExpression;
-                const entryMap = new Map<string, boolean>();
 
                 entryDict.entries.forEach((entry) => {
                     if (entry.nodeType !== ParseNodeType.DictionaryKeyEntry) {
@@ -5405,7 +5387,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         return;
                     }
 
-                    if (entryMap.get(entryName)) {
+                    if (entryMap.has(entryName)) {
                         addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.keyExpression);
                         return;
                     }
@@ -5432,6 +5414,65 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                     classFields.set(entryName, newSymbol);
                 });
+            } else if (entriesArg.name) {
+                for (let i = 1; i < argList.length; i++) {
+                    const entry = argList[i];
+                    if (!entry.name || !entry.valueExpression) {
+                        continue;
+                    }
+
+                    if (entryMap.has(entry.name.value)) {
+                        addError(Localizer.Diagnostic.typedDictEntryUnique(), entry.valueExpression);
+                        continue;
+                    }
+
+                    // Record names in a map to detect duplicates.
+                    entryMap.set(entry.name.value, true);
+
+                    // Cache the annotation type.
+                    getTypeOfAnnotation(entry.valueExpression);
+
+                    const newSymbol = new Symbol(SymbolFlags.InstanceMember);
+                    const declaration: VariableDeclaration = {
+                        type: DeclarationType.Variable,
+                        node: entry.name,
+                        path: getFileInfo(errorNode).filePath,
+                        typeAnnotationNode: entry.valueExpression,
+                        range: convertOffsetsToRange(
+                            entry.name.start,
+                            TextRange.getEnd(entry.valueExpression),
+                            getFileInfo(errorNode).lines
+                        ),
+                    };
+                    newSymbol.addDeclaration(declaration);
+
+                    classFields.set(entry.name.value, newSymbol);
+                }
+            } else {
+                addError(Localizer.Diagnostic.typedDictSecondArgDict(), errorNode);
+            }
+        }
+
+        if (usingDictSyntax) {
+            if (argList.length >= 3) {
+                if (
+                    !argList[2].name ||
+                    argList[2].name.value !== 'total' ||
+                    !argList[2].valueExpression ||
+                    argList[2].valueExpression.nodeType !== ParseNodeType.Constant ||
+                    !(
+                        argList[2].valueExpression.constType === KeywordType.False ||
+                        argList[2].valueExpression.constType === KeywordType.True
+                    )
+                ) {
+                    addError(Localizer.Diagnostic.typedDictTotalParam(), argList[2].valueExpression || errorNode);
+                } else if (argList[2].valueExpression.constType === KeywordType.False) {
+                    classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
+                }
+            }
+
+            if (argList.length > 3) {
+                addError(Localizer.Diagnostic.typedDictExtraArgs(), argList[3].valueExpression || errorNode);
             }
         }
 

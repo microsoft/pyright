@@ -2,29 +2,29 @@
 
 from typing import Literal, TypedDict, Union
 
+
 class Movie(TypedDict, total=False):
     name: str
     year: int
 
+
 class BookBasedMovie(Movie, total=True):
     based_on: str
 
-movie1 = Movie(name='Blade Runner', year=1982)
 
-def get_value(
-        movie: Movie,
-        key: Literal['year', 'name']) -> Union[int, str]:
+movie1 = Movie(name="Blade Runner", year=1982)
+
+
+def get_value(movie: Movie, key: Literal["year", "name"]) -> Union[int, str]:
     return movie[key]
 
 
 def make_movie(name: str, year: int) -> Movie:
-    return {
-        'name': name,
-        'year': year
-    }
+    return {"name": name, "year": year}
 
-name1 = movie1['name']
-year1 = movie1['year']
+
+name1 = movie1["name"]
+year1 = movie1["year"]
 movie2 = make_movie(name1, year1)
 
 # This should generate an error because all indices need
@@ -35,28 +35,28 @@ year2 = movie1[3]
 # is allowed.
 year3 = movie1[3, 3]
 
-movie1['name'] = 'Transformers'
-movie1['year'] = 2007
+movie1["name"] = "Transformers"
+movie1["year"] = 2007
 
 # This should generate an error because the RHS is the wrong type.
-movie1['name'] = [3]
+movie1["name"] = [3]
 
 # This should generate an error because the RHS is the wrong type.
-movie1['year'] = {}
+movie1["year"] = {}
 
-del movie1['year']
+del movie1["year"]
 
 # This should generate an error because the key is not in the dictionary.
-del movie1['year2']
+del movie1["year2"]
 
 # This should generate an error because entries in a TypedDict
 # are not accessible through member access.
 name2 = movie1.name
 
-book1 = BookBasedMovie(based_on='E.T.')
-make_movie(name=book1['based_on'], year=1923)
+book1 = BookBasedMovie(based_on="E.T.")
+make_movie(name=book1["based_on"], year=1923)
 
-del book1['name']
+del book1["name"]
 
 # This should generate an error because you can't delete a required key.
-del book1['based_on']
+del book1["based_on"]

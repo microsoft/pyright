@@ -2,8 +2,14 @@
 
 from typing import TypedDict
 
-UserType = TypedDict("UserType", {"name": str, "age": int}, total=False)
-user: UserType = {"name": "Bob", "age": 40}
+UserType1 = TypedDict("UserType", {"name": str, "age": int}, total=False)
+user1: UserType1 = {"name": "Bob", "age": 40}
 
-name: str = user.get("name")
-age: int = user.get("age", 42)
+name1: str = user1.get("name")
+age1: int = user1.get("age", 42)
+
+UserType2 = TypedDict("UserType", name=str, age=int)
+user2: UserType2 = {"name": "Bob", "age": 40}
+
+name2: str = user2.get("name")
+age2: int = user2.get("age", 42)
