@@ -121,12 +121,23 @@ export class DiagnosticAddendum {
         return '';
     }
 
-    getMessageCount() {
-        return this._messages.length;
+    isEmpty() {
+        return this._getMessageCount() === 0;
     }
 
     addAddendum(addendum: DiagnosticAddendum) {
         this._childAddenda.push(addendum);
+    }
+
+    private _getMessageCount() {
+        // Get the nested message count.
+        let messageCount = this._messages.length;
+
+        for (const diag of this._childAddenda) {
+            messageCount += diag._getMessageCount();
+        }
+
+        return messageCount;
     }
 
     private _getLinesRecursive(maxDepth: number): string[] {

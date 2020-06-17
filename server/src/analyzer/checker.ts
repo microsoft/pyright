@@ -486,7 +486,7 @@ export class Checker extends ParseTreeWalker {
                     return subtype;
                 });
 
-                if (diagAddendum.getMessageCount() > 0) {
+                if (!diagAddendum.isEmpty()) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -532,7 +532,7 @@ export class Checker extends ParseTreeWalker {
                     return subtype;
                 });
 
-                if (diagAddendum.getMessageCount() > 0) {
+                if (!diagAddendum.isEmpty()) {
                     this._evaluator.addError(
                         Localizer.Diagnostic.expectedExceptionObj() + diagAddendum.getString(),
                         node.valueExpression
@@ -774,7 +774,7 @@ export class Checker extends ParseTreeWalker {
             });
         }
 
-        if (diagAddendum.getMessageCount() > 0) {
+        if (!diagAddendum.isEmpty()) {
             this._evaluator.addError(
                 Localizer.Diagnostic.exceptionTypeNotClass().format({ type: this._evaluator.printType(exceptionType) }),
                 errorNode

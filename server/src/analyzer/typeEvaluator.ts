@@ -269,9 +269,6 @@ interface EvaluatorUsage {
     // Used only for set methods
     setType?: Type;
     setErrorNode?: ExpressionNode;
-
-    // Used only for get methods
-    expectedType?: Type;
 }
 
 interface AliasMapEntry {
@@ -694,7 +691,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case ParseNodeType.Index: {
-                typeResult = getTypeFromIndex(node, expectedType, flags);
+                typeResult = getTypeFromIndex(node, flags);
                 break;
             }
 
@@ -2104,8 +2101,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return;
         }
 
-        let destType = srcType;
-
         const classTypeInfo = getTypeOfClass(classDef);
         if (classTypeInfo && classTypeInfo.classType.category === TypeCategory.Class) {
             let memberInfo = lookUpClassMember(
@@ -2183,33 +2178,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 ClassMemberLookupFlags.DeclaredTypesOnly
             );
 
-            if (memberInfo) {
-                const declaredType = getDeclaredTypeOfSymbol(memberInfo.symbol);
-                if (declaredType && !isAnyOrUnknown(declaredType)) {
-                    if (declaredType.category === TypeCategory.Function) {
-                        // Overwriting an existing method.
-                        // TODO - not sure what assumption to make here.
-                    } else if (isProperty(declaredType)) {
-                        // TODO - need to validate property setter type.
-                    } else {
-                        const diagAddendum = new DiagnosticAddendum();
-                        if (canAssignType(declaredType, srcType, diagAddendum)) {
-                            // Constrain the resulting type to match the declared type.
-                            destType = narrowDeclaredTypeBasedOnAssignedType(destType, srcType);
-                        }
-                    }
-                }
-            } else {
-                // There was no declared type, so we need to infer the type.
-                if (srcExprNode) {
-                    reportPossibleUnknownAssignment(
-                        fileInfo.diagnosticRuleSet.reportUnknownMemberType,
-                        DiagnosticRule.reportUnknownMemberType,
-                        node.memberName,
-                        srcType,
-                        node
-                    );
-                }
+            if (!memberInfo && srcExprNode) {
+                reportPossibleUnknownAssignment(
+                    fileInfo.diagnosticRuleSet.reportUnknownMemberType,
+                    DiagnosticRule.reportUnknownMemberType,
+                    node.memberName,
+                    srcType,
+                    node
+                );
             }
         }
     }
@@ -3288,14 +3264,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return undefined;
     }
 
-    function getTypeFromIndex(node: IndexNode, expectedType?: Type, flags = EvaluatorFlags.None): TypeResult {
+    function getTypeFromIndex(node: IndexNode, flags = EvaluatorFlags.None): TypeResult {
         const baseTypeResult = getTypeOfExpression(
             node.baseExpression,
             undefined,
             flags | EvaluatorFlags.DoNotSpecialize
         );
 
-        return getTypeFromIndexWithBaseType(node, baseTypeResult.type, { method: 'get', expectedType }, flags);
+        return getTypeFromIndexWithBaseType(node, baseTypeResult.type, { method: 'get' }, flags);
     }
 
     function getTypeFromIndexWithBaseType(
@@ -3348,7 +3324,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 });
 
-                if (diag.getMessageCount() > 0) {
+                if (!diag.isEmpty()) {
                     addError(
                         Localizer.Diagnostic.typeNotSpecializable().format({ type: printType(baseType) }) +
                             diag.getString(),
@@ -3509,7 +3485,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return UnknownType.create();
             });
 
-            if (diag.getMessageCount() > 0) {
+            if (!diag.isEmpty()) {
                 let typedDictDiag: string;
                 if (usage.method === 'set') {
                     typedDictDiag = Localizer.Diagnostic.typedDictSet();
