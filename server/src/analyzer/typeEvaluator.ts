@@ -9434,12 +9434,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 return setCacheEntry(curFlowNode, UnboundType.create(), /* isIncomplete */ false);
                             }
 
+                            // If there was a cache entry already, that means we hit a recursive
+                            // case (something like "int: int = 4"). Avoid infinite recursion
+                            // by returning an undefined type.
+                            if (cachedEntry) {
+                                return { type: undefined, isIncomplete: true };
+                            }
+
                             // Set the cache entry to undefined before evaluating the
-                            // expression in case it depends on itself. This will prevent
-                            // an infinite loop. If there was already a cached entry
-                            // marked as incomplete, mark it as complete; this is needed
-                            // for certain circular cases like "int: int = 4".
-                            setCacheEntry(curFlowNode, undefined, /* isIncomplete */ !cachedEntry?.isIncomplete);
+                            // expression in case it depends on itself.
+                            setCacheEntry(curFlowNode, undefined, /* isIncomplete */ true);
                             const flowType = evaluateAssignmentFlowNode(assignmentFlowNode);
                             return setCacheEntry(curFlowNode, flowType, /* isIncomplete */ false);
                         }

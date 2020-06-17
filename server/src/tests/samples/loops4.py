@@ -1,10 +1,18 @@
 # This sample tests a loop with self-references.
 
-a = False
-x = 0
+a: bool = False
+x: int = 0
 
-while True:
+while len(input()) < 42:
+
     x += 43
+
+    if a and a:
+        continue
+
     if a:
         print("")
+        continue
+
     x += 44
+
