@@ -190,6 +190,7 @@ interface TypeResult {
     unpackedType?: Type;
     typeList?: TypeResult[];
     isResolutionCyclical?: boolean;
+    expectedTypeDiagAddendum?: DiagnosticAddendum;
 }
 
 interface EffectiveTypeResult {
@@ -269,6 +270,7 @@ interface EvaluatorUsage {
     // Used only for set methods
     setType?: Type;
     setErrorNode?: ExpressionNode;
+    setExpectedTypeDiag?: DiagnosticAddendum;
 }
 
 interface AliasMapEntry {
@@ -1969,7 +1971,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return diagnostic;
     }
 
-    function assignTypeToNameNode(nameNode: NameNode, type: Type, srcExpression?: ParseNode) {
+    function assignTypeToNameNode(
+        nameNode: NameNode,
+        type: Type,
+        srcExpression?: ParseNode,
+        expectedTypeDiagAddendum?: DiagnosticAddendum
+    ) {
         const nameValue = nameNode.value;
 
         const symbolWithScope = lookUpSymbolRecursive(nameNode, nameValue);
@@ -1985,9 +1992,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // We found an existing declared type. Make sure the type is assignable.
         let destType = type;
         if (declaredType && srcExpression) {
-            const diagAddendum = new DiagnosticAddendum();
+            let diagAddendum = new DiagnosticAddendum();
 
             if (!canAssignType(declaredType, type, diagAddendum)) {
+                // If there was an expected type mismatch, use that diagnostic
+                // addendum because it will be more informative.
+                if (expectedTypeDiagAddendum) {
+                    diagAddendum = expectedTypeDiagAddendum;
+                }
+
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -2041,7 +2054,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         writeTypeCache(nameNode, destType);
     }
 
-    function assignTypeToMemberAccessNode(target: MemberAccessNode, type: Type, srcExpr?: ExpressionNode) {
+    function assignTypeToMemberAccessNode(
+        target: MemberAccessNode,
+        type: Type,
+        srcExpr?: ExpressionNode,
+        expectedTypeDiagAddendum?: DiagnosticAddendum
+    ) {
         const baseTypeResult = getTypeOfExpression(target.leftExpression);
         let baseType = baseTypeResult.type;
         if (baseType.category === TypeCategory.TypeVar) {
@@ -2079,7 +2097,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         getTypeFromMemberAccessWithBaseType(
             target,
             baseTypeResult,
-            { method: 'set', setType: type, setErrorNode: srcExpr },
+            { method: 'set', setType: type, setErrorNode: srcExpr, setExpectedTypeDiag: expectedTypeDiagAddendum },
             EvaluatorFlags.None
         );
 
@@ -2292,7 +2310,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         writeTypeCache(target, type);
     }
 
-    function assignTypeToExpression(target: ExpressionNode, type: Type, srcExpr?: ExpressionNode) {
+    function assignTypeToExpression(
+        target: ExpressionNode,
+        type: Type,
+        srcExpr?: ExpressionNode,
+        expectedTypeDiagAddendum?: DiagnosticAddendum
+    ) {
         // Is the source expression a TypeVar() call?
         if (type.category === TypeCategory.TypeVar) {
             if (srcExpr && srcExpr.nodeType === ParseNodeType.Call) {
@@ -2353,12 +2376,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     target
                 );
 
-                assignTypeToNameNode(target, type, srcExpr);
+                assignTypeToNameNode(target, type, srcExpr, expectedTypeDiagAddendum);
                 break;
             }
 
             case ParseNodeType.MemberAccess: {
-                assignTypeToMemberAccessNode(target, type, srcExpr);
+                assignTypeToMemberAccessNode(target, type, srcExpr, expectedTypeDiagAddendum);
                 break;
             }
 
@@ -2372,7 +2395,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const indexTypeResult = getTypeFromIndexWithBaseType(
                     target,
                     baseTypeResult.type,
-                    { method: 'set', setType: type, setErrorNode: srcExpr },
+                    {
+                        method: 'set',
+                        setType: type,
+                        setErrorNode: srcExpr,
+                        setExpectedTypeDiag: expectedTypeDiagAddendum,
+                    },
                     EvaluatorFlags.None
                 );
 
@@ -2395,7 +2423,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     type = narrowDeclaredTypeBasedOnAssignedType(typeHintType, type);
                 }
 
-                assignTypeToExpression(target.valueExpression, type, srcExpr);
+                assignTypeToExpression(target.valueExpression, type, srcExpr, expectedTypeDiagAddendum);
                 break;
             }
 
@@ -2750,7 +2778,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     ): TypeResult {
         const baseType = baseTypeResult.type;
         const memberName = node.memberName.value;
-        const diag = new DiagnosticAddendum();
+        let diag = new DiagnosticAddendum();
         const fileInfo = getFileInfo(node);
         let type: Type | undefined;
 
@@ -2898,6 +2926,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 diagMessage = Localizer.Diagnostic.memberSet();
             } else if (usage.method === 'del') {
                 diagMessage = Localizer.Diagnostic.memberDelete();
+            }
+
+            // If there is an expected type diagnostic addendum (used for assignments),
+            // use that rather than the local diagnostic addendum because it will be
+            // more informative.
+            if (usage.setExpectedTypeDiag) {
+                diag = usage.setExpectedTypeDiag;
             }
 
             addDiagnostic(
@@ -3438,7 +3473,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const entries = getTypedDictMembersForClass(baseType.classType);
 
             const indexType = getTypeOfExpression(node.items.items[0]).type;
-            const diag = new DiagnosticAddendum();
+            let diag = new DiagnosticAddendum();
             const resultingType = doForSubtypes(indexType, (subtype) => {
                 if (isAnyOrUnknown(subtype)) {
                     return subtype;
@@ -3484,6 +3519,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 );
                 return UnknownType.create();
             });
+
+            // If we have an "expected type" diagnostic addendum (used for assignments),
+            // use that rather than the local diagnostic information because it will
+            // be more informative.
+            if (usage.setExpectedTypeDiag) {
+                diag = usage.setExpectedTypeDiag;
+            }
 
             if (!diag.isEmpty()) {
                 let typedDictDiag: string;
@@ -4921,6 +4963,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         skipUnknownCheck: boolean
     ): boolean {
         let argType: Type | undefined;
+        let expectedTypeDiag: DiagnosticAddendum | undefined;
 
         if (argParam.argument.valueExpression) {
             let expectedType: Type | undefined = specializeType(argParam.paramType, typeVarMap);
@@ -4933,6 +4976,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             const exprType = getTypeOfExpression(argParam.argument.valueExpression, expectedType);
             argType = exprType.type;
+            expectedTypeDiag = exprType.expectedTypeDiagAddendum;
 
             if (argParam.argument && argParam.argument.name && !isSpeculativeMode(argParam.errorNode)) {
                 writeTypeCache(argParam.argument.name, expectedType || argType);
@@ -4941,7 +4985,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             argType = getTypeForArgument(argParam.argument);
         }
 
-        const diag = new DiagnosticAddendum();
+        let diag = new DiagnosticAddendum();
 
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
             const fileInfo = getFileInfo(argParam.errorNode);
@@ -4977,6 +5021,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         paramType: paramTypeText,
                     });
                 }
+            }
+
+            // If we have an expected type diagnostic addendum, use that
+            // instead of the local diagnostic addendum because it will
+            // be more informative.
+            if (expectedTypeDiag) {
+                diag = expectedTypeDiag;
             }
 
             addDiagnostic(
@@ -6201,6 +6252,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         let expectedKeyType: Type | undefined;
         let expectedValueType: Type | undefined;
         let expectedTypedDictEntries: Map<string, TypedDictEntry> | undefined;
+        const diagAddendum = new DiagnosticAddendum();
 
         if (expectedType && expectedType.category === TypeCategory.Object) {
             const expectedClass = expectedType.classType;
@@ -6291,7 +6343,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (
                     ClassType.isTypedDictClass(subtype.classType) &&
-                    canAssignToTypedDict(subtype.classType, keyTypes, valueTypes)
+                    canAssignToTypedDict(subtype.classType, keyTypes, valueTypes, diagAddendum)
                 ) {
                     return subtype;
                 }
@@ -6355,7 +6407,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         const type = getBuiltInObject(node, 'dict', [keyType, valueType]);
 
-        return { type, node };
+        return { type, node, expectedTypeDiagAddendum: !diagAddendum.isEmpty() ? diagAddendum : undefined };
     }
 
     function getTypeFromList(node: ListNode, expectedType?: Type): TypeResult {
@@ -7158,6 +7210,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Is this type already cached?
         let rightHandType = readTypeCache(node.rightExpression);
         let isResolutionCycle = false;
+        let expectedTypeDiagAddendum: DiagnosticAddendum | undefined;
 
         if (!rightHandType) {
             // Special-case the typing.pyi file, which contains some special
@@ -7191,6 +7244,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 const srcTypeResult = getTypeOfExpression(node.rightExpression, declaredType, flags);
                 let srcType = srcTypeResult.type;
+                expectedTypeDiagAddendum = srcTypeResult.expectedTypeDiagAddendum;
                 if (srcTypeResult.isResolutionCyclical) {
                     isResolutionCycle = true;
                 }
@@ -7232,7 +7286,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Don't write back an unbound type that results from a resolution cycle. We'll
         // write back the type when the stack unwinds and the type is fully evaluated.
         if (!isResolutionCycle) {
-            assignTypeToExpression(node.leftExpression, rightHandType, node.rightExpression);
+            assignTypeToExpression(node.leftExpression, rightHandType, node.rightExpression, expectedTypeDiagAddendum);
 
             writeTypeCache(node, rightHandType);
         }
@@ -12682,14 +12736,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // Determines whether the specified keys and values can be assigned to
     // a typed dictionary class. The caller should have already validated
     // that the class is indeed a typed dict.
-    function canAssignToTypedDict(classType: ClassType, keyTypes: Type[], valueTypes: Type[]): boolean {
+    function canAssignToTypedDict(
+        classType: ClassType,
+        keyTypes: Type[],
+        valueTypes: Type[],
+        diagAddendum: DiagnosticAddendum
+    ): boolean {
         assert(ClassType.isTypedDictClass(classType));
         assert(keyTypes.length === valueTypes.length);
 
         let isMatch = true;
 
         const symbolMap = getTypedDictMembersForClass(classType);
-        const diag = new DiagnosticAddendum();
 
         keyTypes.forEach((keyType, index) => {
             if (
@@ -12705,9 +12763,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (!symbolEntry) {
                     // The provided key name doesn't exist.
                     isMatch = false;
+                    diagAddendum.addMessage(
+                        Localizer.DiagnosticAddendum.typedDictFieldUndefined().format({
+                            name: keyType.literalValue as string,
+                            type: printType(ObjectType.create(classType)),
+                        })
+                    );
                 } else {
                     // Can we assign the value to the declared type?
-                    if (!canAssignType(symbolEntry.valueType, valueTypes[index], diag)) {
+                    const assignDiag = new DiagnosticAddendum();
+                    if (!canAssignType(symbolEntry.valueType, valueTypes[index], assignDiag)) {
+                        diagAddendum.addMessage(
+                            Localizer.DiagnosticAddendum.typedDictFieldTypeMismatch().format({
+                                name: keyType.literalValue as string,
+                                type: printType(valueTypes[index]),
+                            })
+                        );
                         isMatch = false;
                     }
                     symbolEntry.isProvided = true;
@@ -12720,8 +12791,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         // See if any required keys are missing.
-        symbolMap.forEach((entry) => {
+        symbolMap.forEach((entry, name) => {
             if (entry.isRequired && !entry.isProvided) {
+                diagAddendum.addMessage(
+                    Localizer.DiagnosticAddendum.typedDictFieldRequired().format({
+                        name,
+                        type: printType(ObjectType.create(classType)),
+                    })
+                );
                 isMatch = false;
             }
         });

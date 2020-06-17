@@ -346,6 +346,8 @@
         "typedDictFieldMissing": "\"{name}\" is missing from \"{type}\"",
         "typedDictFieldNotRequired": "\"{name}\" is not required in \"{type}\"",
         "typedDictFieldRequired": "\"{name}\" is required in \"{type}\"",
+        "typedDictFieldTypeMismatch": "Type \"{type}\" is not assignable to field \"{name}\"",
+        "typedDictFieldUndefined": "\"{name}\" is an undefined field in type \"{type}\"",
         "typeIncompatible": "\"{sourceType}\" is incompatible with \"{destType}\"",
         "typeParamSpec": "Type \"{type}\" is not compatible with ParameterSpecification \"{name}\"",
         "typeNotStringLiteral": "\"{type}\" is not a string literal",

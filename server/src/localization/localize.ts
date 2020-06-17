@@ -718,6 +718,14 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; type: string }>(
                 getRawString('DiagnosticAddendum.typedDictFieldRequired')
             );
+        export const typedDictFieldTypeMismatch = () =>
+            new ParameterizedString<{ name: string; type: string }>(
+                getRawString('DiagnosticAddendum.typedDictFieldTypeMismatch')
+            );
+        export const typedDictFieldUndefined = () =>
+            new ParameterizedString<{ name: string; type: string }>(
+                getRawString('DiagnosticAddendum.typedDictFieldUndefined')
+            );
         export const typeIncompatible = () =>
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.typeIncompatible')
