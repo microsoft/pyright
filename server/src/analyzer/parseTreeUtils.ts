@@ -523,6 +523,10 @@ export function getEnclosingSuiteOrModule(node: ParseNode): SuiteNode | ModuleNo
             return curNode;
         }
 
+        if (curNode.nodeType === ParseNodeType.Lambda) {
+            return undefined;
+        }
+
         curNode = curNode.parent;
     }
 
