@@ -518,6 +518,18 @@ test('Operators2', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Operators3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators3.py']);
+
+    validateResults(analysisResults, 1);
+});
+
+test('Operators4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators4.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions('.');
 

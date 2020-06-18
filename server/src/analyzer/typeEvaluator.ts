@@ -331,7 +331,7 @@ const arithmeticOperatorMap: { [operator: number]: [string, string] } = {
     [OperatorType.Divide]: ['__truediv__', '__rtruediv__'],
     [OperatorType.Mod]: ['__mod__', '__rmod__'],
     [OperatorType.Power]: ['__pow__', '__rpow__'],
-    [OperatorType.MatrixMultiply]: ['__matmul__', ''],
+    [OperatorType.MatrixMultiply]: ['__matmul__', '__rmatmul__'],
 };
 
 const bitwiseOperatorMap: { [operator: number]: [string, string] } = {
