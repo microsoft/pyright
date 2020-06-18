@@ -1315,6 +1315,13 @@ export function combineTypes(types: Type[]): Type {
         return 0;
     });
 
+    // If the union contains a NoReturn, remove it. NoReturn should
+    // be used only when it's by itself.
+    const isNoReturn = (t: Type) => t.category === TypeCategory.Object && ClassType.isBuiltIn(t.classType, 'NoReturn');
+    if (expandedTypes.find((t) => isNoReturn(t))) {
+        expandedTypes = expandedTypes.filter((t) => !isNoReturn(t));
+    }
+
     const resultingTypes = [expandedTypes[0]];
     expandedTypes.forEach((t, index) => {
         if (index > 0) {
