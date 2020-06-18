@@ -17,7 +17,7 @@ import {
 } from 'vscode-languageserver';
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
-import { ConfigOptions } from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { isDebugMode } from '../common/core';
 import { assert } from '../common/debug';
@@ -40,6 +40,7 @@ import {
     AutoImporter,
     AutoImportResult,
     buildModuleSymbolsMap,
+    ImportNameMap,
     ModuleSymbolMap,
 } from '../languageService/autoImporter';
 import { HoverResults } from '../languageService/hoverProvider';
@@ -403,30 +404,30 @@ export class Program {
         const zeroImportFiles: SourceFile[] = [];
 
         sortedFiles.forEach((sfInfo) => {
-            this._console.log('');
+            this._console.info('');
             let filePath = sfInfo.sourceFile.getFilePath();
             const relPath = getRelativePath(filePath, projectRootDir);
             if (relPath) {
                 filePath = relPath;
             }
 
-            this._console.log(`${filePath}`);
+            this._console.info(`${filePath}`);
 
-            this._console.log(
+            this._console.info(
                 ` Imports     ${sfInfo.imports.length} ` + `file${sfInfo.imports.length === 1 ? '' : 's'}`
             );
             if (verbose) {
                 sfInfo.imports.forEach((importInfo) => {
-                    this._console.log(`    ${importInfo.sourceFile.getFilePath()}`);
+                    this._console.info(`    ${importInfo.sourceFile.getFilePath()}`);
                 });
             }
 
-            this._console.log(
+            this._console.info(
                 ` Imported by ${sfInfo.importedBy.length} ` + `file${sfInfo.importedBy.length === 1 ? '' : 's'}`
             );
             if (verbose) {
                 sfInfo.importedBy.forEach((importInfo) => {
-                    this._console.log(`    ${importInfo.sourceFile.getFilePath()}`);
+                    this._console.info(`    ${importInfo.sourceFile.getFilePath()}`);
                 });
             }
 
@@ -436,12 +437,12 @@ export class Program {
         });
 
         if (zeroImportFiles.length > 0) {
-            this._console.log('');
-            this._console.log(
+            this._console.info('');
+            this._console.info(
                 `${zeroImportFiles.length} file${zeroImportFiles.length === 1 ? '' : 's'}` + ` not explicitly imported`
             );
             zeroImportFiles.forEach((importFile) => {
-                this._console.log(`    ${importFile.getFilePath()}`);
+                this._console.info(`    ${importFile.getFilePath()}`);
             });
         }
     }
@@ -706,7 +707,7 @@ export class Program {
             // Don't allow the heap to get close to the 2GB limit imposed by
             // the OS when running Node in a 32-bit process.
             if (heapSizeInMb > 1536) {
-                this._console.log(`Emptying type cache to avoid heap overflow. Heap size used: ${heapSizeInMb}MB`);
+                this._console.info(`Emptying type cache to avoid heap overflow. Heap size used: ${heapSizeInMb}MB`);
                 this._createNewEvaluator();
             }
         }
@@ -841,6 +842,7 @@ export class Program {
         range: Range,
         similarityLimit: number,
         nameMap: Map<string, string> | undefined,
+        importMap: ImportNameMap | undefined,
         token: CancellationToken
     ): AutoImportResult[] {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
@@ -876,7 +878,8 @@ export class Program {
                 sourceFile.getFilePath(),
                 this._importResolver,
                 parseTree,
-                map
+                map,
+                importMap
             );
 
             // Filter out any name that is already defined in the current scope.
@@ -956,8 +959,9 @@ export class Program {
 
             this._bindFile(sourceFileInfo);
 
+            const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getDefinitionsForPosition(
-                this._createSourceMapper(),
+                this._createSourceMapper(execEnv),
                 position,
                 this._evaluator,
                 token
@@ -979,8 +983,9 @@ export class Program {
 
             this._bindFile(sourceFileInfo);
 
+            const execEnv = this._configOptions.findExecEnvironment(filePath);
             const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-                this._createSourceMapper(),
+                this._createSourceMapper(execEnv),
                 position,
                 this._evaluator,
                 token
@@ -1087,8 +1092,9 @@ export class Program {
 
             this._bindFile(sourceFileInfo);
 
+            const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getHoverForPosition(
-                this._createSourceMapper(),
+                this._createSourceMapper(execEnv),
                 position,
                 this._evaluator,
                 token
@@ -1132,6 +1138,7 @@ export class Program {
         let completionList = this._runEvaluatorWithCancellationToken(token, () => {
             this._bindFile(sourceFileInfo);
 
+            const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getCompletionsForPosition(
                 position,
                 workspacePath,
@@ -1139,7 +1146,7 @@ export class Program {
                 this._importResolver,
                 this._lookUpImport,
                 this._evaluator,
-                this._createSourceMapper(),
+                this._createSourceMapper(execEnv),
                 () => this._buildModuleSymbolsMap(sourceFileInfo, token),
                 token
             );
@@ -1153,7 +1160,7 @@ export class Program {
         const content = sourceFileInfo.sourceFile.getFileContents();
         if (pr?.parseTree && content) {
             const offset = convertPositionToOffset(position, pr.tokenizerOutput.lines);
-            if (offset) {
+            if (offset !== undefined) {
                 completionList = await this._extension.completionListExtension.updateCompletionList(
                     completionList,
                     pr.parseTree,
@@ -1177,12 +1184,13 @@ export class Program {
 
             this._bindFile(sourceFileInfo);
 
+            const execEnv = this._configOptions.findExecEnvironment(filePath);
             sourceFileInfo.sourceFile.resolveCompletionItem(
                 this._configOptions,
                 this._importResolver,
                 this._lookUpImport,
                 this._evaluator,
-                this._createSourceMapper(),
+                this._createSourceMapper(execEnv),
                 () => this._buildModuleSymbolsMap(sourceFileInfo, token),
                 completionItem,
                 token
@@ -1204,8 +1212,9 @@ export class Program {
 
             this._bindFile(sourceFileInfo);
 
+            const execEnv = this._configOptions.findExecEnvironment(filePath);
             const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
-                this._createSourceMapper(),
+                this._createSourceMapper(execEnv),
                 position,
                 this._evaluator,
                 token
@@ -1421,9 +1430,10 @@ export class Program {
         return false;
     }
 
-    private _createSourceMapper() {
+    private _createSourceMapper(execEnv: ExecutionEnvironment) {
         const sourceMapper = new SourceMapper(
             this._importResolver,
+            execEnv,
             this._evaluator,
             (stubFilePath: string, implFilePath: string) => {
                 const stubFileInfo = this._sourceFileMap.get(stubFilePath);
@@ -1517,13 +1527,13 @@ export class Program {
                     }
                 });
             } else if (options.verboseOutput) {
-                this._console.log(
+                this._console.info(
                     `Could not import '${importResult.importName}' ` +
                         `in file '${sourceFileInfo.sourceFile.getFilePath()}'`
                 );
                 if (importResult.importFailureInfo) {
                     importResult.importFailureInfo.forEach((diag) => {
-                        this._console.log(`  ${diag}`);
+                        this._console.info(`  ${diag}`);
                     });
                 }
             }

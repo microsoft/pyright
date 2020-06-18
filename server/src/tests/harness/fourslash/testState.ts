@@ -174,7 +174,7 @@ export class TestState {
     }
 
     get configOptions(): ConfigOptions {
-        return this.workspace.serviceInstance.test_configOptions;
+        return this.workspace.serviceInstance.getConfigOptions();
     }
 
     get program(): Program {
@@ -564,6 +564,8 @@ export class TestState {
         },
         verifyCodeActionCount?: boolean
     ): Promise<any> {
+        // make sure we don't use cache built from other tests
+        this.workspace.serviceInstance.invalidateAndForceReanalysis();
         this._analyze();
 
         for (const range of this.getRanges()) {

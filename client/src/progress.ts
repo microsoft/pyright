@@ -9,7 +9,7 @@
  */
 
 import { Progress, ProgressLocation, window } from 'vscode';
-import { Disposable, LanguageClient } from 'vscode-languageclient';
+import { Disposable, LanguageClient } from 'vscode-languageclient/node';
 
 const AnalysisTimeoutInMs = 60000;
 

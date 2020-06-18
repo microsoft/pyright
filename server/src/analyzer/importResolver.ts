@@ -12,15 +12,19 @@ import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { FileSystem } from '../common/fileSystem';
 import {
     changeAnyExtension,
+    combinePathComponents,
     combinePaths,
+    containsPath,
     ensureTrailingDirectorySeparator,
     getDirectoryPath,
     getFileExtension,
     getFileName,
     getFileSystemEntries,
     getPathComponents,
+    getRelativePathComponentsFromDirectory,
     isDirectory,
     isFile,
+    resolvePaths,
     stripFileExtension,
     stripTrailingDirectorySeparator,
 } from '../common/pathUtils';
@@ -351,7 +355,7 @@ export class ImportResolver {
     }
 
     // Returns the implementation file(s) for the given stub file.
-    getSourceFilesFromStub(stubFilePath: string): string[] {
+    getSourceFilesFromStub(stubFilePath: string, execEnv: ExecutionEnvironment): string[] {
         const sourceFilePaths: string[] = [];
 
         // When ImportResolver resolves an import to a stub file, a second resolve is done
@@ -381,6 +385,71 @@ export class ImportResolver {
                 sourceFilePaths.push(sourceFilePath);
             }
         }
+
+        if (sourceFilePaths.length === 0) {
+            // The stub and the source file may have the same name, but be located
+            // in different folder hierarchies.
+            // Example:
+            // <stubPath>\package\module.pyi
+            // <site-packages>\package\module.py
+            // We get the relative path(s) of the stub to its import root(s),
+            // in theory there can be more than one, then look for source
+            // files in all the import roots using the same relative path(s).
+            const importRootPaths = this.getImportRoots(execEnv, /*useTypeshedVersionedFolders*/ true);
+
+            const relativeStubPaths: string[] = [];
+            for (const importRootPath of importRootPaths) {
+                if (containsPath(importRootPath, stubFilePath, true)) {
+                    const parts = getRelativePathComponentsFromDirectory(importRootPath, stubFilePath, true);
+
+                    // Note that relative paths have an empty parts[0]
+                    if (parts.length > 1) {
+                        // Handle the case where the symbol was resolved to a stubs package
+                        // rather than the real package. We'll strip off the "-stubs" suffix
+                        // in this case.
+                        const stubsSuffix = '-stubs';
+                        if (parts[1].endsWith(stubsSuffix)) {
+                            parts[1] = parts[1].substr(0, parts[1].length - stubsSuffix.length);
+                        }
+
+                        const relativeStubPath = combinePathComponents(parts);
+                        if (relativeStubPath) {
+                            relativeStubPaths.push(relativeStubPath);
+                        }
+                    }
+                }
+            }
+
+            for (const relativeStubPath of relativeStubPaths) {
+                for (const importRootPath of importRootPaths) {
+                    const absoluteStubPath = resolvePaths(importRootPath, relativeStubPath);
+                    let absoluteSourcePath = changeAnyExtension(absoluteStubPath, '.py');
+                    if (this.fileSystem.existsSync(absoluteSourcePath)) {
+                        sourceFilePaths.push(absoluteSourcePath);
+                    } else {
+                        const filePathWithoutExtension = stripFileExtension(absoluteSourcePath);
+
+                        if (filePathWithoutExtension.endsWith('__init__')) {
+                            // Did not match: <root>/package/__init__.py
+                            // Try equivalent: <root>/package.py
+                            absoluteSourcePath =
+                                filePathWithoutExtension.substr(0, filePathWithoutExtension.length - 9) + '.py';
+                            if (this.fileSystem.existsSync(absoluteSourcePath)) {
+                                sourceFilePaths.push(absoluteSourcePath);
+                            }
+                        } else {
+                            // Did not match: <root>/package.py
+                            // Try equivalent: <root>/package/__init__.py
+                            absoluteSourcePath = combinePaths(filePathWithoutExtension, '__init__.py');
+                            if (this.fileSystem.existsSync(absoluteSourcePath)) {
+                                sourceFilePaths.push(absoluteSourcePath);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return sourceFilePaths;
     }
 
@@ -394,7 +463,7 @@ export class ImportResolver {
 
         const importFailureInfo: string[] = [];
 
-        // Is this ia stdlib typeshed path?
+        // Is this a stdlib typeshed path?
         const stdLibTypeshedPath = this._getTypeshedPath(true, execEnv, importFailureInfo);
         if (stdLibTypeshedPath) {
             moduleName = this._getModuleNameFromPath(stdLibTypeshedPath, filePath, true);
@@ -464,6 +533,50 @@ export class ImportResolver {
 
         // We didn't find any module name.
         return { moduleName: '', importType: ImportType.Local, isLocalTypingsFile };
+    }
+
+    getImportRoots(execEnv: ExecutionEnvironment, useTypeshedVersionedFolders: boolean) {
+        const importFailureInfo: string[] = [];
+        const roots = [];
+
+        const pythonVersion = execEnv.pythonVersion;
+        const minorVersion = pythonVersion & 0xff;
+        const versionFolders = ['2and3', '3'];
+        if (minorVersion > 0) {
+            versionFolders.push(versionToString(0x300 + minorVersion));
+        }
+
+        const stdTypesheds = this._getTypeshedPath(true, execEnv, importFailureInfo);
+        if (stdTypesheds) {
+            if (useTypeshedVersionedFolders) {
+                roots.push(...versionFolders.map((vf) => combinePaths(stdTypesheds, vf)));
+            } else {
+                roots.push(stdTypesheds);
+            }
+        }
+
+        roots.push(execEnv.root);
+        roots.push(...execEnv.extraPaths);
+
+        if (this._configOptions.stubPath) {
+            roots.push(this._configOptions.stubPath);
+        }
+
+        const typesheds = this._getTypeshedPath(false, execEnv, importFailureInfo);
+        if (typesheds) {
+            if (useTypeshedVersionedFolders) {
+                roots.push(...versionFolders.map((vf) => combinePaths(typesheds, vf)));
+            } else {
+                roots.push(typesheds);
+            }
+        }
+
+        const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
+        if (pythonSearchPaths.length > 0) {
+            roots.push(...pythonSearchPaths);
+        }
+
+        return roots;
     }
 
     private _lookUpResultsInCache(

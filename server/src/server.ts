@@ -10,9 +10,9 @@ import {
     CodeAction,
     CodeActionParams,
     Command,
+    Connection,
     ExecuteCommandParams,
-    IConnection,
-} from 'vscode-languageserver';
+} from 'vscode-languageserver/node';
 import { isMainThread } from 'worker_threads';
 
 import { AnalysisResults } from './analyzer/analysis';
@@ -20,6 +20,7 @@ import { BackgroundAnalysis } from './backgroundAnalysis';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
+import { LogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
 import { convertUriToPath, getDirectoryPath, normalizeSlashes } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
@@ -48,6 +49,7 @@ class PyrightServer extends LanguageServerBase {
         const serverSettings: ServerSettings = {
             watchForSourceChanges: true,
             diagnosticSeverityOverrides: {},
+            logLevel: LogLevel.Info,
         };
 
         try {
@@ -86,6 +88,7 @@ class PyrightServer extends LanguageServerBase {
                     serverSettings.openFilesOnly = !!pythonAnalysisSection.openFilesOnly;
                 }
 
+                serverSettings.logLevel = this.convertLogLevel(pythonAnalysisSection.logLevel);
                 serverSettings.autoSearchPaths = !!pythonAnalysisSection.autoSearchPaths;
 
                 const extraPaths = pythonAnalysisSection.extraPaths;
@@ -115,7 +118,7 @@ class PyrightServer extends LanguageServerBase {
                 serverSettings.typeCheckingMode = undefined;
             }
         } catch (error) {
-            this.console.log(`Error reading settings: ${error}`);
+            this.console.error(`Error reading settings: ${error}`);
         }
         return serverSettings;
     }
@@ -150,10 +153,10 @@ class PyrightServer extends LanguageServerBase {
     }
 }
 
-function reporterFactory(connection: IConnection): ProgressReporter {
+function reporterFactory(connection: Connection): ProgressReporter {
     return {
         isEnabled(data: AnalysisResults): boolean {
-            return !data.checkingOnlyOpenFiles;
+            return true;
         },
 
         begin(): void {

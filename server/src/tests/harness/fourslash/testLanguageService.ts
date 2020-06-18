@@ -56,11 +56,11 @@ export class TestLanguageService implements LanguageServerInterface {
 
     async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings> {
         const settings: ServerSettings = {
-            venvPath: this._workspace.serviceInstance.test_configOptions.venvPath,
-            pythonPath: this._workspace.serviceInstance.test_configOptions.pythonPath,
-            typeshedPath: this._workspace.serviceInstance.test_configOptions.typeshedPath,
-            openFilesOnly: this._workspace.serviceInstance.test_configOptions.checkOnlyOpenFiles,
-            useLibraryCodeForTypes: this._workspace.serviceInstance.test_configOptions.useLibraryCodeForTypes,
+            venvPath: this._workspace.serviceInstance.getConfigOptions().venvPath,
+            pythonPath: this._workspace.serviceInstance.getConfigOptions().pythonPath,
+            typeshedPath: this._workspace.serviceInstance.getConfigOptions().typeshedPath,
+            openFilesOnly: this._workspace.serviceInstance.getConfigOptions().checkOnlyOpenFiles,
+            useLibraryCodeForTypes: this._workspace.serviceInstance.getConfigOptions().useLibraryCodeForTypes,
             disableLanguageServices: this._workspace.disableLanguageServices,
         };
 

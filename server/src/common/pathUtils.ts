@@ -7,6 +7,7 @@
  * Pathname utility functions.
  */
 
+import { randomBytes } from 'crypto';
 import * as path from 'path';
 import Char from 'typescript-char';
 import { URI } from 'vscode-uri';
@@ -451,6 +452,15 @@ export function getRelativePathFromDirectory(
     to: string,
     getCanonicalFileNameOrIgnoreCase: GetCanonicalFileName | boolean
 ) {
+    const pathComponents = getRelativePathComponentsFromDirectory(fromDirectory, to, getCanonicalFileNameOrIgnoreCase);
+    return combinePathComponents(pathComponents);
+}
+
+export function getRelativePathComponentsFromDirectory(
+    fromDirectory: string,
+    to: string,
+    getCanonicalFileNameOrIgnoreCase: GetCanonicalFileName | boolean
+) {
     debug.assert(
         getRootLength(fromDirectory) > 0 === getRootLength(to) > 0,
         'Paths must either both be absolute or both be relative'
@@ -465,7 +475,7 @@ export function getRelativePathFromDirectory(
         getCanonicalFileName
     );
 
-    return combinePathComponents(pathComponents);
+    return pathComponents;
 }
 
 /**
@@ -855,4 +865,45 @@ export function convertUriToPath(uriString: string): string {
 
 export function convertPathToUri(path: string): string {
     return URI.file(path).toString();
+}
+
+let _fsCaseSensitivity: boolean | undefined = undefined;
+export function isFileSystemCaseSensitive(fs: FileSystem) {
+    if (_fsCaseSensitivity !== undefined) {
+        return _fsCaseSensitivity;
+    }
+
+    _fsCaseSensitivity = isFileSystemCaseSensitiveInternal(fs);
+    return _fsCaseSensitivity;
+}
+
+export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
+    let filePath: string | undefined = undefined;
+    try {
+        // Make sure tmp dir exists.
+        if (!fs.existsSync(fs.tmpdir())) {
+            fs.mkdirSync(fs.tmpdir(), { recursive: true });
+        }
+
+        // Make unique file name.
+        let name: string;
+        let mangledFilePath: string;
+        do {
+            name = `${randomBytes(21).toString('hex')}-a`;
+            filePath = path.join(fs.tmpdir(), name);
+            mangledFilePath = path.join(fs.tmpdir(), name.toUpperCase());
+        } while (fs.existsSync(filePath) || fs.existsSync(mangledFilePath));
+
+        fs.writeFileSync(filePath, '', 'utf8');
+
+        // If file exists, then it is insensitive.
+        return !fs.existsSync(mangledFilePath);
+    } catch (e) {
+        return false;
+    } finally {
+        if (filePath) {
+            // remove temp file created
+            fs.unlinkSync(filePath);
+        }
+    }
 }

@@ -21,7 +21,7 @@ import {
     throwIfCancellationRequested,
 } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
-import { ConsoleInterface } from './common/console';
+import { ConsoleInterface, log, LogLevel } from './common/console';
 import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
@@ -46,9 +46,11 @@ export class BackgroundAnalysisBase {
         // global channel to communicate from BG channel to main thread.
         worker.on('message', (msg: AnalysisResponse) => {
             switch (msg.requestType) {
-                case 'log':
-                    this.log(msg.data);
+                case 'log': {
+                    const logData = msg.data as LogData;
+                    this.log(logData.level, logData.message);
                     break;
+                }
 
                 case 'analysisResult': {
                     // Change in diagnostics due to host such as file closed rather than
@@ -65,7 +67,7 @@ export class BackgroundAnalysisBase {
         // this will catch any exception thrown from background thread,
         // print log and ignore exception
         worker.on('error', (msg) => {
-            this.log(`Error occurred on background thread: ${JSON.stringify(msg)}`);
+            this.log(LogLevel.Error, `Error occurred on background thread: ${JSON.stringify(msg)}`);
         });
     }
 
@@ -185,8 +187,8 @@ export class BackgroundAnalysisBase {
         this._worker.postMessage(request, request.port ? [request.port] : undefined);
     }
 
-    protected log(msg: string) {
-        this._console.log(msg);
+    protected log(level: LogLevel, msg: string) {
+        log(this._console, level, msg);
     }
 }
 
@@ -202,7 +204,7 @@ export class BackgroundAnalysisRunnerBase {
 
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = data.rootDirectory;
-        this.log(`Background analysis root directory: ${data.rootDirectory}`);
+        this.log(LogLevel.Info, `Background analysis root directory: ${data.rootDirectory}`);
 
         this._fs = createFromRealFileSystem(this._getConsole());
 
@@ -212,7 +214,7 @@ export class BackgroundAnalysisRunnerBase {
     }
 
     start() {
-        this.log(`Background analysis started`);
+        this.log(LogLevel.Info, `Background analysis started`);
 
         // Get requests from main thread.
         parentPort?.on('message', (msg: AnalysisRequest) => {
@@ -355,8 +357,8 @@ export class BackgroundAnalysisRunnerBase {
         });
     }
 
-    protected log(msg: string) {
-        parentPort?.postMessage({ requestType: 'log', data: msg });
+    protected log(level: LogLevel, msg: string) {
+        parentPort?.postMessage({ requestType: 'log', data: { level: level, message: msg } });
     }
 
     protected createImportResolver(fs: FileSystem, options: ConfigOptions): ImportResolver {
@@ -388,10 +390,16 @@ export class BackgroundAnalysisRunnerBase {
     private _getConsole() {
         return {
             log: (msg: string) => {
-                this.log(msg);
+                this.log(LogLevel.Log, msg);
+            },
+            info: (msg: string) => {
+                this.log(LogLevel.Info, msg);
+            },
+            warn: (msg: string) => {
+                this.log(LogLevel.Warn, msg);
             },
             error: (msg: string) => {
-                this.log(msg);
+                this.log(LogLevel.Error, msg);
             },
         };
     }
@@ -530,4 +538,9 @@ interface AnalysisResponse {
 interface RequestResponse {
     kind: 'ok' | 'failed' | 'cancelled';
     data: any;
+}
+
+interface LogData {
+    level: LogLevel;
+    message: string;
 }

@@ -78,7 +78,7 @@ export function analyzeProgram(
             (e.stack ? e.stack.toString() : undefined) ||
             (typeof e.message === 'string' ? e.message : undefined) ||
             JSON.stringify(e);
-        console.log('Error performing analysis: ' + message);
+        console.error('Error performing analysis: ' + message);
 
         callback({
             diagnostics: [],

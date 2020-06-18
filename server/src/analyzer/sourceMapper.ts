@@ -8,6 +8,7 @@
 
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { ExecutionEnvironment } from '../common/configOptions';
 import { getAnyExtensionFromPath } from '../common/pathUtils';
 import { ClassNode, ModuleNode, ParseNode } from '../parser/parseNodes';
 import { ClassDeclaration, Declaration, DeclarationType, FunctionDeclaration } from './declaration';
@@ -21,6 +22,7 @@ export type ShadowFileBinder = (stubFilePath: string, implFilePath: string) => S
 export class SourceMapper {
     constructor(
         private _importResolver: ImportResolver,
+        private _execEnv: ExecutionEnvironment,
         private _evaluator: TypeEvaluator,
         private _fileBinder: ShadowFileBinder
     ) {}
@@ -187,7 +189,7 @@ export class SourceMapper {
     }
 
     private _getBoundSourceFiles(stubFilePath: string): SourceFile[] {
-        const paths = this._importResolver.getSourceFilesFromStub(stubFilePath);
+        const paths = this._importResolver.getSourceFilesFromStub(stubFilePath, this._execEnv);
         return paths.map((fp) => this._fileBinder(stubFilePath, fp)).filter(_isDefined);
     }
 }

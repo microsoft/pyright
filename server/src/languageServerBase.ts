@@ -21,6 +21,7 @@ import {
     Command,
     CompletionTriggerKind,
     ConfigurationItem,
+    Connection,
     ConnectionOptions,
     createConnection,
     Diagnostic,
@@ -30,11 +31,9 @@ import {
     DidChangeWatchedFilesNotification,
     DocumentSymbol,
     ExecuteCommandParams,
-    IConnection,
     InitializeResult,
     Location,
     ParameterInformation,
-    RemoteConsole,
     RemoteWindow,
     SignatureInformation,
     SymbolInformation,
@@ -42,7 +41,7 @@ import {
     WatchKind,
     WorkDoneProgressReporter,
     WorkspaceEdit,
-} from 'vscode-languageserver';
+} from 'vscode-languageserver/node';
 
 import { AnalysisResults } from './analyzer/analysis';
 import { ImportResolver } from './analyzer/importResolver';
@@ -57,7 +56,7 @@ import {
     getDiagnosticSeverityOverrides,
 } from './common/commandLineOptions';
 import { ConfigOptions, getDiagLevelDiagnosticRules } from './common/configOptions';
-import { ConsoleInterface } from './common/console';
+import { ConsoleInterface, ConsoleWithLogLevel, LogLevel } from './common/console';
 import { createDeferred, Deferred } from './common/deferred';
 import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/diagnostic';
 import { DiagnosticRule } from './common/diagnosticRules';
@@ -94,6 +93,7 @@ export interface ServerSettings {
     watchForSourceChanges?: boolean;
     watchForLibraryChanges?: boolean;
     diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap;
+    logLevel?: LogLevel;
 }
 
 export interface WorkspaceServiceInstance {
@@ -147,7 +147,7 @@ interface InternalFileWatcher extends FileWatcher {
 
 export abstract class LanguageServerBase implements LanguageServerInterface {
     // Create a connection for the server. The connection type can be changed by the process's arguments
-    protected _connection: IConnection = createConnection(this._GetConnectionOptions());
+    protected _connection: Connection = createConnection(this._GetConnectionOptions());
     protected _workspaceMap: WorkspaceMap;
     protected _hasConfigurationCapability = false;
     protected _hasWatchFileCapability = false;
@@ -170,13 +170,18 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     // File system abstraction.
     fs: FileSystem;
 
+    readonly console: ConsoleInterface;
+
     constructor(private _serverOptions: ServerOptions) {
-        this._connection.console.log(
+        this.console = new ConsoleWithLogLevel(this._connection.console);
+
+        this.console.info(
             `${_serverOptions.productName} language server ${
                 _serverOptions.version && _serverOptions.version + ' '
             }starting`
         );
-        this.fs = createFromRealFileSystem(this._connection.console, this);
+
+        this.fs = createFromRealFileSystem(this.console, this);
 
         // Set the working directory to a known location within
         // the extension directory. Otherwise the execution of
@@ -188,7 +193,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = _serverOptions.rootDirectory;
-        this._connection.console.log(`Server root directory: ${_serverOptions.rootDirectory}`);
+        this.console.info(`Server root directory: ${_serverOptions.rootDirectory}`);
 
         // Create workspace map.
         this._workspaceMap = new WorkspaceMap(this);
@@ -271,11 +276,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._serverOptions.extension = extension;
     }
 
-    // Provides access to logging to the client output window.
-    get console(): RemoteConsole {
-        return this._connection.console;
-    }
-
     // Provides access to the client's window.
     get window(): RemoteWindow {
         return this._connection.window;
@@ -284,11 +284,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     // Creates a service instance that's used for analyzing a
     // program within a workspace.
     createAnalyzerService(name: string): AnalyzerService {
-        this._connection.console.log(`Starting service instance "${name}"`);
+        this.console.log(`Starting service instance "${name}"`);
         const service = new AnalyzerService(
             name,
             this.fs,
-            this._connection.console,
+            this.console,
             this.createImportResolver.bind(this),
             undefined,
             this._serverOptions.extension,
@@ -435,7 +435,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         );
 
         this._connection.onDidChangeConfiguration((params) => {
-            this._connection.console.log(`Received updated settings`);
+            this.console.log(`Received updated settings`);
             if (params?.settings) {
                 this._defaultClientConfig = params?.settings;
             }
@@ -507,7 +507,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
                 return locations.map((loc) => Location.create(convertPathToUri(loc.path), loc.range));
             } finally {
-                progress.done();
+                progress.reporter.done();
                 source.dispose();
             }
         });
@@ -788,7 +788,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 try {
                     executeCommand(source.token);
                 } finally {
-                    progress.done();
+                    progress.reporter.done();
                     source.dispose();
                 }
             } else {
@@ -812,6 +812,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             });
         });
 
+        if (!this._progressReporter.isEnabled(results)) {
+            return;
+        }
+
         // Update progress.
         if (results.filesRequiringAnalysis > 0) {
             this._progressReporter.begin();
@@ -830,6 +834,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     async updateSettingsForWorkspace(workspace: WorkspaceServiceInstance): Promise<void> {
         const serverSettings = await this.getSettings(workspace);
+
+        // Set logging level first.
+        (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
+
         this.updateOptionsAndRestartService(workspace, serverSettings);
         workspace.disableLanguageServices = !!serverSettings.disableLanguageServices;
         workspace.disableOrganizeImports = !!serverSettings.disableOrganizeImports;
@@ -846,19 +854,41 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         AnalyzerServiceExecutor.runWithOptions(this.rootPath, workspace, serverSettings, typeStubTargetImportName);
     }
 
+    protected convertLogLevel(logLevel?: string): LogLevel {
+        if (!logLevel) {
+            return LogLevel.Info;
+        }
+
+        switch (logLevel.toLowerCase()) {
+            case 'error':
+                return LogLevel.Error;
+            case 'warning':
+                return LogLevel.Warn;
+            case 'info':
+                return LogLevel.Info;
+            case 'trace':
+                return LogLevel.Log;
+            default:
+                return LogLevel.Info;
+        }
+    }
+
     private async _getProgressReporter(
         workDoneToken: string | number | undefined,
-        reporter: WorkDoneProgressReporter,
+        clientReporter: WorkDoneProgressReporter,
         title: string
     ) {
         if (workDoneToken) {
-            return reporter;
+            return { reporter: clientReporter, token: CancellationToken.None };
         }
 
         const serverInitiatedReporter = await this._connection.window.createWorkDoneProgress();
         serverInitiatedReporter.begin(title, undefined, undefined, true);
 
-        return serverInitiatedReporter;
+        return {
+            reporter: serverInitiatedReporter,
+            token: serverInitiatedReporter.token,
+        };
     }
 
     private _GetConnectionOptions(): ConnectionOptions {
@@ -913,7 +943,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // Tell all of the services that the user is actively
         // interacting with one or more editors, so they should
         // back off from performing any work.
-        this._workspaceMap.forEach((workspace) => {
+        this._workspaceMap.forEach((workspace: { serviceInstance: { recordUserInteractionTime: () => void } }) => {
             workspace.serviceInstance.recordUserInteractionTime();
         });
     }
