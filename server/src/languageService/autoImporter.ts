@@ -31,6 +31,13 @@ import { ParseResults } from '../parser/parser';
 
 export type ModuleSymbolMap = Map<string, SymbolTable>;
 
+export type ImportName = string;
+export type FullImportName = string;
+export type FilePath = string;
+
+export type ImportsMap = Map<FullImportName, FilePath>;
+export type ImportNameMap = Map<ImportName, ImportsMap>;
+
 // Build a map of all modules within this program and the module-
 // level scope that contains the symbol table for the module.
 export function buildModuleSymbolsMap(files: SourceFileInfo[], token: CancellationToken): ModuleSymbolMap {
@@ -63,13 +70,22 @@ export interface AutoImportResult {
     alias?: string;
 }
 
+interface ImportParts {
+    namePart?: string;
+    importName: string;
+    importSource: string;
+    filePath: string;
+    moduleAndType: ModuleNameAndType;
+}
+
 export class AutoImporter {
     constructor(
         private _configOptions: ConfigOptions,
         private _filePath: string,
         private _importResolver: ImportResolver,
         private _parseResults: ParseResults,
-        private _moduleSymbolMap: ModuleSymbolMap
+        private _moduleSymbolMap: ModuleSymbolMap,
+        private _packageMap?: ImportNameMap
     ) {}
 
     getAutoImportCandidates(
@@ -80,8 +96,61 @@ export class AutoImporter {
         token: CancellationToken
     ) {
         const results: AutoImportResult[] = [];
-
         const importStatements = getTopLevelImports(this._parseResults.parseTree);
+
+        this._addImportsFromModuleMap(word, similarityLimit, excludes, aliasName, importStatements, results, token);
+        this._addImportsFromPackages(word, similarityLimit, excludes, aliasName, importStatements, results, token);
+
+        return results;
+    }
+
+    private _addImportsFromPackages(
+        word: string,
+        similarityLimit: number,
+        excludes: string[],
+        aliasName: string | undefined,
+        importStatements: ImportStatements,
+        results: AutoImportResult[],
+        token: CancellationToken
+    ) {
+        if (!this._packageMap) {
+            return;
+        }
+
+        this._packageMap.forEach((imports, name) => {
+            throwIfCancellationRequested(token);
+
+            // Don't offer imports from files that are named with private
+            // naming semantics like "_ast.py".
+            if (SymbolNameUtils.isPrivateOrProtectedName(name)) {
+                return;
+            }
+
+            const isSimilar = this._isSimilar(word, name, similarityLimit);
+            if (!isSimilar) {
+                return;
+            }
+
+            imports.forEach((filePath, fullImport) => {
+                throwIfCancellationRequested(token);
+                const importParts = this._getImportParts(filePath);
+                if (!importParts) {
+                    return;
+                }
+                this._addAutoImports(importParts, excludes, importStatements, aliasName, results);
+            });
+        });
+    }
+
+    private _addImportsFromModuleMap(
+        word: string,
+        similarityLimit: number,
+        excludes: string[],
+        aliasName: string | undefined,
+        importStatements: ImportStatements,
+        results: AutoImportResult[],
+        token: CancellationToken
+    ) {
         this._moduleSymbolMap.forEach((symbolTable, filePath) => {
             throwIfCancellationRequested(token);
 
@@ -161,7 +230,6 @@ export class AutoImporter {
             const fileDir = getDirectoryPath(filePath);
             const initPathPy = combinePaths(fileDir, '__init__.py');
             const initPathPyi = initPathPy + 'i';
-
             const isStubFile = filePath.endsWith('.pyi');
             const hasInit = this._moduleSymbolMap.has(initPathPy) || this._moduleSymbolMap.has(initPathPyi);
 
@@ -172,66 +240,78 @@ export class AutoImporter {
                 return;
             }
 
-            let importNamePart: string | undefined;
-            let name: string;
-            let importSource: string;
-            let moduleNameAndType: ModuleNameAndType;
-
-            if (hasInit) {
-                importNamePart = stripFileExtension(getFileName(filePath));
-                moduleNameAndType = this._getModuleNameAndTypeFromFilePath(getDirectoryPath(filePath));
-                importSource = moduleNameAndType.moduleName;
-
-                // See if we can import module as "import xxx"
-                if (importNamePart === '__init__') {
-                    importNamePart = undefined;
-                    name = importSource;
-                } else {
-                    name = importNamePart;
-                }
-            } else {
-                // We don't have init.py[i] but this file is a stub file.
-                // See whether we can import it as "import xx"
-                importNamePart = undefined;
-                moduleNameAndType = this._getModuleNameAndTypeFromFilePath(filePath);
-                name = importSource = moduleNameAndType.moduleName;
-            }
-
-            if (!importSource) {
+            const importParts = this._getImportParts(filePath);
+            if (!importParts) {
                 return;
             }
 
-            const isSimilar = this._isSimilar(word, name, similarityLimit);
+            const isSimilar = this._isSimilar(word, importParts.importName, similarityLimit);
             if (!isSimilar) {
                 return;
             }
 
-            const alreadyIncluded = this._containsName(name, importSource, excludes, results);
-            if (alreadyIncluded) {
+            this._addAutoImports(importParts, excludes, importStatements, aliasName, results);
+        });
+    }
+
+    private _addAutoImports(
+        importParts: ImportParts,
+        excludes: string[],
+        importStatements: ImportStatements,
+        aliasName: string | undefined,
+        results: AutoImportResult[]
+    ) {
+        const alreadyIncluded = this._containsName(importParts.importName, importParts.importSource, excludes, results);
+        if (alreadyIncluded) {
+            return;
+        }
+
+        const importGroup = this._getImportGroupFromModuleNameAndType(importParts.moduleAndType);
+        const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
+            importParts.namePart,
+            importStatements,
+            importParts.filePath,
+            importParts.importSource,
+            importGroup,
+            aliasName
+        );
+
+        results.push({
+            name: importParts.importName,
+            alias: aliasName,
+            symbol: undefined,
+            source: importParts.importSource,
+            edits: autoImportTextEdits,
+            isImportFrom: !!importParts.namePart,
+        });
+    }
+
+    private _getImportParts(filePath: string) {
+        const name = stripFileExtension(getFileName(filePath));
+
+        // See if we can import module as "import xxx"
+        if (name === '__init__') {
+            return createImportParts(this._getModuleNameAndTypeFromFilePath(getDirectoryPath(filePath)));
+        }
+
+        return createImportParts(this._getModuleNameAndTypeFromFilePath(filePath));
+
+        function createImportParts(module: ModuleNameAndType) {
+            const importSource = module.moduleName;
+            if (!importSource) {
                 return;
             }
 
-            const importGroup = this._getImportGroupFromModuleNameAndType(moduleNameAndType);
-            const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
-                importNamePart,
-                importStatements,
+            const index = importSource.lastIndexOf('.');
+            const importNamePart = index > 0 ? importSource.substring(index + 1) : undefined;
+            return {
+                namePart: importNamePart,
+                importName: index > 0 ? importNamePart! : importSource,
+                importSource: index > 0 ? importSource.substring(0, index) : importSource,
                 filePath,
-                importSource,
-                importGroup,
-                aliasName
-            );
-
-            results.push({
-                name: name,
-                alias: aliasName,
-                symbol: undefined,
-                source: importSource,
-                edits: autoImportTextEdits,
-                isImportFrom: !!importNamePart,
-            });
-        });
-
-        return results;
+                moduleAndType: module,
+            };
+        }
     }
 
     private _isSimilar(word: string, name: string, similarityLimit: number) {

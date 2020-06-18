@@ -564,14 +564,14 @@ export class ConfigOptions {
         this.include = [];
         if (configObj.include !== undefined) {
             if (!Array.isArray(configObj.include)) {
-                console.log(`Config "include" entry must must contain an array.`);
+                console.info(`Config "include" entry must must contain an array.`);
             } else {
                 const filesList = configObj.include as string[];
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
-                        console.log(`Index ${index} of "include" array should be a string.`);
+                        console.info(`Index ${index} of "include" array should be a string.`);
                     } else if (isAbsolute(fileSpec)) {
-                        console.log(`Ignoring path "${fileSpec}" in "include" array because it is not relative.`);
+                        console.info(`Ignoring path "${fileSpec}" in "include" array because it is not relative.`);
                     } else {
                         this.include.push(getFileSpec(this.projectRoot, fileSpec));
                     }
@@ -583,14 +583,14 @@ export class ConfigOptions {
         this.exclude = [];
         if (configObj.exclude !== undefined) {
             if (!Array.isArray(configObj.exclude)) {
-                console.log(`Config "exclude" entry must contain an array.`);
+                console.info(`Config "exclude" entry must contain an array.`);
             } else {
                 const filesList = configObj.exclude as string[];
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
-                        console.log(`Index ${index} of "exclude" array should be a string.`);
+                        console.info(`Index ${index} of "exclude" array should be a string.`);
                     } else if (isAbsolute(fileSpec)) {
-                        console.log(`Ignoring path "${fileSpec}" in "exclude" array because it is not relative.`);
+                        console.info(`Ignoring path "${fileSpec}" in "exclude" array because it is not relative.`);
                     } else {
                         this.exclude.push(getFileSpec(this.projectRoot, fileSpec));
                     }
@@ -602,14 +602,14 @@ export class ConfigOptions {
         this.ignore = [];
         if (configObj.ignore !== undefined) {
             if (!Array.isArray(configObj.ignore)) {
-                console.log(`Config "ignore" entry must contain an array.`);
+                console.info(`Config "ignore" entry must contain an array.`);
             } else {
                 const filesList = configObj.ignore as string[];
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
-                        console.log(`Index ${index} of "ignore" array should be a string.`);
+                        console.info(`Index ${index} of "ignore" array should be a string.`);
                     } else if (isAbsolute(fileSpec)) {
-                        console.log(`Ignoring path "${fileSpec}" in "ignore" array because it is not relative.`);
+                        console.info(`Ignoring path "${fileSpec}" in "ignore" array because it is not relative.`);
                     } else {
                         this.ignore.push(getFileSpec(this.projectRoot, fileSpec));
                     }
@@ -621,14 +621,14 @@ export class ConfigOptions {
         this.strict = [];
         if (configObj.strict !== undefined) {
             if (!Array.isArray(configObj.strict)) {
-                console.log(`Config "strict" entry must contain an array.`);
+                console.info(`Config "strict" entry must contain an array.`);
             } else {
                 const filesList = configObj.strict as string[];
                 filesList.forEach((fileSpec, index) => {
                     if (typeof fileSpec !== 'string') {
-                        console.log(`Index ${index} of "strict" array should be a string.`);
+                        console.info(`Index ${index} of "strict" array should be a string.`);
                     } else if (isAbsolute(fileSpec)) {
-                        console.log(`Ignoring path "${fileSpec}" in "strict" array because it is not relative.`);
+                        console.info(`Ignoring path "${fileSpec}" in "strict" array because it is not relative.`);
                     } else {
                         this.strict.push(getFileSpec(this.projectRoot, fileSpec));
                     }
@@ -646,7 +646,7 @@ export class ConfigOptions {
             ) {
                 configTypeCheckingMode = configObj.typeCheckingMode;
             } else {
-                console.log(`Config "typeCheckingMode" entry must contain "off", "basic", or "strict".`);
+                console.info(`Config "typeCheckingMode" entry must contain "off", "basic", or "strict".`);
             }
         }
 
@@ -953,7 +953,7 @@ export class ConfigOptions {
         this.venvPath = undefined;
         if (configObj.venvPath !== undefined) {
             if (typeof configObj.venvPath !== 'string') {
-                console.log(`Config "venvPath" field must contain a string.`);
+                console.info(`Config "venvPath" field must contain a string.`);
             } else {
                 this.venvPath = normalizePath(combinePaths(this.projectRoot, configObj.venvPath));
             }
@@ -963,7 +963,7 @@ export class ConfigOptions {
         this.defaultVenv = undefined;
         if (configObj.venv !== undefined) {
             if (typeof configObj.venv !== 'string') {
-                console.log(`Config "venv" field must contain a string.`);
+                console.info(`Config "venv" field must contain a string.`);
             } else {
                 this.defaultVenv = configObj.venv;
             }
@@ -977,10 +977,10 @@ export class ConfigOptions {
                 if (version) {
                     this.defaultPythonVersion = version;
                 } else {
-                    console.log(`Config "pythonVersion" field contains unsupported version.`);
+                    console.info(`Config "pythonVersion" field contains unsupported version.`);
                 }
             } else {
-                console.log(`Config "pythonVersion" field must contain a string.`);
+                console.info(`Config "pythonVersion" field must contain a string.`);
             }
         }
 
@@ -989,7 +989,7 @@ export class ConfigOptions {
         if (this.defaultPythonVersion === undefined) {
             this.defaultPythonVersion = this._getPythonVersionFromPythonInterpreter(pythonPath, console);
             if (this.defaultPythonVersion !== undefined) {
-                console.log(`Assuming Python version ${versionToString(this.defaultPythonVersion)}`);
+                console.info(`Assuming Python version ${versionToString(this.defaultPythonVersion)}`);
             }
         }
 
@@ -997,7 +997,7 @@ export class ConfigOptions {
         this.defaultPythonPlatform = undefined;
         if (configObj.pythonPlatform !== undefined) {
             if (typeof configObj.pythonPlatform !== 'string') {
-                console.log(`Config "pythonPlatform" field must contain a string.`);
+                console.info(`Config "pythonPlatform" field must contain a string.`);
             } else {
                 this.defaultPythonPlatform = configObj.pythonPlatform;
             }
@@ -1015,7 +1015,7 @@ export class ConfigOptions {
             }
 
             if (this.defaultPythonPlatform !== undefined) {
-                console.log(`Assuming Python platform ${this.defaultPythonPlatform}`);
+                console.info(`Assuming Python platform ${this.defaultPythonPlatform}`);
             }
         }
 
@@ -1023,7 +1023,7 @@ export class ConfigOptions {
         this.typeshedPath = undefined;
         if (configObj.typeshedPath !== undefined) {
             if (typeof configObj.typeshedPath !== 'string') {
-                console.log(`Config "typeshedPath" field must contain a string.`);
+                console.info(`Config "typeshedPath" field must contain a string.`);
             } else {
                 this.typeshedPath = configObj.typeshedPath
                     ? normalizePath(combinePaths(this.projectRoot, configObj.typeshedPath))
@@ -1037,16 +1037,16 @@ export class ConfigOptions {
         // Keep this for backward compatibility
         if (configObj.typingsPath !== undefined) {
             if (typeof configObj.typingsPath !== 'string') {
-                console.log(`Config "typingsPath" field must contain a string.`);
+                console.info(`Config "typingsPath" field must contain a string.`);
             } else {
-                console.log(`Config "typingsPath" is now deprecated. Please, use stubPath instead.`);
+                console.info(`Config "typingsPath" is now deprecated. Please, use stubPath instead.`);
                 this.stubPath = normalizePath(combinePaths(this.projectRoot, configObj.typingsPath));
             }
         }
 
         if (configObj.stubPath !== undefined) {
             if (typeof configObj.stubPath !== 'string') {
-                console.log(`Config "stubPath" field must contain a string.`);
+                console.info(`Config "stubPath" field must contain a string.`);
             } else {
                 this.stubPath = normalizePath(combinePaths(this.projectRoot, configObj.stubPath));
             }
@@ -1057,7 +1057,7 @@ export class ConfigOptions {
         // switch to apply if this setting isn't specified in the config file.
         if (configObj.verboseOutput !== undefined) {
             if (typeof configObj.verboseOutput !== 'boolean') {
-                console.log(`Config "verboseOutput" field must be true or false.`);
+                console.info(`Config "verboseOutput" field must be true or false.`);
             } else {
                 this.verboseOutput = configObj.verboseOutput;
             }
@@ -1066,7 +1066,7 @@ export class ConfigOptions {
         // Read the "useLibraryCodeForTypes" setting.
         if (configObj.useLibraryCodeForTypes !== undefined) {
             if (typeof configObj.useLibraryCodeForTypes !== 'boolean') {
-                console.log(`Config "useLibraryCodeForTypes" field must be true or false.`);
+                console.info(`Config "useLibraryCodeForTypes" field must be true or false.`);
             } else {
                 this.useLibraryCodeForTypes = configObj.useLibraryCodeForTypes;
             }
@@ -1077,7 +1077,7 @@ export class ConfigOptions {
         this.executionEnvironments = [];
         if (configObj.executionEnvironments !== undefined) {
             if (!Array.isArray(configObj.executionEnvironments)) {
-                console.log(`Config "executionEnvironments" field must contain an array.`);
+                console.info(`Config "executionEnvironments" field must contain an array.`);
             } else {
                 const execEnvironments = configObj.executionEnvironments as ExecutionEnvironment[];
                 execEnvironments.forEach((env, index) => {
@@ -1142,18 +1142,20 @@ export class ConfigOptions {
             if (envObj.root && typeof envObj.root === 'string') {
                 newExecEnv.root = normalizePath(combinePaths(this.projectRoot, envObj.root));
             } else {
-                console.log(`Config executionEnvironments index ${index}: missing root value.`);
+                console.info(`Config executionEnvironments index ${index}: missing root value.`);
             }
 
             // Validate the extraPaths.
             if (envObj.extraPaths) {
                 if (!Array.isArray(envObj.extraPaths)) {
-                    console.log(`Config executionEnvironments index ${index}: extraPaths field must contain an array.`);
+                    console.info(
+                        `Config executionEnvironments index ${index}: extraPaths field must contain an array.`
+                    );
                 } else {
                     const pathList = envObj.extraPaths as string[];
                     pathList.forEach((path, pathIndex) => {
                         if (typeof path !== 'string') {
-                            console.log(
+                            console.info(
                                 `Config executionEnvironments index ${index}:` +
                                     ` extraPaths field ${pathIndex} must be a string.`
                             );
@@ -1171,10 +1173,10 @@ export class ConfigOptions {
                     if (version) {
                         newExecEnv.pythonVersion = version;
                     } else {
-                        console.log(`Config executionEnvironments index ${index} contains unsupported pythonVersion.`);
+                        console.info(`Config executionEnvironments index ${index} contains unsupported pythonVersion.`);
                     }
                 } else {
-                    console.log(`Config executionEnvironments index ${index} pythonVersion must be a string.`);
+                    console.info(`Config executionEnvironments index ${index} pythonVersion must be a string.`);
                 }
             }
 
@@ -1183,7 +1185,7 @@ export class ConfigOptions {
                 if (typeof envObj.pythonPlatform === 'string') {
                     newExecEnv.pythonPlatform = envObj.pythonPlatform;
                 } else {
-                    console.log(`Config executionEnvironments index ${index} pythonPlatform must be a string.`);
+                    console.info(`Config executionEnvironments index ${index} pythonPlatform must be a string.`);
                 }
             }
 
@@ -1192,13 +1194,13 @@ export class ConfigOptions {
                 if (typeof envObj.venv === 'string') {
                     newExecEnv.venv = envObj.venv;
                 } else {
-                    console.log(`Config executionEnvironments index ${index} venv must be a string.`);
+                    console.info(`Config executionEnvironments index ${index} venv must be a string.`);
                 }
             }
 
             return newExecEnv;
         } catch {
-            console.log(`Config executionEnvironments index ${index} is not accessible.`);
+            console.info(`Config executionEnvironments index ${index} is not accessible.`);
         }
 
         return undefined;
@@ -1221,25 +1223,25 @@ export class ConfigOptions {
             // Parse the execOutput. It should be something like "Python 3.x.y".
             const match = execOutput.match(/[0-9]+.[0-9]+.[0-9]+/);
             if (!match) {
-                console.log(`Unable to get Python version from interpreter. Received "${execOutput}"`);
+                console.info(`Unable to get Python version from interpreter. Received "${execOutput}"`);
                 return undefined;
             }
 
             const versionString = match[0];
             const version = versionFromString(versionString);
             if (version === undefined) {
-                console.log(`Unable to get Python version from interpreter. Received "${execOutput}"`);
+                console.info(`Unable to get Python version from interpreter. Received "${execOutput}"`);
                 return undefined;
             }
 
             if (version < PythonVersion.V30) {
-                console.log(`Python version from interpreter is unsupported: "${execOutput}"`);
+                console.info(`Python version from interpreter is unsupported: "${execOutput}"`);
                 return undefined;
             }
 
             return version;
         } catch {
-            console.log('Unable to get Python version from interpreter');
+            console.info('Unable to get Python version from interpreter');
             return undefined;
         }
     }

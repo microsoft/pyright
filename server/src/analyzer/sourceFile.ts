@@ -500,7 +500,7 @@ export class SourceFile {
                 (e.stack ? e.stack.toString() : undefined) ||
                 (typeof e.message === 'string' ? e.message : undefined) ||
                 JSON.stringify(e);
-            this._console.log(`An internal error occurred while parsing ${this.getFilePath()}: ` + message);
+            this._console.error(`An internal error occurred while parsing ${this.getFilePath()}: ` + message);
 
             // Create dummy parse results.
             this._parseResults = {
@@ -792,7 +792,7 @@ export class SourceFile {
                 (e.stack ? e.stack.toString() : undefined) ||
                 (typeof e.message === 'string' ? e.message : undefined) ||
                 JSON.stringify(e);
-            this._console.log(
+            this._console.error(
                 `An internal error occurred while performing name binding for ${this.getFilePath()}: ` + message
             );
 
@@ -835,7 +835,7 @@ export class SourceFile {
                     (e.stack ? e.stack.toString() : undefined) ||
                     (typeof e.message === 'string' ? e.message : undefined) ||
                     JSON.stringify(e);
-                this._console.log(
+                this._console.error(
                     `An internal error occurred while while performing type checking for ${this.getFilePath()}: ` +
                         message
                 );

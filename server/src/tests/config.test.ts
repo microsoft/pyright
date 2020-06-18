@@ -87,7 +87,7 @@ test('FileSpecNotAnArray', () => {
     service.test_getConfigOptions(commandLineOptions);
 
     // The method should return a default config and log an error.
-    assert(nullConsole.logCount > 0);
+    assert(nullConsole.infoCount > 0);
 });
 
 test('FileSpecNotAString', () => {
@@ -101,7 +101,7 @@ test('FileSpecNotAString', () => {
     service.test_getConfigOptions(commandLineOptions);
 
     // The method should return a default config and log an error.
-    assert(nullConsole.logCount > 0);
+    assert(nullConsole.infoCount > 0);
 });
 
 test('SomeFileSpecsAreInvalid', () => {
@@ -140,7 +140,7 @@ test('ConfigBadJson', () => {
     service.test_getConfigOptions(commandLineOptions);
 
     // The method should return a default config and log an error.
-    assert(nullConsole.logCount > 0);
+    assert(nullConsole.infoCount > 0);
 });
 
 test('FindExecEnv1', () => {

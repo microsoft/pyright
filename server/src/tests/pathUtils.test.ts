@@ -31,6 +31,7 @@ import {
     getWildcardRegexPattern,
     getWildcardRoot,
     hasTrailingDirectorySeparator,
+    isFileSystemCaseSensitiveInternal,
     isRootedDiskPath,
     normalizeSlashes,
     reducePathComponents,
@@ -38,6 +39,7 @@ import {
     stripFileExtension,
     stripTrailingDirectorySeparator,
 } from '../common/pathUtils';
+import * as vfs from './harness/vfs/filesystem';
 
 test('getPathComponents1', () => {
     const components = getPathComponents('');
@@ -296,4 +298,14 @@ test('getRelativePath', () => {
         getRelativePath(normalizeSlashes('/a/b/c/d/e/f'), normalizeSlashes('/a/b/c')),
         normalizeSlashes('./d/e/f')
     );
+});
+
+test('CaseSensitivity', () => {
+    const cwd = normalizeSlashes('/');
+
+    const fsCaseInsensitive = new vfs.TestFileSystem(/*ignoreCase*/ true, { cwd });
+    assert.equal(isFileSystemCaseSensitiveInternal(fsCaseInsensitive), false);
+
+    const fsCaseSensitive = new vfs.TestFileSystem(/*ignoreCase*/ false, { cwd });
+    assert.equal(isFileSystemCaseSensitiveInternal(fsCaseSensitive), true);
 });

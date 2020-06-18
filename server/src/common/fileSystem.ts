@@ -13,6 +13,7 @@
 // * NOTE * except tests, this should be only file that import "fs"
 import * as chokidar from 'chokidar';
 import * as fs from 'fs';
+import * as os from 'os';
 
 import { ConsoleInterface, NullConsole } from './console';
 import { createDeferred } from './deferred';
@@ -63,6 +64,7 @@ export interface FileSystem {
     // Async I/O
     readFile(path: string): Promise<Buffer>;
     readFileText(path: string, encoding?: string): Promise<string>;
+    tmpdir(): string;
 }
 
 export interface FileWatcherProvider {
@@ -176,6 +178,10 @@ class RealFileSystem implements FileSystem {
         });
         return d.promise;
     }
+
+    tmpdir() {
+        return os.tmpdir();
+    }
 }
 
 class ChokidarFileWatcherProvider implements FileWatcherProvider {
@@ -223,12 +229,12 @@ class ChokidarFileWatcherProvider implements FileWatcherProvider {
 
         const watcher = chokidar.watch(paths, watcherOptions);
         watcher.on('error', (_) => {
-            this._console.log('Error returned from file system watcher.');
+            this._console.error('Error returned from file system watcher.');
         });
 
         // Detect if for some reason the native watcher library fails to load
         if (_isMacintosh && !watcher.options.useFsEvents) {
-            this._console.log('Watcher could not use native fsevents library. File system watcher disabled.');
+            this._console.info('Watcher could not use native fsevents library. File system watcher disabled.');
         }
 
         return watcher;

@@ -12,7 +12,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { commands, ExtensionContext, Position, Range, TextEditor, TextEditorEdit } from 'vscode';
-import { LanguageClient, LanguageClientOptions, ServerOptions, TextEdit, TransportKind } from 'vscode-languageclient';
+import {
+    LanguageClient,
+    LanguageClientOptions,
+    ServerOptions,
+    TextEdit,
+    TransportKind,
+} from 'vscode-languageclient/node';
 
 import { Commands } from '../../server/src/commands/commands';
 import { FileBasedCancellationStrategy } from './cancellationUtils';

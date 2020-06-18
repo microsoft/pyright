@@ -75,20 +75,20 @@ export class TimingStats {
     typeCheckerTime = new TimingStat();
 
     printSummary(console: ConsoleInterface) {
-        console.log(`Completed in ${this.totalDuration.getDurationInSeconds()}sec`);
+        console.info(`Completed in ${this.totalDuration.getDurationInSeconds()}sec`);
     }
 
     printDetails(console: ConsoleInterface) {
-        console.log('');
-        console.log('Timing stats');
-        console.log('Find Source Files:    ' + this.findFilesTime.printTime());
-        console.log('Read Source Files:    ' + this.readFileTime.printTime());
-        console.log('Tokenize:             ' + this.tokenizeFileTime.printTime());
-        console.log('Parse:                ' + this.parseFileTime.printTime());
-        console.log('Resolve Imports:      ' + this.resolveImportsTime.printTime());
-        console.log('Bind:                 ' + this.bindTime.printTime());
-        console.log('Check:                ' + this.typeCheckerTime.printTime());
-        console.log('Detect Cycles:        ' + this.cycleDetectionTime.printTime());
+        console.info('');
+        console.info('Timing stats');
+        console.info('Find Source Files:    ' + this.findFilesTime.printTime());
+        console.info('Read Source Files:    ' + this.readFileTime.printTime());
+        console.info('Tokenize:             ' + this.tokenizeFileTime.printTime());
+        console.info('Parse:                ' + this.parseFileTime.printTime());
+        console.info('Resolve Imports:      ' + this.resolveImportsTime.printTime());
+        console.info('Bind:                 ' + this.bindTime.printTime());
+        console.info('Check:                ' + this.typeCheckerTime.printTime());
+        console.info('Detect Cycles:        ' + this.cycleDetectionTime.printTime());
     }
 }
 
