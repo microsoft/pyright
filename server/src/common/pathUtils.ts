@@ -553,28 +553,31 @@ export function isFile(fs: FileSystem, path: string): boolean {
 
 export function getFileSystemEntries(fs: FileSystem, path: string): FileSystemEntries {
     try {
-        const entries = fs.readdirSync(path || '.').sort();
+        const entries = fs.readdirEntriesSync(path || '.').sort((a, b) => {
+            if (a.name < b.name) {
+                return -1;
+            } else if (a.name > b.name) {
+                return 1;
+            } else {
+                return 0;
+            }
+        });
         const files: string[] = [];
         const directories: string[] = [];
         for (const entry of entries) {
             // This is necessary because on some file system node fails to exclude
             // "." and "..". See https://github.com/nodejs/node/issues/4002
-            if (entry === '.' || entry === '..') {
-                continue;
-            }
-            const name = combinePaths(path, entry);
-
-            let stat: any;
-            try {
-                stat = fs.statSync(name);
-            } catch (e) {
+            if (entry.name === '.' || entry.name === '..') {
                 continue;
             }
 
-            if (stat.isFile()) {
-                files.push(entry);
-            } else if (stat.isDirectory()) {
-                directories.push(entry);
+            if (entry.isFile()) {
+                files.push(entry.name);
+            } else if (entry.isDirectory()) {
+                // Don't traverse symbolic links. They can lead to cycles.
+                if (!entry.isSymbolicLink()) {
+                    directories.push(entry.name);
+                }
             }
         }
         return { files, directories };
