@@ -506,6 +506,9 @@ export namespace ClassNode {
             extendRange(node, decorator);
         });
 
+        node.name.parent = node;
+        node.suite.parent = node;
+
         return node;
     }
 }
