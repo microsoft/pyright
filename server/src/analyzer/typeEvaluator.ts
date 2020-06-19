@@ -4682,8 +4682,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
+        let foundUnpackedListArg =
+            argList.find((arg) => arg.argumentCategory === ArgumentCategory.UnpackedList) !== undefined;
+
         // Map the positional args to parameters.
         let paramIndex = 0;
+        let unpackedArgIndex = 0;
         while (argIndex < positionalArgCount) {
             if (paramIndex === positionalOnlyIndex) {
                 paramIndex++;
@@ -4701,7 +4705,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             if (paramIndex >= positionalParamCount) {
-                if (argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
+                if (!foundUnpackedListArg || argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
                     const adjustedCount = positionalParamCount;
                     const fileInfo = getFileInfo(errorNode);
                     addDiagnostic(
@@ -4719,28 +4723,73 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             const paramType = FunctionType.getEffectiveParameterType(type, paramIndex);
             if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedList) {
-                // Assume the unpacked list fills the remaining positional args.
-                if (argList[argIndex].valueExpression) {
-                    const listElementType = getTypeFromIterable(
-                        getTypeForArgument(argList[argIndex]),
+                if (!argList[argIndex].valueExpression) {
+                    break;
+                }
+
+                const argType = getTypeForArgument(argList[argIndex]);
+                let listElementType: Type;
+                let advanceToNextArg = false;
+
+                // If this is a tuple with specified element types, use those
+                // specified types rather than using the more generic iterator
+                // type which will be a union of all element types.
+                if (
+                    argType.category === TypeCategory.Object &&
+                    ClassType.isBuiltIn(argType.classType, 'Tuple') &&
+                    argType.classType.typeArguments &&
+                    argType.classType.typeArguments.length > 0 &&
+                    !isEllipsisType(argType.classType.typeArguments[argType.classType.typeArguments.length - 1])
+                ) {
+                    listElementType = argType.classType.typeArguments[unpackedArgIndex];
+
+                    // Determine if there are any more unpacked list arguments after
+                    // this one. If not, we'll clear this flag because this unpacked
+                    // list arg is bounded in length.
+                    foundUnpackedListArg =
+                        argList.find(
+                            (arg, index) => index > argIndex && arg.argumentCategory === ArgumentCategory.UnpackedList
+                        ) !== undefined;
+
+                    unpackedArgIndex++;
+                    if (unpackedArgIndex >= argType.classType.typeArguments.length) {
+                        unpackedArgIndex = 0;
+                        advanceToNextArg = true;
+                    }
+                } else {
+                    listElementType = getTypeFromIterable(
+                        argType,
                         /* isAsync */ false,
                         argList[argIndex].valueExpression!,
                         /* supportGetItem */ false
                     );
-                    const funcArg: FunctionArgument = {
-                        argumentCategory: ArgumentCategory.Simple,
-                        type: listElementType,
-                    };
-
-                    validateArgTypeParams.push({
-                        paramType,
-                        requiresTypeVarMatching: requiresSpecialization(paramType),
-                        argument: funcArg,
-                        errorNode: argList[argIndex].valueExpression || errorNode,
-                    });
-                    trySetActive(argList[argIndex], typeParams[paramIndex]);
                 }
-                break;
+
+                const funcArg: FunctionArgument = {
+                    argumentCategory: ArgumentCategory.Simple,
+                    type: listElementType,
+                };
+
+                const paramName = typeParams[paramIndex].name;
+                validateArgTypeParams.push({
+                    paramType,
+                    requiresTypeVarMatching: requiresSpecialization(paramType),
+                    argument: funcArg,
+                    errorNode: argList[argIndex].valueExpression || errorNode,
+                    paramName: paramName,
+                });
+
+                trySetActive(argList[argIndex], typeParams[paramIndex]);
+
+                // Note that the parameter has received an argument.
+                if (paramName) {
+                    paramMap.get(paramName)!.argsReceived++;
+                }
+
+                if (advanceToNextArg) {
+                    argIndex++;
+                }
+                paramIndex++;
             } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
                 validateArgTypeParams.push({
                     paramType,
@@ -4753,17 +4802,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 argIndex++;
             } else {
+                const paramName = typeParams[paramIndex].name;
                 validateArgTypeParams.push({
                     paramType,
                     requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: argList[argIndex],
                     errorNode: argList[argIndex].valueExpression || errorNode,
-                    paramName: typeParams[paramIndex].name,
+                    paramName: paramName,
                 });
                 trySetActive(argList[argIndex], typeParams[paramIndex]);
 
                 // Note that the parameter has received an argument.
-                const paramName = typeParams[paramIndex].name;
                 if (paramName) {
                     paramMap.get(paramName)!.argsReceived++;
                 }
@@ -4775,8 +4824,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (!reportedArgError) {
             let foundUnpackedDictionaryArg = false;
-            const foundUnpackedListArg =
-                argList.find((arg) => arg.argumentCategory === ArgumentCategory.UnpackedList) !== undefined;
 
             // Now consume any named parameters.
             while (argIndex < argList.length) {
