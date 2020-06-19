@@ -11676,24 +11676,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const destTypeArg = destTypeArgs[destArgIndex];
                     const destTypeParam =
                         destArgIndex < destTypeParams.length ? destTypeParams[destArgIndex] : undefined;
+                    const assignmentDiag = new DiagnosticAddendum();
 
                     if (!destTypeParam || destTypeParam.isCovariant) {
                         if (
                             !canAssignType(
                                 destTypeArg,
                                 srcTypeArg,
-                                diag.createAddendum(),
+                                assignmentDiag,
                                 typeVarMap,
                                 CanAssignFlags.Default,
                                 recursionCount + 1
                             )
                         ) {
                             if (destTypeParam) {
-                                diag.addMessage(
+                                const childDiag = diag.createAddendum();
+                                childDiag.addMessage(
                                     Localizer.DiagnosticAddendum.typeVarIsCovariant().format({
                                         name: destTypeParam.name,
                                     })
                                 );
+                                childDiag.addAddendum(assignmentDiag);
                             }
                             return false;
                         }
@@ -11702,17 +11705,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             !canAssignType(
                                 srcTypeArg,
                                 destTypeArg,
-                                diag.createAddendum(),
+                                assignmentDiag,
                                 typeVarMap,
                                 CanAssignFlags.ReverseTypeVarMatching,
                                 recursionCount + 1
                             )
                         ) {
-                            diag.addMessage(
+                            const childDiag = diag.createAddendum();
+                            childDiag.addMessage(
                                 Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
                                     name: destTypeParam.name,
                                 })
                             );
+                            childDiag.addAddendum(assignmentDiag);
                             return false;
                         }
                     } else {
@@ -11720,17 +11725,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             !canAssignType(
                                 destTypeArg,
                                 srcTypeArg,
-                                diag.createAddendum(),
+                                assignmentDiag,
                                 typeVarMap,
                                 CanAssignFlags.EnforceInvariance,
                                 recursionCount + 1
                             )
                         ) {
-                            diag.addMessage(
+                            const childDiag = diag.createAddendum();
+                            childDiag.addMessage(
                                 Localizer.DiagnosticAddendum.typeVarIsInvariant().format({
                                     name: destTypeParam.name,
                                 })
                             );
+                            childDiag.addAddendum(assignmentDiag);
                             return false;
                         }
                     }
