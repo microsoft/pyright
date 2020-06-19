@@ -416,6 +416,12 @@ test('Function6', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Function7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function7.py']);
+
+    validateResults(analysisResults, 4);
+});
+
 test('Annotations1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py']);
 
