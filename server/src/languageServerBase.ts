@@ -862,12 +862,16 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         switch (logLevel.toLowerCase()) {
             case 'error':
                 return LogLevel.Error;
+
             case 'warning':
                 return LogLevel.Warn;
+
             case 'info':
                 return LogLevel.Info;
+
             case 'trace':
                 return LogLevel.Log;
+
             default:
                 return LogLevel.Info;
         }
