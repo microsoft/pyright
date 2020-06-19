@@ -144,6 +144,13 @@ export class AnalyzerService {
         this._commandLineOptions = commandLineOptions;
 
         const configOptions = this._getConfigOptions(commandLineOptions);
+
+        if (configOptions.pythonPath) {
+            // make sure we have default python environment set
+            configOptions.ensureDefaultPythonVersion(configOptions.pythonPath, this._console);
+            configOptions.ensureDefaultPythonPlatform(this._console);
+        }
+
         this._backgroundAnalysisProgram.setConfigOptions(configOptions);
 
         this._executionRootPath = normalizePath(
