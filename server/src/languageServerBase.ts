@@ -429,6 +429,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                             commands: supportedCommands,
                             workDoneProgress: true,
                         },
+                        callHierarchyProvider: true,
                     },
                 };
             }
@@ -680,6 +681,82 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             }
 
             return convertWorkspaceEdits(editActions);
+        });
+
+        this._connection.languages.callHierarchy.onPrepare(async (params, token) => {
+            const filePath = convertUriToPath(params.textDocument.uri);
+
+            const position: Position = {
+                line: params.position.line,
+                character: params.position.character,
+            };
+
+            const workspace = await this.getWorkspaceForFile(filePath);
+            if (workspace.disableLanguageServices) {
+                return null;
+            }
+
+            const callItem = workspace.serviceInstance.getCallForPosition(filePath, position, token) || null;
+            if (!callItem) {
+                return null;
+            }
+
+            // Convert the file path in the item to proper URI.
+            callItem.uri = convertPathToUri(callItem.uri);
+
+            return [callItem];
+        });
+
+        this._connection.languages.callHierarchy.onIncomingCalls(async (params, token) => {
+            const filePath = convertUriToPath(params.item.uri);
+
+            const position: Position = {
+                line: params.item.range.start.line,
+                character: params.item.range.start.character,
+            };
+
+            const workspace = await this.getWorkspaceForFile(filePath);
+            if (workspace.disableLanguageServices) {
+                return null;
+            }
+
+            const callItems = workspace.serviceInstance.getIncomingCallsForPosition(filePath, position, token) || null;
+            if (!callItems || callItems.length === 0) {
+                return null;
+            }
+
+            // Convert the file paths in the items to proper URIs.
+            callItems.forEach((item) => {
+                item.from.uri = convertPathToUri(item.from.uri);
+            });
+
+            return callItems;
+        });
+
+        this._connection.languages.callHierarchy.onOutgoingCalls(async (params, token) => {
+            const filePath = convertUriToPath(params.item.uri);
+
+            const position: Position = {
+                line: params.item.range.start.line,
+                character: params.item.range.start.character,
+            };
+
+            const workspace = await this.getWorkspaceForFile(filePath);
+            if (workspace.disableLanguageServices) {
+                return null;
+            }
+
+            const callItems = workspace.serviceInstance.getOutgoingCallsForPosition(filePath, position, token) || null;
+            if (!callItems || callItems.length === 0) {
+                return null;
+            }
+
+            // Convert the file paths in the items to proper URIs.
+            callItems.forEach((item) => {
+                item.to.uri = convertPathToUri(item.to.uri);
+            });
+
+            return callItems;
         });
 
         this._connection.onDidOpenTextDocument(async (params) => {
