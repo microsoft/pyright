@@ -26,16 +26,17 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 
 The VS Code extension supports many time-saving language features including:
 
--   Intelligent type completion of keywords, symbols, and import names appears when editing
--   Import statements are automatically inserted when necessary for type completions
--   Signature completion tips help when filling in arguments for a call
--   Hover over symbols to provide type information and doc strings
--   Find Definitions to quickly go to the location of a symbol's definition
--   Find References to find all references to a symbol within a code base
--   Rename Symbol to rename all references to a symbol within a code base
--   Find Symbols within the current document or within the entire workspace
--   Organize Imports command for automatically ordering imports according to PEP8 rules
--   Type stub generation for third-party libraries
+* Intelligent type completion of keywords, symbols, and import names appears when editing
+* Import statements are automatically inserted when necessary for type completions
+* Signature completion tips help when filling in arguments for a call
+* Hover over symbols to provide type information and doc strings
+* Find Definitions to quickly go to the location of a symbol’s definition
+* Find References to find all references to a symbol within a code base
+* Rename Symbol to rename all references to a symbol within a code base
+* Find Symbols within the current document or within the entire workspace
+* View call hierarchy information — calls made within a function and places where a function is called
+* Organize Imports command for automatically ordering imports according to PEP8 rules
+* Type stub generation for third-party libraries
 
 ### Built-in Type Stubs
 
