@@ -11,13 +11,18 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { commands, ExtensionContext, Position, Range, TextEditor, TextEditorEdit } from 'vscode';
+import { commands, extensions, ExtensionContext, Position, Range, TextEditor, TextEditorEdit, Uri } from 'vscode';
 import {
     LanguageClient,
     LanguageClientOptions,
     ServerOptions,
     TextEdit,
     TransportKind,
+    ConfigurationParams,
+    CancellationToken,
+    ConfigurationRequest,
+    HandlerResult,
+    ResponseError,
 } from 'vscode-languageclient/node';
 
 import { Commands } from '../../server/src/commands/commands';
@@ -61,6 +66,60 @@ export function activate(context: ExtensionContext) {
             configurationSection: ['python', 'pyright'],
         },
         connectionOptions: { cancellationStrategy: cancellationStrategy },
+        middleware: {
+            // Use the middleware hook to override the configuration call. This allows
+            // us to inject the proper "python.pythonPath" setting from the Python extension's
+            // private settings store.
+            workspace: {
+                configuration: (
+                    params: ConfigurationParams,
+                    token: CancellationToken,
+                    next: ConfigurationRequest.HandlerSignature
+                ): HandlerResult<any[], void> => {
+                    // Hand-collapse "Thenable<A> | Thenable<B> | Thenable<A|B>" into just "Thenable<A|B>" to make TS happy.
+                    const result: any[] | ResponseError<void> | Thenable<any[] | ResponseError<void>> = next(
+                        params,
+                        token
+                    );
+
+                    // For backwards compatibility, set python.pythonPath to the configured
+                    // value as though it were in the user's settings.json file.
+                    const addPythonPath = (
+                        settings: any[] | ResponseError<void>
+                    ): Promise<any[] | ResponseError<any>> => {
+                        if (settings instanceof ResponseError) {
+                            return Promise.resolve(settings);
+                        }
+
+                        const pythonPathPromises: Promise<string | undefined>[] = params.items.map((item) => {
+                            if (item.section === 'python') {
+                                const uri = item.scopeUri ? Uri.parse(item.scopeUri) : undefined;
+                                return getPythonPathFromPythonExtension(uri);
+                            }
+                            return Promise.resolve(undefined);
+                        });
+
+                        return Promise.all(pythonPathPromises).then((pythonPaths) => {
+                            pythonPaths.forEach((pythonPath, i) => {
+                                // If there is a pythonPath returned by the Python extension,
+                                // always prefer this over the pythonPath that uses the old
+                                // mechanism.
+                                if (pythonPath !== undefined) {
+                                    settings[i].pythonPath = pythonPath;
+                                }
+                            });
+                            return settings;
+                        });
+                    };
+
+                    if (isThenable(result)) {
+                        return result.then(addPythonPath);
+                    }
+
+                    return addPythonPath(result);
+                },
+            },
+        },
     };
 
     // Create the language client and start the client.
@@ -132,4 +191,28 @@ export function deactivate() {
     // that deactivation is done synchronously. We don't have
     // anything to do here.
     return undefined;
+}
+
+// The VS Code Python extension manages its own internal store of configuration settings.
+// The setting that was traditionally named "python.pythonPath" has been moved to the
+// Python extension's internal store for reasons of security and because it differs per
+// project and by user.
+async function getPythonPathFromPythonExtension(scopeUri?: Uri): Promise<string | undefined> {
+    try {
+        const extension = extensions.getExtension('ms-python.python');
+        if (extension && extension.packageJSON?.featureFlags?.usingNewInterpreterStorage) {
+            if (!extension.isActive) {
+                await extension.activate();
+            }
+            return extension.exports.settings.getExecutionCommand(scopeUri).join(' ');
+        }
+    } catch (error) {
+        // Ignore exceptions.
+    }
+
+    return undefined;
+}
+
+function isThenable<T>(v: any): v is Thenable<T> {
+    return typeof v?.then === 'function';
 }
