@@ -21,13 +21,20 @@ import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { TypeCategory } from '../analyzer/types';
-import { ClassMemberLookupFlags, isProperty, lookUpClassMember } from '../analyzer/typeUtils';
+import { ClassType, TypeCategory } from '../analyzer/types';
+import { specializeType } from '../analyzer/typeUtils';
+import {
+    ClassMemberLookupFlags,
+    doForSubtypes,
+    isProperty,
+    lookUpClassMember,
+    lookUpObjectMember,
+} from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { getFileName } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { rangesAreEqual } from '../common/textRange';
-import { CallNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
+import { CallNode, MemberAccessNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export class CallHierarchyProvider {
@@ -196,18 +203,67 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         return true;
     }
 
+    visitMemberAccess(node: MemberAccessNode): boolean {
+        throwIfCancellationRequested(this._cancellationToken);
+
+        // Determine whether the member corresponds to a property.
+        // If so, we'll treat it as a function call for purposes of
+        // finding outgoing calls.
+        const leftHandType = this._evaluator.getType(node.leftExpression);
+        if (leftHandType) {
+            doForSubtypes(leftHandType, (subtype) => {
+                let baseType = subtype;
+
+                // This could be a bound TypeVar (e.g. used for "self" and "cls").
+                if (baseType.category === TypeCategory.TypeVar) {
+                    baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
+                }
+
+                if (baseType.category !== TypeCategory.Object) {
+                    return undefined;
+                }
+
+                const memberInfo = lookUpObjectMember(baseType, node.memberName.value);
+                if (!memberInfo) {
+                    return undefined;
+                }
+
+                const memberType = this._evaluator.getTypeOfMember(memberInfo);
+                const propertyDecls = memberInfo.symbol.getDeclarations();
+
+                if (!memberType) {
+                    return undefined;
+                }
+
+                if (memberType.category === TypeCategory.Object && ClassType.isPropertyClass(memberType.classType)) {
+                    propertyDecls.forEach((decl) => {
+                        this._addOutgoingCallForDeclaration(node.memberName, decl);
+                    });
+                }
+
+                return undefined;
+            });
+        }
+
+        return true;
+    }
+
     private _addOutgoingCallForDeclaration(nameNode: NameNode, declaration: Declaration) {
         const resolvedDecl = this._evaluator.resolveAliasDeclaration(declaration, /* resolveLocalNames */ true);
         if (!resolvedDecl) {
             return;
         }
 
+        if (resolvedDecl.type !== DeclarationType.Function && resolvedDecl.type !== DeclarationType.Class) {
+            return;
+        }
+
         const callDest: CallHierarchyItem = {
             name: nameNode.value,
-            kind: getSymbolKind(declaration, this._evaluator),
-            uri: declaration.path,
-            range: declaration.range,
-            selectionRange: declaration.range,
+            kind: getSymbolKind(resolvedDecl, this._evaluator),
+            uri: resolvedDecl.path,
+            range: resolvedDecl.range,
+            selectionRange: resolvedDecl.range,
         };
 
         // Is there already a call recorded for this destination? If so,
@@ -276,6 +332,51 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                 if (resolvedDecls.some((decl) => DeclarationUtils.areDeclarationsSame(decl!, this._declaration))) {
                     this._addIncomingCallForDeclaration(nameNode!);
                 }
+            }
+        }
+
+        return true;
+    }
+
+    visitMemberAccess(node: MemberAccessNode): boolean {
+        throwIfCancellationRequested(this._cancellationToken);
+
+        if (node.memberName.value === this._symbolName) {
+            // Determine whether the member corresponds to a property.
+            // If so, we'll treat it as a function call for purposes of
+            // finding outgoing calls.
+            const leftHandType = this._evaluator.getType(node.leftExpression);
+            if (leftHandType) {
+                doForSubtypes(leftHandType, (subtype) => {
+                    let baseType = subtype;
+
+                    // This could be a bound TypeVar (e.g. used for "self" and "cls").
+                    if (baseType.category === TypeCategory.TypeVar) {
+                        baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
+                    }
+
+                    if (baseType.category !== TypeCategory.Object) {
+                        return undefined;
+                    }
+
+                    const memberInfo = lookUpObjectMember(baseType, node.memberName.value);
+                    if (!memberInfo) {
+                        return undefined;
+                    }
+
+                    const memberType = this._evaluator.getTypeOfMember(memberInfo);
+                    const propertyDecls = memberInfo.symbol.getDeclarations();
+
+                    if (!memberType) {
+                        return undefined;
+                    }
+
+                    if (propertyDecls.some((decl) => DeclarationUtils.areDeclarationsSame(decl!, this._declaration))) {
+                        this._addIncomingCallForDeclaration(node.memberName);
+                    }
+
+                    return undefined;
+                });
             }
         }
 
