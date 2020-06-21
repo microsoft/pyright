@@ -152,6 +152,7 @@ export namespace ModuleType {
 export interface DataClassEntry {
     name: string;
     hasDefault: boolean;
+    includeInInit: boolean;
     type: Type;
 }
 

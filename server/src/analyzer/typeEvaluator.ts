@@ -1637,6 +1637,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     let variableNameNode: NameNode | undefined;
                     let variableTypeEvaluator: TypeEvaluator | undefined;
                     let hasDefaultValue = false;
+                    let includeInInit = true;
 
                     if (statement.nodeType === ParseNodeType.Assignment) {
                         if (
@@ -1649,6 +1650,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         }
 
                         hasDefaultValue = true;
+
+                        // If the RHS of the assignment is assigning a field instance where the
+                        // "init" parameter is set to false, do not include it in the init method.
+                        if (statement.rightExpression.nodeType === ParseNodeType.Call) {
+                            const callType = getTypeOfExpression(statement.rightExpression.leftExpression).type;
+                            if (
+                                callType.category === TypeCategory.OverloadedFunction &&
+                                callType.overloads[0].details.builtInName === 'field'
+                            ) {
+                                const initArg = statement.rightExpression.arguments.find(
+                                    (arg) => arg.name?.value === 'init'
+                                );
+                                if (initArg && initArg.valueExpression) {
+                                    const value = evaluateStaticBoolExpression(
+                                        initArg.valueExpression,
+                                        getFileInfo(initArg).executionEnvironment
+                                    );
+                                    if (value === false) {
+                                        includeInInit = false;
+                                    }
+                                }
+                            }
+                        }
                     } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
                         if (statement.valueExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.valueExpression;
@@ -1669,6 +1693,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             const dataClassEntry: DataClassEntry = {
                                 name: variableName,
                                 hasDefault: hasDefaultValue,
+                                includeInInit,
                                 type: UnknownType.create(),
                             };
                             localEntryTypeEvaluator.push({ entry: dataClassEntry, evaluator: variableTypeEvaluator });
@@ -1692,7 +1717,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                             // If we've already seen a entry with a default value defined,
                             // all subsequent entries must also have default values.
-                            const firstDefaultValueIndex = fullDataClassEntries.findIndex((p) => p.hasDefault);
+                            const firstDefaultValueIndex = fullDataClassEntries.findIndex(
+                                (p) => p.hasDefault && p.includeInInit
+                            );
                             if (
                                 !hasDefaultValue &&
                                 firstDefaultValueIndex >= 0 &&
@@ -1720,15 +1747,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const symbolTable = classType.details.fields;
         if (!skipSynthesizeInit) {
             fullDataClassEntries.forEach((entry) => {
-                const functionParam: FunctionParameter = {
-                    category: ParameterCategory.Simple,
-                    name: entry.name,
-                    hasDefault: entry.hasDefault,
-                    hasDeclaredType: true,
-                    type: entry.type,
-                };
+                if (entry.includeInInit) {
+                    const functionParam: FunctionParameter = {
+                        category: ParameterCategory.Simple,
+                        name: entry.name,
+                        hasDefault: entry.hasDefault,
+                        hasDeclaredType: true,
+                        type: entry.type,
+                    };
 
-                FunctionType.addParameter(initType, functionParam);
+                    FunctionType.addParameter(initType, functionParam);
+                }
             });
 
             symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
