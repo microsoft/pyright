@@ -53,6 +53,7 @@ import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluator';
+import { Localizer } from '../localization/localize';
 
 const _maxImportCyclesPerFile = 4;
 
@@ -225,7 +226,8 @@ export class SourceFile {
                 diagList.push(
                     new Diagnostic(
                         category,
-                        'Cycle detected in import chain\n' +
+                        Localizer.Diagnostic.importCycleDetected() +
+                            '\n' +
                             cirDep
                                 .getPaths()
                                 .map((path) => '  ' + path)
@@ -240,7 +242,7 @@ export class SourceFile {
             diagList.push(
                 new Diagnostic(
                     DiagnosticCategory.Error,
-                    `Import chain depth exceeded ${this._hitMaxImportDepth}`,
+                    Localizer.Diagnostic.importDepthExceeded().format({ depth: this._hitMaxImportDepth }),
                     getEmptyRange()
                 )
             );
