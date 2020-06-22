@@ -33,6 +33,7 @@ class PyrightServer extends LanguageServerBase {
     private _controller: CommandController;
 
     constructor() {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const version = require('../package.json').version || '';
         super({
             productName: 'Pyright',

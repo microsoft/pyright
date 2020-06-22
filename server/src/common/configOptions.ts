@@ -984,14 +984,7 @@ export class ConfigOptions {
             }
         }
 
-        // If no default python version was specified, retrieve the version
-        // from the currently-selected python interpreter.
-        if (this.defaultPythonVersion === undefined) {
-            this.defaultPythonVersion = this._getPythonVersionFromPythonInterpreter(pythonPath, console);
-            if (this.defaultPythonVersion !== undefined) {
-                console.info(`Assuming Python version ${versionToString(this.defaultPythonVersion)}`);
-            }
-        }
+        this.ensureDefaultPythonVersion(pythonPath, console);
 
         // Read the default "pythonPlatform".
         this.defaultPythonPlatform = undefined;
@@ -1003,21 +996,7 @@ export class ConfigOptions {
             }
         }
 
-        // If no default python platform was specified, assume that the
-        // user wants to use the current platform.
-        if (this.defaultPythonPlatform === undefined) {
-            if (process.platform === 'darwin') {
-                this.defaultPythonPlatform = 'Darwin';
-            } else if (process.platform === 'linux') {
-                this.defaultPythonPlatform = 'Linux';
-            } else if (process.platform === 'win32') {
-                this.defaultPythonPlatform = 'Windows';
-            }
-
-            if (this.defaultPythonPlatform !== undefined) {
-                console.info(`Assuming Python platform ${this.defaultPythonPlatform}`);
-            }
-        }
+        this.ensureDefaultPythonPlatform(console);
 
         // Read the "typeshedPath" setting.
         this.typeshedPath = undefined;
@@ -1087,6 +1066,39 @@ export class ConfigOptions {
                     }
                 });
             }
+        }
+    }
+
+    ensureDefaultPythonPlatform(console: ConsoleInterface) {
+        // If no default python platform was specified, assume that the
+        // user wants to use the current platform.
+        if (this.defaultPythonPlatform !== undefined) {
+            return;
+        }
+
+        if (process.platform === 'darwin') {
+            this.defaultPythonPlatform = 'Darwin';
+        } else if (process.platform === 'linux') {
+            this.defaultPythonPlatform = 'Linux';
+        } else if (process.platform === 'win32') {
+            this.defaultPythonPlatform = 'Windows';
+        }
+
+        if (this.defaultPythonPlatform !== undefined) {
+            console.info(`Assuming Python platform ${this.defaultPythonPlatform}`);
+        }
+    }
+
+    ensureDefaultPythonVersion(pythonPath: string | undefined, console: ConsoleInterface) {
+        // If no default python version was specified, retrieve the version
+        // from the currently-selected python interpreter.
+        if (this.defaultPythonVersion !== undefined) {
+            return;
+        }
+
+        this.defaultPythonVersion = this._getPythonVersionFromPythonInterpreter(pythonPath, console);
+        if (this.defaultPythonVersion !== undefined) {
+            console.info(`Assuming Python version ${versionToString(this.defaultPythonVersion)}`);
         }
     }
 
