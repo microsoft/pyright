@@ -1644,7 +1644,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         ) {
                             variableNameNode = statement.leftExpression.valueExpression;
                             variableTypeEvaluator = () =>
-                                getTypeOfAnnotation((statement.leftExpression as TypeAnnotationNode).typeAnnotation);
+                                getTypeOfAnnotation(
+                                    (statement.leftExpression as TypeAnnotationNode).typeAnnotation,
+                                    /* allowFinal */ true
+                                );
                         }
 
                         hasDefaultValue = true;
@@ -1674,7 +1677,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
                         if (statement.valueExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.valueExpression;
-                            variableTypeEvaluator = () => getTypeOfAnnotation(statement.typeAnnotation);
+                            variableTypeEvaluator = () =>
+                                getTypeOfAnnotation(statement.typeAnnotation, /* allowFinal */ true);
                         }
                     }
 
@@ -5555,7 +5559,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     entryMap.set(entryName, true);
 
                     // Cache the annotation type.
-                    getTypeOfAnnotation(entry.valueExpression);
+                    getTypeOfAnnotation(entry.valueExpression, /* allowFinal */ true);
 
                     const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                     const declaration: VariableDeclaration = {
@@ -5589,7 +5593,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     entryMap.set(entry.name.value, true);
 
                     // Cache the annotation type.
-                    getTypeOfAnnotation(entry.valueExpression);
+                    getTypeOfAnnotation(entry.valueExpression, /* allowFinal */ true);
 
                     const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                     const declaration: VariableDeclaration = {

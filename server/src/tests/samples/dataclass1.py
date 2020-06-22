@@ -1,6 +1,6 @@
 # This sample validates the Python 3.7 data class feature.
 
-from typing import ClassVar, NamedTuple, Optional
+from typing import ClassVar, Final, NamedTuple, Optional
 
 
 class Other:
@@ -21,7 +21,7 @@ class DataTuple(NamedTuple):
     # Unannotated variables should not be included.
     not_annotated = 5
 
-    name: Optional[str] = None
+    name: Final[Optional[str]] = None
 
 
 d1 = DataTuple(id=1, aid=Other())

@@ -54,6 +54,7 @@ import { SourceMapper } from './sourceMapper';
 import { SymbolTable } from './symbol';
 import { TestWalker } from './testWalker';
 import { TypeEvaluator } from './typeEvaluator';
+import { Localizer } from '../localization/localize';
 
 const _maxImportCyclesPerFile = 4;
 

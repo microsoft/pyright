@@ -11,7 +11,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { commands, ExtensionContext, extensions, Position, Range, TextEditor, TextEditorEdit, Uri } from 'vscode';
+import { commands, extensions, ExtensionContext, Position, Range, TextEditor, TextEditorEdit, Uri } from 'vscode';
 import {
     CancellationToken,
     ConfigurationParams,
@@ -23,6 +23,11 @@ import {
     ServerOptions,
     TextEdit,
     TransportKind,
+    ConfigurationParams,
+    CancellationToken,
+    ConfigurationRequest,
+    HandlerResult,
+    ResponseError,
 } from 'vscode-languageclient/node';
 
 import { Commands } from '../../server/src/commands/commands';
