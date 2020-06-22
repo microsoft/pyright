@@ -736,9 +736,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             );
                         }
                     }
-                }
 
-                if (expectingType) {
                     if (!typeResult) {
                         const fileInfo = getFileInfo(node);
                         addDiagnostic(
@@ -6576,16 +6574,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Define a local helper function that determines whether a
         // type is a list and returns the list element type if it is.
         const getListTypeArg = (potentialList: Type) => {
-            if (potentialList.category !== TypeCategory.Object) {
-                return undefined;
-            }
+            return doForSubtypes(potentialList, (subtype) => {
+                if (subtype.category !== TypeCategory.Object) {
+                    return undefined;
+                }
 
-            const classAlias = potentialList.classType.details.aliasClass || potentialList.classType;
-            if (!ClassType.isBuiltIn(classAlias, 'list') || !potentialList.classType.typeArguments) {
-                return undefined;
-            }
+                const classAlias = subtype.classType.details.aliasClass || subtype.classType;
+                if (!ClassType.isBuiltIn(classAlias, 'list') || !subtype.classType.typeArguments) {
+                    return undefined;
+                }
 
-            return potentialList.classType.typeArguments[0];
+                return subtype.classType.typeArguments[0];
+            });
         };
 
         const expectedEntryType = expectedType ? getListTypeArg(expectedType) : undefined;
@@ -10849,7 +10849,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const declaredType = getTypeOfAnnotation(typeAnnotationNode);
 
                     if (declaredType) {
-                        return convertClassToObject(declaredType);
+                        return declaredType;
                     }
                 }
 
@@ -10869,7 +10869,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         if (declaration.node.nodeType === ParseNodeType.Name) {
                             declaredType = transformTypeForPossibleEnumClass(declaration.node, declaredType);
                         }
-                        return convertClassToObject(declaredType);
+                        return declaredType;
                     }
                 }
 
