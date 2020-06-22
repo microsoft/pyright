@@ -147,7 +147,7 @@ export class AnalyzerService {
         const configOptions = this._getConfigOptions(commandLineOptions);
 
         if (configOptions.pythonPath) {
-            // make sure we have default python environment set
+            // Make sure we have default python environment set.
             configOptions.ensureDefaultPythonVersion(configOptions.pythonPath, this._console);
             configOptions.ensureDefaultPythonPlatform(this._console);
         }
