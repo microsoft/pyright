@@ -124,6 +124,8 @@
         "globalReassignment": "\"{name}\" is assigned before global declaration",
         "globalRedefinition": "\"{name}\" was already declared global",
         "implicitStringConcat": "Implicit string concatenation not allowed",
+        "importCycleDetected": "Cycle detected in import chain",
+        "importDepthExceeded": "Import chain depth exceeded {depth}",
         "importResolveFailure": "Import \"{importName}\" could not be resolved",
         "importSourceResolveFailure": "Import \"{importName}\" could not be resolved from source",
         "importSymbolUnknown": "\"{name}\" is unknown import symbol",

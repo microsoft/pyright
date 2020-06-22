@@ -310,6 +310,9 @@ export namespace Localizer {
         export const globalRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.globalRedefinition'));
         export const implicitStringConcat = () => getRawString('Diagnostic.implicitStringConcat');
+        export const importCycleDetected = () => getRawString('Diagnostic.importCycleDetected');
+        export const importDepthExceeded = () =>
+            new ParameterizedString<{ depth: number }>(getRawString('Diagnostic.importDepthExceeded'));
         export const importResolveFailure = () =>
             new ParameterizedString<{ importName: string }>(getRawString('Diagnostic.importResolveFailure'));
         export const importSourceResolveFailure = () =>
