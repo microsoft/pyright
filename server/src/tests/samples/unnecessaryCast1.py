@@ -1,10 +1,12 @@
-# This sample tests the type checker's reoprtUnnecessaryCast feature.
+# This sample tests the type checker's reportUnnecessaryCast feature.
+
+# pyright: reportUnnecessaryCast=true
 
 from typing import cast, Union
 
-a = 3
+a: int = 3
 # This should generate an error if
-# reportUnneessaryCast is enabled.
+# reportUnnecessaryCast is enabled.
 b = cast(int, a)
 
 c: Union[int, str] = 'hello'

@@ -1839,7 +1839,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     category: ParameterCategory.Simple,
                     name: 'k',
                     hasDeclaredType: true,
-                    type: ObjectType.cloneWithLiteral(ObjectType.create(strClass), name),
+                    type: ObjectType.create(ClassType.cloneWithLiteral(strClass, name)),
                 });
                 FunctionType.addParameter(getOverload, {
                     category: ParameterCategory.Simple,
@@ -3524,14 +3524,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 if (subtype.category === TypeCategory.Object && ClassType.isBuiltIn(subtype.classType, 'str')) {
-                    if (subtype.literalValue === undefined) {
+                    if (subtype.classType.literalValue === undefined) {
                         // If it's a plain str with no literal value, we can't
                         // make any determination about the resulting type.
                         return UnknownType.create();
                     }
 
                     // Look up the entry in the typed dict to get its type.
-                    const entryName = subtype.literalValue as string;
+                    const entryName = subtype.classType.literalValue as string;
                     const entry = entries.get(entryName);
                     if (!entry) {
                         diag.addMessage(
@@ -5452,7 +5452,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addError(Localizer.Diagnostic.typeClassFirstArg(), argList[0].valueExpression || errorNode);
             return undefined;
         }
-        const className = (arg0Type.literalValue as string) || '_';
+        const className = (arg0Type.classType.literalValue as string) || '_';
 
         const arg1Type = getTypeForArgument(argList[1]);
         if (
@@ -5907,9 +5907,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // versions of 'bool'.
             if (type && type.category === TypeCategory.Object) {
                 if (node.constType === KeywordType.True) {
-                    type = ObjectType.cloneWithLiteral(type, true);
+                    type = ObjectType.create(ClassType.cloneWithLiteral(type.classType, true));
                 } else if (node.constType === KeywordType.False) {
-                    type = ObjectType.cloneWithLiteral(type, false);
+                    type = ObjectType.create(ClassType.cloneWithLiteral(type.classType, false));
                 }
             }
         }
@@ -6442,12 +6442,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     expectedTypedDictEntries &&
                     keyType.category === TypeCategory.Object &&
                     ClassType.isBuiltIn(keyType.classType, 'str') &&
-                    keyType.literalValue &&
-                    expectedTypedDictEntries.has(keyType.literalValue as string)
+                    keyType.classType.literalValue &&
+                    expectedTypedDictEntries.has(keyType.classType.literalValue as string)
                 ) {
                     valueType = getTypeOfExpression(
                         entryNode.valueExpression,
-                        expectedTypedDictEntries.get(keyType.literalValue as string)!.valueType
+                        expectedTypedDictEntries.get(keyType.classType.literalValue as string)!.valueType
                     ).type;
                 } else {
                     valueType = getTypeOfExpression(entryNode.valueExpression, expectedValueType).type;
@@ -6944,7 +6944,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     function cloneBuiltinTypeWithLiteral(node: ParseNode, builtInName: string, value: LiteralValue): Type {
         let type = getBuiltInObject(node, builtInName);
         if (type.category === TypeCategory.Object) {
-            type = ObjectType.cloneWithLiteral(type, value);
+            type = ObjectType.create(ClassType.cloneWithLiteral(type.classType, value));
         }
 
         return type;
@@ -7000,7 +7000,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (
                     possibleEnumType.type.category === TypeCategory.Object &&
                     ClassType.isEnumClass(possibleEnumType.type.classType) &&
-                    possibleEnumType.type.literalValue !== undefined
+                    possibleEnumType.type.classType.literalValue !== undefined
                 ) {
                     type = possibleEnumType.type;
                 }
@@ -7230,9 +7230,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 }
 
-                return ObjectType.cloneWithLiteral(
-                    ObjectType.create(enumClassInfo.classType),
-                    new EnumLiteral(enumClassInfo.classType.details.name, node.value)
+                return ObjectType.create(
+                    ClassType.cloneWithLiteral(
+                        enumClassInfo.classType,
+                        new EnumLiteral(enumClassInfo.classType.details.name, node.value)
+                    )
                 );
             }
         }
@@ -7428,7 +7430,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (constExprValue !== undefined) {
                     const boolType = getBuiltInObject(node, 'bool');
                     if (boolType.category === TypeCategory.Object) {
-                        srcType = ObjectType.cloneWithLiteral(boolType, constExprValue);
+                        srcType = ObjectType.create(ClassType.cloneWithLiteral(boolType.classType, constExprValue));
                     }
                 }
 
@@ -10059,7 +10061,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                     if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
                         const rightType = getTypeOfExpression(testExpression.rightExpression).type;
-                        if (rightType.category === TypeCategory.Object && rightType.literalValue) {
+                        if (
+                            rightType.category === TypeCategory.Object &&
+                            rightType.classType.literalValue !== undefined
+                        ) {
                             return (type: Type) => {
                                 return narrowTypeForLiteralComparison(type, rightType, adjIsPositiveTest);
                             };
@@ -10068,7 +10073,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                     if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
                         const leftType = getTypeOfExpression(testExpression.leftExpression).type;
-                        if (leftType.category === TypeCategory.Object && leftType.literalValue) {
+                        if (
+                            leftType.category === TypeCategory.Object &&
+                            leftType.classType.literalValue !== undefined
+                        ) {
                             return (type: Type) => {
                                 return narrowTypeForLiteralComparison(type, leftType, adjIsPositiveTest);
                             };
@@ -10295,8 +10303,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 subtype.category === TypeCategory.Object &&
                 ClassType.isSameGenericClass(literalType.classType, subtype.classType)
             ) {
-                if (subtype.literalValue !== undefined) {
-                    const literalValueMatches = ObjectType.isLiteralValueSame(subtype, literalType);
+                if (subtype.classType.literalValue !== undefined) {
+                    const literalValueMatches = ClassType.isLiteralValueSame(subtype.classType, literalType.classType);
                     if ((literalValueMatches && !isPositiveTest) || (!literalValueMatches && isPositiveTest)) {
                         return undefined;
                     }
@@ -10309,7 +10317,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const allLiteralTypes = enumerateLiteralsForType(subtype);
                     if (allLiteralTypes) {
                         return combineTypes(
-                            allLiteralTypes.filter((type) => !ObjectType.isLiteralValueSame(type, literalType))
+                            allLiteralTypes.filter(
+                                (type) => !ClassType.isLiteralValueSame(type.classType, literalType.classType)
+                            )
                         );
                     }
                 }
@@ -12275,9 +12285,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             if (srcType.category === TypeCategory.Object) {
-                if (destType.literalValue !== undefined) {
-                    const srcLiteral = srcType.literalValue;
-                    if (srcLiteral === undefined || !ObjectType.isLiteralValueSame(srcType, destType)) {
+                if (destType.classType.literalValue !== undefined) {
+                    const srcLiteral = srcType.classType.literalValue;
+                    if (
+                        srcLiteral === undefined ||
+                        !ClassType.isLiteralValueSame(srcType.classType, destType.classType)
+                    ) {
                         diag.addMessage(
                             Localizer.DiagnosticAddendum.literalAssignmentMismatch().format({
                                 sourceType: srcLiteral !== undefined ? printLiteralType(srcType) : printType(srcType),
@@ -12930,11 +12943,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (
                 keyType.category !== TypeCategory.Object ||
                 !ClassType.isBuiltIn(keyType.classType, 'str') ||
-                keyType.literalValue === undefined
+                keyType.classType.literalValue === undefined
             ) {
                 isMatch = false;
             } else {
-                const keyValue = keyType.literalValue as string;
+                const keyValue = keyType.classType.literalValue as string;
                 const symbolEntry = symbolMap.get(keyValue);
 
                 if (!symbolEntry) {
@@ -12942,7 +12955,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     isMatch = false;
                     diagAddendum.addMessage(
                         Localizer.DiagnosticAddendum.typedDictFieldUndefined().format({
-                            name: keyType.literalValue as string,
+                            name: keyType.classType.literalValue as string,
                             type: printType(ObjectType.create(classType)),
                         })
                     );
@@ -12952,7 +12965,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (!canAssignType(symbolEntry.valueType, valueTypes[index], assignDiag)) {
                         diagAddendum.addMessage(
                             Localizer.DiagnosticAddendum.typedDictFieldTypeMismatch().format({
-                                name: keyType.literalValue as string,
+                                name: keyType.classType.literalValue as string,
                                 type: printType(valueTypes[index]),
                             })
                         );
@@ -13220,7 +13233,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             case TypeCategory.Object: {
                 const objType = type;
-                if (objType.literalValue !== undefined) {
+                if (objType.classType.literalValue !== undefined) {
                     return printLiteralType(objType);
                 }
 
@@ -13281,7 +13294,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 const isLiteral = (type: Type) =>
-                    type.category === TypeCategory.Object && type.literalValue !== undefined;
+                    type.category === TypeCategory.Object && type.classType.literalValue !== undefined;
 
                 const subtypeStrings: string[] = [];
                 while (subtypes.length > 0) {

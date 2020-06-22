@@ -245,6 +245,10 @@ export interface ClassType extends TypeBase {
     typeArguments?: Type[];
 
     skipAbstractClassTest: boolean;
+
+    // Some types can be further constrained to have
+    // literal types (e.g. true or 'string' or 3).
+    literalValue?: LiteralValue;
 }
 
 export namespace ClassType {
@@ -275,10 +279,45 @@ export namespace ClassType {
         const newClassType = create(classType.details.name, classType.details.flags, classType.details.typeSourceId);
         newClassType.details = classType.details;
         newClassType.typeArguments = typeArguments;
+        if (classType.literalValue !== undefined) {
+            newClassType.literalValue = classType.literalValue;
+        }
         if (skipAbstractClassTest) {
             newClassType.skipAbstractClassTest = true;
         }
         return newClassType;
+    }
+
+    export function cloneWithLiteral(classType: ClassType, value?: LiteralValue): ClassType {
+        const newClassType = create(classType.details.name, classType.details.flags, classType.details.typeSourceId);
+        newClassType.details = classType.details;
+        if (classType.typeArguments) {
+            newClassType.typeArguments = classType.typeArguments;
+        }
+        if (value !== undefined) {
+            newClassType.literalValue = value;
+        }
+        if (classType.skipAbstractClassTest) {
+            newClassType.skipAbstractClassTest = true;
+        }
+        return newClassType;
+    }
+
+    export function isLiteralValueSame(type1: ClassType, type2: ClassType) {
+        if (type1.literalValue === undefined) {
+            return type2.literalValue === undefined;
+        } else if (type2.literalValue === undefined) {
+            return false;
+        }
+
+        if (type1.literalValue instanceof EnumLiteral) {
+            if (type2.literalValue instanceof EnumLiteral) {
+                return type1.literalValue.itemName === type2.literalValue.itemName;
+            }
+            return false;
+        }
+
+        return type1.literalValue === type2.literalValue;
     }
 
     // Specifies whether the class type is generic (unspecialized)
@@ -536,10 +575,6 @@ export interface ObjectType extends TypeBase {
     category: TypeCategory.Object;
 
     classType: ClassType;
-
-    // Some types can be further constrained to have
-    // literal types (e.g. true or 'string' or 3).
-    literalValue?: LiteralValue;
 }
 
 export namespace ObjectType {
@@ -549,29 +584,6 @@ export namespace ObjectType {
             classType,
         };
         return newObjectType;
-    }
-
-    export function cloneWithLiteral(objType: ObjectType, value: LiteralValue): ObjectType {
-        const newType = create(objType.classType);
-        newType.literalValue = value;
-        return newType;
-    }
-
-    export function isLiteralValueSame(type1: ObjectType, type2: ObjectType) {
-        if (type1.literalValue === undefined) {
-            return type2.literalValue === undefined;
-        } else if (type2.literalValue === undefined) {
-            return false;
-        }
-
-        if (type1.literalValue instanceof EnumLiteral) {
-            if (type2.literalValue instanceof EnumLiteral) {
-                return type1.literalValue.itemName === type2.literalValue.itemName;
-            }
-            return false;
-        }
-
-        return type1.literalValue === type2.literalValue;
     }
 }
 
@@ -1058,15 +1070,15 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 }
             }
 
+            if (!ClassType.isLiteralValueSame(type1, classType2)) {
+                return false;
+            }
+
             return true;
         }
 
         case TypeCategory.Object: {
             const objType2 = type2 as ObjectType;
-
-            if (!ObjectType.isLiteralValueSame(type1, objType2)) {
-                return false;
-            }
 
             return isTypeSame(type1.classType, objType2.classType, recursionCount + 1);
         }
@@ -1307,9 +1319,15 @@ export function combineTypes(types: Type[]): Type {
 
     // Sort all of the literal types to the end.
     expandedTypes = expandedTypes.sort((type1, type2) => {
-        if (type1.category === TypeCategory.Object && type1.literalValue !== undefined) {
+        if (
+            (type1.category === TypeCategory.Object && type1.classType.literalValue !== undefined) ||
+            (type1.category === TypeCategory.Class && type1.literalValue !== undefined)
+        ) {
             return 1;
-        } else if (type2.category === TypeCategory.Object && type2.literalValue !== undefined) {
+        } else if (
+            (type2.category === TypeCategory.Object && type2.classType.literalValue !== undefined) ||
+            (type2.category === TypeCategory.Class && type2.literalValue !== undefined)
+        ) {
             return -1;
         }
         return 0;
@@ -1348,7 +1366,13 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
         return true;
     }
 
-    if (srcType.category === TypeCategory.Object && srcType.literalValue !== undefined) {
+    if (srcType.category === TypeCategory.Class && srcType.literalValue !== undefined) {
+        // Strip the literal.
+        srcType = ClassType.cloneWithLiteral(srcType, undefined);
+        return isTypeSame(destType, srcType);
+    }
+
+    if (srcType.category === TypeCategory.Object && srcType.classType.literalValue !== undefined) {
         // Strip the literal.
         srcType = ObjectType.create(srcType.classType);
         return isTypeSame(destType, srcType);
@@ -1370,7 +1394,7 @@ function _addTypeIfUnique(types: Type[], typeToAdd: Type) {
         // a non-literal type that matches, don't add the literal value.
         if (type.category === TypeCategory.Object && typeToAdd.category === TypeCategory.Object) {
             if (isSameWithoutLiteralValue(type, typeToAdd)) {
-                if (type.literalValue === undefined) {
+                if (type.classType.literalValue === undefined) {
                     return;
                 }
             }
@@ -1378,7 +1402,10 @@ function _addTypeIfUnique(types: Type[], typeToAdd: Type) {
             // If we're adding Literal[False] or Literal[True] to its
             // opposite, combine them into a non-literal 'bool' type.
             if (ClassType.isBuiltIn(type.classType, 'bool')) {
-                if (typeToAdd.literalValue !== undefined && !typeToAdd.literalValue === type.literalValue) {
+                if (
+                    typeToAdd.classType.literalValue !== undefined &&
+                    !typeToAdd.classType.literalValue === type.classType.literalValue
+                ) {
                     types[i] = ObjectType.create(type.classType);
                     return;
                 }

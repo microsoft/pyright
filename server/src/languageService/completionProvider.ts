@@ -661,9 +661,9 @@ export class CompletionProvider {
         doForSubtypes(type, (subtype) => {
             if (subtype.category === TypeCategory.Object) {
                 if (ClassType.isBuiltIn(subtype.classType, 'str')) {
-                    if (subtype.literalValue !== undefined) {
+                    if (subtype.classType.literalValue !== undefined) {
                         this._addStringLiteralToCompletionList(
-                            subtype.literalValue as string,
+                            subtype.classType.literalValue as string,
                             quoteValue.stringValue,
                             postText,
                             quoteValue.quoteCharacter,

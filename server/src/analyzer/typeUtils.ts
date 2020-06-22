@@ -155,8 +155,16 @@ export function derivesFromAnyOrUnknown(type: Type): boolean {
 
 export function stripLiteralValue(type: Type): Type {
     if (type.category === TypeCategory.Object) {
+        if (type.classType.literalValue !== undefined) {
+            type = ObjectType.create(ClassType.cloneWithLiteral(type.classType, undefined));
+        }
+
+        return type;
+    }
+
+    if (type.category === TypeCategory.Class) {
         if (type.literalValue !== undefined) {
-            type = ObjectType.create(type.classType);
+            type = ClassType.cloneWithLiteral(type, undefined);
         }
 
         return type;
@@ -174,7 +182,10 @@ export function stripLiteralValue(type: Type): Type {
 export function enumerateLiteralsForType(type: ObjectType): ObjectType[] | undefined {
     if (ClassType.isBuiltIn(type.classType, 'bool')) {
         // Booleans have only two types: True and False.
-        return [ObjectType.cloneWithLiteral(type, true), ObjectType.cloneWithLiteral(type, false)];
+        return [
+            ObjectType.create(ClassType.cloneWithLiteral(type.classType, true)),
+            ObjectType.create(ClassType.cloneWithLiteral(type.classType, false)),
+        ];
     }
 
     if (ClassType.isEnumClass(type.classType)) {
@@ -183,7 +194,11 @@ export function enumerateLiteralsForType(type: ObjectType): ObjectType[] | undef
         const fields = type.classType.details.fields;
         fields.forEach((symbol, name) => {
             if (!symbol.isIgnoredForProtocolMatch() && !symbol.isInstanceMember()) {
-                enumList.push(ObjectType.cloneWithLiteral(type, new EnumLiteral(type.classType.details.name, name)));
+                enumList.push(
+                    ObjectType.create(
+                        ClassType.cloneWithLiteral(type.classType, new EnumLiteral(type.classType.details.name, name))
+                    )
+                );
             }
         });
 
@@ -294,7 +309,7 @@ export function canBeFalsy(type: Type): boolean {
 
         // Check for Literal[False].
         if (ClassType.isBuiltIn(type.classType, 'bool')) {
-            if (type.literalValue === false) {
+            if (type.classType.literalValue === false) {
                 return true;
             }
         }
@@ -318,7 +333,7 @@ export function canBeTruthy(type: Type): boolean {
 
         // Check for Literal[False].
         if (ClassType.isBuiltIn(type.classType, 'bool')) {
-            if (type.literalValue === false) {
+            if (type.classType.literalValue === false) {
                 return false;
             }
         }
@@ -884,16 +899,16 @@ export function derivesFromClassRecursive(classType: ClassType, baseClassToFind:
 export function removeFalsinessFromType(type: Type): Type {
     return doForSubtypes(type, (subtype) => {
         if (subtype.category === TypeCategory.Object) {
-            if (subtype.literalValue !== undefined) {
+            if (subtype.classType.literalValue !== undefined) {
                 // If the object is already definitely truthy, it's fine to
                 // include, otherwise it should be removed.
-                return subtype.literalValue ? subtype : undefined;
+                return subtype.classType.literalValue ? subtype : undefined;
             }
 
             // If the object is a bool, make it "true", since
             // "false" is a falsy value.
             if (ClassType.isBuiltIn(subtype.classType, 'bool')) {
-                return ObjectType.cloneWithLiteral(subtype, true);
+                return ObjectType.create(ClassType.cloneWithLiteral(subtype.classType, true));
             }
         }
 
@@ -914,16 +929,16 @@ export function removeFalsinessFromType(type: Type): Type {
 export function removeTruthinessFromType(type: Type): Type {
     return doForSubtypes(type, (subtype) => {
         if (subtype.category === TypeCategory.Object) {
-            if (subtype.literalValue !== undefined) {
+            if (subtype.classType.literalValue !== undefined) {
                 // If the object is already definitely falsy, it's fine to
                 // include, otherwise it should be removed.
-                return !subtype.literalValue ? subtype : undefined;
+                return !subtype.classType.literalValue ? subtype : undefined;
             }
 
             // If the object is a bool, make it "false", since
             // "true" is a truthy value.
             if (ClassType.isBuiltIn(subtype.classType, 'bool')) {
-                return ObjectType.cloneWithLiteral(subtype, false);
+                return ObjectType.create(ClassType.cloneWithLiteral(subtype.classType, false));
             }
         }
 
@@ -1466,7 +1481,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
 }
 
 export function printLiteralValue(type: ObjectType): string {
-    const literalValue = type.literalValue;
+    const literalValue = type.classType.literalValue;
     if (literalValue === undefined) {
         return '';
     }
