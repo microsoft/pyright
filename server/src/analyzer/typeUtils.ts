@@ -663,12 +663,16 @@ export function addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarTy
 // of unique type variables. For example, if the type is
 // Union[List[Dict[_T1, _T2]], _T1, _T3], the result would be
 // [_T1, _T2, _T3].
-export function getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
+export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): TypeVarType[] {
+    if (recursionCount > maxTypeRecursionCount) {
+        return [];
+    }
+
     const getTypeVarsFromClass = (classType: ClassType) => {
         const combinedList: TypeVarType[] = [];
         if (classType.typeArguments) {
             classType.typeArguments.forEach((typeArg) => {
-                addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg));
+                addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg, recursionCount + 1));
             });
         }
 
@@ -684,18 +688,21 @@ export function getTypeVarArgumentsRecursive(type: Type): TypeVarType[] {
     } else if (type.category === TypeCategory.Union) {
         const combinedList: TypeVarType[] = [];
         for (const subtype of type.subtypes) {
-            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(subtype));
+            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(subtype, recursionCount + 1));
         }
         return combinedList;
     } else if (type.category === TypeCategory.Function) {
         const combinedList: TypeVarType[] = [];
 
         type.details.parameters.forEach((param) => {
-            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(param.type));
+            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(param.type, recursionCount + 1));
         });
 
         if (type.details.declaredReturnType) {
-            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(type.details.declaredReturnType));
+            addTypeVarsToListIfUnique(
+                combinedList,
+                getTypeVarArgumentsRecursive(type.details.declaredReturnType, recursionCount + 1)
+            );
         }
 
         return combinedList;
@@ -727,6 +734,10 @@ export function stripFirstParameter(type: FunctionType): FunctionType {
 // Recursively finds all of the type arguments and sets them
 // to the specified srcType.
 export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVarMap: TypeVarMap, recursionCount = 0) {
+    if (recursionCount > maxTypeRecursionCount) {
+        return;
+    }
+
     if (typeVarMap.isLocked()) {
         return;
     }
