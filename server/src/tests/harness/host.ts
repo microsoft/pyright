@@ -21,7 +21,6 @@ import { compareStringsCaseInsensitive, compareStringsCaseSensitive } from '../.
 
 export const HOST: TestHost = createHost();
 
-// eslint-disable-next-line @typescript-eslint/interface-name-prefix
 export interface TestHost {
     useCaseSensitiveFileNames(): boolean;
     getAccessibleFileSystemEntries(dirname: string): FileSystemEntries;
