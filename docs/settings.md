@@ -26,7 +26,7 @@ The Pyright VS Code extension honors the following settings.
 
 **python.analysis.diagnosticSeverityOverrides** [map]: Allows a user to override the severity levels for individual diagnostic rules. "reportXXX" rules in the type check diagnostics settings in [configuration](https://github.com/microsoft/pyright/blob/master/docs/configuration.md#type-check-diagnostics-settings) are supported. Use the rule name as a key and one of "error," "warning," "information," "true," "false," or "none" as value.
 
-**python.pythonPath** [path]: Path to Python interpreter.
+**python.pythonPath** [path]: Path to Python interpreter. This setting is being deprecated by the VS Code Python extension in favor of a setting that is stored in the Python extension’s internal configuration store. Pyright supports both mechanisms but prefers the new one if both settings are present.
 
 **python.venvPath** [path]: Path to folder with subdirectories that contain virtual environments.
 

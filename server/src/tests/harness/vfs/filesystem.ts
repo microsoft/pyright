@@ -782,14 +782,14 @@ export class TestFileSystem implements FileSystem {
      *
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
-    readFileSync(path: string, encoding: string): string;
+    readFileSync(path: string, encoding: BufferEncoding): string;
     /**
      * Read from a file.
      *
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
-    readFileSync(path: string, encoding?: string | null): string | Buffer;
-    readFileSync(path: string, encoding: string | null = null) {
+    readFileSync(path: string, encoding?: BufferEncoding | null): string | Buffer;
+    readFileSync(path: string, encoding: BufferEncoding | null = null) {
         const { node } = this._walk(this._resolve(path));
         if (!node) {
             throw createIOError('ENOENT');
@@ -810,7 +810,7 @@ export class TestFileSystem implements FileSystem {
      *
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
-    writeFileSync(path: string, data: string | Buffer, encoding: string | null = null) {
+    writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null = null) {
         if (this.isReadonly) {
             throw createIOError('EROFS');
         }
@@ -844,7 +844,7 @@ export class TestFileSystem implements FileSystem {
     readFile(filePath: string): Promise<Buffer> {
         return Promise.resolve(this.readFileSync(filePath));
     }
-    readFileText(filePath: string, encoding?: string): Promise<string> {
+    readFileText(filePath: string, encoding?: BufferEncoding): Promise<string> {
         return Promise.resolve(this.readFileSync(filePath, encoding || 'utf8'));
     }
 
@@ -1545,9 +1545,12 @@ export class Directory {
 /** Extended options for a file in a `FileSet` */
 export class File {
     readonly data: Buffer | string;
-    readonly encoding: string | undefined;
+    readonly encoding: BufferEncoding | undefined;
     readonly meta: Record<string, any> | undefined;
-    constructor(data: Buffer | string, { meta, encoding }: { encoding?: string; meta?: Record<string, any> } = {}) {
+    constructor(
+        data: Buffer | string,
+        { meta, encoding }: { encoding?: BufferEncoding; meta?: Record<string, any> } = {}
+    ) {
         this.data = data;
         this.encoding = encoding;
         this.meta = meta;
@@ -1555,7 +1558,7 @@ export class File {
 }
 
 export class SameFileContentFile extends File {
-    constructor(data: Buffer | string, metaAndEncoding?: { encoding?: string; meta?: Record<string, any> }) {
+    constructor(data: Buffer | string, metaAndEncoding?: { encoding?: BufferEncoding; meta?: Record<string, any> }) {
         super(data, metaAndEncoding);
     }
 }
@@ -1718,7 +1721,7 @@ function formatPatchWorker(dirname: string, container: FileSet): string {
     for (const name of Object.keys(container)) {
         const entry = normalizeFileSetEntry(container[name]);
         const file = dirname ? pathUtil.combinePaths(dirname, name) : name;
-        if (entry === null || entry === undefined || entry instanceof Unlink || entry instanceof Rmdir) {
+        if (entry === null || entry === undefined || entry instanceof Unlink) {
             text += `//// [${file}] unlink\r\n`;
         } else if (entry instanceof Rmdir) {
             text += `//// [${pathUtil.ensureTrailingDirectorySeparator(file)}] rmdir\r\n`;

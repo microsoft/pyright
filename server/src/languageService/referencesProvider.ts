@@ -33,28 +33,15 @@ export interface ReferencesResult {
 }
 
 class FindReferencesTreeWalker extends ParseTreeWalker {
-    private _parseResults: ParseResults;
-    private _filePath: string;
-    private _referencesResult: ReferencesResult;
-    private _includeDeclaration: boolean;
-    private _evaluator: TypeEvaluator;
-    private _cancellationToken: CancellationToken;
-
     constructor(
-        parseResults: ParseResults,
-        filePath: string,
-        referencesResult: ReferencesResult,
-        includeDeclaration: boolean,
-        evaluator: TypeEvaluator,
-        token: CancellationToken
+        private _parseResults: ParseResults,
+        private _filePath: string,
+        private _referencesResult: ReferencesResult,
+        private _includeDeclaration: boolean,
+        private _evaluator: TypeEvaluator,
+        private _cancellationToken: CancellationToken
     ) {
         super();
-        this._parseResults = parseResults;
-        this._filePath = filePath;
-        this._referencesResult = referencesResult;
-        this._includeDeclaration = includeDeclaration;
-        this._evaluator = evaluator;
-        this._cancellationToken = token;
     }
 
     findReferences() {

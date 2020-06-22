@@ -15,6 +15,7 @@ import {
     DocumentSymbol,
     SymbolInformation,
 } from 'vscode-languageserver';
+import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall } from 'vscode-languageserver-types';
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
@@ -43,6 +44,7 @@ import {
     ImportNameMap,
     ModuleSymbolMap,
 } from '../languageService/autoImporter';
+import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
@@ -1261,6 +1263,124 @@ export class Program {
 
             return editActions;
         });
+    }
+
+    getCallForPosition(filePath: string, position: Position, token: CancellationToken): CallHierarchyItem | undefined {
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
+        if (!sourceFileInfo) {
+            return undefined;
+        }
+        this._bindFile(sourceFileInfo);
+
+        const execEnv = this._configOptions.findExecEnvironment(filePath);
+        const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
+            this._createSourceMapper(execEnv),
+            position,
+            this._evaluator,
+            token
+        );
+
+        if (!referencesResult || referencesResult.declarations.length === 0) {
+            return undefined;
+        }
+
+        const targetDecl = CallHierarchyProvider.getTargetDeclaration(
+            referencesResult.declarations,
+            referencesResult.nodeAtOffset
+        );
+
+        return CallHierarchyProvider.getCallForDeclaration(
+            referencesResult.symbolName,
+            targetDecl,
+            this._evaluator,
+            token
+        );
+    }
+
+    getIncomingCallsForPosition(
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ): CallHierarchyIncomingCall[] | undefined {
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
+        if (!sourceFileInfo) {
+            return undefined;
+        }
+        this._bindFile(sourceFileInfo);
+
+        const execEnv = this._configOptions.findExecEnvironment(filePath);
+        const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
+            this._createSourceMapper(execEnv),
+            position,
+            this._evaluator,
+            token
+        );
+
+        if (!referencesResult || referencesResult.declarations.length === 0) {
+            return undefined;
+        }
+
+        const targetDecl = CallHierarchyProvider.getTargetDeclaration(
+            referencesResult.declarations,
+            referencesResult.nodeAtOffset
+        );
+        let items: CallHierarchyIncomingCall[] = [];
+
+        for (const curSourceFileInfo of this._sourceFileList) {
+            if (this._isUserCode(curSourceFileInfo) || curSourceFileInfo.isOpenByClient) {
+                this._bindFile(curSourceFileInfo);
+
+                const itemsToAdd = CallHierarchyProvider.getIncomingCallsForDeclaration(
+                    curSourceFileInfo.sourceFile.getFilePath(),
+                    referencesResult.symbolName,
+                    targetDecl,
+                    curSourceFileInfo.sourceFile.getParseResults()!,
+                    this._evaluator,
+                    token
+                );
+
+                if (itemsToAdd) {
+                    items = items.concat(...itemsToAdd);
+                }
+            }
+        }
+
+        return items;
+    }
+
+    getOutgoingCallsForPosition(
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ): CallHierarchyOutgoingCall[] | undefined {
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
+        if (!sourceFileInfo) {
+            return undefined;
+        }
+        this._bindFile(sourceFileInfo);
+
+        const execEnv = this._configOptions.findExecEnvironment(filePath);
+        const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
+            this._createSourceMapper(execEnv),
+            position,
+            this._evaluator,
+            token
+        );
+
+        if (!referencesResult || referencesResult.declarations.length === 0) {
+            return undefined;
+        }
+        const targetDecl = CallHierarchyProvider.getTargetDeclaration(
+            referencesResult.declarations,
+            referencesResult.nodeAtOffset
+        );
+
+        return CallHierarchyProvider.getOutgoingCallsForDeclaration(
+            targetDecl,
+            sourceFileInfo.sourceFile.getParseResults()!,
+            this._evaluator,
+            token
+        );
     }
 
     performQuickAction(

@@ -152,6 +152,7 @@ export namespace ModuleType {
 export interface DataClassEntry {
     name: string;
     hasDefault: boolean;
+    includeInInit: boolean;
     type: Type;
 }
 
@@ -240,8 +241,7 @@ export interface ClassType extends TypeBase {
 
     // A generic class that has been completely or partially
     // specialized will have type arguments that correspond to
-    // some or all of the type parameters. Unspecified type
-    // parameters are undefined.
+    // some or all of the type parameters.
     typeArguments?: Type[];
 
     skipAbstractClassTest: boolean;
@@ -871,10 +871,10 @@ export interface OverloadedFunctionType extends TypeBase {
 }
 
 export namespace OverloadedFunctionType {
-    export function create() {
+    export function create(overloads: FunctionType[] = []) {
         const newType: OverloadedFunctionType = {
             category: TypeCategory.OverloadedFunction,
-            overloads: [],
+            overloads,
         };
         return newType;
     }

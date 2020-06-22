@@ -50,9 +50,9 @@ export interface FileSystem {
     readdirEntriesSync(path: string): fs.Dirent[];
     readdirSync(path: string): string[];
     readFileSync(path: string, encoding?: null): Buffer;
-    readFileSync(path: string, encoding: string): string;
-    readFileSync(path: string, encoding?: string | null): string | Buffer;
-    writeFileSync(path: string, data: string | Buffer, encoding: string | null): void;
+    readFileSync(path: string, encoding: BufferEncoding): string;
+    readFileSync(path: string, encoding?: BufferEncoding | null): string | Buffer;
+    writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void;
     statSync(path: string): Stats;
     unlinkSync(path: string): void;
     realpathSync(path: string): string;
@@ -63,7 +63,7 @@ export interface FileSystem {
     copyFileSync(src: string, dst: string): void;
     // Async I/O
     readFile(path: string): Promise<Buffer>;
-    readFileText(path: string, encoding?: string): Promise<string>;
+    readFileText(path: string, encoding?: BufferEncoding): Promise<string>;
     tmpdir(): string;
 }
 
@@ -110,13 +110,13 @@ class RealFileSystem implements FileSystem {
     }
 
     readFileSync(path: string, encoding?: null): Buffer;
-    readFileSync(path: string, encoding: string): string;
-    readFileSync(path: string, encoding?: string | null): Buffer | string;
-    readFileSync(path: string, encoding: string | null = null) {
+    readFileSync(path: string, encoding: BufferEncoding): string;
+    readFileSync(path: string, encoding?: BufferEncoding | null): Buffer | string;
+    readFileSync(path: string, encoding: BufferEncoding | null = null) {
         return fs.readFileSync(path, { encoding });
     }
 
-    writeFileSync(path: string, data: string | Buffer, encoding: string | null) {
+    writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null) {
         fs.writeFileSync(path, data, { encoding });
     }
 
@@ -167,7 +167,7 @@ class RealFileSystem implements FileSystem {
         return d.promise;
     }
 
-    readFileText(path: string, encoding: string): Promise<string> {
+    readFileText(path: string, encoding: BufferEncoding): Promise<string> {
         const d = createDeferred<string>();
         fs.readFile(path, { encoding }, (e, s) => {
             if (e) {
@@ -252,7 +252,7 @@ class ChokidarFileWatcherProvider implements FileWatcherProvider {
         return d.promise;
     }
 
-    readFileText(path: string, encoding: string): Promise<string> {
+    readFileText(path: string, encoding: BufferEncoding): Promise<string> {
         const d = createDeferred<string>();
         fs.readFile(path, { encoding }, (e, s) => {
             if (e) {

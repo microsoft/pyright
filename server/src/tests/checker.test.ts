@@ -1541,6 +1541,12 @@ test('DataClass9', () => {
     validateResults(analysisResults, 0);
 });
 
+test('DataClass10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass10.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Python2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['python2.py']);
 

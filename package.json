@@ -2,7 +2,7 @@
     "name": "pyright",
     "displayName": "Pyright",
     "description": "Type checker for the Python language",
-    "version": "1.1.43",
+    "version": "1.1.44",
     "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
@@ -24,14 +24,14 @@
         "package": "npm run install:all && npm run clean && npm run build:serverProd && npm run build:cli && cd client && npx vsce package && cd .."
     },
     "devDependencies": {
-        "@types/node": "^13.13.12",
-        "@typescript-eslint/eslint-plugin": "^2.34.0",
-        "@typescript-eslint/parser": "^2.34.0",
+        "@types/node": "^14.0.13",
+        "@typescript-eslint/eslint-plugin": "^3.3.0",
+        "@typescript-eslint/parser": "^3.3.0",
         "del-cli": "^3.0.1",
-        "eslint": "^6.8.0",
+        "eslint": "^7.3.0",
         "eslint-config-prettier": "^6.11.0",
         "eslint-plugin-simple-import-sort": "^5.0.3",
-        "prettier": "2.0.4",
+        "prettier": "2.0.5",
         "typescript": "^3.9.5"
     },
     "main": "index.js",

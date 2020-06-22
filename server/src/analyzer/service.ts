@@ -16,6 +16,7 @@ import {
     DocumentSymbol,
     SymbolInformation,
 } from 'vscode-languageserver';
+import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall } from 'vscode-languageserver-types';
 
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { createAnalysisCancellationTokenSource } from '../common/cancellationUtils';
@@ -255,6 +256,26 @@ export class AnalyzerService {
         token: CancellationToken
     ): FileEditAction[] | undefined {
         return this._program.renameSymbolAtPosition(filePath, position, newName, token);
+    }
+
+    getCallForPosition(filePath: string, position: Position, token: CancellationToken): CallHierarchyItem | undefined {
+        return this._program.getCallForPosition(filePath, position, token);
+    }
+
+    getIncomingCallsForPosition(
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ): CallHierarchyIncomingCall[] | undefined {
+        return this._program.getIncomingCallsForPosition(filePath, position, token);
+    }
+
+    getOutgoingCallsForPosition(
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ): CallHierarchyOutgoingCall[] | undefined {
+        return this._program.getOutgoingCallsForPosition(filePath, position, token);
     }
 
     printStats() {

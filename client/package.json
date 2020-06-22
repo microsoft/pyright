@@ -2,7 +2,7 @@
     "name": "pyright",
     "displayName": "Pyright",
     "description": "VS Code static type checking for Python",
-    "version": "1.1.43",
+    "version": "1.1.44",
     "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
@@ -175,7 +175,7 @@
     },
     "devDependencies": {
         "typescript": "^3.9.5",
-        "vsce": "^1.76.1",
+        "vsce": "^1.77.0",
         "vscode": "^1.1.37"
     },
     "dependencies": {
