@@ -11,7 +11,17 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { commands, ExtensionContext, extensions, Position, Range, TextEditor, TextEditorEdit, Uri } from 'vscode';
+import {
+    commands,
+    ExtensionContext,
+    extensions,
+    OutputChannel,
+    Position,
+    Range,
+    TextEditor,
+    TextEditorEdit,
+    Uri,
+} from 'vscode';
 import {
     CancellationToken,
     ConfigurationParams,
@@ -94,7 +104,7 @@ export function activate(context: ExtensionContext) {
                         const pythonPathPromises: Promise<string | undefined>[] = params.items.map((item) => {
                             if (item.section === 'python') {
                                 const uri = item.scopeUri ? Uri.parse(item.scopeUri) : undefined;
-                                return getPythonPathFromPythonExtension(uri);
+                                return getPythonPathFromPythonExtension(languageClient.outputChannel, uri);
                             }
                             return Promise.resolve(undefined);
                         });
@@ -197,17 +207,37 @@ export function deactivate() {
 // The setting that was traditionally named "python.pythonPath" has been moved to the
 // Python extension's internal store for reasons of security and because it differs per
 // project and by user.
-async function getPythonPathFromPythonExtension(scopeUri?: Uri): Promise<string | undefined> {
+async function getPythonPathFromPythonExtension(
+    outputChannel: OutputChannel,
+    scopeUri?: Uri
+): Promise<string | undefined> {
     try {
         const extension = extensions.getExtension('ms-python.python');
-        if (extension && extension.packageJSON?.featureFlags?.usingNewInterpreterStorage) {
-            if (!extension.isActive) {
-                await extension.activate();
+        if (!extension) {
+            outputChannel.appendLine('Python extension not found');
+        } else {
+            if (extension.packageJSON?.featureFlags?.usingNewInterpreterStorage) {
+                if (!extension.isActive) {
+                    outputChannel.appendLine('Waiting for Python extension to load');
+                    await extension.activate();
+                    outputChannel.appendLine('Python extension loaded');
+                }
+
+                const result = await extension.exports.settings.getExecutionCommand(scopeUri).join(' ');
+
+                if (!result) {
+                    outputChannel.appendLine(`No pythonPath provided by Python extension`);
+                } else {
+                    outputChannel.appendLine(`Received pythonPath from Python extension: ${result}`);
+                }
+
+                return result;
             }
-            return extension.exports.settings.getExecutionCommand(scopeUri).join(' ');
         }
     } catch (error) {
-        // Ignore exceptions.
+        outputChannel.appendLine(
+            `Exception occurred when attempting to read pythonPath from Python extension: ${JSON.stringify(error)}`
+        );
     }
 
     return undefined;

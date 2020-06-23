@@ -20,35 +20,38 @@ export class AnalyzerServiceExecutor {
         typeStubTargetImportName?: string,
         trackFiles = true
     ): void {
-        const commandLineOptions = _getCommandLineOptions(
+        const commandLineOptions = getEffectiveCommandLineOptions(
             languageServiceRootPath,
             workspace.rootPath,
             serverSettings,
+            trackFiles,
             typeStubTargetImportName
         );
-
-        if (!trackFiles) {
-            commandLineOptions.watchForSourceChanges = false;
-            commandLineOptions.watchForLibraryChanges = false;
-        }
 
         // Setting options causes the analyzer service to re-analyze everything.
         workspace.serviceInstance.setOptions(commandLineOptions, trackFiles);
     }
 }
 
-function _getCommandLineOptions(
+function getEffectiveCommandLineOptions(
     languageServiceRootPath: string,
     workspaceRootPath: string,
     serverSettings: ServerSettings,
+    trackFiles: boolean,
     typeStubTargetImportName?: string
 ) {
     const commandLineOptions = new CommandLineOptions(workspaceRootPath, true);
     commandLineOptions.checkOnlyOpenFiles = serverSettings.openFilesOnly;
     commandLineOptions.useLibraryCodeForTypes = serverSettings.useLibraryCodeForTypes;
-    commandLineOptions.watchForSourceChanges = serverSettings.watchForSourceChanges;
-    commandLineOptions.watchForLibraryChanges = serverSettings.watchForLibraryChanges;
     commandLineOptions.typeCheckingMode = serverSettings.typeCheckingMode;
+
+    if (!trackFiles) {
+        commandLineOptions.watchForSourceChanges = false;
+        commandLineOptions.watchForLibraryChanges = false;
+    } else {
+        commandLineOptions.watchForSourceChanges = serverSettings.watchForSourceChanges;
+        commandLineOptions.watchForLibraryChanges = serverSettings.watchForLibraryChanges;
+    }
 
     if (serverSettings.venvPath) {
         commandLineOptions.venvPath = combinePaths(
