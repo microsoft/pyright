@@ -292,54 +292,84 @@ export function transformTypeObjectToClass(type: Type): Type {
 // unless they are objects that support the __bool__ or __len__
 // methods.
 export function canBeFalsy(type: Type): boolean {
-    if (type.category === TypeCategory.None) {
-        return true;
-    }
-
-    if (type.category === TypeCategory.Object) {
-        const lenMethod = lookUpObjectMember(type, '__len__');
-        if (lenMethod) {
+    switch (type.category) {
+        case TypeCategory.Unbound:
+        case TypeCategory.Unknown:
+        case TypeCategory.Any:
+        case TypeCategory.Never:
+        case TypeCategory.None: {
             return true;
         }
 
-        const boolMethod = lookUpObjectMember(type, '__bool__');
-        if (boolMethod) {
-            return true;
+        case TypeCategory.Function:
+        case TypeCategory.OverloadedFunction:
+        case TypeCategory.Class:
+        case TypeCategory.Module:
+        case TypeCategory.Union:
+        case TypeCategory.TypeVar: {
+            return false;
         }
 
-        // Check for Literal[False].
-        if (ClassType.isBuiltIn(type.classType, 'bool')) {
-            if (type.classType.literalValue === false) {
+        case TypeCategory.Object: {
+            const lenMethod = lookUpObjectMember(type, '__len__');
+            if (lenMethod) {
                 return true;
             }
+
+            const boolMethod = lookUpObjectMember(type, '__bool__');
+            if (boolMethod) {
+                return true;
+            }
+
+            // Check for Literal[False].
+            if (ClassType.isBuiltIn(type.classType, 'bool')) {
+                if (type.classType.literalValue === false) {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
-
-    return false;
 }
 
 export function canBeTruthy(type: Type): boolean {
-    if (isNoneOrNever(type)) {
-        return false;
-    }
-
-    if (type.category === TypeCategory.Object) {
-        // Check for Tuple[()] (an empty tuple).
-        if (ClassType.isBuiltIn(type.classType, 'Tuple')) {
-            if (type.classType.typeArguments && type.classType.typeArguments.length === 0) {
-                return false;
-            }
+    switch (type.category) {
+        case TypeCategory.Unknown:
+        case TypeCategory.Function:
+        case TypeCategory.OverloadedFunction:
+        case TypeCategory.Class:
+        case TypeCategory.Module:
+        case TypeCategory.Union:
+        case TypeCategory.TypeVar:
+        case TypeCategory.Any: {
+            return true;
         }
 
-        // Check for Literal[False].
-        if (ClassType.isBuiltIn(type.classType, 'bool')) {
-            if (type.classType.literalValue === false) {
-                return false;
+        case TypeCategory.Never:
+        case TypeCategory.Unbound:
+        case TypeCategory.None: {
+            return false;
+        }
+
+        case TypeCategory.Object: {
+            // Check for Tuple[()] (an empty tuple).
+            if (ClassType.isBuiltIn(type.classType, 'Tuple')) {
+                if (type.classType.typeArguments && type.classType.typeArguments.length === 0) {
+                    return false;
+                }
             }
+
+            // Check for Literal[False].
+            if (ClassType.isBuiltIn(type.classType, 'bool')) {
+                if (type.classType.literalValue === false) {
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
-
-    return true;
 }
 
 // Determines whether the type is a Tuple class or object.

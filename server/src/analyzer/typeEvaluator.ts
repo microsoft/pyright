@@ -114,6 +114,7 @@ import {
     FunctionTypeFlags,
     InheritanceChain,
     isAnyOrUnknown,
+    isNever,
     isNoneOrNever,
     isPossiblyUnbound,
     isSameWithoutLiteralValue,
@@ -6112,7 +6113,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // If the LHS class didn't support the magic method for augmented
         // assignment, fall back on the normal binary expression evaluator.
-        if (!type || type.category === TypeCategory.Never) {
+        if (!type || isNever(type)) {
             const binaryOperator = operatorMap[node.operator][1];
             type = validateBinaryOperation(binaryOperator, leftType!, rightType, node, expectedType);
         }
@@ -6234,8 +6235,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // eliminating any known-truthy or known-falsy types.
             if (operator === OperatorType.And) {
                 leftType = removeTruthinessFromType(leftType);
+
+                // If the LHS evaluates to False, the And expression will
+                // always return the type of the right-hand side.
+                if (isNever(leftType)) {
+                    return rightType;
+                }
             } else if (operator === OperatorType.Or) {
                 leftType = removeFalsinessFromType(leftType);
+
+                // If the LHS evaluates to True, the Or expression will
+                // always return the type of the right-hand side.
+                if (isNever(leftType)) {
+                    return rightType;
+                }
             }
 
             type = doForSubtypes(leftType, (leftSubtype) => {
@@ -6250,7 +6263,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             });
         }
 
-        if (!type || type.category === TypeCategory.Never) {
+        if (!type || isNever(type)) {
             const fileInfo = getFileInfo(errorNode);
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -6385,7 +6398,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return undefined;
             });
 
-            if (narrowedExpectedType.category !== TypeCategory.Never) {
+            if (!isNever(narrowedExpectedType)) {
                 return { type: narrowedExpectedType, node };
             }
         }
@@ -6534,7 +6547,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return undefined;
             });
 
-            if (narrowedExpectedType.category !== TypeCategory.Never) {
+            if (!isNever(narrowedExpectedType)) {
                 return { type: narrowedExpectedType, node };
             }
         }
@@ -6618,7 +6631,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return undefined;
             });
 
-            if (narrowedExpectedType.category !== TypeCategory.Never) {
+            if (!isNever(narrowedExpectedType)) {
                 return { type: narrowedExpectedType, node };
             }
         }

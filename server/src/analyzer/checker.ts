@@ -78,6 +78,7 @@ import {
     combineTypes,
     FunctionType,
     isAnyOrUnknown,
+    isNever,
     isNoneOrNever,
     isTypeSame,
     NoneType,
@@ -1268,7 +1269,7 @@ export class Checker extends ParseTreeWalker {
             return combineTypes(objTypeList);
         };
 
-        if (filteredType.category === TypeCategory.Never) {
+        if (isNever(filteredType)) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,

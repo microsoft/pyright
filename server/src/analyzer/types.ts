@@ -1005,8 +1005,12 @@ export namespace TypeVarType {
     }
 }
 
+export function isNever(type: Type): boolean {
+    return type.category === TypeCategory.Never;
+}
+
 export function isNoneOrNever(type: Type): boolean {
-    return type.category === TypeCategory.None || type.category === TypeCategory.Never;
+    return type.category === TypeCategory.None || isNever(type);
 }
 
 export function isAnyOrUnknown(type: Type): boolean {
