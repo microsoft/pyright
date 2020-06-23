@@ -15,7 +15,6 @@
  */
 
 import { CancellationToken } from 'vscode-languageserver';
-
 import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { DiagnosticLevel } from '../common/configOptions';
@@ -24,8 +23,7 @@ import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum } from 
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
-import { getEmptyRange } from '../common/textRange';
-import { TextRange } from '../common/textRange';
+import { getEmptyRange, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { Localizer } from '../localization/localize';
 import {
@@ -13343,7 +13341,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const typeName = type.name;
 
                 if (type.isParameterSpec) {
-                    return `ParameterSpecification["${typeName}"]`;
+                    return `ParameterSpecification['${typeName}']`;
                 }
 
                 // Print the name in a simplified form if it's embedded
@@ -13351,7 +13349,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (recursionCount > 0) {
                     return typeName;
                 }
-                const params: string[] = [`"${typeName}"`];
+                const params: string[] = [`'${typeName}'`];
                 for (const constraint of type.constraints) {
                     params.push(printType(constraint, recursionCount + 1));
                 }
