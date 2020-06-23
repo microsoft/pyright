@@ -1,7 +1,5 @@
 # This sample tests the type checker's reportUnnecessaryCast feature.
 
-# pyright: reportUnnecessaryCast=true
-
 from typing import cast, Union
 
 a: int = 3
@@ -9,9 +7,6 @@ a: int = 3
 # reportUnnecessaryCast is enabled.
 b = cast(int, a)
 
-c: Union[int, str] = 'hello'
+c: Union[int, str] = "hello"
 d = cast(int, c)
-
-
-
 
