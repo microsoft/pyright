@@ -56,6 +56,16 @@ export const enum TypeCategory {
     TypeVar,
 }
 
+export const enum TypeFlags {
+    None = 0,
+
+    // This type refers to something that can be instantiated.
+    Instantiable = 1 << 0,
+
+    // This type refers to something that has been instantiated.
+    Instance = 1 << 1,
+}
+
 export type Type =
     | UnboundType
     | UnknownType
@@ -83,6 +93,17 @@ export type InheritanceChain = (ClassType | UnknownType)[];
 
 interface TypeBase {
     category: TypeCategory;
+    flags: TypeFlags;
+}
+
+export namespace TypeBase {
+    export function isInstantiable(type: TypeBase) {
+        return (type.flags & TypeFlags.Instantiable) !== 0;
+    }
+
+    export function isInstance(type: TypeBase) {
+        return (type.flags & TypeFlags.Instance) !== 0;
+    }
 }
 
 export interface UnboundType extends TypeBase {
@@ -92,6 +113,7 @@ export interface UnboundType extends TypeBase {
 export namespace UnboundType {
     const _instance: UnboundType = {
         category: TypeCategory.Unbound,
+        flags: TypeFlags.Instantiable | TypeFlags.Instance,
     };
 
     export function create() {
@@ -107,6 +129,7 @@ export interface UnknownType extends TypeBase {
 export namespace UnknownType {
     const _instance: UnknownType = {
         category: TypeCategory.Unknown,
+        flags: TypeFlags.Instantiable | TypeFlags.Instance,
     };
 
     export function create() {
@@ -132,6 +155,7 @@ export namespace ModuleType {
             category: TypeCategory.Module,
             fields: symbolTable || new Map<string, Symbol>(),
             loaderFields: new Map<string, Symbol>(),
+            flags: TypeFlags.Instantiable | TypeFlags.Instantiable,
         };
         return newModuleType;
     }
@@ -266,6 +290,7 @@ export namespace ClassType {
                 docString,
             },
             skipAbstractClassTest: false,
+            flags: TypeFlags.Instantiable,
         };
 
         return newClass;
@@ -582,6 +607,7 @@ export namespace ObjectType {
         const newObjectType: ObjectType = {
             category: TypeCategory.Object,
             classType,
+            flags: TypeFlags.Instance,
         };
         return newObjectType;
     }
@@ -687,15 +713,24 @@ export interface FunctionType extends TypeBase {
 }
 
 export namespace FunctionType {
-    export function create(name: string, flags: FunctionTypeFlags, docString?: string) {
+    export function createInstance(name: string, functionFlags: FunctionTypeFlags, docString?: string) {
+        return create(name, functionFlags, TypeFlags.Instance, docString);
+    }
+
+    export function createInstantiable(name: string, functionFlags: FunctionTypeFlags, docString?: string) {
+        return create(name, functionFlags, TypeFlags.Instantiable, docString);
+    }
+
+    function create(name: string, functionFlags: FunctionTypeFlags, typeFlags: TypeFlags, docString?: string) {
         const newFunctionType: FunctionType = {
             category: TypeCategory.Function,
             details: {
                 name,
-                flags,
+                flags: functionFlags,
                 parameters: [],
                 docString,
             },
+            flags: typeFlags,
         };
         return newFunctionType;
     }
@@ -703,7 +738,7 @@ export namespace FunctionType {
     // Creates a deep copy of the function type, including a fresh
     // version of _functionDetails.
     export function clone(type: FunctionType, deleteFirstParam = false): FunctionType {
-        const newFunction = create(type.details.name, type.details.flags, type.details.docString);
+        const newFunction = create(type.details.name, type.details.flags, type.flags, type.details.docString);
         const startParam = deleteFirstParam ? 1 : 0;
 
         newFunction.details = {
@@ -736,6 +771,22 @@ export namespace FunctionType {
         return newFunction;
     }
 
+    export function cloneAsInstance(type: FunctionType) {
+        assert(TypeBase.isInstantiable(type));
+        const newInstance: FunctionType = { ...type };
+        newInstance.flags &= ~TypeFlags.Instantiable;
+        newInstance.flags |= TypeFlags.Instance;
+        return newInstance;
+    }
+
+    export function cloneAsInstantiable(type: FunctionType) {
+        assert(TypeBase.isInstance(type));
+        const newInstance: FunctionType = { ...type };
+        newInstance.flags &= ~TypeFlags.Instance;
+        newInstance.flags |= TypeFlags.Instantiable;
+        return newInstance;
+    }
+
     // Creates a shallow copy of the function type with new
     // specialized types. The clone shares the _functionDetails
     // with the object being cloned.
@@ -744,7 +795,7 @@ export namespace FunctionType {
         specializedTypes: SpecializedFunctionTypes,
         specializedInferredReturnType: Type | undefined
     ): FunctionType {
-        const newFunction = create(type.details.name, type.details.flags, type.details.docString);
+        const newFunction = create(type.details.name, type.details.flags, type.flags, type.details.docString);
         newFunction.details = type.details;
 
         assert(specializedTypes.parameterTypes.length === type.details.parameters.length);
@@ -760,7 +811,7 @@ export namespace FunctionType {
     // Creates a new function based on the parameters of another function. If
     // paramTemplate is undefined, use default (generic) parameters.
     export function cloneForParameterSpecification(type: FunctionType, paramTemplate: FunctionType | undefined) {
-        const newFunction = create(type.details.name, type.details.flags, type.details.docString);
+        const newFunction = create(type.details.name, type.details.flags, type.flags, type.details.docString);
 
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
@@ -887,6 +938,7 @@ export namespace OverloadedFunctionType {
         const newType: OverloadedFunctionType = {
             category: TypeCategory.OverloadedFunction,
             overloads,
+            flags: TypeFlags.Instance,
         };
         return newType;
     }
@@ -903,6 +955,7 @@ export interface NoneType extends TypeBase {
 export namespace NoneType {
     const _noneInstance: NoneType = {
         category: TypeCategory.None,
+        flags: TypeFlags.Instance | TypeFlags.Instantiable,
     };
 
     export function create() {
@@ -917,6 +970,7 @@ export interface NeverType extends TypeBase {
 export namespace NeverType {
     const _neverInstance: NeverType = {
         category: TypeCategory.Never,
+        flags: TypeFlags.Instance | TypeFlags.Instantiable,
     };
 
     export function create() {
@@ -933,10 +987,12 @@ export namespace AnyType {
     const _anyInstance: AnyType = {
         category: TypeCategory.Any,
         isEllipsis: false,
+        flags: TypeFlags.Instance | TypeFlags.Instantiable,
     };
     const _ellipsisInstance: AnyType = {
         category: TypeCategory.Any,
         isEllipsis: true,
+        flags: TypeFlags.Instance | TypeFlags.Instantiable,
     };
 
     export function create(isEllipsis = false) {
@@ -950,11 +1006,14 @@ export interface UnionType extends TypeBase {
 }
 
 export namespace UnionType {
-    export function create() {
+    export function create(subtypes: Type[] = []) {
         const newUnionType: UnionType = {
             category: TypeCategory.Union,
             subtypes: [],
+            flags: TypeFlags.Instance | TypeFlags.Instantiable,
         };
+
+        addTypes(newUnionType, subtypes);
 
         return newUnionType;
     }
@@ -963,6 +1022,7 @@ export namespace UnionType {
         for (const newType of subtypes) {
             assert(newType.category !== TypeCategory.Union);
             assert(newType.category !== TypeCategory.Never);
+            unionType.flags &= newType.flags;
             unionType.subtypes.push(newType);
         }
     }
@@ -987,7 +1047,31 @@ export interface TypeVarType extends TypeBase {
 }
 
 export namespace TypeVarType {
-    export function create(name: string, isParameterSpec: boolean, isSynthesized = false) {
+    export function createInstance(name: string, isParameterSpec: boolean, isSynthesized = false) {
+        return create(name, isParameterSpec, isSynthesized, TypeFlags.Instance);
+    }
+
+    export function createInstantiable(name: string, isParameterSpec: boolean, isSynthesized = false) {
+        return create(name, isParameterSpec, isSynthesized, TypeFlags.Instantiable);
+    }
+
+    export function cloneAsInstance(type: TypeVarType) {
+        assert(TypeBase.isInstantiable(type));
+        const newInstance: TypeVarType = { ...type };
+        newInstance.flags &= ~TypeFlags.Instantiable;
+        newInstance.flags |= TypeFlags.Instance;
+        return newInstance;
+    }
+
+    export function cloneAsInstantiable(type: TypeVarType) {
+        assert(TypeBase.isInstance(type));
+        const newInstance: TypeVarType = { ...type };
+        newInstance.flags &= ~TypeFlags.Instance;
+        newInstance.flags |= TypeFlags.Instantiable;
+        return newInstance;
+    }
+
+    function create(name: string, isParameterSpec: boolean, isSynthesized: boolean, typeFlags: TypeFlags) {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
             name,
@@ -996,6 +1080,7 @@ export namespace TypeVarType {
             isContravariant: false,
             isParameterSpec,
             isSynthesized,
+            flags: typeFlags,
         };
         return newTypeVarType;
     }
@@ -1272,27 +1357,18 @@ export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolea
 
 // Determines whether the specified type is a type that can be
 // combined with other types for a union.
-export function canUnionType(type: Type, expectingType: boolean): boolean {
-    switch (type.category) {
-        // Any can be interpreted as either a class or
-        // an instance depending on context.
-        case TypeCategory.Any:
-            return expectingType;
+export function isUnionableType(subtypes: Type[]): boolean {
+    let typeFlags = TypeFlags.Instance | TypeFlags.Instantiable;
 
-        case TypeCategory.Class:
-        case TypeCategory.Function:
-        case TypeCategory.None:
-        case TypeCategory.OverloadedFunction:
-        case TypeCategory.TypeVar:
-            return true;
-
-        case TypeCategory.Union: {
-            return !type.subtypes.some((subtype) => !canUnionType(subtype, expectingType));
-        }
-
-        default:
-            return false;
+    for (const subtype of subtypes) {
+        typeFlags &= subtype.flags;
     }
+
+    // All subtypes need to be instantiable. Some types (like Any
+    // and None) are both instances and instantiable. It's OK to
+    // include some of these, but at least one subtype needs to
+    // be definitively instantiable (not an instance).
+    return (typeFlags & TypeFlags.Instantiable) !== 0 && (typeFlags & TypeFlags.Instance) === 0;
 }
 
 // Combines multiple types into a single type. If the types are
@@ -1355,10 +1431,7 @@ export function combineTypes(types: Type[]): Type {
         return resultingTypes[0];
     }
 
-    const unionType = UnionType.create();
-    UnionType.addTypes(unionType, resultingTypes);
-
-    return unionType;
+    return UnionType.create(resultingTypes);
 }
 
 // Determines whether the dest type is the same as the source type with

@@ -27,6 +27,7 @@ import {
     OverloadedFunctionType,
     SpecializedFunctionTypes,
     Type,
+    TypeBase,
     TypeCategory,
     TypeVarType,
     UnknownType,
@@ -473,6 +474,13 @@ export function specializeType(
         if (typeVarMap) {
             const replacementType = typeVarMap.getTypeVar(type.name);
             if (replacementType) {
+                // If we're replacing a TypeVar with another type and the
+                // original is not an instance, convert the replacement so it's also
+                // not an instance. This happens in the case where a type alias refers
+                // to a union that includes a TypeVar.
+                if (TypeBase.isInstantiable(type) && !TypeBase.isInstantiable(replacementType)) {
+                    return convertToInstantiable(replacementType);
+                }
                 return replacementType;
             }
         }
@@ -697,7 +705,7 @@ export function getMetaclass(type: ClassType, recursionCount = 0): ClassType | U
 // but removing any duplicates.
 export function addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarType[]) {
     for (const type2 of list2) {
-        if (!list1.find((type1) => type1 === type2)) {
+        if (!list1.find((type1) => isTypeSame(type1, type2))) {
             list1.push(type2);
         }
     }
@@ -1036,10 +1044,52 @@ export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type
     return undefined;
 }
 
-export function convertClassToObject(type: Type): Type {
+export function convertToInstance(type: Type): Type {
     return doForSubtypes(type, (subtype) => {
-        if (subtype.category === TypeCategory.Class) {
-            return ObjectType.create(subtype);
+        switch (subtype.category) {
+            case TypeCategory.Class: {
+                return ObjectType.create(subtype);
+            }
+
+            case TypeCategory.Function: {
+                if (TypeBase.isInstantiable(subtype)) {
+                    return FunctionType.cloneAsInstance(subtype);
+                }
+                break;
+            }
+
+            case TypeCategory.TypeVar: {
+                if (TypeBase.isInstantiable(subtype)) {
+                    return TypeVarType.cloneAsInstance(subtype);
+                }
+                break;
+            }
+        }
+
+        return subtype;
+    });
+}
+
+export function convertToInstantiable(type: Type): Type {
+    return doForSubtypes(type, (subtype) => {
+        switch (subtype.category) {
+            case TypeCategory.Object: {
+                return subtype.classType;
+            }
+
+            case TypeCategory.Function: {
+                if (TypeBase.isInstance(subtype)) {
+                    return FunctionType.cloneAsInstantiable(subtype);
+                }
+                break;
+            }
+
+            case TypeCategory.TypeVar: {
+                if (TypeBase.isInstance(subtype)) {
+                    return TypeVarType.cloneAsInstantiable(subtype);
+                }
+                break;
+            }
         }
 
         return subtype;
@@ -1211,28 +1261,6 @@ export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel = 0
 
     // In all other cases, treat as unknown.
     return UnknownType.create();
-}
-
-export function isValidTypeAliasType(type: Type): boolean {
-    switch (type.category) {
-        case TypeCategory.Any:
-        case TypeCategory.Unknown:
-        case TypeCategory.Class:
-        case TypeCategory.Function:
-        case TypeCategory.OverloadedFunction:
-        case TypeCategory.None:
-        case TypeCategory.TypeVar:
-            return true;
-
-        case TypeCategory.Unbound:
-        case TypeCategory.Never:
-        case TypeCategory.Object:
-        case TypeCategory.Module:
-            return false;
-
-        case TypeCategory.Union:
-            return type.subtypes.find((t) => !isValidTypeAliasType(t)) === undefined;
-    }
 }
 
 function _specializeOverloadedFunctionType(

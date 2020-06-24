@@ -7,10 +7,5 @@ import typing as typ
 
 a: typing.Literal[True] = True
 b: t.Literal["Hello"] = "Hello"
-
-# This will generate an error because the special-case
-# logic in the parser is limited to "typing" and "t".
-c: typ.Literal[True] = True
-
-
+c: typ.Literal[True, "Hello"] = True
 

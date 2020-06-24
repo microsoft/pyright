@@ -332,7 +332,6 @@ export namespace Localizer {
             new ParameterizedString<{ text: string }>(getRawString('Diagnostic.invalidTokenChars'));
         export const keyRequiredDeleted = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.keyRequiredDeleted'));
-        export const keywordInAnnotation = () => getRawString('Diagnostic.keywordInAnnotation');
         export const keyValueInSet = () => getRawString('Diagnostic.keyValueInSet');
         export const lambdaReturnTypeUnknown = () => getRawString('Diagnostic.lambdaReturnTypeUnknown');
         export const lambdaReturnTypePartiallyUnknown = () =>
@@ -389,7 +388,6 @@ export namespace Localizer {
         export const noReturnContainsReturn = () => getRawString('Diagnostic.noReturnContainsReturn');
         export const noReturnContainsYield = () => getRawString('Diagnostic.noReturnContainsYield');
         export const noReturnReturnsNone = () => getRawString('Diagnostic.noReturnReturnsNone');
-        export const numericLiteralInAnnotation = () => getRawString('Diagnostic.numericLiteralInAnnotation');
         export const objectNotCallable = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.objectNotCallable'));
         export const obscuredClassDeclaration = () =>
@@ -476,7 +474,6 @@ export namespace Localizer {
         export const typeAliasNotInModule = () => getRawString('Diagnostic.typeAliasNotInModule');
         export const typeAliasRedeclared = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasRedeclared'));
-        export const typeAliasInvalidType = () => getRawString('Diagnostic.typeAliasInvalidType');
         export const typeArgsExpectingNone = () => getRawString('Diagnostic.typeArgsExpectingNone');
         export const typeArgsMismatchOne = () =>
             new ParameterizedString<{ received: number }>(getRawString('Diagnostic.typeArgsMismatchOne'));
@@ -733,6 +730,8 @@ export namespace Localizer {
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.typeIncompatible')
             );
+        export const typeNotClass = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typeNotClass'));
         export const typeParamSpec = () =>
             new ParameterizedString<{ type: string; name: string }>(getRawString('DiagnosticAddendum.typeParamSpec'));
         export const typeNotStringLiteral = () =>

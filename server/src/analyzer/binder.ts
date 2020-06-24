@@ -2339,6 +2339,10 @@ export class Binder extends ParseTreeWalker {
             return false;
         }
 
+        if (this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V39 && !this._fileInfo.isStubFile) {
+            return false;
+        }
+
         return this._isTypingAnnotation(typeAnnotation, 'TypeAlias');
     }
 

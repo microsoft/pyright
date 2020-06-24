@@ -2305,11 +2305,7 @@ export class Parser {
         }
 
         if (nextToken.type === TokenType.Number) {
-            const numberNode = NumberNode.create(this._getNextToken() as NumberToken);
-            if (this._isParsingTypeAnnotation) {
-                this._addError(Localizer.Diagnostic.numericLiteralInAnnotation(), numberNode);
-            }
-            return numberNode;
+            return NumberNode.create(this._getNextToken() as NumberToken);
         }
 
         if (nextToken.type === TokenType.Identifier) {
@@ -2374,15 +2370,7 @@ export class Parser {
                 keywordToken.keywordType === KeywordType.Debug ||
                 keywordToken.keywordType === KeywordType.None
             ) {
-                const constNode = ConstantNode.create(this._getNextToken() as KeywordToken);
-
-                if (this._isParsingTypeAnnotation) {
-                    if (keywordToken.keywordType !== KeywordType.None) {
-                        this._addError(Localizer.Diagnostic.keywordInAnnotation(), constNode);
-                    }
-                }
-
-                return constNode;
+                return ConstantNode.create(this._getNextToken() as KeywordToken);
             }
 
             // Make an identifier out of the keyword.
