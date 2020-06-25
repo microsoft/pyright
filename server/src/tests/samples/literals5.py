@@ -18,3 +18,12 @@ NotNumeric = Union[Literal[1, 3], int]
 # This should generate an error because NotNumeric
 # isn't a legal literal.
 DerivedLiteral2 = Literal[NotNumeric, 3]
+
+
+ReadOnlyMode = Literal["r", "r+"]
+WriteAndTruncateMode = Literal["w", "w+", "wt", "w+t"]
+WriteNoTruncateMode = Literal["r+", "r+t"]
+AppendMode = Literal["a", "a+", "at", "a+t"]
+
+AllModes = Literal[ReadOnlyMode, WriteAndTruncateMode, WriteNoTruncateMode, AppendMode]
+

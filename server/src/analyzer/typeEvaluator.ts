@@ -2372,11 +2372,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const typeList = targetTypes[index];
             let targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
 
-            // If the target uses an unpack operator, wrap the target type in an iterable.
+            // If the target uses an unpack operator, wrap the target type in a list.
             if (index === unpackIndex) {
-                const iterableType = getBuiltInType(expr, 'Iterable');
-                if (iterableType.category === TypeCategory.Class) {
-                    targetType = ObjectType.create(ClassType.cloneForSpecialization(iterableType, [targetType]));
+                const listType = getBuiltInType(expr, 'List');
+                if (listType.category === TypeCategory.Class) {
+                    targetType = ObjectType.create(ClassType.cloneForSpecialization(listType, [targetType]));
                 }
             }
 
@@ -7073,7 +7073,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // Is this a type alias to an existing literal type?
                     let isLiteralType = true;
 
-                    doForSubtypes(exprType.type, subtype => {
+                    doForSubtypes(exprType.type, (subtype) => {
                         if (subtype.category !== TypeCategory.Class || subtype.literalValue === undefined) {
                             isLiteralType = false;
                         }
