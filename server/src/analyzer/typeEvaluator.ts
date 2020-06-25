@@ -13356,6 +13356,40 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 }
 
+                // If one or more subtypes are pseudo-generic, remove any other pseudo-generics
+                // of the same type because we don't print type arguments for pseudo-generic
+                // types, and we'll end up displaying seemingly-duplicated types.
+                const isPseudoGeneric = (type: Type) =>
+                    (type.category === TypeCategory.Class && ClassType.isPseudoGenericClass(type)) ||
+                    (type.category === TypeCategory.Object && ClassType.isPseudoGenericClass(type.classType));
+                if (subtypes.some((t) => isPseudoGeneric(t))) {
+                    const filteredSubtypes: Type[] = [];
+                    subtypes.forEach((type) => {
+                        if (!isPseudoGeneric(type)) {
+                            filteredSubtypes.push(type);
+                        } else if (type.category === TypeCategory.Class) {
+                            if (
+                                !filteredSubtypes.some(
+                                    (t) => t.category === TypeCategory.Class && ClassType.isSameGenericClass(t, type)
+                                )
+                            ) {
+                                filteredSubtypes.push(type);
+                            }
+                        } else if (type.category === TypeCategory.Object) {
+                            if (
+                                !filteredSubtypes.some(
+                                    (t) =>
+                                        t.category === TypeCategory.Object &&
+                                        ClassType.isSameGenericClass(t.classType, type.classType)
+                                )
+                            ) {
+                                filteredSubtypes.push(type);
+                            }
+                        }
+                    });
+                    subtypes = filteredSubtypes;
+                }
+
                 const isLiteral = (type: Type) =>
                     type.category === TypeCategory.Object && type.classType.literalValue !== undefined;
 
