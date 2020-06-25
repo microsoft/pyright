@@ -313,7 +313,7 @@ export namespace ClassType {
         return newClassType;
     }
 
-    export function cloneWithLiteral(classType: ClassType, value?: LiteralValue): ClassType {
+    export function cloneWithLiteral(classType: ClassType, value: LiteralValue | undefined): ClassType {
         const newClassType = create(classType.details.name, classType.details.flags, classType.details.typeSourceId);
         newClassType.details = classType.details;
         if (classType.typeArguments) {
@@ -1451,7 +1451,7 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
 
     if (srcType.category === TypeCategory.Object && srcType.classType.literalValue !== undefined) {
         // Strip the literal.
-        srcType = ObjectType.create(srcType.classType);
+        srcType = ObjectType.create(ClassType.cloneWithLiteral(srcType.classType, undefined));
         return isTypeSame(destType, srcType);
     }
 
@@ -1483,7 +1483,7 @@ function _addTypeIfUnique(types: Type[], typeToAdd: Type) {
                     typeToAdd.classType.literalValue !== undefined &&
                     !typeToAdd.classType.literalValue === type.classType.literalValue
                 ) {
-                    types[i] = ObjectType.create(type.classType);
+                    types[i] = ObjectType.create(ClassType.cloneWithLiteral(type.classType, undefined));
                     return;
                 }
             }
