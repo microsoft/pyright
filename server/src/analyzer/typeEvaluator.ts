@@ -7059,15 +7059,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
             }
 
-            // See if this is an enum type.
             if (!type) {
-                const possibleEnumType = getTypeOfExpression(item);
+                const exprType = getTypeOfExpression(item);
+
+                // Is this an enum type?
                 if (
-                    possibleEnumType.type.category === TypeCategory.Object &&
-                    ClassType.isEnumClass(possibleEnumType.type.classType) &&
-                    possibleEnumType.type.classType.literalValue !== undefined
+                    exprType.type.category === TypeCategory.Object &&
+                    ClassType.isEnumClass(exprType.type.classType) &&
+                    exprType.type.classType.literalValue !== undefined
                 ) {
-                    type = possibleEnumType.type.classType;
+                    type = exprType.type.classType;
+                } else {
+                    // Is this a type alias to an existing literal type?
+                    let isLiteralType = true;
+
+                    doForSubtypes(exprType.type, subtype => {
+                        if (subtype.category !== TypeCategory.Class || subtype.literalValue === undefined) {
+                            isLiteralType = false;
+                        }
+                        return undefined;
+                    });
+
+                    if (isLiteralType) {
+                        type = exprType.type;
+                    }
                 }
             }
 
