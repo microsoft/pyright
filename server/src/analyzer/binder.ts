@@ -331,10 +331,21 @@ export class Binder extends ParseTreeWalker {
             // Note that __class__, __dict__ and __doc__ are skipped here
             // because the builtins.pyi type stub declares these in the
             // 'object' class.
+            this._addBuiltInSymbolToCurrentScope('__base__', node, 'Any');
+            this._addBuiltInSymbolToCurrentScope('__bases__', node, 'Any');
+            this._addBuiltInSymbolToCurrentScope('__basicsize__', node, 'int');
+            this._addBuiltInSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');
+            this._addBuiltInSymbolToCurrentScope('__dictoffset__', node, 'int');
+            this._addBuiltInSymbolToCurrentScope('__flags__', node, 'int');
+            this._addBuiltInSymbolToCurrentScope('__itemsize__', node, 'int');
+            this._addBuiltInSymbolToCurrentScope('__module__', node, 'str');
+            this._addBuiltInSymbolToCurrentScope('__mro__', node, 'Any');
             this._addBuiltInSymbolToCurrentScope('__name__', node, 'str');
-            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
+            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V30) {
                 this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str');
+                this._addBuiltInSymbolToCurrentScope('__text_signature__', node, 'str');
             }
+            this._addBuiltInSymbolToCurrentScope('__subclasses__', node, 'Any');
 
             // Analyze the suite.
             this.walk(node.suite);

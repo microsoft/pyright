@@ -10891,10 +10891,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const classTypeInfo = getTypeOfClass(classNode);
                     return classTypeInfo ? classTypeInfo.classType : undefined;
                 }
+
                 const strType = getBuiltInObject(declaration.node, 'str');
-                if (strType.category === TypeCategory.Object) {
+                const intType = getBuiltInObject(declaration.node, 'int');
+                if (intType.category === TypeCategory.Object && strType.category === TypeCategory.Object) {
                     if (declaration.intrinsicType === 'str') {
                         return strType;
+                    }
+
+                    if (declaration.intrinsicType === 'int') {
+                        return intType;
                     }
 
                     if (declaration.intrinsicType === 'Iterable[str]') {
