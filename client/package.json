@@ -169,14 +169,12 @@
     },
     "scripts": {
         "vscode:prepublish": "npm run build",
-        "build": "tsc -p ./",
-        "update-vscode": "node ./node_modules/vscode/bin/install",
-        "postinstall": "node ./node_modules/vscode/bin/install"
+        "build": "tsc -p ./"
     },
     "devDependencies": {
+        "@types/vscode": "^1.46.0",
         "typescript": "^3.9.5",
-        "vsce": "^1.77.0",
-        "vscode": "^1.1.37"
+        "vsce": "^1.77.0"
     },
     "dependencies": {
         "leven": "^3.1.0",
