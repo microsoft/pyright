@@ -14,6 +14,7 @@ import {
     DocumentSymbol,
     SymbolInformation,
 } from 'vscode-languageserver';
+import { isMainThread } from 'worker_threads';
 
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
@@ -23,6 +24,7 @@ import { convertLevelToCategory, Diagnostic, DiagnosticCategory } from '../commo
 import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSink';
 import { TextEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
+import { LogTracker } from '../common/logTracker';
 import { getFileName, normalizeSlashes } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { DocumentRange, getEmptyRange, Position, TextRange } from '../common/textRange';
@@ -144,9 +146,16 @@ export class SourceFile {
     private _typingModulePath?: string;
     private _collectionsModulePath?: string;
 
+    private _logTracker: LogTracker;
     readonly fileSystem: FileSystem;
 
-    constructor(fs: FileSystem, filePath: string, isThirdPartyImport: boolean, console?: ConsoleInterface) {
+    constructor(
+        fs: FileSystem,
+        filePath: string,
+        isThirdPartyImport: boolean,
+        console?: ConsoleInterface,
+        logTracker?: LogTracker
+    ) {
         this.fileSystem = fs;
         this._console = console || new StandardConsole();
         this._filePath = filePath;
@@ -170,6 +179,9 @@ export class SourceFile {
                 this._isBuiltInStubFile = true;
             }
         }
+
+        // 'FG' or 'BG' based on current thread.
+        this._logTracker = logTracker ?? new LogTracker(console, isMainThread ? 'FG' : 'BG');
     }
 
     getFilePath(): string {
@@ -433,113 +445,117 @@ export class SourceFile {
     // (or at least cancel) prior to calling again. It returns true if a parse
     // was required and false if the parse information was up to date already.
     parse(configOptions: ConfigOptions, importResolver: ImportResolver): boolean {
-        // If the file is already parsed, we can skip.
-        if (!this.isParseRequired()) {
-            return false;
-        }
-
-        const diagSink = new DiagnosticSink();
-        let fileContents = this._fileContents;
-        if (this._clientVersion === null) {
-            try {
-                timingStats.readFileTime.timeOperation(() => {
-                    // Read the file's contents.
-                    fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
-
-                    // Remember the length and hash for comparison purposes.
-                    this._lastFileContentLength = fileContents.length;
-                    this._lastFileContentHash = StringUtils.hashString(fileContents);
-                });
-            } catch (error) {
-                diagSink.addError(`Source file could not be read`, getEmptyRange());
-                fileContents = '';
-
-                if (!this.fileSystem.existsSync(this._filePath)) {
-                    this._isFileDeleted = true;
-                }
+        return this._logTracker.log(`parsing: ${this._filePath}`, (ls) => {
+            // If the file is already parsed, we can skip.
+            if (!this.isParseRequired()) {
+                ls.add(`cache hit`);
+                return false;
             }
-        }
-
-        // Use the configuration options to determine the environment in which
-        // this source file will be executed.
-        const execEnvironment = configOptions.findExecEnvironment(this._filePath);
-
-        const parseOptions = new ParseOptions();
-        if (this._filePath.endsWith('pyi')) {
-            parseOptions.isStubFile = true;
-        }
-        parseOptions.pythonVersion = execEnvironment.pythonVersion;
-
-        try {
-            // Parse the token stream, building the abstract syntax tree.
-            const parser = new Parser();
-            const parseResults = parser.parseSourceFile(fileContents!, parseOptions, diagSink);
-            assert(parseResults !== undefined && parseResults.tokenizerOutput !== undefined);
-            this._parseResults = parseResults;
-
-            // Resolve imports.
-            timingStats.resolveImportsTime.timeOperation(() => {
-                [
-                    this._imports,
-                    this._builtinsImport,
-                    this._typingModulePath,
-                    this._collectionsModulePath,
-                ] = this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
-                this._parseDiagnostics = diagSink.fetchAndClear();
-            });
-
-            // Is this file in a "strict" path?
-            const useStrict =
-                configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._filePath)) !== undefined;
-
-            this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
-                this._parseResults.tokenizerOutput.tokens,
-                configOptions.diagnosticRuleSet,
-                useStrict
-            );
-        } catch (e) {
-            const message: string =
-                (e.stack ? e.stack.toString() : undefined) ||
-                (typeof e.message === 'string' ? e.message : undefined) ||
-                JSON.stringify(e);
-            this._console.error(`An internal error occurred while parsing ${this.getFilePath()}: ` + message);
-
-            // Create dummy parse results.
-            this._parseResults = {
-                text: '',
-                parseTree: ModuleNode.create({ start: 0, length: 0 }),
-                importedModules: [],
-                futureImports: new Map<string, boolean>(),
-                tokenizerOutput: {
-                    tokens: new TextRangeCollection<Token>([]),
-                    lines: new TextRangeCollection<TextRange>([]),
-                    typeIgnoreAll: false,
-                    typeIgnoreLines: {},
-                    predominantEndOfLineSequence: '\n',
-                    predominantTabSequence: '    ',
-                    predominantSingleQuoteCharacter: "'",
-                },
-                containsWildcardImport: false,
-            };
-            this._imports = undefined;
-            this._builtinsImport = undefined;
 
             const diagSink = new DiagnosticSink();
-            diagSink.addError(`An internal error occurred while parsing file`, getEmptyRange());
-            this._parseDiagnostics = diagSink.fetchAndClear();
+            let fileContents = this._fileContents;
+            if (this._clientVersion === null) {
+                try {
+                    timingStats.readFileTime.timeOperation(() => {
+                        // Read the file's contents.
+                        fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
 
-            // Do not rethrow the exception, swallow it here. Callers are not
-            // prepared to handle an exception.
-        }
+                        // Remember the length and hash for comparison purposes.
+                        this._lastFileContentLength = fileContents.length;
+                        this._lastFileContentHash = StringUtils.hashString(fileContents);
+                    });
+                } catch (error) {
+                    diagSink.addError(`Source file could not be read`, getEmptyRange());
+                    fileContents = '';
 
-        this._analyzedFileContentsVersion = this._fileContentsVersion;
-        this._isBindingNeeded = true;
-        this._isCheckingNeeded = true;
-        this._parseTreeNeedsCleaning = false;
-        this._hitMaxImportDepth = undefined;
-        this._diagnosticVersion++;
+                    if (!this.fileSystem.existsSync(this._filePath)) {
+                        this._isFileDeleted = true;
+                    }
+                }
+            }
 
-        return true;
+            // Use the configuration options to determine the environment in which
+            // this source file will be executed.
+            const execEnvironment = configOptions.findExecEnvironment(this._filePath);
+
+            const parseOptions = new ParseOptions();
+            if (this._filePath.endsWith('pyi')) {
+                parseOptions.isStubFile = true;
+            }
+            parseOptions.pythonVersion = execEnvironment.pythonVersion;
+
+            try {
+                // Parse the token stream, building the abstract syntax tree.
+                const parser = new Parser();
+                const parseResults = parser.parseSourceFile(fileContents!, parseOptions, diagSink);
+                assert(parseResults !== undefined && parseResults.tokenizerOutput !== undefined);
+                this._parseResults = parseResults;
+
+                // Resolve imports.
+                timingStats.resolveImportsTime.timeOperation(() => {
+                    [
+                        this._imports,
+                        this._builtinsImport,
+                        this._typingModulePath,
+                        this._collectionsModulePath,
+                    ] = this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
+                    this._parseDiagnostics = diagSink.fetchAndClear();
+                });
+
+                // Is this file in a "strict" path?
+                const useStrict =
+                    configOptions.strict.find((strictFileSpec) => strictFileSpec.regExp.test(this._filePath)) !==
+                    undefined;
+
+                this._diagnosticRuleSet = CommentUtils.getFileLevelDirectives(
+                    this._parseResults.tokenizerOutput.tokens,
+                    configOptions.diagnosticRuleSet,
+                    useStrict
+                );
+            } catch (e) {
+                const message: string =
+                    (e.stack ? e.stack.toString() : undefined) ||
+                    (typeof e.message === 'string' ? e.message : undefined) ||
+                    JSON.stringify(e);
+                this._console.error(`An internal error occurred while parsing ${this.getFilePath()}: ` + message);
+
+                // Create dummy parse results.
+                this._parseResults = {
+                    text: '',
+                    parseTree: ModuleNode.create({ start: 0, length: 0 }),
+                    importedModules: [],
+                    futureImports: new Map<string, boolean>(),
+                    tokenizerOutput: {
+                        tokens: new TextRangeCollection<Token>([]),
+                        lines: new TextRangeCollection<TextRange>([]),
+                        typeIgnoreAll: false,
+                        typeIgnoreLines: {},
+                        predominantEndOfLineSequence: '\n',
+                        predominantTabSequence: '    ',
+                        predominantSingleQuoteCharacter: "'",
+                    },
+                    containsWildcardImport: false,
+                };
+                this._imports = undefined;
+                this._builtinsImport = undefined;
+
+                const diagSink = new DiagnosticSink();
+                diagSink.addError(`An internal error occurred while parsing file`, getEmptyRange());
+                this._parseDiagnostics = diagSink.fetchAndClear();
+
+                // Do not rethrow the exception, swallow it here. Callers are not
+                // prepared to handle an exception.
+            }
+
+            this._analyzedFileContentsVersion = this._fileContentsVersion;
+            this._isBindingNeeded = true;
+            this._isCheckingNeeded = true;
+            this._parseTreeNeedsCleaning = false;
+            this._hitMaxImportDepth = undefined;
+            this._diagnosticVersion++;
+
+            return true;
+        });
     }
 
     getDefinitionsForPosition(
@@ -760,58 +776,60 @@ export class SourceFile {
         assert(!this._isBindingInProgress);
         assert(this._parseResults !== undefined);
 
-        try {
-            // Perform name binding.
-            timingStats.bindTime.timeOperation(() => {
-                this._cleanParseTreeIfRequired();
+        return this._logTracker.log(`binding: ${this._filePath}`, () => {
+            try {
+                // Perform name binding.
+                timingStats.bindTime.timeOperation(() => {
+                    this._cleanParseTreeIfRequired();
 
-                const fileInfo = this._buildFileInfo(
-                    configOptions,
-                    this._parseResults!.text,
-                    importLookup,
-                    builtinsScope
+                    const fileInfo = this._buildFileInfo(
+                        configOptions,
+                        this._parseResults!.text,
+                        importLookup,
+                        builtinsScope
+                    );
+                    AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
+
+                    const binder = new Binder(fileInfo);
+                    this._isBindingInProgress = true;
+                    this._binderResults = binder.bindModule(this._parseResults!.parseTree);
+
+                    // If we're in "test mode" (used for unit testing), run an additional
+                    // "test walker" over the parse tree to validate its internal consistency.
+                    if (configOptions.internalTestMode) {
+                        const testWalker = new TestWalker();
+                        testWalker.walk(this._parseResults!.parseTree);
+                    }
+
+                    this._bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
+                    const moduleScope = AnalyzerNodeInfo.getScope(this._parseResults!.parseTree);
+                    assert(moduleScope !== undefined);
+                    this._moduleSymbolTable = moduleScope!.symbolTable;
+                });
+            } catch (e) {
+                const message: string =
+                    (e.stack ? e.stack.toString() : undefined) ||
+                    (typeof e.message === 'string' ? e.message : undefined) ||
+                    JSON.stringify(e);
+                this._console.error(
+                    `An internal error occurred while performing name binding for ${this.getFilePath()}: ` + message
                 );
-                AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
 
-                const binder = new Binder(fileInfo);
-                this._isBindingInProgress = true;
-                this._binderResults = binder.bindModule(this._parseResults!.parseTree);
+                const diagSink = new DiagnosticSink();
+                diagSink.addError(`An internal error occurred while performing name binding`, getEmptyRange());
+                this._bindDiagnostics = diagSink.fetchAndClear();
 
-                // If we're in "test mode" (used for unit testing), run an additional
-                // "test walker" over the parse tree to validate its internal consistency.
-                if (configOptions.internalTestMode) {
-                    const testWalker = new TestWalker();
-                    testWalker.walk(this._parseResults!.parseTree);
-                }
+                // Do not rethrow the exception, swallow it here. Callers are not
+                // prepared to handle an exception.
+            } finally {
+                this._isBindingInProgress = false;
+            }
 
-                this._bindDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
-                const moduleScope = AnalyzerNodeInfo.getScope(this._parseResults!.parseTree);
-                assert(moduleScope !== undefined);
-                this._moduleSymbolTable = moduleScope!.symbolTable;
-            });
-        } catch (e) {
-            const message: string =
-                (e.stack ? e.stack.toString() : undefined) ||
-                (typeof e.message === 'string' ? e.message : undefined) ||
-                JSON.stringify(e);
-            this._console.error(
-                `An internal error occurred while performing name binding for ${this.getFilePath()}: ` + message
-            );
-
-            const diagSink = new DiagnosticSink();
-            diagSink.addError(`An internal error occurred while performing name binding`, getEmptyRange());
-            this._bindDiagnostics = diagSink.fetchAndClear();
-
-            // Do not rethrow the exception, swallow it here. Callers are not
-            // prepared to handle an exception.
-        } finally {
-            this._isBindingInProgress = false;
-        }
-
-        // Prepare for the next stage of the analysis.
-        this._diagnosticVersion++;
-        this._isCheckingNeeded = true;
-        this._isBindingNeeded = false;
+            // Prepare for the next stage of the analysis.
+            this._diagnosticVersion++;
+            this._isCheckingNeeded = true;
+            this._isBindingNeeded = false;
+        });
     }
 
     check(evaluator: TypeEvaluator) {
@@ -821,43 +839,45 @@ export class SourceFile {
         assert(this.isCheckingRequired());
         assert(this._parseResults !== undefined);
 
-        try {
-            timingStats.typeCheckerTime.timeOperation(() => {
-                const checker = new Checker(this._parseResults!.parseTree, evaluator);
-                checker.check();
-                this._isCheckingNeeded = false;
+        return this._logTracker.log(`checking: ${this._filePath}`, () => {
+            try {
+                timingStats.typeCheckerTime.timeOperation(() => {
+                    const checker = new Checker(this._parseResults!.parseTree, evaluator);
+                    checker.check();
+                    this._isCheckingNeeded = false;
 
-                const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
-                this._checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
-            });
-        } catch (e) {
-            const isCancellation = OperationCanceledException.is(e);
-            if (!isCancellation) {
-                const message: string =
-                    (e.stack ? e.stack.toString() : undefined) ||
-                    (typeof e.message === 'string' ? e.message : undefined) ||
-                    JSON.stringify(e);
-                this._console.error(
-                    `An internal error occurred while while performing type checking for ${this.getFilePath()}: ` +
-                        message
-                );
-                const diagSink = new DiagnosticSink();
-                diagSink.addError(`An internal error occurred while performing type checking`, getEmptyRange());
+                    const fileInfo = AnalyzerNodeInfo.getFileInfo(this._parseResults!.parseTree)!;
+                    this._checkerDiagnostics = fileInfo.diagnosticSink.fetchAndClear();
+                });
+            } catch (e) {
+                const isCancellation = OperationCanceledException.is(e);
+                if (!isCancellation) {
+                    const message: string =
+                        (e.stack ? e.stack.toString() : undefined) ||
+                        (typeof e.message === 'string' ? e.message : undefined) ||
+                        JSON.stringify(e);
+                    this._console.error(
+                        `An internal error occurred while while performing type checking for ${this.getFilePath()}: ` +
+                            message
+                    );
+                    const diagSink = new DiagnosticSink();
+                    diagSink.addError(`An internal error occurred while performing type checking`, getEmptyRange());
 
-                this._checkerDiagnostics = diagSink.fetchAndClear();
+                    this._checkerDiagnostics = diagSink.fetchAndClear();
 
-                // Mark the file as complete so we don't get into an infinite loop.
-                this._isCheckingNeeded = false;
+                    // Mark the file as complete so we don't get into an infinite loop.
+                    this._isCheckingNeeded = false;
+                }
+
+                throw e;
+            } finally {
+                // Clear any circular dependencies associated with this file.
+                // These will be detected by the program module and associated
+                // with the source file right before it is finalized.
+                this._circularDependencies = [];
+                this._diagnosticVersion++;
             }
-
-            throw e;
-        } finally {
-            // Clear any circular dependencies associated with this file.
-            // These will be detected by the program module and associated
-            // with the source file right before it is finalized.
-            this._circularDependencies = [];
-            this._diagnosticVersion++;
-        }
+        });
     }
 
     private _buildFileInfo(

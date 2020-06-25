@@ -16,6 +16,7 @@ import {
     SymbolInformation,
 } from 'vscode-languageserver';
 import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall } from 'vscode-languageserver-types';
+import { isMainThread } from 'worker_threads';
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
@@ -26,6 +27,7 @@ import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
+import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
     getDirectoryPath,
@@ -118,6 +120,7 @@ export class Program {
     private _evaluator: TypeEvaluator;
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
+    private _logTracker: LogTracker;
 
     constructor(
         initialImportResolver: ImportResolver,
@@ -126,6 +129,7 @@ export class Program {
         private _extension?: LanguageServiceExtension
     ) {
         this._console = console || new StandardConsole();
+        this._logTracker = new LogTracker(console, isMainThread ? 'FG' : 'BG');
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
         this._createNewEvaluator();
@@ -189,7 +193,7 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
-        const sourceFile = new SourceFile(this._fs, filePath, false, this._console);
+        const sourceFile = new SourceFile(this._fs, filePath, false, this._console, this._logTracker);
         sourceFileInfo = {
             sourceFile,
             isTracked: true,
@@ -209,7 +213,7 @@ export class Program {
     setFileOpened(filePath: string, version: number | null, contents: string) {
         let sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
-            const sourceFile = new SourceFile(this._fs, filePath, false, this._console);
+            const sourceFile = new SourceFile(this._fs, filePath, false, this._console, this._logTracker);
             sourceFileInfo = {
                 sourceFile,
                 isTracked: false,
@@ -524,7 +528,7 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
-        const sourceFile = new SourceFile(this._fs, filePath, false, this._console);
+        const sourceFile = new SourceFile(this._fs, filePath, false, this._console, this._logTracker);
         sourceFileInfo = {
             sourceFile,
             isTracked: true,
@@ -549,7 +553,7 @@ export class Program {
         let shadowFileInfo = this._sourceFileMap.get(shadowImplPath);
 
         if (!shadowFileInfo) {
-            const sourceFile = new SourceFile(this._fs, shadowImplPath, false, this._console);
+            const sourceFile = new SourceFile(this._fs, shadowImplPath, false, this._console, this._logTracker);
             shadowFileInfo = {
                 sourceFile,
                 isTracked: false,
@@ -679,62 +683,67 @@ export class Program {
     }
 
     private _checkTypes(fileToCheck: SourceFileInfo) {
-        // If the file isn't needed because it was eliminated from the
-        // transitive closure or deleted, skip the file rather than wasting
-        // time on it.
-        if (!this._isFileNeeded(fileToCheck)) {
-            return false;
-        }
-
-        if (!fileToCheck.sourceFile.isCheckingRequired()) {
-            return false;
-        }
-
-        if (!this._shouldCheckFile(fileToCheck)) {
-            return false;
-        }
-
-        this._bindFile(fileToCheck);
-
-        // For very large programs, we may need to discard the evaluator and
-        // its cached types to avoid running out of heap space.
-        const typeCacheSize = this._evaluator.getTypeCacheSize();
-
-        // If the type cache size has exceeded a high-water mark, query the heap usage.
-        // Don't bother doing this until we hit this point because the heap usage may not
-        // drop immediately after we empty the cache due to garbage collection timing.
-        if (typeCacheSize > 750000) {
-            const heapSizeInMb = Math.round(process.memoryUsage().heapUsed / (1024 * 1024));
-
-            // Don't allow the heap to get close to the 2GB limit imposed by
-            // the OS when running Node in a 32-bit process.
-            if (heapSizeInMb > 1536) {
-                this._console.info(`Emptying type cache to avoid heap overflow. Heap size used: ${heapSizeInMb}MB`);
-                this._createNewEvaluator();
+        return this._logTracker.log(`analyzing: ${fileToCheck.sourceFile.getFilePath()}`, (ls) => {
+            // If the file isn't needed because it was eliminated from the
+            // transitive closure or deleted, skip the file rather than wasting
+            // time on it.
+            if (!this._isFileNeeded(fileToCheck)) {
+                ls.add(`analysis not needed`);
+                return false;
             }
-        }
 
-        fileToCheck.sourceFile.check(this._evaluator);
+            if (!fileToCheck.sourceFile.isCheckingRequired()) {
+                ls.add(`cache hit`);
+                return false;
+            }
 
-        // Detect import cycles that involve the file.
-        if (this._configOptions.diagnosticRuleSet.reportImportCycles !== 'none') {
-            // Don't detect import cycles when doing type stub generation. Some
-            // third-party modules are pretty convoluted.
-            if (!this._allowedThirdPartyImports) {
-                // We need to force all of the files to be parsed and build
-                // a closure map for the files.
-                const closureMap = new Map<string, SourceFileInfo>();
-                this._getImportsRecursive(fileToCheck, closureMap, 0);
+            if (!this._shouldCheckFile(fileToCheck)) {
+                ls.add(`analysis not needed`);
+                return false;
+            }
 
-                closureMap.forEach((file) => {
-                    timingStats.cycleDetectionTime.timeOperation(() => {
-                        this._detectAndReportImportCycles(file);
+            this._bindFile(fileToCheck);
+
+            // For very large programs, we may need to discard the evaluator and
+            // its cached types to avoid running out of heap space.
+            const typeCacheSize = this._evaluator.getTypeCacheSize();
+
+            // If the type cache size has exceeded a high-water mark, query the heap usage.
+            // Don't bother doing this until we hit this point because the heap usage may not
+            // drop immediately after we empty the cache due to garbage collection timing.
+            if (typeCacheSize > 750000) {
+                const heapSizeInMb = Math.round(process.memoryUsage().heapUsed / (1024 * 1024));
+
+                // Don't allow the heap to get close to the 2GB limit imposed by
+                // the OS when running Node in a 32-bit process.
+                if (heapSizeInMb > 1536) {
+                    this._console.info(`Emptying type cache to avoid heap overflow. Heap size used: ${heapSizeInMb}MB`);
+                    this._createNewEvaluator();
+                }
+            }
+
+            fileToCheck.sourceFile.check(this._evaluator);
+
+            // Detect import cycles that involve the file.
+            if (this._configOptions.diagnosticRuleSet.reportImportCycles !== 'none') {
+                // Don't detect import cycles when doing type stub generation. Some
+                // third-party modules are pretty convoluted.
+                if (!this._allowedThirdPartyImports) {
+                    // We need to force all of the files to be parsed and build
+                    // a closure map for the files.
+                    const closureMap = new Map<string, SourceFileInfo>();
+                    this._getImportsRecursive(fileToCheck, closureMap, 0);
+
+                    closureMap.forEach((file) => {
+                        timingStats.cycleDetectionTime.timeOperation(() => {
+                            this._detectAndReportImportCycles(file);
+                        });
                     });
-                });
+                }
             }
-        }
 
-        return true;
+            return true;
+        });
     }
 
     // Builds a map of files that includes the specified file and all of the files
@@ -1686,7 +1695,8 @@ export class Program {
                         this._fs,
                         importPath,
                         importInfo.isThirdPartyImport,
-                        this._console
+                        this._console,
+                        this._logTracker
                     );
                     importedFileInfo = {
                         sourceFile,

@@ -9150,8 +9150,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (parent.nodeType === ParseNodeType.ModuleName) {
-            // A name within a module name isn't an expression,
-            // so there's nothing we can evaluate here.
+            getTypeOfExpression(lastContextualExpression);
             return;
         }
 

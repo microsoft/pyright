@@ -722,8 +722,7 @@ export class TestState {
     }
 
     verifyHover(map: { [marker: string]: { value: string; kind: string } }): void {
-        this._analyze();
-
+        // Do not force analyze, it can lead to test passing while it doesn't work in product
         for (const range of this.getRanges()) {
             const name = this.getMarkerName(range.marker!);
             const expected = map[name];
