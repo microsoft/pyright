@@ -89,7 +89,7 @@ export class HoverProvider {
                         // the top-level module, which does have a declaration.
                         typeText = '(module) ' + node.value;
                     } else {
-                        typeText = node.value + ': ' + evaluator.printType(type);
+                        typeText = node.value + ': ' + evaluator.printType(type, /* expandTypeAlias */ false);
                     }
 
                     this._addResultsPart(results.parts, typeText, true);
@@ -122,7 +122,7 @@ export class HoverProvider {
             }
 
             case DeclarationType.Variable: {
-                const label = resolvedDecl.isConstant || resolvedDecl.isFinal ? 'constant' : 'variable';
+                let label = resolvedDecl.isConstant || resolvedDecl.isFinal ? 'constant' : 'variable';
 
                 // If the named node is an aliased import symbol, we can't call
                 // getType on the original name because it's not in the symbol
@@ -146,7 +146,23 @@ export class HoverProvider {
                     }
                 }
 
-                this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(typeNode, evaluator), true);
+                // Determine if this identifier is a type alias. If so, expand
+                // the type alias when printing the type information.
+                const type = evaluator.getType(typeNode);
+                let expandTypeAlias = false;
+                if (type?.typeAliasInfo) {
+                    if (type.typeAliasInfo.aliasName === typeNode.value) {
+                        expandTypeAlias = true;
+                    }
+
+                    label = 'type alias';
+                }
+
+                this._addResultsPart(
+                    parts,
+                    `(${label}) ` + node.value + this._getTypeText(typeNode, evaluator, expandTypeAlias),
+                    true
+                );
                 this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
@@ -225,9 +241,9 @@ export class HoverProvider {
         }
     }
 
-    private static _getTypeText(node: NameNode, evaluator: TypeEvaluator): string {
+    private static _getTypeText(node: NameNode, evaluator: TypeEvaluator, expandTypeAlias = false): string {
         const type = evaluator.getType(node) || UnknownType.create();
-        return ': ' + evaluator.printType(type);
+        return ': ' + evaluator.printType(type, expandTypeAlias);
     }
 
     private static _addDocumentationPart(

@@ -447,9 +447,8 @@ export function specializeType(
     makeConcrete = false,
     recursionLevel = 0
 ): Type {
-    // Prevent infinite recursion in case a type refers to itself.
-    if (recursionLevel > 100) {
-        return AnyType.create();
+    if (recursionLevel > maxTypeRecursionCount) {
+        return type;
     }
 
     // Shortcut the operation if possible.
@@ -1045,7 +1044,7 @@ export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type
 }
 
 export function convertToInstance(type: Type): Type {
-    return doForSubtypes(type, (subtype) => {
+    let result = doForSubtypes(type, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Class: {
                 return ObjectType.create(subtype);
@@ -1068,10 +1067,22 @@ export function convertToInstance(type: Type): Type {
 
         return subtype;
     });
+
+    // Copy over any type alias information.
+    if (type.typeAliasInfo && type !== result) {
+        result = TypeBase.cloneForTypeAlias(
+            result,
+            type.typeAliasInfo.aliasName,
+            type.typeAliasInfo.typeParameters,
+            type.typeAliasInfo.typeArguments
+        );
+    }
+
+    return result;
 }
 
 export function convertToInstantiable(type: Type): Type {
-    return doForSubtypes(type, (subtype) => {
+    let result = doForSubtypes(type, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Object: {
                 return subtype.classType;
@@ -1094,6 +1105,18 @@ export function convertToInstantiable(type: Type): Type {
 
         return subtype;
     });
+
+    // Copy over any type alias information.
+    if (type.typeAliasInfo && type !== result) {
+        result = TypeBase.cloneForTypeAlias(
+            result,
+            type.typeAliasInfo.aliasName,
+            type.typeAliasInfo.typeParameters,
+            type.typeAliasInfo.typeArguments
+        );
+    }
+
+    return result;
 }
 
 export function getMembersForClass(classType: ClassType, symbolTable: SymbolTable, includeInstanceVars: boolean) {

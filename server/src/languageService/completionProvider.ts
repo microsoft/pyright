@@ -1047,16 +1047,22 @@ export class CompletionProvider {
                                 case DeclarationType.Intrinsic:
                                 case DeclarationType.Variable:
                                 case DeclarationType.Parameter:
-                                    typeDetail = name + ': ' + this._evaluator.printType(type);
+                                    typeDetail =
+                                        name + ': ' + this._evaluator.printType(type, /* expandTypeAlias */ false);
                                     break;
 
                                 case DeclarationType.Function:
                                     if (type.category === TypeCategory.OverloadedFunction) {
                                         typeDetail = type.overloads
-                                            .map((overload) => name + this._evaluator.printType(overload))
+                                            .map(
+                                                (overload) =>
+                                                    name +
+                                                    this._evaluator.printType(overload, /* expandTypeAlias */ false)
+                                            )
                                             .join('\n');
                                     } else {
-                                        typeDetail = name + ': ' + this._evaluator.printType(type);
+                                        typeDetail =
+                                            name + ': ' + this._evaluator.printType(type, /* expandTypeAlias */ false);
                                     }
                                     break;
 

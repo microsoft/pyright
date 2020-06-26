@@ -459,7 +459,7 @@ export interface TypeEvaluator {
         range: TextRange
     ) => Diagnostic | undefined;
 
-    printType: (type: Type) => string;
+    printType: (type: Type, expandTypeAlias: boolean) => string;
     printFunctionParts: (type: FunctionType) => [string[], string];
 
     getTypeCacheSize: () => number;
@@ -3445,7 +3445,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         );
                     }
 
-                    const type = specializeType(baseType, typeVarMap);
+                    let type = specializeType(baseType, typeVarMap);
+                    if (baseType.typeAliasInfo && type !== baseType) {
+                        const typeArgs: Type[] = [];
+                        baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
+                            typeArgs.push(typeVarMap.getTypeVar(typeParam.name) || UnknownType.create());
+                        });
+
+                        type = TypeBase.cloneForTypeAlias(
+                            type,
+                            baseType.typeAliasInfo.aliasName,
+                            baseType.typeAliasInfo.typeParameters,
+                            typeArgs
+                        );
+                    }
+
                     return { type, node };
                 }
             }
@@ -7485,11 +7499,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 const isTypeAlias = isDeclaredTypeAlias(node.leftExpression);
+                let typeAliasNameNode: NameNode | undefined;
                 if (isTypeAlias) {
                     flags |=
                         EvaluatorFlags.ExpectingType |
                         EvaluatorFlags.EvaluateStringLiteralAsType |
                         EvaluatorFlags.ParameterSpecificationDisallowed;
+
+                    typeAliasNameNode = (node.leftExpression as TypeAnnotationNode).valueExpression as NameNode;
+                } else {
+                    // The assignment isn't a declared type alias. See if it is potentially
+                    // a type alias. We'll consider it a potential type alias if the target
+                    // of the assignment is a simple name and this is the only place where
+                    // it is assigned.
+                    if (node.leftExpression.nodeType === ParseNodeType.Name) {
+                        const targetSymbolWithScope = lookUpSymbolRecursive(
+                            node.leftExpression,
+                            node.leftExpression.value
+                        );
+                        if (targetSymbolWithScope && targetSymbolWithScope.symbol.getDeclarations().length === 1) {
+                            typeAliasNameNode = node.leftExpression;
+                        }
+                    }
                 }
 
                 const srcTypeResult = getTypeOfExpression(node.rightExpression, declaredType, flags);
@@ -7525,6 +7556,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 rightHandType = srcType;
                 if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
                     rightHandType = transformTypeForPossibleEnumClass(node.leftExpression, rightHandType);
+                }
+
+                // If we created a placeholder type above, swap it for the actual
+                // type we created.
+                if (typeAliasNameNode) {
+                    if (TypeBase.isInstantiable(rightHandType)) {
+                        // Determine if there are any generic type parameters associated
+                        // with this type alias.
+                        const typeParameters: TypeVarType[] = [];
+
+                        // Skip this for a simple TypeVar (one that's not part of a union).
+                        if (rightHandType.category !== TypeCategory.TypeVar) {
+                            doForSubtypes(rightHandType, (subtype) => {
+                                addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(subtype));
+                                return undefined;
+                            });
+                        }
+
+                        rightHandType = TypeBase.cloneForTypeAlias(
+                            rightHandType,
+                            typeAliasNameNode.value,
+                            typeParameters.length > 0 ? typeParameters : undefined
+                        );
+                    }
                 }
             }
         }
@@ -11525,8 +11580,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         const srcMemberType = specializeType(
                             getTypeOfMember(memberInfo),
                             srcClassTypeVarMap,
-                            /* makeConcrete */ false,
-                            recursionCount + 1
+                            /* makeConcrete */ false
                         );
 
                         if (
@@ -11573,8 +11627,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const specializedSrcProtocol = specializeType(
                 genericDestType,
                 genericDestTypeVarMap,
-                /* makeConcrete */ false,
-                recursionCount + 1
+                /* makeConcrete */ false
             ) as ClassType;
             if (!verifyTypeArgumentsAssignable(destType, specializedSrcProtocol, diag, typeVarMap, recursionCount)) {
                 typesAreConsistent = false;
@@ -13201,7 +13254,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             '[' +
                             type.typeArguments
                                 .map((typeArg) => {
-                                    return printType(typeArg, recursionCount + 1);
+                                    return printType(typeArg, /* expandTypeAlias */ false, recursionCount + 1);
                                 })
                                 .join(', ') +
                             ']';
@@ -13223,7 +13276,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             '[' +
                             typeParams
                                 .map((typeParam) => {
-                                    return printType(typeParam, recursionCount + 1);
+                                    return printType(typeParam, /* expandTypeAlias */ false, recursionCount + 1);
                                 })
                                 .join(', ') +
                             ']';
@@ -13255,7 +13308,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (param.hasDeclaredType || param.isTypeInferred) {
                         const paramType = FunctionType.getEffectiveParameterType(type, index);
                         const paramTypeString =
-                            recursionCount < maxTypeRecursionCount ? printType(paramType, recursionCount + 1) : '';
+                            recursionCount < maxTypeRecursionCount
+                                ? printType(paramType, /* expandTypeAlias */ false, recursionCount + 1)
+                                : '';
                         paramString += ': ' + paramTypeString;
 
                         // PEP8 indicates that the "=" for the default value should have surrounding
@@ -13279,7 +13334,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         });
 
         const returnType = getFunctionEffectiveReturnType(type);
-        let returnTypeString = recursionCount < maxTypeRecursionCount ? printType(returnType, recursionCount + 1) : '';
+        let returnTypeString =
+            recursionCount < maxTypeRecursionCount
+                ? printType(returnType, /* expandTypeAlias */ false, recursionCount + 1)
+                : '';
 
         if (
             printTypeFlags & PrintTypeFlags.PEP604 &&
@@ -13292,9 +13350,50 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return [paramTypeStrings, returnTypeString];
     }
 
-    function printType(type: Type, recursionCount = 0): string {
+    function printType(type: Type, expandTypeAlias = false, recursionCount = 0): string {
         if (recursionCount >= maxTypeRecursionCount) {
-            return '';
+            return '...';
+        }
+
+        // If this is a type alias, use its name rather than the type
+        // it represents.
+        if (type.typeAliasInfo && !expandTypeAlias) {
+            let aliasName = type.typeAliasInfo.aliasName;
+
+            // If there is a type arguments array, it's a specialized type alias.
+            if (type.typeAliasInfo.typeArguments) {
+                if (
+                    (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
+                    type.typeAliasInfo.typeArguments.some((typeArg) => !isAnyOrUnknown(typeArg))
+                ) {
+                    aliasName +=
+                        '[' +
+                        type.typeAliasInfo.typeArguments
+                            .map((typeArg) => {
+                                return printType(typeArg, /* expandTypeAlias */ false, recursionCount + 1);
+                            })
+                            .join(', ') +
+                        ']';
+                }
+            } else {
+                if (type.typeAliasInfo.typeParameters) {
+                    if (
+                        (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
+                        type.typeAliasInfo.typeParameters.some((typeParam) => !isAnyOrUnknown(typeParam))
+                    ) {
+                        aliasName +=
+                            '[' +
+                            type.typeAliasInfo.typeParameters
+                                .map((typeParam) => {
+                                    return printType(typeParam, /* expandTypeAlias */ false, recursionCount + 1);
+                                })
+                                .join(', ') +
+                            ']';
+                    }
+                }
+            }
+
+            return aliasName;
         }
 
         switch (type.category) {
@@ -13326,7 +13425,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         const getter = getTypeOfMember(getterInfo);
                         if (getter.category === TypeCategory.Function) {
                             const returnType = getFunctionEffectiveReturnType(getter);
-                            return printType(returnType, recursionCount + 1);
+                            return printType(returnType, /* expandTypeAlias */ false, recursionCount + 1);
                         }
                     }
                 }
@@ -13346,7 +13445,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             case TypeCategory.OverloadedFunction: {
                 const overloadedType = type;
-                const overloads = overloadedType.overloads.map((overload) => printType(overload, recursionCount + 1));
+                const overloads = overloadedType.overloads.map((overload) =>
+                    printType(overload, /* expandTypeAlias */ false, recursionCount + 1)
+                );
                 return `Overload[${overloads.join(', ')}]`;
             }
 
@@ -13355,7 +13456,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 let subtypes: Type[] = unionType.subtypes;
 
                 if (subtypes.find((t) => t.category === TypeCategory.None) !== undefined) {
-                    const optionalType = printType(removeNoneFromUnion(unionType), recursionCount + 1);
+                    const optionalType = printType(
+                        removeNoneFromUnion(unionType),
+                        /* expandTypeAlias */ false,
+                        recursionCount + 1
+                    );
 
                     if (printTypeFlags & PrintTypeFlags.PEP604) {
                         return optionalType + ' | None';
@@ -13429,7 +13534,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             subtypes = subtypes.filter((t) => !isLiteral(t));
                         }
                     } else {
-                        subtypeStrings.push(printType(subtype, recursionCount + 1));
+                        subtypeStrings.push(printType(subtype, /* expandTypeAlias */ false, recursionCount + 1));
                     }
                 }
 
@@ -13451,28 +13556,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // "self" and "cls" parameters.
                 if (type.isSynthesized) {
                     if (type.boundType) {
-                        return printType(type.boundType, recursionCount + 1);
+                        return printType(type.boundType, /* expandTypeAlias */ false, recursionCount + 1);
                     }
 
                     return (printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0 ? 'Any' : 'Unknown';
                 }
 
-                const typeName = type.name;
-
                 if (type.isParameterSpec) {
-                    return `ParameterSpecification['${typeName}']`;
+                    return `ParameterSpecification('${type.name}')`;
                 }
 
-                // Print the name in a simplified form if it's embedded
-                // inside another type string.
-                if (recursionCount > 0) {
-                    return typeName;
-                }
-                const params: string[] = [`'${typeName}'`];
-                for (const constraint of type.constraints) {
-                    params.push(printType(constraint, recursionCount + 1));
-                }
-                return 'TypeVar[' + params.join(', ') + ']';
+                return `TypeVar('${type.name}')`;
             }
 
             case TypeCategory.None: {

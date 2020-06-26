@@ -91,9 +91,16 @@ export const maxTypeRecursionCount = 16;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
+interface TypeAliasInfo {
+    aliasName: string;
+    typeParameters?: TypeVarType[];
+    typeArguments?: Type[];
+}
+
 interface TypeBase {
     category: TypeCategory;
     flags: TypeFlags;
+    typeAliasInfo?: TypeAliasInfo;
 }
 
 export namespace TypeBase {
@@ -103,6 +110,18 @@ export namespace TypeBase {
 
     export function isInstance(type: TypeBase) {
         return (type.flags & TypeFlags.Instance) !== 0;
+    }
+
+    export function cloneForTypeAlias(type: Type, name: string, typeParams?: TypeVarType[], typeArgs?: Type[]): Type {
+        const typeClone = { ...type };
+
+        typeClone.typeAliasInfo = {
+            aliasName: name,
+            typeParameters: typeParams,
+            typeArguments: typeArgs,
+        };
+
+        return typeClone;
     }
 }
 
@@ -307,6 +326,9 @@ export namespace ClassType {
         if (classType.literalValue !== undefined) {
             newClassType.literalValue = classType.literalValue;
         }
+        if (classType.typeAliasInfo !== undefined) {
+            newClassType.typeAliasInfo = classType.typeAliasInfo;
+        }
         if (skipAbstractClassTest) {
             newClassType.skipAbstractClassTest = true;
         }
@@ -321,6 +343,9 @@ export namespace ClassType {
         }
         if (value !== undefined) {
             newClassType.literalValue = value;
+        }
+        if (classType.typeAliasInfo !== undefined) {
+            newClassType.typeAliasInfo = classType.typeAliasInfo;
         }
         if (classType.skipAbstractClassTest) {
             newClassType.skipAbstractClassTest = true;
@@ -757,6 +782,10 @@ export namespace FunctionType {
             newFunction.details.flags &= ~(FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.ClassMethod);
             newFunction.details.flags |= FunctionTypeFlags.StaticMethod;
             newFunction.ignoreFirstParamOfDeclaration = true;
+        }
+
+        if (type.typeAliasInfo !== undefined) {
+            newFunction.typeAliasInfo = type.typeAliasInfo;
         }
 
         if (type.specializedTypes) {
