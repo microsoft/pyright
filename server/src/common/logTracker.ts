@@ -22,9 +22,9 @@ export class LogTracker {
             return callback(this._dummyState);
         }
 
-        // This only get enabled when level is LogLevel.Log or not exist
+        // This is enabled only when level is LogLevel.Log or does not exist.
         const level = (this._console as any).level;
-        if (level !== undefined && level !== LogLevel.Log) {
+        if (level === undefined || level !== LogLevel.Log) {
             return callback(this._dummyState);
         }
 

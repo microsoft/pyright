@@ -401,6 +401,9 @@ export class BackgroundAnalysisRunnerBase {
             error: (msg: string) => {
                 this.log(LogLevel.Error, msg);
             },
+            // We always generate logs in the background. For the foreground,
+            // we'll decide decide based on user setting whether.
+            level: LogLevel.Log,
         };
     }
 }
