@@ -95,7 +95,16 @@
                     "type": "object",
                     "default": {},
                     "description": "Allows a user to override the severity levels for individual diagnostics.",
-                    "scope": "resource"
+                    "scope": "resource",
+                    "additionalProperties": {
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "warning",
+                            "information",
+                            "error"
+                        ]
+                    }
                 },
                 "python.analysis.logLevel": {
                     "type": "string",
