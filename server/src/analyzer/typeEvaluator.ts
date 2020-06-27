@@ -12596,6 +12596,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
+        if (srcType.category === TypeCategory.Never) {
+            // We'll allow "Never" to be assigned to a "NoReturn" type. This is
+            // the recommended way to handle exhausted matching of enums.
+            if (destType.category === TypeCategory.Object && ClassType.isBuiltIn(destType.classType, 'NoReturn')) {
+                return true;
+            }
+        }
+
         if (isNoneOrNever(destType)) {
             diag.addMessage(Localizer.DiagnosticAddendum.assignToNone());
             return false;
