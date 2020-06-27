@@ -1137,6 +1137,18 @@ export function getMembersForClass(classType: ClassType, symbolTable: SymbolTabl
             });
         }
     }
+
+    // If the class has a metaclass, add its members as well.
+    if (!includeInstanceVars) {
+        const metaclass = getMetaclass(classType);
+        if (metaclass && metaclass.category === TypeCategory.Class) {
+            metaclass.details.fields.forEach((symbol, name) => {
+                if (!symbolTable.get(name)) {
+                    symbolTable.set(name, symbol);
+                }
+            });
+        }
+    }
 }
 
 export function getMembersForModule(moduleType: ModuleType, symbolTable: SymbolTable) {
