@@ -1080,7 +1080,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         diag: DiagnosticAddendum,
         memberAccessFlags = MemberAccessFlags.None
     ): Type | undefined {
-        const memberInfo = getTypeFromClassMemberName(
+        let memberInfo = getTypeFromClassMemberName(
             errorNode,
             classType,
             memberName,
@@ -1088,6 +1088,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             diag,
             memberAccessFlags | MemberAccessFlags.SkipInstanceMembers
         );
+
+        // If it wasn't found on the class, see if it's part of the metaclass.
+        if (!memberInfo) {
+            const metaclass = getMetaclass(classType);
+            if (metaclass && metaclass.category === TypeCategory.Class) {
+                memberInfo = getTypeFromClassMemberName(
+                    errorNode,
+                    metaclass,
+                    memberName,
+                    usage,
+                    new DiagnosticAddendum(),
+                    memberAccessFlags | MemberAccessFlags.SkipInstanceMembers,
+                    classType
+                );
+            }
+        }
 
         let resultType = memberInfo ? memberInfo.type : undefined;
         if (resultType) {
@@ -3073,7 +3089,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         memberName: string,
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum,
-        flags: MemberAccessFlags
+        flags: MemberAccessFlags,
+        bindToClass?: ClassType
     ): ClassMemberLookup | undefined {
         // If this is a special type (like "List") that has an alias
         // class (like "list"), switch to the alias, which defines
@@ -3219,8 +3236,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (accessMethodType.category === TypeCategory.Function) {
                         // Bind the accessor to the base object type.
                         accessMethodType = bindFunctionToClassOrObject(
-                            ObjectType.create(classType),
-                            accessMethodType
+                            bindToClass || ObjectType.create(classType),
+                            accessMethodType,
+                            bindToClass !== undefined
                         ) as FunctionType;
 
                         if (usage.method === 'get') {
