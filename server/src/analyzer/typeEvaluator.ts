@@ -952,7 +952,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // Special-case the typing.pyi file, which contains some special
         // types that the type analyzer needs to interpret differently.
-        if (fileInfo.isTypingStubFile) {
+        if (fileInfo.isTypingStubFile || fileInfo.isTypingExtensionsStubFile) {
             const specialType = handleTypingStubTypeAnnotation(node);
             if (specialType) {
                 writeTypeCache(node, specialType);
@@ -7345,6 +7345,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             node.id
         );
 
+        const fileInfo = getFileInfo(node);
+        if (fileInfo.isTypingExtensionsStubFile) {
+            specialClassType.details.flags |= ClassTypeFlags.TypingExtensionClass;
+        }
+
         const baseClassName = aliasMapEntry.alias ? aliasMapEntry.alias : 'object';
 
         let aliasClass: Type | undefined;
@@ -7352,7 +7357,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             aliasClass = getBuiltInType(node, baseClassName);
         } else if (aliasMapEntry.module === 'collections') {
             // The typing.pyi file imports collections.
-            const fileInfo = getFileInfo(node);
             if (fileInfo.collectionsModulePath) {
                 const lookupResult = importLookup(fileInfo.collectionsModulePath);
                 if (lookupResult) {
@@ -7479,7 +7483,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (!rightHandType) {
             // Special-case the typing.pyi file, which contains some special
             // types that the type analyzer needs to interpret differently.
-            if (fileInfo.isTypingStubFile) {
+            if (fileInfo.isTypingStubFile || fileInfo.isTypingExtensionsStubFile) {
                 rightHandType = handleTypingStubAssignment(node);
                 if (rightHandType) {
                     writeTypeCache(node.rightExpression, rightHandType);
@@ -7618,8 +7622,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         const fileInfo = getFileInfo(node);
         let classFlags = ClassTypeFlags.None;
-        if (scope.type === ScopeType.Builtin || fileInfo.isTypingStubFile || fileInfo.isBuiltInStubFile) {
+        if (
+            scope.type === ScopeType.Builtin ||
+            fileInfo.isTypingStubFile ||
+            fileInfo.isTypingExtensionsStubFile ||
+            fileInfo.isBuiltInStubFile
+        ) {
             classFlags |= ClassTypeFlags.BuiltInClass;
+
+            if (fileInfo.isTypingExtensionsStubFile) {
+                classFlags |= ClassTypeFlags.TypingExtensionClass;
+            }
 
             if (node.name.value === 'property') {
                 classFlags |= ClassTypeFlags.PropertyClass;
@@ -7687,6 +7700,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         if (ClassType.isBuiltIn(argType, 'Protocol')) {
                             if (
                                 !fileInfo.isStubFile &&
+                                !ClassType.isTypingExtensionClass(argType) &&
                                 fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37
                             ) {
                                 addError(Localizer.Diagnostic.protocolIllegal(), arg.valueExpression);
@@ -8019,7 +8033,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             ParseTreeUtils.getDocString(node.suite.statements)
         );
 
-        if (fileInfo.isBuiltInStubFile || fileInfo.isTypingStubFile) {
+        if (fileInfo.isBuiltInStubFile || fileInfo.isTypingStubFile || fileInfo.isTypingExtensionsStubFile) {
             // Stash away the name of the function since we need to handle
             // 'namedtuple', 'abstractmethod', 'dataclass' and 'NewType'
             // specially.

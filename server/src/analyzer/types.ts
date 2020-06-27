@@ -261,6 +261,9 @@ export const enum ClassTypeFlags {
     // A protocol class that is "runtime checkable" can be used
     // in an isinstance call.
     RuntimeCheckable = 1 << 13,
+
+    // The type is defined in the typing_extensions.pyi file.
+    TypingExtensionClass = 1 << 14,
 }
 
 interface ClassDetails {
@@ -450,6 +453,10 @@ export namespace ClassType {
 
     export function isRuntimeCheckable(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.RuntimeCheckable);
+    }
+
+    export function isTypingExtensionClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.TypingExtensionClass);
     }
 
     export function getTypeParameters(classType: ClassType) {

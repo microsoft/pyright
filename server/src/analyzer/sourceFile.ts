@@ -77,6 +77,10 @@ export class SourceFile {
     // special-case handling.
     private readonly _isTypingStubFile: boolean;
 
+    // True if the file is the "typing_extensions.pyi" file, which needs
+    // special-case handling.
+    private readonly _isTypingExtensionsStubFile: boolean;
+
     // True if the file one of the other built-in stub files
     // that require special-case handling: "collections.pyi",
     // "dataclasses.pyi", "abc.pyi", "asyncio/coroutines.pyi".
@@ -164,6 +168,7 @@ export class SourceFile {
         const fileName = getFileName(filePath);
         this._isTypingStubFile =
             this._isStubFile && (fileName === 'typing.pyi' || fileName === 'typing_extensions.pyi');
+        this._isTypingExtensionsStubFile = this._isStubFile && fileName === 'typing_extensions.pyi';
 
         this._isBuiltInStubFile = false;
         if (this._isStubFile) {
@@ -903,6 +908,7 @@ export class SourceFile {
             filePath: this._filePath,
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
+            isTypingExtensionsStubFile: this._isTypingExtensionsStubFile,
             isBuiltInStubFile: this._isBuiltInStubFile,
             accessedSymbolMap: new Map<number, true>(),
         };

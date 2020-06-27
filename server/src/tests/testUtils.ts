@@ -102,6 +102,7 @@ export function buildAnalyzerFileInfo(
         filePath,
         isStubFile: filePath.endsWith('.pyi'),
         isTypingStubFile: false,
+        isTypingExtensionsStubFile: false,
         isBuiltInStubFile: false,
         accessedSymbolMap: new Map<number, true>(),
     };

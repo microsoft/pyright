@@ -37,6 +37,7 @@ export interface AnalyzerFileInfo {
     filePath: string;
     isStubFile: boolean;
     isTypingStubFile: boolean;
+    isTypingExtensionsStubFile: boolean;
     isBuiltInStubFile: boolean;
     accessedSymbolMap: Map<number, true>;
 }
