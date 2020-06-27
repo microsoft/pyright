@@ -18,7 +18,7 @@ module.exports = {
 
                 // Needed because jest calls tsc in a way that doesn't
                 // inline const enums.
-                preserveConstEnums: true,
+                preserveConstEnums: false,
             },
         },
     },
