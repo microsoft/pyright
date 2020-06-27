@@ -23,7 +23,8 @@
     ],
     "activationEvents": [
         "onLanguage:python",
-        "workspaceContains:**/pyrightconfig.json"
+        "workspaceContains:pyrightconfig.json",
+        "workspaceContains:mspythonconfig.json"
     ],
     "icon": "images/pyright-icon.png",
     "main": "./out/src/extension",
