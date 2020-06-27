@@ -941,7 +941,12 @@ export class Parser {
     // with_item: test ['as' expr]
     private _parseWithItem(): WithItemNode {
         const expr = this._parseTestExpression(true);
-        const itemNode = WithItemNode.create(expr);
+
+        // Make a shallow copy of the expression but give it a new ID.
+        const exitExpr = Object.assign({}, expr);
+        exitExpr.id = getNextNodeId();
+
+        const itemNode = WithItemNode.create(expr, exitExpr);
 
         if (this._consumeTokenIfKeyword(KeywordType.As)) {
             itemNode.target = this._parseExpression(false);

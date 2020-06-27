@@ -782,6 +782,30 @@ test('With2', () => {
     validateResults(analysisResults, 3);
 });
 
+test('With3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with3.py']);
+
+    validateResults(analysisResults, 0);
+});
+
+test('With4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with4.py']);
+
+    validateResults(analysisResults, 4);
+});
+
+test('With5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with5.py']);
+
+    validateResults(analysisResults, 0);
+});
+
+test('With6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with6.py']);
+
+    validateResults(analysisResults, 5);
+});
+
 test('ForLoops1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoops1.py']);
 

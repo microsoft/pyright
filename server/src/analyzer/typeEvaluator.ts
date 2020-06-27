@@ -83,6 +83,7 @@ import {
     FlowPostFinally,
     FlowPreFinallyGate,
     FlowWildcardImport,
+    FlowWithStatement,
     isCodeFlowSupportedForReference,
 } from './codeFlow';
 import {
@@ -9000,7 +9001,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // Verify that the target has an __exit__ or __aexit__ method defined.
         const exitMethodName = isAsync ? '__aexit__' : '__exit__';
-        doForSubtypes(exprType, (subtype) => {
+        const exitReturnType = doForSubtypes(exprType, (subtype) => {
             if (subtype.category === TypeCategory.TypeVar) {
                 subtype = specializeType(subtype, /* typeVarMap */ undefined, /* makeConcrete */ true);
             }
@@ -9022,7 +9023,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 );
 
                 if (exitType) {
-                    return undefined;
+                    if (exitType.category === TypeCategory.Function) {
+                        return getFunctionEffectiveReturnType(exitType);
+                    } else {
+                        return UnknownType.create();
+                    }
                 }
             }
 
@@ -9033,8 +9038,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 Localizer.Diagnostic.typeNotUsableWith().format({ type: printType(subtype), method: exitMethodName }),
                 node.expression
             );
-            return undefined;
+            return UnknownType.create();
         });
+
+        // Remove the awaitable if the function is async, and save the type to check
+        // whether the context manager can suppress exceptions.
+        writeTypeCache(node.exitExpression, isAsync ? getTypeFromAwaitable(exitReturnType) : exitReturnType);
 
         if (node.target) {
             assignTypeToExpression(node.target, scopedType, node.target);
@@ -9796,6 +9805,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         continue;
                     }
 
+                    if (curFlowNode.flags & FlowFlags.PostWithStatement) {
+                        curFlowNode = (curFlowNode as FlowWithStatement).antecedent;
+                        continue;
+                    }
+
                     if (curFlowNode.flags & FlowFlags.BranchLabel) {
                         const labelNode = curFlowNode as FlowLabel;
                         const typesToCombine: Type[] = [];
@@ -10026,6 +10040,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                     curFlowNode = callFlowNode.antecedent;
                     continue;
+                }
+
+                if (curFlowNode.flags & FlowFlags.PostWithStatement) {
+                    const withFlowNode = curFlowNode as FlowWithStatement;
+                    let hasSuppression = false;
+                    withFlowNode.node.withItems.forEach((item) => {
+                        if (hasSuppression === true) {
+                            return;
+                        }
+
+                        const exitReturnType = readTypeCache(item.exitExpression);
+                        if (exitReturnType === undefined) {
+                            return;
+                        }
+
+                        // If __exit__ or __aexit__ returns bool or Literal[True] then it
+                        // may catch and swallow exceptions. This means that code afterwards
+                        // that usually would be marked as unreachable should not.
+                        if (
+                            exitReturnType.category === TypeCategory.Object &&
+                            (exitReturnType.classType.literalValue === true ||
+                                (ClassType.isBuiltIn(exitReturnType.classType, 'bool') &&
+                                    exitReturnType.classType.literalValue !== false))
+                        ) {
+                            hasSuppression = true;
+                        }
+                    });
+
+                    if (hasSuppression) {
+                        return true;
+                    } else {
+                        return isFlowNodeReachableRecursive(withFlowNode.antecedent, sourceFlowNode);
+                    }
                 }
 
                 if (curFlowNode.flags & FlowFlags.Assignment) {

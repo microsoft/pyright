@@ -543,16 +543,22 @@ export interface WithItemNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.WithItem;
     expression: ExpressionNode;
     target?: ExpressionNode;
+
+    // The exitExpression is a copy of the expression
+    // node. We use it as a place to hang the result type
+    // of __(a)exit__.
+    exitExpression: ExpressionNode;
 }
 
 export namespace WithItemNode {
-    export function create(expression: ExpressionNode) {
+    export function create(expression: ExpressionNode, exitExpression: ExpressionNode) {
         const node: WithItemNode = {
             start: expression.start,
             length: expression.length,
             nodeType: ParseNodeType.WithItem,
             id: _nextNodeId++,
             expression,
+            exitExpression,
         };
 
         expression.parent = node;

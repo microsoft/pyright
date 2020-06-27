@@ -21,6 +21,7 @@ import {
     MemberAccessNode,
     NameNode,
     ParseNodeType,
+    WithNode,
 } from '../parser/parseNodes';
 
 export enum FlowFlags {
@@ -37,6 +38,7 @@ export enum FlowFlags {
     PreFinallyGate = 1 << 11, // Injected edge that links pre-finally label and pre-try flow
     PostFinally = 1 << 12, // Injected edge that links post-finally flow with the rest of the graph
     AssignmentAlias = 1 << 13, // Assigned symbol is aliased to another symbol with the same name
+    PostWithStatement = 1 << 15, // Track code after a "with" block.
 }
 
 let _nextFlowNodeId = 1;
@@ -94,6 +96,13 @@ export interface FlowCondition extends FlowNode {
 // the code flow and making subsequent code unreachable.
 export interface FlowCall extends FlowNode {
     node: CallNode;
+    antecedent: FlowNode;
+}
+
+// Record calls to context managers, which may suppress exceptions,
+// thus affecting the code following and making it reachable.
+export interface FlowWithStatement extends FlowNode {
+    node: WithNode;
     antecedent: FlowNode;
 }
 

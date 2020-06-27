@@ -86,6 +86,7 @@ import {
     FlowPostFinally,
     FlowPreFinallyGate,
     FlowWildcardImport,
+    FlowWithStatement,
     getUniqueFlowNodeId,
     isCodeFlowSupportedForReference,
 } from './codeFlow';
@@ -1366,6 +1367,7 @@ export class Binder extends ParseTreeWalker {
         });
 
         this.walk(node.suite);
+        this._createFlowPostWithStatement(node);
 
         return false;
     }
@@ -1941,6 +1943,16 @@ export class Binder extends ParseTreeWalker {
         }
 
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+    }
+
+    private _createFlowPostWithStatement(node: WithNode) {
+        const flowNode: FlowWithStatement = {
+            flags: FlowFlags.PostWithStatement,
+            id: getUniqueFlowNodeId(),
+            node,
+            antecedent: this._currentFlowNode,
+        };
+        this._currentFlowNode = flowNode;
     }
 
     private _isCodeUnreachable() {
