@@ -1805,6 +1805,10 @@ export class Parser {
 
             if (Tokenizer.isOperatorComparison(this._peekOperatorType())) {
                 comparisonOperator = this._peekOperatorType();
+                if (comparisonOperator === OperatorType.LessOrGreaterThan) {
+                    this._addError(Localizer.Diagnostic.operatorLessOrGreaterDeprecated(), peekToken);
+                    comparisonOperator = OperatorType.NotEquals;
+                }
                 this._getNextToken();
             } else if (this._consumeTokenIfKeyword(KeywordType.In)) {
                 comparisonOperator = OperatorType.In;

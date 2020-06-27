@@ -94,6 +94,7 @@ const _operatorInfo: { [key: number]: OperatorFlags } = {
     [OperatorType.GreaterThanOrEqual]: OperatorFlags.Binary | OperatorFlags.Comparison,
     [OperatorType.LeftShift]: OperatorFlags.Binary,
     [OperatorType.LeftShiftEqual]: OperatorFlags.Assignment,
+    [OperatorType.LessOrGreaterThan]: OperatorFlags.Binary | OperatorFlags.Comparison | OperatorFlags.Deprecated,
     [OperatorType.LessThan]: OperatorFlags.Binary | OperatorFlags.Comparison,
     [OperatorType.LessThanOrEqual]: OperatorFlags.Binary | OperatorFlags.Comparison,
     [OperatorType.MatrixMultiply]: OperatorFlags.Binary,
@@ -869,6 +870,9 @@ export class Tokenizer {
                 if (nextChar === Char.Less) {
                     length = this._cs.lookAhead(2) === Char.Equal ? 3 : 2;
                     operatorType = length === 3 ? OperatorType.LeftShiftEqual : OperatorType.LeftShift;
+                } else if (nextChar === Char.Greater) {
+                    length = 2;
+                    operatorType = OperatorType.LessOrGreaterThan;
                 } else {
                     length = nextChar === Char.Equal ? 2 : 1;
                     operatorType = length === 2 ? OperatorType.LessThanOrEqual : OperatorType.LessThan;

@@ -68,6 +68,7 @@ export const enum OperatorType {
     GreaterThanOrEqual,
     LeftShift,
     LeftShiftEqual,
+    LessOrGreaterThan,
     LessThan,
     LessThanOrEqual,
     MatrixMultiply,
@@ -101,6 +102,7 @@ export const enum OperatorFlags {
     Binary = 1 << 1,
     Assignment = 1 << 2,
     Comparison = 1 << 3,
+    Deprecated = 1 << 4,
 }
 
 export const enum KeywordType {

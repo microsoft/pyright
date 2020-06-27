@@ -182,6 +182,7 @@
         "obscuredFunctionDeclaration": "Function declaration \"{name}\" is obscured by a declaration of the same name",
         "obscuredParameterDeclaration": "Parameter declaration \"{name}\" is obscured by a declaration of the same name",
         "obscuredVariableDeclaration": "Declaration \"{name}\" is obscured by a declaration of the same name",
+        "operatorLessOrGreaterDeprecated": "Operator \"<>\" is not supported in Python 3; use \"!=\" instead",
         "optionalExtraArgs": "Expected one type argument after \"Optional\"",
         "paramAfterKwargsParam": "Parameter cannot follow \"**\" parameter",
         "paramAlreadyAssigned": "Parameter \"{name}\" is already assigned",

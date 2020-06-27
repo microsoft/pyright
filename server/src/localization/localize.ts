@@ -398,6 +398,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.obscuredParameterDeclaration'));
         export const obscuredVariableDeclaration = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.obscuredVariableDeclaration'));
+        export const operatorLessOrGreaterDeprecated = () => getRawString('Diagnostic.operatorLessOrGreaterDeprecated');
         export const optionalExtraArgs = () => getRawString('Diagnostic.optionalExtraArgs');
         export const paramAfterKwargsParam = () => getRawString('Diagnostic.paramAfterKwargsParam');
         export const paramAlreadyAssigned = () =>

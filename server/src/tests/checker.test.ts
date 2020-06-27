@@ -536,6 +536,12 @@ test('Operators4', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Operators5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators5.py']);
+
+    validateResults(analysisResults, 1);
+});
+
 test('Optional1', () => {
     const configOptions = new ConfigOptions('.');
 

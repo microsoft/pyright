@@ -404,6 +404,7 @@ export function printOperator(operator: OperatorType): string {
         [OperatorType.GreaterThanOrEqual]: '>=',
         [OperatorType.LeftShift]: '<<',
         [OperatorType.LeftShiftEqual]: '<<=',
+        [OperatorType.LessOrGreaterThan]: '<>',
         [OperatorType.LessThan]: '<',
         [OperatorType.LessThanOrEqual]: '<=',
         [OperatorType.MatrixMultiply]: '@',

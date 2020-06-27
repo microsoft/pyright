@@ -1259,9 +1259,9 @@ test('Operators', () => {
         '* ** / // /= //=' +
         '*= += -= %= **= ' +
         '& &= | |= ^ ^= ' +
-        ':=';
+        ':= <>';
     const results = new Tokenizer().tokenize(text);
-    const lengths = [1, 2, 3, 2, 2, 1, 2, 3, 2, 2, 1, 1, 1, 1, 1, 2, 1, 2, 2, 3, 2, 2, 2, 2, 3, 1, 2, 1, 2, 1, 2, 2];
+    const lengths = [1, 2, 3, 2, 2, 1, 2, 3, 2, 2, 1, 1, 1, 1, 1, 2, 1, 2, 2, 3, 2, 2, 2, 2, 3, 1, 2, 1, 2, 1, 2, 2, 2];
     const operatorTypes = [
         OperatorType.LessThan,
         OperatorType.LeftShift,
@@ -1295,6 +1295,7 @@ test('Operators', () => {
         OperatorType.BitwiseXor,
         OperatorType.BitwiseXorEqual,
         OperatorType.Walrus,
+        OperatorType.LessOrGreaterThan,
     ];
     assert.equal(results.tokens.count - _implicitTokenCount, lengths.length);
     assert.equal(results.tokens.count - _implicitTokenCount, operatorTypes.length);
