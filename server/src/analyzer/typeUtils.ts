@@ -604,7 +604,7 @@ export function lookUpClassMember(
             ) {
                 const memberFields = specializedMroClass.details.fields;
 
-                // Look in the instance members first if requested.
+                // Look at instance members first if requested.
                 if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
                     const symbol = memberFields.get(memberName);
                     if (symbol && symbol.isInstanceMember()) {
@@ -618,7 +618,7 @@ export function lookUpClassMember(
                     }
                 }
 
-                // Next look in the class members.
+                // Next look at class members.
                 const symbol = memberFields.get(memberName);
                 if (symbol && symbol.isClassMember()) {
                     if (!declaredTypesOnly || symbol.hasTypedDeclarations()) {

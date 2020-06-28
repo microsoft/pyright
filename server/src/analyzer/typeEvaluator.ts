@@ -2845,7 +2845,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const memberTypeResult = getTypeFromMemberAccessWithBaseType(node, baseTypeResult, { method: 'get' }, flags);
 
         if (isCodeFlowSupportedForReference(node)) {
-            // Before performing code fow analysis, update the cache to prevent recursion.
+            // Before performing code flow analysis, update the cache to prevent recursion.
             writeTypeCache(node, memberTypeResult.type);
             writeTypeCache(node.memberName, memberTypeResult.type);
 
@@ -10354,9 +10354,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         isInstanceCheck: boolean,
         isPositiveTest: boolean
     ): Type {
-        const effectiveType = doForSubtypes(type, (subtype) => {
+        let effectiveType = doForSubtypes(type, (subtype) => {
             return transformTypeObjectToClass(subtype);
         });
+
+        // Handle bound TypeVar.
+        if (effectiveType.category === TypeCategory.TypeVar) {
+            effectiveType = specializeType(effectiveType, /* typeVarMap */ undefined, /* makeConcrete */ true);
+        }
 
         // Filters the varType by the parameters of the isinstance
         // and returns the list of types the varType could be after
