@@ -637,6 +637,18 @@ export class Binder extends ParseTreeWalker {
 
         this._bindPossibleTupleNamedTarget(node.valueExpression);
         this._addTypeDeclarationForVariable(node.valueExpression, node.typeAnnotation);
+
+        // For type annotations that are not part of assignments (e.g. simple variable
+        // annotations), we need to populate the reference map. Otherwise the type
+        // analyzer's code flow engine won't run and detect cases where the variable
+        // is unbound.
+        const expressionList: NarrowingExpressionNode[] = [];
+        if (this._isNarrowingExpression(node.valueExpression, expressionList)) {
+            expressionList.forEach((expr) => {
+                const referenceKey = createKeyForReference(expr);
+                this._currentExecutionScopeReferenceMap.set(referenceKey, referenceKey);
+            });
+        }
         return true;
     }
 

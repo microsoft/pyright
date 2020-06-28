@@ -1,5 +1,5 @@
 # This sample tests the type checker's reporting of
-# incompatble declared types.
+# incompatible declared types.
 
 from typing import List
 
