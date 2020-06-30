@@ -984,16 +984,18 @@ export namespace UnpackNode {
 export interface TupleNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Tuple;
     expressions: ExpressionNode[];
+    enclosedInParens: boolean;
 }
 
 export namespace TupleNode {
-    export function create(range: TextRange) {
+    export function create(range: TextRange, enclosedInParens: boolean) {
         const node: TupleNode = {
             start: range.start,
             length: range.length,
             nodeType: ParseNodeType.Tuple,
             id: _nextNodeId++,
             expressions: [],
+            enclosedInParens,
         };
 
         return node;

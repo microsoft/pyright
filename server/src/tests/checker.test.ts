@@ -372,6 +372,20 @@ test('Unpack2', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Unpack3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Analyze with Python 3.7 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V37;
+    const analysisResults37 = TestUtils.typeAnalyzeSampleFiles(['unpack3.py'], configOptions);
+    validateResults(analysisResults37, 1);
+
+    // Analyze with Python 3.8 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V38;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['unpack3.py'], configOptions);
+    validateResults(analysisResults38, 0);
+});
+
 test('Lambda1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda1.py']);
 

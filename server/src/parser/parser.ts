@@ -444,7 +444,7 @@ export class Parser {
         const forToken = this._getKeywordToken(KeywordType.For);
 
         const exprListResult = this._parseExpressionList(true);
-        const targetExpr = this._makeExpressionOrTuple(exprListResult);
+        const targetExpr = this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ false);
         let seqExpr: ExpressionNode;
         let forSuite: SuiteNode;
         let elseSuite: SuiteNode | undefined;
@@ -533,7 +533,7 @@ export class Parser {
         const forToken = this._getKeywordToken(KeywordType.For);
 
         const exprListResult = this._parseExpressionList(true);
-        const targetExpr = this._makeExpressionOrTuple(exprListResult);
+        const targetExpr = this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ false);
         let seqExpr: ExpressionNode | undefined;
 
         if (!this._consumeTokenIfKeyword(KeywordType.In)) {
@@ -1130,7 +1130,7 @@ export class Parser {
 
         if (!this._isNextTokenNeverExpression()) {
             const returnExpr = this._parseTestOrStarListAsExpression(
-                true,
+                /* allowAssignmentExpression */ true,
                 ErrorExpressionCategory.MissingExpression,
                 Localizer.Diagnostic.expectedReturnExpr()
             );
@@ -1457,7 +1457,7 @@ export class Parser {
         let exprList: ExpressionNode | undefined;
         if (!this._isNextTokenNeverExpression()) {
             exprList = this._parseTestOrStarListAsExpression(
-                true,
+                /* allowAssignmentExpression */ true,
                 ErrorExpressionCategory.MissingExpression,
                 Localizer.Diagnostic.expectedYieldExpr()
             );
@@ -1567,7 +1567,7 @@ export class Parser {
         return this._parseExpressionStatement();
     }
 
-    private _makeExpressionOrTuple(exprListResult: ExpressionListResult): ExpressionNode {
+    private _makeExpressionOrTuple(exprListResult: ExpressionListResult, enclosedInParens: boolean): ExpressionNode {
         // A single-element tuple with no trailing comma is simply an expression
         // that's surrounded by parens.
         if (exprListResult.list.length === 1 && !exprListResult.trailingComma) {
@@ -1580,7 +1580,7 @@ export class Parser {
         const tupleStartRange: TextRange =
             exprListResult.list.length > 0 ? exprListResult.list[0] : this._peekToken(-1);
 
-        const tupleNode = TupleNode.create(tupleStartRange);
+        const tupleNode = TupleNode.create(tupleStartRange, enclosedInParens);
         tupleNode.expressions = exprListResult.list;
         if (exprListResult.list.length > 0) {
             exprListResult.list.forEach((expr) => {
@@ -1601,7 +1601,7 @@ export class Parser {
         if (exprListResult.parseError) {
             return exprListResult.parseError;
         }
-        return this._makeExpressionOrTuple(exprListResult);
+        return this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ false);
     }
 
     private _parseTestOrStarListAsExpression(
@@ -1617,7 +1617,7 @@ export class Parser {
         if (exprListResult.parseError) {
             return exprListResult.parseError;
         }
-        return this._makeExpressionOrTuple(exprListResult);
+        return this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ false);
     }
 
     private _parseExpressionList(allowStar: boolean): ExpressionListResult {
@@ -2459,7 +2459,7 @@ export class Parser {
         }
 
         const exprListResult = this._parseTestListWithComprehension();
-        const tupleOrExpression = this._makeExpressionOrTuple(exprListResult);
+        const tupleOrExpression = this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ true);
 
         if (this._peekTokenType() !== TokenType.CloseParenthesis) {
             return this._handleExpressionParseError(
@@ -2708,7 +2708,7 @@ export class Parser {
     //             '<<=' | '>>=' | '**=' | '//=')
     private _parseExpressionStatement(): ExpressionNode {
         let leftExpr = this._parseTestOrStarListAsExpression(
-            false,
+            /* allowAssignmentExpression */ false,
             ErrorExpressionCategory.MissingExpression,
             Localizer.Diagnostic.expectedExpr()
         );
@@ -2779,7 +2779,7 @@ export class Parser {
         rightExpr = this._tryParseYieldExpression();
         if (!rightExpr) {
             rightExpr = this._parseTestOrStarListAsExpression(
-                false,
+                /* allowAssignmentExpression */ false,
                 ErrorExpressionCategory.MissingExpression,
                 Localizer.Diagnostic.expectedAssignRightHandExpr()
             );
@@ -3130,9 +3130,14 @@ export class Parser {
     }
 
     // Python 3.8 added support for star (unpack) expressions in tuples
-    // following a return or yield statement.
+    // following a return or yield statement in cases where the tuple
+    // wasn't surrounded in parentheses.
     private _reportConditionalErrorForStarTupleElement(possibleTupleExpr: ExpressionNode) {
         if (possibleTupleExpr.nodeType !== ParseNodeType.Tuple) {
+            return;
+        }
+
+        if (possibleTupleExpr.enclosedInParens) {
             return;
         }
 
