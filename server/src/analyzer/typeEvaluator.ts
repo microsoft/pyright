@@ -9220,19 +9220,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return;
         }
 
-        if (parent.nodeType === ParseNodeType.TypeAnnotation) {
-            const annotationParent = parent.parent;
+        const evaluateTypeAnnotationExpression = (node: TypeAnnotationNode) => {
+            const annotationParent = node.parent;
             if (annotationParent?.nodeType === ParseNodeType.Assignment && annotationParent.leftExpression === parent) {
                 evaluateTypesForAssignmentStatement(annotationParent);
             } else {
                 const annotationType = getTypeOfAnnotation(
-                    parent.typeAnnotation,
-                    ParseTreeUtils.isFinalAllowedForAssignmentTarget(parent.valueExpression)
+                    node.typeAnnotation,
+                    ParseTreeUtils.isFinalAllowedForAssignmentTarget(node.valueExpression)
                 );
                 if (annotationType) {
-                    writeTypeCache(parent.valueExpression, annotationType);
+                    writeTypeCache(node.valueExpression, annotationType);
                 }
             }
+        };
+
+        if (parent.nodeType === ParseNodeType.TypeAnnotation) {
+            evaluateTypeAnnotationExpression(parent);
             return;
         }
 
@@ -9257,7 +9261,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             isExpressionNode(parent) && parent.nodeType !== ParseNodeType.Error
                 ? (parent as ExpressionNode)
                 : lastContextualExpression;
-        getTypeOfExpression(nodeToEvaluate);
+
+        if (nodeToEvaluate.nodeType === ParseNodeType.TypeAnnotation) {
+            evaluateTypeAnnotationExpression(nodeToEvaluate);
+        } else {
+            getTypeOfExpression(nodeToEvaluate);
+        }
     }
 
     function evaluateTypeOfParameter(node: ParameterNode): void {

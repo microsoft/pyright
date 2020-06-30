@@ -302,7 +302,7 @@ export class CompletionProvider {
                 return this._getImportFromCompletions(curNode, priorWord);
             }
 
-            if (isExpressionNode(curNode) || curNode.nodeType === ParseNodeType.Decorator) {
+            if (isExpressionNode(curNode)) {
                 return this._getExpressionCompletions(curNode, priorWord, priorText, postText);
             }
 

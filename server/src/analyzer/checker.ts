@@ -38,6 +38,7 @@ import {
     ImportFromAsNode,
     ImportFromNode,
     IndexNode,
+    isExpressionNode,
     LambdaNode,
     ListComprehensionNode,
     MemberAccessNode,
@@ -49,6 +50,7 @@ import {
     RaiseNode,
     ReturnNode,
     SliceNode,
+    StatementListNode,
     StringListNode,
     SuiteNode,
     TernaryNode,
@@ -135,6 +137,19 @@ export class Checker extends ParseTreeWalker {
         if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
         }
+    }
+
+    visitStatementList(node: StatementListNode) {
+        node.statements.forEach((statement) => {
+            if (isExpressionNode(statement) && !AnalyzerNodeInfo.isCodeUnreachable(statement)) {
+                // Evaluate the expression in case it wasn't otherwise evaluated
+                // through lazy analysis. This will mark referenced symbols as
+                // accessed and report any errors associated with it.
+                this._evaluator.getType(statement);
+            }
+        });
+
+        return true;
     }
 
     visitClass(node: ClassNode): boolean {

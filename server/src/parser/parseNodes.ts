@@ -658,7 +658,7 @@ export type ExpressionNode =
     | SetNode
     | DecoratorNode;
 
-export function isExpressionNode(node: ParseNode) {
+export function isExpressionNode(node: ParseNode): node is ExpressionNode {
     switch (node.nodeType) {
         case ParseNodeType.Error:
         case ParseNodeType.UnaryOperation:
