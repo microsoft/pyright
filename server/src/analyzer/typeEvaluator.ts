@@ -1305,19 +1305,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 case TypeCategory.Class: {
-                    // Try to get the __new__ method first. We skip the base "object",
-                    // which typically provides the __new__ method. We'll fall back on
-                    // the __init__ if there is no custom __new__.
                     let methodType: FunctionType | OverloadedFunctionType | undefined;
 
-                    // Skip the __new__ lookup for data classes, which always have a
-                    // generic synthesized new method.
-                    if (!ClassType.isDataClass(subtype)) {
+                    // Try to get the __init__ method first because it typically has
+                    // more type information than __new__.
+                    methodType = getBoundMethod(subtype, '__init__', false);
+
+                    if (!methodType) {
+                        // If there was no __init__ method, use the __new__ method
+                        // instead.
                         methodType = getBoundMethod(subtype, '__new__', true);
                     }
-                    if (!methodType) {
-                        methodType = getBoundMethod(subtype, '__init__', false);
-                    }
+
                     if (methodType) {
                         addFunctionToSignature(methodType);
                     }
