@@ -41,7 +41,7 @@ Pyright uses an internal type called “Unknown” to represent types that are n
 
 Pyright attempts to infer the types of global (module-level) variables, class variables, instance variables, and local variables. Return and yield types are also inferred. If type annotations are provided in these cases, the type annotation overrides any inferred types.
 
-Pyright supports type constraints (sometimes called “path constraints” or “type guards”) to track assumptions that apply within certain code flow paths. For example, consider the following code:
+Pyright supports type narrowing (sometimes called “type guards”) to track assumptions that apply within certain code flow paths. For example, consider the following code:
 ```python
 def (a: Optional[Union[str, List[str]]):
     if isinstance(a, str):
@@ -54,7 +54,7 @@ def (a: Optional[Union[str, List[str]]):
 
 In this example, the type evaluator knows that parameter a is either None, str, or List[str]. Within the first `if` clause, a is constrained to be a str. Within the `elif` clause, it is constrained to be a List[str], and within the `else` clause, it has to be None (by process of elimination). The type checker would therefore flag the final line as an error if the log method could not accept None as a parameter.
 
-If the type constraint logic exhausts all possible subtypes, it can be assumed that a code path will never be taken. For example, consider the following:
+If the type narrowing logic exhausts all possible subtypes, it can be assumed that a code path will never be taken. For example, consider the following:
 ```python
 def (a: Union[Foo, Bar]):
     if isinstance(a, Foo):
@@ -68,7 +68,7 @@ def (a: Union[Foo, Bar]):
         a.do_something_3()
 ```
 
-In this case, the type of parameter “a” is initially “Union[Foo, Bar]”. Within the “if” clause, the type constraint logic will conclude that it must be of type “Foo”. Within the “elif” clause, it must be of type “Bar”. What type is it within the “else” clause? The type constraint system has eliminated all possible subtypes, so it gives it the type “Never”. This is generally indicates that there’s a logic error in the code because there’s way that code block will ever be executed.
+In this case, the type of parameter “a” is initially “Union[Foo, Bar]”. Within the “if” clause, the type narrowing logic will conclude that it must be of type “Foo”. Within the “elif” clause, it must be of type “Bar”. What type is it within the “else” clause? The type narrowing system has eliminated all possible subtypes, so it gives it the type “Never”. This is generally indicates that there’s a logic error in the code because there’s way that code block will ever be executed.
 
 ## Type Inference
 
