@@ -72,7 +72,9 @@ To update to the latest version:
 
 
 ## Using Pyright with VS Code Python Extension
-Pyright provides some features that overlap with functionality provided by the standard VS Code Python extension: “hover”, type completion, definitions, references, rename symbols, etc. You may see duplicate results if Pyright is installed alongside the Python extension. You can disable the duplicate language service functionality in the Python extension by setting `python.languageServer` to `None`. If you want to disable language service features in Pyright, set `pyright.disableLanguageServices` to `true`.
+Pyright’s type-checking functionality and language features are now incorporated into a VS Code extension called [Pylance](https://github.com/microsoft/pylance), the officially supported Python Language Server from Microsoft. Pylance is designed to work with the Python extension for VS Code. In addition to Pyright’s functionality, Pylance adds compatibility with several advanced features including IntelliCode for AI-assisted completions. If you are a VS Code user, we recommend that you uninstall Pyright and instead install Pylance. You will get all the benefits of Pyright and more! 
+
+Installing both Pyright and Pylance at the same time is not recommended. If both are installed and enabled, you will see duplicate errors, hover text, and completion suggestions. 
 
 
 ## Documentation
@@ -97,13 +99,13 @@ Do you have questions about Pyright or Python type annotations in general? Post 
 
 
 ## FAQ
-**Q:** What is the difference between pyright and the [Microsoft Python Visual Studio Code plugin](https://github.com/Microsoft/vscode-python)?
+**Q:** What is the difference between Pyright and [Pylance](https://github.com/microsoft/pylance)? 
 
-**A:** Pyright is focused on type checking. The Python VS Code plugin is Microsoft’s officially-supported extension for VS Code and provides a diverse array of features including debugging, test case management, linter plugins, and more. Pyright can be used alongside the Microsoft Python extension.
+**A:** Pyright is an open-source Python type checker and language server. Pylance leverages Pyright’s functionality with additional features, some of which are not open-sourced. 
 
 **Q:** What is the long-term plan for Pyright?
 
-**A:** Pyright is a side project with no dedicated team. There is no guarantee of continued development on the project. If you find it useful, feel free to use it and contribute to the code base.
+**A:** Pyright is now an officially-supported Microsoft type checker for Python. It will continue to be developed and maintained as an open-source project under its original MIT license terms. The Pyright extension for VSCode is a reference implementation and is not guaranteed to be fully functional or maintained long-term.
 
 
 ## Contributing
