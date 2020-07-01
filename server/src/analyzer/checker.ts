@@ -1086,9 +1086,19 @@ export class Checker extends ParseTreeWalker {
                 if (!isPrivate) {
                     return;
                 }
+
                 diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedVariable;
+
                 if (decl.node.nodeType === ParseNodeType.Name) {
                     nameNode = decl.node;
+                } else if (decl.node.nodeType === ParseNodeType.Parameter) {
+                    nameNode = decl.node.name;
+
+                    // Don't emit a diagnostic for unused parameters.
+                    diagnosticLevel = 'none';
+                }
+
+                if (nameNode) {
                     rule = DiagnosticRule.reportUnusedVariable;
                     message = Localizer.Diagnostic.unaccessedVariable().format({ name: nameNode.value });
                 }
