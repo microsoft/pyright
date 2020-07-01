@@ -9285,7 +9285,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const functionNode = parent as FunctionNode;
 
         if (node.typeAnnotation) {
-            writeTypeCache(node.name!, getTypeOfAnnotation(node.typeAnnotation));
+            writeTypeCache(
+                node.name!,
+                transformVariadicParamType(node, node.category, getTypeOfAnnotation(node.typeAnnotation))
+            );
             return;
         }
 
@@ -11044,10 +11047,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (typeAnnotationNode) {
                     const declaredType = getTypeOfAnnotation(typeAnnotationNode);
-
-                    if (declaredType) {
-                        return declaredType;
-                    }
+                    return transformVariadicParamType(declaration.node, declaration.node.category, declaredType);
                 }
 
                 return undefined;
