@@ -196,7 +196,7 @@ export class Parser {
                     const statement = this._parseStatement();
                     if (!statement) {
                         // Perform basic error recovery to get to the next line.
-                        this._consumeTokensUntilType(TokenType.NewLine);
+                        this._consumeTokensUntilType([TokenType.NewLine]);
                     } else {
                         statement.parent = moduleNode;
                         moduleNode.statements.push(statement);
@@ -373,7 +373,12 @@ export class Parser {
 
         if (!this._consumeTokenIfType(TokenType.Colon)) {
             this._addError(Localizer.Diagnostic.expectedColon(), nextToken);
-            return suite;
+
+            // Try to perform parse recovery by consuming tokens until
+            // we find the end of the line.
+            if (this._consumeTokensUntilType([TokenType.NewLine, TokenType.Colon])) {
+                this._getNextToken();
+            }
         }
 
         const wasFunction = this._isInFunction;
@@ -406,7 +411,7 @@ export class Parser {
                 const statement = this._parseStatement();
                 if (!statement) {
                     // Perform basic error recovery to get to the next line.
-                    this._consumeTokensUntilType(TokenType.NewLine);
+                    this._consumeTokensUntilType([TokenType.NewLine]);
                 } else {
                     statement.parent = suite;
                     suite.statements.push(statement);
@@ -696,7 +701,7 @@ export class Parser {
 
         if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
             this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
-            this._consumeTokensUntilType(TokenType.Colon);
+            this._consumeTokensUntilType([TokenType.Colon]);
         }
 
         let returnType: ExpressionNode | undefined;
@@ -766,7 +771,7 @@ export class Parser {
 
             const param = this._parseParameter(allowAnnotations);
             if (!param) {
-                this._consumeTokensUntilType(terminator);
+                this._consumeTokensUntilType([terminator]);
                 break;
             }
 
@@ -869,7 +874,7 @@ export class Parser {
             // Check for the Python 2.x parameter sublist syntax and handle it gracefully.
             if (this._peekTokenType() === TokenType.OpenParenthesis) {
                 const sublistStart = this._getNextToken();
-                if (this._consumeTokensUntilType(TokenType.CloseParenthesis)) {
+                if (this._consumeTokensUntilType([TokenType.CloseParenthesis])) {
                     this._getNextToken();
                 }
                 this._addError(Localizer.Diagnostic.sublistParamsIncompatible(), sublistStart);
@@ -1046,7 +1051,7 @@ export class Parser {
 
         if (!this._consumeTokenIfType(TokenType.NewLine)) {
             this._addError(Localizer.Diagnostic.expectedDecoratorNewline(), this._peekToken());
-            this._consumeTokensUntilType(TokenType.NewLine);
+            this._consumeTokensUntilType([TokenType.NewLine]);
         }
 
         return decoratorNode;
@@ -1488,7 +1493,7 @@ export class Parser {
                 // Remove any non-printable characters.
                 const cleanedText = text.replace(/[\S\W]/g, '');
                 this._addError(Localizer.Diagnostic.invalidTokenChars().format({ text: cleanedText }), invalidToken);
-                this._consumeTokensUntilType(TokenType.NewLine);
+                this._consumeTokensUntilType([TokenType.NewLine]);
                 break;
             }
 
@@ -2059,7 +2064,7 @@ export class Parser {
 
                     // Consume the remainder of tokens on the line for error
                     // recovery.
-                    this._consumeTokensUntilType(TokenType.NewLine);
+                    this._consumeTokensUntilType([TokenType.NewLine]);
 
                     // Extend the node's range to include the rest of the line.
                     // This helps the signatureHelpProvider.
@@ -2401,7 +2406,7 @@ export class Parser {
     ): ErrorNode {
         this._addError(errorMsg, this._peekToken());
         const expr = ErrorNode.create(this._peekToken(), category, childNode);
-        this._consumeTokensUntilType(TokenType.NewLine);
+        this._consumeTokensUntilType([TokenType.NewLine]);
         return expr;
     }
 
@@ -3292,10 +3297,10 @@ export class Parser {
     // Consumes tokens until the next one in the stream is
     // either a specified terminator or the end-of-stream
     // token.
-    private _consumeTokensUntilType(terminator: TokenType): boolean {
+    private _consumeTokensUntilType(terminators: TokenType[]): boolean {
         while (true) {
             const token = this._peekToken();
-            if (token.type === terminator) {
+            if (terminators.some((term) => term === token.type)) {
                 return true;
             }
 
