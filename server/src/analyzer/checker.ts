@@ -749,7 +749,7 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
-            super.walk(statement);
+            this.walk(statement);
         }
     }
 
