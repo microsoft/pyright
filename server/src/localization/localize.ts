@@ -648,6 +648,8 @@ export namespace Localizer {
             );
         export const noOverloadAssignable = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.noOverloadAssignable'));
+        export const overloadCallName = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overloadCallName'));
         export const overriddenMethod = () => getRawString('DiagnosticAddendum.overriddenMethod');
         export const overrideParamCount = () =>
             new ParameterizedString<{ baseCount: number; overrideCount: number }>(

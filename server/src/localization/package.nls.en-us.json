@@ -319,6 +319,7 @@
         "namedParamMissingInSource": "Named parameter \"{name}\" is missing in source",
         "namedParamTypeMismatch": "Named parameter \"{name}\" of type \"{sourceType}\" cannot be assigned to type \"{destType}\"",
         "noOverloadAssignable": "No overloaded function matches type \"{type}\"",
+        "overloadCallName": "Calling function \"{name}\"",
         "overriddenMethod": "Overridden method",
         "overrideParamCount": "Parameter count mismatch; base method has {baseCount}, but override has {overrideCount}",
         "overrideParamName": "Parameter {index} name mismatch: base parameter is named \"{baseName}\", override parameter is named \"{overrideName}\"",

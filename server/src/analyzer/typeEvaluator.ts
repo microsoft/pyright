@@ -4221,6 +4221,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const exprString = ParseTreeUtils.printExpression(errorNode);
                     const diagAddendum = new DiagnosticAddendum();
                     const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
+
+                    if (errorNode.nodeType !== ParseNodeType.Call && callType.overloads[0].details.name) {
+                        // If the expression isn't an explicit call, it is probably an implicit
+                        // call to a magic method. Provide additional information in this case
+                        // to make it clear that a call was being evaluated.
+                        diagAddendum.addMessage(
+                            Localizer.DiagnosticAddendum.overloadCallName().format({
+                                name: callType.overloads[0].details.name,
+                            })
+                        );
+                    }
+
                     diagAddendum.addMessage(
                         Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
                     );
@@ -4639,6 +4651,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const exprString = ParseTreeUtils.printExpression(errorNode);
                     const diagAddendum = new DiagnosticAddendum();
                     const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
+
+                    if (errorNode.nodeType !== ParseNodeType.Call && callType.overloads[0].details.name) {
+                        // If the expression isn't an explicit call, it is probably an implicit
+                        // call to a magic method. Provide additional information in this case
+                        // to make it clear that a call was being evaluated.
+                        diagAddendum.addMessage(
+                            Localizer.DiagnosticAddendum.overloadCallName().format({
+                                name: callType.overloads[0].details.name,
+                            })
+                        );
+                    }
+
                     diagAddendum.addMessage(
                         Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
                     );
