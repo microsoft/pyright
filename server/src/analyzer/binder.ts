@@ -209,6 +209,7 @@ export class Binder extends ParseTreeWalker {
             this._fileInfo.builtinsScope,
             () => {
                 AnalyzerNodeInfo.setScope(node, this._currentScope);
+                AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
 
                 // Bind implicit names.
                 // List taken from https://docs.python.org/3/reference/import.html#__name__
@@ -228,6 +229,9 @@ export class Binder extends ParseTreeWalker {
                 this._walkStatementsAndReportUnreachable(node.statements);
 
                 AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap);
+
+                // Associate the code flow node at the end of the module with the module.
+                AnalyzerNodeInfo.setAfterFlowNode(node, this._currentFlowNode);
             }
         );
 
@@ -1576,24 +1580,16 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
-        let reportedUnreachable = false;
+        let foundUnreachableStatement = false;
 
         for (const statement of statements) {
             AnalyzerNodeInfo.setFlowNode(statement, this._currentFlowNode);
 
-            if (this._isCodeUnreachable() && !reportedUnreachable) {
-                // Create a text range that covers the next statement through
-                // the end of the suite.
-                const start = statement.start;
-                const lastStatement = statements[statements.length - 1];
-                const end = TextRange.getEnd(lastStatement);
-                this._addUnusedCode({ start, length: end - start });
-
-                // Don't report it multiple times.
-                reportedUnreachable = true;
+            if (!foundUnreachableStatement) {
+                foundUnreachableStatement = this._isCodeUnreachable();
             }
 
-            if (!reportedUnreachable) {
+            if (!foundUnreachableStatement) {
                 this.walk(statement);
             } else {
                 // If we're within a function, we need to look for unreachable yield
@@ -1883,6 +1879,8 @@ export class Binder extends ParseTreeWalker {
 
             this._currentFlowNode = flowNode;
         }
+
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
     }
 
     private _createAssignmentAliasFlowNode(targetSymbolId: number, aliasSymbolId: number) {
@@ -2603,13 +2601,6 @@ export class Binder extends ParseTreeWalker {
         }
 
         return diagnostic;
-    }
-
-    private _addUnusedCode(textRange: TextRange) {
-        return this._fileInfo.diagnosticSink.addUnusedCodeWithTextRange(
-            Localizer.Diagnostic.unreachableCode(),
-            textRange
-        );
     }
 
     private _addError(message: string, textRange: TextRange) {

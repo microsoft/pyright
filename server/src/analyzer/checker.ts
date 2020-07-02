@@ -51,6 +51,7 @@ import {
     ReturnNode,
     SliceNode,
     StatementListNode,
+    StatementNode,
     StringListNode,
     SuiteNode,
     TernaryNode,
@@ -137,6 +138,16 @@ export class Checker extends ParseTreeWalker {
         if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
         }
+    }
+
+    visitModule(node: ModuleNode): boolean {
+        this._walkStatementsAndReportUnreachable(node.statements);
+        return false;
+    }
+
+    visitSuite(node: SuiteNode): boolean {
+        this._walkStatementsAndReportUnreachable(node.statements);
+        return false;
     }
 
     visitStatementList(node: StatementListNode) {
@@ -307,8 +318,6 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitCall(node: CallNode): boolean {
-        const returnType = this._evaluator.getType(node);
-
         this._validateIsInstanceCallNecessary(node);
 
         if (ParseTreeUtils.isWithinDefaultParamInitializer(node) && !this._fileInfo.isStubFile) {
@@ -318,19 +327,6 @@ export class Checker extends ParseTreeWalker {
                 Localizer.Diagnostic.defaultValueContainsCall(),
                 node
             );
-        }
-
-        // Is this calling a "NoReturn" function? If so, mark the remainder
-        // of the suite as unreachable.
-        if (returnType) {
-            if (isNoReturnType(returnType)) {
-                const suiteOrModule = ParseTreeUtils.getEnclosingSuiteOrModule(node);
-                if (suiteOrModule) {
-                    const start = node.start + node.length;
-                    const length = suiteOrModule.start + suiteOrModule.length - start;
-                    this._evaluator.addUnusedCode(suiteOrModule, { start, length });
-                }
-            }
         }
 
         return true;
@@ -732,6 +728,29 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
+        let reportedUnreachable = false;
+
+        for (const statement of statements) {
+            // No need to report unreachable more than once since the first time
+            // covers all remaining statements in the statement list.
+            if (!reportedUnreachable) {
+                if (!this._evaluator.isNodeReachable(statement)) {
+                    // Create a text range that covers the next statement through
+                    // the end of the statement list.
+                    const start = statement.start;
+                    const lastStatement = statements[statements.length - 1];
+                    const end = TextRange.getEnd(lastStatement);
+                    this._evaluator.addUnusedCode(statement, { start, length: end - start });
+
+                    reportedUnreachable = true;
+                }
+            }
+
+            super.walk(statement);
+        }
     }
 
     private _validateExceptionType(exceptionType: Type, errorNode: ParseNode) {
