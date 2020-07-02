@@ -1467,6 +1467,11 @@ test('Import10', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Import11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import11.py']);
+    validateResults(analysisResults, 0);
+});
+
 test('Overload1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload1.py']);
     validateResults(analysisResults, 2);

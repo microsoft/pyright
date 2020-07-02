@@ -21,6 +21,7 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert, assertNever, fail } from '../common/debug';
 import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { getFileName, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { getEmptyRange } from '../common/textRange';
@@ -1147,91 +1148,8 @@ export class Binder extends ParseTreeWalker {
             const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
             assert(importInfo !== undefined);
 
-            if (
-                importInfo &&
-                importInfo.isImportFound &&
-                !importInfo.isNativeLib &&
-                importInfo.resolvedPaths.length > 0 &&
-                symbol
-            ) {
-                // See if there's already a matching alias declaration for this import.
-                // if so, we'll update it rather than creating a new one. This is required
-                // to handle cases where multiple import statements target the same
-                // starting symbol such as "import a.b.c" and "import a.d". In this case,
-                // we'll build a single declaration that describes the combined actions
-                // of both import statements, thus reflecting the behavior of the
-                // python module loader.
-                const existingDecl = symbol
-                    .getDeclarations()
-                    .find((decl) => decl.type === DeclarationType.Alias && decl.firstNamePart === firstNamePartValue);
-
-                const newDecl: AliasDeclaration = (existingDecl as AliasDeclaration) || {
-                    type: DeclarationType.Alias,
-                    node,
-                    path: '',
-                    range: getEmptyRange(),
-                    firstNamePart: firstNamePartValue,
-                    usesLocalName: !!node.alias,
-                };
-
-                // Add the implicit imports for this module if it's the last
-                // name part we're resolving.
-                if (node.alias || node.module.nameParts.length === 1) {
-                    newDecl.path = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
-                    this._addImplicitImportsToLoaderActions(importInfo, newDecl);
-                } else {
-                    // Fill in the remaining name parts.
-                    let curLoaderActions: ModuleLoaderActions = newDecl;
-
-                    for (let i = 1; i < node.module.nameParts.length; i++) {
-                        if (i >= importInfo.resolvedPaths.length) {
-                            break;
-                        }
-
-                        const namePartValue = node.module.nameParts[i].value;
-
-                        // Is there an existing loader action for this name?
-                        let loaderActions = curLoaderActions.implicitImports
-                            ? curLoaderActions.implicitImports.get(namePartValue)
-                            : undefined;
-                        if (!loaderActions) {
-                            // Allocate a new loader action.
-                            loaderActions = {
-                                path: '',
-                                implicitImports: new Map<string, ModuleLoaderActions>(),
-                            };
-                            if (!curLoaderActions.implicitImports) {
-                                curLoaderActions.implicitImports = new Map<string, ModuleLoaderActions>();
-                            }
-                            curLoaderActions.implicitImports.set(namePartValue, loaderActions);
-                        }
-
-                        // If this is the last name part we're resolving, add in the
-                        // implicit imports as well.
-                        if (i === node.module.nameParts.length - 1) {
-                            loaderActions.path = importInfo.resolvedPaths[i];
-                            this._addImplicitImportsToLoaderActions(importInfo, loaderActions);
-                        }
-
-                        curLoaderActions = loaderActions;
-                    }
-                }
-
-                if (!existingDecl) {
-                    symbol.addDeclaration(newDecl);
-                }
-            } else if (symbol) {
-                // If we couldn't resolve the import, create a dummy declaration with a
-                // bogus path so it gets an unknown type (rather than an unbound type) at
-                // analysis time.
-                const newDecl: AliasDeclaration = {
-                    type: DeclarationType.Alias,
-                    node,
-                    path: '*** unresolved ***',
-                    range: getEmptyRange(),
-                    usesLocalName: !!node.alias,
-                };
-                symbol.addDeclaration(newDecl);
+            if (symbol) {
+                this._createAliasDeclarationForMultipartImportName(node, node.alias, importInfo, symbol);
             }
 
             this._createFlowAssignment(node.alias ? node.alias : node.module.nameParts[0]);
@@ -1366,6 +1284,20 @@ export class Binder extends ParseTreeWalker {
                     this._createFlowAssignment(importSymbolNode.alias || importSymbolNode.name);
                 }
             });
+
+            // If this file is a module __init__.py(i), relative imports of submodules
+            // using the syntax "from .x import y" also introduce a symbol x into the
+            // module namespace.
+            const fileName = stripFileExtension(getFileName(this._fileInfo.filePath));
+            if (fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length > 0) {
+                const symbolName = node.module.nameParts[0].value;
+                const symbol = this._bindNameToScope(this._currentScope, symbolName);
+                if (symbol) {
+                    this._createAliasDeclarationForMultipartImportName(node, undefined, importInfo, symbol);
+                }
+
+                this._createFlowAssignment(node.module.nameParts[0]);
+            }
         }
 
         return true;
@@ -1530,6 +1462,96 @@ export class Binder extends ParseTreeWalker {
         });
 
         return false;
+    }
+
+    private _createAliasDeclarationForMultipartImportName(
+        node: ImportAsNode | ImportFromNode,
+        importAlias: NameNode | undefined,
+        importInfo: ImportResult | undefined,
+        symbol: Symbol
+    ) {
+        const firstNamePartValue = node.module.nameParts[0].value;
+
+        if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib && importInfo.resolvedPaths.length > 0) {
+            // See if there's already a matching alias declaration for this import.
+            // if so, we'll update it rather than creating a new one. This is required
+            // to handle cases where multiple import statements target the same
+            // starting symbol such as "import a.b.c" and "import a.d". In this case,
+            // we'll build a single declaration that describes the combined actions
+            // of both import statements, thus reflecting the behavior of the
+            // python module loader.
+            const existingDecl = symbol
+                .getDeclarations()
+                .find((decl) => decl.type === DeclarationType.Alias && decl.firstNamePart === firstNamePartValue);
+
+            const newDecl: AliasDeclaration = (existingDecl as AliasDeclaration) || {
+                type: DeclarationType.Alias,
+                node,
+                path: '',
+                range: getEmptyRange(),
+                firstNamePart: firstNamePartValue,
+                usesLocalName: !!importAlias,
+            };
+
+            // Add the implicit imports for this module if it's the last
+            // name part we're resolving.
+            if (importAlias || node.module.nameParts.length === 1) {
+                newDecl.path = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
+                this._addImplicitImportsToLoaderActions(importInfo, newDecl);
+            } else {
+                // Fill in the remaining name parts.
+                let curLoaderActions: ModuleLoaderActions = newDecl;
+
+                for (let i = 1; i < node.module.nameParts.length; i++) {
+                    if (i >= importInfo.resolvedPaths.length) {
+                        break;
+                    }
+
+                    const namePartValue = node.module.nameParts[i].value;
+
+                    // Is there an existing loader action for this name?
+                    let loaderActions = curLoaderActions.implicitImports
+                        ? curLoaderActions.implicitImports.get(namePartValue)
+                        : undefined;
+                    if (!loaderActions) {
+                        // Allocate a new loader action.
+                        loaderActions = {
+                            path: '',
+                            implicitImports: new Map<string, ModuleLoaderActions>(),
+                        };
+                        if (!curLoaderActions.implicitImports) {
+                            curLoaderActions.implicitImports = new Map<string, ModuleLoaderActions>();
+                        }
+                        curLoaderActions.implicitImports.set(namePartValue, loaderActions);
+                    }
+
+                    // If this is the last name part we're resolving, add in the
+                    // implicit imports as well.
+                    if (i === node.module.nameParts.length - 1) {
+                        loaderActions.path = importInfo.resolvedPaths[i];
+                        this._addImplicitImportsToLoaderActions(importInfo, loaderActions);
+                    }
+
+                    curLoaderActions = loaderActions;
+                }
+            }
+
+            if (!existingDecl) {
+                symbol.addDeclaration(newDecl);
+            }
+        } else {
+            // If we couldn't resolve the import, create a dummy declaration with a
+            // bogus path so it gets an unknown type (rather than an unbound type) at
+            // analysis time.
+            const newDecl: AliasDeclaration = {
+                type: DeclarationType.Alias,
+                node,
+                path: '*** unresolved ***',
+                range: getEmptyRange(),
+                usesLocalName: !!importAlias,
+            };
+            symbol.addDeclaration(newDecl);
+        }
     }
 
     private _getWildcardImportNames(lookupInfo: ImportLookupResult): string[] {
