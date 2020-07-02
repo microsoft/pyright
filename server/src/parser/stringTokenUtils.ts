@@ -238,7 +238,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                                     const lookaheadChar = getEscapedCharacter(charCount);
                                     if (lookaheadChar === Char.CloseBrace) {
                                         break;
-                                    } else if (!_isAlphaNumericChar(lookaheadChar)) {
+                                    } else if (!_isAlphaNumericChar(lookaheadChar) && lookaheadChar !== Char.Space) {
                                         foundIllegalChar = true;
                                         break;
                                     } else {
