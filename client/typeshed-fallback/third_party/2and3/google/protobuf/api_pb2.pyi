@@ -1,8 +1,9 @@
+from typing import Iterable, Optional, Text
+
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
 from google.protobuf.message import Message
 from google.protobuf.source_context_pb2 import SourceContext
 from google.protobuf.type_pb2 import Option, Syntax
-from typing import Iterable, Optional, Text
 
 class Api(Message):
     name: Text

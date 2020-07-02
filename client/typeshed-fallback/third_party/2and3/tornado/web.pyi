@@ -1,6 +1,6 @@
 import sys
-
 from typing import Any, Callable, Dict, List, Optional
+
 from tornado import httputil
 
 MIN_SUPPORTED_SIGNED_VALUE_VERSION: Any
@@ -10,6 +10,7 @@ DEFAULT_SIGNED_VALUE_MIN_VERSION: Any
 
 if sys.version_info[:2] >= (3, 5):
     from typing import Awaitable
+
     _MethodType = Callable[..., Optional[Awaitable[None]]]
 else:
     _MethodType = Callable[..., Any]

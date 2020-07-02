@@ -1,11 +1,10 @@
-from typing import Any, List, Optional, Tuple, TypeVar
-
 from queue import Queue
+from typing import Any, List, Optional, Tuple, TypeVar
 
 families: List[None]
 
-_TConnection = TypeVar('_TConnection', bound=Connection)
-_TListener = TypeVar('_TListener', bound=Listener)
+_TConnection = TypeVar("_TConnection", bound=Connection)
+_TListener = TypeVar("_TListener", bound=Listener)
 
 class Connection(object):
     _in: Any
@@ -29,7 +28,6 @@ class Listener(object):
     def __init__(self, address=..., family=..., backlog=...) -> None: ...
     def accept(self) -> Connection: ...
     def close(self) -> None: ...
-
 
 def Client(address) -> Connection: ...
 def Pipe(duplex: bool = ...) -> Tuple[Connection, Connection]: ...

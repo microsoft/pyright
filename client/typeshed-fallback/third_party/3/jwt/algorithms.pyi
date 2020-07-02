@@ -1,6 +1,6 @@
 import sys
 from hashlib import _Hash
-from typing import Any, Set, Dict, Optional, ClassVar, Union, Generic, TypeVar
+from typing import Any, ClassVar, Dict, Generic, Optional, Set, TypeVar, Union
 
 requires_cryptography = Set[str]
 

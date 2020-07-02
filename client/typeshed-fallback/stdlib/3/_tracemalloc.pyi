@@ -1,5 +1,5 @@
+from tracemalloc import _FrameTupleT, _TraceTupleT
 from typing import Optional, Sequence, Tuple
-from tracemalloc import _TraceTupleT, _FrameTupleT
 
 def _get_object_traceback(__obj) -> Optional[Sequence[_FrameTupleT]]: ...
 def _get_traces() -> Sequence[_TraceTupleT]: ...

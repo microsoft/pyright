@@ -1,5 +1,6 @@
 import sys
 from typing import Any
+
 from yaml.error import YAMLError
 
 class RepresenterError(YAMLError): ...

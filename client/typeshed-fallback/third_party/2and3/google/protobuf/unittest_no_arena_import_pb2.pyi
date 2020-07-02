@@ -1,5 +1,6 @@
-from google.protobuf.message import Message
 from typing import Optional
+
+from google.protobuf.message import Message
 
 class ImportNoArenaNestedMessage(Message):
     d: int

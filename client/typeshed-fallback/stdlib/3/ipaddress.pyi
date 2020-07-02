@@ -1,7 +1,5 @@
-from typing import (Any, Container, Generic, Iterable, Iterator, Optional,
-                    overload, SupportsInt, Text, Tuple, TypeVar)
-
 import sys
+from typing import Any, Container, Generic, Iterable, Iterator, Optional, SupportsInt, Text, Tuple, TypeVar, overload
 
 # Undocumented length constants
 IPV4LENGTH: int

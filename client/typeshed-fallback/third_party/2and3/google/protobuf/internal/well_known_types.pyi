@@ -1,5 +1,5 @@
-from typing import Any, Optional
 from datetime import datetime
+from typing import Any, Optional
 
 class Error(Exception): ...
 class ParseError(Error): ...

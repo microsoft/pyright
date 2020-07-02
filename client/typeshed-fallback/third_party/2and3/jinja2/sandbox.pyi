@@ -1,4 +1,5 @@
 from typing import Any
+
 from jinja2.environment import Environment
 
 MAX_RANGE: int

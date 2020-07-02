@@ -1,6 +1,7 @@
+from typing import Text, Union
+
 from . import Markup
-from ._compat import text_type, string_types
-from typing import Union, Text
+from ._compat import string_types, text_type
 
 def escape(s: Union[Markup, Text]) -> Markup: ...
 def escape_silent(s: Union[None, Markup, Text]) -> Markup: ...

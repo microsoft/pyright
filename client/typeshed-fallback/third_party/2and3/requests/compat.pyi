@@ -1,6 +1,6 @@
 # Stubs for requests.compat (Python 3.4)
 
-from typing import Any
 import collections
+from typing import Any
 
 OrderedDict = collections.OrderedDict

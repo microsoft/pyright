@@ -1,13 +1,29 @@
 from typing import Any, Optional, Type
-from .charset import MBLENGTH as MBLENGTH, charset_by_name as charset_by_name, charset_by_id as charset_by_id
+
+from .charset import MBLENGTH as MBLENGTH, charset_by_id as charset_by_id, charset_by_name as charset_by_name
+from .constants import (
+    CLIENT as CLIENT,
+    COMMAND as COMMAND,
+    FIELD_TYPE as FIELD_TYPE,
+    FLAG as FLAG,
+    SERVER_STATUS as SERVER_STATUS,
+)
+from .converters import decoders as decoders, encoders as encoders, escape_item as escape_item
 from .cursors import Cursor as Cursor
-from .constants import FIELD_TYPE as FIELD_TYPE, FLAG as FLAG
-from .constants import SERVER_STATUS as SERVER_STATUS
-from .constants import CLIENT as CLIENT
-from .constants import COMMAND as COMMAND
-from .util import join_bytes as join_bytes, byte2int as byte2int, int2byte as int2byte
-from .converters import escape_item as escape_item, encoders as encoders, decoders as decoders
-from .err import raise_mysql_exception as raise_mysql_exception, Warning as Warning, Error as Error, InterfaceError as InterfaceError, DataError as DataError, DatabaseError as DatabaseError, OperationalError as OperationalError, IntegrityError as IntegrityError, InternalError as InternalError, NotSupportedError as NotSupportedError, ProgrammingError as ProgrammingError
+from .err import (
+    DatabaseError as DatabaseError,
+    DataError as DataError,
+    Error as Error,
+    IntegrityError as IntegrityError,
+    InterfaceError as InterfaceError,
+    InternalError as InternalError,
+    NotSupportedError as NotSupportedError,
+    OperationalError as OperationalError,
+    ProgrammingError as ProgrammingError,
+    Warning as Warning,
+    raise_mysql_exception as raise_mysql_exception,
+)
+from .util import byte2int as byte2int, int2byte as int2byte, join_bytes as join_bytes
 
 sha_new: Any
 SSL_ENABLED: Any
@@ -85,12 +101,28 @@ class Connection:
     encoders: Any
     decoders: Any
     host_info: Any
-    def __init__(self, host: str = ..., user: Optional[Any] = ..., passwd: str = ..., db: Optional[Any] = ...,
-                 port: int = ..., unix_socket: Optional[Any] = ..., charset: str = ..., sql_mode: Optional[Any] = ...,
-                 read_default_file: Optional[Any] = ..., conv=..., use_unicode: Optional[Any] = ..., client_flag: int = ...,
-                 cursorclass=..., init_command: Optional[Any] = ..., connect_timeout: Optional[Any] = ...,
-                 ssl: Optional[Any] = ..., read_default_group: Optional[Any] = ..., compress: Optional[Any] = ...,
-                 named_pipe: Optional[Any] = ...): ...
+    def __init__(
+        self,
+        host: str = ...,
+        user: Optional[Any] = ...,
+        passwd: str = ...,
+        db: Optional[Any] = ...,
+        port: int = ...,
+        unix_socket: Optional[Any] = ...,
+        charset: str = ...,
+        sql_mode: Optional[Any] = ...,
+        read_default_file: Optional[Any] = ...,
+        conv=...,
+        use_unicode: Optional[Any] = ...,
+        client_flag: int = ...,
+        cursorclass=...,
+        init_command: Optional[Any] = ...,
+        connect_timeout: Optional[Any] = ...,
+        ssl: Optional[Any] = ...,
+        read_default_group: Optional[Any] = ...,
+        compress: Optional[Any] = ...,
+        named_pipe: Optional[Any] = ...,
+    ): ...
     socket: Any
     rfile: Any
     wfile: Any

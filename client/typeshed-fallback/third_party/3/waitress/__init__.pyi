@@ -1,4 +1,5 @@
 from typing import Any, Tuple
+
 from waitress.server import create_server
 
 def serve(app: Any, **kw: Any) -> None: ...

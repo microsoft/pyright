@@ -1,8 +1,9 @@
 # Stubs for requests.cookies (Python 3)
 
+import collections
 import sys
 from typing import Any, MutableMapping
-import collections
+
 from . import compat
 
 if sys.version_info < (3, 0):

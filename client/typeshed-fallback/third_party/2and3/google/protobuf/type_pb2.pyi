@@ -1,8 +1,9 @@
+from typing import Iterable, List, Optional, Text, Tuple, cast
+
 from google.protobuf.any_pb2 import Any
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer, RepeatedScalarFieldContainer
 from google.protobuf.message import Message
 from google.protobuf.source_context_pb2 import SourceContext
-from typing import Iterable, List, Optional, Text, Tuple, cast
 
 class Syntax(int):
     @classmethod

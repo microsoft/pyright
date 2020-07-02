@@ -1,6 +1,6 @@
 # TODO(MichalPokorny): more precise types
 
-from typing import Any, List, Tuple, Text
+from typing import Any, List, Text, Tuple
 
 GLOBAL_ACK_EINTR: int
 GLOBAL_ALL: int
@@ -31,7 +31,6 @@ class Curl(object):
     def unsetopt(self, option: int) -> Any: ...
     def pause(self, bitmask: Any) -> Any: ...
     def errstr(self) -> str: ...
-
     # TODO(MichalPokorny): wat?
     USERPWD: int
 

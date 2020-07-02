@@ -1,8 +1,8 @@
 import sys
 from typing import Any, Callable, Generic, Optional, TypeVar, overload
 
-_C = TypeVar('_C', bound=Callable[..., Any])
-_T = TypeVar('_T')
+_C = TypeVar("_C", bound=Callable[..., Any])
+_T = TypeVar("_T")
 
 class CallableProxyType(object):  # "weakcallableproxy"
     def __getattr__(self, attr: str) -> Any: ...
@@ -23,6 +23,7 @@ def getweakrefcount(object: Any) -> int: ...
 def getweakrefs(object: Any) -> int: ...
 @overload
 def proxy(object: _C, callback: Optional[Callable[[_C], Any]] = ...) -> CallableProxyType: ...
+
 # Return CallableProxyType if object is callable, ProxyType otherwise
 @overload
 def proxy(object: _T, callback: Optional[Callable[[_T], Any]] = ...) -> Any: ...

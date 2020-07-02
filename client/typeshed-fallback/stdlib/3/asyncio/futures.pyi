@@ -1,10 +1,8 @@
 import sys
-from typing import Any, Union, Callable, TypeVar, Type, List, Iterable, Generator, Awaitable, Optional, Tuple
+from concurrent.futures._base import Error, Future as _ConcurrentFuture
+from typing import Any, Awaitable, Callable, Generator, Iterable, List, Optional, Tuple, Type, TypeVar, Union
+
 from .events import AbstractEventLoop
-from concurrent.futures._base import (
-    Future as _ConcurrentFuture,
-    Error,
-)
 
 if sys.version_info < (3, 8):
     from concurrent.futures import CancelledError as CancelledError
@@ -14,8 +12,8 @@ if sys.version_info < (3, 8):
 if sys.version_info >= (3, 7):
     from contextvars import Context
 
-_T = TypeVar('_T')
-_S = TypeVar('_S')
+_T = TypeVar("_T")
+_S = TypeVar("_S")
 
 if sys.version_info < (3, 7):
     class _TracebackLogger:

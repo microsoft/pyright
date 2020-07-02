@@ -1,5 +1,4 @@
-from typing import (IO, Any, BinaryIO, ContextManager, Dict, Iterable, List,
-                    Mapping, Optional, Text, Tuple, Union)
+from typing import IO, Any, BinaryIO, ContextManager, Dict, Iterable, List, Mapping, Optional, Text, Tuple, Union
 
 from .core import BaseCommand
 
@@ -43,22 +42,17 @@ class CliRunner:
     env: Mapping[str, str]
     echo_stdin: bool
     mix_stderr: bool
-
     def __init__(
         self,
         charset: Optional[Text] = ...,
         env: Optional[Mapping[str, str]] = ...,
         echo_stdin: bool = ...,
         mix_stderr: bool = ...,
-    ) -> None:
-        ...
+    ) -> None: ...
     def get_default_prog_name(self, cli: BaseCommand) -> str: ...
     def make_env(self, overrides: Optional[Mapping[str, str]] = ...) -> Dict[str, str]: ...
     def isolation(
-        self,
-        input: Optional[Union[bytes, Text, IO[Any]]] = ...,
-        env: Optional[Mapping[str, str]] = ...,
-        color: bool = ...,
+        self, input: Optional[Union[bytes, Text, IO[Any]]] = ..., env: Optional[Mapping[str, str]] = ..., color: bool = ...,
     ) -> ContextManager[BinaryIO]: ...
     def invoke(
         self,
@@ -69,6 +63,5 @@ class CliRunner:
         catch_exceptions: bool = ...,
         color: bool = ...,
         **extra: Any,
-    ) -> Result:
-        ...
+    ) -> Result: ...
     def isolated_filesystem(self) -> ContextManager[str]: ...

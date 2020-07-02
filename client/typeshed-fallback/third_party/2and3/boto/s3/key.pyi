@@ -222,7 +222,8 @@ class Key:
         torrent: bool = ...,
         version_id: Optional[Any] = ...,
         response_headers: Optional[Dict[Text, Text]] = ...,
-        *, encoding: Text,
+        *,
+        encoding: Text,
     ) -> Text: ...
     def add_email_grant(self, permission, email_address, headers: Optional[Dict[Text, Text]] = ...): ...
     def add_user_grant(

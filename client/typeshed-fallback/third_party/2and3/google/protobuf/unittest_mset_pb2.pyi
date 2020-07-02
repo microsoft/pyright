@@ -1,8 +1,9 @@
+import builtins
+from typing import Iterable, Optional, Text
+
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
 from google.protobuf.message import Message
 from google.protobuf.unittest_mset_wire_format_pb2 import TestMessageSet
-import builtins
-from typing import Iterable, Optional, Text
 
 class TestMessageSetContainer(Message):
     @property

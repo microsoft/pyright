@@ -2,10 +2,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, List
 
-from . import event
-from . import fault
-from . import view
 from ..vmodl.query import PropertyCollector
+from . import event, fault, view
 from .event import EventManager
 from .option import OptionManager
 from .view import ViewManager
@@ -32,7 +30,6 @@ class ServiceInstance:
 class PerformanceManager:
     class MetricId:
         def __init__(self, counterId: Any, instance: Any): ...
-
     class PerfCounterInfo:
         key: int
         groupInfo: Any
@@ -44,13 +41,10 @@ class PerformanceManager:
         intervalId: int
         maxSample: int
         startTime: datetime
-
     class EntityMetricBase:
         value: Any
         entity: ManagedEntity
-
     def QueryPerfCounterByLevel(self, collection_level: int) -> List[PerformanceManager.PerfCounterInfo]: ...
-
     def QueryPerf(self, querySpec: List[PerformanceManager.QuerySpec]) -> List[PerformanceManager.EntityMetricBase]: ...
 
 class ClusterComputeResource(ManagedEntity): ...

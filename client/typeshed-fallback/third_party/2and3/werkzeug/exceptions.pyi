@@ -1,7 +1,7 @@
 import datetime
-from typing import Any, Dict, Tuple, List, Text, NoReturn, Optional, Protocol, Type, Union, Iterable
+from _typeshed.wsgi import StartResponse, WSGIEnvironment
+from typing import Any, Dict, Iterable, List, NoReturn, Optional, Protocol, Text, Tuple, Type, Union
 
-from _typeshed.wsgi import WSGIEnvironment, StartResponse
 from werkzeug.wrappers import Response
 
 class _EnvironContainer(Protocol):

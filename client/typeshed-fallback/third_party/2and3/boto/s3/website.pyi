@@ -7,7 +7,13 @@ class WebsiteConfiguration:
     error_key: Any
     redirect_all_requests_to: Any
     routing_rules: Any
-    def __init__(self, suffix: Optional[Any] = ..., error_key: Optional[Any] = ..., redirect_all_requests_to: Optional[Any] = ..., routing_rules: Optional[Any] = ...) -> None: ...
+    def __init__(
+        self,
+        suffix: Optional[Any] = ...,
+        error_key: Optional[Any] = ...,
+        redirect_all_requests_to: Optional[Any] = ...,
+        routing_rules: Optional[Any] = ...,
+    ) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name, value, connection): ...
     def to_xml(self): ...
@@ -42,7 +48,14 @@ class RoutingRule:
     def to_xml(self): ...
     @classmethod
     def when(cls, key_prefix: Optional[Any] = ..., http_error_code: Optional[Any] = ...): ...
-    def then_redirect(self, hostname: Optional[Any] = ..., protocol: Optional[Any] = ..., replace_key: Optional[Any] = ..., replace_key_prefix: Optional[Any] = ..., http_redirect_code: Optional[Any] = ...): ...
+    def then_redirect(
+        self,
+        hostname: Optional[Any] = ...,
+        protocol: Optional[Any] = ...,
+        replace_key: Optional[Any] = ...,
+        replace_key_prefix: Optional[Any] = ...,
+        http_redirect_code: Optional[Any] = ...,
+    ): ...
 
 class Condition(_XMLKeyValue):
     TRANSLATOR: Any
@@ -58,5 +71,12 @@ class Redirect(_XMLKeyValue):
     replace_key: Any
     replace_key_prefix: Any
     http_redirect_code: Any
-    def __init__(self, hostname: Optional[Any] = ..., protocol: Optional[Any] = ..., replace_key: Optional[Any] = ..., replace_key_prefix: Optional[Any] = ..., http_redirect_code: Optional[Any] = ...) -> None: ...
+    def __init__(
+        self,
+        hostname: Optional[Any] = ...,
+        protocol: Optional[Any] = ...,
+        replace_key: Optional[Any] = ...,
+        replace_key_prefix: Optional[Any] = ...,
+        http_redirect_code: Optional[Any] = ...,
+    ) -> None: ...
     def to_xml(self): ...

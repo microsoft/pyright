@@ -1,9 +1,9 @@
-import sys
-
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Text, Tuple, Union
-from collections import Mapping
-from markupsafe._compat import text_type
 import string
+import sys
+from collections import Mapping
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Text, Tuple, Union
+
+from markupsafe._compat import text_type
 from markupsafe._native import escape as escape, escape_silent as escape_silent, soft_unicode as soft_unicode
 
 class Markup(text_type):
@@ -41,7 +41,9 @@ class Markup(text_type):
     def strip(self, chars: Optional[text_type] = ...) -> Markup: ...
     def center(self, width: int, fillchar: text_type = ...) -> Markup: ...
     def zfill(self, width: int) -> Markup: ...
-    def translate(self, table: Union[Mapping[int, Union[int, text_type, None]], Sequence[Union[int, text_type, None]]]) -> Markup: ...
+    def translate(
+        self, table: Union[Mapping[int, Union[int, text_type, None]], Sequence[Union[int, text_type, None]]]
+    ) -> Markup: ...
     def expandtabs(self, tabsize: int = ...) -> Markup: ...
 
 class EscapeFormatter(string.Formatter):

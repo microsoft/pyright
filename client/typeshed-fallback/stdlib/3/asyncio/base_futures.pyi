@@ -1,5 +1,5 @@
 import contextvars
-from typing import List, Tuple, Callable, Sequence
+from typing import Callable, List, Sequence, Tuple
 from typing_extensions import Literal
 
 from . import futures

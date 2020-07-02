@@ -1,4 +1,5 @@
 from typing import Dict, NoReturn, Type
+
 from .constants import ER as ER
 
 class MySQLError(Exception): ...

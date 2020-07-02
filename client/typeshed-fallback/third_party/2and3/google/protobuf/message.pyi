@@ -1,6 +1,5 @@
 import sys
-
-from typing import Any, ByteString, Sequence, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, ByteString, Optional, Sequence, Tuple, Type, TypeVar, Union
 
 from .descriptor import Descriptor, DescriptorBase, FieldDescriptor
 
@@ -41,7 +40,6 @@ class Message:
     def FromString(cls: Type[_M], s: _Serialized) -> _M: ...
     @property
     def Extensions(self) -> _ExtensionDict: ...
-
     # Intentionally left out typing on these three methods, because they are
     # stringly typed and it is not useful to call them on a Message directly.
     # We prefer more specific typing on individual subclasses of Message

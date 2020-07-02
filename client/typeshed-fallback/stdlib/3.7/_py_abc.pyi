@@ -1,7 +1,6 @@
+from typing import Any, Dict, NewType, Tuple, Type, TypeVar
 
-from typing import Type, TypeVar, Tuple, Any, Dict, NewType
-
-_T = TypeVar('_T')
+_T = TypeVar("_T")
 
 # TODO: Change the return into a NewType bound to int after pytype/#597
 def get_cache_token() -> object: ...

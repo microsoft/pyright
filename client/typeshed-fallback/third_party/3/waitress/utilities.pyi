@@ -1,6 +1,7 @@
-from .rfc7230 import OBS_TEXT, VCHAR
 from logging import Logger
-from typing import Any, Callable, Mapping, Sequence, Match, Pattern, Tuple
+from typing import Any, Callable, Mapping, Match, Pattern, Sequence, Tuple
+
+from .rfc7230 import OBS_TEXT, VCHAR
 
 logger: Logger
 queue_logger: Logger

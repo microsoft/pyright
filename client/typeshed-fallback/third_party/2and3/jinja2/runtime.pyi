@@ -1,8 +1,8 @@
 from typing import Any, Dict, Optional, Text, Union
-from jinja2.utils import Markup as Markup, escape as escape, missing as missing, concat as concat
-from jinja2.exceptions import TemplateRuntimeError as TemplateRuntimeError, TemplateNotFound as TemplateNotFound
 
 from jinja2.environment import Environment
+from jinja2.exceptions import TemplateNotFound as TemplateNotFound, TemplateRuntimeError as TemplateRuntimeError
+from jinja2.utils import Markup as Markup, concat as concat, escape as escape, missing as missing
 
 to_string: Any
 identity: Any
@@ -22,7 +22,9 @@ class Context:
     exported_vars: Any
     name: Text
     blocks: Dict[str, Any]
-    def __init__(self, environment: Environment, parent: Union[Context, Dict[str, Any]], name: Text, blocks: Dict[str, Any]) -> None: ...
+    def __init__(
+        self, environment: Environment, parent: Union[Context, Dict[str, Any]], name: Text, blocks: Dict[str, Any]
+    ) -> None: ...
     def super(self, name, current): ...
     def get(self, key, default: Optional[Any] = ...): ...
     def resolve(self, key): ...

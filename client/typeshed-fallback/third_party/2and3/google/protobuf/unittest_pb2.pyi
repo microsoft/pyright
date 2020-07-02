@@ -1,8 +1,9 @@
+from typing import Iterable, List, Mapping, MutableMapping, Optional, Text, Tuple, cast
+
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer, RepeatedScalarFieldContainer
 from google.protobuf.message import Message
 from google.protobuf.unittest_import_pb2 import ImportEnum, ImportMessage
 from google.protobuf.unittest_import_public_pb2 import PublicImportMessage
-from typing import Iterable, List, Mapping, MutableMapping, Optional, Text, Tuple, cast
 
 class ForeignEnum(int):
     @classmethod

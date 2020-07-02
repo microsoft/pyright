@@ -1,5 +1,6 @@
-from google.protobuf.message import Message
 from typing import Optional, Text
+
+from google.protobuf.message import Message
 
 class DoubleValue(Message):
     value: float

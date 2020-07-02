@@ -10,6 +10,4 @@ class ViewManager:
     # but in practice it seems to be `List[Type[ManagedEntity]]`
     # Source: https://pubs.vmware.com/vi-sdk/visdk250/ReferenceGuide/vim.view.ViewManager.html
     @staticmethod
-    def CreateContainerView(
-        container: ManagedEntity, type: List[Type[ManagedEntity]], recursive: bool
-    ) -> ContainerView: ...
+    def CreateContainerView(container: ManagedEntity, type: List[Type[ManagedEntity]], recursive: bool) -> ContainerView: ...

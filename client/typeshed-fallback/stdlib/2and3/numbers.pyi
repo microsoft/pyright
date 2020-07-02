@@ -5,9 +5,9 @@
 # Note: these stubs are incomplete. The more complex type
 # signatures are currently omitted.
 
-from typing import Any, Optional, SupportsFloat, overload
-from abc import ABCMeta, abstractmethod
 import sys
+from abc import ABCMeta, abstractmethod
+from typing import Any, Optional, SupportsFloat, overload
 
 class Number(metaclass=ABCMeta):
     @abstractmethod

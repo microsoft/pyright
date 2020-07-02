@@ -11,5 +11,4 @@ def parse(
     region: Optional[str] = ...,
     settings: Optional[Mapping[str, Any]] = ...,
 ) -> Optional[datetime.datetime]: ...
-
 def __getattr__(name: str) -> Any: ...  # incomplete

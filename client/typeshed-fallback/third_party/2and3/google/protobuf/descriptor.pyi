@@ -1,6 +1,5 @@
 from typing import Any
 
-from .message import Message
 from .descriptor_pb2 import (
     EnumOptions,
     EnumValueOptions,
@@ -11,6 +10,7 @@ from .descriptor_pb2 import (
     OneofOptions,
     ServiceOptions,
 )
+from .message import Message
 
 class Error(Exception): ...
 class TypeTransformationError(Error): ...

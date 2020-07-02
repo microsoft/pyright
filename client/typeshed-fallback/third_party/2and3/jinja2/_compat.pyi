@@ -1,5 +1,5 @@
-from typing import Any, Optional
 import sys
+from typing import Any, Optional
 
 if sys.version_info[0] >= 3:
     from io import BytesIO

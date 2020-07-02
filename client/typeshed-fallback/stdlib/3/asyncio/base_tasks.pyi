@@ -1,6 +1,7 @@
 from _typeshed import AnyPath
-from typing import List, Optional
 from types import FrameType
+from typing import List, Optional
+
 from . import tasks
 
 def _task_repr_info(task: tasks.Task) -> List[str]: ...  # undocumented

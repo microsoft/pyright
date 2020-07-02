@@ -1,4 +1,4 @@
-from typing import MutableMapping, Any, Text
+from typing import Any, MutableMapping, Text
 
 _Attrs = MutableMapping[Any, Text]
 

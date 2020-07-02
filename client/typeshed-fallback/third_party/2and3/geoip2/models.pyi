@@ -1,7 +1,6 @@
 from typing import Any, Mapping, Optional, Sequence, Text
 
 from geoip2 import records
-
 from geoip2.mixins import SimpleEquality
 
 _Locales = Optional[Sequence[Text]]
@@ -25,9 +24,7 @@ class City(Country):
     def __init__(self, raw_response: _RawResponse, locales: _Locales = ...) -> None: ...
 
 class Insights(City): ...
-
 class Enterprise(City): ...
-
 class SimpleModel(SimpleEquality): ...
 
 class AnonymousIP(SimpleModel):

@@ -1,10 +1,10 @@
 # NB: third_party/2/enum.pyi and stdlib/3.4/enum.pyi must remain consistent!
 import sys
-from typing import Any, Dict, Iterator, List, Mapping, Type, TypeVar, Union
 from abc import ABCMeta
+from typing import Any, Dict, Iterator, List, Mapping, Type, TypeVar, Union
 
-_T = TypeVar('_T')
-_S = TypeVar('_S', bound=Type[Enum])
+_T = TypeVar("_T")
+_S = TypeVar("_S", bound=Type[Enum])
 
 # Note: EnumMeta actually subclasses type directly, not ABCMeta.
 # This is a temporary workaround to allow multiple creation of enums with builtins
@@ -56,7 +56,6 @@ if sys.version_info >= (3, 6):
     # subclassing IntFlag so it picks up all implemented base functions, best modeling behavior of enum.auto()
     class auto(IntFlag):
         value: Any
-
     class Flag(Enum):
         def __contains__(self: _T, other: _T) -> bool: ...
         def __repr__(self) -> str: ...
@@ -66,7 +65,6 @@ if sys.version_info >= (3, 6):
         def __and__(self: _T, other: _T) -> _T: ...
         def __xor__(self: _T, other: _T) -> _T: ...
         def __invert__(self: _T) -> _T: ...
-
     class IntFlag(int, Flag):
         def __or__(self: _T, other: Union[int, _T]) -> _T: ...
         def __and__(self: _T, other: Union[int, _T]) -> _T: ...

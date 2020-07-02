@@ -1,7 +1,7 @@
 # Stubs for requests.api (Python 3)
 
 import sys
-from typing import Optional, Union, Any, Iterable, Mapping, MutableMapping, Tuple, IO, Text
+from typing import IO, Any, Iterable, Mapping, MutableMapping, Optional, Text, Tuple, Union
 
 from .models import Response
 from .sessions import _Data

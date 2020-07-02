@@ -1,4 +1,5 @@
 from typing import Any
+
 from jwt.algorithms import Algorithm
 
 from . import _HashAlg

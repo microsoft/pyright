@@ -2,7 +2,7 @@ import datetime
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network
-from typing import Any, ClassVar, Generator, List, Optional, Union, Text, Iterable, Sequence, Type
+from typing import Any, ClassVar, Generator, Iterable, List, Optional, Sequence, Text, Type, Union
 
 from cryptography.hazmat.backends.interfaces import X509Backend
 from cryptography.hazmat.primitives.asymmetric.dsa import DSAPrivateKey, DSAPublicKey
@@ -141,12 +141,16 @@ class Certificate(metaclass=ABCMeta):
     def public_key(self) -> Union[DSAPublicKey, Ed25519PublicKey, Ed448PublicKey, EllipticCurvePublicKey, RSAPublicKey]: ...
 
 class CertificateBuilder(object):
-    def __init__(self, issuer_name: Optional[Name] = ..., subject_name: Optional[Name] = ...,
-                 public_key: Union[DSAPublicKey, Ed25519PublicKey, Ed448PublicKey, EllipticCurvePublicKey, RSAPublicKey, None] = ...,
-                 serial_number: Optional[int] = ...,
-                 not_valid_before: Optional[datetime.datetime] = ...,
-                 not_valid_after: Optional[datetime.datetime] = ...,
-                 extensions: Optional[Iterable[ExtensionType]] = ...) -> None: ...
+    def __init__(
+        self,
+        issuer_name: Optional[Name] = ...,
+        subject_name: Optional[Name] = ...,
+        public_key: Union[DSAPublicKey, Ed25519PublicKey, Ed448PublicKey, EllipticCurvePublicKey, RSAPublicKey, None] = ...,
+        serial_number: Optional[int] = ...,
+        not_valid_before: Optional[datetime.datetime] = ...,
+        not_valid_after: Optional[datetime.datetime] = ...,
+        extensions: Optional[Iterable[ExtensionType]] = ...,
+    ) -> None: ...
     def add_extension(self, extension: ExtensionType, critical: bool) -> CertificateBuilder: ...
     def issuer_name(self, name: Name) -> CertificateBuilder: ...
     def not_valid_after(self, time: datetime.datetime) -> CertificateBuilder: ...

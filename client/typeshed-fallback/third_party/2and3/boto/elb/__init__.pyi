@@ -1,4 +1,5 @@
 from typing import Any
+
 from boto.connection import AWSQueryConnection
 
 RegionData: Any
@@ -11,10 +12,29 @@ class ELBConnection(AWSQueryConnection):
     DefaultRegionName: Any
     DefaultRegionEndpoint: Any
     region: Any
-    def __init__(self, aws_access_key_id=..., aws_secret_access_key=..., is_secure=..., port=..., proxy=..., proxy_port=..., proxy_user=..., proxy_pass=..., debug=..., https_connection_factory=..., region=..., path=..., security_token=..., validate_certs=..., profile_name=...) -> None: ...
+    def __init__(
+        self,
+        aws_access_key_id=...,
+        aws_secret_access_key=...,
+        is_secure=...,
+        port=...,
+        proxy=...,
+        proxy_port=...,
+        proxy_user=...,
+        proxy_pass=...,
+        debug=...,
+        https_connection_factory=...,
+        region=...,
+        path=...,
+        security_token=...,
+        validate_certs=...,
+        profile_name=...,
+    ) -> None: ...
     def build_list_params(self, params, items, label): ...
     def get_all_load_balancers(self, load_balancer_names=..., marker=...): ...
-    def create_load_balancer(self, name, zones, listeners=..., subnets=..., security_groups=..., scheme=..., complex_listeners=...): ...
+    def create_load_balancer(
+        self, name, zones, listeners=..., subnets=..., security_groups=..., scheme=..., complex_listeners=...
+    ): ...
     def create_load_balancer_listeners(self, name, listeners=..., complex_listeners=...): ...
     def delete_load_balancer(self, name): ...
     def delete_load_balancer_listeners(self, name, ports): ...

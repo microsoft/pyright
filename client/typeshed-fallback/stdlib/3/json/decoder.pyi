@@ -26,7 +26,7 @@ class JSONDecoder:
             parse_int: Optional[Callable[[str], Any]] = ...,
             parse_constant: Optional[Callable[[str], Any]] = ...,
             strict: bool = ...,
-            object_pairs_hook: Optional[Callable[[List[Tuple[str, Any]]], Any]] = ...
+            object_pairs_hook: Optional[Callable[[List[Tuple[str, Any]]], Any]] = ...,
         ) -> None: ...
     else:
         def __init__(

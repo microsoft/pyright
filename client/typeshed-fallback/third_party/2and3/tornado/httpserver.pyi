@@ -1,4 +1,5 @@
 from typing import Any
+
 from tornado import httputil
 from tornado.tcpserver import TCPServer
 from tornado.util import Configurable
@@ -10,9 +11,22 @@ class HTTPServer(TCPServer, Configurable, httputil.HTTPServerConnectionDelegate)
     xheaders: Any
     protocol: Any
     conn_params: Any
-    def initialize(self, request_callback, no_keep_alive=..., io_loop=..., xheaders=..., ssl_options=..., protocol=...,
-                   decompress_request=..., chunk_size=..., max_header_size=..., idle_connection_timeout=..., body_timeout=...,
-                   max_body_size=..., max_buffer_size=...): ...
+    def initialize(
+        self,
+        request_callback,
+        no_keep_alive=...,
+        io_loop=...,
+        xheaders=...,
+        ssl_options=...,
+        protocol=...,
+        decompress_request=...,
+        chunk_size=...,
+        max_header_size=...,
+        idle_connection_timeout=...,
+        body_timeout=...,
+        max_body_size=...,
+        max_buffer_size=...,
+    ): ...
     @classmethod
     def configurable_base(cls): ...
     @classmethod

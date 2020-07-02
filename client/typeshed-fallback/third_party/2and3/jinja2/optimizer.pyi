@@ -1,4 +1,5 @@
 from typing import Any
+
 from jinja2.visitor import NodeTransformer
 
 def optimize(node, environment): ...

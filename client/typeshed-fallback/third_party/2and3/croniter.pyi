@@ -2,7 +2,7 @@ import datetime
 from typing import Any, Dict, Iterator, List, Optional, Text, Tuple, Type, TypeVar, Union
 
 _RetType = Union[Type[float], Type[datetime.datetime]]
-_SelfT = TypeVar('_SelfT', bound=croniter)
+_SelfT = TypeVar("_SelfT", bound=croniter)
 
 class CroniterError(ValueError): ...
 class CroniterBadCronError(CroniterError): ...
@@ -22,7 +22,9 @@ class croniter(Iterator[Any]):
     start_time: float
     dst_start_time: float
     nth_weekday_of_month: Dict[str, Any]
-    def __init__(self, expr_format: Text, start_time: Optional[Union[float, datetime.datetime]] = ..., ret_type: Optional[_RetType] = ...) -> None: ...
+    def __init__(
+        self, expr_format: Text, start_time: Optional[Union[float, datetime.datetime]] = ..., ret_type: Optional[_RetType] = ...
+    ) -> None: ...
     # Most return value depend on ret_type, which can be passed in both as a method argument and as
     # a constructor argument.
     def get_next(self, ret_type: Optional[_RetType] = ...) -> Any: ...

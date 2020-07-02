@@ -1,6 +1,7 @@
 # Stubs for flask.json (Python 3.6)
 import json as _json
 from typing import Any
+
 from jinja2 import Markup
 
 class JSONEncoder(_json.JSONEncoder):

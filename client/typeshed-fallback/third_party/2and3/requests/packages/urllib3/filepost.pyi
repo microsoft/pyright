@@ -1,7 +1,7 @@
 from typing import Any
-from . import packages
+
 # from .packages import six
-from . import fields
+from . import fields, packages
 
 # six = packages.six
 # b = six.b

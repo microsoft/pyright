@@ -4,6 +4,7 @@
 
 from abc import ABCMeta
 from typing import Any, MutableMapping, Optional
+
 from werkzeug.datastructures import CallbackDict
 
 class SessionMixin(MutableMapping[str, Any], metaclass=ABCMeta):

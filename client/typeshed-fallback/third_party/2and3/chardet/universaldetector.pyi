@@ -1,7 +1,7 @@
 import sys
-from typing import Dict, Pattern, Optional
-from typing_extensions import TypedDict
 from logging import Logger
+from typing import Dict, Optional, Pattern
+from typing_extensions import TypedDict
 
 class _FinalResultType(TypedDict):
     encoding: str
@@ -24,7 +24,6 @@ class UniversalDetector(object):
     done: bool
     lang_filter: int
     logger: Logger
-
     def __init__(self, lang_filter: int = ...) -> None: ...
     def reset(self) -> None: ...
     def feed(self, byte_str: bytes) -> None: ...

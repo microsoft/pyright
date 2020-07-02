@@ -1,7 +1,8 @@
+from typing import Iterable, Optional
+
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
 from google.protobuf.message import Message
 from google.protobuf.unittest_no_arena_import_pb2 import ImportNoArenaNestedMessage
-from typing import Iterable, Optional
 
 class NestedMessage(Message):
     d: int

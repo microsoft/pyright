@@ -119,7 +119,7 @@ Run using:`(.venv3)$ python3 tests/mypy_test.py`
 
 This test is shallow — it verifies that all stubs can be
 imported but doesn't check whether stubs match their implementation
-(in the Python standard library or a third-party package). It has a blacklist of
+(in the Python standard library or a third-party package). It has an exclude list of
 modules that are not tested at all, which also lives in the tests directory.
 
 If you are in the typeshed repo that is submodule of the

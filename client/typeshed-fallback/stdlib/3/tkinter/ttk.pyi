@@ -1,6 +1,6 @@
 import sys
-from typing import Any, List, Optional
 import tkinter
+from typing import Any, List, Optional
 
 def tclobjs_to_py(adict): ...
 def setup_master(master: Optional[Any] = ...): ...

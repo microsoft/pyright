@@ -1,4 +1,5 @@
 from typing import Any, Dict, Optional, Text
+
 from six.moves import http_client
 
 HAVE_HTTPS_CONNECTION: bool
@@ -63,7 +64,26 @@ class AWSAuthConnection:
     provider: Any
     auth_service_name: Any
     request_hook: Any
-    def __init__(self, host, aws_access_key_id: Optional[Any] = ..., aws_secret_access_key: Optional[Any] = ..., is_secure: bool = ..., port: Optional[Any] = ..., proxy: Optional[Any] = ..., proxy_port: Optional[Any] = ..., proxy_user: Optional[Any] = ..., proxy_pass: Optional[Any] = ..., debug: int = ..., https_connection_factory: Optional[Any] = ..., path: str = ..., provider: str = ..., security_token: Optional[Any] = ..., suppress_consec_slashes: bool = ..., validate_certs: bool = ..., profile_name: Optional[Any] = ...) -> None: ...
+    def __init__(
+        self,
+        host,
+        aws_access_key_id: Optional[Any] = ...,
+        aws_secret_access_key: Optional[Any] = ...,
+        is_secure: bool = ...,
+        port: Optional[Any] = ...,
+        proxy: Optional[Any] = ...,
+        proxy_port: Optional[Any] = ...,
+        proxy_user: Optional[Any] = ...,
+        proxy_pass: Optional[Any] = ...,
+        debug: int = ...,
+        https_connection_factory: Optional[Any] = ...,
+        path: str = ...,
+        provider: str = ...,
+        security_token: Optional[Any] = ...,
+        suppress_consec_slashes: bool = ...,
+        validate_certs: bool = ...,
+        profile_name: Optional[Any] = ...,
+    ) -> None: ...
     auth_region_name: Any
     @property
     def connection(self): ...
@@ -98,14 +118,53 @@ class AWSAuthConnection:
     def get_proxy_url_with_auth(self): ...
     def set_host_header(self, request): ...
     def set_request_hook(self, hook): ...
-    def build_base_http_request(self, method, path, auth_path, params: Optional[Any] = ..., headers: Optional[Any] = ..., data: str = ..., host: Optional[Any] = ...): ...
-    def make_request(self, method, path, headers: Optional[Any] = ..., data: str = ..., host: Optional[Any] = ..., auth_path: Optional[Any] = ..., sender: Optional[Any] = ..., override_num_retries: Optional[Any] = ..., params: Optional[Any] = ..., retry_handler: Optional[Any] = ...): ...
+    def build_base_http_request(
+        self,
+        method,
+        path,
+        auth_path,
+        params: Optional[Any] = ...,
+        headers: Optional[Any] = ...,
+        data: str = ...,
+        host: Optional[Any] = ...,
+    ): ...
+    def make_request(
+        self,
+        method,
+        path,
+        headers: Optional[Any] = ...,
+        data: str = ...,
+        host: Optional[Any] = ...,
+        auth_path: Optional[Any] = ...,
+        sender: Optional[Any] = ...,
+        override_num_retries: Optional[Any] = ...,
+        params: Optional[Any] = ...,
+        retry_handler: Optional[Any] = ...,
+    ): ...
     def close(self): ...
 
 class AWSQueryConnection(AWSAuthConnection):
     APIVersion: str
     ResponseError: Any
-    def __init__(self, aws_access_key_id: Optional[Any] = ..., aws_secret_access_key: Optional[Any] = ..., is_secure: bool = ..., port: Optional[Any] = ..., proxy: Optional[Any] = ..., proxy_port: Optional[Any] = ..., proxy_user: Optional[Any] = ..., proxy_pass: Optional[Any] = ..., host: Optional[Any] = ..., debug: int = ..., https_connection_factory: Optional[Any] = ..., path: str = ..., security_token: Optional[Any] = ..., validate_certs: bool = ..., profile_name: Optional[Any] = ..., provider: str = ...) -> None: ...
+    def __init__(
+        self,
+        aws_access_key_id: Optional[Any] = ...,
+        aws_secret_access_key: Optional[Any] = ...,
+        is_secure: bool = ...,
+        port: Optional[Any] = ...,
+        proxy: Optional[Any] = ...,
+        proxy_port: Optional[Any] = ...,
+        proxy_user: Optional[Any] = ...,
+        proxy_pass: Optional[Any] = ...,
+        host: Optional[Any] = ...,
+        debug: int = ...,
+        https_connection_factory: Optional[Any] = ...,
+        path: str = ...,
+        security_token: Optional[Any] = ...,
+        validate_certs: bool = ...,
+        profile_name: Optional[Any] = ...,
+        provider: str = ...,
+    ) -> None: ...
     def get_utf8_value(self, value): ...
     def make_request(self, action, params: Optional[Any] = ..., path: str = ..., verb: str = ..., *args, **kwargs): ...  # type: ignore # https://github.com/python/mypy/issues/1237
     def build_list_params(self, params, items, label): ...

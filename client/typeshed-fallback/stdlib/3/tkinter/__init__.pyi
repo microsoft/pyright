@@ -1,8 +1,8 @@
 import sys
 from enum import Enum
-from types import TracebackType
-from typing import Any, Optional, Dict, Callable, Tuple, Type, Union
 from tkinter.constants import *  # noqa: F403
+from types import TracebackType
+from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
 
 TclError: Any
 wantobjects: Any
@@ -245,8 +245,9 @@ class Misc:
     def place_slaves(self): ...
     def grid_anchor(self, anchor: Optional[Any] = ...): ...
     anchor: Any
-    def grid_bbox(self, column: Optional[Any] = ..., row: Optional[Any] = ..., col2: Optional[Any] = ...,
-                  row2: Optional[Any] = ...): ...
+    def grid_bbox(
+        self, column: Optional[Any] = ..., row: Optional[Any] = ..., col2: Optional[Any] = ..., row2: Optional[Any] = ...
+    ): ...
     bbox: Any
     def grid_columnconfigure(self, index, cnf=..., **kw): ...
     columnconfigure: Any
@@ -282,8 +283,13 @@ class YView:
     def yview_scroll(self, number, what): ...
 
 class Wm:
-    def wm_aspect(self, minNumer: Optional[Any] = ..., minDenom: Optional[Any] = ..., maxNumer: Optional[Any] = ...,
-                  maxDenom: Optional[Any] = ...): ...
+    def wm_aspect(
+        self,
+        minNumer: Optional[Any] = ...,
+        minDenom: Optional[Any] = ...,
+        maxNumer: Optional[Any] = ...,
+        maxDenom: Optional[Any] = ...,
+    ): ...
     aspect: Any
     def wm_attributes(self, *args): ...
     attributes: Any
@@ -303,8 +309,13 @@ class Wm:
     frame: Any
     def wm_geometry(self, newGeometry: Optional[Any] = ...): ...
     geometry: Any
-    def wm_grid(self, baseWidth: Optional[Any] = ..., baseHeight: Optional[Any] = ..., widthInc: Optional[Any] = ...,
-                heightInc: Optional[Any] = ...): ...
+    def wm_grid(
+        self,
+        baseWidth: Optional[Any] = ...,
+        baseHeight: Optional[Any] = ...,
+        widthInc: Optional[Any] = ...,
+        heightInc: Optional[Any] = ...,
+    ): ...
     grid: Any
     def wm_group(self, pathName: Optional[Any] = ...): ...
     group: Any
@@ -351,8 +362,15 @@ class Tk(Misc, Wm):
     master: Optional[Any]
     children: Dict[str, Any]
     tk: Any
-    def __init__(self, screenName: Optional[str] = ..., baseName: Optional[str] = ..., className: str = ..., useTk: bool = ...,
-                 sync: bool = ..., use: Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        screenName: Optional[str] = ...,
+        baseName: Optional[str] = ...,
+        className: str = ...,
+        useTk: bool = ...,
+        sync: bool = ...,
+        use: Optional[str] = ...,
+    ) -> None: ...
     def loadtk(self) -> None: ...
     def destroy(self) -> None: ...
     def readprofile(self, baseName: str, className: str) -> None: ...
@@ -627,9 +645,19 @@ class Text(Widget, XView, YView):
     def replace(self, index1, index2, chars, *args): ...
     def scan_mark(self, x, y): ...
     def scan_dragto(self, x, y): ...
-    def search(self, pattern, index, stopindex: Optional[Any] = ..., forwards: Optional[Any] = ...,
-               backwards: Optional[Any] = ..., exact: Optional[Any] = ..., regexp: Optional[Any] = ...,
-               nocase: Optional[Any] = ..., count: Optional[Any] = ..., elide: Optional[Any] = ...): ...
+    def search(
+        self,
+        pattern,
+        index,
+        stopindex: Optional[Any] = ...,
+        forwards: Optional[Any] = ...,
+        backwards: Optional[Any] = ...,
+        exact: Optional[Any] = ...,
+        regexp: Optional[Any] = ...,
+        nocase: Optional[Any] = ...,
+        count: Optional[Any] = ...,
+        elide: Optional[Any] = ...,
+    ): ...
     def see(self, index): ...
     def tag_add(self, tagName, index1, *args): ...
     def tag_unbind(self, tagName, sequence, funcid: Optional[Any] = ...): ...

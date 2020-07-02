@@ -1,3 +1,5 @@
+from typing import Iterable, List, Mapping, MutableMapping, Optional, Text, Tuple, cast
+
 from google.protobuf.any_pb2 import Any
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.field_mask_pb2 import FieldMask
@@ -16,7 +18,6 @@ from google.protobuf.wrappers_pb2 import (
     UInt32Value,
     UInt64Value,
 )
-from typing import Iterable, List, Mapping, MutableMapping, Optional, Text, Tuple, cast
 
 class ForeignEnum(int):
     @classmethod

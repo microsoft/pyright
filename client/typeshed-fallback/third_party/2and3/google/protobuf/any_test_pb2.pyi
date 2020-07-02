@@ -1,7 +1,8 @@
+from typing import Iterable, Optional
+
 from google.protobuf.any_pb2 import Any
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer
 from google.protobuf.message import Message
-from typing import Iterable, Optional
 
 class TestAny(Message):
     int32_value: int

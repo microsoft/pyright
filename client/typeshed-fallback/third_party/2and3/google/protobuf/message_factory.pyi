@@ -1,8 +1,8 @@
 from typing import Any, Dict, Iterable, Optional, Type
 
-from .message import Message
 from .descriptor import Descriptor
 from .descriptor_pool import DescriptorPool
+from .message import Message
 
 class MessageFactory:
     pool: Any

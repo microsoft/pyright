@@ -1,11 +1,7 @@
-
-from typing import Optional, Union, Sequence, IO, Any, List, Deque, Dict, Tuple, Callable
 import subprocess
+from typing import IO, Any, Callable, Deque, Dict, List, Optional, Sequence, Tuple, Union
 
-from . import events
-from . import protocols
-from . import futures
-from . import transports
+from . import events, futures, protocols, transports
 
 _File = Optional[Union[int, IO[Any]]]
 
@@ -21,11 +17,30 @@ class BaseSubprocessTransport(transports.SubprocessTransport):
     _pending_calls: Deque[Tuple[Callable[..., Any], Tuple[Any, ...]]]  # undocumented
     _pipes: Dict[int, _File]  # undocumented
     _finished: bool  # undocumented
-
-    def __init__(self, loop: events.AbstractEventLoop, protocol: protocols.SubprocessProtocol, args: Union[str, bytes, Sequence[Union[str, bytes]]],
-                 shell: bool, stdin: _File, stdout: _File, stderr: _File, bufsize: int, waiter: Optional[futures.Future] = ..., extra: Optional[Any] = ..., **kwargs: Any) -> None: ...
-
-    def _start(self, args: Union[str, bytes, Sequence[Union[str, bytes]]], shell: bool, stdin: _File, stdout: _File, stderr: _File, bufsize: int, **kwargs: Any): ...  # undocumented
+    def __init__(
+        self,
+        loop: events.AbstractEventLoop,
+        protocol: protocols.SubprocessProtocol,
+        args: Union[str, bytes, Sequence[Union[str, bytes]]],
+        shell: bool,
+        stdin: _File,
+        stdout: _File,
+        stderr: _File,
+        bufsize: int,
+        waiter: Optional[futures.Future] = ...,
+        extra: Optional[Any] = ...,
+        **kwargs: Any,
+    ) -> None: ...
+    def _start(
+        self,
+        args: Union[str, bytes, Sequence[Union[str, bytes]]],
+        shell: bool,
+        stdin: _File,
+        stdout: _File,
+        stderr: _File,
+        bufsize: int,
+        **kwargs: Any,
+    ): ...  # undocumented
     def set_protocol(self, protocol: protocols.BaseProtocol) -> None: ...
     def get_protocol(self) -> protocols.BaseProtocol: ...
     def is_closing(self) -> bool: ...
@@ -47,7 +62,6 @@ class BaseSubprocessTransport(transports.SubprocessTransport):
     def _call_connection_lost(self, exc: Optional[BaseException]) -> None: ...  # undocumented
 
 class WriteSubprocessPipeProto(protocols.BaseProtocol):  # undocumented
-
     def __init__(self, proc: BaseSubprocessTransport, fd: int) -> None: ...
     def connection_made(self, transport: transports.BaseTransport) -> None: ...
     def connection_lost(self, exc: Optional[BaseException]) -> None: ...
@@ -55,5 +69,4 @@ class WriteSubprocessPipeProto(protocols.BaseProtocol):  # undocumented
     def resume_writing(self) -> None: ...
 
 class ReadSubprocessPipeProto(WriteSubprocessPipeProto, protocols.Protocol):  # undocumented
-
     def data_received(self, data: bytes) -> None: ...

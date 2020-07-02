@@ -1,10 +1,10 @@
 # Stubs for pkg_resources (Python 3.4)
 
-from typing import Any, Callable, Dict, IO, Iterable, Generator, Optional, Sequence, Tuple, List, Set, Union, TypeVar, overload
-from abc import ABCMeta
 import importlib.abc
 import types
 import zipimport
+from abc import ABCMeta
+from typing import IO, Any, Callable, Dict, Generator, Iterable, List, Optional, Sequence, Set, Tuple, TypeVar, Union, overload
 
 _T = TypeVar("_T")
 _NestedStr = Union[str, Iterable[Union[str, Iterable[Any]]]]

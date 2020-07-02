@@ -1,4 +1,5 @@
 from typing import Any
+
 from yaml.error import MarkedYAMLError
 
 class ParserError(MarkedYAMLError): ...

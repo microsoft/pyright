@@ -1,5 +1,5 @@
-from typing import Any
 import io
+from typing import Any
 
 BUFFER_SIZE: Any
 

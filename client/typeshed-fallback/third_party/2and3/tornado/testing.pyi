@@ -1,6 +1,6 @@
-from typing import Any, Callable, Generator, Optional, overload
-import unittest
 import logging
+import unittest
+from typing import Any, Callable, Generator, Optional, overload
 
 AsyncHTTPClient: Any
 gen: Any

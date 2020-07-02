@@ -1,31 +1,46 @@
 import abc
 import sys
-from typing import Callable
-from typing import ClassVar as ClassVar
-from typing import ContextManager as ContextManager
-from typing import Counter as Counter
-from typing import DefaultDict as DefaultDict
-from typing import Deque as Deque
-from typing import NewType as NewType
-from typing import NoReturn as NoReturn
-from typing import overload as overload
-from typing import Text as Text
-from typing import Type as Type
-from typing import TYPE_CHECKING as TYPE_CHECKING
-from typing import TypeVar, Any, Mapping, ItemsView, KeysView, Optional, ValuesView, Dict
+from typing import (
+    TYPE_CHECKING as TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar as ClassVar,
+    ContextManager as ContextManager,
+    Counter as Counter,
+    DefaultDict as DefaultDict,
+    Deque as Deque,
+    Dict,
+    ItemsView,
+    KeysView,
+    Mapping,
+    NewType as NewType,
+    NoReturn as NoReturn,
+    Optional,
+    Text as Text,
+    Type as Type,
+    TypeVar,
+    ValuesView,
+    overload as overload,
+)
 
-_T = TypeVar('_T')
-_F = TypeVar('_F', bound=Callable[..., Any])
-_TC = TypeVar('_TC', bound=Type[object])
+_T = TypeVar("_T")
+_F = TypeVar("_F", bound=Callable[..., Any])
+_TC = TypeVar("_TC", bound=Type[object])
+
 class _SpecialForm:
     def __getitem__(self, typeargs: Any) -> Any: ...
+
 def runtime_checkable(cls: _TC) -> _TC: ...
+
 # This alias for above is kept here for backwards compatibility.
 runtime = runtime_checkable
 Protocol: _SpecialForm = ...
 Final: _SpecialForm = ...
+
 def final(f: _F) -> _F: ...
+
 Literal: _SpecialForm = ...
+
 def IntVar(__name: str) -> Any: ...  # returns a new TypeVar
 
 # Internal mypy fallback type for all typed dicts (does not exist at runtime)
@@ -65,9 +80,14 @@ if sys.version_info >= (3, 6):
     from typing import AsyncGenerator as AsyncGenerator
 
 def get_type_hints(
-    obj: Callable[..., Any], globalns: Optional[Dict[str, Any]] = ..., localns: Optional[Dict[str, Any]] = ...,
-    include_extras: bool = ...
+    obj: Callable[..., Any],
+    globalns: Optional[Dict[str, Any]] = ...,
+    localns: Optional[Dict[str, Any]] = ...,
+    include_extras: bool = ...,
 ) -> Dict[str, Any]: ...
 
 Annotated: _SpecialForm = ...
 _AnnotatedAlias: Any = ...  # undocumented
+
+# TypeAlias is a (non-subscriptable) special form.
+TypeAlias: object

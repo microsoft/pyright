@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import overload, Mapping, Any, Text
+from typing import Any, Mapping, Text, overload
 
 def force_unicode(text: Text) -> Text: ...
 @overload

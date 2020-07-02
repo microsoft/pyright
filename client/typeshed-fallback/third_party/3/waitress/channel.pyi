@@ -1,13 +1,15 @@
-from . import wasyncore as wasyncore
 from socket import SocketType
 from threading import Condition, Lock
-from typing import Mapping, Sequence, Optional, Tuple
+from typing import Mapping, Optional, Sequence, Tuple
+
 from waitress.adjustments import Adjustments
 from waitress.buffers import OverflowableBuffer, ReadOnlyFileBasedBuffer
 from waitress.parser import HTTPRequestParser
 from waitress.server import BaseWSGIServer
-from waitress.task import ErrorTask, WSGITask, Task
+from waitress.task import ErrorTask, Task, WSGITask
 from waitress.utilities import InternalServerError
+
+from . import wasyncore as wasyncore
 
 class ClientDisconnected(Exception): ...
 

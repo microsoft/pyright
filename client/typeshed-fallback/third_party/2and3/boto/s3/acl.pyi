@@ -1,6 +1,7 @@
+from typing import Any, Dict, List, Optional, Text, Union
+
 from .connection import S3Connection
 from .user import User
-from typing import Any, Dict, Optional, List, Text, Union
 
 CannedACLStrings: List[str]
 
@@ -33,7 +34,15 @@ class Grant:
     uri: Text
     email_address: Text
     type: Text
-    def __init__(self, permission: Optional[Text] = ..., type: Optional[Text] = ..., id: Optional[Text] = ..., display_name: Optional[Text] = ..., uri: Optional[Text] = ..., email_address: Optional[Text] = ...) -> None: ...
+    def __init__(
+        self,
+        permission: Optional[Text] = ...,
+        type: Optional[Text] = ...,
+        id: Optional[Text] = ...,
+        display_name: Optional[Text] = ...,
+        uri: Optional[Text] = ...,
+        email_address: Optional[Text] = ...,
+    ) -> None: ...
     def startElement(self, name, attrs, connection): ...
     def endElement(self, name: Text, value: Any, connection: S3Connection) -> None: ...
     def to_xml(self) -> str: ...

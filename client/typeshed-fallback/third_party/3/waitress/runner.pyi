@@ -1,5 +1,6 @@
 from io import TextIOWrapper
-from typing import Any, Callable, Sequence, Optional, Pattern, Tuple
+from typing import Any, Callable, Optional, Pattern, Sequence, Tuple
+
 from waitress import serve
 
 HELP: str

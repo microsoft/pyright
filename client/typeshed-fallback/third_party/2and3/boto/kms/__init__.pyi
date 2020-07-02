@@ -1,4 +1,5 @@
 from typing import List
+
 import boto.regioninfo
 
 def regions() -> List[boto.regioninfo.RegionInfo]: ...

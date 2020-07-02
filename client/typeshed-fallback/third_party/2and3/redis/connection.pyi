@@ -1,4 +1,4 @@
-from typing import Any, Text, Optional
+from typing import Any, Optional, Text
 
 ssl_available: Any
 hiredis_version: Any
@@ -68,9 +68,23 @@ class Connection:
     encoding: Any
     encoding_errors: Any
     decode_responses: Any
-    def __init__(self, host=..., port=..., db=..., password=..., socket_timeout=..., socket_connect_timeout=...,
-                 socket_keepalive=..., socket_keepalive_options=..., retry_on_timeout=..., encoding=..., encoding_errors=...,
-                 decode_responses=..., parser_class=..., socket_read_size=...) -> None: ...
+    def __init__(
+        self,
+        host=...,
+        port=...,
+        db=...,
+        password=...,
+        socket_timeout=...,
+        socket_connect_timeout=...,
+        socket_keepalive=...,
+        socket_keepalive_options=...,
+        retry_on_timeout=...,
+        encoding=...,
+        encoding_errors=...,
+        decode_responses=...,
+        parser_class=...,
+        socket_read_size=...,
+    ) -> None: ...
     def __del__(self): ...
     def register_connect_callback(self, callback): ...
     def clear_connect_callbacks(self): ...
@@ -104,8 +118,19 @@ class UnixDomainSocketConnection(Connection):
     encoding: Any
     encoding_errors: Any
     decode_responses: Any
-    def __init__(self, path=..., db=..., password=..., socket_timeout=..., encoding=..., encoding_errors=...,
-                 decode_responses=..., retry_on_timeout=..., parser_class=..., socket_read_size=...) -> None: ...
+    def __init__(
+        self,
+        path=...,
+        db=...,
+        password=...,
+        socket_timeout=...,
+        encoding=...,
+        encoding_errors=...,
+        decode_responses=...,
+        retry_on_timeout=...,
+        parser_class=...,
+        socket_read_size=...,
+    ) -> None: ...
 
 class ConnectionPool:
     @classmethod

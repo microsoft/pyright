@@ -1,10 +1,8 @@
-from typing import Any, Optional, List
-
 import array
 import threading
 import weakref
-
 from queue import Queue as Queue
+from typing import Any, List, Optional
 
 JoinableQueue = Queue
 Barrier = threading.Barrier
@@ -35,7 +33,6 @@ class Value:
     _value: Any
     value: Any
     def __init__(self, typecode, value, lock=...) -> None: ...
-
 
 def Array(typecode, sequence, lock=...) -> array.array[Any]: ...
 def Manager() -> Any: ...

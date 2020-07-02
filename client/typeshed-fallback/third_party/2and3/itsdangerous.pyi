@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Callable, IO, Mapping, MutableMapping, Optional, Tuple, Union, Text, Generator
+from typing import IO, Any, Callable, Generator, Mapping, MutableMapping, Optional, Text, Tuple, Union
 
 _serializer = Any  # must be an object that has "dumps" and "loads" attributes (e.g. the json module)
 
@@ -24,7 +24,9 @@ class BadTimeSignature(BadSignature):
 class BadHeader(BadSignature):
     header: Any
     original_error: Any
-    def __init__(self, message, payload: Optional[Any] = ..., header: Optional[Any] = ..., original_error: Optional[Any] = ...) -> None: ...
+    def __init__(
+        self, message, payload: Optional[Any] = ..., header: Optional[Any] = ..., original_error: Optional[Any] = ...
+    ) -> None: ...
 
 class SignatureExpired(BadTimeSignature): ...
 
@@ -54,14 +56,15 @@ class Signer(object):
     key_derivation: str
     digest_method: Callable[..., Any]
     algorithm: SigningAlgorithm
-
-    def __init__(self,
-                 secret_key: Union[Text, bytes],
-                 salt: Optional[Union[Text, bytes]] = ...,
-                 sep: Optional[Union[Text, bytes]] = ...,
-                 key_derivation: Optional[str] = ...,
-                 digest_method: Optional[Callable[..., Any]] = ...,
-                 algorithm: Optional[SigningAlgorithm] = ...) -> None: ...
+    def __init__(
+        self,
+        secret_key: Union[Text, bytes],
+        salt: Optional[Union[Text, bytes]] = ...,
+        sep: Optional[Union[Text, bytes]] = ...,
+        key_derivation: Optional[str] = ...,
+        digest_method: Optional[Callable[..., Any]] = ...,
+        algorithm: Optional[SigningAlgorithm] = ...,
+    ) -> None: ...
     def derive_key(self) -> bytes: ...
     def get_signature(self, value: Union[Text, bytes]) -> bytes: ...
     def sign(self, value: Union[Text, bytes]) -> bytes: ...
@@ -73,8 +76,9 @@ class TimestampSigner(Signer):
     def get_timestamp(self) -> int: ...
     def timestamp_to_datetime(self, ts: float) -> datetime: ...
     def sign(self, value: Union[Text, bytes]) -> bytes: ...
-    def unsign(self, value: Union[Text, bytes], max_age: Optional[int] = ...,
-               return_timestamp: bool = ...) -> Any: ...  # morally -> Union[bytes, Tuple[bytes, datetime]]
+    def unsign(
+        self, value: Union[Text, bytes], max_age: Optional[int] = ..., return_timestamp: bool = ...
+    ) -> Any: ...  # morally -> Union[bytes, Tuple[bytes, datetime]]
     def validate(self, signed_value: Union[Text, bytes], max_age: Optional[int] = ...) -> bool: ...
 
 class Serializer(object):
@@ -87,10 +91,14 @@ class Serializer(object):
     is_text_serializer: bool
     signer: Callable[..., Signer]
     signer_kwargs: MutableMapping[str, Any]
-
-    def __init__(self, secret_key: Union[Text, bytes], salt: Optional[Union[Text, bytes]] = ...,
-                 serializer: Optional[_serializer] = ..., signer: Optional[Callable[..., Signer]] = ...,
-                 signer_kwargs: Optional[MutableMapping[str, Any]] = ...) -> None: ...
+    def __init__(
+        self,
+        secret_key: Union[Text, bytes],
+        salt: Optional[Union[Text, bytes]] = ...,
+        serializer: Optional[_serializer] = ...,
+        signer: Optional[Callable[..., Signer]] = ...,
+        signer_kwargs: Optional[MutableMapping[str, Any]] = ...,
+    ) -> None: ...
     def load_payload(self, payload: bytes, serializer: Optional[_serializer] = ...) -> Any: ...
     def dump_payload(self, obj: Any) -> bytes: ...
     def make_signer(self, salt: Optional[Union[Text, bytes]] = ...) -> Signer: ...
@@ -103,10 +111,16 @@ class Serializer(object):
     def load_unsafe(self, f: IO[Any], salt: Optional[Union[Text, bytes]] = ...) -> Tuple[bool, Optional[Any]]: ...
 
 class TimedSerializer(Serializer):
-    def loads(self, s: Union[Text, bytes], salt: Optional[Union[Text, bytes]] = ..., max_age: Optional[int] = ...,
-              return_timestamp: bool = ...) -> Any: ...  # morally -> Union[Any, Tuple[Any, datetime]]
-    def loads_unsafe(self, s: Union[Text, bytes], salt: Optional[Union[Text, bytes]] = ...,
-                     max_age: Optional[int] = ...) -> Tuple[bool, Any]: ...
+    def loads(
+        self,
+        s: Union[Text, bytes],
+        salt: Optional[Union[Text, bytes]] = ...,
+        max_age: Optional[int] = ...,
+        return_timestamp: bool = ...,
+    ) -> Any: ...  # morally -> Union[Any, Tuple[Any, datetime]]
+    def loads_unsafe(
+        self, s: Union[Text, bytes], salt: Optional[Union[Text, bytes]] = ..., max_age: Optional[int] = ...
+    ) -> Tuple[bool, Any]: ...
 
 class JSONWebSignatureSerializer(Serializer):
     jws_algorithms: MutableMapping[Text, SigningAlgorithm] = ...
@@ -115,32 +129,49 @@ class JSONWebSignatureSerializer(Serializer):
 
     algorithm_name: Text
     algorithm: SigningAlgorithm
-
-    def __init__(self, secret_key: Union[Text, bytes], salt: Optional[Union[Text, bytes]] = ...,
-                 serializer: Optional[_serializer] = ..., signer: Optional[Callable[..., Signer]] = ...,
-                 signer_kwargs: Optional[MutableMapping[str, Any]] = ..., algorithm_name: Optional[Text] = ...) -> None: ...
-    def load_payload(self, payload: Union[Text, bytes], serializer: Optional[_serializer] = ...,
-                     return_header: bool = ...) -> Any: ...  # morally -> Union[Any, Tuple[Any, MutableMapping[str, Any]]]
+    def __init__(
+        self,
+        secret_key: Union[Text, bytes],
+        salt: Optional[Union[Text, bytes]] = ...,
+        serializer: Optional[_serializer] = ...,
+        signer: Optional[Callable[..., Signer]] = ...,
+        signer_kwargs: Optional[MutableMapping[str, Any]] = ...,
+        algorithm_name: Optional[Text] = ...,
+    ) -> None: ...
+    def load_payload(
+        self, payload: Union[Text, bytes], serializer: Optional[_serializer] = ..., return_header: bool = ...
+    ) -> Any: ...  # morally -> Union[Any, Tuple[Any, MutableMapping[str, Any]]]
     def dump_payload(self, header: Mapping[str, Any], obj: Any) -> bytes: ...  # type: ignore
     def make_algorithm(self, algorithm_name: Text) -> SigningAlgorithm: ...
     def make_signer(self, salt: Optional[Union[Text, bytes]] = ..., algorithm: SigningAlgorithm = ...) -> Signer: ...
     def make_header(self, header_fields: Optional[Mapping[str, Any]]) -> MutableMapping[str, Any]: ...
-    def dumps(self, obj: Any, salt: Optional[Union[Text, bytes]] = ...,
-              header_fields: Optional[Mapping[str, Any]] = ...) -> bytes: ...
-    def loads(self, s: Union[Text, bytes], salt: Optional[Union[Text, bytes]] = ...,
-              return_header: bool = ...) -> Any: ...  # morally -> Union[Any, Tuple[Any, MutableMapping[str, Any]]]
-    def loads_unsafe(self, s: Union[Text, bytes], salt: Optional[Union[Text, bytes]] = ...,
-                     return_header: bool = ...) -> Tuple[bool, Any]: ...
+    def dumps(
+        self, obj: Any, salt: Optional[Union[Text, bytes]] = ..., header_fields: Optional[Mapping[str, Any]] = ...
+    ) -> bytes: ...
+    def loads(
+        self, s: Union[Text, bytes], salt: Optional[Union[Text, bytes]] = ..., return_header: bool = ...
+    ) -> Any: ...  # morally -> Union[Any, Tuple[Any, MutableMapping[str, Any]]]
+    def loads_unsafe(
+        self, s: Union[Text, bytes], salt: Optional[Union[Text, bytes]] = ..., return_header: bool = ...
+    ) -> Tuple[bool, Any]: ...
 
 class TimedJSONWebSignatureSerializer(JSONWebSignatureSerializer):
     DEFAULT_EXPIRES_IN: int = ...
     expires_in: int
-    def __init__(self, secret_key: Union[Text, bytes], expires_in: Optional[int] = ..., salt: Optional[Union[Text, bytes]] = ...,
-                 serializer: Optional[_serializer] = ..., signer: Optional[Callable[..., Signer]] = ...,
-                 signer_kwargs: Optional[MutableMapping[str, Any]] = ..., algorithm_name: Optional[Text] = ...) -> None: ...
+    def __init__(
+        self,
+        secret_key: Union[Text, bytes],
+        expires_in: Optional[int] = ...,
+        salt: Optional[Union[Text, bytes]] = ...,
+        serializer: Optional[_serializer] = ...,
+        signer: Optional[Callable[..., Signer]] = ...,
+        signer_kwargs: Optional[MutableMapping[str, Any]] = ...,
+        algorithm_name: Optional[Text] = ...,
+    ) -> None: ...
     def make_header(self, header_fields: Optional[Mapping[str, Any]]) -> MutableMapping[str, Any]: ...
-    def loads(self, s: Union[Text, bytes], salt: Optional[Union[Text, bytes]] = ...,
-              return_header: bool = ...) -> Any: ...  # morally -> Union[Any, Tuple[Any, MutableMapping[str, Any]]]
+    def loads(
+        self, s: Union[Text, bytes], salt: Optional[Union[Text, bytes]] = ..., return_header: bool = ...
+    ) -> Any: ...  # morally -> Union[Any, Tuple[Any, MutableMapping[str, Any]]]
     def get_issue_date(self, header: Mapping[str, Any]) -> Optional[datetime]: ...
     def now(self) -> int: ...
 

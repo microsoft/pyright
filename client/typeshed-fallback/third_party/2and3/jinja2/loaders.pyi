@@ -1,12 +1,12 @@
 import sys
-
-from typing import Any, Callable, Iterable, List, Optional, Text, Tuple, Union
 from types import ModuleType
+from typing import Any, Callable, Iterable, List, Optional, Text, Tuple, Union
 
 from .environment import Environment
 
 if sys.version_info >= (3, 7):
     from os import PathLike
+
     _SearchPath = Union[Text, PathLike[str], Iterable[Union[Text, PathLike[str]]]]
 else:
     _SearchPath = Union[Text, Iterable[Text]]

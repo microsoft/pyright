@@ -1,13 +1,12 @@
+import _compression
 import sys
 import zlib
+from _typeshed import AnyPath, ReadableBuffer
 from typing import IO, Optional, TextIO, Union, overload
-import _compression
-from _typeshed import AnyPath
 from typing_extensions import Literal
 
 _OpenBinaryMode = Literal["r", "rb", "a", "ab", "w", "wb", "x", "xb"]
 _OpenTextMode = Literal["rt", "at", "wt", "xt"]
-
 @overload
 def open(
     filename: Union[AnyPath, IO[bytes]],
@@ -63,7 +62,7 @@ class GzipFile(_compression.BaseStream):
     @property
     def mtime(self) -> Optional[int]: ...
     crc: int
-    def write(self, data: bytes) -> int: ...
+    def write(self, data: ReadableBuffer) -> int: ...
     def read(self, size: Optional[int] = ...) -> bytes: ...
     def read1(self, size: int = ...) -> bytes: ...
     def peek(self, n: int) -> bytes: ...

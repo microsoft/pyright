@@ -1,6 +1,7 @@
+from typing import Iterable, List, Optional, Text, Tuple, cast
+
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer, RepeatedScalarFieldContainer
 from google.protobuf.message import Message
-from typing import Iterable, List, Optional, Text, Tuple, cast
 
 class FileDescriptorSet(Message):
     @property

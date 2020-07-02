@@ -9,7 +9,6 @@ from bleach.sanitizer import (
     Cleaner as Cleaner,
 )
 
-
 __releasedate__: Text
 __version__: Text
 VERSION: Any  # packaging.version.Version
@@ -24,8 +23,5 @@ def clean(
     strip_comments: bool = ...,
 ) -> Text: ...
 def linkify(
-    text: Text,
-    callbacks: Iterable[_Callback] = ...,
-    skip_tags: Optional[Container[Text]] = ...,
-    parse_email: bool = ...,
+    text: Text, callbacks: Iterable[_Callback] = ..., skip_tags: Optional[Container[Text]] = ..., parse_email: bool = ...,
 ) -> Text: ...
