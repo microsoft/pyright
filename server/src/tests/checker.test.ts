@@ -1432,6 +1432,11 @@ test('AssignmentExpr6', () => {
     validateResults(analysisResults, 0);
 });
 
+test('AssignmentExpr7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignmentExpr7.py']);
+    validateResults(analysisResults, 1);
+});
+
 test('Import1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import1.py']);
     validateResults(analysisResults, 0);

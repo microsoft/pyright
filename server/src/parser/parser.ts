@@ -2272,7 +2272,7 @@ export class Parser {
             argType = ArgumentCategory.UnpackedDictionary;
         }
 
-        let valueExpr = this._parseTestExpression(false);
+        let valueExpr = this._parseTestExpression(true);
         let nameIdentifier: IdentifierToken | undefined;
 
         if (argType === ArgumentCategory.Simple) {
