@@ -96,25 +96,25 @@
       "$id": "#/properties/strictListInference",
       "type": "boolean",
       "title": "Infer strict types for list expressions",
-      "default": "false"
+      "default": false
     },
     "strictDictionaryInference": {
       "$id": "#/properties/strictDictionaryInference",
       "type": "boolean",
       "title": "Infer strict types for dictionary expressions",
-      "default": "false"
+      "default": false
     },
     "strictParameterNoneValue": {
       "$id": "#/properties/strictParameterNoneValue",
       "type": "boolean",
       "title": "Allow implicit Optional when default parameter value is None",
-      "default": "false"
+      "default": false
     },
     "enableTypeIgnoreComments": {
       "$id": "#/properties/enableTypeIgnoreComments",
       "type": "boolean",
       "title": "Allow \"# type: ignore\" comments",
-      "default": "true"
+      "default": true
     },
     "reportGeneralTypeIssues": {
       "$id": "#/properties/reportGeneralTypeIssues",
@@ -379,7 +379,7 @@
       "$id": "#/properties/verboseOutput",
       "type": "boolean",
       "title": "Output verbose logging",
-      "default": "false"
+      "default": false
     },
     "executionEnvironments": {
       "$id": "#/properties/executionEnvironments",
