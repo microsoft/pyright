@@ -11,6 +11,8 @@
  * into an abstract syntax tree (AST).
  */
 
+import Char from 'typescript-char';
+
 import { assert } from '../common/debug';
 import { Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticSink } from '../common/diagnosticSink';
@@ -2940,6 +2942,37 @@ export class Parser {
         return parseResults.parseTree;
     }
 
+    private _parseFormatStringSegment(
+        stringToken: StringToken,
+        segment: StringTokenUtils.FormatStringSegment,
+        segmentOffset: number,
+        segmentLength: number
+    ) {
+        assert(segment.isExpression);
+        const parser = new Parser();
+        const parseResults = parser.parseTextExpression(
+            this._fileContents!,
+            stringToken.start + stringToken.prefixLength + stringToken.quoteMarkLength + segment.offset + segmentOffset,
+            segmentLength,
+            this._parseOptions,
+            /* parseTypeAnnotation */ false
+        );
+
+        parseResults.diagnostics.forEach((diag) => {
+            const textRangeStart =
+                (diag.range ? convertPositionToOffset(diag.range.start, parseResults.lines) : stringToken.start) ||
+                stringToken.start;
+            const textRangeEnd =
+                (diag.range
+                    ? (convertPositionToOffset(diag.range.end, parseResults.lines) || 0) + 1
+                    : stringToken.start + stringToken.length) || stringToken.start + stringToken.length;
+            const textRange = { start: textRangeStart, length: textRangeEnd - textRangeStart };
+            this._addError(diag.message, textRange);
+        });
+
+        return parseResults.parseTree;
+    }
+
     private _parseFormatString(stringToken: StringToken): FormatStringNode {
         const unescapedResult = StringTokenUtils.getUnescapedString(stringToken);
         this._reportStringTokenErrors(stringToken, unescapedResult);
@@ -2948,35 +2981,40 @@ export class Parser {
 
         for (const segment of unescapedResult.formatStringSegments) {
             if (segment.isExpression) {
-                const parser = new Parser();
-
                 // Determine if we need to truncate the expression because it
                 // contains formatting directives that start with a ! or :.
                 const segmentExprLength = this._getFormatStringExpressionLength(segment.value);
+                const parseTree = this._parseFormatStringSegment(stringToken, segment, 0, segmentExprLength);
+                if (parseTree) {
+                    formatExpressions.push(parseTree);
+                }
 
-                const parseResults = parser.parseTextExpression(
-                    this._fileContents!,
-                    stringToken.start + stringToken.prefixLength + stringToken.quoteMarkLength + segment.offset,
-                    segmentExprLength,
-                    this._parseOptions,
-                    /* parseTypeAnnotation */ false
-                );
-
-                parseResults.diagnostics.forEach((diag) => {
-                    const textRangeStart =
-                        (diag.range
-                            ? convertPositionToOffset(diag.range.start, parseResults.lines)
-                            : stringToken.start) || stringToken.start;
-                    const textRangeEnd =
-                        (diag.range
-                            ? (convertPositionToOffset(diag.range.end, parseResults.lines) || 0) + 1
-                            : stringToken.start + stringToken.length) || stringToken.start + stringToken.length;
-                    const textRange = { start: textRangeStart, length: textRangeEnd - textRangeStart };
-                    this._addError(diag.message, textRange);
-                });
-
-                if (parseResults.parseTree) {
-                    formatExpressions.push(parseResults.parseTree);
+                // Look for additional expressions within the format directive.
+                const formatDirective = segment.value.substr(segmentExprLength);
+                let braceDepth = 0;
+                let startOfExprOffset = 0;
+                for (let i = 0; i < formatDirective.length; i++) {
+                    if (formatDirective.charCodeAt(i) === Char.OpenBrace) {
+                        if (braceDepth === 0) {
+                            startOfExprOffset = i + 1;
+                        }
+                        braceDepth++;
+                    } else if (formatDirective.charCodeAt(i) === Char.CloseBrace) {
+                        if (braceDepth > 0) {
+                            braceDepth--;
+                            if (braceDepth === 0) {
+                                const parseTree = this._parseFormatStringSegment(
+                                    stringToken,
+                                    segment,
+                                    segmentExprLength + startOfExprOffset,
+                                    i - startOfExprOffset
+                                );
+                                if (parseTree) {
+                                    formatExpressions.push(parseTree);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
