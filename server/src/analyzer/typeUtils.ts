@@ -312,6 +312,20 @@ export function canBeFalsy(type: Type): boolean {
         }
 
         case TypeCategory.Object: {
+            // Handle tuples specially.
+            if (ClassType.isBuiltIn(type.classType, 'Tuple') && type.classType.typeArguments) {
+                if (type.classType.typeArguments.length === 0) {
+                    return true;
+                }
+
+                const lastTypeArg = type.classType.typeArguments[type.classType.typeArguments.length - 1];
+                if (isEllipsisType(lastTypeArg)) {
+                    return true;
+                }
+
+                return false;
+            }
+
             const lenMethod = lookUpObjectMember(type, '__len__');
             if (lenMethod) {
                 return true;

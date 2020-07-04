@@ -1115,12 +1115,12 @@ test('AssertAlwaysTrue', () => {
 
     // By default, this is reported as a warning.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['assert1.py'], configOptions);
-    validateResults(analysisResults, 0, 1);
+    validateResults(analysisResults, 0, 2);
 
     // Enable it as an error.
     configOptions.diagnosticRuleSet.reportAssertAlwaysTrue = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['assert1.py'], configOptions);
-    validateResults(analysisResults, 1, 0);
+    validateResults(analysisResults, 2, 0);
 
     // Turn off the diagnostic.
     configOptions.diagnosticRuleSet.reportAssertAlwaysTrue = 'none';
