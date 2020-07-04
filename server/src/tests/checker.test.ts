@@ -1545,6 +1545,11 @@ test('FString3', () => {
     validateResults(analysisResults, 0);
 });
 
+test('FString4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['fstring4.py']);
+    validateResults(analysisResults, 0);
+});
+
 test('MemberAccess1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess1.py']);
     validateResults(analysisResults, 0);

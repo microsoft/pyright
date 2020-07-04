@@ -313,21 +313,26 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 appendOutputChar(curChar);
                 strOffset += 2;
             } else {
-                // A single open brace within a format literal indicates that
-                // an expression is starting.
-                formatSegment.length = strOffset - formatSegment.offset;
-                if (formatSegment.length > 0) {
-                    output.formatStringSegments.push(formatSegment);
-                }
-                strOffset++;
+                if (formatExpressionNestCount === 0) {
+                    // A single open brace within a format literal indicates that
+                    // an expression is starting.
+                    formatSegment.length = strOffset - formatSegment.offset;
+                    if (formatSegment.length > 0) {
+                        output.formatStringSegments.push(formatSegment);
+                    }
+                    strOffset++;
 
-                // Start a new segment.
-                formatSegment = {
-                    offset: strOffset,
-                    length: 0,
-                    value: '',
-                    isExpression: true,
-                };
+                    // Start a new segment.
+                    formatSegment = {
+                        offset: strOffset,
+                        length: 0,
+                        value: '',
+                        isExpression: true,
+                    };
+                } else {
+                    appendOutputChar(curChar);
+                    strOffset++;
+                }
                 formatExpressionNestCount++;
             }
         } else if (isFormat && curChar === Char.CloseBrace) {
@@ -344,19 +349,24 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
             } else {
                 formatExpressionNestCount--;
 
-                // A close brace within a format expression indicates that
-                // the expression is complete.
-                formatSegment.length = strOffset - formatSegment.offset;
-                output.formatStringSegments.push(formatSegment);
-                strOffset++;
+                if (formatExpressionNestCount === 0) {
+                    // A close brace within a format expression indicates that
+                    // the expression is complete.
+                    formatSegment.length = strOffset - formatSegment.offset;
+                    output.formatStringSegments.push(formatSegment);
+                    strOffset++;
 
-                // Start a new segment.
-                formatSegment = {
-                    offset: strOffset,
-                    length: 0,
-                    value: '',
-                    isExpression: false,
-                };
+                    // Start a new segment.
+                    formatSegment = {
+                        offset: strOffset,
+                        length: 0,
+                        value: '',
+                        isExpression: false,
+                    };
+                } else {
+                    appendOutputChar(curChar);
+                    strOffset++;
+                }
             }
         } else if (formatSegment.isExpression && (curChar === Char.SingleQuote || curChar === Char.DoubleQuote)) {
             // We're within an expression, and we've encountered a string literal.
