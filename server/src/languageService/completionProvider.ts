@@ -37,7 +37,7 @@ import {
 } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluator';
 import { ClassType, FunctionType, Type, TypeCategory } from '../analyzer/types';
-import { doForSubtypes, getMembersForClass, getMembersForModule } from '../analyzer/typeUtils';
+import { doForSubtypes, getMembersForClass, getMembersForModule, specializeType } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
@@ -514,12 +514,17 @@ export class CompletionProvider {
 
         if (leftType) {
             doForSubtypes(leftType, (subtype) => {
-                if (subtype.category === TypeCategory.Object) {
-                    getMembersForClass(subtype.classType, symbolTable, true);
-                } else if (subtype.category === TypeCategory.Class) {
-                    getMembersForClass(subtype, symbolTable, false);
-                } else if (subtype.category === TypeCategory.Module) {
-                    getMembersForModule(subtype, symbolTable);
+                let specializedSubtype = subtype;
+                if (subtype.category === TypeCategory.TypeVar) {
+                    specializedSubtype = specializeType(subtype, /* typeVarMap */ undefined, /* makeConcrete */ true);
+                }
+
+                if (specializedSubtype.category === TypeCategory.Object) {
+                    getMembersForClass(specializedSubtype.classType, symbolTable, true);
+                } else if (specializedSubtype.category === TypeCategory.Class) {
+                    getMembersForClass(specializedSubtype, symbolTable, false);
+                } else if (specializedSubtype.category === TypeCategory.Module) {
+                    getMembersForModule(specializedSubtype, symbolTable);
                 }
 
                 return undefined;
