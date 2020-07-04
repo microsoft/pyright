@@ -91,7 +91,6 @@ import {
     UnknownType,
 } from './types';
 import {
-    canBeFalsy,
     ClassMemberLookupFlags,
     containsUnknown,
     derivesFromAnyOrUnknown,
@@ -99,6 +98,7 @@ import {
     doForSubtypes,
     getDeclaredGeneratorReturnType,
     getDeclaredGeneratorYieldType,
+    isEllipsisType,
     isNoReturnType,
     isProperty,
     lookUpClassMember,
@@ -578,15 +578,25 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.getType(node.exceptionExpression);
         }
 
+        // Specifically look for a common programming error where the two arguments
+        // to an assert are enclosed in parens and interpreted as a two-element tuple.
+        //   assert (x > 3, "bad value x")
         const type = this._evaluator.getType(node.testExpression);
-        if (type && !canBeFalsy(type)) {
-            this._evaluator.addDiagnosticForTextRange(
-                this._fileInfo,
-                this._fileInfo.diagnosticRuleSet.reportAssertAlwaysTrue,
-                DiagnosticRule.reportAssertAlwaysTrue,
-                Localizer.Diagnostic.assertAlwaysTrue(),
-                node.testExpression
-            );
+        if (type && type.category === TypeCategory.Object) {
+            if (ClassType.isBuiltIn(type.classType, 'Tuple') && type.classType.typeArguments) {
+                if (type.classType.typeArguments.length > 0) {
+                    const lastTypeArg = type.classType.typeArguments[type.classType.typeArguments.length - 1];
+                    if (!isEllipsisType(lastTypeArg)) {
+                        this._evaluator.addDiagnosticForTextRange(
+                            this._fileInfo,
+                            this._fileInfo.diagnosticRuleSet.reportAssertAlwaysTrue,
+                            DiagnosticRule.reportAssertAlwaysTrue,
+                            Localizer.Diagnostic.assertAlwaysTrue(),
+                            node.testExpression
+                        );
+                    }
+                }
+            }
         }
 
         return true;
