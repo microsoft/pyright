@@ -30,6 +30,10 @@ export interface ImportResult {
     // True if import was resolved to a module or file.
     isImportFound: boolean;
 
+    // True if the import refers to a namespace package (a
+    // folder without an __init__.py file).
+    isNamespacePackage: boolean;
+
     // If isImportFound is false, may contain strings that help
     // diagnose the import resolution failure.
     importFailureInfo?: string[];

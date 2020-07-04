@@ -86,6 +86,7 @@ export class ImportResolver {
             importName,
             isRelative: false,
             isImportFound: false,
+            isNamespacePackage: false,
             importFailureInfo,
             resolvedPaths: [],
             importType: ImportType.Local,
@@ -167,7 +168,7 @@ export class ImportResolver {
             undefined,
             allowPyi
         );
-        if (localImport && localImport.isImportFound) {
+        if (localImport && localImport.isImportFound && !localImport.isNamespacePackage) {
             return localImport;
         }
         bestResultSoFar = localImport;
@@ -191,6 +192,8 @@ export class ImportResolver {
             if (
                 localImport &&
                 (bestResultSoFar === undefined ||
+                    (!bestResultSoFar.isImportFound && localImport.isImportFound) ||
+                    (bestResultSoFar.isNamespacePackage && !localImport.isNamespacePackage) ||
                     localImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length)
             ) {
                 bestResultSoFar = localImport;
@@ -260,6 +263,7 @@ export class ImportResolver {
                     if (
                         bestResultSoFar === undefined ||
                         (!bestResultSoFar.isImportFound && thirdPartyImport.isImportFound) ||
+                        (bestResultSoFar.isNamespacePackage && !thirdPartyImport.isNamespacePackage) ||
                         thirdPartyImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length
                     ) {
                         bestResultSoFar = thirdPartyImport;
@@ -547,12 +551,12 @@ export class ImportResolver {
             versionFolders.push(versionToString(0x300 + minorVersion));
         }
 
-        const stdTypesheds = this._getTypeshedPath(true, execEnv, importFailureInfo);
-        if (stdTypesheds) {
+        const stdTypeshed = this._getTypeshedPath(true, execEnv, importFailureInfo);
+        if (stdTypeshed) {
             if (useTypeshedVersionedFolders) {
-                roots.push(...versionFolders.map((vf) => combinePaths(stdTypesheds, vf)));
+                roots.push(...versionFolders.map((vf) => combinePaths(stdTypeshed, vf)));
             } else {
-                roots.push(stdTypesheds);
+                roots.push(stdTypeshed);
             }
         }
 
@@ -563,12 +567,12 @@ export class ImportResolver {
             roots.push(this._configOptions.stubPath);
         }
 
-        const typesheds = this._getTypeshedPath(false, execEnv, importFailureInfo);
-        if (typesheds) {
+        const typeshedPath = this._getTypeshedPath(false, execEnv, importFailureInfo);
+        if (typeshedPath) {
             if (useTypeshedVersionedFolders) {
-                roots.push(...versionFolders.map((vf) => combinePaths(typesheds, vf)));
+                roots.push(...versionFolders.map((vf) => combinePaths(typeshedPath, vf)));
             } else {
-                roots.push(typesheds);
+                roots.push(typeshedPath);
             }
         }
 
@@ -1033,6 +1037,7 @@ export class ImportResolver {
         return {
             importName,
             isRelative: false,
+            isNamespacePackage,
             isImportFound: importFound,
             importFailureInfo,
             importType: ImportType.Local,
