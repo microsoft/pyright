@@ -259,6 +259,7 @@ export class ImportResolver {
                     // one from a stub.
                     if (
                         bestResultSoFar === undefined ||
+                        (!bestResultSoFar.isImportFound && thirdPartyImport.isImportFound) ||
                         thirdPartyImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length
                     ) {
                         bestResultSoFar = thirdPartyImport;
