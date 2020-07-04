@@ -482,11 +482,9 @@ export function specializeType(
                 }
                 return replacementType;
             }
-        }
-
-        if (!typeVarMap) {
+        } else {
             if (type.boundType) {
-                return specializeType(type.boundType, undefined, false, recursionLevel + 1);
+                return specializeType(type.boundType, undefined, /* makeConcrete */ false, recursionLevel + 1);
             }
 
             return makeConcrete ? UnknownType.create() : type;

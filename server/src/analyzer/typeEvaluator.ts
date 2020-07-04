@@ -4435,6 +4435,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (initMethodType && !skipConstructorCheck(initMethodType)) {
             const typeVarMap = new TypeVarMap();
+
+            if (expectedType) {
+                // Prepopulate the typeVarMap based on the expected type.
+                canAssignType(ObjectType.create(type), expectedType, new DiagnosticAddendum(), typeVarMap);
+            }
+
             const callResult = validateCallArguments(
                 errorNode,
                 argList,
@@ -4442,11 +4448,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 typeVarMap,
                 skipUnknownArgCheck,
                 /* inferReturnTypeIfNeeded */ true,
-                expectedType
+                NoneType.create()
             );
             if (!callResult.argumentErrors) {
                 const specializedClassType = applyExpectedTypeForConstructor(
-                    specializeType(type, typeVarMap) as ClassType,
+                    specializeType(type, typeVarMap, /* makeConcrete */ true) as ClassType,
                     expectedType
                 );
                 returnType = ObjectType.create(specializedClassType);
@@ -4515,7 +4521,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (!returnType) {
                     const specializedClassType = applyExpectedTypeForConstructor(
-                        specializeType(type, typeVarMap) as ClassType,
+                        specializeType(type, typeVarMap, /* makeConcrete */ true) as ClassType,
                         expectedType
                     );
                     returnType = ObjectType.create(specializedClassType);
@@ -6854,7 +6860,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             FunctionType.addParameter(functionType, functionParam);
         });
 
-        functionType.inferredReturnType = getTypeOfExpression(node.expression).type;
+        const expectedReturnType = expectedFunctionType
+            ? getFunctionEffectiveReturnType(expectedFunctionType)
+            : undefined;
+        functionType.inferredReturnType = getTypeOfExpression(node.expression, expectedReturnType).type;
 
         return { type: functionType, node };
     }
@@ -7603,28 +7612,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     rightHandType = transformTypeForPossibleEnumClass(node.leftExpression, rightHandType);
                 }
 
-                // If we created a placeholder type above, swap it for the actual
-                // type we created.
-                if (typeAliasNameNode) {
-                    if (TypeBase.isInstantiable(rightHandType)) {
-                        // Determine if there are any generic type parameters associated
-                        // with this type alias.
-                        const typeParameters: TypeVarType[] = [];
+                // If this is a type alias, record its name based on the assignment target.
+                if (typeAliasNameNode && TypeBase.isInstantiable(rightHandType)) {
+                    // Determine if there are any generic type parameters associated
+                    // with this type alias.
+                    const typeParameters: TypeVarType[] = [];
 
-                        // Skip this for a simple TypeVar (one that's not part of a union).
-                        if (rightHandType.category !== TypeCategory.TypeVar) {
-                            doForSubtypes(rightHandType, (subtype) => {
-                                addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(subtype));
-                                return undefined;
-                            });
-                        }
-
-                        rightHandType = TypeBase.cloneForTypeAlias(
-                            rightHandType,
-                            typeAliasNameNode.value,
-                            typeParameters.length > 0 ? typeParameters : undefined
-                        );
+                    // Skip this for a simple TypeVar (one that's not part of a union).
+                    if (rightHandType.category !== TypeCategory.TypeVar) {
+                        doForSubtypes(rightHandType, (subtype) => {
+                            addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(subtype));
+                            return undefined;
+                        });
                     }
+
+                    rightHandType = TypeBase.cloneForTypeAlias(
+                        rightHandType,
+                        typeAliasNameNode.value,
+                        typeParameters.length > 0 ? typeParameters : undefined
+                    );
                 }
             }
         }
@@ -11973,11 +11979,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             curTypeVarMap = new TypeVarMap();
         }
 
-        // If the dest type is specialized, make sure the specialized source
-        // type arguments are assignable to the dest type arguments.
         if (destType.typeArguments) {
+            // If the dest type is specialized, make sure the specialized source
+            // type arguments are assignable to the dest type arguments.
             if (!verifyTypeArgumentsAssignable(destType, curSrcType, diag, typeVarMap, recursionCount)) {
                 return false;
+            }
+        } else if (
+            typeVarMap &&
+            destType.details.typeParameters.length > 0 &&
+            curSrcType.typeArguments &&
+            !typeVarMap.isLocked()
+        ) {
+            // Populate the typeVar map with type arguments of the source.
+            for (let i = 0; i < destType.details.typeParameters.length; i++) {
+                const typeArgType =
+                    i < curSrcType.typeArguments.length ? curSrcType.typeArguments[i] : UnknownType.create();
+                typeVarMap.setTypeVar(destType.details.typeParameters[i].name, typeArgType, /* isNarrowable */ true);
             }
         }
 
