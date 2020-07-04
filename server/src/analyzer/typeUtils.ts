@@ -292,7 +292,11 @@ export function transformTypeObjectToClass(type: Type): Type {
 // None is always falsy. All other types are generally truthy
 // unless they are objects that support the __bool__ or __len__
 // methods.
-export function canBeFalsy(type: Type): boolean {
+export function canBeFalsy(type: Type, recursionLevel = 0): boolean {
+    if (recursionLevel > maxTypeRecursionCount) {
+        return true;
+    }
+
     switch (type.category) {
         case TypeCategory.Unbound:
         case TypeCategory.Unknown:
@@ -302,11 +306,14 @@ export function canBeFalsy(type: Type): boolean {
             return true;
         }
 
+        case TypeCategory.Union: {
+            return type.subtypes.some((t) => canBeFalsy(t, recursionLevel + 1));
+        }
+
         case TypeCategory.Function:
         case TypeCategory.OverloadedFunction:
         case TypeCategory.Class:
         case TypeCategory.Module:
-        case TypeCategory.Union:
         case TypeCategory.TypeVar: {
             return false;
         }
@@ -348,17 +355,24 @@ export function canBeFalsy(type: Type): boolean {
     }
 }
 
-export function canBeTruthy(type: Type): boolean {
+export function canBeTruthy(type: Type, recursionLevel = 0): boolean {
+    if (recursionLevel > maxTypeRecursionCount) {
+        return true;
+    }
+
     switch (type.category) {
         case TypeCategory.Unknown:
         case TypeCategory.Function:
         case TypeCategory.OverloadedFunction:
         case TypeCategory.Class:
         case TypeCategory.Module:
-        case TypeCategory.Union:
         case TypeCategory.TypeVar:
         case TypeCategory.Any: {
             return true;
+        }
+
+        case TypeCategory.Union: {
+            return type.subtypes.some((t) => canBeTruthy(t, recursionLevel + 1));
         }
 
         case TypeCategory.Never:
