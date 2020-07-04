@@ -935,6 +935,18 @@ export class Program {
                     // whether there are any updates next time we call getDiagnostics.
                     sourceFileInfo.diagnosticsVersion = sourceFileInfo.sourceFile.getDiagnosticVersion();
                 }
+            } else if (
+                !sourceFileInfo.isOpenByClient &&
+                options.checkOnlyOpenFiles &&
+                sourceFileInfo.diagnosticsVersion !== undefined
+            ) {
+                // This condition occurs when the user switches from workspace to
+                // "open files only" mode. Clear all diagnostics for this file.
+                fileDiagnostics.push({
+                    filePath: sourceFileInfo.sourceFile.getFilePath(),
+                    diagnostics: [],
+                });
+                sourceFileInfo.diagnosticsVersion = undefined;
             }
         });
 
