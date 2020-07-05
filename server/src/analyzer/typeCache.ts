@@ -22,8 +22,18 @@ export type CachedType = Type | IncompleteType;
 export interface IncompleteType {
     isIncompleteType?: true;
 
+    // Type computed so far
+    type: Type | undefined;
+
     // Array of incomplete subtypes that have been computed so far
-    incompleteTypes: (Type | undefined)[];
+    // (used for loops)
+    incompleteSubtypes: (Type | undefined)[];
+
+    // Tracks whether something has changed since this cache entry
+    // was written that might change the incomplete type; if this
+    // doesn't match the global "incomplete generation count", this
+    // cached value is stale
+    generationCount: number;
 }
 
 // Define a user type guard function for IncompleteType.

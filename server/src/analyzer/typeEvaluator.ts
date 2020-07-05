@@ -101,7 +101,14 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
-import { CachedType, IncompleteTypeTracker, isIncompleteType, SpeculativeTypeTracker, TypeCache } from './typeCache';
+import {
+    CachedType,
+    IncompleteType,
+    IncompleteTypeTracker,
+    isIncompleteType,
+    SpeculativeTypeTracker,
+    TypeCache,
+} from './typeCache';
 import {
     AnyType,
     ClassType,
@@ -476,7 +483,9 @@ interface CodeFlowAnalyzer {
 interface FlowNodeTypeResult {
     type: Type | undefined;
     isIncomplete: boolean;
-    incompleteTypes?: (Type | undefined)[];
+    generationCount?: number;
+    incompleteType?: Type;
+    incompleteSubtypes?: (Type | undefined)[];
 }
 
 interface SymbolResolutionStackEntry {
@@ -515,6 +524,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     const incompleteTypeTracker = new IncompleteTypeTracker();
     let cancellationToken: CancellationToken | undefined;
     let isDiagnosticSuppressed = false;
+    let flowIncompleteGeneration = 1;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: TypeCache | undefined;
@@ -9669,13 +9679,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 type: Type | undefined,
                 isIncomplete: boolean
             ): FlowNodeTypeResult {
+                if (!isIncomplete) {
+                    flowIncompleteGeneration++;
+                } else {
+                    const prevEntry = flowNodeTypeCache!.get(flowNode.id);
+                    if (prevEntry === undefined) {
+                        flowIncompleteGeneration++;
+                    } else if (type && (prevEntry as IncompleteType).isIncompleteType) {
+                        const prevIncompleteType = prevEntry as IncompleteType;
+                        if (prevIncompleteType.type && !isTypeSame(prevIncompleteType.type, type)) {
+                            flowIncompleteGeneration++;
+                        }
+                    }
+                }
+
                 // For speculative or incomplete types, we'll create a separate
                 // object. For non-speculative and complete types, we'll store
                 // the type directly.
                 const entry: CachedType | undefined = isIncomplete
                     ? {
                           isIncompleteType: true,
-                          incompleteTypes: [],
+                          type,
+                          incompleteSubtypes: [],
+                          generationCount: flowIncompleteGeneration,
                       }
                     : type;
 
@@ -9685,23 +9711,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return {
                     type,
                     isIncomplete,
-                    incompleteTypes: isIncomplete ? [] : undefined,
+                    generationCount: flowIncompleteGeneration,
+                    incompleteSubtypes: isIncomplete ? [] : undefined,
                 };
             }
 
-            function setIncompleteType(flowNode: FlowNode, index: number, type: Type | undefined) {
+            function setIncompleteSubtype(flowNode: FlowNode, index: number, type: Type | undefined) {
                 const cachedEntry = flowNodeTypeCache!.get(flowNode.id);
                 if (cachedEntry === undefined || !isIncompleteType(cachedEntry)) {
-                    fail('setIncompleteType can be called only on a valid incomplete cache entry');
+                    fail('setIncompleteSubtype can be called only on a valid incomplete cache entry');
                 }
 
-                const incompleteEntries = cachedEntry.incompleteTypes;
+                const incompleteEntries = cachedEntry.incompleteSubtypes;
                 if (index < incompleteEntries.length) {
                     incompleteEntries[index] = type;
                 } else {
                     assert(incompleteEntries.length === index);
                     incompleteEntries.push(type);
                 }
+
+                flowIncompleteGeneration++;
 
                 return getCacheEntry(flowNode);
             }
@@ -9730,19 +9759,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     };
                 }
 
-                // Recompute the effective type based on all of the incomplete
-                // types we've accumulated so far.
-                const typesToCombine: Type[] = [];
-                cachedEntry.incompleteTypes.forEach((t) => {
-                    if (t) {
-                        typesToCombine.push(t);
-                    }
-                });
+                let type = cachedEntry.type;
+
+                if (cachedEntry.incompleteSubtypes.length > 0) {
+                    // Recompute the effective type based on all of the incomplete
+                    // types we've accumulated so far.
+                    const typesToCombine: Type[] = [];
+                    cachedEntry.incompleteSubtypes.forEach((t) => {
+                        if (t) {
+                            typesToCombine.push(t);
+                        }
+                    });
+                    type = typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined;
+                }
 
                 return {
-                    type: typesToCombine.length > 0 ? combineTypes(typesToCombine) : undefined,
+                    type,
                     isIncomplete: true,
-                    incompleteTypes: cachedEntry.incompleteTypes,
+                    incompleteSubtypes: cachedEntry.incompleteSubtypes,
+                    generationCount: cachedEntry.generationCount,
                 };
             }
 
@@ -9788,8 +9823,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 while (true) {
                     // Have we already been here? If so, use the cached value.
                     const cachedEntry = getCacheEntry(curFlowNode);
-                    if (cachedEntry && !cachedEntry.isIncomplete) {
-                        return cachedEntry;
+                    if (cachedEntry) {
+                        // If the cached entry is incomplete, we can use it only if nothing
+                        // has changed that may cause the previously-reported incomplete type to change.
+                        if (!cachedEntry.isIncomplete || cachedEntry.generationCount === flowIncompleteGeneration) {
+                            return cachedEntry;
+                        }
                     }
 
                     if (curFlowNode.flags & FlowFlags.Unreachable) {
@@ -9882,11 +9921,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         });
 
                         const effectiveType = combineTypes(typesToCombine);
-
-                        // Don't write back the result if it's incomplete.
-                        return sawIncomplete
-                            ? { type: effectiveType, isIncomplete: true }
-                            : setCacheEntry(curFlowNode, effectiveType, /* isIncomplete */ false);
+                        return setCacheEntry(curFlowNode, effectiveType, sawIncomplete);
                     }
 
                     if (curFlowNode.flags & FlowFlags.LoopLabel) {
@@ -9907,10 +9942,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             // Have we already been here? If so, there will be an entry
                             // for this index, and we can use the type that was already
                             // computed.
-                            if (index >= cacheEntry!.incompleteTypes!.length) {
+                            if (index >= cacheEntry!.incompleteSubtypes!.length) {
                                 // Set the incomplete type for this index to undefined to prevent
                                 // infinite recursion. We'll set it to the computed value below.
-                                cacheEntry = setIncompleteType(curFlowNode, index, undefined);
+                                cacheEntry = setIncompleteSubtype(curFlowNode, index, undefined);
                                 const flowTypeResult = getTypeFromFlowNode(
                                     antecedent,
                                     reference,
@@ -9922,27 +9957,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                     firstWasIncomplete = true;
                                 }
 
-                                cacheEntry = setIncompleteType(curFlowNode, index, flowTypeResult.type);
+                                cacheEntry = setIncompleteSubtype(curFlowNode, index, flowTypeResult.type);
                             }
                         });
 
-                        // If this is a loop label, the result is incomplete only if the first
-                        // antecedent (the edge that feeds the loop) is incomplete.
+                        if (!isFirstTimeInLoop) {
+                            // This was not the first time through the loop, so we are recursively trying
+                            // to resolve other parts of the incomplete type. It will be marked complete
+                            // once the stack pops back up to the first caller.
+                            return cacheEntry;
+                        }
+
+                        // The result is incomplete only if the first antecedent (the edge
+                        // that feeds the loop) is incomplete.
                         if (firstWasIncomplete) {
                             deleteCacheEntry(curFlowNode);
                             return { type: cacheEntry!.type, isIncomplete: true };
                         }
 
-                        // If this was the first time we encountered the loop, we have made
-                        // it all the way through, and we can mark the type as complete.
-                        if (isFirstTimeInLoop) {
-                            return setCacheEntry(curFlowNode, cacheEntry!.type, /* isIncomplete */ false);
-                        }
-
-                        // This was not the first time through the loop, so we are recursively trying
-                        // to resolve other parts of the incomplete type. It will be marked complete
-                        // once the stack pops back up to the first caller.
-                        return cacheEntry;
+                        // We have made it all the way through all the antecedents, and we can
+                        // mark the type as complete.
+                        return setCacheEntry(curFlowNode, cacheEntry!.type, /* isIncomplete */ false);
                     }
 
                     if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
@@ -9960,10 +9995,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 flowType = typeNarrowingCallback(flowType);
                             }
 
-                            // If the type is incomplete, don't write back to the cache.
-                            return flowTypeResult.isIncomplete
-                                ? { type: flowType, isIncomplete: true }
-                                : setCacheEntry(curFlowNode, flowType, /* isIncomplete */ false);
+                            return setCacheEntry(curFlowNode, flowType, flowTypeResult.isIncomplete);
                         }
 
                         curFlowNode = conditionalFlowNode.antecedent;
