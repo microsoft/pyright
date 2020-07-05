@@ -1614,7 +1614,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             if (errorNode) {
-                addError(
+                addDiagnostic(
+                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.typeNotIterable().format({ type: printType(subtype) }) + diag.getString(),
                     errorNode
                 );
