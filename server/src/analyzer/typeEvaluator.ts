@@ -2960,8 +2960,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         type = UnknownType.create();
                     }
                 } else {
-                    // Does the module export a top-level __getattr__ function?
-                    if (usage.method === 'get') {
+                    // Does the stub file export a top-level __getattr__ function?
+                    if (usage.method === 'get' && fileInfo.isStubFile) {
                         const getAttrSymbol = ModuleType.getField(baseType, '__getattr__');
                         if (getAttrSymbol) {
                             const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
