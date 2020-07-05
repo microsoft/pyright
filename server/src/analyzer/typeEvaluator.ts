@@ -9129,7 +9129,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         writeTypeCache(node, symbolType);
     }
 
-    function evaluateTypesForImportFrom(node: ImportFromAsNode): void {
+    function evaluateTypesForImportFromAs(node: ImportFromAsNode): void {
         if (readTypeCache(node)) {
             return;
         }
@@ -9175,7 +9175,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         writeTypeCache(node, symbolType);
     }
 
-    function getAliasedSymbolTypeForName(node: ImportAsNode | ImportFromAsNode, name: string): Type | undefined {
+    function evaluateTypesForImportFrom(node: ImportFromNode): void {
+        if (readTypeCache(node)) {
+            return;
+        }
+
+        // Use the first element of the name parts as the symbol.
+        const symbolNameNode = node.module.nameParts[0];
+
+        // Look up the symbol to find the alias declaration.
+        let symbolType = getAliasedSymbolTypeForName(node, symbolNameNode.value) || UnknownType.create();
+
+        // Is there a cached module type associated with this node? If so, use
+        // it instead of the type we just created.
+        const cachedModuleType = readTypeCache(node) as ModuleType;
+        if (cachedModuleType && cachedModuleType.category === TypeCategory.Module && symbolType) {
+            if (isTypeSame(symbolType, cachedModuleType)) {
+                symbolType = cachedModuleType;
+            }
+        }
+
+        assignTypeToNameNode(symbolNameNode, symbolType);
+
+        writeTypeCache(node, symbolType);
+    }
+
+    function getAliasedSymbolTypeForName(
+        node: ImportAsNode | ImportFromAsNode | ImportFromNode,
+        name: string
+    ): Type | undefined {
         const symbolWithScope = lookUpSymbolRecursive(node, name);
         if (!symbolWithScope) {
             return undefined;
@@ -9448,6 +9476,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 case ParseNodeType.ImportFromAs: {
+                    evaluateTypesForImportFromAs(curNode);
+                    return;
+                }
+
+                case ParseNodeType.ImportFrom: {
                     evaluateTypesForImportFrom(curNode);
                     return;
                 }
