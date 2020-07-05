@@ -1104,6 +1104,12 @@ test('Unbound2', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Unbound3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound3.py']);
+
+    validateResults(analysisResults, 1);
+});
+
 test('UnnecessaryCast', () => {
     const configOptions = new ConfigOptions('.');
 

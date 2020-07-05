@@ -2440,6 +2440,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
+        // If the type was partially unbound, an error will have already been logged.
+        // Remove the unbound before assigning to the target expression so the unbound
+        // error doesn't propagate.
+        type = removeUnboundFromUnion(type);
+
         switch (target.nodeType) {
             case ParseNodeType.Name: {
                 const name = target;
