@@ -5059,7 +5059,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         const paramEntry = paramMap.get(paramNameValue);
                         if (paramEntry) {
                             if (paramEntry.argsReceived > 0) {
-                                addError(
+                                addDiagnostic(
+                                    getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
                                     Localizer.Diagnostic.paramAlreadyAssigned().format({ name: paramNameValue }),
                                     paramName
                                 );
@@ -5090,7 +5092,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             });
                             trySetActive(argList[argIndex], varArgDictParam);
                         } else {
-                            addError(
+                            addDiagnostic(
+                                getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
                                 Localizer.Diagnostic.paramNameMissing().format({ name: paramName.value }),
                                 paramName
                             );
@@ -5118,7 +5122,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (unassignedParams.length > 0) {
                     const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
-                    addError(
+                    addDiagnostic(
+                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         unassignedParams.length === 1
                             ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
                             : Localizer.Diagnostic.argMissingForParams().format({ names: missingParamNames }),
