@@ -9157,16 +9157,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         writeTypeCache(node, symbolType);
     }
 
-    function getAliasedSymbolTypeForName(node: ParseNode, name: string): Type | undefined {
+    function getAliasedSymbolTypeForName(node: ImportAsNode | ImportFromAsNode, name: string): Type | undefined {
         const symbolWithScope = lookUpSymbolRecursive(node, name);
         if (!symbolWithScope) {
             return undefined;
         }
 
-        const aliasDecl = symbolWithScope.symbol.getDeclarations().find((decl) => decl.type === DeclarationType.Alias);
+        let aliasDecl = symbolWithScope.symbol.getDeclarations().find((decl) => decl.node === node);
+
+        // If we didn't find an exact match, look for any alias associated with
+        // this symbol. In cases where we have multiple ImportAs nodes that share
+        // the same first-part name (e.g. "import asyncio" and "import asyncio.tasks"),
+        // we may not find the declaration associated with this node.
+        if (!aliasDecl) {
+            aliasDecl = symbolWithScope.symbol.getDeclarations().find((decl) => decl.type === DeclarationType.Alias);
+        }
+
         if (!aliasDecl) {
             return undefined;
         }
+
+        assert(aliasDecl.type === DeclarationType.Alias);
 
         const resolvedDecl = resolveAliasDeclaration(aliasDecl, /* resolveLocalNames */ true);
         if (!resolvedDecl) {
