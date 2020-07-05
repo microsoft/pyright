@@ -26,12 +26,10 @@ export const enum SymbolFlags {
     // Used for module-level symbols.
     ExternallyHidden = 1 << 1,
 
-    // Indicates that the symbol is a class member (used for
-    // classes).
+    // Indicates that the symbol is a class member of a class.
     ClassMember = 1 << 2,
 
-    // Indicates that the symbol is a class member (used for
-    // classes).
+    // Indicates that the symbol is an instance member of a class.
     InstanceMember = 1 << 3,
 
     // Indicates that the symbol is considered "private" to the

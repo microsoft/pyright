@@ -2270,6 +2270,8 @@ export class Binder extends ParseTreeWalker {
 
                     if (isClassVar) {
                         symbolWithScope.symbol.setIsClassVar();
+                    } else {
+                        symbolWithScope.symbol.setIsInstanceMember();
                     }
                 }
 

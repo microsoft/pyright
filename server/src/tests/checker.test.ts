@@ -508,6 +508,12 @@ test('AnnotatedVar5', () => {
     validateResults(analysisResults, 5);
 });
 
+test('AnnotatedVar6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotatedVar6.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Execution1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['execution1.py']);
 

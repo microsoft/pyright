@@ -2714,7 +2714,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (memberType.category === TypeCategory.Function) {
-            const methodType = bindFunctionToClassOrObject(classType, memberType, true) as FunctionType;
+            const methodType = bindFunctionToClassOrObject(
+                classType,
+                memberType,
+                /* treatAsClassMember */ true
+            ) as FunctionType;
             return getFunctionEffectiveReturnType(methodType);
         }
 
@@ -4478,7 +4482,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
             );
             if (constructorMethodInfo && !skipConstructorCheck(constructorMethodInfo.type)) {
-                const constructorMethodType = bindFunctionToClassOrObject(type, constructorMethodInfo.type, true);
+                const constructorMethodType = bindFunctionToClassOrObject(
+                    type,
+                    constructorMethodInfo.type,
+                    /* treatAsClassMember */ true
+                );
                 const typeVarMap = new TypeVarMap();
 
                 // Skip the unknown argument check if we've already checked for __init__.
