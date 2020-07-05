@@ -118,6 +118,17 @@
                         "trace"
                     ]
                 },
+                "python.analysis.typeCheckingMode": {
+                    "type": "string",
+                    "default": "basic",
+                    "enum": [
+                        "off",
+                        "basic",
+                        "strict"
+                    ],
+                    "description": "Defines the default rule set for type checking.",
+                    "scope": "resource"
+                },
                 "python.analysis.typeshedPaths": {
                     "type": "array",
                     "default": [],
@@ -143,17 +154,6 @@
                     "type": "string",
                     "default": "python",
                     "description": "Path to Python, you can use a custom version of Python.",
-                    "scope": "resource"
-                },
-                "pyright.typeCheckingMode": {
-                    "type": "string",
-                    "default": "basic",
-                    "enum": [
-                        "off",
-                        "basic",
-                        "strict"
-                    ],
-                    "description": "Defines the default rule set for type checking.",
                     "scope": "resource"
                 },
                 "pyright.useLibraryCodeForTypes": {

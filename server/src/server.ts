@@ -49,6 +49,11 @@ class PyrightServer extends LanguageServerBase {
     async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings> {
         const serverSettings: ServerSettings = {
             watchForSourceChanges: true,
+            openFilesOnly: true,
+            useLibraryCodeForTypes: false,
+            disableLanguageServices: false,
+            disableOrganizeImports: false,
+            typeCheckingMode: 'basic',
             diagnosticSeverityOverrides: {},
             logLevel: LogLevel.Info,
         };
@@ -96,6 +101,10 @@ class PyrightServer extends LanguageServerBase {
                 if (extraPaths && isArray(extraPaths) && extraPaths.length > 0) {
                     serverSettings.extraPaths = extraPaths.map((p) => normalizeSlashes(p));
                 }
+
+                if (pythonAnalysisSection.typeCheckingMode !== undefined) {
+                    serverSettings.typeCheckingMode = pythonAnalysisSection.typeCheckingMode;
+                }
             } else {
                 serverSettings.autoSearchPaths = true;
             }
@@ -109,14 +118,9 @@ class PyrightServer extends LanguageServerBase {
                 serverSettings.useLibraryCodeForTypes = !!pyrightSection.useLibraryCodeForTypes;
                 serverSettings.disableLanguageServices = !!pyrightSection.disableLanguageServices;
                 serverSettings.disableOrganizeImports = !!pyrightSection.disableOrganizeImports;
-                serverSettings.typeCheckingMode = pyrightSection.typeCheckingMode;
-            } else {
-                // Unless openFilesOnly is set explicitly, set it to true by default.
-                serverSettings.openFilesOnly = serverSettings.openFilesOnly ?? true;
-                serverSettings.useLibraryCodeForTypes = false;
-                serverSettings.disableLanguageServices = false;
-                serverSettings.disableOrganizeImports = false;
-                serverSettings.typeCheckingMode = undefined;
+                if (pyrightSection.typeCheckingMode !== undefined) {
+                    serverSettings.typeCheckingMode = pyrightSection.typeCheckingMode;
+                }
             }
         } catch (error) {
             this.console.error(`Error reading settings: ${error}`);
