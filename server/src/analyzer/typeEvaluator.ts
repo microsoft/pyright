@@ -2113,7 +2113,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }) + diagAddendum.getString(),
                     srcExpression || nameNode
                 );
-                destType = declaredType;
+
+                // If the user has requested that no general type issues be
+                // reported, don't replace the destType with the declaredType
+                // because they won't understand why subsequent errors are
+                // generated.
+                if (fileInfo.diagnosticRuleSet.reportGeneralTypeIssues !== 'none') {
+                    destType = declaredType;
+                }
             } else {
                 // Constrain the resulting type to match the declared type.
                 destType = narrowDeclaredTypeBasedOnAssignedType(declaredType, type);
