@@ -1717,6 +1717,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                         includeInInit = false;
                                     }
                                 }
+
+                                hasDefaultValue = statement.rightExpression.arguments.some(
+                                    (arg) => arg.name?.value === 'default' || arg.name?.value === 'default_factory'
+                                );
                             }
                         }
                     } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
