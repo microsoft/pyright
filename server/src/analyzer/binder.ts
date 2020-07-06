@@ -1793,9 +1793,15 @@ export class Binder extends ParseTreeWalker {
                         );
                     }
 
+                    const isLeftNarrowing = this._isNarrowingExpression(expression.leftExpression, expressionList);
+
+                    // Look for "X is Y" or "X is not Y".
+                    if (isOrIsNotOperator) {
+                        return isLeftNarrowing;
+                    }
+
                     // Look for X == <literal>, X != <literal> or <literal> == X, <literal> != X
                     if (equalsOrNotEqualsOperator) {
-                        const isLeftNarrowing = this._isNarrowingExpression(expression.leftExpression, expressionList);
                         const isRightNarrowing = this._isNarrowingExpression(
                             expression.rightExpression,
                             expressionList

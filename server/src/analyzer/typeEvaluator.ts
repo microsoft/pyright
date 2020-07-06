@@ -3001,7 +3001,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             const decls = getAttrSymbol.getDeclarations();
 
                             // Only honor the __getattr__ if it's in a stub file.
-                            if (decls.some(decl => decl.path.toLowerCase().endsWith('.pyi'))) {
+                            if (decls.some((decl) => decl.path.toLowerCase().endsWith('.pyi'))) {
                                 const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
                                 if (getAttrType.category === TypeCategory.Function) {
                                     type = getFunctionEffectiveReturnType(getAttrType);
@@ -10386,6 +10386,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                     });
                                 };
                             }
+                        }
+                    }
+                }
+
+                // Look for "X is Y" or "X is not Y" where Y is a an enum.
+                if (isOrIsNotOperator) {
+                    if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
+                        const rightType = getTypeOfExpression(testExpression.rightExpression).type;
+                        if (
+                            rightType.category === TypeCategory.Object &&
+                            ClassType.isEnumClass(rightType.classType) &&
+                            rightType.classType.literalValue !== undefined
+                        ) {
+                            return (type: Type) => {
+                                return narrowTypeForLiteralComparison(type, rightType, adjIsPositiveTest);
+                            };
                         }
                     }
                 }
