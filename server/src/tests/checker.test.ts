@@ -1572,6 +1572,11 @@ test('MemberAccess2', () => {
     validateResults(analysisResults, 0);
 });
 
+test('MemberAccess3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess3.py']);
+    validateResults(analysisResults, 3);
+});
+
 test('ParamName1', () => {
     const configOptions = new ConfigOptions('.');
 

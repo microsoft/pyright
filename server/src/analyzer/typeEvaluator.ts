@@ -2869,8 +2869,37 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             writeTypeCache(node, memberTypeResult.type);
             writeTypeCache(node.memberName, memberTypeResult.type);
 
+            // If the type is initially unbound, see if there's a parent class that
+            // potentially initialized the value.
+            let initialType = memberTypeResult.type;
+            if (initialType.category === TypeCategory.Unbound) {
+                let baseType = baseTypeResult.type;
+                if (baseType.category === TypeCategory.TypeVar) {
+                    baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
+                }
+
+                let classMemberInfo: ClassMember | undefined;
+                if (baseType.category === TypeCategory.Class) {
+                    classMemberInfo = lookUpClassMember(
+                        baseType,
+                        node.memberName.value,
+                        ClassMemberLookupFlags.SkipOriginalClass
+                    );
+                } else if (baseType.category === TypeCategory.Object) {
+                    classMemberInfo = lookUpObjectMember(
+                        baseType,
+                        node.memberName.value,
+                        ClassMemberLookupFlags.SkipOriginalClass
+                    );
+                }
+
+                if (classMemberInfo) {
+                    initialType = getTypeOfMember(classMemberInfo);
+                }
+            }
+
             // See if we can refine the type based on code flow analysis.
-            const codeFlowType = getFlowTypeOfReference(node, indeterminateSymbolId, memberTypeResult.type);
+            const codeFlowType = getFlowTypeOfReference(node, indeterminateSymbolId, initialType);
             if (codeFlowType) {
                 memberTypeResult.type = codeFlowType;
             }
