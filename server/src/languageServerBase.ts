@@ -411,6 +411,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                         documentSymbolProvider: { workDoneProgress: true },
                         workspaceSymbolProvider: { workDoneProgress: true },
                         hoverProvider: { workDoneProgress: true },
+                        documentHighlightProvider: { workDoneProgress: true },
                         renameProvider: { workDoneProgress: true },
                         completionProvider: {
                             triggerCharacters: ['.', '['],
@@ -552,6 +553,18 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             const workspace = await this.getWorkspaceForFile(filePath);
             const hoverResults = workspace.serviceInstance.getHoverForPosition(filePath, position, token);
             return convertHoverResults(hoverResults);
+        });
+
+        this._connection.onDocumentHighlight(async (params, token) => {
+            const filePath = convertUriToPath(params.textDocument.uri);
+
+            const position: Position = {
+                line: params.position.line,
+                character: params.position.character,
+            };
+
+            const workspace = await this.getWorkspaceForFile(filePath);
+            return workspace.serviceInstance.getDocumentHighlight(filePath, position, token);
         });
 
         this._connection.onSignatureHelp(async (params, token) => {

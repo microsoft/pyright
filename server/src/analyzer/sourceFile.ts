@@ -11,6 +11,7 @@ import {
     CancellationToken,
     CompletionItem,
     CompletionList,
+    DocumentHighlight,
     DocumentSymbol,
     SymbolInformation,
 } from 'vscode-languageserver';
@@ -33,6 +34,7 @@ import { timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/autoImporter';
 import { CompletionItemData, CompletionProvider } from '../languageService/completionProvider';
 import { DefinitionProvider } from '../languageService/definitionProvider';
+import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
 import { DocumentSymbolProvider } from '../languageService/documentSymbolProvider';
 import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
 import { performQuickAction } from '../languageService/quickActions';
@@ -671,6 +673,20 @@ export class SourceFile {
         }
 
         return HoverProvider.getHoverForPosition(sourceMapper, this._parseResults, position, evaluator, token);
+    }
+
+    getDocumentHighlight(
+        sourceMapper: SourceMapper,
+        position: Position,
+        evaluator: TypeEvaluator,
+        token: CancellationToken
+    ): DocumentHighlight[] | undefined {
+        // If this file hasn't been bound, no hover info is available.
+        if (this._isBindingNeeded || !this._parseResults) {
+            return undefined;
+        }
+
+        return DocumentHighlightProvider.getDocumentHighlight(this._parseResults, position, evaluator, token);
     }
 
     getSignatureHelpForPosition(

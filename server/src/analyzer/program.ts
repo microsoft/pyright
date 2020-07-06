@@ -15,7 +15,12 @@ import {
     DocumentSymbol,
     SymbolInformation,
 } from 'vscode-languageserver';
-import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall } from 'vscode-languageserver-types';
+import {
+    CallHierarchyIncomingCall,
+    CallHierarchyItem,
+    CallHierarchyOutgoingCall,
+    DocumentHighlight,
+} from 'vscode-languageserver-types';
 import { isMainThread } from 'worker_threads';
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -1117,6 +1122,29 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getHoverForPosition(
+                this._createSourceMapper(execEnv),
+                position,
+                this._evaluator,
+                token
+            );
+        });
+    }
+
+    getDocumentHighlight(
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ): DocumentHighlight[] | undefined {
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._sourceFileMap.get(filePath);
+            if (!sourceFileInfo) {
+                return undefined;
+            }
+
+            this._bindFile(sourceFileInfo);
+
+            const execEnv = this._configOptions.findExecEnvironment(filePath);
+            return sourceFileInfo.sourceFile.getDocumentHighlight(
                 this._createSourceMapper(execEnv),
                 position,
                 this._evaluator,

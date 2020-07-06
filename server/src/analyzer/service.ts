@@ -16,7 +16,12 @@ import {
     DocumentSymbol,
     SymbolInformation,
 } from 'vscode-languageserver';
-import { CallHierarchyIncomingCall, CallHierarchyItem, CallHierarchyOutgoingCall } from 'vscode-languageserver-types';
+import {
+    CallHierarchyIncomingCall,
+    CallHierarchyItem,
+    CallHierarchyOutgoingCall,
+    DocumentHighlight,
+} from 'vscode-languageserver-types';
 
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { createAnalysisCancellationTokenSource } from '../common/cancellationUtils';
@@ -217,6 +222,14 @@ export class AnalyzerService {
 
     getHoverForPosition(filePath: string, position: Position, token: CancellationToken): HoverResults | undefined {
         return this._program.getHoverForPosition(filePath, position, token);
+    }
+
+    getDocumentHighlight(
+        filePath: string,
+        position: Position,
+        token: CancellationToken
+    ): DocumentHighlight[] | undefined {
+        return this._program.getDocumentHighlight(filePath, position, token);
     }
 
     getSignatureHelpForPosition(
