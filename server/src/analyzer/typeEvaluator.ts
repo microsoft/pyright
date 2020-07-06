@@ -2995,12 +2995,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 } else {
                     // Does the stub file export a top-level __getattr__ function?
-                    if (usage.method === 'get' && fileInfo.isStubFile) {
+                    if (usage.method === 'get') {
                         const getAttrSymbol = ModuleType.getField(baseType, '__getattr__');
                         if (getAttrSymbol) {
-                            const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
-                            if (getAttrType.category === TypeCategory.Function) {
-                                type = getFunctionEffectiveReturnType(getAttrType);
+                            const decls = getAttrSymbol.getDeclarations();
+
+                            // Only honor the __getattr__ if it's in a stub file.
+                            if (decls.some(decl => decl.path.toLowerCase().endsWith('.pyi'))) {
+                                const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
+                                if (getAttrType.category === TypeCategory.Function) {
+                                    type = getFunctionEffectiveReturnType(getAttrType);
+                                }
                             }
                         }
                     }
