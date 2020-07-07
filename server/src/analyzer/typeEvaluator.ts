@@ -173,6 +173,7 @@ import {
     isProperty,
     lookUpClassMember,
     lookUpObjectMember,
+    makeTypeVarsConcrete,
     partiallySpecializeType,
     printLiteralType,
     printLiteralValue,
@@ -1390,10 +1391,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case ParseNodeType.MemberAccess: {
-                let baseType = getTypeOfExpression(expression.leftExpression).type;
-                if (baseType.category === TypeCategory.TypeVar) {
-                    baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
-                }
+                const baseType = makeTypeVarsConcrete(getTypeOfExpression(expression.leftExpression).type);
                 let classMemberInfo: ClassMember | undefined;
 
                 if (baseType.category === TypeCategory.Object) {
@@ -1529,9 +1527,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const nextMethodName = isAsync ? '__anext__' : '__next__';
         const getItemMethodName = supportGetItem ? '__getitem__' : '';
 
-        if (type.category === TypeCategory.TypeVar) {
-            type = specializeType(type, /* typeVarMap */ undefined, /* makeConcrete */ true);
-        }
+        type = makeTypeVarsConcrete(type);
 
         if (type.category === TypeCategory.Union && type.subtypes.some((t) => isNoneOrNever(t))) {
             if (errorNode) {
@@ -2175,10 +2171,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         expectedTypeDiagAddendum?: DiagnosticAddendum
     ) {
         const baseTypeResult = getTypeOfExpression(target.leftExpression);
-        let baseType = baseTypeResult.type;
-        if (baseType.category === TypeCategory.TypeVar) {
-            baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
-        }
+        const baseType = makeTypeVarsConcrete(baseTypeResult.type);
 
         // Handle member accesses (e.g. self.x or cls.y).
         if (target.leftExpression.nodeType === ParseNodeType.Name) {
@@ -2884,10 +2877,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // potentially initialized the value.
             let initialType = memberTypeResult.type;
             if (initialType.category === TypeCategory.Unbound) {
-                let baseType = baseTypeResult.type;
-                if (baseType.category === TypeCategory.TypeVar) {
-                    baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
-                }
+                const baseType = makeTypeVarsConcrete(baseTypeResult.type);
 
                 let classMemberInfo: ClassMember | undefined;
                 if (baseType.category === TypeCategory.Class) {
@@ -3131,8 +3121,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (typeArgs && typeArgs.length > 0) {
                 let firstTypeArg = typeArgs[0];
 
-                // If the type arg is a type var itself, specialize it in
-                // case it's bound or constrained.
+                // If the type arg is a type var itself, specialize it in case it's bound.
                 if (firstTypeArg.category === TypeCategory.TypeVar) {
                     firstTypeArg = getConcreteTypeFromTypeVar(firstTypeArg);
                 }
@@ -3549,9 +3538,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         const type = doForSubtypes(baseType, (subtype) => {
-            if (subtype.category === TypeCategory.TypeVar) {
-                subtype = specializeType(subtype, /* typeVarMap */ undefined, /* makeConcrete */ true);
-            }
+            subtype = makeTypeVarsConcrete(subtype);
 
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
@@ -4087,12 +4074,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         flags: EvaluatorFlags
     ): TypeResult {
         let type: Type | undefined;
-        let callType = baseTypeResult.type;
+        const callType = makeTypeVarsConcrete(baseTypeResult.type);
         const skipUnknownArgCheck = (flags & EvaluatorFlags.DoNotCheckForUnknownArgs) !== 0;
-
-        if (callType.category === TypeCategory.TypeVar) {
-            callType = specializeType(callType, /* typeVarMap */ undefined, /* makeConcrete */ true);
-        }
 
         switch (callType.category) {
             case TypeCategory.Class: {
@@ -6102,10 +6085,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     }
 
     function getTypeFromUnaryOperation(node: UnaryOperationNode, expectedType: Type | undefined): TypeResult {
-        let exprType = getTypeOfExpression(node.expression).type;
-        if (exprType.category === TypeCategory.TypeVar) {
-            exprType = specializeType(exprType, /* typeVarMap */ undefined, /* makeConcrete */ true);
-        }
+        let exprType = makeTypeVarsConcrete(getTypeOfExpression(node.expression).type);
 
         // Map unary operators to magic functions. Note that the bitwise
         // invert has two magic functions that are aliases of each other.
@@ -6186,14 +6166,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        let leftType = getTypeOfExpression(leftExpression).type;
-        if (leftType.category === TypeCategory.TypeVar) {
-            leftType = specializeType(leftType, /* typeVarMap */ undefined, /* makeConcrete */ true);
-        }
-        let rightType = getTypeOfExpression(node.rightExpression).type;
-        if (rightType.category === TypeCategory.TypeVar) {
-            rightType = specializeType(rightType, /* typeVarMap */ undefined, /* makeConcrete */ true);
-        }
+        let leftType = makeTypeVarsConcrete(getTypeOfExpression(leftExpression).type);
+        let rightType = makeTypeVarsConcrete(getTypeOfExpression(node.rightExpression).type);
 
         // Is this a "|" operator used in a context where it is supposed to be
         // interpreted as a union operator?
@@ -6262,15 +6236,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         let type: Type | undefined;
 
-        let leftType = getTypeOfExpression(node.leftExpression).type;
-        if (leftType!.category === TypeCategory.TypeVar) {
-            leftType = specializeType(leftType!, /* typeVarMap */ undefined, /* makeConcrete */ true);
-        }
-
-        let rightType = getTypeOfExpression(node.rightExpression).type;
-        if (rightType.category === TypeCategory.TypeVar) {
-            rightType = specializeType(rightType, /* typeVarMap */ undefined, /* makeConcrete */ true);
-        }
+        const leftType = makeTypeVarsConcrete(getTypeOfExpression(node.leftExpression).type);
+        const rightType = makeTypeVarsConcrete(getTypeOfExpression(node.rightExpression).type);
 
         type = doForSubtypes(leftType!, (leftSubtype) => {
             return doForSubtypes(rightType, (rightSubtype) => {
@@ -9040,9 +9007,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Verify that the target has an __enter__ or __aenter__ method defined.
         const enterMethodName = isAsync ? '__aenter__' : '__enter__';
         const scopedType = doForSubtypes(exprType, (subtype) => {
-            if (subtype.category === TypeCategory.TypeVar) {
-                subtype = specializeType(subtype, /* typeVarMap */ undefined, /* makeConcrete */ true);
-            }
+            subtype = makeTypeVarsConcrete(subtype);
 
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
@@ -9106,9 +9071,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Verify that the target has an __exit__ or __aexit__ method defined.
         const exitMethodName = isAsync ? '__aexit__' : '__exit__';
         doForSubtypes(exprType, (subtype) => {
-            if (subtype.category === TypeCategory.TypeVar) {
-                subtype = specializeType(subtype, /* typeVarMap */ undefined, /* makeConcrete */ true);
-            }
+            subtype = makeTypeVarsConcrete(subtype);
 
             if (isAnyOrUnknown(subtype)) {
                 return undefined;
@@ -9613,9 +9576,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return undefined;
             }
 
-            if (baseType.category === TypeCategory.TypeVar) {
-                baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
-            }
+            baseType = makeTypeVarsConcrete(baseType);
 
             let symbol: Symbol | undefined;
             if (baseType.category === TypeCategory.Module) {
@@ -10558,9 +10519,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         });
 
         // Handle bound TypeVar.
-        if (effectiveType.category === TypeCategory.TypeVar) {
-            effectiveType = specializeType(effectiveType, /* typeVarMap */ undefined, /* makeConcrete */ true);
-        }
+        effectiveType = makeTypeVarsConcrete(effectiveType);
 
         // Filters the varType by the parameters of the isinstance
         // and returns the list of types the varType could be after

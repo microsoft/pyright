@@ -464,6 +464,31 @@ export function partiallySpecializeType(type: Type, contextClassType: ClassType)
     return specializeType(type, typeVarMap, false);
 }
 
+// Replaces all of the top-level TypeVars (as opposed to TypeVars
+// used as type arguments in other types) with their concrete form.
+// Unlikely typical TypeVar specialization, this method specializes
+// constrained TypeVars as a union of the constrained types.
+export function makeTypeVarsConcrete(type: Type): Type {
+    return doForSubtypes(type, (subtype) => {
+        if (subtype.category === TypeCategory.TypeVar) {
+            if (subtype.boundType) {
+                return subtype.boundType;
+            }
+            if (subtype.constraints.length > 0) {
+                return combineTypes(subtype.constraints);
+            }
+
+            // Normally, we would use UnknownType here, but we need
+            // to use Any because unknown types will generate diagnostics
+            // in strictly-typed files that cannot be suppressed in
+            // any reasonable manner.
+            return AnyType.create();
+        }
+
+        return subtype;
+    });
+}
+
 // Specializes a (potentially generic) type by substituting
 // type variables with specified types. If typeVarMap is not
 // provided or makeConcrete is true, type variables are replaced
