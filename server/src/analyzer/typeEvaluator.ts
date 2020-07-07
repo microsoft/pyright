@@ -10403,6 +10403,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 }
             }
+
+            if (testExpression.operator === OperatorType.In && isPositiveTest) {
+                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
+                    const rightType = getTypeOfExpression(testExpression.rightExpression).type;
+                    return (type: Type) => {
+                        return narrowTypeForContains(type, rightType);
+                    };
+                }
+            }
         }
 
         if (testExpression.nodeType === ParseNodeType.Call) {
@@ -10610,6 +10619,47 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // Return the original type.
         return type;
+    }
+
+    // Attempts to narrow a type (make it more constrained) based on an "in" or
+    // "not in" binary expression.
+    function narrowTypeForContains(referenceType: Type, containerType: Type) {
+        // We support contains narrowing only for certain built-in types that have been specialized.
+        if (containerType.category !== TypeCategory.Object || !ClassType.isBuiltIn(containerType.classType)) {
+            return referenceType;
+        }
+        const classType = containerType.classType;
+        const builtInName = classType.details.aliasClass
+            ? classType.details.aliasClass.details.name
+            : classType.details.name;
+
+        if (!['list', 'set', 'frozenset', 'deque'].some((name) => name === builtInName)) {
+            return referenceType;
+        }
+
+        if (!classType.typeArguments || classType.typeArguments.length !== 1) {
+            return referenceType;
+        }
+
+        const typeArg = classType.typeArguments[0];
+        let canNarrow = true;
+
+        const narrowedType = doForSubtypes(referenceType, (subtype) => {
+            if (isAnyOrUnknown(subtype)) {
+                canNarrow = false;
+                return subtype;
+            }
+
+            if (!canAssignType(typeArg, subtype, new DiagnosticAddendum())) {
+                // If the reference type isn't assignable to the element type, we will
+                // assume that the __contains__ method will return false.
+                return undefined;
+            }
+
+            return subtype;
+        });
+
+        return canNarrow ? narrowedType : referenceType;
     }
 
     // Attempts to narrow a type (make it more constrained) based on a comparison

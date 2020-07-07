@@ -1810,6 +1810,11 @@ export class Binder extends ParseTreeWalker {
                     }
                 }
 
+                // Look for "X in Y".
+                if (expression.operator === OperatorType.In) {
+                    return this._isNarrowingExpression(expression.leftExpression, expressionList);
+                }
+
                 return false;
             }
 
