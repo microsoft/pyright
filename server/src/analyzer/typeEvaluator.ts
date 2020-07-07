@@ -12265,7 +12265,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (!isTypeSame(curTypeVarMapping, constrainedType)) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeConstraint().format({
-                            type: printType(srcType),
+                            type: printType(constrainedType),
                             name: printType(curTypeVarMapping),
                         })
                     );
