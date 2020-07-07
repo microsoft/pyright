@@ -971,6 +971,12 @@ test('Mro2', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Mro3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['mro3.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Enums1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums1.py']);
 

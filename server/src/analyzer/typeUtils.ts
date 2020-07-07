@@ -1578,7 +1578,9 @@ export function computeMroLinearization(classType: ClassType): boolean {
         let foundValidHead = false;
         let nonEmptyList: Type[] | undefined = undefined;
 
-        for (const classList of classListsToMerge) {
+        for (let i = 0; i < classListsToMerge.length; i++) {
+            const classList = classListsToMerge[i];
+
             if (classList.length > 0) {
                 if (nonEmptyList === undefined) {
                     nonEmptyList = classList;
@@ -1588,12 +1590,12 @@ export function computeMroLinearization(classType: ClassType): boolean {
                     foundValidHead = true;
                     classType.details.mro.push(classList[0]);
                     classList.shift();
-                    continue;
+                    break;
                 } else if (!isInTail(classList[0], classListsToMerge)) {
                     foundValidHead = true;
                     classType.details.mro.push(classList[0]);
                     filterClass(classList[0], classListsToMerge);
-                    continue;
+                    break;
                 }
             }
         }
