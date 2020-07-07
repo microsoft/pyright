@@ -1865,12 +1865,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
         symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
 
-        // Synthesize a "get" method for each named entry.
         const strClass = getBuiltInType(node, 'str');
+        // Synthesize a "get" method for each named entry.
         if (strClass.category === TypeCategory.Class) {
-            const getOverloads: FunctionType[] = [];
-
-            entries.forEach((entry, name) => {
+            const createGetFunction = (keyType: Type, valueType: Type) => {
                 const getOverload = FunctionType.createInstance(
                     'get',
                     FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
@@ -1884,39 +1882,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     category: ParameterCategory.Simple,
                     name: 'k',
                     hasDeclaredType: true,
-                    type: ObjectType.create(ClassType.cloneWithLiteral(strClass, name)),
+                    type: keyType,
                 });
                 FunctionType.addParameter(getOverload, {
                     category: ParameterCategory.Simple,
                     name: 'default',
                     hasDeclaredType: true,
-                    type: entry.valueType,
+                    type: valueType,
                     hasDefault: true,
                 });
-                getOverload.details.declaredReturnType = entry.valueType;
+                getOverload.details.declaredReturnType = valueType;
+                return getOverload;
+            };
+
+            const getOverloads: FunctionType[] = [];
+
+            entries.forEach((entry, name) => {
+                const getOverload = createGetFunction(
+                    ObjectType.create(ClassType.cloneWithLiteral(strClass, name)),
+                    entry.valueType
+                );
                 getOverloads.push(getOverload);
             });
 
-            if (getOverloads.length > 0) {
-                const mappingClass = getBuiltInType(node, 'Mapping');
-                if (mappingClass.category === TypeCategory.Class) {
-                    const overriddenGet = getTypeFromClassMemberName(
-                        node as ExpressionNode,
-                        mappingClass,
-                        'get',
-                        { method: 'get' },
-                        new DiagnosticAddendum(),
-                        MemberAccessFlags.SkipBaseClasses
-                    );
-                    if (overriddenGet && overriddenGet.type.category === TypeCategory.OverloadedFunction) {
-                        getOverloads.push(overriddenGet.type.overloads[overriddenGet.type.overloads.length - 1]);
-                    }
-                }
+            // Provide a final overload for 'get' that handles the general case
+            // where the key is a str but the literal value isn't known.
+            const getOverload = createGetFunction(ObjectType.create(strClass), UnknownType.create());
+            getOverloads.push(getOverload);
 
-                const getMethod = OverloadedFunctionType.create();
-                getMethod.overloads = getOverloads;
-                symbolTable.set('get', Symbol.createWithType(SymbolFlags.ClassMember, getMethod));
-            }
+            const getMethod = OverloadedFunctionType.create(getOverloads);
+            symbolTable.set('get', Symbol.createWithType(SymbolFlags.ClassMember, getMethod));
         }
     }
 
