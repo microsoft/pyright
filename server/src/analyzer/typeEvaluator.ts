@@ -6393,16 +6393,49 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
             }
 
-            type = doForSubtypes(leftType, (leftSubtype) => {
-                return doForSubtypes(rightType, (rightSubtype) => {
-                    // If the operator is an AND or OR, we need to combine the two types.
-                    if (operator === OperatorType.And || operator === OperatorType.Or) {
-                        return combineTypes([leftSubtype, rightSubtype]);
-                    }
-                    // The other boolean operators always return a bool value.
-                    return getBuiltInObject(errorNode, 'bool');
+            // The "in" and "not in" operators make use of the __contains__
+            // magic method.
+            if (operator === OperatorType.In || operator === OperatorType.NotIn) {
+                type = doForSubtypes(rightType, (rightSubtype) => {
+                    return doForSubtypes(leftType, (leftSubtype) => {
+                        if (isAnyOrUnknown(rightSubtype) || isAnyOrUnknown(leftSubtype)) {
+                            // If either type is "Unknown" (versus Any), propagate the Unknown.
+                            if (
+                                leftSubtype.category === TypeCategory.Unknown ||
+                                rightSubtype.category === TypeCategory.Unknown
+                            ) {
+                                return UnknownType.create();
+                            } else {
+                                return AnyType.create();
+                            }
+                        }
+
+                        return getTypeFromMagicMethodReturn(
+                            rightSubtype,
+                            [leftSubtype],
+                            '__contains__',
+                            errorNode,
+                            /* expectedType */ undefined
+                        );
+                    });
                 });
-            });
+
+                // Assume that a bool is returned even if the type is unknown
+                if (type && !isNever(type)) {
+                    type = getBuiltInObject(errorNode, 'bool');
+                }
+            } else {
+                type = doForSubtypes(leftType, (leftSubtype) => {
+                    return doForSubtypes(rightType, (rightSubtype) => {
+                        // If the operator is an AND or OR, we need to combine the two types.
+                        if (operator === OperatorType.And || operator === OperatorType.Or) {
+                            return combineTypes([leftSubtype, rightSubtype]);
+                        }
+                        // The other boolean operators always return a bool value.
+                        return getBuiltInObject(errorNode, 'bool');
+                    });
+                });
+            }
         }
 
         if (!type || isNever(type)) {

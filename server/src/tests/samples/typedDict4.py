@@ -60,3 +60,8 @@ del book1["name"]
 
 # This should generate an error because you can't delete a required key.
 del book1["based_on"]
+
+# Make sure "in" operator works with TypedDict.
+movie3 = Movie()
+if "d" in movie3:
+    pass
