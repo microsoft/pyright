@@ -2183,7 +2183,18 @@ export class Binder extends ParseTreeWalker {
                     }
 
                     if (memberAccessInfo.isInstanceMember) {
-                        symbol.setIsInstanceMember();
+                        // If a method (which has a declared type) is being overwritten
+                        // by an expression with no declared type, don't mark it as
+                        // an instance member because the type evaluator will think
+                        // that it doesn't need to perform object binding.
+                        if (
+                            !symbol.isClassMember() ||
+                            !symbol
+                                .getDeclarations()
+                                .some((decl) => decl.type === DeclarationType.Function && decl.isMethod)
+                        ) {
+                            symbol.setIsInstanceMember();
+                        }
                     } else {
                         symbol.setIsClassMember();
                     }
