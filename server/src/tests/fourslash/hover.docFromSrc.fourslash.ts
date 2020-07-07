@@ -76,7 +76,7 @@ helper.verifyHover({
         kind: 'markdown',
     },
     b_docs: {
-        value: '```python\n(class) B(self: B)\n```\nB docs',
+        value: '```python\n(class) B()\n```\nB init docs',
         kind: 'markdown',
     },
     a_inner_docs: {

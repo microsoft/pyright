@@ -50,8 +50,7 @@ await helper.verifyCompletion('included', {
                 label: 'is_valid',
                 documentation: {
                     kind: 'markdown',
-                    value:
-                        '```python\nis_valid: (self: Validator, text: str) -> bool\n```\n---\nChecks if the input string is valid.',
+                    value: '```python\nis_valid: (text: str) -> bool\n```\n---\nChecks if the input string is valid.',
                 },
             },
         ],

@@ -90,6 +90,9 @@ export interface TypedDictEntry {
     isProvided: boolean;
 }
 
+const SingleTickRegEx = /'/g;
+const TripleTickRegEx = /'''/g;
+
 export function isOptionalType(type: Type): boolean {
     if (type.category === TypeCategory.Union) {
         return type.subtypes.some((t) => isNoneOrNever(t));
@@ -1635,7 +1638,12 @@ export function printLiteralValue(type: ObjectType): string {
     let literalStr: string;
     if (typeof literalValue === 'string') {
         const prefix = type.classType.details.name === 'bytes' ? 'b' : '';
-        literalStr = `${prefix}'${literalValue.toString()}'`;
+        literalStr = literalValue.toString();
+        if (literalStr.indexOf('\n') >= 0) {
+            literalStr = `${prefix}'''${literalStr.replace(TripleTickRegEx, "\\'\\'\\'")}'''`;
+        } else {
+            literalStr = `${prefix}'${literalStr.replace(SingleTickRegEx, "\\'")}'`;
+        }
     } else if (typeof literalValue === 'boolean') {
         literalStr = literalValue ? 'True' : 'False';
     } else if (literalValue instanceof EnumLiteral) {

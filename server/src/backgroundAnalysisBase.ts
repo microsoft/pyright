@@ -210,7 +210,13 @@ export class BackgroundAnalysisRunnerBase {
 
         this._configOptions = new ConfigOptions(data.rootDirectory);
         this._importResolver = this.createImportResolver(this._fs, this._configOptions);
-        this._program = new Program(this._importResolver, this._configOptions, this._getConsole(), this._extension);
+        this._program = new Program(
+            this._importResolver,
+            this._configOptions,
+            this._getConsole(),
+            this._extension,
+            'BG'
+        );
     }
 
     start() {

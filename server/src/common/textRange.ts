@@ -121,6 +121,15 @@ export function doRangesOverlap(a: Range, b: Range) {
     return true;
 }
 
+export function doRangesIntersect(a: Range, b: Range) {
+    if (comparePositions(b.start, a.end) > 0) {
+        return false;
+    } else if (comparePositions(a.start, b.end) > 0) {
+        return false;
+    }
+    return true;
+}
+
 export function doesRangeContain(range: Range, positionOrRange: Position | Range): boolean {
     if (Position.is(positionOrRange)) {
         return comparePositions(range.start, positionOrRange) <= 0 && comparePositions(range.end, positionOrRange) >= 0;
