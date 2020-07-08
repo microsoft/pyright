@@ -126,7 +126,7 @@ export class Checker extends ParseTreeWalker {
     check() {
         this._scopedNodes.push(this._moduleNode);
 
-        this.walkMultiple(this._moduleNode.statements);
+        this._walkStatementsAndReportUnreachable(this._moduleNode.statements);
 
         // Perform a one-time validation of symbols in all scopes
         // defined in this module for things like unaccessed variables.
@@ -139,11 +139,6 @@ export class Checker extends ParseTreeWalker {
         if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
         }
-    }
-
-    visitModule(node: ModuleNode): boolean {
-        this._walkStatementsAndReportUnreachable(node.statements);
-        return false;
     }
 
     visitSuite(node: SuiteNode): boolean {
