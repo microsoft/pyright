@@ -39,6 +39,7 @@
     },
     "main": "index.js",
     "bin": {
-        "pyright": "index.js"
+        "pyright": "index.js",
+        "pyright-langserver": "langserver.index.js"
     }
 }

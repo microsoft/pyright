@@ -1,5 +1,5 @@
 /**
- * webpack.config-server.js
+ * webpack.config-extension.js
  * Copyright: Microsoft 2018
  *
  * Configuration for webpack to bundle the javascript into a single file

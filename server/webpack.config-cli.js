@@ -1,5 +1,5 @@
 /**
- * webpack.config-pyright.js
+ * webpack.config-cli.js
  * Copyright: Microsoft 2018
  *
  * Configuration for webpack to bundle the javascript into a single file
@@ -11,11 +11,14 @@
 const path = require('path');
 
 module.exports = {
-    entry: './src/pyright.ts',
+    entry: {
+        'pyright': './src/pyright.ts',
+        'pyright-langserver': './src/server.ts'
+    },
     mode: 'development',
     target: 'node',
     output: {
-        filename: 'pyright.js',
+        filename: '[name].js',
         path: path.resolve(__dirname, '../dist'),
     },
     resolve: {
