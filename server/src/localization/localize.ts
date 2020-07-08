@@ -485,8 +485,6 @@ export namespace Localizer {
                 getRawString('Diagnostic.typeAssignmentMismatch')
             );
         export const typeCallNotAllowed = () => getRawString('Diagnostic.typeCallNotAllowed');
-        export const typeClassFirstArg = () => getRawString('Diagnostic.typeClassFirstArg');
-        export const typeClassSecondArg = () => getRawString('Diagnostic.typeClassSecondArg');
         export const typedDictAccess = () => getRawString('Diagnostic.typedDictAccess');
         export const typedDictBadVar = () => getRawString('Diagnostic.typedDictBadVar');
         export const typedDictBaseClass = () => getRawString('Diagnostic.typedDictBaseClass');

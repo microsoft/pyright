@@ -5607,7 +5607,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     function createType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
         const arg0Type = getTypeForArgument(argList[0]);
         if (arg0Type.category !== TypeCategory.Object || !ClassType.isBuiltIn(arg0Type.classType, 'str')) {
-            addError(Localizer.Diagnostic.typeClassFirstArg(), argList[0].valueExpression || errorNode);
             return undefined;
         }
         const className = (arg0Type.classType.literalValue as string) || '_';
@@ -5618,7 +5617,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             !ClassType.isBuiltIn(arg1Type.classType, 'Tuple') ||
             arg1Type.classType.typeArguments === undefined
         ) {
-            addError(Localizer.Diagnostic.typeClassSecondArg(), argList[1].valueExpression || errorNode);
             return undefined;
         }
 

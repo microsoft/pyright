@@ -234,8 +234,6 @@
         "typeArgsTooMany": "Too many type arguments provided; expected {expected} but received {received}",
         "typeAssignmentMismatch": "Expression of type \"{sourceType}\" cannot be assigned to declared type \"{destType}\"",
         "typeCallNotAllowed": "type() call should not be used in type annotation",
-        "typeClassFirstArg": "Expected name of type as first argument",
-        "typeClassSecondArg": "Expected tuple of base class types as second argument",
         "typedDictAccess": "Could not access item in TypedDict",
         "typedDictBadVar": "TypedDict classes can contain only type annotations",
         "typedDictBaseClass": "All base classes for \"TypedDict\" classes must also be \"TypedDict\" classes",

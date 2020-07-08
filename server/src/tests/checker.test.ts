@@ -1083,7 +1083,7 @@ test('NewType1', () => {
 test('NewType2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType2.py']);
 
-    validateResults(analysisResults, 3);
+    validateResults(analysisResults, 1);
 });
 
 test('UnnecessaryIsInstance1', () => {
