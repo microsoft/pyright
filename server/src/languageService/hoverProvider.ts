@@ -175,48 +175,11 @@ export class HoverProvider {
 
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass: {
-                let classText = node.value;
-
-                // If the class is used as part of a call (i.e. it is being
-                // instantiated), include the constructor arguments within the
-                // hover text.
-                let callLeftNode: ParseNode | undefined = node;
-
-                // Allow the left to be a member access chain (e.g. a.b.c) if the
-                // node in question is the last item in the chain.
-                if (
-                    callLeftNode.parent &&
-                    callLeftNode.parent.nodeType === ParseNodeType.MemberAccess &&
-                    node === callLeftNode.parent.memberName
-                ) {
-                    callLeftNode = node.parent;
+                if (this._addInitMethodInsteadIfCallNode(node, evaluator, parts, sourceMapper, resolvedDecl)) {
+                    return;
                 }
 
-                if (
-                    callLeftNode &&
-                    callLeftNode.parent &&
-                    callLeftNode.parent.nodeType === ParseNodeType.Call &&
-                    callLeftNode.parent.leftExpression === callLeftNode
-                ) {
-                    // Get the init method for this class.
-                    const type = evaluator.getType(node);
-                    if (type && type.category === TypeCategory.Class) {
-                        const initMethodMember = lookUpClassMember(
-                            type,
-                            '__init__',
-                            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
-                        );
-                        if (initMethodMember) {
-                            const initMethodType = evaluator.getTypeOfMember(initMethodMember);
-                            if (initMethodType && initMethodType.category === TypeCategory.Function) {
-                                const functionParts = evaluator.printFunctionParts(initMethodType);
-                                classText += `(${functionParts[0].join(', ')})`;
-                            }
-                        }
-                    }
-                }
-
-                this._addResultsPart(parts, '(class) ' + classText, true);
+                this._addResultsPart(parts, '(class) ' + node.value, true);
                 this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
@@ -239,6 +202,74 @@ export class HoverProvider {
                 break;
             }
         }
+    }
+
+    private static _addInitMethodInsteadIfCallNode(
+        node: NameNode,
+        evaluator: TypeEvaluator,
+        parts: HoverTextPart[],
+        sourceMapper: SourceMapper,
+        declaration: Declaration
+    ) {
+        // If the class is used as part of a call (i.e. it is being
+        // instantiated), include the constructor arguments within the
+        // hover text.
+        let callLeftNode: ParseNode | undefined = node;
+
+        // Allow the left to be a member access chain (e.g. a.b.c) if the
+        // node in question is the last item in the chain.
+        if (
+            callLeftNode.parent &&
+            callLeftNode.parent.nodeType === ParseNodeType.MemberAccess &&
+            node === callLeftNode.parent.memberName
+        ) {
+            callLeftNode = node.parent;
+        }
+
+        if (
+            !callLeftNode ||
+            !callLeftNode.parent ||
+            callLeftNode.parent.nodeType !== ParseNodeType.Call ||
+            callLeftNode.parent.leftExpression !== callLeftNode
+        ) {
+            return false;
+        }
+
+        // Get the init method for this class.
+        const classType = evaluator.getType(node);
+        if (!classType || classType.category !== TypeCategory.Class) {
+            return false;
+        }
+
+        const initMethodMember = lookUpClassMember(
+            classType,
+            '__init__',
+            ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+        );
+
+        if (!initMethodMember) {
+            return false;
+        }
+
+        const instanceType = evaluator.getType(callLeftNode.parent);
+        const functionType = evaluator.getTypeOfMember(initMethodMember);
+
+        if (!instanceType || !functionType || instanceType.category !== TypeCategory.Object) {
+            return false;
+        }
+
+        const initMethodType = evaluator.bindFunctionToClassOrObject(instanceType, functionType, false);
+
+        if (!initMethodType || initMethodType.category !== TypeCategory.Function) {
+            return false;
+        }
+
+        const functionParts = evaluator.printFunctionParts(initMethodType);
+        const classText = `${node.value}(${functionParts[0].join(', ')})`;
+
+        this._addResultsPart(parts, '(class) ' + classText, true);
+        this._addDocumentationPartForType(sourceMapper, parts, initMethodType, declaration);
+        return true;
     }
 
     private static _getTypeText(node: NameNode, evaluator: TypeEvaluator, expandTypeAlias = false): string {

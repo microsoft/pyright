@@ -21,7 +21,6 @@ import {
     CallHierarchyOutgoingCall,
     DocumentHighlight,
 } from 'vscode-languageserver-types';
-import { isMainThread } from 'worker_threads';
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
@@ -42,7 +41,7 @@ import {
     stripFileExtension,
 } from '../common/pathUtils';
 import { convertPositionToOffset, convertRangeToTextRange } from '../common/positionUtils';
-import { DocumentRange, doesRangeContain, doRangesOverlap, Position, Range } from '../common/textRange';
+import { DocumentRange, doesRangeContain, doRangesIntersect, Position, Range } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import {
     AutoImporter,
@@ -131,10 +130,11 @@ export class Program {
         initialImportResolver: ImportResolver,
         initialConfigOptions: ConfigOptions,
         console?: ConsoleInterface,
-        private _extension?: LanguageServiceExtension
+        private _extension?: LanguageServiceExtension,
+        logPrefix = 'FG'
     ) {
         this._console = console || new StandardConsole();
-        this._logTracker = new LogTracker(console, isMainThread ? 'FG' : 'BG');
+        this._logTracker = new LogTracker(console, logPrefix);
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
         this._createNewEvaluator();
@@ -970,7 +970,7 @@ export class Program {
         }
 
         return unfilteredDiagnostics.filter((diag) => {
-            return doRangesOverlap(diag.range, range);
+            return doRangesIntersect(diag.range, range);
         });
     }
 

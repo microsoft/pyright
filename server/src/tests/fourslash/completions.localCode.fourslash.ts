@@ -5,6 +5,7 @@
 //// obj = testLib.[|/*marker1*/Validator|]()
 //// obj.is[|/*marker2*/|]
 //// obj.read[|/*marker3*/|]
+//// testLib.Validator.is[|/*marker4*/|]
 
 // @filename: testLib/__init__.py
 //// class Validator:
@@ -44,8 +45,7 @@ await helper.verifyCompletion('included', {
                 label: 'is_valid',
                 documentation: {
                     kind: 'markdown',
-                    value:
-                        '```python\nis_valid: (self: Validator, text: str) -> bool\n```\n---\nChecks if the input string is valid.',
+                    value: '```python\nis_valid: (text: str) -> bool\n```\n---\nChecks if the input string is valid.',
                 },
             },
         ],
@@ -64,6 +64,18 @@ await helper.verifyCompletion('included', {
                 documentation: {
                     kind: 'markdown',
                     value: '```python\nread_write_prop: bool\n```\n---\nThe read-write property.',
+                },
+            },
+        ],
+    },
+    marker4: {
+        completions: [
+            {
+                label: 'is_valid',
+                documentation: {
+                    kind: 'markdown',
+                    value:
+                        '```python\nis_valid: (self: Validator, text: str) -> bool\n```\n---\nChecks if the input string is valid.',
                 },
             },
         ],

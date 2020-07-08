@@ -36,7 +36,7 @@ import {
     getOverloadedFunctionDocStrings,
 } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluator';
-import { ClassType, FunctionType, Type, TypeCategory } from '../analyzer/types';
+import { ClassType, FunctionType, ObjectType, Type, TypeCategory } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule, specializeType } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
@@ -532,7 +532,8 @@ export class CompletionProvider {
         }
 
         const completionList = CompletionList.create();
-        this._addSymbolsForSymbolTable(symbolTable, (_) => true, priorWord, completionList);
+        const objectThrough: ObjectType | undefined = leftType?.category === TypeCategory.Object ? leftType : undefined;
+        this._addSymbolsForSymbolTable(symbolTable, (_) => true, priorWord, objectThrough, completionList);
 
         return completionList;
     }
@@ -905,6 +906,7 @@ export class CompletionProvider {
                     return !importFromNode.imports.find((imp) => imp.name.value === name);
                 },
                 priorWord,
+                undefined,
                 completionList
             );
         }
@@ -984,7 +986,7 @@ export class CompletionProvider {
             let scope = AnalyzerNodeInfo.getScope(curNode);
             if (scope) {
                 while (scope) {
-                    this._addSymbolsForSymbolTable(scope.symbolTable, () => true, priorWord, completionList);
+                    this._addSymbolsForSymbolTable(scope.symbolTable, () => true, priorWord, undefined, completionList);
                     scope = scope.parent;
                 }
                 break;
@@ -998,6 +1000,7 @@ export class CompletionProvider {
         symbolTable: SymbolTable,
         includeSymbolCallback: (name: string) => boolean,
         priorWord: string,
+        objectThrough: ObjectType | undefined,
         completionList: CompletionList
     ) {
         symbolTable.forEach((symbol, name) => {
@@ -1005,7 +1008,16 @@ export class CompletionProvider {
             // exported from this scope, don't include it in the
             // suggestion list.
             if (!symbol.isExternallyHidden() && includeSymbolCallback(name)) {
-                this._addSymbol(name, symbol, priorWord, completionList);
+                this._addSymbol(
+                    name,
+                    symbol,
+                    priorWord,
+                    completionList,
+                    undefined,
+                    undefined,
+                    undefined,
+                    objectThrough
+                );
             }
         });
     }
@@ -1017,7 +1029,8 @@ export class CompletionProvider {
         completionList: CompletionList,
         autoImportSource?: string,
         textEdit?: TextEdit,
-        additionalTextEdits?: TextEditAction[]
+        additionalTextEdits?: TextEditAction[],
+        objectThrough?: ObjectType
     ) {
         let primaryDecl = getLastTypedDeclaredForSymbol(symbol);
         if (!primaryDecl) {
@@ -1043,7 +1056,6 @@ export class CompletionProvider {
                         // This call can be expensive to perform on every completion item
                         // that we return, so we do it lazily in the "resolve" callback.
                         const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
-
                         if (type) {
                             let typeDetail: string | undefined;
                             let documentation: string | undefined;
@@ -1056,9 +1068,12 @@ export class CompletionProvider {
                                         name + ': ' + this._evaluator.printType(type, /* expandTypeAlias */ false);
                                     break;
 
-                                case DeclarationType.Function:
-                                    if (type.category === TypeCategory.OverloadedFunction) {
-                                        typeDetail = type.overloads
+                                case DeclarationType.Function: {
+                                    const functionType = objectThrough
+                                        ? this._evaluator.bindFunctionToClassOrObject(objectThrough, type, false)
+                                        : type;
+                                    if (functionType.category === TypeCategory.OverloadedFunction) {
+                                        typeDetail = functionType.overloads
                                             .map(
                                                 (overload) =>
                                                     name +
@@ -1067,10 +1082,12 @@ export class CompletionProvider {
                                             .join('\n');
                                     } else {
                                         typeDetail =
-                                            name + ': ' + this._evaluator.printType(type, /* expandTypeAlias */ false);
+                                            name +
+                                            ': ' +
+                                            this._evaluator.printType(functionType, /* expandTypeAlias */ false);
                                     }
                                     break;
-
+                                }
                                 case DeclarationType.Class:
                                 case DeclarationType.SpecialBuiltInClass: {
                                     typeDetail = 'class ' + name + '()';

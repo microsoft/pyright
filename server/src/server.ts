@@ -8,6 +8,7 @@ import { isArray } from 'util';
 import {
     CancellationToken,
     CodeAction,
+    CodeActionKind,
     CodeActionParams,
     Command,
     Connection,
@@ -41,6 +42,7 @@ class PyrightServer extends LanguageServerBase {
             version,
             maxAnalysisTimeInForeground,
             progressReporterFactory: reporterFactory,
+            supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
         });
 
         this._controller = new CommandController(this);

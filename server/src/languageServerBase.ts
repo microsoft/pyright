@@ -16,7 +16,6 @@ import {
     CancellationToken,
     CancellationTokenSource,
     CodeAction,
-    CodeActionKind,
     CodeActionParams,
     Command,
     CompletionTriggerKind,
@@ -132,6 +131,7 @@ export interface ServerOptions {
     extension?: LanguageServiceExtension;
     maxAnalysisTimeInForeground?: MaxAnalysisTime;
     supportedCommands?: string[];
+    supportedCodeActions?: string[];
     progressReporterFactory?: (connection: {
         sendNotification: (method: string, params?: any) => void;
     }) => ProgressReporter;
@@ -199,7 +199,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._workspaceMap = new WorkspaceMap(this);
 
         // Set up callbacks.
-        this._setupConnection(_serverOptions.supportedCommands ?? []);
+        this._setupConnection(_serverOptions.supportedCommands ?? [], _serverOptions.supportedCodeActions ?? []);
 
         this._progressReporter = new ProgressReportTracker(
             this._serverOptions.progressReporterFactory
@@ -363,7 +363,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return fileWatcher;
     }
 
-    private _setupConnection(supportedCommands: string[]): void {
+    private _setupConnection(supportedCommands: string[], supportedCodeActions: string[]): void {
         // After the server has started the client sends an initialize request. The server receives
         // in the passed params the rootPath of the workspace plus the client capabilities.
         this._connection.onInitialize(
@@ -423,7 +423,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                             workDoneProgress: true,
                         },
                         codeActionProvider: {
-                            codeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
+                            codeActionKinds: supportedCodeActions,
                             workDoneProgress: true,
                         },
                         executeCommandProvider: {
