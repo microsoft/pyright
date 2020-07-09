@@ -770,48 +770,55 @@ export class Checker extends ParseTreeWalker {
 
         if (isAnyOrUnknown(exceptionType)) {
             resultingExceptionType = exceptionType;
-        } else if (exceptionType.category === TypeCategory.Class) {
-            if (!derivesFromBaseException(exceptionType)) {
-                diagAddendum.addMessage(
-                    Localizer.Diagnostic.exceptionTypeIncorrect().format({
-                        type: this._evaluator.printType(exceptionType, /* expandTypeAlias */ false),
-                    })
-                );
+        } else {
+            // Handle the case where we have a Type[X] object.
+            if (exceptionType.category === TypeCategory.Object) {
+                exceptionType = transformTypeObjectToClass(exceptionType);
             }
-            resultingExceptionType = ObjectType.create(exceptionType);
-        } else if (exceptionType.category === TypeCategory.Object) {
-            const iterableType = this._evaluator.getTypeFromIterable(
-                exceptionType,
-                /* isAsync */ false,
-                errorNode,
-                false
-            );
 
-            resultingExceptionType = doForSubtypes(iterableType, (subtype) => {
-                if (isAnyOrUnknown(subtype)) {
-                    return subtype;
+            if (exceptionType.category === TypeCategory.Class) {
+                if (!derivesFromBaseException(exceptionType)) {
+                    diagAddendum.addMessage(
+                        Localizer.Diagnostic.exceptionTypeIncorrect().format({
+                            type: this._evaluator.printType(exceptionType, /* expandTypeAlias */ false),
+                        })
+                    );
                 }
+                resultingExceptionType = ObjectType.create(exceptionType);
+            } else if (exceptionType.category === TypeCategory.Object) {
+                const iterableType = this._evaluator.getTypeFromIterable(
+                    exceptionType,
+                    /* isAsync */ false,
+                    errorNode,
+                    false
+                );
 
-                const transformedSubtype = transformTypeObjectToClass(subtype);
-                if (transformedSubtype.category === TypeCategory.Class) {
-                    if (!derivesFromBaseException(transformedSubtype)) {
-                        diagAddendum.addMessage(
-                            Localizer.Diagnostic.exceptionTypeIncorrect().format({
-                                type: this._evaluator.printType(exceptionType, /* expandTypeAlias */ false),
-                            })
-                        );
+                resultingExceptionType = doForSubtypes(iterableType, (subtype) => {
+                    if (isAnyOrUnknown(subtype)) {
+                        return subtype;
                     }
 
-                    return ObjectType.create(transformedSubtype);
-                }
+                    const transformedSubtype = transformTypeObjectToClass(subtype);
+                    if (transformedSubtype.category === TypeCategory.Class) {
+                        if (!derivesFromBaseException(transformedSubtype)) {
+                            diagAddendum.addMessage(
+                                Localizer.Diagnostic.exceptionTypeIncorrect().format({
+                                    type: this._evaluator.printType(exceptionType, /* expandTypeAlias */ false),
+                                })
+                            );
+                        }
 
-                diagAddendum.addMessage(
-                    Localizer.Diagnostic.exceptionTypeIncorrect().format({
-                        type: this._evaluator.printType(exceptionType, /* expandTypeAlias */ false),
-                    })
-                );
-                return UnknownType.create();
-            });
+                        return ObjectType.create(transformedSubtype);
+                    }
+
+                    diagAddendum.addMessage(
+                        Localizer.Diagnostic.exceptionTypeIncorrect().format({
+                            type: this._evaluator.printType(exceptionType, /* expandTypeAlias */ false),
+                        })
+                    );
+                    return UnknownType.create();
+                });
+            }
         }
 
         if (!diagAddendum.isEmpty()) {

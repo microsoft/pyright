@@ -8961,6 +8961,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return exceptionType;
             }
 
+            if (exceptionType.category === TypeCategory.Object) {
+                exceptionType = transformTypeObjectToClass(exceptionType);
+            }
+
             if (exceptionType.category === TypeCategory.Class) {
                 return ObjectType.create(exceptionType);
             }
