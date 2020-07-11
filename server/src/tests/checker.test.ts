@@ -1818,7 +1818,7 @@ test('TryExcept2', () => {
 });
 
 test('TryExcept3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['TryExcept3.py']);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept3.py']);
 
     validateResults(analysisResults, 0);
 });
