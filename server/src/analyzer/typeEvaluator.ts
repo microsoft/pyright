@@ -12451,13 +12451,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     recursionCount + 1
                 )
             ) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeBound().format({
-                        sourceType: printType(updatedType),
-                        destType: printType(destType.boundType),
-                        name: destType.name,
-                    })
-                );
+                // Avoid adding a message that will confuse users if the TypeVar was
+                // synthesized for internal purposes.
+                if (!destType.isSynthesized) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeBound().format({
+                            sourceType: printType(updatedType),
+                            destType: printType(destType.boundType),
+                            name: destType.name,
+                        })
+                    );
+                }
                 return false;
             }
         }
@@ -12505,13 +12509,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
         if (destType.category === TypeCategory.TypeVar) {
-            if (typeVarMap) {
-                if (!assignTypeToTypeVar(destType, srcType, false, diag, typeVarMap, flags, recursionCount + 1)) {
-                    return false;
-                }
-            }
-
-            return true;
+            return assignTypeToTypeVar(
+                destType,
+                srcType,
+                false,
+                diag,
+                typeVarMap || new TypeVarMap(),
+                flags,
+                recursionCount + 1
+            );
         }
 
         if (isAnyOrUnknown(destType)) {
@@ -12534,12 +12540,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // canAssignType is called, so we won't get here. However, there
             // are cases where this can occur (e.g. when we swap the src and dest
             // types because they are contravariant).
-            if (reverseTypeVarMatching && typeVarMap) {
-                if (!assignTypeToTypeVar(srcType, destType, true, diag, typeVarMap, flags, recursionCount + 1)) {
-                    return false;
-                }
-
-                return true;
+            if (reverseTypeVarMatching) {
+                return assignTypeToTypeVar(
+                    srcType,
+                    destType,
+                    true,
+                    diag,
+                    typeVarMap || new TypeVarMap(),
+                    flags,
+                    recursionCount + 1
+                );
             }
 
             const specializedSrcType = getConcreteTypeFromTypeVar(srcType);
@@ -12955,7 +12965,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             canAssignType(
                 srcParamType,
                 destParamType,
-                paramDiag.createAddendum(),
+                new DiagnosticAddendum(),
                 typeVarMap,
                 CanAssignFlags.ReverseTypeVarMatching,
                 recursionCount + 1
@@ -13269,13 +13279,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (
                 !canAssignType(boundType, effectiveSrcType, diag.createAddendum(), undefined, flags, recursionCount + 1)
             ) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeBound().format({
-                        sourceType: printType(effectiveSrcType),
-                        destType: printType(boundType),
-                        name: destType.name,
-                    })
-                );
+                // Avoid adding a message that will confuse users if the TypeVar was
+                // synthesized for internal purposes.
+                if (!destType.isSynthesized) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeBound().format({
+                            sourceType: printType(effectiveSrcType),
+                            destType: printType(boundType),
+                            name: destType.name,
+                        })
+                    );
+                }
                 return false;
             }
         }

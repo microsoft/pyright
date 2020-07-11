@@ -472,6 +472,12 @@ test('Function8', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Function9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function9.py']);
+
+    validateResults(analysisResults, 1);
+});
+
 test('Annotations1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py']);
 
@@ -1728,7 +1734,7 @@ test('ParamSpec1', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V39;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec1.py'], configOptions);
-    validateResults(results, 7);
+    validateResults(results, 8);
 });
 
 test('ParamSpec2', () => {
