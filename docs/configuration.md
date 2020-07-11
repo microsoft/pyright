@@ -163,7 +163,7 @@ The following is an example of a pyright config file:
     "src/oldstuff"
   ],
 
-  "stubPath": "src/typestubs",
+  "stubPath": "src/stubs",
   "venvPath": "/home/foo/.venvs",
 
   "reportMissingImports": true,
