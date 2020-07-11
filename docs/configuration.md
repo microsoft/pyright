@@ -18,7 +18,7 @@ Relative paths specified within the config file are relative to the config file�
 
 **stubPath** [path, optional]: Path to a directory that contains custom type stubs. Each package's type stub file(s) are expected to be in its own subdirectory. The default value of this setting is "./typings". (typingsPath is now deprecated)
 
-**venvPath** [path, optional]: Path to a directory containing one or more subdirectories, each of which contains a virtual environment. Each execution environment (see below for details) can refer to a different virtual environment. When used in conjunction with a **venv** setting (see below), pyright will search for imports in the virtual environment’s site-packages directory rather than the paths specified in PYTHONPATH.
+**venvPath** [path, optional]: Path to a directory containing one or more subdirectories, each of which contains a virtual environment. Each execution environment (see below for details) can refer to a different virtual environment. When used in conjunction with a **venv** setting (see below), pyright will search for imports in the virtual environment’s site-packages directory rather than the paths specified by the default Python interpreter.
 
 **venv** [string, optional]: Used in conjunction with the venvPath, specifies the virtual environment to use. Individual execution environments may override this setting.
 

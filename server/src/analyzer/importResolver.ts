@@ -139,7 +139,7 @@ export class ImportResolver {
         const importName = this._formatImportName(moduleDescriptor);
         const importFailureInfo: string[] = [];
 
-        // First check for a typeshed file.
+        // First check for a stdlib typeshed file.
         if (allowPyi && moduleDescriptor.nameParts.length > 0) {
             const builtInImport = this._findTypeshedPath(
                 execEnv,
@@ -201,7 +201,7 @@ export class ImportResolver {
         }
 
         if (allowPyi) {
-            // Check for a stub file.
+            // Check for a local stub file using stubPath.
             if (this._configOptions.stubPath) {
                 importFailureInfo.push(`Looking in stubPath '${this._configOptions.stubPath}'`);
                 const typingsImport = this.resolveAbsoluteImport(
@@ -210,6 +210,7 @@ export class ImportResolver {
                     importName,
                     importFailureInfo
                 );
+
                 if (typingsImport && typingsImport.isImportFound) {
                     // We will treat typings files as "local" rather than "third party".
                     typingsImport.importType = ImportType.Local;
@@ -218,7 +219,7 @@ export class ImportResolver {
                 }
             }
 
-            // Check for a typeshed file.
+            // Check for a third-party typeshed file.
             importFailureInfo.push(`Looking for typeshed path`);
             const typeshedImport = this._findTypeshedPath(
                 execEnv,
