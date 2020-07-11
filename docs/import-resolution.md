@@ -3,26 +3,28 @@
 ## Resolution Order
 If the import is relative (the module name starts with one or more dots), it resolves the import relative to the path of the importing source file.
 
-For absolute (non-relative) paths, Pyright resolves imports in the following order:
+For absolute (non-relative) imports, Pyright employs the following resolution order:
 
 1. Try to resolve using a **stdlib typeshed stub**. If the `typeshedPath` is configured, use this instead of the typeshed stubs that are packaged with Pyright. This allows for the use of a newer or a patched version of the typeshed stdlib stubs.
 
 2. Try to resolve using the **stubPath** as defined in the `stubPath` config entry or the `python.analysis.stubPath` setting.
 
 3. Try to resolve using **code within the workspace**.
-    a. Try to resolve relative to the **root directory** of the execution environment. If no execution environments are specified in the config file, use the root of the workspace. For more information about execution environments, refer to the [configuration documentation](https://github.com/microsoft/pyright/blob/master/docs/configuration.md#execution-environment-options).
+    
+    * Try to resolve relative to the **root directory** of the execution environment. If no execution environments are specified in the config file, use the root of the workspace. For more information about execution environments, refer to the [configuration documentation](https://github.com/microsoft/pyright/blob/master/docs/configuration.md#execution-environment-options).
 
-    b. Try to resolve using any of the **extra paths** defined for the execution environment in the config file. If no execution environment applies, use the `python.analysis.extraPaths` setting. Extra paths are searched in the order in which they are provided in the config file or setting.
+    * Try to resolve using any of the **extra paths** defined for the execution environment in the config file. If no execution environment applies, use the `python.analysis.extraPaths` setting. Extra paths are searched in the order in which they are provided in the config file or setting.
 
-    c. If no execution environment or extraPaths are configured, try to resolve using the **local directory `src`**. It is common for Python projects to place local source files within a directory of this name.
+    * If no execution environment or extraPaths are configured, try to resolve using the **local directory `src`**. It is common for Python projects to place local source files within a directory of this name.
 
 4. Try to resolve using **stubs found within installed packages**. Pyright uses the configured Python environment to determine whether a package has been installed. For more details about how to configure your Python environment for Pyright, see below. If a Python environment is configured, Pyright looks in the `lib/site-packages`, `Lib/site-packages`, or `python*/site-packages` subdirectory. If no site-packages directory can be found Pyright attempts to run the configured Python interpreter and ask it for its search paths. If no Python environment is configured, Pyright will use the default Python interpreter by invoking `python`.
-    a. For a given package, try to resolve first using a **stub package**. Stub packages, as defined in [PEP 561](https://www.python.org/dev/peps/pep-0561/#type-checker-module-resolution-order), are named the same as the original package but with `-stubs` appended.
-    b. Try to resolve using an **inline stub**, a “.pyi” file that ships within the package.
+    
+    * For a given package, try to resolve first using a **stub package**. Stub packages, as defined in [PEP 561](https://www.python.org/dev/peps/pep-0561/#type-checker-module-resolution-order), are named the same as the original package but with “-stubs” appended.
+    * Try to resolve using an **inline stub**, a “.pyi” file that ships within the package.
 
 5. Try to resolve using a **third-party typeshed** stub. If the `typeshedPath` is configured, use this instead of the typeshed stubs that are packaged with Pyright. This allows for the use of a newer or a patched version of the typeshed third-party stubs.
 
-6. If the `pyright.useLibraryCodeForTypes` is set to true (or the `--lib` command-line argument was specified), try to resolve using the **library implementation** (“.py” file). Some “.py” files may contain partial or complete type annotations. Pyright will use type annotations that are provided and do its best to infer any missing type information.
+6. If the `pyright.useLibraryCodeForTypes` is set to true (or the `--lib` command-line argument was specified), try to resolve using the **library implementation** (“.py” file). Some “.py” files may contain partial or complete type annotations. Pyright will use type annotations that are provided and do its best to infer any missing type information. If you are using Pyright, `pyright.useLibraryCodeForTypes` is false by default. If you are using Pylance, it is true.
 
 
 
