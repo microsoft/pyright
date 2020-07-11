@@ -1053,7 +1053,13 @@ export function getDeclaredGeneratorYieldType(functionType: FunctionType, iterat
 
         if (generatorTypeArgs && generatorTypeArgs.length >= 1 && iteratorType.category === TypeCategory.Class) {
             // The yield type is the first type arg. Wrap it in an iterator.
-            return ObjectType.create(ClassType.cloneForSpecialization(iteratorType, [generatorTypeArgs[0]]));
+            return ObjectType.create(
+                ClassType.cloneForSpecialization(
+                    iteratorType,
+                    [generatorTypeArgs[0]],
+                    /* isTypeArgumentExplicit */ false
+                )
+            );
         }
 
         // If the return type isn't a Generator, assume that it's the
@@ -1338,7 +1344,7 @@ function _specializeClassType(
         return classType;
     }
 
-    return ClassType.cloneForSpecialization(classType, newTypeArgs);
+    return ClassType.cloneForSpecialization(classType, newTypeArgs, /* isTypeArgumentExplicit */ false);
 }
 
 // Converts a type var type into the most specific type

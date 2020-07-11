@@ -1092,6 +1092,24 @@ test('NewType2', () => {
     validateResults(analysisResults, 1);
 });
 
+test('isInstance1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isInstance1.py']);
+
+    validateResults(analysisResults, 0);
+});
+
+test('isInstance2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isInstance2.py']);
+
+    validateResults(analysisResults, 1);
+});
+
+test('isInstance3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isInstance3.py']);
+
+    validateResults(analysisResults, 2);
+});
+
 test('UnnecessaryIsInstance1', () => {
     const configOptions = new ConfigOptions('.');
 
@@ -1102,12 +1120,6 @@ test('UnnecessaryIsInstance1', () => {
     configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance1.py'], configOptions);
     validateResults(analysisResults, 4);
-});
-
-test('UnnecessaryIsInstance2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance2.py']);
-
-    validateResults(analysisResults, 1);
 });
 
 test('UnnecessaryIsSubclass1', () => {

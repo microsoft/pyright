@@ -290,6 +290,10 @@ export interface ClassType extends TypeBase {
     // some or all of the type parameters.
     typeArguments?: Type[];
 
+    // If type arguments are present, were they explicit (i.e.
+    // provided explicitly in the code)?
+    isTypeArgumentExplicit?: boolean;
+
     skipAbstractClassTest: boolean;
 
     // Some types can be further constrained to have
@@ -321,20 +325,27 @@ export namespace ClassType {
     export function cloneForSpecialization(
         classType: ClassType,
         typeArguments: Type[] | undefined,
+        isTypeArgumentExplicit: boolean,
         skipAbstractClassTest = false
     ): ClassType {
         const newClassType = create(classType.details.name, classType.details.flags, classType.details.typeSourceId);
+
         newClassType.details = classType.details;
         newClassType.typeArguments = typeArguments;
+        newClassType.isTypeArgumentExplicit = isTypeArgumentExplicit;
+
         if (classType.literalValue !== undefined) {
             newClassType.literalValue = classType.literalValue;
         }
+
         if (classType.typeAliasInfo !== undefined) {
             newClassType.typeAliasInfo = classType.typeAliasInfo;
         }
+
         if (skipAbstractClassTest) {
             newClassType.skipAbstractClassTest = true;
         }
+
         return newClassType;
     }
 

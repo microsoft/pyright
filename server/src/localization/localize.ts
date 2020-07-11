@@ -330,6 +330,10 @@ export namespace Localizer {
         export const invalidIdentifierChar = () => getRawString('Diagnostic.invalidIdentifierChar');
         export const invalidTokenChars = () =>
             new ParameterizedString<{ text: string }>(getRawString('Diagnostic.invalidTokenChars'));
+        export const isInstanceInvalidType = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.isInstanceInvalidType'));
+        export const isSubclassInvalidType = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.isSubclassInvalidType'));
         export const keyRequiredDeleted = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.keyRequiredDeleted'));
         export const keyValueInSet = () => getRawString('Diagnostic.keyValueInSet');
@@ -747,6 +751,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsCovariant'));
         export const typeVarIsInvariant = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsInvariant'));
+        export const typeVarNotAllowed = () => getRawString('DiagnosticAddendum.typeVarNotAllowed');
         export const useDictInstead = () => getRawString('DiagnosticAddendum.useDictInstead');
         export const useListInstead = () => getRawString('DiagnosticAddendum.useListInstead');
         export const useTupleInstead = () => getRawString('DiagnosticAddendum.useTupleInstead');

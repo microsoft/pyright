@@ -314,7 +314,7 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitCall(node: CallNode): boolean {
-        this._validateIsInstanceCallNecessary(node);
+        this._validateIsInstanceCall(node);
 
         if (ParseTreeUtils.isWithinDefaultParamInitializer(node) && !this._fileInfo.isStubFile) {
             this._evaluator.addDiagnostic(
@@ -432,7 +432,9 @@ export class Checker extends ParseTreeWalker {
         let adjYieldType = yieldType;
         const iteratorType = this._evaluator.getBuiltInType(node, 'Iterator');
         if (yieldType && iteratorType.category === TypeCategory.Class) {
-            adjYieldType = ObjectType.create(ClassType.cloneForSpecialization(iteratorType, [yieldType]));
+            adjYieldType = ObjectType.create(
+                ClassType.cloneForSpecialization(iteratorType, [yieldType], /* isTypeArgumentExplicit */ false)
+            );
         } else {
             adjYieldType = UnknownType.create();
         }
@@ -1168,23 +1170,15 @@ export class Checker extends ParseTreeWalker {
     }
 
     // Validates that a call to isinstance or issubclass are necessary. This is a
-    // common source of programming errors.
-    private _validateIsInstanceCallNecessary(node: CallNode) {
+    // common source of programming errors. Also validates that arguments passed
+    // to isinstance or issubclass won't generate exceptions.
+    private _validateIsInstanceCall(node: CallNode) {
         if (
             node.leftExpression.nodeType !== ParseNodeType.Name ||
             (node.leftExpression.value !== 'isinstance' && node.leftExpression.value !== 'issubclass') ||
             node.arguments.length !== 2
         ) {
             return;
-        }
-
-        // If this call is within an assert statement, we'll ignore it.
-        let curNode: ParseNode | undefined = node;
-        while (curNode) {
-            if (curNode.nodeType === ParseNodeType.Assert) {
-                return;
-            }
-            curNode = curNode.parent;
         }
 
         const callName = node.leftExpression.value;
@@ -1205,6 +1199,75 @@ export class Checker extends ParseTreeWalker {
         const arg1Type = this._evaluator.getType(node.arguments[1].valueExpression);
         if (!arg1Type) {
             return;
+        }
+
+        // Create a helper function that determines whether the specified
+        // type is valid for the isinstance or issubclass call.
+        const isSupportedTypeForIsInstance = (type: Type) => {
+            let isSupported = true;
+
+            doForSubtypes(type, (subtype) => {
+                switch (subtype.category) {
+                    case TypeCategory.Any:
+                    case TypeCategory.Unknown:
+                    case TypeCategory.Unbound:
+                        break;
+
+                    case TypeCategory.Class:
+                        // If it's a class, make sure that it has not been given explicit
+                        // type arguments. This will result in a TypeError exception.
+                        if (subtype.isTypeArgumentExplicit) {
+                            isSupported = false;
+                        }
+                        break;
+
+                    default:
+                        isSupported = false;
+                        break;
+                }
+                return undefined;
+            });
+
+            return isSupported;
+        };
+
+        let isValidType = true;
+        if (
+            arg1Type.category === TypeCategory.Object &&
+            ClassType.isBuiltIn(arg1Type.classType, 'Tuple') &&
+            arg1Type.classType.typeArguments
+        ) {
+            isValidType = !arg1Type.classType.typeArguments.some((typeArg) => !isSupportedTypeForIsInstance(typeArg));
+        } else {
+            isValidType = isSupportedTypeForIsInstance(arg1Type);
+        }
+
+        if (!isValidType) {
+            const diag = new DiagnosticAddendum();
+            diag.addMessage(Localizer.DiagnosticAddendum.typeVarNotAllowed());
+
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                isInstanceCheck
+                    ? Localizer.Diagnostic.isInstanceInvalidType().format({
+                          type: this._evaluator.printType(arg1Type, /* expandTypeAlias */ false),
+                      }) + diag.getString()
+                    : Localizer.Diagnostic.isSubclassInvalidType().format({
+                          type: this._evaluator.printType(arg1Type, /* expandTypeAlias */ false),
+                      }) + diag.getString(),
+                node.arguments[1]
+            );
+        }
+
+        // If this call is within an assert statement, we won't check whether
+        // it's unnecessary.
+        let curNode: ParseNode | undefined = node;
+        while (curNode) {
+            if (curNode.nodeType === ParseNodeType.Assert) {
+                return;
+            }
+            curNode = curNode.parent;
         }
 
         // Several built-in classes don't follow the normal class hierarchy
