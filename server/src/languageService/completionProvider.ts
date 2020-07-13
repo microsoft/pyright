@@ -293,7 +293,11 @@ export class CompletionProvider {
                             return this._getImportFromCompletions(parentNode, '');
                         }
                     }
-                } else if (curNode.parent && curNode.parent.nodeType === ParseNodeType.MemberAccess) {
+                } else if (
+                    curNode.parent &&
+                    curNode.parent.nodeType === ParseNodeType.MemberAccess &&
+                    curNode === curNode.parent.memberName
+                ) {
                     return this._getMemberAccessCompletions(curNode.parent.leftExpression, priorWord);
                 }
             }
