@@ -12503,7 +12503,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     updatedType,
                     diag.createAddendum(),
                     undefined,
-                    flags,
+                    CanAssignFlags.Default,
                     recursionCount + 1
                 )
             ) {
