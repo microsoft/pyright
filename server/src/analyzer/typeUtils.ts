@@ -90,8 +90,8 @@ export interface TypedDictEntry {
     isProvided: boolean;
 }
 
-const SingleTickRegEx = /'/g;
-const TripleTickRegEx = /'''/g;
+const singleTickRegEx = /'/g;
+const tripleTickRegEx = /'''/g;
 
 export function isOptionalType(type: Type): boolean {
     if (type.category === TypeCategory.Union) {
@@ -1649,9 +1649,9 @@ export function printLiteralValue(type: ObjectType): string {
         const prefix = type.classType.details.name === 'bytes' ? 'b' : '';
         literalStr = literalValue.toString();
         if (literalStr.indexOf('\n') >= 0) {
-            literalStr = `${prefix}'''${literalStr.replace(TripleTickRegEx, "\\'\\'\\'")}'''`;
+            literalStr = `${prefix}'''${literalStr.replace(tripleTickRegEx, "\\'\\'\\'")}'''`;
         } else {
-            literalStr = `${prefix}'${literalStr.replace(SingleTickRegEx, "\\'")}'`;
+            literalStr = `${prefix}'${literalStr.replace(singleTickRegEx, "\\'")}'`;
         }
     } else if (typeof literalValue === 'boolean') {
         literalStr = literalValue ? 'True' : 'False';
