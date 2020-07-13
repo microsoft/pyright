@@ -325,8 +325,11 @@ export const enum PrintTypeFlags {
     // Omit type arguments for generic classes if they are "Any".
     OmitTypeArgumentsIfAny = 1 << 1,
 
+    // Omit printing type for param if type is not specified.
+    OmitUnannotatedParamType = 1 << 2,
+
     // Print Union and Optional in PEP 604 format.
-    PEP604 = 1 << 2,
+    PEP604 = 1 << 3,
 }
 
 interface ParamAssignmentInfo {
@@ -13677,6 +13680,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                         // PEP8 indicates that the "=" for the default value should have surrounding
                         // spaces when used with a type annotation.
+                        defaultValueAssignment = ' = ';
+                    } else if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0) {
+                        paramString += ': Unknown';
                         defaultValueAssignment = ' = ';
                     }
                 } else {

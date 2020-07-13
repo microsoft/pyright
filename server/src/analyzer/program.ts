@@ -509,6 +509,10 @@ export class Program {
             flags |= PrintTypeFlags.OmitTypeArgumentsIfAny;
         }
 
+        if (configOptions.diagnosticRuleSet.omitUnannotatedParamType) {
+            flags |= PrintTypeFlags.OmitUnannotatedParamType;
+        }
+
         if (configOptions.diagnosticRuleSet.pep604Printing) {
             flags |= PrintTypeFlags.PEP604;
         }

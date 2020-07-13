@@ -53,6 +53,9 @@ export interface DiagnosticRuleSet {
     // when printed if all arguments are Unknown or Any?
     omitTypeArgsIfAny: boolean;
 
+    // Should parameter type be omitted if it is not annotated?
+    omitUnannotatedParamType: boolean;
+
     // Should Union and Optional types be printed in PEP 604 format?
     pep604Printing: boolean;
 
@@ -255,6 +258,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: true,
         omitTypeArgsIfAny: true,
+        omitUnannotatedParamType: true,
         pep604Printing: true,
         strictListInference: false,
         strictDictionaryInference: false,
@@ -306,6 +310,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: false,
         omitTypeArgsIfAny: false,
+        omitUnannotatedParamType: true,
         pep604Printing: true,
         strictListInference: false,
         strictDictionaryInference: false,
@@ -357,6 +362,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
     const diagSettings: DiagnosticRuleSet = {
         printUnknownAsAny: false,
         omitTypeArgsIfAny: false,
+        omitUnannotatedParamType: false,
         pep604Printing: true,
         strictListInference: true,
         strictDictionaryInference: true,
@@ -658,6 +664,7 @@ export class ConfigOptions {
         this.diagnosticRuleSet = {
             printUnknownAsAny: defaultSettings.printUnknownAsAny,
             omitTypeArgsIfAny: defaultSettings.omitTypeArgsIfAny,
+            omitUnannotatedParamType: defaultSettings.omitUnannotatedParamType,
             pep604Printing: defaultSettings.pep604Printing,
 
             // Use strict inference rules for list expressions?
