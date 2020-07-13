@@ -7002,7 +7002,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addDiagnostic(
                 diagLevel,
                 rule,
-                Localizer.Diagnostic.typeUnknown().format({ name: nameValue }) + diagAddendum.getString(),
+                Localizer.Diagnostic.typePartiallyUnknown().format({ name: nameValue }) + diagAddendum.getString(),
                 errorNode
             );
         }
