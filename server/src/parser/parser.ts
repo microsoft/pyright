@@ -2345,16 +2345,20 @@ export class Parser {
         }
 
         if (nextToken.type === TokenType.OpenParenthesis) {
-            const tupleNode = this._parseTupleAtom();
-            if (this._isParsingTypeAnnotation && !this._isParsingIndexTrailer) {
+            const possibleTupleNode = this._parseTupleAtom();
+            if (
+                possibleTupleNode.nodeType === ParseNodeType.Tuple &&
+                this._isParsingTypeAnnotation &&
+                !this._isParsingIndexTrailer
+            ) {
                 // This is allowed inside of an index trailer, specifically
                 // to support Tuple[()], which is the documented way to annotate
                 // a zero-length tuple.
                 const diag = new DiagnosticAddendum();
                 diag.addMessage(Localizer.DiagnosticAddendum.useTupleInstead());
-                this._addError(Localizer.Diagnostic.tupleInAnnotation() + diag.getString(), tupleNode);
+                this._addError(Localizer.Diagnostic.tupleInAnnotation() + diag.getString(), possibleTupleNode);
             }
-            return tupleNode;
+            return possibleTupleNode;
         } else if (nextToken.type === TokenType.OpenBracket) {
             const listNode = this._parseListAtom();
             if (this._isParsingTypeAnnotation && !this._isParsingIndexTrailer) {
