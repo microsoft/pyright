@@ -4651,6 +4651,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             ClassType.isSameGenericClass(type, expectedClass) &&
             expectedClass.typeArguments &&
             type.typeArguments &&
+            !type.isTypeArgumentExplicit &&
             expectedClass.typeArguments.length === type.typeArguments.length
         ) {
             let isAssignable = true;
