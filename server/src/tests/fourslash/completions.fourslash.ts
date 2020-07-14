@@ -23,14 +23,14 @@ await helper.verifyCompletion('exact', {
                 label: 'some_func1',
                 documentation: {
                     kind: 'markdown',
-                    value: '```python\nsome_func1: (a) -> None\n```\n---\nsome function docs',
+                    value: '```python\nsome_func1: (a: Unknown) -> None\n```\n---\nsome function docs',
                 },
             },
             {
                 label: 'some_func2',
                 documentation: {
                     kind: 'markdown',
-                    value: '```python\nsome_func2: (a) -> None\n```\n---\nanother function docs',
+                    value: '```python\nsome_func2: (a: Unknown) -> None\n```\n---\nanother function docs',
                 },
             },
         ],

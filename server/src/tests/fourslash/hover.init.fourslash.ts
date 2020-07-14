@@ -31,9 +31,9 @@
 //// c = test.[|/*marker5*/C1|]()
 
 helper.verifyHover({
-    marker1: { value: '```python\n(class) C1(name="hello")\n```\n\\_\\_init\\_\\_ docs', kind: 'markdown' },
+    marker1: { value: '```python\n(class) C1(name: Unknown = "hello")\n```\n\\_\\_init\\_\\_ docs', kind: 'markdown' },
     marker2: { value: '```python\n(type alias) unionType: Type[C1] | Type[C2]\n```\n', kind: 'markdown' },
     marker3: { value: '```python\n(class) G(value: Literal[10])\n```\n', kind: 'markdown' },
     marker4: { value: '```python\n(class) G\n```\n', kind: 'markdown' },
-    marker5: { value: '```python\n(class) C1(name="hello")\n```\n\\_\\_init\\_\\_ docs', kind: 'markdown' },
+    marker5: { value: '```python\n(class) C1(name: Unknown = "hello")\n```\n\\_\\_init\\_\\_ docs', kind: 'markdown' },
 });
