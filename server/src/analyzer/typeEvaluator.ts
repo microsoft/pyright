@@ -4408,6 +4408,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 errorNode
             );
             type = UnknownType.create();
+
+            // Evaluate the arguments to generate errors and mark
+            // symbols as referenced.
+            argList.forEach(arg => {
+                if (!arg.type && arg.valueExpression) {
+                    getTypeOfExpression(arg.valueExpression);
+                }
+            });
         }
 
         // Should we specialize the class?
