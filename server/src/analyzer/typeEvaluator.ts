@@ -4411,7 +4411,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             // Evaluate the arguments to generate errors and mark
             // symbols as referenced.
-            argList.forEach(arg => {
+            argList.forEach((arg) => {
                 if (!arg.type && arg.valueExpression) {
                     getTypeOfExpression(arg.valueExpression);
                 }
@@ -5564,7 +5564,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 !entriesArg.valueExpression ||
                 entriesArg.valueExpression.nodeType !== ParseNodeType.StringList
             ) {
-                addError(Localizer.Diagnostic.enumSecondArg(), errorNode);
+                // Technically, the Enum constructor supports a bunch of different
+                // ways to specify the items: space-delimited string, a string
+                // iterator, an iterator of name/value tuples, and a dictionary
+                // of name/value pairs. We support only the simple space-delimited
+                // string here. For users who are interested in type checking, we
+                // recommend using the more standard class declaration syntax.
+                // This diagnostic is part of the reportGeneralTypeIssues since
+                // it is of interest only to those who care about types.
+                const fileInfo = getFileInfo(errorNode);
+                addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.enumSecondArg(),
+                    argList[1].valueExpression || errorNode
+                );
             } else {
                 const entries = entriesArg.valueExpression.strings
                     .map((s) => s.value)
