@@ -469,19 +469,11 @@ export function partiallySpecializeType(type: Type, contextClassType: ClassType)
 
 // Replaces all of the top-level TypeVars (as opposed to TypeVars
 // used as type arguments in other types) with their concrete form.
-// Unlikely typical TypeVar specialization, this method specializes
-// constrained TypeVars as the first constrained type.
 export function makeTypeVarsConcrete(type: Type): Type {
     return doForSubtypes(type, (subtype) => {
         if (subtype.category === TypeCategory.TypeVar) {
             if (subtype.boundType) {
                 return subtype.boundType;
-            }
-
-            // If the type is constrained by more than one type, we can't check
-            // all constrained types, but we can at least check the first one.
-            if (subtype.constraints.length > 0) {
-                return subtype.constraints[0];
             }
 
             // Normally, we would use UnknownType here, but we need
