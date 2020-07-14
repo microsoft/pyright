@@ -2909,8 +2909,11 @@ export class Parser {
         // Synthesize a string token and StringNode.
         const typeString = match[2];
 
-        // Ignore all "ignore" comments.
-        if (typeString.trim().match(/^ignore(\s|$)/)) {
+        // Ignore all "ignore" comments. Include "[" in the regular
+        // expression because mypy supports ignore comments of the
+        // form ignore[errorCode, ...]. We'll treat these as regular
+        // ignore statements (as though no errorCodes were included).
+        if (typeString.trim().match(/^ignore(\s|\[|$)/)) {
             return undefined;
         }
 

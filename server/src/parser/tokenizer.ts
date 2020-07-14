@@ -927,7 +927,11 @@ export class Tokenizer {
         const value = this._cs.getText().substr(start, length);
         const comment = Comment.create(start, length, value);
 
-        if (value.match(/^\s*type:\s*ignore(\s|$)/)) {
+        // We include "[" in the regular expression because mypy supports
+        // ignore comments of the form ignore[errorCode, ...]. We'll treat
+        // these as regular ignore statements (as though no errorCodes were
+        // included).
+        if (value.match(/^\s*type:\s*ignore(\s|\[|$)/)) {
             if (this._tokens.findIndex((t) => t.type !== TokenType.NewLine && t && t.type !== TokenType.Indent) < 0) {
                 this._typeIgnoreAll = true;
             } else {

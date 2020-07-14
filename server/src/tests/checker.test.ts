@@ -1464,6 +1464,18 @@ test('TypeIgnore2', () => {
     validateResults(analysisResults, 3);
 });
 
+test('TypeIgnore3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore3.py'], configOptions);
+    validateResults(analysisResults, 0);
+
+    // Disable type ignore
+    configOptions.diagnosticRuleSet.enableTypeIgnoreComments = false;
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeIgnore3.py'], configOptions);
+    validateResults(analysisResults, 3);
+});
+
 test('Metaclass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass1.py']);
     validateResults(analysisResults, 0);
