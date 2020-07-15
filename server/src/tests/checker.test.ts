@@ -1098,12 +1098,6 @@ test('NewType3', () => {
     validateResults(analysisResults, 4);
 });
 
-test('isInstance1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance1.py']);
-
-    validateResults(analysisResults, 0);
-});
-
 test('isInstance2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance2.py']);
 
@@ -1114,6 +1108,12 @@ test('isInstance3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance3.py']);
 
     validateResults(analysisResults, 2);
+});
+
+test('isInstance4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance4.py']);
+
+    validateResults(analysisResults, 0);
 });
 
 test('UnnecessaryIsInstance1', () => {
