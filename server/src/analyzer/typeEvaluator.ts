@@ -8034,13 +8034,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             synthesizeTypedDictClassMethods(node, classType);
         }
 
-        // Determine if the class is abstract.
-        if (ClassType.supportsAbstractMethods(classType)) {
-            if (getAbstractMethods(classType).length > 0) {
-                classType.details.flags |= ClassTypeFlags.HasAbstractMethods;
-            }
-        }
-
         // Determine if the class should be a "pseudo-generic" class, characterized
         // by having an __init__ method with parameters that lack type annotations.
         // For such classes, we'll treat them as generic, with the type arguments provided
@@ -8072,6 +8065,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         }
                     }
                 }
+            }
+        }
+
+        // Determine if the class is abstract.
+        if (ClassType.supportsAbstractMethods(classType)) {
+            if (getAbstractMethods(classType).length > 0) {
+                classType.details.flags |= ClassTypeFlags.HasAbstractMethods;
             }
         }
 
@@ -12340,6 +12340,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // of type arguments, but there are a few special cases where this
                     // isn't true (e.g. assigning a Tuple[X, Y, Z] to a tuple[W]).
                     const destArgIndex = srcArgIndex >= destTypeArgs.length ? destTypeArgs.length - 1 : srcArgIndex;
+                    assert(destArgIndex >= 0);
                     const destTypeArg = destTypeArgs[destArgIndex];
                     const destTypeParam =
                         destArgIndex < destTypeParams.length ? destTypeParams[destArgIndex] : undefined;
