@@ -22,6 +22,11 @@ import {
     normalizePath,
 } from '../common/pathUtils';
 
+interface PythonPathResult {
+    paths: string[];
+    prefix: string;
+}
+
 const cachedSearchPaths = new Map<string, PythonPathResult>();
 
 export function getTypeShedFallbackPath(fs: FileSystem) {
@@ -129,24 +134,11 @@ export function findPythonSearchPaths(
     return pathResult.paths;
 }
 
-interface PythonPathResult {
-    paths: string[];
-    prefix: string;
-}
-
-export function getPythonPathFromPythonInterpreter(
+function getPathResultFromInterpreter(
     fs: FileSystem,
-    interpreterPath: string | undefined,
+    interpreter: string,
     importFailureInfo: string[]
-): PythonPathResult {
-    const searchKey = interpreterPath || '';
-
-    // If we've seen this request before, return the cached results.
-    const cachedPath = cachedSearchPaths.get(searchKey);
-    if (cachedPath) {
-        return cachedPath;
-    }
-
+): PythonPathResult | undefined {
     const result: PythonPathResult = {
         paths: [],
         prefix: '',
@@ -157,15 +149,9 @@ export function getPythonPathFromPythonInterpreter(
             '-c',
             'import sys, json; json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
         ];
-        let execOutput: string;
 
-        if (interpreterPath) {
-            importFailureInfo.push(`Executing interpreter at '${interpreterPath}'`);
-            execOutput = child_process.execFileSync(interpreterPath, commandLineArgs, { encoding: 'utf8' });
-        } else {
-            importFailureInfo.push(`Executing python interpreter`);
-            execOutput = child_process.execFileSync('python', commandLineArgs, { encoding: 'utf8' });
-        }
+        importFailureInfo.push(`Executing interpreter: '${interpreter}'`);
+        const execOutput = child_process.execFileSync(interpreter, commandLineArgs, { encoding: 'utf8' });
 
         // Parse the execOutput. It should be a JSON-encoded array of paths.
         try {
@@ -194,8 +180,43 @@ export function getPythonPathFromPythonInterpreter(
             throw err;
         }
     } catch {
-        result.paths = [];
-        result.prefix = '';
+        return undefined;
+    }
+
+    return result;
+}
+
+export function getPythonPathFromPythonInterpreter(
+    fs: FileSystem,
+    interpreterPath: string | undefined,
+    importFailureInfo: string[]
+): PythonPathResult {
+    const searchKey = interpreterPath || '';
+
+    // If we've seen this request before, return the cached results.
+    const cachedPath = cachedSearchPaths.get(searchKey);
+    if (cachedPath) {
+        return cachedPath;
+    }
+
+    let result: PythonPathResult | undefined;
+
+    if (interpreterPath) {
+        result = getPathResultFromInterpreter(fs, interpreterPath, importFailureInfo);
+    } else {
+        result = getPathResultFromInterpreter(fs, 'python3', importFailureInfo);
+
+        // On some platforms, 'python3' might not exist. Try 'python' instead.
+        if (!result) {
+            result = getPathResultFromInterpreter(fs, 'python', importFailureInfo);
+        }
+    }
+
+    if (!result) {
+        result = {
+            paths: [],
+            prefix: '',
+        };
     }
 
     cachedSearchPaths.set(searchKey, result);
@@ -203,5 +224,6 @@ export function getPythonPathFromPythonInterpreter(
     result.paths.forEach((path) => {
         importFailureInfo.push(`  ${path}`);
     });
+
     return result;
 }
