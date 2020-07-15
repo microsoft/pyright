@@ -424,7 +424,7 @@ export class AnalyzerService {
                 // If no include paths were provided, assume that all files within
                 // the project should be included.
                 if (configOptions.include.length === 0) {
-                    this._console.info(`No include entries specified; assuming ${configFilePath}`);
+                    this._console.info(`No include entries specified; assuming ${configFileDir}`);
                     configOptions.include.push(getFileSpec(configFileDir, '.'));
                 }
 
@@ -451,7 +451,6 @@ export class AnalyzerService {
                     );
                 }
             }
-            this._updateConfigFileWatcher();
             this._updateLibraryFileWatcher();
         } else {
             configOptions.addExecEnvironmentForExtraPaths(
@@ -1100,6 +1099,20 @@ export class AnalyzerService {
                 }
                 this._scheduleReloadConfigFile();
             });
+        } else if (this._executionRootPath) {
+            this._configFileWatcher = this._fs.createFileSystemWatcher([this._executionRootPath], (event, path) => {
+                if (event === 'add' || event === 'change') {
+                    const fileName = getFileName(path);
+                    if (fileName && configFileNames.some((name) => name === fileName)) {
+                        if (this._verboseOutput) {
+                            this._console.info(`Received fs event '${event}' for config file`);
+                        }
+                        if (this._commandLineOptions) {
+                            this.setOptions(this._commandLineOptions);
+                        }
+                    }
+                }
+            });
         }
     }
 
@@ -1124,9 +1137,9 @@ export class AnalyzerService {
     }
 
     private _reloadConfigFile() {
-        if (this._configFilePath) {
-            this._updateConfigFileWatcher();
+        this._updateConfigFileWatcher();
 
+        if (this._configFilePath) {
             this._console.info(`Reloading configuration file at ${this._configFilePath}`);
 
             // We can't just reload config file when it is changed; we need to consider
@@ -1145,6 +1158,7 @@ export class AnalyzerService {
         this._backgroundAnalysisProgram.setImportResolver(importResolver);
 
         this._updateLibraryFileWatcher();
+        this._updateConfigFileWatcher();
         this._updateSourceFileWatchers();
         this._updateTrackedFileList(true);
 
