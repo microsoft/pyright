@@ -109,7 +109,7 @@ var6: Tuple[float, ...] = (3,)  # Type of RHS is now Tuple[float, ...]
 
 ### Return Type Inference
 
-As with variable and assignments, function return types can be inferred from the `return` statements found within that function. The returned type is assumed to be the union of all types returned from all `return` statements. If a `return` statement is not followed by an expression, it is assumed to return `None`. Likewise, if the function does not end in a `return` statement, and it is possible for the execution to the end of the function, an implicit `return None` is assumed.
+As with variable assignments, function return types can be inferred from the `return` statements found within that function. The returned type is assumed to be the union of all types returned from all `return` statements. If a `return` statement is not followed by an expression, it is assumed to return `None`. Likewise, if the function does not end in a `return` statement, and it is possible for the execution to the end of the function, an implicit `return None` is assumed.
 
 ```
 # This function has two explicit return statements and one implicit
@@ -151,7 +151,7 @@ It is common for input parameters to be unannotated. This can make it difficult 
 ```
 # The return type of this function cannot be fully inferred based
 # on the information provided because the types of parameters
-# `a` and `b` are unknown. In this case, the inferred return
+# a and b are unknown. In this case, the inferred return
 # type is Union[Unknown, None].
 
 def func1(a, b, c):
@@ -194,7 +194,8 @@ When Pyright is performing type inference, it generally does not infer literal t
 ```
 # If Pyright inferred the type of var1 to be List[Literal[4]],
 # any attempt to append a value other than 4 to this list would
-# generate an error. Pyright therefore infers the type List[int].
+# generate an error. Pyright therefore infers the broader
+# type List[int].
 var1 = [4]
 ```
 
@@ -225,7 +226,7 @@ When inferring the type of a list expression (in the absence of bidirectional in
 3. If the list contains multiple elements that are of different types, the behavior depends on the `strictListInference` configuration setting. By default this setting is off.
 
     * If `strictListInference` is off, infer `List[Unknown]`.
-    * Otherwise use the union of all element types and infer `List[Union[...]]`.
+    * Otherwise use the union of all element types and infer `List[Union[(elements)]]`.
 
 These heuristics can be overridden through the use of bidirectional inference hints (e.g. by providing a declared type for the target of the assignment expression).
 
@@ -268,14 +269,14 @@ var4: Dict[str, float] = {"a": 3, "b": 3.4}
 
 ### Lambdas
 
-Lambdas present a particular challenge for a Python type checker because there is no provision in the Python syntax for annotating the types of a lambda’s input parameters. The types of these parameters must therefore be inferred based on context using bidirectional type inference. Absent this context, a lambda’s input parameters (and therefore its return type) will be unknown.
+Lambdas present a particular challenge for a Python type checker because there is no provision in the Python syntax for annotating the types of a lambda’s input parameters. The types of these parameters must therefore be inferred based on context using bidirectional type inference. Absent this context, a lambda’s input parameters (and often its return type) will be unknown.
 
 ```
 # The type of var1 is (a: Unknown, b: Unknown) -> Unknown.
 var1 = lambda a, b: a + b
 
-CompareFloats = Callable[[float, float], bool]
-def float_sort(list: List[float], comp: CompareFloats): ...
+# This function takes a comparison function callback.
+def float_sort(list: List[float], comp: Callable[[float, float], bool]): ...
 
 # In this example, the types of the lambda’s input parameters
 # a and b can be inferred to be float because the float_sort
