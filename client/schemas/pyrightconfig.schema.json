@@ -12,6 +12,7 @@
           "type": "string",
           "enum": [
             "none",
+            "information",
             "warning",
             "error"
           ]
