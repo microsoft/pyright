@@ -1092,6 +1092,12 @@ test('NewType2', () => {
     validateResults(analysisResults, 1);
 });
 
+test('NewType3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType3.py']);
+
+    validateResults(analysisResults, 4);
+});
+
 test('isInstance1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isInstance1.py']);
 

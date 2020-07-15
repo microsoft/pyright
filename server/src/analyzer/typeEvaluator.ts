@@ -5639,6 +5639,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const classType = ClassType.create(className, classFlags, errorNode.id);
                 classType.details.baseClasses.push(baseClass);
                 computeMroLinearization(classType);
+
+                // Synthesize an __init__ method that accepts only the specified type.
+                const initType = FunctionType.createInstance(
+                    '__init__',
+                    FunctionTypeFlags.SynthesizedMethod
+                );
+                FunctionType.addParameter(initType, {
+                    category: ParameterCategory.Simple,
+                    name: 'self',
+                    type: ObjectType.create(classType),
+                });
+                FunctionType.addParameter(initType, {
+                    category: ParameterCategory.Simple,
+                    name: '_x',
+                    type: ObjectType.create(baseClass),
+                });
+                initType.details.declaredReturnType = NoneType.create();
+                classType.details.fields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
+
+                // Synthesize a trivial __new__ method.
+                const newType = FunctionType.createInstance(
+                    '__new__',
+                    FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
+                );
+                FunctionType.addParameter(newType, {
+                    category: ParameterCategory.Simple,
+                    name: 'cls',
+                    type: classType,
+                });
+                FunctionType.addDefaultParameters(newType);
+                newType.details.declaredReturnType = ObjectType.create(classType);
+                classType.details.fields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
                 return classType;
             }
         }
