@@ -84,6 +84,7 @@ Installing both Pyright and Pylance at the same time is not recommended. If both
 * [Configuration](/docs/configuration.md)
 * [Settings](/docs/settings.md)
 * [Comments](/docs/comments.md)
+* [Type Inference](/docs/type-inference.md)
 * [Import Resolution](/docs/import-resolution.md)
 * [Type Stubs](/docs/type-stubs.md)
 * [Commands](/docs/commands.md)
