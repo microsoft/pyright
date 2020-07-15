@@ -1253,6 +1253,7 @@ export class Parser {
 
         while (true) {
             const modName = this._parseDottedModuleName();
+
             const importAsNode = ImportAsNode.create(modName);
 
             if (this._consumeTokenIfKeyword(KeywordType.As)) {
@@ -1264,6 +1265,10 @@ export class Parser {
                 } else {
                     this._addError(Localizer.Diagnostic.expectedImportAlias(), this._peekToken());
                 }
+            }
+
+            if (importAsNode.module.leadingDots > 0 && !importAsNode.alias) {
+                this._addError(Localizer.Diagnostic.relativeImportNotAllowed(), importAsNode.module);
             }
 
             importNode.list.push(importAsNode);

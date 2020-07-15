@@ -440,6 +440,7 @@ export namespace Localizer {
         export const protocolUsedInCall = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.protocolUsedInCall'));
         export const raiseParams = () => getRawString('Diagnostic.raiseParams');
+        export const relativeImportNotAllowed = () => getRawString('Diagnostic.relativeImportNotAllowed');
         export const returnMissing = () =>
             new ParameterizedString<{ returnType: string }>(getRawString('Diagnostic.returnMissing'));
         export const returnOutsideFunction = () => getRawString('Diagnostic.returnOutsideFunction');

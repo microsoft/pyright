@@ -208,6 +208,7 @@
         "protocolUsedInCall": "Protocol class cannot be used in \"{name}\" call",
         "protocolIllegal": "Use of \"Protocol\" requires Python 3.7 or newer",
         "raiseParams": "\"raise\" requires one or more parameters when used outside of except clause",
+        "relativeImportNotAllowed": "Relative imports cannot be used with \"import A\" form; use \"import A as B\" or \"from A import B\" instead",
         "returnOutsideFunction": "\"return\" can be used only within a function",
         "returnMissing": "Function with declared type of \"{returnType}\" must return value",
         "returnTypeMismatch": "Expression of type \"{exprType}\" cannot be assigned to return type \"{returnType}\"",
