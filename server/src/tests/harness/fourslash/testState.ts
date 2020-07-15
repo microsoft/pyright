@@ -15,6 +15,8 @@ import {
     Command,
     CompletionItem,
     Diagnostic,
+    DocumentHighlight,
+    DocumentHighlightKind,
     ExecuteCommandParams,
     MarkupContent,
     TextEdit,
@@ -959,6 +961,49 @@ export class TestState {
 
             for (const r of expected) {
                 assert.equal(actual?.filter((d) => this._deepEqual(d, r)).length, 1);
+            }
+        }
+    }
+
+    getDocumentHighlightKind(m?: Marker): DocumentHighlightKind | undefined {
+        const kind = m?.data ? ((m.data as any).kind as string) : undefined;
+        switch (kind) {
+            case 'text':
+                return DocumentHighlightKind.Text;
+            case 'read':
+                return DocumentHighlightKind.Read;
+            case 'write':
+                return DocumentHighlightKind.Write;
+            default:
+                return undefined;
+        }
+    }
+
+    verifyHighlightReferences(map: {
+        [marker: string]: {
+            references: DocumentHighlight[];
+        };
+    }) {
+        this._analyze();
+
+        for (const name of Object.keys(map)) {
+            const marker = this.getMarkerByName(name);
+            const fileName = marker.fileName;
+
+            const expected = map[name].references;
+
+            const position = this._convertOffsetToPosition(fileName, marker.position);
+            const actual = this.program.getDocumentHighlight(fileName, position, CancellationToken.None);
+
+            assert.equal(actual?.length ?? 0, expected.length);
+
+            for (const r of expected) {
+                const match = actual?.filter((h) => this._deepEqual(h.range, r.range));
+                assert.equal(match?.length, 1);
+
+                if (r.kind) {
+                    assert.equal(match![0].kind, r.kind);
+                }
             }
         }
     }

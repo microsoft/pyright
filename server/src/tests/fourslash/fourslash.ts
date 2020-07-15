@@ -88,7 +88,16 @@ declare namespace _ {
         filePath: string;
     }
 
+    type DocumentHighlightKind = 1 | 2 | 3;
+
+    interface DocumentHighlight {
+        range: PositionRange;
+        kind?: DocumentHighlightKind;
+    }
+
     interface Fourslash {
+        getDocumentHighlightKind(m?: Marker): DocumentHighlightKind | undefined;
+
         getMarkerName(m: Marker): string;
         getMarkerByName(markerName: string): Marker;
         getMarkerNames(): string[];
@@ -155,6 +164,11 @@ declare namespace _ {
                 references: DocumentRange[];
             };
         }): void;
+        verifyHighlightReferences(map: {
+            [marker: string]: {
+                references: DocumentHighlight[];
+            };
+        }): void;
         verifyFindDefinitions(map: {
             [marker: string]: {
                 definitions: DocumentRange[];
@@ -200,5 +214,20 @@ declare namespace Consts {
         restartServer = 'pyright.restartserver',
         orderImports = 'pyright.organizeimports',
         addMissingOptionalToParam = 'pyright.addoptionalforparam',
+    }
+
+    namespace DocumentHighlightKind {
+        /**
+         * A textual occurrence.
+         */
+        const Text: 1;
+        /**
+         * Read-access of a symbol, like reading a variable.
+         */
+        const Read: 2;
+        /**
+         * Write-access of a symbol, like writing to a variable.
+         */
+        const Write: 3;
     }
 }
