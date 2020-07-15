@@ -2,7 +2,11 @@
 
 from datetime import datetime
 
-import .package1 as p1
+# This should generate an error because relative imports can
+# be used only with the "from . import A" form.
+import .package1 as p0
+
+from . import package1 as p1
 a = p1.foo()
 
 from .package1 import foo
@@ -10,11 +14,7 @@ b = foo()
 
 # This should generate an error because there is no
 # directory or file named package2.
-import .package2 as p2
-
-# This should generate an error too.
-from .package2 import foo
-
+from . import package2 as p2
 
 from .package1.sub import subfoo
 # subfoo should resolve to the package1/sub/__init__.py,

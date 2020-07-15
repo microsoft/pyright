@@ -5641,10 +5641,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 computeMroLinearization(classType);
 
                 // Synthesize an __init__ method that accepts only the specified type.
-                const initType = FunctionType.createInstance(
-                    '__init__',
-                    FunctionTypeFlags.SynthesizedMethod
-                );
+                const initType = FunctionType.createInstance('__init__', FunctionTypeFlags.SynthesizedMethod);
                 FunctionType.addParameter(initType, {
                     category: ParameterCategory.Simple,
                     name: 'self',
@@ -9290,25 +9287,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib) {
                 const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
 
+                const importLookupInfo = importLookup(resolvedPath);
+                const fileInfo = getFileInfo(node);
+                let reportError = false;
+
                 // If we were able to resolve the import, report the error as
                 // an unresolved symbol.
-                const importLookupInfo = importLookup(resolvedPath);
                 if (importLookupInfo) {
-                    const fileInfo = getFileInfo(node);
-
                     // Handle PEP 562 support for module-level __getattr__ function,
                     // introduced in Python 3.7.
                     if (
                         fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37 ||
                         !importLookupInfo.symbolTable.get('__getattr__')
                     ) {
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.importSymbolUnknown().format({ name: node.name.value }),
-                            node.name
-                        );
+                        reportError = true;
                     }
+                } else if (!resolvedPath) {
+                    // This corresponds to the "from . import a" form.
+                    reportError = true;
+                }
+
+                if (reportError) {
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.importSymbolUnknown().format({ name: node.name.value }),
+                        node.name
+                    );
                 }
             }
 

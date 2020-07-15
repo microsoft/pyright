@@ -1267,7 +1267,7 @@ export class Parser {
                 }
             }
 
-            if (importAsNode.module.leadingDots > 0 && !importAsNode.alias) {
+            if (importAsNode.module.leadingDots > 0) {
                 this._addError(Localizer.Diagnostic.relativeImportNotAllowed(), importAsNode.module);
             }
 
