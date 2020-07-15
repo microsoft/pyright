@@ -6,8 +6,11 @@
  * for the VS Code Extension language server.
  */
 
+//@ts-check
+
 const path = require('path'); // eslint-disable-line @typescript-eslint/no-var-requires
 
+/**@type {import('webpack').Configuration}*/
 module.exports = {
     context: path.resolve(__dirname),
     entry: './src/server.ts',
@@ -39,10 +42,5 @@ module.exports = {
                 use: 'node-loader',
             },
         ],
-    },
-    node: {
-        fs: 'empty',
-        __dirname: false,
-        __filename: false,
     },
 };

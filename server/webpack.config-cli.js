@@ -7,13 +7,15 @@
  */
 
 /* eslint-disable @typescript-eslint/no-var-requires */
+//@ts-check
 
 const path = require('path');
 
+/**@type {import('webpack').Configuration}*/
 module.exports = {
     entry: {
-        'pyright': './src/pyright.ts',
-        'pyright-langserver': './src/server.ts'
+        pyright: './src/pyright.ts',
+        'pyright-langserver': './src/server.ts',
     },
     mode: 'development',
     target: 'node',
@@ -40,9 +42,5 @@ module.exports = {
                 loader: 'node-loader',
             },
         ],
-    },
-
-    node: {
-        fs: 'empty',
     },
 };
