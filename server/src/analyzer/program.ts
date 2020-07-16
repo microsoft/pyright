@@ -1621,6 +1621,12 @@ export class Program {
     }
 
     private _isImportAllowed(importer: SourceFileInfo, importResult: ImportResult, isImportStubFile: boolean): boolean {
+        // Don't import native libs. We don't want to track these files,
+        // and we definitely don't want to attempt to parse them.
+        if (importResult.isNativeLib) {
+            return false;
+        }
+
         let thirdPartyImportAllowed = this._configOptions.useLibraryCodeForTypes;
 
         if (
