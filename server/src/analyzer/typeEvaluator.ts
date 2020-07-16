@@ -5056,7 +5056,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     paramMap.get(paramName)!.argsReceived++;
                 }
 
-                if (advanceToNextArg) {
+                if (advanceToNextArg || typeParams[paramIndex].category === ParameterCategory.VarArgList) {
                     argIndex++;
                 }
                 paramIndex++;
