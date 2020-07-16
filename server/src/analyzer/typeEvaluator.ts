@@ -9550,7 +9550,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // We weren't able to infer the input parameter type. Set its
         // type to unknown.
-        writeTypeCache(node.name!, UnknownType.create());
+        writeTypeCache(node.name!, transformVariadicParamType(node, node.category, UnknownType.create()));
     }
 
     // Evaluates the types that are assigned within the statement that contains
