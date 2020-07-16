@@ -101,6 +101,10 @@ class PyrightServer extends LanguageServerBase {
                     serverSettings.openFilesOnly = !!pythonAnalysisSection.openFilesOnly;
                 }
 
+                if (pythonAnalysisSection.useLibraryCodeForTypes !== undefined) {
+                    serverSettings.useLibraryCodeForTypes = !!pythonAnalysisSection.useLibraryCodeForTypes;
+                }
+
                 serverSettings.logLevel = this.convertLogLevel(pythonAnalysisSection.logLevel);
                 serverSettings.autoSearchPaths = !!pythonAnalysisSection.autoSearchPaths;
 
@@ -122,7 +126,10 @@ class PyrightServer extends LanguageServerBase {
                     serverSettings.openFilesOnly = !!pyrightSection.openFilesOnly;
                 }
 
-                serverSettings.useLibraryCodeForTypes = !!pyrightSection.useLibraryCodeForTypes;
+                if (pyrightSection.useLibraryCodeForTypes !== undefined) {
+                    serverSettings.useLibraryCodeForTypes = !!pyrightSection.useLibraryCodeForTypes;
+                }
+
                 serverSettings.disableLanguageServices = !!pyrightSection.disableLanguageServices;
                 serverSettings.disableOrganizeImports = !!pyrightSection.disableOrganizeImports;
                 if (pyrightSection.typeCheckingMode !== undefined) {

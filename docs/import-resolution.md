@@ -24,7 +24,7 @@ For absolute (non-relative) imports, Pyright employs the following resolution or
 
 5. Try to resolve using a **third-party typeshed** stub. If the `typeshedPath` is configured, use this instead of the typeshed stubs that are packaged with Pyright. This allows for the use of a newer or a patched version of the typeshed third-party stubs.
 
-6. If the `pyright.useLibraryCodeForTypes` is set to true (or the `--lib` command-line argument was specified), try to resolve using the **library implementation** (“.py” file). Some “.py” files may contain partial or complete type annotations. Pyright will use type annotations that are provided and do its best to infer any missing type information. If you are using Pyright, `pyright.useLibraryCodeForTypes` is false by default. If you are using Pylance, it is true.
+6. If the `python.analysis.useLibraryCodeForTypes` setting is set to true (or the `--lib` command-line argument was specified), try to resolve using the **library implementation** (“.py” file). Some “.py” files may contain partial or complete type annotations. Pyright will use type annotations that are provided and do its best to infer any missing type information. If you are using Pyright, `python.analysis.useLibraryCodeForTypes` is false by default. If you are using Pylance, it is true.
 
 
 

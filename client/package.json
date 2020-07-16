@@ -138,6 +138,12 @@
                     "description": "Paths to look for typeshed modules.",
                     "scope": "resource"
                 },
+                "python.analysis.useLibraryCodeForTypes": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Use library implementations to extract type information when type stub is not present.",
+                    "scope": "resource"
+                },
                 "pyright.disableLanguageServices": {
                     "type": "boolean",
                     "default": false,
@@ -154,12 +160,6 @@
                     "type": "string",
                     "default": "python",
                     "description": "Path to Python, you can use a custom version of Python.",
-                    "scope": "resource"
-                },
-                "pyright.useLibraryCodeForTypes": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Use library implementations to extract type information when type stub is not present.",
                     "scope": "resource"
                 },
                 "python.venvPath": {
