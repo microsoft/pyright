@@ -467,7 +467,7 @@ export class AnalyzerService {
             const settingSource = commandLineOptions.fromVsCodeExtension
                 ? 'the VS Code settings'
                 : 'a command-line option';
-            this._console.info(
+            this._console.warn(
                 `The ${settingName} has been specified in both the config file and ` +
                     `${settingSource}. The value in the config file (${configOptions.venvPath}) ` +
                     `will take precedence`
@@ -521,7 +521,7 @@ export class AnalyzerService {
         // or inconsistent information.
         if (configOptions.venvPath) {
             if (!this._fs.existsSync(configOptions.venvPath) || !isDirectory(this._fs, configOptions.venvPath)) {
-                this._console.info(`venvPath ${configOptions.venvPath} is not a valid directory.`);
+                this._console.error(`venvPath ${configOptions.venvPath} is not a valid directory.`);
             }
 
             // venvPath without defaultVenv means it won't do anything while resolveImport.
@@ -532,21 +532,21 @@ export class AnalyzerService {
                 const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.defaultVenv);
 
                 if (!this._fs.existsSync(fullVenvPath) || !isDirectory(this._fs, fullVenvPath)) {
-                    this._console.info(
+                    this._console.error(
                         `venv ${configOptions.defaultVenv} subdirectory not found ` +
                             `in venv path ${configOptions.venvPath}.`
                     );
                 } else {
                     const importFailureInfo: string[] = [];
                     if (findPythonSearchPaths(this._fs, configOptions, undefined, importFailureInfo) === undefined) {
-                        this._console.info(
+                        this._console.error(
                             `site-packages directory cannot be located for venvPath ` +
                                 `${configOptions.venvPath} and venv ${configOptions.defaultVenv}.`
                         );
 
                         if (configOptions.verboseOutput) {
                             importFailureInfo.forEach((diag) => {
-                                this._console.info(`  ${diag}`);
+                                this._console.error(`  ${diag}`);
                             });
                         }
                     }
@@ -561,7 +561,7 @@ export class AnalyzerService {
             ).paths;
             if (pythonPaths.length === 0) {
                 if (configOptions.verboseOutput) {
-                    this._console.info(`No search paths found for configured python interpreter.`);
+                    this._console.error(`No search paths found for configured python interpreter.`);
                 }
             } else {
                 if (configOptions.verboseOutput) {
@@ -585,7 +585,7 @@ export class AnalyzerService {
         // Is there a reference to a venv? If so, there needs to be a valid venvPath.
         if (configOptions.defaultVenv || configOptions.executionEnvironments.find((e) => !!e.venv)) {
             if (!configOptions.venvPath) {
-                this._console.info(`venvPath not specified, so venv settings will be ignored.`);
+                this._console.warn(`venvPath not specified, so venv settings will be ignored.`);
             }
         }
 
@@ -594,13 +594,13 @@ export class AnalyzerService {
                 !this._fs.existsSync(configOptions.typeshedPath) ||
                 !isDirectory(this._fs, configOptions.typeshedPath)
             ) {
-                this._console.info(`typeshedPath ${configOptions.typeshedPath} is not a valid directory.`);
+                this._console.error(`typeshedPath ${configOptions.typeshedPath} is not a valid directory.`);
             }
         }
 
         if (configOptions.stubPath) {
             if (!this._fs.existsSync(configOptions.stubPath) || !isDirectory(this._fs, configOptions.stubPath)) {
-                this._console.info(`stubPath ${configOptions.stubPath} is not a valid directory.`);
+                this._console.error(`stubPath ${configOptions.stubPath} is not a valid directory.`);
             }
         }
 
@@ -747,7 +747,7 @@ export class AnalyzerService {
             try {
                 configContents = this._fs.readFileSync(configPath, 'utf8');
             } catch {
-                this._console.info(`Config file "${configPath}" could not be read.`);
+                this._console.error(`Config file "${configPath}" could not be read.`);
                 this._reportConfigParseError();
                 return undefined;
             }
@@ -771,7 +771,7 @@ export class AnalyzerService {
             // resulting in parse errors. We'll give it a little more time and
             // try again.
             if (parseAttemptCount++ >= 5) {
-                this._console.info(`Config file "${configPath}" could not be parsed. Verify that JSON is correct.`);
+                this._console.error(`Config file "${configPath}" could not be parsed. Verify that JSON is correct.`);
                 this._reportConfigParseError();
                 return undefined;
             }
@@ -937,7 +937,7 @@ export class AnalyzerService {
             }
 
             if (!foundFileSpec) {
-                this._console.info(`File or directory "${includeSpec.wildcardRoot}" does not exist.`);
+                this._console.error(`File or directory "${includeSpec.wildcardRoot}" does not exist.`);
             }
         });
 
@@ -1003,7 +1003,7 @@ export class AnalyzerService {
                     }
                 });
             } catch {
-                this._console.info(`Exception caught when installing fs watcher for:\n ${fileList.join('\n')}`);
+                this._console.error(`Exception caught when installing fs watcher for:\n ${fileList.join('\n')}`);
             }
         }
     }
@@ -1049,7 +1049,7 @@ export class AnalyzerService {
                     this._scheduleLibraryAnalysis();
                 });
             } catch {
-                this._console.info(`Exception caught when installing fs watcher for:\n ${watchList.join('\n')}`);
+                this._console.error(`Exception caught when installing fs watcher for:\n ${watchList.join('\n')}`);
             }
         }
     }
