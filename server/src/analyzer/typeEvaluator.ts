@@ -12605,6 +12605,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         flags = CanAssignFlags.Default,
         recursionCount = 0
     ): boolean {
+        let checkNamedParams = false;
+
         if (recursionCount > maxTypeRecursionCount) {
             return true;
         }
@@ -12919,6 +12921,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 }
             }
+
+            // See if the destType is an instantiation of a Protocol
+            // class that is effectively a function.
+            const callbackType = getCallbackProtocolType(destType);
+            if (callbackType) {
+                destType = callbackType;
+                checkNamedParams = true;
+            }
         }
 
         if (destType.category === TypeCategory.Function) {
@@ -12960,22 +12970,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             } else if (srcType.category === TypeCategory.Class) {
                 // Synthesize a function that represents the constructor for this class.
                 const constructorFunction = FunctionType.createInstance(
-                    '__new__',
+                    '__init__',
                     FunctionTypeFlags.StaticMethod |
                         FunctionTypeFlags.ConstructorMethod |
                         FunctionTypeFlags.SynthesizedMethod
                 );
                 constructorFunction.details.declaredReturnType = ObjectType.create(srcType);
 
-                const newMemberInfo = lookUpClassMember(
+                let constructorInfo = lookUpClassMember(
                     srcType,
-                    '__new__',
+                    '__init__',
                     ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
                 );
-                const memberType = newMemberInfo ? getTypeOfMember(newMemberInfo) : undefined;
-                if (memberType && memberType.category === TypeCategory.Function) {
-                    memberType.details.parameters.forEach((param, index) => {
-                        // Skip the 'cls' parameter.
+
+                if (!constructorInfo) {
+                    constructorInfo = lookUpClassMember(
+                        srcType,
+                        '__new__',
+                        ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.SkipObjectBaseClass
+                    );
+                }
+
+                const constructorType = constructorInfo ? getTypeOfMember(constructorInfo) : undefined;
+                if (constructorType && constructorType.category === TypeCategory.Function) {
+                    constructorType.details.parameters.forEach((param, index) => {
+                        // Skip the 'cls' or 'self' parameter.
                         if (index > 0) {
                             FunctionType.addParameter(constructorFunction, param);
                         }
@@ -12994,7 +13013,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     diag.createAddendum(),
                     typeVarMap,
                     recursionCount + 1,
-                    false
+                    checkNamedParams
                 );
             }
         }
