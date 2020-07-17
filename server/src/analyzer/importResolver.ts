@@ -251,8 +251,11 @@ export class ImportResolver {
                     if (
                         bestResultSoFar === undefined ||
                         (!bestResultSoFar.isImportFound && thirdPartyImport.isImportFound) ||
-                        (bestResultSoFar.isNamespacePackage && !thirdPartyImport.isNamespacePackage) ||
-                        thirdPartyImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length
+                        (bestResultSoFar.isNamespacePackage &&
+                            thirdPartyImport.isImportFound &&
+                            !thirdPartyImport.isNamespacePackage) ||
+                        (thirdPartyImport.isImportFound &&
+                            thirdPartyImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length)
                     ) {
                         bestResultSoFar = thirdPartyImport;
                     }
