@@ -6,9 +6,9 @@ from typing import Literal, NoReturn, Union
 
 
 class SomeEnum(Enum):
-    VALUE1 = 1
-    VALUE2 = 2
-    VALUE3 = 3
+    value1 = 1
+    value2 = 2
+    value3 = 3
 
 
 def assert_never(x: NoReturn) -> NoReturn:
@@ -18,11 +18,11 @@ def assert_never(x: NoReturn) -> NoReturn:
 
 
 def func1(a: SomeEnum):
-    if a == SomeEnum.VALUE1:
+    if a == SomeEnum.value1:
         pass
-    elif a == SomeEnum.VALUE2:
+    elif a == SomeEnum.value2:
         pass
-    elif a == SomeEnum.VALUE3:
+    elif a == SomeEnum.value3:
         pass
     else:
         assert_never(a)

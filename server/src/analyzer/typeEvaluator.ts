@@ -11636,10 +11636,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             type = stripLiteralTypeArgsValue(type);
 
                             if (decl.type === DeclarationType.Variable) {
+                                const isEnum = type.category === TypeCategory.Object && ClassType.isEnumClass(type.classType);
+
                                 // If the symbol is private or constant, we can retain the literal
                                 // value. Otherwise, strip them off to make the type less specific,
                                 // allowing other values to be assigned to it in subclasses.
-                                if (!isPrivate && !isConstant && !isFinalVar) {
+                                if (!isPrivate && !isConstant && !isEnum && !isFinalVar) {
                                     type = stripLiteralValue(type);
                                 }
                             }
