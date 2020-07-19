@@ -287,21 +287,24 @@ export class Binder extends ParseTreeWalker {
                     }
                 }
 
-                // Type stub found, but source is missing
+                // Type stub found, but source is missing.
                 if (
                     importResult.isStubFile &&
                     importResult.importType !== ImportType.BuiltIn &&
                     importResult.nonStubImportResult &&
                     !importResult.nonStubImportResult.isImportFound
                 ) {
-                    this._addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportMissingModuleSource,
-                        DiagnosticRule.reportMissingModuleSource,
-                        Localizer.Diagnostic.importSourceResolveFailure().format({
-                            importName: importResult.importName,
-                        }),
-                        node
-                    );
+                    // Don't report this for stub files.
+                    if (!this._fileInfo.isStubFile) {
+                        this._addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportMissingModuleSource,
+                            DiagnosticRule.reportMissingModuleSource,
+                            Localizer.Diagnostic.importSourceResolveFailure().format({
+                                importName: importResult.importName,
+                            }),
+                            node
+                        );
+                    }
                 }
             }
         }
