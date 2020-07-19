@@ -6992,6 +6992,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 writeTypeCache(param.name, paramType);
             }
 
+            if (param.defaultValue) {
+                // Evaluate the default value if it's present.
+                getTypeOfExpression(param.defaultValue, undefined, EvaluatorFlags.ConvertEllipsisToAny);
+            }
+
             const functionParam: FunctionParameter = {
                 category: param.category,
                 name: param.name ? param.name.value : undefined,
@@ -11636,7 +11641,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             type = stripLiteralTypeArgsValue(type);
 
                             if (decl.type === DeclarationType.Variable) {
-                                const isEnum = type.category === TypeCategory.Object && ClassType.isEnumClass(type.classType);
+                                const isEnum =
+                                    type.category === TypeCategory.Object && ClassType.isEnumClass(type.classType);
 
                                 // If the symbol is private or constant, we can retain the literal
                                 // value. Otherwise, strip them off to make the type less specific,
