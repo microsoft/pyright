@@ -7654,6 +7654,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             FrozenSet: { alias: 'frozenset', module: 'builtins' },
             Deque: { alias: 'deque', module: 'collections' },
             ChainMap: { alias: 'ChainMap', module: 'collections' },
+            OrderedDict: { alias: 'OrderedDict', module: 'collections' },
         };
 
         const aliasMapEntry = specialTypes[assignedName];
