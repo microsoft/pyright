@@ -41,6 +41,8 @@ import { ProgressReporting } from './progress';
 
 let cancellationStrategy: FileBasedCancellationStrategy | undefined;
 
+const pythonPathChangedListenerMap = new Map<string, string>();
+
 export function activate(context: ExtensionContext) {
     cancellationStrategy = new FileBasedCancellationStrategy();
 
@@ -104,7 +106,11 @@ export function activate(context: ExtensionContext) {
                         const pythonPathPromises: Promise<string | undefined>[] = params.items.map((item) => {
                             if (item.section === 'python') {
                                 const uri = item.scopeUri ? Uri.parse(item.scopeUri) : undefined;
-                                return getPythonPathFromPythonExtension(languageClient.outputChannel, uri);
+                                return getPythonPathFromPythonExtension(languageClient.outputChannel, uri, () => {
+                                    // Posts a "workspace/didChangeConfiguration" message to the service
+                                    // so it re-queries the settings for all workspaces.
+                                    languageClient.sendRequest('workspace/executeCommand', {});
+                                });
                             }
                             return Promise.resolve(undefined);
                         });
@@ -209,7 +215,8 @@ export function deactivate() {
 // project and by user.
 async function getPythonPathFromPythonExtension(
     outputChannel: OutputChannel,
-    scopeUri?: Uri
+    scopeUri: Uri | undefined,
+    postConfigChanged: () => void
 ): Promise<string | undefined> {
     try {
         const extension = extensions.getExtension('ms-python.python');
@@ -223,7 +230,19 @@ async function getPythonPathFromPythonExtension(
                     outputChannel.appendLine('Python extension loaded');
                 }
 
-                const result = await extension.exports.settings.getExecutionCommand(scopeUri).join(' ');
+                const execDetails = await extension.exports.settings.getExecutionDetails(scopeUri);
+                let result: string | undefined;
+                if (execDetails.execCommand && execDetails.execCommand.length > 0) {
+                    result = execDetails.execCommand[0];
+                }
+
+                if (extension.exports.settings.onDidChangeExecutionDetails) {
+                    installPythonPathChangedListener(
+                        extension.exports.settings.onDidChangeExecutionDetails,
+                        scopeUri,
+                        postConfigChanged
+                    );
+                }
 
                 if (!result) {
                     outputChannel.appendLine(`No pythonPath provided by Python extension`);
@@ -245,4 +264,24 @@ async function getPythonPathFromPythonExtension(
 
 function isThenable<T>(v: any): v is Thenable<T> {
     return typeof v?.then === 'function';
+}
+
+function installPythonPathChangedListener(
+    onDidChangeExecutionDetails: (callback: () => void) => void,
+    scopeUri: Uri | undefined,
+    postConfigChanged: () => void
+) {
+    const uriString = scopeUri ? scopeUri.toString() : '';
+
+    // No need to install another listener for this URI if
+    // it already exists.
+    if (pythonPathChangedListenerMap.has(uriString)) {
+        return;
+    }
+
+    onDidChangeExecutionDetails(() => {
+        postConfigChanged();
+    });
+
+    pythonPathChangedListenerMap.set(uriString, uriString);
 }
