@@ -26,6 +26,7 @@ import {
     CancellationToken,
     ConfigurationParams,
     ConfigurationRequest,
+    DidChangeConfigurationNotification,
     HandlerResult,
     LanguageClient,
     LanguageClientOptions,
@@ -109,7 +110,9 @@ export function activate(context: ExtensionContext) {
                                 return getPythonPathFromPythonExtension(languageClient.outputChannel, uri, () => {
                                     // Posts a "workspace/didChangeConfiguration" message to the service
                                     // so it re-queries the settings for all workspaces.
-                                    languageClient.sendRequest('workspace/executeCommand', {});
+                                    this.languageClient!.sendNotification(DidChangeConfigurationNotification.type, {
+                                        settings: null,
+                                    });
                                 });
                             }
                             return Promise.resolve(undefined);
