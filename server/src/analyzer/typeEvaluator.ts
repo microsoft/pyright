@@ -13410,14 +13410,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         let effectiveSrcType = srcType;
 
-        // If the source type is a type var itself, convert it to a concrete
-        // type to see if it is compatible with the dest type.
         if (srcType.category === TypeCategory.TypeVar) {
             if (isTypeSame(srcType, destType)) {
                 return true;
             }
 
-            effectiveSrcType = getConcreteTypeFromTypeVar(srcType, recursionCount + 1);
+            if (srcType.boundType) {
+                // If the source type is a type var itself and has a bound type,
+                // convert it to that bound type.
+                effectiveSrcType = getConcreteTypeFromTypeVar(srcType, recursionCount + 1);
+            } else if (srcType.constraints) {
+                effectiveSrcType = combineTypes(srcType.constraints);
+            } else {
+                effectiveSrcType = AnyType.create();
+            }
         }
 
         // If there's a bound type, make sure the source is derived from it.
