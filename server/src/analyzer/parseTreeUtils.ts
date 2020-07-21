@@ -586,6 +586,17 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
                 break;
             }
 
+            case ParseNodeType.Lambda: {
+                if (curNode.parameters.some((param) => param === prevNode)) {
+                    if (isParamNameNode) {
+                        return curNode;
+                    }
+                } else if (prevNode === curNode.expression) {
+                    return curNode;
+                }
+                break;
+            }
+
             case ParseNodeType.Class: {
                 if (prevNode === curNode.suite) {
                     return curNode;
@@ -594,8 +605,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
             }
 
             case ParseNodeType.ListComprehension:
-            case ParseNodeType.Module:
-            case ParseNodeType.Lambda: {
+            case ParseNodeType.Module: {
                 return curNode;
             }
         }
