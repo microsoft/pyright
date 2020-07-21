@@ -1169,6 +1169,23 @@ export class Binder extends ParseTreeWalker {
             resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
         }
 
+        // If this file is a module __init__.py(i), relative imports of submodules
+        // using the syntax "from .x import y" introduce a symbol x into the
+        // module namespace. We do this first (before adding the individual imported
+        // symbols below) in case one of the imported symbols is the same name as the
+        // submodule. In that case, we want to the symbol to appear later in the
+        // declaration list because it should "win" when resolving the alias.
+        const fileName = stripFileExtension(getFileName(this._fileInfo.filePath));
+        if (fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length > 0) {
+            const symbolName = node.module.nameParts[0].value;
+            const symbol = this._bindNameToScope(this._currentScope, symbolName);
+            if (symbol) {
+                this._createAliasDeclarationForMultipartImportName(node, undefined, importInfo, symbol);
+            }
+
+            this._createFlowAssignment(node.module.nameParts[0]);
+        }
+
         if (node.isWildcardImport) {
             if (ParseTreeUtils.getEnclosingClass(node) || ParseTreeUtils.getEnclosingFunction(node)) {
                 this._addError(Localizer.Diagnostic.wildcardInFunction(), node);
@@ -1202,57 +1219,9 @@ export class Binder extends ParseTreeWalker {
                     });
                 }
 
-                // Also add all of the implicitly-imported modules for
-                // the import module.
-                importInfo.implicitImports.forEach((implicitImport) => {
-                    // Don't overwrite a symbol that was imported from the module.
-                    if (!names.some((name) => name === implicitImport.name)) {
-                        const symbol = this._bindNameToScope(this._currentScope, implicitImport.name);
-                        if (symbol) {
-                            const submoduleFallback: AliasDeclaration = {
-                                type: DeclarationType.Alias,
-                                node,
-                                path: implicitImport.path,
-                                range: getEmptyRange(),
-                                usesLocalName: false,
-                            };
-
-                            const aliasDecl: AliasDeclaration = {
-                                type: DeclarationType.Alias,
-                                node,
-                                path: resolvedPath,
-                                usesLocalName: false,
-                                symbolName: implicitImport.name,
-                                submoduleFallback,
-                                range: getEmptyRange(),
-                            };
-
-                            symbol.addDeclaration(aliasDecl);
-                            names.push(implicitImport.name);
-                        }
-                    }
-                });
-
                 this._createFlowWildcardImport(node, names);
             }
         } else {
-            // If this file is a module __init__.py(i), relative imports of submodules
-            // using the syntax "from .x import y" introduce a symbol x into the
-            // module namespace. We do this first (before adding the individual imported
-            // symbols below) in case one of the imported symbols is the same name as the
-            // submodule. In that case, we want to the symbol to appear later in the
-            // declaration list because it should "win" when resolving the alias.
-            const fileName = stripFileExtension(getFileName(this._fileInfo.filePath));
-            if (fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length > 0) {
-                const symbolName = node.module.nameParts[0].value;
-                const symbol = this._bindNameToScope(this._currentScope, symbolName);
-                if (symbol) {
-                    this._createAliasDeclarationForMultipartImportName(node, undefined, importInfo, symbol);
-                }
-
-                this._createFlowAssignment(node.module.nameParts[0]);
-            }
-
             node.imports.forEach((importSymbolNode) => {
                 const importedName = importSymbolNode.name.value;
                 const nameNode = importSymbolNode.alias || importSymbolNode.name;
