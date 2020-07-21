@@ -17,28 +17,31 @@ export function decodeDocString(rawString: string): string {
     const lines = unescaped.split('\n');
 
     // Determine the max indent amount.
-    let maxIndent = Number.MAX_VALUE;
+    let leftSpacesToRemove = Number.MAX_VALUE;
     lines.forEach((line, index) => {
         // First line is special.
         if (lines.length <= 1 || index > 0) {
             const trimmed = line.trimLeft();
             if (trimmed) {
-                maxIndent = Math.min(maxIndent, line.length - trimmed.length);
+                leftSpacesToRemove = Math.min(leftSpacesToRemove, line.length - trimmed.length);
             }
         }
     });
 
+    // If there was only
+    if (leftSpacesToRemove >= Number.MAX_VALUE) {
+        leftSpacesToRemove = 0;
+    }
+
     // Trim the lines.
     const trimmedLines: string[] = [];
-    if (maxIndent < Number.MAX_VALUE) {
-        lines.forEach((line, index) => {
-            if (index === 0) {
-                trimmedLines.push(line.trimRight());
-            } else {
-                trimmedLines.push(line.substr(maxIndent).trimRight());
-            }
-        });
-    }
+    lines.forEach((line, index) => {
+        if (index === 0) {
+            trimmedLines.push(line.trimRight());
+        } else {
+            trimmedLines.push(line.substr(leftSpacesToRemove).trimRight());
+        }
+    });
 
     // Strip off leading and trailing blank lines.
     while (trimmedLines.length > 0 && trimmedLines[0].length === 0) {

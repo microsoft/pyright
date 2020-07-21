@@ -44,7 +44,7 @@ as-is without modification.
     _testConvertToMarkdown(docstring, markdown);
 });
 
-test('InlineLitereals', () => {
+test('InlineLiterals', () => {
     const docstring =
         'This paragraph talks about ``foo``\n' +
         'which is related to :something:`bar`, and probably `qux`:something_else:.\n';
