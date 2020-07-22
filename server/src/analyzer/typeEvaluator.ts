@@ -312,6 +312,9 @@ export const enum MemberAccessFlags {
     // Consider writes to symbols flagged as ClassVars as an error.
     DisallowClassVarWrites = 1 << 4,
 
+    // Don't allow access to attributes that are accessible only through the class.
+    SkipIfInaccessibleToInstance = 1 << 5,
+
     // This set of flags is appropriate for looking up methods.
     SkipForMethodLookup = SkipInstanceMembers | SkipGetAttributeCheck,
 }
@@ -1066,7 +1069,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             memberName,
             usage,
             diag,
-            memberAccessFlags | MemberAccessFlags.DisallowClassVarWrites
+            memberAccessFlags |
+                MemberAccessFlags.DisallowClassVarWrites |
+                MemberAccessFlags.SkipIfInaccessibleToInstance
         );
 
         let resultType = memberInfo ? memberInfo.type : undefined;
@@ -3166,6 +3171,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
         if (flags & MemberAccessFlags.SkipObjectBaseClass) {
             classLookupFlags |= ClassMemberLookupFlags.SkipObjectBaseClass;
+        }
+        if (flags & MemberAccessFlags.SkipIfInaccessibleToInstance) {
+            classLookupFlags |= ClassMemberLookupFlags.SkipIfInaccessibleToInstance;
         }
 
         // Always look for a member with a declared type first.

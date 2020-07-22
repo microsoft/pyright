@@ -22,3 +22,9 @@ subclasses = TestClass.__subclasses__
 
 # This should generate an error
 dummy = TestClass.__dummy__
+
+instance = TestClass()
+
+# This should generate an error because "__name__"
+# isn't visible to instances.
+instance.__name__

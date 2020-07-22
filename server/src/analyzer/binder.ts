@@ -348,7 +348,7 @@ export class Binder extends ParseTreeWalker {
             this._addBuiltInSymbolToCurrentScope('__itemsize__', node, 'int');
             this._addBuiltInSymbolToCurrentScope('__module__', node, 'str');
             this._addBuiltInSymbolToCurrentScope('__mro__', node, 'Any');
-            this._addBuiltInSymbolToCurrentScope('__name__', node, 'str', /* isClassVar */ true);
+            this._addBuiltInSymbolToCurrentScope('__name__', node, 'str', /* isInaccessibleToInstance */ true);
             if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V30) {
                 this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__text_signature__', node, 'str');
@@ -2065,9 +2065,13 @@ export class Binder extends ParseTreeWalker {
         nameValue: string,
         node: ModuleNode | ClassNode | FunctionNode,
         type: IntrinsicType,
-        isClassVar = false
+        isInaccessibleToInstance = false
     ) {
-        const symbol = this._addSymbolToCurrentScope(nameValue, /* isInitiallyUnbound */ false, isClassVar);
+        const symbol = this._addSymbolToCurrentScope(
+            nameValue,
+            /* isInitiallyUnbound */ false,
+            isInaccessibleToInstance
+        );
         if (symbol) {
             symbol.addDeclaration({
                 type: DeclarationType.Intrinsic,
@@ -2081,7 +2085,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     // Adds a new symbol with the specified name if it doesn't already exist.
-    private _addSymbolToCurrentScope(nameValue: string, isInitiallyUnbound: boolean, isClassVar = false) {
+    private _addSymbolToCurrentScope(nameValue: string, isInitiallyUnbound: boolean, isInaccessibleToInstance = false) {
         let symbol = this._currentScope.lookUpSymbol(nameValue);
 
         if (!symbol) {
@@ -2095,8 +2099,8 @@ export class Binder extends ParseTreeWalker {
                 symbolFlags |= SymbolFlags.ClassMember;
             }
 
-            if (isClassVar) {
-                symbolFlags |= SymbolFlags.ClassVar;
+            if (isInaccessibleToInstance) {
+                symbolFlags |= SymbolFlags.InaccessibleToInstance;
             }
 
             if (this._fileInfo.isStubFile && isPrivateOrProtectedName(nameValue)) {
