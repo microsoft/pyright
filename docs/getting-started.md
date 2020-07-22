@@ -16,9 +16,24 @@ Here is a typical progression:
 11. Optionally add entire subdirectories to the `strict` config entry to indicate that all files within those subdirectories should be strictly typed.
 
 
-### Running Pyright as part of Continuous Integration (CI)
+### Running Pyright as a git hook
 
-Here is a simple bash script that installs the latest version of Pyright and runs it on a code base. It can be used in a CI environment.
+You can configure pyright to run as a git hook (e.g. prior to each check-in) by using the following hook definition:
+```
+-   repo: local
+    hooks:
+    -   id: pyright
+        name: pyright
+        entry: pyright
+        language: node
+        pass_filenames: false
+        types: [python]
+        additional_dependencies: ['pyright@1.1.55']
+```
+
+### Running Pyright from a Continuous Integration (CI) script
+
+Alternatively, you can run pyright from a bash script. Here's a script that installs the latest version of pyright and runs it.
 
 ```
 #!/bin/bash
