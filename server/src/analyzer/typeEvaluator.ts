@@ -5059,7 +5059,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (advanceToNextArg || typeParams[paramIndex].category === ParameterCategory.VarArgList) {
                     argIndex++;
                 }
-                paramIndex++;
+
+                if (typeParams[paramIndex].category !== ParameterCategory.VarArgList) {
+                    paramIndex++;
+                }
             } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
                 validateArgTypeParams.push({
                     paramType,
