@@ -222,7 +222,12 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
             const strippedTypeArgs = type.typeArguments.map((t) =>
                 stripLiteralTypeArgsValue(stripLiteralValue(t), recursionCount + 1)
             );
-            return ClassType.cloneForSpecialization(type, strippedTypeArgs, type.skipAbstractClassTest);
+            return ClassType.cloneForSpecialization(
+                type,
+                strippedTypeArgs,
+                !!type.isTypeArgumentExplicit,
+                type.skipAbstractClassTest
+            );
         }
     }
 
@@ -821,7 +826,12 @@ export function selfSpecializeClassType(type: ClassType, setSkipAbstractClassTes
     }
 
     const typeArgs = ClassType.getTypeParameters(type);
-    return ClassType.cloneForSpecialization(type, typeArgs, setSkipAbstractClassTest);
+    return ClassType.cloneForSpecialization(
+        type,
+        typeArgs,
+        /* isTyepArgumentExplicit */ false,
+        setSkipAbstractClassTest
+    );
 }
 
 // Removes the first parameter of the function and returns a new function.

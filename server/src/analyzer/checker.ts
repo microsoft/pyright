@@ -102,6 +102,7 @@ import {
     isNoReturnType,
     isProperty,
     lookUpClassMember,
+    makeTypeVarsConcrete,
     specializeType,
     transformTypeObjectToClass,
 } from './typeUtils';
@@ -1207,6 +1208,8 @@ export class Checker extends ParseTreeWalker {
             let isSupported = true;
 
             doForSubtypes(type, (subtype) => {
+                subtype = makeTypeVarsConcrete(subtype);
+
                 switch (subtype.category) {
                     case TypeCategory.Any:
                     case TypeCategory.Unknown:
