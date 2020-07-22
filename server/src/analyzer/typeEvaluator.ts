@@ -3636,7 +3636,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // In case we didn't walk the list items above, do so now.
         // If we have, this information will be cached.
         node.items.items.forEach((item) => {
-            getTypeOfExpression(item);
+            getTypeOfExpression(item, /* expectedType */ undefined, flags & EvaluatorFlags.AllowForwardReferences);
         });
 
         return { type, node };
