@@ -1467,13 +1467,22 @@ export function combineTypes(types: Type[]): Type {
         expandedTypes = expandedTypes.filter((t) => !isNoReturn(t));
     }
 
-    const resultingTypes = [expandedTypes[0]];
+    // If removing all NoReturn types results in no remaining types,
+    // convert it to an unknown.
+    if (expandedTypes.length === 0) {
+        return UnknownType.create();
+    }
+
+    const resultingTypes: Type[] = [];
     expandedTypes.forEach((t, index) => {
-        if (index > 0) {
+        if (index === 0) {
+            resultingTypes.push(t);
+        } else {
             _addTypeIfUnique(resultingTypes, t);
         }
     });
 
+    // If only one type remains, convert it from a union to a simple type.
     if (resultingTypes.length === 1) {
         return resultingTypes[0];
     }
