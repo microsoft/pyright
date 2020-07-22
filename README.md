@@ -80,6 +80,7 @@ Installing both Pyright and Pylance at the same time is not recommended. If both
 
 ## Documentation
 * [Getting Started with Type Checking](/docs/getting-started.md)
+* [Continuous Integration (CI)](/docs/ci-integration.md)
 * [Command-line Options](/docs/command-line.md)
 * [Configuration](/docs/configuration.md)
 * [Settings](/docs/settings.md)
