@@ -7,6 +7,8 @@ assignees: ''
 
 ---
 
+Note: if you are reporting a wrong signature of a function or a class in the standard library, then the typeshed tracker is better suited for this report: https://github.com/python/typeshed/issues.
+
 **Describe the bug**
 A clear and concise description of what the bug is.
 
