@@ -1336,7 +1336,9 @@ export class CompletionProvider {
 
         switch (resolvedDeclaration.type) {
             case DeclarationType.Intrinsic:
-                return CompletionItemKind.Class;
+                return resolvedDeclaration.intrinsicType === 'class'
+                    ? CompletionItemKind.Class
+                    : CompletionItemKind.Variable;
 
             case DeclarationType.Parameter:
                 return CompletionItemKind.Variable;
