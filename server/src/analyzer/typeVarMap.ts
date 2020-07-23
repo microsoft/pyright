@@ -14,13 +14,13 @@ import { FunctionType, Type } from './types';
 
 export class TypeVarMap {
     private _typeVarMap: Map<string, Type>;
-    private _parameterSpecificationMap: Map<string, FunctionType>;
+    private _paramSpecMap: Map<string, FunctionType>;
     private _isNarrowableMap: Map<string, boolean>;
     private _isLocked = false;
 
     constructor() {
         this._typeVarMap = new Map<string, Type>();
-        this._parameterSpecificationMap = new Map<string, FunctionType>();
+        this._paramSpecMap = new Map<string, FunctionType>();
         this._isNarrowableMap = new Map<string, boolean>();
     }
 
@@ -31,8 +31,8 @@ export class TypeVarMap {
             newTypeVarMap.setTypeVar(name, value, this.isNarrowable(name));
         });
 
-        this._parameterSpecificationMap.forEach((value, name) => {
-            newTypeVarMap.setParameterSpecification(name, value);
+        this._paramSpecMap.forEach((value, name) => {
+            newTypeVarMap.setParamSpec(name, value);
         });
 
         newTypeVarMap._isLocked = this._isLocked;
@@ -54,17 +54,17 @@ export class TypeVarMap {
         this._isNarrowableMap.set(name, isNarrowable);
     }
 
-    hasParameterSpecification(name: string): boolean {
-        return this._parameterSpecificationMap.has(name);
+    hasParamSpec(name: string): boolean {
+        return this._paramSpecMap.has(name);
     }
 
-    getParameterSpecification(name: string): FunctionType | undefined {
-        return this._parameterSpecificationMap.get(name);
+    getParamSpec(name: string): FunctionType | undefined {
+        return this._paramSpecMap.get(name);
     }
 
-    setParameterSpecification(name: string, type: FunctionType) {
+    setParamSpec(name: string, type: FunctionType) {
         assert(!this._isLocked);
-        this._parameterSpecificationMap.set(name, type);
+        this._paramSpecMap.set(name, type);
     }
 
     typeVarCount() {

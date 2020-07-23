@@ -1,11 +1,14 @@
-# This sample tests ParameterSpecification (PEP 612) behavior.
+# This sample tests ParamSpec (PEP 612) behavior.
 
-from typing import Awaitable, Callable, ParameterSpecification, TypeVar
+from typing import Awaitable, Callable, ParamSpec, TypeVar
 
-Ps = ParameterSpecification("Ps")
+Ps = ParamSpec("Ps")
 R = TypeVar("R")
 
-async def log_to_database(): ...
+
+async def log_to_database():
+    ...
+
 
 def add_logging(f: Callable[Ps, R]) -> Callable[Ps, Awaitable[R]]:
     async def inner(*args: Ps.args, **kwargs: Ps.kwargs) -> R:
@@ -14,9 +17,11 @@ def add_logging(f: Callable[Ps, R]) -> Callable[Ps, Awaitable[R]]:
 
     return inner
 
+
 @add_logging
 def foo(x: int, y: str) -> int:
     return x + 7
+
 
 async def my_async_function():
     await foo(1, "A")

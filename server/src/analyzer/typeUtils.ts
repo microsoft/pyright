@@ -451,12 +451,12 @@ export function isNoReturnType(type: Type): boolean {
     return false;
 }
 
-export function isParameterSpecificationType(type: Type): boolean {
+export function isParamSpecType(type: Type): boolean {
     if (type.category !== TypeCategory.TypeVar) {
         return false;
     }
 
-    return type.isParameterSpec;
+    return type.isParamSpec;
 }
 
 export function isProperty(type: Type): boolean {
@@ -843,7 +843,7 @@ export function selfSpecializeClassType(type: ClassType, setSkipAbstractClassTes
     return ClassType.cloneForSpecialization(
         type,
         typeArgs,
-        /* isTyepArgumentExplicit */ false,
+        /* isTypeArgumentExplicit */ false,
         setSkipAbstractClassTest
     );
 }
@@ -1406,9 +1406,9 @@ function _specializeFunctionType(
     let functionType = sourceType;
 
     // Handle functions with a parameter specification in a special manner.
-    if (functionType.details.parameterSpecification) {
-        const paramSpec = typeVarMap?.getParameterSpecification(functionType.details.parameterSpecification.name);
-        functionType = FunctionType.cloneForParameterSpecification(functionType, paramSpec);
+    if (functionType.details.paramSpec) {
+        const paramSpec = typeVarMap?.getParamSpec(functionType.details.paramSpec.name);
+        functionType = FunctionType.cloneForParamSpec(functionType, paramSpec);
     }
 
     const declaredReturnType =

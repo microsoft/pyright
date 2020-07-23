@@ -1,9 +1,9 @@
-# This sample tests ParameterSpecification (PEP 612) behavior.
+# This sample tests ParamSpec (PEP 612) behavior.
 
 from asyncio import Future
-from typing import Awaitable, Callable, ParameterSpecification, TypeVar
+from typing import Awaitable, Callable, ParamSpec, TypeVar
 
-TParams = ParameterSpecification("TParams")
+TParams = ParamSpec("TParams")
 TReturn = TypeVar("TReturn")
 
 

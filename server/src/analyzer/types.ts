@@ -729,8 +729,8 @@ interface FunctionDetails {
     docString?: string;
 
     // Parameter specification used only for Callable types created
-    // with a ParameterSpecification representing the parameters.
-    parameterSpecification?: TypeVarType;
+    // with a ParamSpec representing the parameters.
+    paramSpec?: TypeVarType;
 }
 
 export interface SpecializedFunctionTypes {
@@ -857,7 +857,7 @@ export namespace FunctionType {
 
     // Creates a new function based on the parameters of another function. If
     // paramTemplate is undefined, use default (generic) parameters.
-    export function cloneForParameterSpecification(type: FunctionType, paramTemplate: FunctionType | undefined) {
+    export function cloneForParamSpec(type: FunctionType, paramTemplate: FunctionType | undefined) {
         const newFunction = create(type.details.name, type.details.flags, type.flags, type.details.docString);
 
         // Make a shallow clone of the details.
@@ -865,7 +865,7 @@ export namespace FunctionType {
 
         // The clone should no longer have a parameter specification
         // since we're replacing it.
-        delete newFunction.details.parameterSpecification;
+        delete newFunction.details.paramSpec;
 
         if (paramTemplate) {
             newFunction.details.parameters = paramTemplate.details.parameters;
@@ -1087,19 +1087,19 @@ export interface TypeVarType extends TypeBase {
     boundType?: Type;
     isCovariant: boolean;
     isContravariant: boolean;
-    isParameterSpec: boolean;
+    isParamSpec: boolean;
 
     // Internally created (e.g. for pseudo-generic classes)
     isSynthesized: boolean;
 }
 
 export namespace TypeVarType {
-    export function createInstance(name: string, isParameterSpec: boolean, isSynthesized = false) {
-        return create(name, isParameterSpec, isSynthesized, TypeFlags.Instance);
+    export function createInstance(name: string, isParamSpec: boolean, isSynthesized = false) {
+        return create(name, isParamSpec, isSynthesized, TypeFlags.Instance);
     }
 
-    export function createInstantiable(name: string, isParameterSpec: boolean, isSynthesized = false) {
-        return create(name, isParameterSpec, isSynthesized, TypeFlags.Instantiable);
+    export function createInstantiable(name: string, isParamSpec: boolean, isSynthesized = false) {
+        return create(name, isParamSpec, isSynthesized, TypeFlags.Instantiable);
     }
 
     export function cloneAsInstance(type: TypeVarType) {
@@ -1118,14 +1118,14 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    function create(name: string, isParameterSpec: boolean, isSynthesized: boolean, typeFlags: TypeFlags) {
+    function create(name: string, isParamSpec: boolean, isSynthesized: boolean, typeFlags: TypeFlags) {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
             name,
             constraints: [],
             isCovariant: false,
             isContravariant: false,
-            isParameterSpec,
+            isParamSpec,
             isSynthesized,
             flags: typeFlags,
         };

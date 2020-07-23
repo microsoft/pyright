@@ -1801,6 +1801,9 @@ test('Unions2', () => {
     validateResults(analysisResults38, 0);
 });
 
+// Skip ParamSpec tests until they are added back in to the
+// specification.
+/*
 test('ParamSpec1', () => {
     const configOptions = new ConfigOptions('.');
 
@@ -1828,6 +1831,7 @@ test('ParamSpec3', () => {
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec3.py'], configOptions);
     validateResults(results, 1);
 });
+*/
 
 test('ClassVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classVar1.py']);

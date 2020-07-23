@@ -1,14 +1,15 @@
-# This sample tests error conditions for ParameterSpecification (PEP 612).
+# This sample tests error conditions for ParamSpec (PEP 612).
 
-from typing import Callable, List, ParameterSpecification, Tuple, cast
+from typing import Callable, List, ParamSpec, Tuple, cast
 
 
-TParams = ParameterSpecification("TParams")
+TParams = ParamSpec("TParams")
 
-# This should generate an error because ParameterSpecifications
+# This should generate an error because ParamSpecs
 # can't be used as a type annotation.
 def foo(a: TParams) -> int:
     return 1
+
 
 a = 3
 
