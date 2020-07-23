@@ -1,6 +1,6 @@
 ## Integrating Pyright into Continuous Integration (CI)
 
-### Running Pyright as a git hook
+### Running Pyright as a pre-commit hook
 
 You can configure pyright to run as a git hook (e.g. prior to each check-in) by using the following hook definition:
 ```
