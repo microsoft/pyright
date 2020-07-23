@@ -440,7 +440,7 @@ function _isAlphaNumericChar(charCode: number): boolean {
         return true;
     }
 
-    if (charCode >= Char.A && charCode <= Char.A) {
+    if (charCode >= Char.A && charCode <= Char.Z) {
         return true;
     }
 

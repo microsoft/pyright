@@ -9,3 +9,7 @@ def foo(spam, dictval: Dict):
 
 
 print(f"{foo(0, {'bar' : 1, 'baz': 2})}")
+
+hello = 200
+print(f"({hello} \N{greek capital letter sigma})")
+print(f"({hello} \N{GREEK CAPITAL LETTER SIGMA})")
