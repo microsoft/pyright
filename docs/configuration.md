@@ -30,7 +30,7 @@ Relative paths specified within the config file are relative to the config fileâ
 
 **executionEnvironments** [array of objects, optional]: Specifies a list of execution environments (see below). Execution environments are searched from start to finish by comparing the path of a source file with the root path specified in the execution environment.
 
-**typeCheckingMode** ["off", "basic", "strict"]: Specifies the default rule set to use. Some rules can be overridden using additional configuration flags documented below. THe default value for this setting is "basic". If set to "off", all type-checking rules are disabled, but Python syntax and semantic errors are still reported.
+**typeCheckingMode** ["off", "basic", "strict"]: Specifies the default rule set to use. Some rules can be overridden using additional configuration flags documented below. The default value for this setting is "basic". If set to "off", all type-checking rules are disabled, but Python syntax and semantic errors are still reported.
 
 
 ## Type Check Diagnostics Settings
