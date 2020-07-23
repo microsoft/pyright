@@ -13500,12 +13500,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // We do a quick-and-dirty evaluation of methods based on
                     // decorators to determine which ones are abstract. This allows
                     // us to avoid evaluating the full function types.
-                    const decl = getLastTypedDeclaredForSymbol(symbol);
-                    if (symbol.isClassMember() && decl && decl.type === DeclarationType.Function) {
-                        const functionFlags = getFunctionFlagsFromDecorators(decl.node, true);
+                    if (symbol.isClassMember()) {
+                        let isAbstract: boolean;
+
+                        const decl = getLastTypedDeclaredForSymbol(symbol);
+                        if (decl && decl.type === DeclarationType.Function) {
+                            const functionFlags = getFunctionFlagsFromDecorators(decl.node, true);
+                            isAbstract = !!(functionFlags & FunctionTypeFlags.AbstractMethod);
+                        } else {
+                            // If a symbol is overridden by a non-function, it is no longer
+                            // considered abstract. This can happen in some code, for example,
+                            // when a base class declares an abstract property and a subclass
+                            // "overrides" it with an instance variable.
+                            isAbstract = false;
+                        }
 
                         if (!symbolTable.has(symbolName)) {
-                            const isAbstract = !!(functionFlags & FunctionTypeFlags.AbstractMethod);
                             symbolTable.set(symbolName, {
                                 symbol,
                                 symbolName,
