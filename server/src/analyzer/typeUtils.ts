@@ -18,7 +18,7 @@ import {
     EnumLiteral,
     FunctionType,
     isAnyOrUnknown,
-    isNoneOrNever,
+    isNone,
     isTypeSame,
     maxTypeRecursionCount,
     ModuleType,
@@ -100,7 +100,7 @@ const tripleTickRegEx = /'''/g;
 
 export function isOptionalType(type: Type): boolean {
     if (type.category === TypeCategory.Union) {
-        return type.subtypes.some((t) => isNoneOrNever(t));
+        return type.subtypes.some((t) => isNone(t));
     }
 
     return false;
@@ -380,6 +380,7 @@ export function canBeTruthy(type: Type, recursionLevel = 0): boolean {
         case TypeCategory.Class:
         case TypeCategory.Module:
         case TypeCategory.TypeVar:
+        case TypeCategory.Never:
         case TypeCategory.Any: {
             return true;
         }
@@ -388,7 +389,6 @@ export function canBeTruthy(type: Type, recursionLevel = 0): boolean {
             return type.subtypes.some((t) => canBeTruthy(t, recursionLevel + 1));
         }
 
-        case TypeCategory.Never:
         case TypeCategory.Unbound:
         case TypeCategory.None: {
             return false;
@@ -526,7 +526,7 @@ export function specializeType(
         return type;
     }
 
-    if (isNoneOrNever(type)) {
+    if (isNone(type)) {
         return type;
     }
 

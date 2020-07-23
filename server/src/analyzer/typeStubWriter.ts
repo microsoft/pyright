@@ -42,7 +42,7 @@ import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { TypeEvaluator } from './typeEvaluator';
-import { ClassType, isNoneOrNever, TypeCategory } from './types';
+import { ClassType, isNone, TypeCategory } from './types';
 import * as TypeUtils from './typeUtils';
 
 class TrackedImport {
@@ -534,7 +534,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             // Try to infer the param type based on the default value.
             const typeOfDefault = this._evaluator.getType(node.defaultValue);
             if (typeOfDefault && !TypeUtils.containsUnknown(typeOfDefault)) {
-                if (isNoneOrNever(typeOfDefault)) {
+                if (isNone(typeOfDefault)) {
                     paramType = 'Optional[Any]';
                     this._addImplicitImportFrom('typing', ['Any', 'Optional']);
                 } else if (typeOfDefault.category === TypeCategory.Object) {

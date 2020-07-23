@@ -1141,8 +1141,8 @@ export function isNever(type: Type): boolean {
     return type.category === TypeCategory.Never;
 }
 
-export function isNoneOrNever(type: Type): boolean {
-    return type.category === TypeCategory.None || isNever(type);
+export function isNone(type: Type): boolean {
+    return type.category === TypeCategory.None;
 }
 
 export function isAnyOrUnknown(type: Type): boolean {

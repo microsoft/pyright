@@ -45,3 +45,15 @@ def func3(val: Union[str, int]):
     else:
         assert_never(val)
 
+
+def func4(val: Union[str, int]) -> Union[str, int]:
+    if isinstance(val, str):
+        return val
+    elif isinstance(val, int):
+        return val
+    else:
+        # Even though "val" is a Never type at this
+        # point, it should be assignable to Union[str, int]
+        # because Never is assignable to any type.
+        return val
+

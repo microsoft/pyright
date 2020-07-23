@@ -122,7 +122,7 @@ import {
     InheritanceChain,
     isAnyOrUnknown,
     isNever,
-    isNoneOrNever,
+    isNone,
     isPossiblyUnbound,
     isSameWithoutLiteralValue,
     isTypeSame,
@@ -1537,7 +1537,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         type = makeTypeVarsConcrete(type);
 
-        if (type.category === TypeCategory.Union && type.subtypes.some((t) => isNoneOrNever(t))) {
+        if (type.category === TypeCategory.Union && type.subtypes.some((t) => isNone(t))) {
             if (errorNode) {
                 addDiagnostic(
                     getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
@@ -3035,7 +3035,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             case TypeCategory.Union: {
                 type = doForSubtypes(baseType, (subtype) => {
-                    if (isNoneOrNever(subtype)) {
+                    if (isNone(subtype)) {
                         addDiagnostic(
                             getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
                             DiagnosticRule.reportOptionalMemberAccess,
@@ -3609,7 +3609,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return getTypeFromIndexedObject(node, subtype, usage);
             }
 
-            if (isNoneOrNever(subtype)) {
+            if (isNever(subtype)) {
+                return UnknownType.create();
+            }
+
+            if (isNone(subtype)) {
                 addDiagnostic(
                     getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
                     DiagnosticRule.reportOptionalSubscript,
@@ -4365,7 +4369,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             case TypeCategory.Union: {
                 const returnTypes: Type[] = [];
                 callType.subtypes.forEach((typeEntry) => {
-                    if (isNoneOrNever(typeEntry)) {
+                    if (isNone(typeEntry)) {
                         addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
                             DiagnosticRule.reportOptionalCall,
@@ -4826,7 +4830,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const returnTypes: Type[] = [];
 
                 for (const type of callType.subtypes) {
-                    if (isNoneOrNever(type)) {
+                    if (isNone(type)) {
                         addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
                             DiagnosticRule.reportOptionalCall,
@@ -6604,7 +6608,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (metaclass && metaclass.category === TypeCategory.Class) {
                     return handleObjectSubtype(ObjectType.create(metaclass), subtype);
                 }
-            } else if (isNoneOrNever(subtype)) {
+            } else if (isNone(subtype)) {
                 // NoneType derives from 'object', so do the lookup on 'object'
                 // in this case.
                 const obj = getBuiltInObject(errorNode, 'object');
@@ -10456,11 +10460,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                     }
 
                                     // See if it's a match for None.
-                                    return isNoneOrNever(t) === adjIsPositiveTest;
+                                    return isNone(t) === adjIsPositiveTest;
                                 });
 
                                 return combineTypes(remainingTypes);
-                            } else if (isNoneOrNever(type)) {
+                            } else if (isNone(type)) {
                                 if (!adjIsPositiveTest) {
                                     // Use a "Never" type (which is a special form
                                     // of None) to indicate that the condition will
@@ -10497,7 +10501,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                             } else {
                                                 return matches ? undefined : subtype;
                                             }
-                                        } else if (isNoneOrNever(subtype)) {
+                                        } else if (isNone(subtype)) {
                                             return adjIsPositiveTest ? undefined : subtype;
                                         }
 
@@ -12676,6 +12680,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return true;
         }
 
+        if (isNever(srcType)) {
+            if (typeVarMap) {
+                setTypeArgumentsRecursive(destType, UnknownType.create(), typeVarMap);
+            }
+            return true;
+        }
+
         if (srcType.category === TypeCategory.TypeVar) {
             // In most cases, the source type will be specialized before
             // canAssignType is called, so we won't get here. However, there
@@ -13039,7 +13050,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         // NoneType and ModuleType derive from object.
-        if (isNoneOrNever(srcType) || srcType.category === TypeCategory.Module) {
+        if (isNone(srcType) || srcType.category === TypeCategory.Module) {
             if (destType.category === TypeCategory.Object) {
                 const destClassType = destType.classType;
                 if (ClassType.isBuiltIn(destClassType, 'object')) {
@@ -13048,15 +13059,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        if (srcType.category === TypeCategory.Never) {
-            // We'll allow "Never" to be assigned to a "NoReturn" type. This is
-            // the recommended way to handle exhausted matching of enums.
-            if (destType.category === TypeCategory.Object && ClassType.isBuiltIn(destType.classType, 'NoReturn')) {
-                return true;
-            }
-        }
-
-        if (isNoneOrNever(destType)) {
+        if (isNone(destType)) {
             diag.addMessage(Localizer.DiagnosticAddendum.assignToNone());
             return false;
         }

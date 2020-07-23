@@ -82,7 +82,7 @@ import {
     FunctionType,
     isAnyOrUnknown,
     isNever,
-    isNoneOrNever,
+    isNone,
     isTypeSame,
     NoneType,
     ObjectType,
@@ -519,7 +519,7 @@ export class Checker extends ParseTreeWalker {
                 const diagAddendum = new DiagnosticAddendum();
 
                 doForSubtypes(exceptionType, (subtype) => {
-                    if (!isAnyOrUnknown(subtype) && !isNoneOrNever(subtype)) {
+                    if (!isAnyOrUnknown(subtype) && !isNone(subtype)) {
                         if (subtype.category === TypeCategory.Object) {
                             if (
                                 !derivesFromClassRecursive(
