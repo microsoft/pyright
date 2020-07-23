@@ -1776,6 +1776,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 (p) => p.hasDefault && p.includeInInit
                             );
                             if (
+                                includeInInit &&
                                 !hasDefaultValue &&
                                 firstDefaultValueIndex >= 0 &&
                                 firstDefaultValueIndex < insertIndex

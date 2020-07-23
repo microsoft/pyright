@@ -31,3 +31,15 @@ test = Child(prop_2="test", prop_4="hi")
 assert test.prop_1 == "test"
 assert test.prop_2 == "test"
 
+
+@dataclass
+class HandshakeMessage:
+    reset_reason_hex: str
+    reset_data_hex: str
+    device_id: str = field(default="")
+    reset_reason: str = field(init=False)
+    reset_data: str = field(init=False)
+
+    def __post_init__(self):
+        reset_reason = "calculated value"
+        reset_data = "calculated value"
