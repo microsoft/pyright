@@ -70,11 +70,13 @@ if sys.version_info >= (3, 3):
     from typing import ChainMap as ChainMap
 
 if sys.version_info >= (3, 5):
-    from typing import AsyncIterable as AsyncIterable
-    from typing import AsyncIterator as AsyncIterator
-    from typing import AsyncContextManager as AsyncContextManager
-    from typing import Awaitable as Awaitable
-    from typing import Coroutine as Coroutine
+    from typing import (
+        AsyncContextManager as AsyncContextManager,
+        AsyncIterable as AsyncIterable,
+        AsyncIterator as AsyncIterator,
+        Awaitable as Awaitable,
+        Coroutine as Coroutine,
+    )
 
 if sys.version_info >= (3, 6):
     from typing import AsyncGenerator as AsyncGenerator
@@ -90,4 +92,4 @@ Annotated: _SpecialForm = ...
 _AnnotatedAlias: Any = ...  # undocumented
 
 # TypeAlias is a (non-subscriptable) special form.
-TypeAlias: object
+class TypeAlias: ...

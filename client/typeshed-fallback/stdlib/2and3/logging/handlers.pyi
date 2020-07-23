@@ -7,7 +7,7 @@ from socket import SocketType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, overload
 
 if sys.version_info >= (3, 7):
-    from queue import SimpleQueue, Queue
+    from queue import Queue, SimpleQueue
 elif sys.version_info >= (3,):
     from queue import Queue
 else:

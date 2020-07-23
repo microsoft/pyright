@@ -10,9 +10,9 @@ from typing import Any, AnyStr, Callable, Iterator, List, Optional, Tuple, Union
 
 # ----- re variables and constants -----
 if sys.version_info >= (3, 7):
-    from typing import Pattern as Pattern, Match as Match
+    from typing import Match as Match, Pattern as Pattern
 else:
-    from typing import Pattern, Match
+    from typing import Match, Pattern
 
 if sys.version_info >= (3, 6):
     import enum

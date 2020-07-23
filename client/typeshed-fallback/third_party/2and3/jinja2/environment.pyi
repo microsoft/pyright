@@ -6,7 +6,7 @@ from .loaders import BaseLoader
 from .runtime import Context, Undefined
 
 if sys.version_info >= (3, 6):
-    from typing import Awaitable, AsyncIterator
+    from typing import AsyncIterator, Awaitable
 
 def get_spontaneous_environment(*args): ...
 def create_cache(size): ...

@@ -1,10 +1,14 @@
 import sys
-from typing import IO, Any, AnyStr, Dict, Iterator, List, Mapping, Optional, Tuple, TypeVar, Union
+from _typeshed import SupportsGetItem, SupportsItemAccess
+from typing import IO, Any, AnyStr, Dict, Iterable, Iterator, List, Mapping, Optional, Protocol, Tuple, TypeVar, Union
 
 _T = TypeVar("_T", bound=FieldStorage)
 
 def parse(
-    fp: Optional[IO[Any]] = ..., environ: Mapping[str, str] = ..., keep_blank_values: bool = ..., strict_parsing: bool = ...
+    fp: Optional[IO[Any]] = ...,
+    environ: SupportsItemAccess[str, str] = ...,
+    keep_blank_values: bool = ...,
+    strict_parsing: bool = ...,
 ) -> Dict[str, List[str]]: ...
 
 if sys.version_info < (3, 8):
@@ -13,15 +17,19 @@ if sys.version_info < (3, 8):
 
 if sys.version_info >= (3, 7):
     def parse_multipart(
-        fp: IO[Any], pdict: Mapping[str, bytes], encoding: str = ..., errors: str = ...
+        fp: IO[Any], pdict: SupportsGetItem[str, bytes], encoding: str = ..., errors: str = ...
     ) -> Dict[str, List[Any]]: ...
 
 else:
-    def parse_multipart(fp: IO[Any], pdict: Mapping[str, bytes]) -> Dict[str, List[bytes]]: ...
+    def parse_multipart(fp: IO[Any], pdict: SupportsGetItem[str, bytes]) -> Dict[str, List[bytes]]: ...
+
+class _Environ(Protocol):
+    def __getitem__(self, __k: str) -> str: ...
+    def keys(self) -> Iterable[str]: ...
 
 def parse_header(line: str) -> Tuple[str, Dict[str, str]]: ...
-def test(environ: Mapping[str, str] = ...) -> None: ...
-def print_environ(environ: Mapping[str, str] = ...) -> None: ...
+def test(environ: _Environ = ...) -> None: ...
+def print_environ(environ: _Environ = ...) -> None: ...
 def print_form(form: Dict[str, Any]) -> None: ...
 def print_directory() -> None: ...
 def print_environ_usage() -> None: ...
@@ -77,7 +85,7 @@ class FieldStorage(object):
             fp: Optional[IO[Any]] = ...,
             headers: Optional[Mapping[str, str]] = ...,
             outerboundary: bytes = ...,
-            environ: Mapping[str, str] = ...,
+            environ: SupportsGetItem[str, str] = ...,
             keep_blank_values: int = ...,
             strict_parsing: int = ...,
             limit: Optional[int] = ...,
@@ -91,7 +99,7 @@ class FieldStorage(object):
             fp: Optional[IO[Any]] = ...,
             headers: Optional[Mapping[str, str]] = ...,
             outerboundary: bytes = ...,
-            environ: Mapping[str, str] = ...,
+            environ: SupportsGetItem[str, str] = ...,
             keep_blank_values: int = ...,
             strict_parsing: int = ...,
             limit: Optional[int] = ...,
@@ -104,7 +112,7 @@ class FieldStorage(object):
             fp: IO[Any] = ...,
             headers: Mapping[str, str] = ...,
             outerboundary: bytes = ...,
-            environ: Mapping[str, str] = ...,
+            environ: SupportsGetItem[str, str] = ...,
             keep_blank_values: int = ...,
             strict_parsing: int = ...,
         ) -> None: ...

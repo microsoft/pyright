@@ -5,8 +5,7 @@ from typing import Any, Awaitable, Callable, Generator, Iterable, List, Optional
 from .events import AbstractEventLoop
 
 if sys.version_info < (3, 8):
-    from concurrent.futures import CancelledError as CancelledError
-    from concurrent.futures import TimeoutError as TimeoutError
+    from concurrent.futures import CancelledError as CancelledError, TimeoutError as TimeoutError
     class InvalidStateError(Error): ...
 
 if sys.version_info >= (3, 7):

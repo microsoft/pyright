@@ -3,10 +3,9 @@ import sys
 # This is a >=3.7 module, so we conditionally include its source.
 if sys.version_info >= (3, 7):
     import os
-
     from pathlib import Path
     from types import ModuleType
-    from typing import ContextManager, Iterator, Union, BinaryIO, TextIO
+    from typing import BinaryIO, ContextManager, Iterator, TextIO, Union
 
     Package = Union[str, ModuleType]
     Resource = Union[str, os.PathLike]

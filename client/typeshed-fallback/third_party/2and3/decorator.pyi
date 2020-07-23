@@ -8,8 +8,7 @@ _T = TypeVar("_T")
 def get_init(cls): ...
 
 if sys.version_info >= (3,):
-    from inspect import iscoroutinefunction as iscoroutinefunction
-    from inspect import getfullargspec as getfullargspec
+    from inspect import getfullargspec as getfullargspec, iscoroutinefunction as iscoroutinefunction
 else:
     class FullArgSpec(NamedTuple):
         args: List[str]

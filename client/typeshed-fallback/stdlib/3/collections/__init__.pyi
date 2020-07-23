@@ -41,10 +41,7 @@ from typing import (
 from . import abc
 
 if sys.version_info >= (3, 6):
-    from typing import (
-        Collection as Collection,
-        AsyncGenerator as AsyncGenerator,
-    )
+    from typing import AsyncGenerator as AsyncGenerator, Collection as Collection
 
 _S = TypeVar("_S")
 _T = TypeVar("_T")

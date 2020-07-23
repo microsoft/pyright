@@ -9,14 +9,12 @@ from .packages import ssl_match_hostname
 from .util import ssl_
 
 if sys.version_info < (3, 0):
-    from httplib import HTTPConnection as _HTTPConnection
-    from httplib import HTTPException as HTTPException
+    from httplib import HTTPConnection as _HTTPConnection, HTTPException as HTTPException
     class ConnectionError(Exception): ...
 
 else:
-    from http.client import HTTPConnection as _HTTPConnection
-    from http.client import HTTPException as HTTPException
     from builtins import ConnectionError as ConnectionError
+    from http.client import HTTPConnection as _HTTPConnection, HTTPException as HTTPException
 
 class DummyConnection: ...
 

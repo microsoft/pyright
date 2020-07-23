@@ -91,6 +91,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
 
 class Response:
     __attrs__: Any
+    _content: Optional[bytes]  # undocumented
     status_code: int
     headers: CaseInsensitiveDict[str]
     raw: Any

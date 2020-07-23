@@ -107,7 +107,8 @@ Run:
 ```
 $ python3.6 -m venv .venv3
 $ source .venv3/bin/activate
-(.venv3)$ pip3 install -r requirements-tests-py3.txt
+(.venv3)$ pip install -U pip
+(.venv3)$ pip install -r requirements-tests-py3.txt
 ```
 This will install mypy (you need the latest master branch from GitHub),
 typed-ast, flake8 (and plugins), pytype, black and isort.

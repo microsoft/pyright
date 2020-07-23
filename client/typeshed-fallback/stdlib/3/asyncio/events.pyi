@@ -7,7 +7,7 @@ from asyncio.protocols import BaseProtocol
 from asyncio.tasks import Task
 from asyncio.transports import BaseTransport
 from asyncio.unix_events import AbstractChildWatcher
-from socket import _Address, _RetAddress, socket
+from socket import AddressFamily, SocketKind, _Address, _RetAddress, socket
 from typing import IO, Any, Awaitable, Callable, Dict, Generator, List, Optional, Sequence, Tuple, TypeVar, Union, overload
 
 if sys.version_info >= (3, 7):
@@ -121,8 +121,6 @@ class AbstractEventLoop(metaclass=ABCMeta):
     def set_default_executor(self, executor: Any) -> None: ...
     # Network I/O methods returning Futures.
     @abstractmethod
-    # TODO the "Tuple[Any, ...]" should be "Union[Tuple[str, int], Tuple[str, int, int, int]]" but that triggers
-    # https://github.com/python/mypy/issues/2509
     async def getaddrinfo(
         self,
         host: Optional[str],
@@ -132,9 +130,11 @@ class AbstractEventLoop(metaclass=ABCMeta):
         type: int = ...,
         proto: int = ...,
         flags: int = ...,
-    ) -> List[Tuple[int, int, int, str, Tuple[Any, ...]]]: ...
+    ) -> List[Tuple[AddressFamily, SocketKind, int, str, Union[Tuple[str, int], Tuple[str, int, int, int]]]]: ...
     @abstractmethod
-    async def getnameinfo(self, sockaddr: Tuple[Any, ...], flags: int = ...) -> Tuple[str, int]: ...
+    async def getnameinfo(
+        self, sockaddr: Union[Tuple[str, int], Tuple[str, int, int, int]], flags: int = ...
+    ) -> Tuple[str, str]: ...
     if sys.version_info >= (3, 8):
         @overload
         @abstractmethod

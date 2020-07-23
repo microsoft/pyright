@@ -1,7 +1,9 @@
 import sys
-from asyncio.base_events import BaseEventLoop as BaseEventLoop
-from asyncio.coroutines import coroutine as coroutine, iscoroutine as iscoroutine, iscoroutinefunction as iscoroutinefunction
-from asyncio.events import (
+from typing import Type
+
+from .base_events import BaseEventLoop as BaseEventLoop
+from .coroutines import coroutine as coroutine, iscoroutine as iscoroutine, iscoroutinefunction as iscoroutinefunction
+from .events import (
     AbstractEventLoop as AbstractEventLoop,
     AbstractEventLoopPolicy as AbstractEventLoopPolicy,
     AbstractServer as AbstractServer,
@@ -17,39 +19,36 @@ from asyncio.events import (
     set_event_loop as set_event_loop,
     set_event_loop_policy as set_event_loop_policy,
 )
-from asyncio.futures import Future as Future, isfuture as isfuture, wrap_future as wrap_future
-from asyncio.locks import (
+from .futures import Future as Future, isfuture as isfuture, wrap_future as wrap_future
+from .locks import (
     BoundedSemaphore as BoundedSemaphore,
     Condition as Condition,
     Event as Event,
     Lock as Lock,
     Semaphore as Semaphore,
 )
-from asyncio.protocols import (
+from .protocols import (
     BaseProtocol as BaseProtocol,
     DatagramProtocol as DatagramProtocol,
     Protocol as Protocol,
     SubprocessProtocol as SubprocessProtocol,
 )
-from asyncio.queues import (
+from .queues import (
     LifoQueue as LifoQueue,
     PriorityQueue as PriorityQueue,
     Queue as Queue,
     QueueEmpty as QueueEmpty,
     QueueFull as QueueFull,
 )
-from asyncio.streams import (
+from .streams import (
     StreamReader as StreamReader,
     StreamReaderProtocol as StreamReaderProtocol,
     StreamWriter as StreamWriter,
     open_connection as open_connection,
     start_server as start_server,
 )
-from asyncio.subprocess import (
-    create_subprocess_exec as create_subprocess_exec,
-    create_subprocess_shell as create_subprocess_shell,
-)
-from asyncio.tasks import (
+from .subprocess import create_subprocess_exec as create_subprocess_exec, create_subprocess_shell as create_subprocess_shell
+from .tasks import (
     ALL_COMPLETED as ALL_COMPLETED,
     FIRST_COMPLETED as FIRST_COMPLETED,
     FIRST_EXCEPTION as FIRST_EXCEPTION,
@@ -63,7 +62,7 @@ from asyncio.tasks import (
     wait as wait,
     wait_for as wait_for,
 )
-from asyncio.transports import (
+from .transports import (
     BaseTransport as BaseTransport,
     DatagramTransport as DatagramTransport,
     ReadTransport as ReadTransport,
@@ -71,12 +70,11 @@ from asyncio.transports import (
     Transport as Transport,
     WriteTransport as WriteTransport,
 )
-from typing import Type
 
 if sys.version_info >= (3, 7):
-    from asyncio.events import get_running_loop as get_running_loop
+    from .events import get_running_loop as get_running_loop
 if sys.version_info >= (3, 8):
-    from asyncio.exceptions import (
+    from .exceptions import (
         CancelledError as CancelledError,
         IncompleteReadError as IncompleteReadError,
         InvalidStateError as InvalidStateError,
@@ -86,41 +84,27 @@ if sys.version_info >= (3, 8):
     )
 else:
     if sys.version_info >= (3, 7):
-        from asyncio.events import SendfileNotAvailableError as SendfileNotAvailableError
-    from asyncio.futures import (
-        CancelledError as CancelledError,
-        TimeoutError as TimeoutError,
-        InvalidStateError as InvalidStateError,
-    )
-    from asyncio.streams import (
-        IncompleteReadError as IncompleteReadError,
-        LimitOverrunError as LimitOverrunError,
-    )
+        from .events import SendfileNotAvailableError as SendfileNotAvailableError
+    from .futures import CancelledError as CancelledError, InvalidStateError as InvalidStateError, TimeoutError as TimeoutError
+    from .streams import IncompleteReadError as IncompleteReadError, LimitOverrunError as LimitOverrunError
 
 if sys.version_info >= (3, 7):
-    from asyncio.protocols import BufferedProtocol as BufferedProtocol
+    from .protocols import BufferedProtocol as BufferedProtocol
 
 if sys.version_info >= (3, 7):
-    from asyncio.runners import run as run
+    from .runners import run as run
 
 if sys.version_info >= (3, 7):
-    from asyncio.tasks import (
-        all_tasks as all_tasks,
-        create_task as create_task,
-        current_task as current_task,
-    )
+    from .tasks import all_tasks as all_tasks, create_task as create_task, current_task as current_task
 if sys.version_info >= (3, 9):
-    from asyncio.threads import to_thread as to_thread
+    from .threads import to_thread as to_thread
 
 DefaultEventLoopPolicy: Type[AbstractEventLoopPolicy]
 if sys.platform == "win32":
-    from asyncio.windows_events import *
+    from .windows_events import *
 
 if sys.platform != "win32":
-    from asyncio.streams import (
-        open_unix_connection as open_unix_connection,
-        start_unix_server as start_unix_server,
-    )
+    from .streams import open_unix_connection as open_unix_connection, start_unix_server as start_unix_server
     from .unix_events import (
         AbstractChildWatcher as AbstractChildWatcher,
         FastChildWatcher as FastChildWatcher,

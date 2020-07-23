@@ -4,11 +4,11 @@ from typing import Any, Generic, Optional, Text, Tuple, Type, TypeVar, overload
 from typing_extensions import Literal
 
 if sys.version_info < (3,):
-    from urllib2 import Request as U2Request
     from cookielib import CookieJar
+    from urllib2 import Request as U2Request
 else:
-    from urllib.request import Request as U2Request
     from http.cookiejar import CookieJar
+    from urllib.request import Request as U2Request
 
 def stream_encode_multipart(
     values, use_tempfile: int = ..., threshold=..., boundary: Optional[Any] = ..., charset: Text = ...

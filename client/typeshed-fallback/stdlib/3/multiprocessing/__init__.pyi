@@ -1,7 +1,7 @@
 import sys
 from ctypes import _CData
 from logging import Logger
-from multiprocessing import connection, pool, queues, sharedctypes, spawn, synchronize
+from multiprocessing import connection, pool, sharedctypes, spawn, synchronize
 from multiprocessing.context import (
     AuthenticationError as AuthenticationError,
     BaseContext,
@@ -14,6 +14,9 @@ from multiprocessing.context import (
 )
 from multiprocessing.managers import SyncManager
 from multiprocessing.process import active_children as active_children, current_process as current_process
+
+# These are technically functions that return instances of these Queue classes. See #4313 for discussion
+from multiprocessing.queues import JoinableQueue as JoinableQueue, Queue as Queue, SimpleQueue as SimpleQueue
 from multiprocessing.spawn import freeze_support as freeze_support
 from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Type, Union, overload
 from typing_extensions import Literal
@@ -35,10 +38,8 @@ def Barrier(parties: int, action: Optional[Callable[..., Any]] = ..., timeout: O
 def BoundedSemaphore(value: int = ...) -> synchronize.BoundedSemaphore: ...
 def Condition(lock: Optional[_LockLike] = ...) -> synchronize.Condition: ...
 def Event() -> synchronize.Event: ...
-def JoinableQueue(maxsize: int = ...) -> queues.JoinableQueue: ...
 def Lock() -> synchronize.Lock: ...
 def RLock() -> synchronize.RLock: ...
-def SimpleQueue() -> queues.SimpleQueue: ...
 def Semaphore(value: int = ...) -> synchronize.Semaphore: ...
 def Pipe(duplex: bool = ...) -> Tuple[connection.Connection, connection.Connection]: ...
 def Pool(
@@ -47,7 +48,6 @@ def Pool(
     initargs: Iterable[Any] = ...,
     maxtasksperchild: Optional[int] = ...,
 ) -> pool.Pool: ...
-def Queue(maxsize: int = ...) -> queues.Queue: ...
 
 # Functions Array and Value are copied from context.pyi.
 # See https://github.com/python/typeshed/blob/ac234f25927634e06d9c96df98d72d54dd80dfc4/stdlib/2and3/turtle.pyi#L284-L291

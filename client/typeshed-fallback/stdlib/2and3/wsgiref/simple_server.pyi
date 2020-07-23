@@ -7,7 +7,7 @@ from .types import ErrorStream, StartResponse, WSGIApplication, WSGIEnvironment
 if sys.version_info < (3,):
     from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 else:
-    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from http.server import BaseHTTPRequestHandler, HTTPServer
 
 server_version: str  # undocumented
 sys_version: str  # undocumented

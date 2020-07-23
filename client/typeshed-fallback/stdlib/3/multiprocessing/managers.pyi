@@ -25,7 +25,7 @@ from typing import (
 from .context import BaseContext
 
 if sys.version_info >= (3, 8):
-    from .shared_memory import ShareableList, SharedMemory, _SLT
+    from .shared_memory import _SLT, ShareableList, SharedMemory
 
 _T = TypeVar("_T")
 _KT = TypeVar("_KT")

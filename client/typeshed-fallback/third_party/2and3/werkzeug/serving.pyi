@@ -2,11 +2,11 @@ import sys
 from typing import Any, Optional
 
 if sys.version_info < (3,):
+    from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
     from SocketServer import ThreadingMixIn
-    from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
 else:
+    from http.server import BaseHTTPRequestHandler, HTTPServer
     from socketserver import ThreadingMixIn
-    from http.server import HTTPServer, BaseHTTPRequestHandler
 
 if sys.platform == "win32":
     class ForkingMixIn(object): ...

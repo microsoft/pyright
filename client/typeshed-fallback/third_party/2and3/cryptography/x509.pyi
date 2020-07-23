@@ -2,7 +2,7 @@ import datetime
 from abc import ABCMeta, abstractmethod
 from enum import Enum
 from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network
-from typing import Any, ClassVar, Generator, Iterable, List, Optional, Sequence, Text, Type, Union
+from typing import Any, ClassVar, Generator, Generic, Iterable, List, Optional, Sequence, Text, Type, TypeVar, Union
 
 from cryptography.hazmat.backends.interfaces import X509Backend
 from cryptography.hazmat.primitives.asymmetric.dsa import DSAPrivateKey, DSAPublicKey
@@ -14,8 +14,8 @@ from cryptography.hazmat.primitives.hashes import HashAlgorithm
 from cryptography.hazmat.primitives.serialization import Encoding
 
 class ObjectIdentifier(object):
+    dotted_string: str
     def __init__(self, dotted_string: str) -> None: ...
-    def dotted_string(self) -> str: ...
 
 class CRLEntryExtensionOID(object):
     CERTIFICATE_ISSUER: ClassVar[ObjectIdentifier]
@@ -270,19 +270,21 @@ class UniformResourceIdentifier(GeneralName):
 
 # X.509 Extensions
 
-class Extension(object):
-    critical: bool
-    oid: ExtensionOID
-    value: ExtensionType
-
 class ExtensionType(metaclass=ABCMeta):
     oid: ExtensionOID
+
+_T = TypeVar("_T", bound="ExtensionType")
+
+class Extension(Generic[_T]):
+    critical: bool
+    oid: ExtensionOID
+    value: _T
 
 class Extensions(object):
     def __init__(self, general_names: List[Extension]) -> None: ...
     def __iter__(self) -> Generator[Extension, None, None]: ...
     def get_extension_for_oid(self, oid: ObjectIdentifier) -> Extension: ...
-    def get_extension_for_class(self, extclass: Type[ExtensionType]) -> Extension: ...
+    def get_extension_for_class(self, extclass: Type[_T]) -> Extension[_T]: ...
 
 class IssuerAlternativeName(ExtensionType):
     def __init__(self, general_names: List[GeneralName]) -> None: ...
