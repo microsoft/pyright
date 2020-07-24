@@ -12,24 +12,21 @@ export enum PythonVersion {
     // The order of this enumeration is significant. We assume
     // that we can use comparison operators to check for older
     // or newer versions.
-    V24 = 0x0204,
-    V25 = 0x0205,
-    V26 = 0x0206,
-    V27 = 0x0207,
-    V30 = 0x0300,
-    V31 = 0x0301,
-    V32 = 0x0302,
-    V33 = 0x0303,
-    V34 = 0x0304,
-    V35 = 0x0305,
-    V36 = 0x0306,
-    V37 = 0x0307,
-    V38 = 0x0308,
-    V39 = 0x0309,
+    V3_0 = 0x0300,
+    V3_1 = 0x0301,
+    V3_2 = 0x0302,
+    V3_3 = 0x0303,
+    V3_4 = 0x0304,
+    V3_5 = 0x0305,
+    V3_6 = 0x0306,
+    V3_7 = 0x0307,
+    V3_8 = 0x0308,
+    V3_9 = 0x0309,
+    V3_10 = 0x030a,
 }
 
-export const latestStablePythonVersion = PythonVersion.V38;
-export const latestPythonVersion = PythonVersion.V38;
+export const latestStablePythonVersion = PythonVersion.V3_8;
+export const latestPythonVersion = PythonVersion.V3_8;
 
 export function versionToString(version: PythonVersion): string {
     const majorVersion = (version >> 8) & 0xff;

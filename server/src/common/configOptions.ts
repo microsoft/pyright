@@ -1253,7 +1253,7 @@ export class ConfigOptions {
                 return undefined;
             }
 
-            if (version < PythonVersion.V30) {
+            if (version < PythonVersion.V3_0) {
                 console.info(`Python version from interpreter is unsupported: "${execOutput}"`);
                 return undefined;
             }

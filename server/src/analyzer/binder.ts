@@ -349,7 +349,7 @@ export class Binder extends ParseTreeWalker {
             this._addBuiltInSymbolToCurrentScope('__module__', node, 'str');
             this._addBuiltInSymbolToCurrentScope('__mro__', node, 'Any');
             this._addBuiltInSymbolToCurrentScope('__name__', node, 'str', /* isInaccessibleToInstance */ true);
-            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V30) {
+            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_0) {
                 this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__text_signature__', node, 'str');
             }
@@ -428,7 +428,7 @@ export class Binder extends ParseTreeWalker {
             // List taken from https://docs.python.org/3/reference/datamodel.html
             this._addBuiltInSymbolToCurrentScope('__doc__', node, 'str');
             this._addBuiltInSymbolToCurrentScope('__name__', node, 'str');
-            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V33) {
+            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_3) {
                 this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str');
             }
             this._addBuiltInSymbolToCurrentScope('__module__', node, 'str');
@@ -2390,7 +2390,7 @@ export class Binder extends ParseTreeWalker {
             return false;
         }
 
-        if (this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V39 && !this._fileInfo.isStubFile) {
+        if (this._fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_9 && !this._fileInfo.isStubFile) {
             return false;
         }
 

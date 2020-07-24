@@ -5433,7 +5433,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (isParamSpec) {
             const fileInfo = getFileInfo(errorNode);
-            if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V39) {
+            if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_9) {
                 addError(Localizer.Diagnostic.paramSpecIllegal(), errorNode);
             }
         }
@@ -6255,7 +6255,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (isUnionableType([leftType, rightType])) {
                 const fileInfo = getFileInfo(node);
                 const unionNotationSupported =
-                    fileInfo.isStubFile || fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V39;
+                    fileInfo.isStubFile || fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_10;
                 if (!unionNotationSupported) {
                     addError(Localizer.Diagnostic.unionSyntaxIllegal(), node, node.operatorToken);
                 }
@@ -7912,7 +7912,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             if (
                                 !fileInfo.isStubFile &&
                                 !ClassType.isTypingExtensionClass(argType) &&
-                                fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37
+                                fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_7
                             ) {
                                 addError(Localizer.Diagnostic.protocolIllegal(), arg.valueExpression);
                             }
@@ -7925,7 +7925,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                         // If the class directly derives from NamedTuple (in Python 3.6 or
                         // newer), it's considered a dataclass.
-                        if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V36) {
+                        if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_6) {
                             if (ClassType.isBuiltIn(argType, 'NamedTuple')) {
                                 classType.details.flags |= ClassTypeFlags.DataClass;
                             }
@@ -9318,7 +9318,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // Handle PEP 562 support for module-level __getattr__ function,
                     // introduced in Python 3.7.
                     if (
-                        fileInfo.executionEnvironment.pythonVersion < PythonVersion.V37 ||
+                        fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_7 ||
                         !importLookupInfo.symbolTable.get('__getattr__')
                     ) {
                         reportError = true;

@@ -857,7 +857,7 @@ export class Parser {
         } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
             starCount = 2;
         } else if (this._consumeTokenIfOperator(OperatorType.Divide)) {
-            if (this._getLanguageVersion() < PythonVersion.V38) {
+            if (this._getLanguageVersion() < PythonVersion.V3_8) {
                 this._addError(Localizer.Diagnostic.positionOnlyIncompatible(), firstToken);
             }
             slashCount = 1;
@@ -1460,7 +1460,7 @@ export class Parser {
 
         const nextToken = this._peekToken();
         if (this._consumeTokenIfKeyword(KeywordType.From)) {
-            if (this._getLanguageVersion() < PythonVersion.V33) {
+            if (this._getLanguageVersion() < PythonVersion.V3_3) {
                 this._addError(Localizer.Diagnostic.yieldFromIllegal(), nextToken);
             }
             return YieldFromNode.create(yieldToken, this._parseTestExpression(true));
@@ -1740,7 +1740,7 @@ export class Parser {
             this._addError(Localizer.Diagnostic.walrusNotAllowed(), walrusToken);
         }
 
-        if (this._getLanguageVersion() < PythonVersion.V38) {
+        if (this._getLanguageVersion() < PythonVersion.V3_8) {
             this._addError(Localizer.Diagnostic.walrusIllegal(), walrusToken);
         }
 
@@ -2033,7 +2033,7 @@ export class Parser {
         let awaitToken: KeywordToken | undefined;
         if (this._peekKeywordType() === KeywordType.Await && !this._isParsingTypeAnnotation) {
             awaitToken = this._getKeywordToken(KeywordType.Await);
-            if (this._getLanguageVersion() < PythonVersion.V35) {
+            if (this._getLanguageVersion() < PythonVersion.V3_5) {
                 this._addError(Localizer.Diagnostic.awaitIllegal(), awaitToken);
             }
         }
@@ -2739,7 +2739,7 @@ export class Parser {
             annotationExpr = this._parseTypeAnnotation();
             leftExpr = TypeAnnotationNode.create(leftExpr, annotationExpr);
 
-            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V36) {
+            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_6) {
                 this._addError(Localizer.Diagnostic.varAnnotationIllegal(), annotationExpr);
             }
 
@@ -2872,7 +2872,7 @@ export class Parser {
         }
 
         if (stringToken.flags & StringTokenFlags.Format) {
-            if (this._getLanguageVersion() < PythonVersion.V36) {
+            if (this._getLanguageVersion() < PythonVersion.V3_6) {
                 this._addError(Localizer.Diagnostic.formatStringIllegal(), stringToken);
             }
 
@@ -3117,7 +3117,7 @@ export class Parser {
 
         // Handle Python 3.8 f-string formatting expressions that
         // end in an "=".
-        if (this._parseOptions.pythonVersion >= PythonVersion.V38 && prevCharWasEqual) {
+        if (this._parseOptions.pythonVersion >= PythonVersion.V3_8 && prevCharWasEqual) {
             segmentExprLength--;
         }
 
@@ -3196,7 +3196,7 @@ export class Parser {
             return;
         }
 
-        if (this._parseOptions.pythonVersion >= PythonVersion.V38) {
+        if (this._parseOptions.pythonVersion >= PythonVersion.V3_8) {
             return;
         }
 
