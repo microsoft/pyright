@@ -171,7 +171,7 @@ export class Program {
         }
 
         // Add the new files. Only the new items will be added.
-        this._addTrackedFiles(filePaths);
+        this.addTrackedFiles(filePaths);
 
         return this._removeUnneededFiles();
     }
@@ -517,36 +517,6 @@ export class Program {
 
     private get _fs() {
         return this._importResolver.fileSystem;
-    }
-
-    private _addTrackedFiles(filePaths: string[]) {
-        filePaths.forEach((filePath) => {
-            this._addTrackedFile(filePath);
-        });
-    }
-
-    private _addTrackedFile(filePath: string): SourceFile {
-        let sourceFileInfo = this._sourceFileMap.get(filePath);
-        if (sourceFileInfo) {
-            sourceFileInfo.isTracked = true;
-            return sourceFileInfo.sourceFile;
-        }
-
-        const sourceFile = new SourceFile(this._fs, filePath, false, this._console, this._logTracker);
-        sourceFileInfo = {
-            sourceFile,
-            isTracked: true,
-            isOpenByClient: false,
-            isTypeshedFile: false,
-            isThirdPartyImport: false,
-            diagnosticsVersion: undefined,
-            imports: [],
-            importedBy: [],
-            shadows: [],
-            shadowedBy: [],
-        };
-        this._addToSourceFileListAndMap(sourceFileInfo);
-        return sourceFile;
     }
 
     // A "shadowed" file is a python source file that has been added to the program because
@@ -924,7 +894,7 @@ export class Program {
         const fileDiagnostics: FileDiagnostics[] = this._removeUnneededFiles();
 
         this._sourceFileList.forEach((sourceFileInfo) => {
-            if (sourceFileInfo.isOpenByClient || (!options.checkOnlyOpenFiles && !sourceFileInfo.isThirdPartyImport)) {
+            if (this._shouldCheckFile(sourceFileInfo)) {
                 const diagnostics = sourceFileInfo.sourceFile.getDiagnostics(
                     options,
                     sourceFileInfo.diagnosticsVersion
@@ -1533,19 +1503,11 @@ export class Program {
             } else {
                 // If we're showing the user errors only for open files, clear
                 // out the errors for the now-closed file.
-                if (
-                    !this._shouldCheckFile(fileInfo) &&
-                    fileInfo.diagnosticsVersion !== fileInfo.sourceFile.getDiagnosticVersion()
-                ) {
-                    // If the old diagnostic version was undefined, we haven't
-                    // reported any diagnostics for this file, so no need to clear them.
-                    if (fileInfo.diagnosticsVersion !== undefined) {
-                        fileDiagnostics.push({
-                            filePath: fileInfo.sourceFile.getFilePath(),
-                            diagnostics: [],
-                        });
-                    }
-
+                if (!this._shouldCheckFile(fileInfo) && fileInfo.diagnosticsVersion !== undefined) {
+                    fileDiagnostics.push({
+                        filePath: fileInfo.sourceFile.getFilePath(),
+                        diagnostics: [],
+                    });
                     fileInfo.diagnosticsVersion = undefined;
                 }
 
