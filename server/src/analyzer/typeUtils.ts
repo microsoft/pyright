@@ -23,6 +23,7 @@ import {
     maxTypeRecursionCount,
     ModuleType,
     NeverType,
+    NoneType,
     ObjectType,
     OverloadedFunctionType,
     SpecializedFunctionTypes,
@@ -1131,6 +1132,10 @@ export function convertToInstance(type: Type): Type {
                 return ObjectType.create(subtype);
             }
 
+            case TypeCategory.None: {
+                return NoneType.createInstance();
+            }
+
             case TypeCategory.Function: {
                 if (TypeBase.isInstantiable(subtype)) {
                     return FunctionType.cloneAsInstance(subtype);
@@ -1167,6 +1172,10 @@ export function convertToInstantiable(type: Type): Type {
         switch (subtype.category) {
             case TypeCategory.Object: {
                 return subtype.classType;
+            }
+
+            case TypeCategory.None: {
+                return NoneType.createType();
             }
 
             case TypeCategory.Function: {

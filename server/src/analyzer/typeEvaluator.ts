@@ -730,7 +730,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case ParseNodeType.Constant: {
-                typeResult = getTypeFromConstant(node);
+                typeResult = getTypeFromConstant(node, flags);
                 break;
             }
 
@@ -1666,7 +1666,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             name: 'self',
             type: ObjectType.create(classType),
         });
-        initType.details.declaredReturnType = NoneType.create();
+        initType.details.declaredReturnType = NoneType.createInstance();
 
         // Maintain a list of all dataclass entries (including
         // those from inherited classes) plus a list of only those
@@ -1857,7 +1857,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             name: 'self',
             type: ObjectType.create(classType),
         });
-        initType.details.declaredReturnType = NoneType.create();
+        initType.details.declaredReturnType = NoneType.createInstance();
 
         // All parameters must be named, so insert an empty "*".
         FunctionType.addParameter(initType, {
@@ -3280,7 +3280,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 argumentCategory: ArgumentCategory.Simple,
                                 type:
                                     flags & MemberAccessFlags.SkipInstanceMembers
-                                        ? NoneType.create()
+                                        ? NoneType.createInstance()
                                         : ObjectType.create(classType),
                             },
                             {
@@ -3602,7 +3602,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     adjustedFlags |= EvaluatorFlags.AllowEmptyTupleAsType;
                 }
 
-                const typeArgs = getTypeArgs(node.items, adjustedFlags);
+                const isAnnotatedClass =
+                    subtype.category === TypeCategory.Class && ClassType.isBuiltIn(subtype, 'Annotated');
+
+                const typeArgs = getTypeArgs(node.items, adjustedFlags, isAnnotatedClass);
                 return createSpecializedClassType(subtype, typeArgs, flags, node);
             }
 
@@ -3846,12 +3849,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return callResult.returnType || UnknownType.create();
     }
 
-    function getTypeArgs(node: IndexItemsNode, flags: EvaluatorFlags): TypeResult[] {
+    function getTypeArgs(node: IndexItemsNode, flags: EvaluatorFlags, isAnnotatedClass = false): TypeResult[] {
         const typeArgs: TypeResult[] = [];
         const adjFlags = flags & ~EvaluatorFlags.ParamSpecDisallowed;
 
-        node.items.forEach((expr) => {
-            typeArgs.push(getTypeArg(expr, adjFlags));
+        node.items.forEach((expr, index) => {
+            // If it's an Annotated[a, b, c], only the first index should be treated
+            // as a type. The others can be regular (non-type) objects.
+            if (isAnnotatedClass && index > 0) {
+                typeArgs.push(
+                    getTypeOfExpression(
+                        expr,
+                        /* expectedType */ undefined,
+                        EvaluatorFlags.ParamSpecDisallowed | EvaluatorFlags.DoNotSpecialize
+                    )
+                );
+            } else {
+                typeArgs.push(getTypeArg(expr, adjFlags));
+            }
         });
 
         return typeArgs;
@@ -3866,6 +3881,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.FinalDisallowed;
+
         if (node.nodeType === ParseNodeType.List) {
             typeResult = {
                 type: UnknownType.create(),
@@ -3873,7 +3889,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 node,
             };
         } else {
-            typeResult = getTypeOfExpression(node, undefined, adjustedFlags);
+            typeResult = getTypeOfExpression(node, /* expectedType */ undefined, adjustedFlags);
         }
 
         return typeResult;
@@ -4533,7 +4549,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 typeVarMap,
                 skipUnknownArgCheck,
                 /* inferReturnTypeIfNeeded */ true,
-                NoneType.create()
+                NoneType.createInstance()
             );
             if (!callResult.argumentErrors) {
                 const specializedClassType = applyExpectedTypeForConstructor(
@@ -5668,7 +5684,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     name: '_x',
                     type: ObjectType.create(baseClass),
                 });
-                initType.details.declaredReturnType = NoneType.create();
+                initType.details.declaredReturnType = NoneType.createInstance();
                 classType.details.fields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
                 // Synthesize a trivial __new__ method.
@@ -6097,7 +6113,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             );
             FunctionType.addParameter(initType, selfParameter);
             FunctionType.addDefaultParameters(initType);
-            initType.details.declaredReturnType = NoneType.create();
+            initType.details.declaredReturnType = NoneType.createInstance();
 
             classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
             classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
@@ -6135,11 +6151,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return classType;
     }
 
-    function getTypeFromConstant(node: ConstantNode): TypeResult | undefined {
+    function getTypeFromConstant(node: ConstantNode, flags: EvaluatorFlags): TypeResult | undefined {
         let type: Type | undefined;
 
         if (node.constType === KeywordType.None) {
-            type = NoneType.create();
+            type = (flags & EvaluatorFlags.ExpectingType) !== 0 ? NoneType.createType() : NoneType.createInstance();
         } else if (
             node.constType === KeywordType.True ||
             node.constType === KeywordType.False ||
@@ -6253,7 +6269,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Is this a "|" operator used in a context where it is supposed to be
         // interpreted as a union operator?
         if (node.operator === OperatorType.BitwiseOr) {
-            if (isUnionableType([leftType, rightType])) {
+            let adjustedRightType = rightType;
+            if (!isNone(leftType) && isNone(rightType) && TypeBase.isInstance(rightType)) {
+                // Handle the special case where "None" is being added to the union
+                // with something else. Even though "None" will normally be interpreted
+                // as the None singleton object in contexts where a type annotation isn't
+                // assumed, we'll allow it here.
+                adjustedRightType = NoneType.createType();
+            }
+
+            if (isUnionableType([leftType, adjustedRightType])) {
                 const fileInfo = getFileInfo(node);
                 const unionNotationSupported =
                     fileInfo.isStubFile || fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_10;
@@ -6262,7 +6287,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 return {
-                    type: combineTypes([leftType, rightType]),
+                    type: combineTypes([leftType, adjustedRightType]),
                     node,
                 };
             }
@@ -7222,7 +7247,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addExpectedClassDiagnostic(typeArgs[0].type, typeArgs[0].node);
         }
 
-        return combineTypes([typeArgs[0].type, NoneType.create()]);
+        return combineTypes([typeArgs[0].type, NoneType.createType()]);
     }
 
     function cloneBuiltinObjectWithLiteral(node: ParseNode, builtInName: string, value: LiteralValue): Type {
@@ -7277,7 +7302,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 } else if (item.constType === KeywordType.False) {
                     type = cloneBuiltinClassWithLiteral(node, 'bool', false);
                 } else if (item.constType === KeywordType.None) {
-                    type = NoneType.create();
+                    type = NoneType.createType();
                 }
             } else if (item.nodeType === ParseNodeType.UnaryOperation && item.operator === OperatorType.Subtract) {
                 if (item.expression.nodeType === ParseNodeType.Number) {
@@ -8283,7 +8308,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Special-case the __init__ method, which is commonly left without
                 // an annotated return type, but we can assume it returns None.
                 if (node.name.value === '__init__') {
-                    functionType.details.declaredReturnType = NoneType.create();
+                    functionType.details.declaredReturnType = NoneType.createInstance();
                 } else {
                     functionType.details.declaredReturnType = UnknownType.create();
                 }
@@ -8317,7 +8342,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         isNoneWithoutOptional = true;
 
                         if (!fileInfo.diagnosticRuleSet.strictParameterNoneValue) {
-                            annotatedType = combineTypes([annotatedType, NoneType.create()]);
+                            annotatedType = combineTypes([annotatedType, NoneType.createInstance()]);
                         }
                     }
                 }
@@ -8731,7 +8756,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             name: 'obj',
             type: propertyObject,
         });
-        setFunction.details.declaredReturnType = NoneType.create();
+        setFunction.details.declaredReturnType = NoneType.createInstance();
         let setParamType: Type = UnknownType.create();
         if (
             fset.details.parameters.length >= 2 &&
@@ -8790,7 +8815,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             name: 'obj',
             type: propertyObject,
         });
-        delFunction.details.declaredReturnType = NoneType.create();
+        delFunction.details.declaredReturnType = NoneType.createInstance();
         const delSymbol = Symbol.createWithType(SymbolFlags.ClassMember, delFunction);
         fields.set('__delete__', delSymbol);
 
@@ -8962,14 +8987,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                     const yieldType = getTypeOfExpression(yieldNode.expression).type;
                                     inferredYieldTypes.push(yieldType || UnknownType.create());
                                 } else {
-                                    inferredYieldTypes.push(NoneType.create());
+                                    inferredYieldTypes.push(NoneType.createInstance());
                                 }
                             }
                         }
                     });
 
                     if (inferredYieldTypes.length === 0) {
-                        inferredYieldTypes.push(NoneType.create());
+                        inferredYieldTypes.push(NoneType.createInstance());
                     }
                     inferredReturnType = combineTypes(inferredYieldTypes);
 
@@ -9020,14 +9045,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                         const returnType = getTypeOfExpression(returnNode.returnExpression).type;
                                         inferredReturnTypes.push(returnType || UnknownType.create());
                                     } else {
-                                        inferredReturnTypes.push(NoneType.create());
+                                        inferredReturnTypes.push(NoneType.createInstance());
                                     }
                                 }
                             });
                         }
 
                         if (!functionNeverReturns && implicitlyReturnsNone) {
-                            inferredReturnTypes.push(NoneType.create());
+                            inferredReturnTypes.push(NoneType.createInstance());
                         }
 
                         inferredReturnType = combineTypes(inferredReturnTypes);

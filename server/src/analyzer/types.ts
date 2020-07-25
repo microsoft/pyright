@@ -1002,11 +1002,20 @@ export interface NoneType extends TypeBase {
 export namespace NoneType {
     const _noneInstance: NoneType = {
         category: TypeCategory.None,
-        flags: TypeFlags.Instance | TypeFlags.Instantiable,
+        flags: TypeFlags.Instance,
     };
 
-    export function create() {
+    const _noneType: NoneType = {
+        category: TypeCategory.None,
+        flags: TypeFlags.Instantiable,
+    };
+
+    export function createInstance() {
         return _noneInstance;
+    }
+
+    export function createType() {
+        return _noneType;
     }
 }
 
