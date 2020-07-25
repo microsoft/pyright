@@ -825,15 +825,18 @@ export class AnalyzerService {
 
                 // Get the directory that contains the root package.
                 let targetPath = getDirectoryPath(resolvedPath);
+                let prevResolvedPath = resolvedPath;
                 for (let i = importResult.resolvedPaths.length - 2; i >= 0; i--) {
                     const resolvedPath = importResult.resolvedPaths[i];
                     if (resolvedPath) {
                         targetPath = getDirectoryPath(resolvedPath);
+                        prevResolvedPath = resolvedPath;
                     } else {
                         // If there was no file corresponding to this portion
                         // of the name path, assume that it's contained
                         // within its parent directory.
-                        targetPath = getDirectoryPath(targetPath);
+                        targetPath = getDirectoryPath(prevResolvedPath);
+                        prevResolvedPath = targetPath;
                     }
                 }
 
