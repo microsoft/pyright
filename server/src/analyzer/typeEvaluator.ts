@@ -942,11 +942,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (flags & EvaluatorFlags.ExpectingType) {
-            if (!TypeBase.isInstantiable(typeResult.type)) {
+            const resultType = transformTypeObjectToClass(typeResult.type);
+            if (!TypeBase.isInstantiable(resultType)) {
                 const isEmptyTuple =
-                    typeResult.type.category === TypeCategory.Object &&
-                    ClassType.isBuiltIn(typeResult.type.classType, 'Tuple') &&
-                    typeResult.type.classType.typeArguments?.length === 0;
+                    resultType.category === TypeCategory.Object &&
+                    ClassType.isBuiltIn(resultType.classType, 'Tuple') &&
+                    resultType.classType.typeArguments?.length === 0;
 
                 if ((flags & EvaluatorFlags.AllowEmptyTupleAsType) === 0 || !isEmptyTuple) {
                     addExpectedClassDiagnostic(typeResult.type, node);
@@ -13328,7 +13329,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return NeverType.create();
         }
 
-        return declaredType;
+        return transformTypeObjectToClass(declaredType);
     }
 
     function canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType, diag: DiagnosticAddendum): boolean {

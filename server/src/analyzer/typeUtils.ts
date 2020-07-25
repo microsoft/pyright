@@ -1124,6 +1124,8 @@ export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type
 
 export function convertToInstance(type: Type): Type {
     let result = doForSubtypes(type, (subtype) => {
+        subtype = transformTypeObjectToClass(subtype);
+
         switch (subtype.category) {
             case TypeCategory.Class: {
                 return ObjectType.create(subtype);
