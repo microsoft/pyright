@@ -550,10 +550,16 @@ test('AnnotatedVar6', () => {
     validateResults(analysisResults, 0);
 });
 
-test('Execution1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['execution1.py']);
+test('CodeFlow1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlow1.py']);
 
     validateResults(analysisResults, 2);
+});
+
+test('CodeFlow2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlow2.py']);
+
+    validateResults(analysisResults, 0);
 });
 
 test('Properties1', () => {

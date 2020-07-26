@@ -965,6 +965,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return typeResult;
     }
 
+    function isAnnotationEvaluationPostponed(fileInfo: AnalyzerFileInfo) {
+        return fileInfo.futureImports.get('annotations') !== undefined || fileInfo.isStubFile;
+    }
+
     function getTypeOfAnnotation(node: ExpressionNode, allowFinal = false): Type {
         const fileInfo = getFileInfo(node);
 
@@ -984,10 +988,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.ParamSpecDisallowed;
 
-        const isAnnotationEvaluationPostponed =
-            fileInfo.futureImports.get('annotations') !== undefined || fileInfo.isStubFile;
-
-        if (isAnnotationEvaluationPostponed) {
+        if (isAnnotationEvaluationPostponed(fileInfo)) {
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
         }
 
@@ -1369,7 +1370,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     function isDeclaredTypeAlias(expression: ExpressionNode): boolean {
         if (expression.nodeType === ParseNodeType.TypeAnnotation) {
             if (expression.valueExpression.nodeType === ParseNodeType.Name) {
-                const symbolWithScope = lookUpSymbolRecursive(expression, expression.valueExpression.value);
+                const symbolWithScope = lookUpSymbolRecursive(
+                    expression,
+                    expression.valueExpression.value,
+                    /* honorCodeFlow */ false
+                );
                 if (symbolWithScope) {
                     const symbol = symbolWithScope.symbol;
                     return symbol.getDeclarations().find((decl) => isTypeAliasDeclaration(decl)) !== undefined;
@@ -1388,7 +1393,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         switch (expression.nodeType) {
             case ParseNodeType.Name: {
-                const symbolWithScope = lookUpSymbolRecursive(expression, expression.value);
+                const symbolWithScope = lookUpSymbolRecursive(expression, expression.value, /* honorCodeFlow */ true);
                 if (symbolWithScope) {
                     symbol = symbolWithScope.symbol;
                 }
@@ -2091,7 +2096,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     ) {
         const nameValue = nameNode.value;
 
-        const symbolWithScope = lookUpSymbolRecursive(nameNode, nameValue);
+        const symbolWithScope = lookUpSymbolRecursive(nameNode, nameValue, /* honorCodeFlow */ false);
         if (!symbolWithScope) {
             fail(`Missing symbol '${nameValue}'`);
             return;
@@ -2759,13 +2764,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const name = node.value;
         let type: Type | undefined;
         let isResolutionCyclical = false;
+        const allowForwardReferences = (flags & EvaluatorFlags.AllowForwardReferences) !== 0;
 
         // Look for the scope that contains the value definition and
         // see if it has a declared type.
-        const symbolWithScope = lookUpSymbolRecursive(node, name);
+        const symbolWithScope = lookUpSymbolRecursive(node, name, !allowForwardReferences);
 
         if (symbolWithScope) {
-            let useCodeFlowAnalysis = (flags & EvaluatorFlags.AllowForwardReferences) === 0;
+            let useCodeFlowAnalysis = !allowForwardReferences;
 
             // If the symbol is implicitly imported from the builtin
             // scope, there's no need to use code flow analysis.
@@ -2875,7 +2881,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     }
 
     function getTypeFromMemberAccess(node: MemberAccessNode, flags: EvaluatorFlags): TypeResult {
-        const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
+        const baseTypeFlags =
+            EvaluatorFlags.DoNotSpecialize |
+            (flags & (EvaluatorFlags.ExpectingType | EvaluatorFlags.AllowForwardReferences));
+        const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, baseTypeFlags);
         const memberTypeResult = getTypeFromMemberAccessWithBaseType(node, baseTypeResult, { method: 'get' }, flags);
 
         if (isCodeFlowSupportedForReference(node)) {
@@ -3875,12 +3884,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     function getTypeArg(node: ExpressionNode, flags: EvaluatorFlags): TypeResult {
         let typeResult: TypeResult;
 
-        const adjustedFlags =
+        let adjustedFlags =
             flags |
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.FinalDisallowed;
+
+        const fileInfo = getFileInfo(node);
+        if (isAnnotationEvaluationPostponed(fileInfo)) {
+            adjustedFlags |= EvaluatorFlags.AllowForwardReferences;
+        }
 
         if (node.nodeType === ParseNodeType.List) {
             typeResult = {
@@ -4281,7 +4295,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (functionType) {
                     if (functionType.details.builtInName === 'cast' && argList.length === 2) {
                         // Verify that the cast is necessary.
-                        const castToType = getTypeForArgument(argList[0], /* expectingType */ true);
+                        const castToType = getTypeForArgumentExpectingType(argList[0], getFileInfo(errorNode));
                         const castFromType = getTypeForArgument(argList[1]);
                         if (
                             castToType.category === TypeCategory.Class &&
@@ -4299,6 +4313,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                         type = convertToInstance(castToType);
                     } else {
+                        // If this is a stub file, analyze the first argument using the
+                        // "expecting type" semantics. This will cache the type for later. Some
+                        // type stubs rely on using forward declarations for this parameter.
+                        if (argList.length > 0) {
+                            const fileInfo = getFileInfo(errorNode);
+                            if (fileInfo.isStubFile) {
+                                getTypeForArgumentExpectingType(argList[0], fileInfo);
+                            }
+                        }
                         type = validateCallArguments(
                             errorNode,
                             argList,
@@ -5498,7 +5521,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             argList[i].valueExpression || errorNode
                         );
                     } else {
-                        const argType = getTypeForArgument(argList[i], /* expectingType */ true);
+                        const argType = getTypeForArgumentExpectingType(argList[i], getFileInfo(errorNode));
                         if (requiresSpecialization(argType)) {
                             addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                         }
@@ -5537,7 +5560,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         argList[i].valueExpression || errorNode
                     );
                 } else {
-                    const argType = getTypeForArgument(argList[i], /* expectingType */ true);
+                    const argType = getTypeForArgumentExpectingType(argList[i], getFileInfo(errorNode));
                     if (requiresSpecialization(argType)) {
                         addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                     }
@@ -5665,7 +5688,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (argList.length >= 2) {
-            const baseClass = getTypeForArgument(argList[1], /* expectingType */ true);
+            const baseClass = getTypeForArgumentExpectingType(argList[1], getFileInfo(errorNode));
 
             if (baseClass.category === TypeCategory.Class) {
                 const classFlags =
@@ -7608,7 +7631,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
             }
         } else if (aliasMapEntry.module === 'self') {
-            const symbolWithScope = lookUpSymbolRecursive(node, baseClassName);
+            const symbolWithScope = lookUpSymbolRecursive(node, baseClassName, /* honorCodeFlow */ false);
             if (symbolWithScope) {
                 aliasClass = getEffectiveTypeOfSymbol(symbolWithScope.symbol);
             }
@@ -7761,7 +7784,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (node.leftExpression.nodeType === ParseNodeType.Name) {
                         const targetSymbolWithScope = lookUpSymbolRecursive(
                             node.leftExpression,
-                            node.leftExpression.value
+                            node.leftExpression.value,
+                            /* honorCodeFlow */ false
                         );
                         if (targetSymbolWithScope && targetSymbolWithScope.symbol.getDeclarations().length === 1) {
                             typeAliasNameNode = node.leftExpression;
@@ -8830,7 +8854,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // all previous ones.
     function addOverloadsToFunctionType(node: FunctionNode, type: FunctionType): Type {
         const functionDecl = AnalyzerNodeInfo.getDeclaration(node) as FunctionDeclaration;
-        const symbolWithScope = lookUpSymbolRecursive(node, node.name.value);
+        const symbolWithScope = lookUpSymbolRecursive(node, node.name.value, /* honorCodeFlow */ false);
         if (symbolWithScope) {
             const decls = symbolWithScope.symbol.getDeclarations();
 
@@ -9402,7 +9426,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         node: ImportAsNode | ImportFromAsNode | ImportFromNode,
         name: string
     ): Type | undefined {
-        const symbolWithScope = lookUpSymbolRecursive(node, name);
+        const symbolWithScope = lookUpSymbolRecursive(node, name, /* honorCodeFlow */ true);
         if (!symbolWithScope) {
             return undefined;
         }
@@ -9696,7 +9720,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         assert(importInfo !== undefined && importInfo.isImportFound);
         assert(flowNode.node.isWildcardImport);
 
-        const symbolWithScope = lookUpSymbolRecursive(flowNode.node, name);
+        const symbolWithScope = lookUpSymbolRecursive(flowNode.node, name, /* honorCodeFlow */ false);
         assert(symbolWithScope !== undefined);
         const decls = symbolWithScope!.symbol.getDeclarations();
         const wildcardDecl = decls.find((decl) => decl.node === flowNode.node);
@@ -9715,7 +9739,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // etc.).
     function getDeclaredCallBaseType(node: ExpressionNode): Type | undefined {
         if (node.nodeType === ParseNodeType.Name) {
-            const symbolWithScope = lookUpSymbolRecursive(node, node.value);
+            const symbolWithScope = lookUpSymbolRecursive(node, node.value, /* honorCodeFlow */ false);
 
             if (!symbolWithScope) {
                 return undefined;
@@ -11072,22 +11096,37 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return specializedClass;
     }
 
-    function getTypeForArgument(arg: FunctionArgument, expectingType = false): Type {
+    function getTypeForArgument(arg: FunctionArgument): Type {
         if (arg.type) {
             return arg.type;
         }
 
         // If there was no defined type provided, there should always
         // be a value expression from which we can retrieve the type.
-        return getTypeOfExpression(
-            arg.valueExpression!,
-            undefined,
-            expectingType
-                ? EvaluatorFlags.ExpectingType |
-                      EvaluatorFlags.EvaluateStringLiteralAsType |
-                      EvaluatorFlags.ParamSpecDisallowed
-                : EvaluatorFlags.None
-        ).type;
+        return getTypeOfExpression(arg.valueExpression!).type;
+    }
+
+    // This function is like getTypeForArgument except that it is
+    // used in cases where the argument is expected to be a type
+    // and therefore follows the normal rules of types (e.g. they
+    // can be forward-declared in stubs, etc.).
+    function getTypeForArgumentExpectingType(arg: FunctionArgument, fileInfo: AnalyzerFileInfo): Type {
+        if (arg.type) {
+            return arg.type;
+        }
+
+        let flags =
+            EvaluatorFlags.ExpectingType |
+            EvaluatorFlags.EvaluateStringLiteralAsType |
+            EvaluatorFlags.ParamSpecDisallowed;
+
+        if (fileInfo.isStubFile) {
+            flags |= EvaluatorFlags.AllowForwardReferences;
+        }
+
+        // If there was no defined type provided, there should always
+        // be a value expression from which we can retrieve the type.
+        return getTypeOfExpression(arg.valueExpression!, undefined, flags).type;
     }
 
     function getBuiltInType(node: ParseNode, name: string): Type {
@@ -11119,9 +11158,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return nameType;
     }
 
-    function lookUpSymbolRecursive(node: ParseNode, name: string) {
+    function lookUpSymbolRecursive(node: ParseNode, name: string, honorCodeFlow: boolean) {
         const scope = ScopeUtils.getScopeForNode(node);
-        return scope.lookUpSymbolRecursive(name);
+        let symbolWithScope = scope.lookUpSymbolRecursive(name);
+
+        if (symbolWithScope && honorCodeFlow) {
+            // Filter the declarations based on flow reachability.
+            const decls = symbolWithScope.symbol.getDeclarations().filter((decl) => {
+                if (decl.type !== DeclarationType.Alias) {
+                    // Is the declaration in the same execution scope as the "usageNode" node?
+                    const usageScope = ParseTreeUtils.getExecutionScopeNode(node);
+                    const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
+                    if (usageScope === declScope) {
+                        if (!isFlowPathBetweenNodes(decl.node, node)) {
+                            return false;
+                        }
+                    }
+                }
+
+                return true;
+            });
+
+            // If none of the declarations are reachable from the current node,
+            // search for the symbol in outer scopes.
+            if (decls.length === 0) {
+                if (symbolWithScope.scope.parent) {
+                    symbolWithScope = symbolWithScope.scope.parent.lookUpSymbolRecursive(name);
+                } else {
+                    symbolWithScope = undefined;
+                }
+            }
+        }
+
+        return symbolWithScope;
     }
 
     // Disables recording of errors and warnings.
@@ -11199,7 +11268,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         const declarations: Declaration[] = [];
-        const nameValue = node.value;
 
         // If the node is part of a "from X import Y as Z" statement and the node
         // is the "Y" (non-aliased) name, we need to look up the alias symbol
@@ -11347,14 +11415,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
             }
         } else {
-            const scope = ScopeUtils.getScopeForNode(node);
-            if (scope) {
-                const symbolInScope = scope.lookUpSymbolRecursive(nameValue);
-                if (!symbolInScope) {
-                    return undefined;
-                }
-
-                declarations.push(...symbolInScope.symbol.getDeclarations());
+            const symbolWithScope = lookUpSymbolRecursive(node, node.value, /* honorCodeFlow */ true);
+            if (symbolWithScope) {
+                declarations.push(...symbolWithScope.symbol.getDeclarations());
             }
         }
 
