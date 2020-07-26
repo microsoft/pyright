@@ -472,6 +472,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.symbolIsUndefined'));
         export const symbolIsPossiblyUnbound = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.symbolIsPossiblyUnbound'));
+        export const symbolOverridden = () =>
+            new ParameterizedString<{ name: string; className: string }>(getRawString('Diagnostic.symbolOverridden'));
         export const tupleInAnnotation = () => getRawString('Diagnostic.tupleInAnnotation');
         export const tupleSizeMismatch = () =>
             new ParameterizedString<{ expected: number; received: number }>(
@@ -656,6 +658,7 @@ export namespace Localizer {
         export const overloadCallName = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overloadCallName'));
         export const overriddenMethod = () => getRawString('DiagnosticAddendum.overriddenMethod');
+        export const overriddenSymbol = () => getRawString('DiagnosticAddendum.overriddenSymbol');
         export const overrideParamCount = () =>
             new ParameterizedString<{ baseCount: number; overrideCount: number }>(
                 getRawString('DiagnosticAddendum.overrideParamCount')

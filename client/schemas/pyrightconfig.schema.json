@@ -255,6 +255,12 @@
       "title": "Controls reporting of method overrides in subclasses that redefine the method in an incompatible way",
       "default": "none"
     },
+    "reportIncompatibleVariableOverride": {
+      "$id": "#/properties/reportIncompatibleVariableOverride",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of overrides in subclasses that redefine a variable in an incompatible way",
+      "default": "none"
+    },
     "reportInvalidStringEscapeSequence": {
       "$id": "#/properties/reportInvalidStringEscapeSequence",
       "$ref": "#/definitions/diagnostic",

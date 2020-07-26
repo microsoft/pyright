@@ -142,6 +142,10 @@ export interface DiagnosticRuleSet {
     // the base class method of the same name?
     reportIncompatibleMethodOverride: DiagnosticLevel;
 
+    // Report usage of variable override that is incompatible with
+    // the base class symbol of the same name?
+    reportIncompatibleVariableOverride: DiagnosticLevel;
+
     // Report usage of invalid escape sequences in string literals?
     reportInvalidStringEscapeSequence: DiagnosticLevel;
 
@@ -231,6 +235,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportPrivateUsage,
         DiagnosticRule.reportConstantRedefinition,
         DiagnosticRule.reportIncompatibleMethodOverride,
+        DiagnosticRule.reportIncompatibleVariableOverride,
         DiagnosticRule.reportInvalidStringEscapeSequence,
         DiagnosticRule.reportUnknownParameterType,
         DiagnosticRule.reportUnknownArgumentType,
@@ -287,6 +292,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportPrivateUsage: 'none',
         reportConstantRedefinition: 'none',
         reportIncompatibleMethodOverride: 'none',
+        reportIncompatibleVariableOverride: 'none',
         reportInvalidStringEscapeSequence: 'none',
         reportUnknownParameterType: 'none',
         reportUnknownArgumentType: 'none',
@@ -339,6 +345,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportPrivateUsage: 'none',
         reportConstantRedefinition: 'none',
         reportIncompatibleMethodOverride: 'none',
+        reportIncompatibleVariableOverride: 'none',
         reportInvalidStringEscapeSequence: 'warning',
         reportUnknownParameterType: 'none',
         reportUnknownArgumentType: 'none',
@@ -391,6 +398,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportPrivateUsage: 'error',
         reportConstantRedefinition: 'error',
         reportIncompatibleMethodOverride: 'error',
+        reportIncompatibleVariableOverride: 'error',
         reportInvalidStringEscapeSequence: 'error',
         reportUnknownParameterType: 'error',
         reportUnknownArgumentType: 'error',
@@ -855,6 +863,13 @@ export class ConfigOptions {
                 configObj.reportIncompatibleMethodOverride,
                 DiagnosticRule.reportIncompatibleMethodOverride,
                 defaultSettings.reportIncompatibleMethodOverride
+            ),
+
+            // Read the "reportIncompatibleVariableOverride" entry.
+            reportIncompatibleVariableOverride: this._convertDiagnosticLevel(
+                configObj.reportIncompatibleVariableOverride,
+                DiagnosticRule.reportIncompatibleVariableOverride,
+                defaultSettings.reportIncompatibleVariableOverride
             ),
 
             // Read the "reportInvalidStringEscapeSequence" entry.

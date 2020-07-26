@@ -1001,6 +1001,19 @@ test('Classes4', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Classes5', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, optional diagnostics are ignored.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes5.py'], configOptions);
+    validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticRuleSet.reportIncompatibleVariableOverride = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes5.py'], configOptions);
+    validateResults(analysisResults, 4);
+});
+
 test('Mro1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['mro1.py']);
 

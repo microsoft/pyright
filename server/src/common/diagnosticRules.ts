@@ -37,6 +37,7 @@ export const enum DiagnosticRule {
     reportPrivateUsage = 'reportPrivateUsage',
     reportConstantRedefinition = 'reportConstantRedefinition',
     reportIncompatibleMethodOverride = 'reportIncompatibleMethodOverride',
+    reportIncompatibleVariableOverride = 'reportIncompatibleVariableOverride',
     reportInvalidStringEscapeSequence = 'reportInvalidStringEscapeSequence',
     reportUnknownParameterType = 'reportUnknownParameterType',
     reportUnknownArgumentType = 'reportUnknownArgumentType',

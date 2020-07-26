@@ -1729,6 +1729,11 @@ export class Checker extends ParseTreeWalker {
             // Get the symbol type defined in this class.
             const typeOfSymbol = this._evaluator.getEffectiveTypeOfSymbol(symbol);
 
+            // If the type of the override symbol isn't known, stop here.
+            if (isAnyOrUnknown(typeOfSymbol)) {
+                return;
+            }
+
             // Get the symbol defined in the base class.
             const baseClassAndSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
 
@@ -1819,6 +1824,39 @@ export class Checker extends ParseTreeWalker {
                                 origDecl.path,
                                 origDecl.range
                             );
+                        }
+                    }
+                }
+            } else {
+                // This check can be expensive, so don't perform it if the corresponding
+                // rule is disabled.
+                if (this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride !== 'none') {
+                    // Verify that the override type is assignable to (same or narrower than)
+                    // the declared type of the base symbol.
+                    if (!this._evaluator.canAssignType(baseClassSymbolType, typeOfSymbol, diagAddendum)) {
+                        const decls = symbol.getDeclarations();
+                        if (decls.length > 0) {
+                            const lastDecl = decls[decls.length - 1];
+                            if (lastDecl) {
+                                const diag = this._evaluator.addDiagnostic(
+                                    this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
+                                    DiagnosticRule.reportIncompatibleVariableOverride,
+                                    Localizer.Diagnostic.symbolOverridden().format({
+                                        name,
+                                        className: baseClassAndSymbol.classType.details.name,
+                                    }) + diagAddendum.getString(),
+                                    lastDecl.node
+                                );
+
+                                const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+                                if (diag && origDecl) {
+                                    diag.addRelatedInfo(
+                                        Localizer.DiagnosticAddendum.overriddenSymbol(),
+                                        origDecl.path,
+                                        origDecl.range
+                                    );
+                                }
+                            }
                         }
                     }
                 }
