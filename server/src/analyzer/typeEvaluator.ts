@@ -13007,7 +13007,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             diag.createAddendum(),
                             typeVarMap,
                             recursionCount + 1,
-                            true
+                            /* checkNamedParams */ true
                         )
                     ) {
                         return false;
@@ -13453,22 +13453,54 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const baseParams = baseMethod.details.parameters;
         const overrideParams = overrideMethod.details.parameters;
 
-        if (baseParams.length !== overrideParams.length) {
+        // Verify that the param count matches exactly or that the override
+        // adds only params that preserve the original signature.
+        let foundParamCountMismatch = false;
+        if (overrideParams.length < baseParams.length) {
+            foundParamCountMismatch = true;
+        } else if (overrideParams.length > baseParams.length) {
+            // Verify that all of the override parameters that extend the
+            // signature are either *vars, **kwargs or parameters with
+            // default values.
+
+            for (let i = baseParams.length; i < overrideParams.length; i++) {
+                const overrideParam = overrideParams[i];
+
+                if (
+                    overrideParam.category === ParameterCategory.Simple &&
+                    overrideParam.name &&
+                    !overrideParam.hasDefault
+                ) {
+                    foundParamCountMismatch = true;
+                }
+            }
+        }
+
+        if (foundParamCountMismatch) {
             diag.addMessage(
                 Localizer.DiagnosticAddendum.overrideParamCount().format({
                     baseCount: baseParams.length,
                     overrideCount: overrideParams.length,
                 })
             );
-            return false;
+            canOverride = false;
         }
 
         const paramCount = Math.min(baseParams.length, overrideParams.length);
+        const positionOnlyIndex = baseParams.findIndex(
+            (param) => !param.name && param.category === ParameterCategory.Simple
+        );
+
         for (let i = 0; i < paramCount; i++) {
             const baseParam = baseParams[i];
             const overrideParam = overrideParams[i];
 
-            if (baseParam.name !== overrideParam.name) {
+            if (
+                i > positionOnlyIndex &&
+                !isPrivateOrProtectedName(baseParam.name || '') &&
+                baseParam.category === ParameterCategory.Simple &&
+                baseParam.name !== overrideParam.name
+            ) {
                 diag.addMessage(
                     Localizer.DiagnosticAddendum.overrideParamName().format({
                         index: i + 1,
@@ -13481,7 +13513,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const baseParamType = FunctionType.getEffectiveParameterType(baseMethod, i);
                 const overrideParamType = FunctionType.getEffectiveParameterType(overrideMethod, i);
 
-                if (!canAssignType(baseParamType, overrideParamType, diag.createAddendum())) {
+                if (
+                    baseParam.category !== overrideParam.category ||
+                    !canAssignType(baseParamType, overrideParamType, diag.createAddendum())
+                ) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.overrideParamType().format({
                             index: i + 1,
