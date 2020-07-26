@@ -14082,7 +14082,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case TypeCategory.None: {
-                return 'None';
+                return TypeBase.isInstantiable(type) ? 'NoneType' : 'None';
             }
 
             case TypeCategory.Never: {
