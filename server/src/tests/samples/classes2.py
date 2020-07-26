@@ -47,6 +47,12 @@ class ParentClass():
     def my_method14(self, a: int) -> int:
         return 1
 
+    def my_method15(self, a: int) -> int:
+        return 1
+
+    def my_method16(self, a: int) -> int:
+        return 1
+
 class ChildClass(ParentClass):
     # This should generate an error because the type of 'a' doesn't match.
     def my_method1(self, a: str):
@@ -100,3 +106,12 @@ class ChildClass(ParentClass):
     # wider than in the original method.
     def my_method14(self, a: int) -> Union[int, str]:
         return 1
+
+    # This should generate an error because we're overriding a
+    # method with a variable.
+    my_method15 = 3
+
+    # This should generate an error because we're overriding a
+    # method with a class.
+    class my_method16:
+        pass

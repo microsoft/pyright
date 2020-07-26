@@ -1736,15 +1736,22 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
-            const typeOfBaseClassMethod = this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
+            // If the base class doesn't provide a type declaration, we won't bother
+            // proceeding with additional checks. Type inference is too inaccurate
+            // in this case, plus it would be very slow.
+            if (!baseClassAndSymbol.symbol.hasTypedDeclarations()) {
+                return;
+            }
+
+            const baseClassSymbolType = this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
             const diagAddendum = new DiagnosticAddendum();
 
             if (
-                typeOfBaseClassMethod.category === TypeCategory.Function ||
-                typeOfBaseClassMethod.category === TypeCategory.OverloadedFunction
+                baseClassSymbolType.category === TypeCategory.Function ||
+                baseClassSymbolType.category === TypeCategory.OverloadedFunction
             ) {
                 if (typeOfSymbol.category === TypeCategory.Function) {
-                    if (!this._evaluator.canOverrideMethod(typeOfBaseClassMethod, typeOfSymbol, diagAddendum)) {
+                    if (!this._evaluator.canOverrideMethod(baseClassSymbolType, typeOfSymbol, diagAddendum)) {
                         const decl = getLastTypedDeclaredForSymbol(symbol);
                         if (decl && decl.type === DeclarationType.Function) {
                             const diag = this._evaluator.addDiagnostic(
@@ -1768,8 +1775,8 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
 
-                    if (typeOfBaseClassMethod.category === TypeCategory.Function) {
-                        if (FunctionType.isFinal(typeOfBaseClassMethod)) {
+                    if (baseClassSymbolType.category === TypeCategory.Function) {
+                        if (FunctionType.isFinal(baseClassSymbolType)) {
                             const decl = getLastTypedDeclaredForSymbol(symbol);
                             if (decl && decl.type === DeclarationType.Function) {
                                 const diag = this._evaluator.addError(
@@ -1789,6 +1796,29 @@ export class Checker extends ParseTreeWalker {
                                     );
                                 }
                             }
+                        }
+                    }
+                } else if (!isAnyOrUnknown(typeOfSymbol)) {
+                    const decls = symbol.getDeclarations();
+                    if (decls.length > 0) {
+                        const lastDecl = decls[decls.length - 1];
+                        const diag = this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
+                            DiagnosticRule.reportIncompatibleMethodOverride,
+                            Localizer.Diagnostic.methodOverridden().format({
+                                name,
+                                className: baseClassAndSymbol.classType.details.name,
+                            }) + diagAddendum.getString(),
+                            lastDecl.node
+                        );
+
+                        const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+                        if (diag && origDecl) {
+                            diag.addRelatedInfo(
+                                Localizer.DiagnosticAddendum.overriddenMethod(),
+                                origDecl.path,
+                                origDecl.range
+                            );
                         }
                     }
                 }

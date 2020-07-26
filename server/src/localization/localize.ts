@@ -357,6 +357,8 @@ export namespace Localizer {
         export const methodNotDefinedOnType = () =>
             new ParameterizedString<{ name: string; type: string }>(getRawString('Diagnostic.methodNotDefinedOnType'));
         export const methodOrdering = () => getRawString('Diagnostic.methodOrdering');
+        export const methodOverridden = () =>
+            new ParameterizedString<{ name: string; className: string }>(getRawString('Diagnostic.methodOverridden'));
         export const methodReturnsNonObject = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.methodReturnsNonObject'));
         export const moduleContext = () => getRawString('Diagnostic.moduleContext');
