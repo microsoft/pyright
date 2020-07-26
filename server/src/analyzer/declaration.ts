@@ -106,6 +106,11 @@ export interface VariableDeclaration extends DeclarationBase {
 
     // Is the declaration an explicit TypeAlias?
     isTypeAlias?: boolean;
+
+    // Is the declaration a class or instance variable defined
+    // by a member access, or is it a direct variable declaration
+    // within the class?
+    isDefinedByMemberAccess?: boolean;
 }
 
 // Alias declarations are used for imports. They are resolved

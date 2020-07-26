@@ -10,6 +10,7 @@
  */
 
 import { fail } from '../common/debug';
+import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 
 export const enum ScopeType {
@@ -94,7 +95,11 @@ export class Scope {
     }
 
     lookUpSymbolRecursive(name: string): SymbolWithScope | undefined {
-        return this._lookUpSymbolRecursiveInternal(name, false, false);
+        return this._lookUpSymbolRecursiveInternal(
+            name,
+            /* isOutsideCallerModule */ false,
+            /* isBeyondExecutionScope */ false
+        );
     }
 
     addSymbol(name: string, flags: SymbolFlags): Symbol {
@@ -117,12 +122,20 @@ export class Scope {
                 return undefined;
             }
 
-            return {
-                symbol,
-                isOutsideCallerModule,
-                isBeyondExecutionScope,
-                scope: this,
-            };
+            // If the symbol is a class variable that is defined only in terms of
+            // member accesses, it is not accessible directly by name, so hide it.
+            const decls = symbol.getDeclarations();
+            if (
+                decls.length === 0 ||
+                decls.some((decl) => decl.type !== DeclarationType.Variable || !decl.isDefinedByMemberAccess)
+            ) {
+                return {
+                    symbol,
+                    isOutsideCallerModule,
+                    isBeyondExecutionScope,
+                    scope: this,
+                };
+            }
         }
 
         if (this.parent) {

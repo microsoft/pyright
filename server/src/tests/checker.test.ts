@@ -989,6 +989,12 @@ test('Classes3', () => {
     validateResults(analysisResults, 2);
 });
 
+test('Classes4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes4.py']);
+
+    validateResults(analysisResults, 0);
+});
+
 test('Mro1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['mro1.py']);
 
