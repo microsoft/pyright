@@ -8587,6 +8587,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // Scans through the decorators to find a few built-in decorators
     // that affect the function flags.
     function getFunctionFlagsFromDecorators(node: FunctionNode, isInClass: boolean) {
+        const fileInfo = getFileInfo(node);
         let flags = FunctionTypeFlags.None;
 
         // The "__new__" magic method is not an instance method.
@@ -8596,11 +8597,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         for (const decoratorNode of node.decorators) {
-            const decoratorType = getTypeOfExpression(
-                decoratorNode.leftExpression,
-                undefined,
-                EvaluatorFlags.DoNotSpecialize
-            ).type;
+            let evaluatorFlags = EvaluatorFlags.DoNotSpecialize;
+            if (fileInfo.isStubFile) {
+                // Some stub files (e.g. builtins.pyi) rely on forward
+                // declarations of decorators.
+                evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+            }
+
+            const decoratorType = getTypeOfExpression(decoratorNode.leftExpression, undefined, evaluatorFlags).type;
             if (decoratorType.category === TypeCategory.Function) {
                 if (decoratorType.details.builtInName === 'abstractmethod') {
                     if (isInClass) {
@@ -8632,11 +8636,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         originalFunctionType: FunctionType,
         decoratorNode: DecoratorNode
     ): Type {
-        const decoratorType = getTypeOfExpression(
-            decoratorNode.leftExpression,
-            undefined,
-            EvaluatorFlags.DoNotSpecialize
-        ).type;
+        let evaluatorFlags = EvaluatorFlags.DoNotSpecialize;
+        if (getFileInfo(decoratorNode).isStubFile) {
+            // Some stub files (e.g. builtins.pyi) rely on forward
+            // declarations of decorators.
+            evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+        }
+
+        const decoratorType = getTypeOfExpression(decoratorNode.leftExpression, undefined, evaluatorFlags).type;
 
         // Special-case the "overload" because it has no definition.
         if (decoratorType.category === TypeCategory.Class && ClassType.isSpecialBuiltIn(decoratorType, 'overload')) {
