@@ -3796,7 +3796,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (
                 baseTypeClass.category === TypeCategory.Class &&
                 ClassType.isBuiltIn(baseTypeClass, 'Tuple') &&
-                baseTypeClass.typeArguments
+                baseTypeClass.typeArguments &&
+                baseTypeClass.typeArguments.length > 0
             ) {
                 if (
                     node.items.items[0].nodeType === ParseNodeType.Number &&
@@ -3805,12 +3806,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 ) {
                     const numberNode = node.items.items[0];
 
-                    if (
-                        numberNode.isInteger &&
-                        numberNode.value >= 0 &&
-                        numberNode.value < baseTypeClass.typeArguments.length
-                    ) {
-                        return baseTypeClass.typeArguments[numberNode.value];
+                    if (numberNode.isInteger && numberNode.value >= 0) {
+                        if (
+                            baseTypeClass.typeArguments.length === 2 &&
+                            isEllipsisType(baseTypeClass.typeArguments[1])
+                        ) {
+                            return baseTypeClass.typeArguments[0];
+                        } else if (numberNode.value < baseTypeClass.typeArguments.length) {
+                            return baseTypeClass.typeArguments[numberNode.value];
+                        }
                     }
                 }
             }
