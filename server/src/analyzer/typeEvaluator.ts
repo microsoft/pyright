@@ -4131,6 +4131,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             const argType = getTypeForArgument(argList[0]);
                             if (argType.category === TypeCategory.Object) {
                                 type = argType.classType;
+                            } else if (argType.category === TypeCategory.None) {
+                                type = NoneType.createType();
                             }
                         } else if (argList.length >= 2) {
                             // The two-parameter form of "type" returns a new class type
@@ -12866,10 +12868,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             recursionCount + 1
                         );
                     } else if (destTypeArgs[0].category === TypeCategory.TypeVar) {
-                        if (srcType.category === TypeCategory.Class) {
+                        if (
+                            srcType.category === TypeCategory.Class ||
+                            (isNone(srcType) && TypeBase.isInstantiable(srcType))
+                        ) {
                             return canAssignType(
                                 destTypeArgs[0],
-                                ObjectType.create(srcType),
+                                convertToInstance(srcType),
                                 diag.createAddendum(),
                                 typeVarMap,
                                 flags,
