@@ -891,8 +891,7 @@ export class TestState {
                 label: string;
                 parameters: string[];
             }[];
-            activeSignature?: number;
-            activeParameter?: number;
+            activeParameters?: (number | undefined)[];
         };
     }): void {
         this._analyze();
@@ -917,6 +916,8 @@ export class TestState {
 
             assert.ok(actual);
             assert.ok(actual!.signatures);
+            assert.ok(expected.activeParameters);
+            assert.equal(actual!.signatures.length, expected.activeParameters.length);
 
             actual!.signatures.forEach((sig, index) => {
                 const expectedSig = expected.signatures![index];
@@ -932,8 +933,10 @@ export class TestState {
                 assert.deepEqual(actualParameters, expectedSig.parameters);
             });
 
-            assert.equal(actual!.activeSignature, expected.activeSignature);
-            assert.equal(actual!.activeParameter, expected.activeParameter);
+            assert.deepEqual(
+                actual!.signatures.map((sig) => sig.activeParameter),
+                expected.activeParameters
+            );
         }
     }
 

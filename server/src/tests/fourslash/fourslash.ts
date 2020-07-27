@@ -155,8 +155,7 @@ declare namespace _ {
                     label: string;
                     parameters: string[];
                 }[];
-                activeSignature?: number;
-                activeParameter?: number;
+                activeParameters?: (number | undefined)[];
             };
         }): void;
         verifyFindAllReferences(map: {

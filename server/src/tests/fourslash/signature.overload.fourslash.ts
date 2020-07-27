@@ -17,40 +17,38 @@
 ////
 //// foo(1, 2, someVar[|/*o4*/|]   , 4, 5, 6, 7, 8)
 
-const overloadedSignatures = [
-    {
-        label: '(x: int) -> int',
-        parameters: ['x: int'],
-    },
-    {
-        label: '(x: int, y: int) -> str',
-        parameters: ['x: int', 'y: int'],
-    },
-    {
-        label: '(*args) -> None',
-        parameters: ['*args'],
-    },
-];
+{
+    const overloadedSignatures = [
+        {
+            label: '(x: int) -> int',
+            parameters: ['x: int'],
+        },
+        {
+            label: '(x: int, y: int) -> str',
+            parameters: ['x: int', 'y: int'],
+        },
+        {
+            label: '(*args) -> None',
+            parameters: ['*args'],
+        },
+    ];
 
-helper.verifySignature({
-    o1: {
-        signatures: overloadedSignatures,
-        activeParameter: 0,
-        activeSignature: 0,
-    },
-    o2: {
-        signatures: overloadedSignatures,
-        activeParameter: 1,
-        activeSignature: 1,
-    },
-    o3: {
-        signatures: overloadedSignatures,
-        activeParameter: 0,
-        activeSignature: 2,
-    },
-    o4: {
-        signatures: overloadedSignatures,
-        activeParameter: 0,
-        activeSignature: 2,
-    },
-});
+    helper.verifySignature({
+        o1: {
+            signatures: overloadedSignatures,
+            activeParameters: [0, 0, 0],
+        },
+        o2: {
+            signatures: overloadedSignatures,
+            activeParameters: [undefined, 1, 0],
+        },
+        o3: {
+            signatures: overloadedSignatures,
+            activeParameters: [undefined, undefined, 0],
+        },
+        o4: {
+            signatures: overloadedSignatures,
+            activeParameters: [undefined, undefined, 0],
+        },
+    });
+}

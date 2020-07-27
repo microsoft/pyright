@@ -13,53 +13,48 @@
 ////
 //// x = 1234[|/*sNoCall*/|]
 
-const simpleSignatures = [
-    {
-        label: '(x: int, y: int) -> int',
-        parameters: ['x: int', 'y: int'],
-    },
-];
+{
+    const simpleSignatures = [
+        {
+            label: '(x: int, y: int) -> int',
+            parameters: ['x: int', 'y: int'],
+        },
+    ];
 
-helper.verifySignature({
-    s1: {
-        signatures: simpleSignatures,
-        activeParameter: 0,
-        activeSignature: 0,
-    },
-    s2: {
-        signatures: simpleSignatures,
-        activeParameter: 1,
-        activeSignature: 0,
-    },
-    s3: {
-        signatures: simpleSignatures,
-        activeParameter: 0,
-        activeSignature: 0,
-    },
-    s4: {
-        signatures: simpleSignatures,
-        activeParameter: 0,
-        activeSignature: 0,
-    },
-    s5: {
-        signatures: simpleSignatures,
-        activeParameter: 1,
-        activeSignature: 0,
-    },
-    s6: {
-        signatures: simpleSignatures,
-        activeParameter: 1,
-        activeSignature: 0,
-    },
-    s7: {
-        signatures: simpleSignatures,
-        activeParameter: 1,
-        activeSignature: 0,
-    },
-    sOutside: {
-        noSig: true,
-    },
-    sNoCall: {
-        noSig: true,
-    },
-});
+    helper.verifySignature({
+        s1: {
+            signatures: simpleSignatures,
+            activeParameters: [0],
+        },
+        s2: {
+            signatures: simpleSignatures,
+            activeParameters: [1],
+        },
+        s3: {
+            signatures: simpleSignatures,
+            activeParameters: [0],
+        },
+        s4: {
+            signatures: simpleSignatures,
+            activeParameters: [0],
+        },
+        s5: {
+            signatures: simpleSignatures,
+            activeParameters: [1],
+        },
+        s6: {
+            signatures: simpleSignatures,
+            activeParameters: [1],
+        },
+        s7: {
+            signatures: simpleSignatures,
+            activeParameters: [1],
+        },
+        sOutside: {
+            noSig: true,
+        },
+        sNoCall: {
+            noSig: true,
+        },
+    });
+}
