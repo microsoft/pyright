@@ -22,76 +22,68 @@
 ////
 //// x([|/*call*/|])
 
-const xInitSignatures = [
-    {
-        label: '(x: bool) -> None',
-        parameters: ['x: bool'],
-    },
-];
+{
+    const xInitSignatures = [
+        {
+            label: '(x: bool) -> None',
+            parameters: ['x: bool'],
+        },
+    ];
 
-const xComplicatedSignatures = [
-    {
-        label: '(a: int, b: int, c: int = 1234, d: str | None = None, **kwargs) -> int | str',
-        parameters: ['a: int', 'b: int', 'c: int = 1234', 'd: str | None = None', '**kwargs'],
-    },
-];
+    const xComplicatedSignatures = [
+        {
+            label: '(a: int, b: int, c: int = 1234, d: str | None = None, **kwargs) -> int | str',
+            parameters: ['a: int', 'b: int', 'c: int = 1234', 'd: str | None = None', '**kwargs'],
+        },
+    ];
 
-const xCallSignatures = [
-    {
-        label: '(z: float) -> complex',
-        parameters: ['z: float'],
-    },
-];
+    const xCallSignatures = [
+        {
+            label: '(z: float) -> complex',
+            parameters: ['z: float'],
+        },
+    ];
 
-helper.verifySignature({
-    init: {
-        signatures: xInitSignatures,
-        activeParameter: 0,
-        activeSignature: 0,
-    },
-    c1: {
-        signatures: xComplicatedSignatures,
-        activeParameter: 0,
-        activeSignature: 0,
-    },
-    c2: {
-        signatures: xComplicatedSignatures,
-        activeParameter: 1,
-        activeSignature: 0,
-    },
-    c3: {
-        signatures: xComplicatedSignatures,
-        activeParameter: 1,
-        activeSignature: 0,
-    },
-    cA: {
-        signatures: xComplicatedSignatures,
-        activeParameter: 0,
-        activeSignature: 0,
-    },
-    cB: {
-        signatures: xComplicatedSignatures,
-        activeParameter: 1,
-        activeSignature: 0,
-    },
-    cX: {
-        signatures: xComplicatedSignatures,
-        activeParameter: 4,
-        activeSignature: 0,
-    },
-    cD: {
-        signatures: xComplicatedSignatures,
-        activeParameter: 3,
-        activeSignature: 0,
-    },
-    cZ: {
-        signatures: xComplicatedSignatures,
-        activeParameter: 4,
-        activeSignature: 0,
-    },
-    call: {
-        signatures: xCallSignatures,
-        activeParameter: 0,
-        activeSignature: 0,
-    },
-});
+    helper.verifySignature({
+        init: {
+            signatures: xInitSignatures,
+            activeParameters: [0],
+        },
+        c1: {
+            signatures: xComplicatedSignatures,
+            activeParameters: [0],
+        },
+        c2: {
+            signatures: xComplicatedSignatures,
+            activeParameters: [1],
+        },
+        c3: {
+            signatures: xComplicatedSignatures,
+            activeParameters: [1],
+        },
+        cA: {
+            signatures: xComplicatedSignatures,
+            activeParameters: [0],
+        },
+        cB: {
+            signatures: xComplicatedSignatures,
+            activeParameters: [1],
+        },
+        cX: {
+            signatures: xComplicatedSignatures,
+            activeParameters: [4],
+        },
+        cD: {
+            signatures: xComplicatedSignatures,
+            activeParameters: [3],
+        },
+        cZ: {
+            signatures: xComplicatedSignatures,
+            activeParameters: [4],
+        },
+        call: {
+            signatures: xCallSignatures,
+            activeParameters: [0],
+        },
+    });
+}

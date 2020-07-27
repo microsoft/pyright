@@ -13,8 +13,7 @@ import { CancellationToken } from 'vscode-languageserver';
 
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
-import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { FunctionType } from '../analyzer/types';
+import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluator';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
@@ -30,12 +29,11 @@ export interface SignatureInfo {
     label: string;
     documentation?: string;
     parameters?: ParamInfo[];
+    activeParameter?: number;
 }
 
 export interface SignatureHelpResults {
     signatures: SignatureInfo[];
-    activeSignature?: number;
-    activeParameter?: number;
 }
 
 export class SignatureHelpProvider {
@@ -80,35 +78,15 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        const signatures: SignatureInfo[] = [];
-        let activeSignature: number | undefined;
-        let activeParameter: number | undefined;
-
-        callSignatureInfo.signatures.forEach((signature, index) => {
-            signatures.push(this._makeSignature(signature.type, evaluator));
-
-            // Unfortunately, the LSP specification only allows a single active overload
-            // with a single active parameter. Since overloads in Python can have wildly
-            // different looking signatures, this isn't enough, and having a per-overload
-            // active parameter would be preferred. In lieu of this, just mark the first
-            // overload containing the active parameter as active and hope for the best.
-            if (activeSignature === undefined && signature.activeParam) {
-                const paramIndex = signature.type.details.parameters.indexOf(signature.activeParam);
-                if (paramIndex !== -1) {
-                    activeSignature = index;
-                    activeParameter = paramIndex;
-                }
-            }
-        });
+        const signatures = callSignatureInfo.signatures.map((sig) => this._makeSignature(sig, evaluator));
 
         return {
             signatures,
-            activeSignature,
-            activeParameter,
         };
     }
 
-    private static _makeSignature(functionType: FunctionType, evaluator: TypeEvaluator): SignatureInfo {
+    private static _makeSignature(signature: CallSignature, evaluator: TypeEvaluator): SignatureInfo {
+        const functionType = signature.type;
         const stringParts = evaluator.printFunctionParts(functionType);
         const parameters: ParamInfo[] = [];
         const functionDocString = functionType.details.docString;
@@ -130,10 +108,19 @@ export class SignatureHelpProvider {
 
         label += ') -> ' + stringParts[1];
 
+        let activeParameter: number | undefined;
+        if (signature.activeParam) {
+            activeParameter = functionType.details.parameters.indexOf(signature.activeParam);
+            if (activeParameter === -1) {
+                activeParameter = undefined;
+            }
+        }
+
         const sigInfo: SignatureInfo = {
             label,
             parameters,
             documentation: functionDocString,
+            activeParameter,
         };
 
         return sigInfo;
