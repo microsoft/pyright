@@ -1311,7 +1311,10 @@ export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
             }
         }
 
-        if (type.details.declaredReturnType && containsUnknown(type.details.declaredReturnType)) {
+        if (
+            type.details.declaredReturnType &&
+            containsUnknown(type.details.declaredReturnType, false, recursionCount + 1)
+        ) {
             return true;
         }
 
