@@ -490,6 +490,12 @@ test('Function10', () => {
     validateResults(analysisResults, 1);
 });
 
+test('Function11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function11.py']);
+
+    validateResults(analysisResults, 2);
+});
+
 test('Annotations1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py']);
 

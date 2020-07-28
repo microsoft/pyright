@@ -8328,6 +8328,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // walk the contents of the function, return statements can be
         // validated against this type.
         if (node.returnTypeAnnotation) {
+            // Temporarily set the return type to unknown in case of recursion.
+            functionType.details.declaredReturnType = UnknownType.create();
+
             const returnType = getTypeOfAnnotation(node.returnTypeAnnotation);
             functionType.details.declaredReturnType = returnType;
         } else {
@@ -11179,9 +11182,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (decl.type !== DeclarationType.Alias) {
                     // Is the declaration in the same execution scope as the "usageNode" node?
                     const usageScope = ParseTreeUtils.getExecutionScopeNode(node);
-                    const declScope = ParseTreeUtils.getExecutionScopeNode(decl.node);
+                    const declNode =
+                        decl.type === DeclarationType.Class || decl.type === DeclarationType.Function
+                            ? decl.node.name
+                            : decl.node;
+                    const declScope = ParseTreeUtils.getExecutionScopeNode(declNode);
                     if (usageScope === declScope) {
-                        if (!isFlowPathBetweenNodes(decl.node, node)) {
+                        if (!isFlowPathBetweenNodes(declNode, node)) {
                             return false;
                         }
                     }
