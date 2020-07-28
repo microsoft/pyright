@@ -7,7 +7,7 @@ In Python, a _symbol_ is any name that is not a keyword. Symbols can represent c
 Symbols are defined within _scopes_. A scope is associated with a block of code and defines which symbols are visible to that code block. Scopes can be “nested” allowing code to see symbols within its immediate scope and all “outer” scopes.
 
 The following constructs within Python define a scope:
-1. The “builtins” scope is always present and is always the outermost scope. It is pre-populated by the Python interpreter with symbols like “int” and “list.
+1. The “builtins” scope is always present and is always the outermost scope. It is pre-populated by the Python interpreter with symbols like “int” and “list”.
 2. The module scope (sometimes called the “global” scope) is defined by the current source code file.
 3. Each class defines its own scope. Symbols that represent methods, class variables, or instance variables appear within a class scope.
 4. Each function and lambda defines its own scope. The function’s parameters are symbols within its scope, as are any variables defined within the function.
@@ -24,28 +24,28 @@ Consider the following example:
 def func1(p1: float, p2: str, p3, **p4) -> None:
     var1: int = p1    # This is a type violation
     var2: str = p2    # This is allowed because the types match
-    var2: int         # This is allowed because it redeclares var2
+    var2: int         # This is an error because it redeclares var2
     var3 = p1         # var3 does not have a declared type
     return var1       # This is a type violation
 ```
 
-Symbol    | Symbol Type   | Scope     | Declared Type
-----------|---------------|-----------|----------------------------------------------------
-func1     | Function      | Module    | (float, str, Any, Dict[str, Any]) -> None
-p1        | Parameter     | func1     | float
-p2        | Parameter     | func1     | str
-p3        | Parameter     | func1     | <none>
-p4        | Parameter     | func1     | <none>
-var1      | Variable      | func1     | int
-var2      | Variable      | func1     | str
-var3      | Variable      | func1     | <none>
+Symbol    | Symbol Category | Scope     | Declared Type
+----------|-----------------|-----------|----------------------------------------------------
+func1     | Function        | Module    | (float, str, Any, Dict[str, Any]) -> None
+p1        | Parameter       | func1     | float
+p2        | Parameter       | func1     | str
+p3        | Parameter       | func1     | <none>
+p4        | Parameter       | func1     | <none>
+var1      | Variable        | func1     | int
+var2      | Variable        | func1     | str
+var3      | Variable        | func1     | <none>
 
 
 Note that once a symbol’s type is declared, it cannot be redeclared to a different type.
 
 ## Type Inference
 
-Some languages require every symbol to be explicitly typed. Python allows a symbol to be bound to different types at runtime. A symbol’s type doesn’t need to declared statically.
+Some languages require every symbol to be explicitly typed. Python allows a symbol to be bound to different values at runtime, so its type can change over time. A symbol’s type doesn’t need to declared statically.
 
 When Pyright encounters a symbol with no type declaration, it attempts to _infer_ the type based on the values assigned to it. As we will see below, type inference cannot always determine the correct (intended) type, so type annotations are still required in some cases. Furthermore, type inference can require significant computation, so it is much less efficient than when type annotations are provided.
 
@@ -86,13 +86,13 @@ else:
 
 ### Ambiguous Type Inference
 
-In some cases, an expression’s type is ambiguous. For example, what is the type of the expression `[]`? Is it `List[None]`, `List[int]`, `List[Any]`, `Sequence[Any]`, `Iterable[Any]`? These ambiguities can lead to unintended type violations. Pyright uses several techniques for reducing these ambiguities based on contextual information. Heuristics are used in other cases.
+In some cases, an expression’s type is ambiguous. For example, what is the type of the expression `[]`? Is it `List[None]`, `List[int]`, `List[Any]`, `Sequence[Any]`, `Iterable[Any]`? These ambiguities can lead to unintended type violations. Pyright uses several techniques for reducing these ambiguities based on contextual information. In the absence of contextual information, heuristics are used.
 
 ### Bidirectional Type Inference (Expected Types)
 
-One powerful technique the Pyright uses to eliminate type inference ambiguities is _bidirectional inference_. This technique makes use of an “expected type”.
+One powerful technique Pyright uses to eliminate type inference ambiguities is _bidirectional inference_. This technique makes use of an “expected type”.
 
-As we saw above, the type of the expression `[]` is ambiguous, but if this expression is passed as an argument to a function, and the parameter is annotated with the type `List[int]`, Pyright can now assume that the type of `[]` in this context must be `List[int]`. Ambiguity eliminated!
+As we saw above, the type of the expression `[]` is ambiguous, but if this expression is passed as an argument to a function, and the corresponding parameter is annotated with the type `List[int]`, Pyright can now assume that the type of `[]` in this context must be `List[int]`. Ambiguity eliminated!
 
 This technique is called “bidirectional inference” because type inference for an assignment normally proceeds by first determining the type of the right-hand side (RHS) of the assignment, which then informs the type of the left-hand side (LHS) of the assignment. With bidirectional inference, if the LHS of an assignment has a declared type, it can influence the inferred type of the RHS.
 
@@ -109,7 +109,7 @@ var6: Tuple[float, ...] = (3,)  # Type of RHS is now Tuple[float, ...]
 
 ### Return Type Inference
 
-As with variable assignments, function return types can be inferred from the `return` statements found within that function. The returned type is assumed to be the union of all types returned from all `return` statements. If a `return` statement is not followed by an expression, it is assumed to return `None`. Likewise, if the function does not end in a `return` statement, and it is possible for the execution to the end of the function, an implicit `return None` is assumed.
+As with variable assignments, function return types can be inferred from the `return` statements found within that function. The returned type is assumed to be the union of all types returned from all `return` statements. If a `return` statement is not followed by an expression, it is assumed to return `None`. Likewise, if the function does not end in a `return` statement, and the end of the function is reachable, an implicit `return None` is assumed.
 
 ```
 # This function has two explicit return statements and one implicit
