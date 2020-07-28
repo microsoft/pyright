@@ -220,6 +220,18 @@ export class Checker extends ParseTreeWalker {
                 }
             });
 
+            // If this is a stub, ensure that the return type is specified.
+            if (this._fileInfo.isStubFile) {
+                if (!node.returnTypeAnnotation) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
+                        DiagnosticRule.reportUnknownParameterType,
+                        Localizer.Diagnostic.returnTypeUnknown(),
+                        node.name
+                    );
+                }
+            }
+
             if (containingClassNode) {
                 this._validateMethod(node, functionTypeResult.functionType, containingClassNode);
             }
