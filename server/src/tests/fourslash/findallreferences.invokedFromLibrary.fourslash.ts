@@ -8,7 +8,7 @@
 // @filename: testLib1/__init__.py
 // @library: true
 //// class [|/*marker*/Test1|]:
-////    def M(self, a: [|Test1|]):
+////    def M(self, a: '[|Test1|]'):
 ////        pass
 
 // @filename: testLib2/__init__.py

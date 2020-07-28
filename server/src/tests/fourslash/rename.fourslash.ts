@@ -7,7 +7,7 @@
 
 // @filename: test.py
 //// class [|Test1|]:
-////    def M(self, a: [|Test1|]):
+////    def M(self, a: '[|Test1|]'):
 ////     pass
 
 // @filename: test2.py
