@@ -4572,8 +4572,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const typeVarMap = new TypeVarMap();
 
             if (expectedType) {
-                // Prepopulate the typeVarMap based on the expected type.
-                canAssignType(ObjectType.create(type), expectedType, new DiagnosticAddendum(), typeVarMap);
+                populateTypeVarMapBasedOnExpectedType(ObjectType.create(type), expectedType, typeVarMap);
             }
 
             const callResult = validateCallArguments(
@@ -4742,6 +4741,80 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         return type;
+    }
+
+    // In cases where the expected type is a specialized base class of the
+    // source type, we need to determine which type arguments in the derived
+    // class will make it compatible with the specialized base class. This method
+    // performs this reverse mapping of type arguments and populates the type var
+    // map for the target type.
+    function populateTypeVarMapBasedOnExpectedType(type: ObjectType, expectedType: Type, typeVarMap: TypeVarMap) {
+        // It's common for the expected type to be Optional. Remove the None
+        // to see if the resulting type is an object.
+        const expectedTypeWithoutNone = removeNoneFromUnion(expectedType);
+
+        // If the resulting type isn't an object, we can't proceed.
+        if (expectedTypeWithoutNone.category !== TypeCategory.Object) {
+            return;
+        }
+
+        // If the target type isn't generic, there's nothing for us to do.
+        if (!requiresSpecialization(type)) {
+            return;
+        }
+
+        // If the expected type is generic (not specialized), we can't proceed.
+        const expectedTypeArgs = expectedTypeWithoutNone.classType.typeArguments;
+        if (expectedTypeArgs === undefined) {
+            return;
+        }
+
+        // If the expected type is the same as the target type (commonly the case),
+        // we can use a faster method.
+        if (ClassType.isSameGenericClass(expectedTypeWithoutNone.classType, type.classType)) {
+            canAssignType(type, expectedTypeWithoutNone, new DiagnosticAddendum(), typeVarMap);
+            return;
+        }
+
+        // Create a generic (not specialized) version of the expected type.
+        const genericExpectedType = ClassType.cloneForSpecialization(
+            expectedTypeWithoutNone.classType,
+            undefined,
+            /* isTypeArgumentExplicit */ false
+        );
+
+        // For each type param in the target type, create a placeholder type variable.
+        const typeArgs = type.classType.details.typeParameters.map((_, index) => {
+            const typeVar = TypeVarType.createInstance(`__${index}`, /* isParamSpec */ false, /* isSynthesized */ true);
+            typeVar.synthesizedIndex = index;
+            return typeVar;
+        });
+
+        const specializedType = ClassType.cloneForSpecialization(
+            type.classType,
+            typeArgs,
+            /* isTypeArgumentExplicit */ true
+        );
+        const syntheticTypeVarMap = new TypeVarMap();
+        if (canAssignType(genericExpectedType, specializedType, new DiagnosticAddendum(), syntheticTypeVarMap)) {
+            genericExpectedType.details.typeParameters.forEach((typeVar, index) => {
+                const synthTypeVar = syntheticTypeVarMap.getTypeVar(typeVar.name);
+
+                // Is this one of the synthesized type vars we allocated above? If so,
+                // the type arg that corresponds to this type var maps back to the target type.
+                if (
+                    synthTypeVar &&
+                    synthTypeVar.category === TypeCategory.TypeVar &&
+                    synthTypeVar.isSynthesized &&
+                    synthTypeVar.synthesizedIndex !== undefined
+                ) {
+                    const targetTypeVar = specializedType.details.typeParameters[synthTypeVar.synthesizedIndex];
+                    if (index < expectedTypeArgs.length) {
+                        typeVarMap.setTypeVar(targetTypeVar.name, expectedTypeArgs[index], /* isNarrowable */ false);
+                    }
+                }
+            });
+        }
     }
 
     // Validates that the arguments can be assigned to the call's parameter

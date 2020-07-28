@@ -1100,6 +1100,7 @@ export interface TypeVarType extends TypeBase {
 
     // Internally created (e.g. for pseudo-generic classes)
     isSynthesized: boolean;
+    synthesizedIndex?: number;
 }
 
 export namespace TypeVarType {
