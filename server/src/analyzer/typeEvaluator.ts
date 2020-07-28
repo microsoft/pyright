@@ -6287,6 +6287,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (comparisonOperatorMap[node.operator]) {
             if (
                 node.leftExpression.nodeType === ParseNodeType.BinaryOperation &&
+                !node.leftExpression.parenthesized &&
                 comparisonOperatorMap[node.leftExpression.operator]
             ) {
                 // Evaluate the left expression so it is type checked.

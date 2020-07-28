@@ -754,6 +754,7 @@ export interface BinaryOperationNode extends ParseNodeBase {
     operatorToken: Token;
     operator: OperatorType;
     rightExpression: ExpressionNode;
+    parenthesized?: boolean;
 }
 
 export namespace BinaryOperationNode {

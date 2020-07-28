@@ -21,3 +21,4 @@ requires_bool(foo2)
 # int and datetime cannot be compared.
 foo3 = date1 < date2 < 3
 
+foo4 = (date1 < date2) < 3

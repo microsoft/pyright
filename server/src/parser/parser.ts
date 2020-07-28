@@ -2363,6 +2363,13 @@ export class Parser {
                 diag.addMessage(Localizer.DiagnosticAddendum.useTupleInstead());
                 this._addError(Localizer.Diagnostic.tupleInAnnotation() + diag.getString(), possibleTupleNode);
             }
+
+            if (possibleTupleNode.nodeType === ParseNodeType.BinaryOperation) {
+                // Mark the binary expression as parenthesized so we don't attempt
+                // to use comparison chaining, which isn't appropriate when the
+                // expression is parenthesized.
+                possibleTupleNode.parenthesized = true;
+            }
             return possibleTupleNode;
         } else if (nextToken.type === TokenType.OpenBracket) {
             const listNode = this._parseListAtom();
