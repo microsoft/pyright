@@ -11440,7 +11440,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         } else {
             let allowForwardReferences = false;
-            
+
             // Determine if this node is within a quoted type annotation.
             if (ParseTreeUtils.isWithinTypeAnnotation(node, !isAnnotationEvaluationPostponed(getFileInfo(node)))) {
                 allowForwardReferences = true;
@@ -12157,7 +12157,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         });
 
         // If the dest protocol has type parameters, make sure the source type arguments match.
-        if (typesAreConsistent && destType.details.typeParameters.length > 0) {
+        if (typesAreConsistent && destType.details.typeParameters.length > 0 && destType.typeArguments !== undefined) {
             // Create a specialized version of the protocol defined by the dest and
             // make sure the resulting type args can be assigned.
             const specializedSrcProtocol = specializeType(
@@ -12165,6 +12165,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 genericDestTypeVarMap,
                 /* makeConcrete */ false
             ) as ClassType;
+
             if (!verifyTypeArgumentsAssignable(destType, specializedSrcProtocol, diag, typeVarMap, recursionCount)) {
                 typesAreConsistent = false;
             }
@@ -12928,7 +12929,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (destType.category === TypeCategory.Class) {
             if (srcType.category === TypeCategory.Class) {
-                return canAssignClass(destType, srcType, diag, typeVarMap, flags, recursionCount + 1, false);
+                return canAssignClass(
+                    destType,
+                    srcType,
+                    diag,
+                    typeVarMap,
+                    flags,
+                    recursionCount + 1,
+                    /* reportErrorsUsingObjType */ false
+                );
             }
         }
 
@@ -13010,7 +13019,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 if (
-                    !canAssignClass(destClassType, srcType.classType, diag, typeVarMap, flags, recursionCount + 1, true)
+                    !canAssignClass(
+                        destClassType,
+                        srcType.classType,
+                        diag,
+                        typeVarMap,
+                        flags,
+                        recursionCount + 1,
+                        /* reportErrorsUsingObjType */ true
+                    )
                 ) {
                     return false;
                 }
@@ -13072,7 +13089,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             typeVarMap,
                             flags,
                             recursionCount + 1,
-                            false
+                            /* reportErrorsUsingObjType */ false
                         );
                     }
                 }
