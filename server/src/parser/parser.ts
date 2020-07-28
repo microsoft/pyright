@@ -2995,7 +2995,7 @@ export class Parser {
             if (segment.isExpression) {
                 // Determine if we need to truncate the expression because it
                 // contains formatting directives that start with a ! or :.
-                const segmentExprLength = this._getFormatStringExpressionLength(segment.value);
+                const segmentExprLength = this._getFormatStringExpressionLength(segment.value.trimEnd());
                 const parseTree = this._parseFormatStringSegment(stringToken, segment, 0, segmentExprLength);
                 if (parseTree) {
                     formatExpressions.push(parseTree);

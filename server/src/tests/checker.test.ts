@@ -1713,6 +1713,20 @@ test('FString4', () => {
     validateResults(analysisResults, 0);
 });
 
+test('FString5', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Analyze with Python 3.7 settings. This will generate errors.
+    configOptions.defaultPythonVersion = PythonVersion.V3_7;
+    const analysisResults37 = TestUtils.typeAnalyzeSampleFiles(['fstring5.py'], configOptions);
+    validateResults(analysisResults37, 2);
+
+    // Analyze with Python 3.8 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['fstring5.py'], configOptions);
+    validateResults(analysisResults38, 0);
+});
+
 test('MemberAccess1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess1.py']);
     validateResults(analysisResults, 0);
