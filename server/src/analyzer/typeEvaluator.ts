@@ -702,6 +702,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         checkForCancellation();
 
         let typeResult: TypeResult | undefined;
+        let reportExpectingTypeErrors = (flags & EvaluatorFlags.ExpectingType) !== 0;
 
         switch (node.nodeType) {
             case ParseNodeType.Name: {
@@ -769,6 +770,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         );
                         typeResult = { node, type: UnknownType.create() };
                     }
+
+                    // Don't report expecting type errors again. We will have already
+                    // reported them when analyzing the contents of the string.
+                    reportExpectingTypeErrors = false;
                 } else {
                     // Evaluate the format string expressions in this context.
                     node.strings.forEach((str) => {
@@ -941,7 +946,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             fail(`Unhandled expression type '${ParseTreeUtils.printExpression(node)}'`);
         }
 
-        if (flags & EvaluatorFlags.ExpectingType) {
+        if (reportExpectingTypeErrors) {
             const resultType = transformTypeObjectToClass(typeResult.type);
             if (!TypeBase.isInstantiable(resultType)) {
                 const isEmptyTuple =
