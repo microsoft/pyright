@@ -8550,7 +8550,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         });
 
         // If it's an async function, wrap the return type in an Awaitable or Generator.
-        const preDecoratedType = node.isAsync ? createAwaitableFunction(node, functionType) : functionType;
+        const preDecoratedType = node.isAsync ? createAsyncFunction(node, functionType) : functionType;
 
         // Apply all of the decorators in reverse order.
         decoratedType = preDecoratedType;
@@ -9002,7 +9002,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return type;
     }
 
-    function createAwaitableFunction(node: FunctionNode, functionType: FunctionType): FunctionType {
+    function createAsyncFunction(node: FunctionNode, functionType: FunctionType): FunctionType {
         // Clone the original function and replace its return type with an
         // Awaitable[<returnType>].
         const awaitableFunctionType = FunctionType.clone(functionType);
@@ -9058,10 +9058,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (!awaitableReturnType) {
-            const awaitableType = getTypingType(node, 'Awaitable');
-            if (awaitableType && awaitableType.category === TypeCategory.Class) {
+            // Wrap in a Coroutine, which is a subclass of Awaitable.
+            const coroutineType = getTypingType(node, 'Coroutine');
+            if (coroutineType && coroutineType.category === TypeCategory.Class) {
                 awaitableReturnType = ObjectType.create(
-                    ClassType.cloneForSpecialization(awaitableType, [returnType], /* isTypeArgumentExplicit */ false)
+                    ClassType.cloneForSpecialization(
+                        coroutineType,
+                        [AnyType.create(), AnyType.create(), returnType],
+                        /* isTypeArgumentExplicit */ true
+                    )
                 );
             } else {
                 awaitableReturnType = UnknownType.create();
