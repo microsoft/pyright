@@ -52,6 +52,7 @@ type CachedImportResults = Map<string, ImportResult>;
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
 const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExtensions];
+const stubsSuffix = '-stubs';
 
 export class ImportResolver {
     private _configOptions: ConfigOptions;
@@ -419,7 +420,6 @@ export class ImportResolver {
                         // Handle the case where the symbol was resolved to a stubs package
                         // rather than the real package. We'll strip off the "-stubs" suffix
                         // in this case.
-                        const stubsSuffix = '-stubs';
                         if (parts[1].endsWith(stubsSuffix)) {
                             parts[1] = parts[1].substr(0, parts[1].length - stubsSuffix.length);
                         }
@@ -660,7 +660,6 @@ export class ImportResolver {
         // Handle the case where the symbol was resolved to a stubs package
         // rather than the real package. We'll strip off the "-stubs" suffix
         // in this case.
-        const stubsSuffix = '-stubs';
         if (parts[0].endsWith(stubsSuffix)) {
             parts[0] = parts[0].substr(0, parts[0].length - stubsSuffix.length);
         }
@@ -925,7 +924,7 @@ export class ImportResolver {
                     // separately from their package implementation by appending
                     // the string '-stubs' to its top-level directory name. We'll
                     // look there first.
-                    const stubsDirPath = dirPath + '-stubs';
+                    const stubsDirPath = dirPath + stubsSuffix;
                     foundDirectory =
                         this.fileSystem.existsSync(stubsDirPath) && isDirectory(this.fileSystem, stubsDirPath);
                     if (foundDirectory) {
