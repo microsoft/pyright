@@ -84,6 +84,7 @@ import {
     isNever,
     isNone,
     isTypeSame,
+    isUnknown,
     NoneType,
     ObjectType,
     Type,
@@ -92,7 +93,6 @@ import {
 } from './types';
 import {
     ClassMemberLookupFlags,
-    containsUnknown,
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
     doForSubtypes,
@@ -100,6 +100,7 @@ import {
     getDeclaredGeneratorYieldType,
     isEllipsisType,
     isNoReturnType,
+    isPartlyUnknown,
     isProperty,
     lookUpClassMember,
     makeTypeVarsConcrete,
@@ -193,7 +194,7 @@ export class Checker extends ParseTreeWalker {
                 if (param.name && param.name.value !== '_') {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;
                     if (
-                        paramType.category === TypeCategory.Unknown ||
+                        isUnknown(paramType) ||
                         (paramType.category === TypeCategory.TypeVar && paramType.isSynthesized && !paramType.boundType)
                     ) {
                         this._evaluator.addDiagnostic(
@@ -202,7 +203,7 @@ export class Checker extends ParseTreeWalker {
                             Localizer.Diagnostic.paramTypeUnknown().format({ paramName: param.name.value }),
                             param.name
                         );
-                    } else if (containsUnknown(paramType)) {
+                    } else if (isPartlyUnknown(paramType)) {
                         const diagAddendum = new DiagnosticAddendum();
                         diagAddendum.addMessage(
                             Localizer.DiagnosticAddendum.paramType().format({
@@ -281,14 +282,14 @@ export class Checker extends ParseTreeWalker {
             if (param.name) {
                 const paramType = this._evaluator.getType(param.name);
                 if (paramType) {
-                    if (paramType.category === TypeCategory.Unknown) {
+                    if (isUnknown(paramType)) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportUnknownLambdaType,
                             DiagnosticRule.reportUnknownLambdaType,
                             Localizer.Diagnostic.paramTypeUnknown().format({ paramName: param.name.value }),
                             param.name
                         );
-                    } else if (containsUnknown(paramType)) {
+                    } else if (isPartlyUnknown(paramType)) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportUnknownLambdaType,
                             DiagnosticRule.reportUnknownLambdaType,
@@ -302,14 +303,14 @@ export class Checker extends ParseTreeWalker {
 
         const returnType = this._evaluator.getType(node.expression);
         if (returnType) {
-            if (returnType.category === TypeCategory.Unknown) {
+            if (isUnknown(returnType)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnknownLambdaType,
                     DiagnosticRule.reportUnknownLambdaType,
                     Localizer.Diagnostic.lambdaReturnTypeUnknown(),
                     node.expression
                 );
-            } else if (containsUnknown(returnType)) {
+            } else if (isPartlyUnknown(returnType)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnknownLambdaType,
                     DiagnosticRule.reportUnknownLambdaType,
@@ -416,14 +417,14 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
-            if (returnType.category === TypeCategory.Unknown) {
+            if (isUnknown(returnType)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                     DiagnosticRule.reportUnknownVariableType,
                     Localizer.Diagnostic.returnTypeUnknown(),
                     node.returnExpression!
                 );
-            } else if (containsUnknown(returnType)) {
+            } else if (isPartlyUnknown(returnType)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                     DiagnosticRule.reportUnknownVariableType,
@@ -1606,14 +1607,14 @@ export class Checker extends ParseTreeWalker {
             let declaredReturnType = functionType.details.declaredReturnType;
 
             if (declaredReturnType) {
-                if (declaredReturnType.category === TypeCategory.Unknown) {
+                if (isUnknown(declaredReturnType)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                         DiagnosticRule.reportUnknownVariableType,
                         Localizer.Diagnostic.declaredReturnTypeUnknown(),
                         node.returnTypeAnnotation
                     );
-                } else if (containsUnknown(declaredReturnType)) {
+                } else if (isPartlyUnknown(declaredReturnType)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                         DiagnosticRule.reportUnknownVariableType,
@@ -1674,14 +1675,14 @@ export class Checker extends ParseTreeWalker {
             }
         } else {
             const inferredReturnType = this._evaluator.getFunctionInferredReturnType(functionType);
-            if (inferredReturnType.category === TypeCategory.Unknown) {
+            if (isUnknown(inferredReturnType)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,
                     Localizer.Diagnostic.returnTypeUnknown(),
                     node.name
                 );
-            } else if (containsUnknown(inferredReturnType)) {
+            } else if (isPartlyUnknown(inferredReturnType)) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
                     DiagnosticRule.reportUnknownParameterType,

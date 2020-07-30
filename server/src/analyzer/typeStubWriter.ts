@@ -533,7 +533,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         } else if (node.defaultValue) {
             // Try to infer the param type based on the default value.
             const typeOfDefault = this._evaluator.getType(node.defaultValue);
-            if (typeOfDefault && !TypeUtils.containsUnknown(typeOfDefault)) {
+            if (typeOfDefault && !TypeUtils.isPartlyUnknown(typeOfDefault)) {
                 if (isNone(typeOfDefault)) {
                     paramType = 'Optional[Any]';
                     this._addImplicitImportFrom('typing', ['Any', 'Optional']);

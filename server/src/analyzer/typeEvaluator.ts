@@ -128,6 +128,7 @@ import {
     isTypeSame,
     isUnbound,
     isUnionableType,
+    isUnknown,
     LiteralValue,
     maxTypeRecursionCount,
     ModuleType,
@@ -155,7 +156,6 @@ import {
     ClassMember,
     ClassMemberLookupFlags,
     computeMroLinearization,
-    containsUnknown,
     convertToInstance,
     derivesFromClassRecursive,
     doForSubtypes,
@@ -170,6 +170,7 @@ import {
     isNoReturnType,
     isOptionalType,
     isParamSpecType,
+    isPartlyUnknown,
     isProperty,
     lookUpClassMember,
     lookUpObjectMember,
@@ -2900,7 +2901,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // If the type is initially unbound, see if there's a parent class that
             // potentially initialized the value.
             let initialType = memberTypeResult.type;
-            if (initialType.category === TypeCategory.Unbound) {
+            if (isUnbound(initialType)) {
                 const baseType = makeTypeVarsConcrete(baseTypeResult.type);
 
                 let classMemberInfo: ClassMember | undefined;
@@ -3015,7 +3016,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // the case of a module reference because if it's truly unbound,
                     // that error will be reported within the module and should not
                     // leak into other modules that import it.
-                    if (type.category === TypeCategory.Unbound) {
+                    if (isUnbound(type)) {
                         type = UnknownType.create();
                     }
                 } else {
@@ -3058,7 +3059,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             node.memberName
                         );
                         return undefined;
-                    } else if (subtype.category === TypeCategory.Unbound) {
+                    } else if (isUnbound(subtype)) {
                         // Don't do anything if it's unbound. The error will already
                         // be reported elsewhere.
                         return undefined;
@@ -4648,7 +4649,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             // __new__ method (where "better" means that the type arguments
                             // are all known), stick with the __init__ result.
                             if (
-                                (!containsUnknown(newReturnType) && !requiresSpecialization(newReturnType)) ||
+                                (!isPartlyUnknown(newReturnType) && !requiresSpecialization(newReturnType)) ||
                                 returnType === undefined
                             ) {
                                 returnType = newReturnType;
@@ -5076,10 +5077,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // the positional-only parameters, force the named parameters
         // into positional-only slots so we can report errors for them.
         if (positionalOnlyIndex >= 0 && positionalArgCount < positionalOnlyIndex) {
-            const firstParamWithDefault = typeParams.findIndex(param => param.hasDefault);
+            const firstParamWithDefault = typeParams.findIndex((param) => param.hasDefault);
             const positionOnlyWithoutDefaultsCount =
-                (firstParamWithDefault >= 0 && firstParamWithDefault < positionalOnlyIndex) ?
-                    firstParamWithDefault : positionalOnlyIndex;
+                firstParamWithDefault >= 0 && firstParamWithDefault < positionalOnlyIndex
+                    ? firstParamWithDefault
+                    : positionalOnlyIndex;
             positionalArgCount = Math.min(positionOnlyWithoutDefaultsCount, argList.length);
         }
 
@@ -5436,7 +5438,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             // If the expected type is unknown, don't use an expected type. Instead,
             // use default rules for evaluating the expression type.
-            if (expectedType.category === TypeCategory.Unknown) {
+            if (isUnknown(expectedType)) {
                 expectedType = undefined;
             }
 
@@ -5520,14 +5522,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 );
             }
 
-            if (simplifiedType.category === TypeCategory.Unknown) {
+            if (isUnknown(simplifiedType)) {
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
                     DiagnosticRule.reportUnknownArgumentType,
                     Localizer.Diagnostic.argTypeUnknown() + diagAddendum.getString(),
                     argParam.errorNode
                 );
-            } else if (containsUnknown(simplifiedType, true)) {
+            } else if (isPartlyUnknown(simplifiedType, true)) {
                 // Don't report an error if the type is a partially-specialized
                 // class. This comes up frequently in cases where a type is passed
                 // as an argument (e.g. "defaultdict(list)").
@@ -5535,7 +5537,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // If the parameter type is also partially unknown, don't report
                 // the error because it's likely that the partially-unknown type
                 // arose due to bidirectional type matching.
-                if (!containsUnknown(argParam.paramType) && simplifiedType.category !== TypeCategory.Class) {
+                if (!isPartlyUnknown(argParam.paramType) && simplifiedType.category !== TypeCategory.Class) {
                     diagAddendum.addMessage(
                         Localizer.DiagnosticAddendum.argumentType().format({ type: printType(simplifiedType) })
                     );
@@ -6461,10 +6463,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return doForSubtypes(rightType, (rightSubtype) => {
                 if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                     // If either type is "Unknown" (versus Any), propagate the Unknown.
-                    if (
-                        leftSubtype.category === TypeCategory.Unknown ||
-                        rightSubtype.category === TypeCategory.Unknown
-                    ) {
+                    if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
                         return UnknownType.create();
                     } else {
                         return AnyType.create();
@@ -6500,10 +6499,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return doForSubtypes(rightType, (rightSubtype) => {
                     if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                         // If either type is "Unknown" (versus Any), propagate the Unknown.
-                        if (
-                            leftSubtype.category === TypeCategory.Unknown ||
-                            rightSubtype.category === TypeCategory.Unknown
-                        ) {
+                        if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
                             return UnknownType.create();
                         } else {
                             return AnyType.create();
@@ -6537,10 +6533,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return doForSubtypes(rightType, (rightSubtype) => {
                     if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                         // If either type is "Unknown" (versus Any), propagate the Unknown.
-                        if (
-                            leftSubtype.category === TypeCategory.Unknown ||
-                            rightSubtype.category === TypeCategory.Unknown
-                        ) {
+                        if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
                             return UnknownType.create();
                         } else {
                             return AnyType.create();
@@ -6563,10 +6556,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return doForSubtypes(rightType, (rightSubtype) => {
                     if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                         // If either type is "Unknown" (versus Any), propagate the Unknown.
-                        if (
-                            leftSubtype.category === TypeCategory.Unknown ||
-                            rightSubtype.category === TypeCategory.Unknown
-                        ) {
+                        if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
                             return UnknownType.create();
                         } else {
                             return AnyType.create();
@@ -6623,10 +6613,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     return doForSubtypes(leftType, (leftSubtype) => {
                         if (isAnyOrUnknown(rightSubtype) || isAnyOrUnknown(leftSubtype)) {
                             // If either type is "Unknown" (versus Any), propagate the Unknown.
-                            if (
-                                leftSubtype.category === TypeCategory.Unknown ||
-                                rightSubtype.category === TypeCategory.Unknown
-                            ) {
+                            if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
                                 return UnknownType.create();
                             } else {
                                 return AnyType.create();
@@ -7204,9 +7191,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // to avoid confusion.
         const simplifiedType = removeUnboundFromUnion(type);
 
-        if (simplifiedType.category === TypeCategory.Unknown) {
+        if (isUnknown(simplifiedType)) {
             addDiagnostic(diagLevel, rule, Localizer.Diagnostic.typeUnknown().format({ name: nameValue }), errorNode);
-        } else if (containsUnknown(simplifiedType)) {
+        } else if (isPartlyUnknown(simplifiedType)) {
             const diagAddendum = new DiagnosticAddendum();
             diagAddendum.addMessage(
                 Localizer.DiagnosticAddendum.typeOfSymbol().format({ name: nameValue, type: printType(simplifiedType) })
@@ -8035,7 +8022,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     argType = removeUnboundFromUnion(argType);
                 }
 
-                if (!isAnyOrUnknown(argType) && argType.category !== TypeCategory.Unbound) {
+                if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
                     // Handle "Type[X]" object.
                     argType = transformTypeObjectToClass(argType);
                     if (argType.category !== TypeCategory.Class) {
@@ -8089,11 +8076,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 }
 
-                if (
-                    argType.category === TypeCategory.Unknown ||
-                    (argType.category === TypeCategory.Union &&
-                        argType.subtypes.some((t) => t.category === TypeCategory.Unknown))
-                ) {
+                if (isUnknown(argType)) {
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUntypedBaseClass,
                         DiagnosticRule.reportUntypedBaseClass,
@@ -8103,7 +8086,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 if (isMetaclass) {
-                    if (argType.category === TypeCategory.Class || argType.category === TypeCategory.Unknown) {
+                    if (argType.category === TypeCategory.Class || isUnknown(argType)) {
                         classType.details.metaClass = argType;
                         if (argType.category === TypeCategory.Class) {
                             if (ClassType.isBuiltIn(argType, 'EnumMeta')) {
@@ -8243,7 +8226,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const decorator = node.decorators[i];
 
             const newDecoratedType = applyClassDecorator(decoratedType, classType, decorator);
-            if (newDecoratedType.category === TypeCategory.Unknown) {
+            if (isUnknown(newDecoratedType)) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     addDiagnostic(
@@ -8546,7 +8529,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         paramTypes.forEach((paramType, index) => {
             const paramNameNode = node.parameters[index].name;
             if (paramNameNode) {
-                if (paramType.category === TypeCategory.Unknown) {
+                if (isUnknown(paramType)) {
                     functionType.details.flags |= FunctionTypeFlags.UnannotatedParams;
                 }
                 writeTypeCache(paramNameNode, paramType);
@@ -8563,7 +8546,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const decorator = node.decorators[i];
 
             const newDecoratedType = applyFunctionDecorator(decoratedType, functionType, decorator);
-            if (newDecoratedType.category === TypeCategory.Unknown) {
+            if (isUnknown(newDecoratedType)) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     addDiagnostic(
@@ -12013,7 +11996,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // params, try to analyze the function with the provided argument types and
         // attempt to do a better job at inference.
         if (
-            containsUnknown(returnType) &&
+            isPartlyUnknown(returnType) &&
             FunctionType.hasUnannotatedParams(type) &&
             !FunctionType.isStubDefinition(type) &&
             args
@@ -12429,7 +12412,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             // If we've hit an "unknown", all bets are off, and we need to assume
             // that the type is assignable.
-            if (ancestorType.category === TypeCategory.Unknown) {
+            if (isUnknown(ancestorType)) {
                 return true;
             }
 
@@ -12724,7 +12707,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 ) {
                     // No need to narrow. Stick with the existing type unless it's an Unknown,
                     // in which case we'll try to replace it with a known type.
-                    if (!isAnyOrUnknown(curTypeVarMapping) && srcType.category !== TypeCategory.Unknown) {
+                    if (!isAnyOrUnknown(curTypeVarMapping) && !isUnknown(srcType)) {
                         updatedType = curTypeVarMapping;
                     }
                 } else if (
@@ -12755,7 +12738,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     } else {
                         // No need to widen. Stick with the existing type unless it's an Unknown,
                         // in which case we'll replace it with a known type.
-                        if (curTypeVarMapping.category !== TypeCategory.Unknown) {
+                        if (!isUnknown(curTypeVarMapping)) {
                             updatedType = curTypeVarMapping;
                         }
                     }
@@ -12846,7 +12829,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // If the source or dest is unbound, allow the assignment. The
         // error will be reported elsewhere.
-        if (destType.category === TypeCategory.Unbound || srcType.category === TypeCategory.Unbound) {
+        if (isUnbound(destType) || isUnbound(srcType)) {
             return true;
         }
 
@@ -13681,7 +13664,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return true;
         }
 
-        let effectiveSrcType = srcType;
+        let effectiveSrcType: Type = srcType;
 
         if (srcType.category === TypeCategory.TypeVar) {
             if (isTypeSame(srcType, destType)) {
@@ -14222,7 +14205,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // unknowns so we don't see two Any's appear in the union.
                 if ((printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0) {
                     if (subtypes.some((t) => t.category === TypeCategory.Any)) {
-                        subtypes = subtypes.filter((t) => t.category !== TypeCategory.Unknown);
+                        subtypes = subtypes.filter((t) => !isUnknown(t));
                     }
                 }
 

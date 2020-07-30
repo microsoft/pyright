@@ -1147,15 +1147,19 @@ export namespace TypeVarType {
     }
 }
 
-export function isNever(type: Type): boolean {
+export function isNever(type: Type): type is NeverType {
     return type.category === TypeCategory.Never;
 }
 
-export function isNone(type: Type): boolean {
+export function isNone(type: Type): type is NoneType {
     return type.category === TypeCategory.None;
 }
 
-export function isAnyOrUnknown(type: Type): boolean {
+export function isUnknown(type: Type): type is UnknownType {
+    return type.category === TypeCategory.Unknown;
+}
+
+export function isAnyOrUnknown(type: Type): type is AnyType | UnknownType {
     if (type.category === TypeCategory.Any || type.category === TypeCategory.Unknown) {
         return true;
     }
@@ -1167,7 +1171,7 @@ export function isAnyOrUnknown(type: Type): boolean {
     return false;
 }
 
-export function isUnbound(type: Type): boolean {
+export function isUnbound(type: Type): type is UnboundType {
     return type.category === TypeCategory.Unbound;
 }
 
@@ -1392,7 +1396,7 @@ export function removeUnknownFromUnion(type: Type): Type {
 // If the type is a union, remove an "unbound" type from the union,
 // returning only the known types.
 export function removeUnboundFromUnion(type: Type): Type {
-    return removeFromUnion(type, (t: Type) => t.category === TypeCategory.Unbound);
+    return removeFromUnion(type, (t: Type) => isUnbound(t));
 }
 
 // If the type is a union, remove an "None" type from the union,

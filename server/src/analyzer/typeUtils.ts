@@ -20,6 +20,7 @@ import {
     isAnyOrUnknown,
     isNone,
     isTypeSame,
+    isUnknown,
     maxTypeRecursionCount,
     ModuleType,
     NeverType,
@@ -1256,19 +1257,19 @@ export function getMembersForModule(moduleType: ModuleType, symbolTable: SymbolT
     });
 }
 
-export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = false, recursionCount = 0): boolean {
+export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = false, recursionCount = 0): boolean {
     if (recursionCount > maxTypeRecursionCount) {
         return false;
     }
 
-    if (type.category === TypeCategory.Unknown) {
+    if (isUnknown(type)) {
         return true;
     }
 
     // See if a union contains an unknown type.
     if (type.category === TypeCategory.Union) {
         for (const subtype of type.subtypes) {
-            if (containsUnknown(subtype, allowUnknownTypeArgsForClasses, recursionCount + 1)) {
+            if (isPartlyUnknown(subtype, allowUnknownTypeArgsForClasses, recursionCount + 1)) {
                 return true;
             }
         }
@@ -1278,13 +1279,13 @@ export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
 
     // See if an object or class has an unknown type argument.
     if (type.category === TypeCategory.Object) {
-        return containsUnknown(type.classType, false, recursionCount + 1);
+        return isPartlyUnknown(type.classType, false, recursionCount + 1);
     }
 
     if (type.category === TypeCategory.Class) {
         if (type.typeArguments && !allowUnknownTypeArgsForClasses && !ClassType.isPseudoGenericClass(type)) {
             for (const argType of type.typeArguments) {
-                if (containsUnknown(argType, allowUnknownTypeArgsForClasses, recursionCount + 1)) {
+                if (isPartlyUnknown(argType, allowUnknownTypeArgsForClasses, recursionCount + 1)) {
                     return true;
                 }
             }
@@ -1296,7 +1297,7 @@ export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     // See if a function has an unknown type.
     if (type.category === TypeCategory.OverloadedFunction) {
         return type.overloads.some((overload) => {
-            return containsUnknown(overload, false, recursionCount + 1);
+            return isPartlyUnknown(overload, false, recursionCount + 1);
         });
     }
 
@@ -1305,7 +1306,7 @@ export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
             // Ignore parameters such as "*" that have no name.
             if (type.details.parameters[i].name) {
                 const paramType = FunctionType.getEffectiveParameterType(type, i);
-                if (containsUnknown(paramType, false, recursionCount + 1)) {
+                if (isPartlyUnknown(paramType, false, recursionCount + 1)) {
                     return true;
                 }
             }
@@ -1313,7 +1314,7 @@ export function containsUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
 
         if (
             type.details.declaredReturnType &&
-            containsUnknown(type.details.declaredReturnType, false, recursionCount + 1)
+            isPartlyUnknown(type.details.declaredReturnType, false, recursionCount + 1)
         ) {
             return true;
         }
