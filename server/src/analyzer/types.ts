@@ -620,7 +620,7 @@ export namespace ClassType {
 
         const aliasedSubclass = subclassType.details.aliasClass || subclassType;
         for (const baseClass of aliasedSubclass.details.baseClasses) {
-            if (baseClass.category === TypeCategory.Class) {
+            if (isClass(baseClass)) {
                 if (isDerivedFrom(baseClass, parentClassType, inheritanceChain)) {
                     if (inheritanceChain) {
                         inheritanceChain.push(subclassType);
@@ -1187,6 +1187,10 @@ export function isPossiblyUnbound(type: Type): boolean {
     return false;
 }
 
+export function isClass(type: Type): type is ClassType {
+    return type.category === TypeCategory.Class;
+}
+
 export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolean {
     if (type1.category !== type2.category) {
         return false;
@@ -1462,12 +1466,12 @@ export function combineTypes(types: Type[]): Type {
     expandedTypes = expandedTypes.sort((type1, type2) => {
         if (
             (type1.category === TypeCategory.Object && type1.classType.literalValue !== undefined) ||
-            (type1.category === TypeCategory.Class && type1.literalValue !== undefined)
+            (isClass(type1) && type1.literalValue !== undefined)
         ) {
             return 1;
         } else if (
             (type2.category === TypeCategory.Object && type2.classType.literalValue !== undefined) ||
-            (type2.category === TypeCategory.Class && type2.literalValue !== undefined)
+            (isClass(type2) && type2.literalValue !== undefined)
         ) {
             return -1;
         }
@@ -1513,7 +1517,7 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
         return true;
     }
 
-    if (srcType.category === TypeCategory.Class && srcType.literalValue !== undefined) {
+    if (isClass(srcType) && srcType.literalValue !== undefined) {
         // Strip the literal.
         srcType = ClassType.cloneWithLiteral(srcType, undefined);
         return isTypeSame(destType, srcType);

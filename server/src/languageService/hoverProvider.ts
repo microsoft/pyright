@@ -23,7 +23,7 @@ import {
     getOverloadedFunctionDocStrings,
 } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { Type, TypeCategory, UnknownType } from '../analyzer/types';
+import { isClass, Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { ClassMemberLookupFlags, isProperty, lookUpClassMember } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
@@ -237,7 +237,7 @@ export class HoverProvider {
 
         // Get the init method for this class.
         const classType = evaluator.getType(node);
-        if (!classType || classType.category !== TypeCategory.Class) {
+        if (!classType || !isClass(classType)) {
             return false;
         }
 
@@ -300,7 +300,7 @@ export class HoverProvider {
 
         if (type.category === TypeCategory.Module) {
             docStrings.push(getModuleDocString(type, resolvedDecl, sourceMapper));
-        } else if (type.category === TypeCategory.Class) {
+        } else if (isClass(type)) {
             docStrings.push(getClassDocString(type, resolvedDecl, sourceMapper));
         } else if (type.category === TypeCategory.Function) {
             docStrings.push(getFunctionDocStringFromType(type, sourceMapper));

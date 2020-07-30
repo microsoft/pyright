@@ -21,7 +21,7 @@ import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { ClassType, TypeCategory } from '../analyzer/types';
+import { ClassType, isClass, TypeCategory } from '../analyzer/types';
 import { specializeType } from '../analyzer/typeUtils';
 import {
     ClassMemberLookupFlags,
@@ -99,7 +99,7 @@ export class CallHierarchyProvider {
         } else if (declaration.type === DeclarationType.Class) {
             // Look up the __init__ method for this class.
             const classType = evaluator.getTypeForDeclaration(declaration);
-            if (classType?.category === TypeCategory.Class) {
+            if (classType && isClass(classType)) {
                 // Don't perform a recursive search of parent classes in this
                 // case because we don't want to find an inherited __init__
                 // method defined in a different module.

@@ -81,6 +81,7 @@ import {
     combineTypes,
     FunctionType,
     isAnyOrUnknown,
+    isClass,
     isNever,
     isNone,
     isTypeSame,
@@ -445,7 +446,7 @@ export class Checker extends ParseTreeWalker {
         // Wrap the yield type in an Iterator.
         let adjYieldType = yieldType;
         const iteratorType = this._evaluator.getBuiltInType(node, 'Iterator');
-        if (yieldType && iteratorType.category === TypeCategory.Class) {
+        if (yieldType && isClass(iteratorType)) {
             adjYieldType = ObjectType.create(
                 ClassType.cloneForSpecialization(iteratorType, [yieldType], /* isTypeArgumentExplicit */ false)
             );
@@ -474,12 +475,12 @@ export class Checker extends ParseTreeWalker {
             const exceptionType = this._evaluator.getType(node.typeExpression);
 
             // Validate that the argument of "raise" is an exception object or class.
-            if (exceptionType && baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
+            if (exceptionType && baseExceptionType && isClass(baseExceptionType)) {
                 const diagAddendum = new DiagnosticAddendum();
 
                 doForSubtypes(exceptionType, (subtype) => {
                     if (!isAnyOrUnknown(subtype)) {
-                        if (subtype.category === TypeCategory.Class) {
+                        if (isClass(subtype)) {
                             if (!derivesFromClassRecursive(subtype, baseExceptionType, /* ignoreUnknown */ false)) {
                                 diagAddendum.addMessage(
                                     Localizer.Diagnostic.exceptionTypeIncorrect().format({
@@ -528,7 +529,7 @@ export class Checker extends ParseTreeWalker {
             const exceptionType = this._evaluator.getType(node.valueExpression);
 
             // Validate that the argument of "raise" is an exception object or None.
-            if (exceptionType && baseExceptionType && baseExceptionType.category === TypeCategory.Class) {
+            if (exceptionType && baseExceptionType && isClass(baseExceptionType)) {
                 const diagAddendum = new DiagnosticAddendum();
 
                 doForSubtypes(exceptionType, (subtype) => {
@@ -774,7 +775,7 @@ export class Checker extends ParseTreeWalker {
     private _validateExceptionType(exceptionType: Type, errorNode: ParseNode) {
         const baseExceptionType = this._evaluator.getBuiltInType(errorNode, 'BaseException');
         const derivesFromBaseException = (classType: ClassType) => {
-            if (!baseExceptionType || !(baseExceptionType.category === TypeCategory.Class)) {
+            if (!baseExceptionType || !isClass(baseExceptionType)) {
                 return true;
             }
 
@@ -792,7 +793,7 @@ export class Checker extends ParseTreeWalker {
                 exceptionType = transformTypeObjectToClass(exceptionType);
             }
 
-            if (exceptionType.category === TypeCategory.Class) {
+            if (isClass(exceptionType)) {
                 if (!derivesFromBaseException(exceptionType)) {
                     diagAddendum.addMessage(
                         Localizer.Diagnostic.exceptionTypeIncorrect().format({
@@ -815,7 +816,7 @@ export class Checker extends ParseTreeWalker {
                     }
 
                     const transformedSubtype = transformTypeObjectToClass(subtype);
-                    if (transformedSubtype.category === TypeCategory.Class) {
+                    if (isClass(transformedSubtype)) {
                         if (!derivesFromBaseException(transformedSubtype)) {
                             diagAddendum.addMessage(
                                 Localizer.Diagnostic.exceptionTypeIncorrect().format({
@@ -1292,7 +1293,7 @@ export class Checker extends ParseTreeWalker {
         const nonstandardClassTypes = ['FunctionType', 'LambdaType', 'BuiltinFunctionType', 'BuiltinMethodType'];
 
         const classTypeList: ClassType[] = [];
-        if (arg1Type.category === TypeCategory.Class) {
+        if (isClass(arg1Type)) {
             classTypeList.push(arg1Type);
             if (ClassType.isBuiltIn(arg1Type) && nonstandardClassTypes.some((name) => name === arg1Type.details.name)) {
                 return;
@@ -1303,7 +1304,7 @@ export class Checker extends ParseTreeWalker {
             const objClass = arg1Type.classType;
             if (ClassType.isBuiltIn(objClass, 'Tuple') && objClass.typeArguments) {
                 objClass.typeArguments.forEach((typeArg) => {
-                    if (typeArg.category === TypeCategory.Class) {
+                    if (isClass(typeArg)) {
                         classTypeList.push(typeArg);
                     } else {
                         return;
@@ -1365,14 +1366,14 @@ export class Checker extends ParseTreeWalker {
             }
 
             // Make all class types into object types before returning them.
-            return filteredTypes.map((t) => (t.category === TypeCategory.Class ? ObjectType.create(t) : t));
+            return filteredTypes.map((t) => (isClass(t) ? ObjectType.create(t) : t));
         };
 
         let filteredType: Type;
         if (isInstanceCheck && arg0Type.category === TypeCategory.Object) {
             const remainingTypes = filterType(arg0Type.classType);
             filteredType = finalizeFilteredTypeList(remainingTypes);
-        } else if (!isInstanceCheck && arg0Type.category === TypeCategory.Class) {
+        } else if (!isInstanceCheck && isClass(arg0Type)) {
             const remainingTypes = filterType(arg0Type);
             filteredType = finalizeFilteredTypeList(remainingTypes);
         } else if (arg0Type.category === TypeCategory.Union) {
@@ -1386,7 +1387,7 @@ export class Checker extends ParseTreeWalker {
 
                 if (isInstanceCheck && t.category === TypeCategory.Object) {
                     remainingTypes = remainingTypes.concat(filterType(t.classType));
-                } else if (!isInstanceCheck && t.category === TypeCategory.Class) {
+                } else if (!isInstanceCheck && isClass(t)) {
                     remainingTypes = remainingTypes.concat(filterType(t));
                 }
             });
@@ -1514,7 +1515,7 @@ export class Checker extends ParseTreeWalker {
         if (classOrModuleNode && classOrModuleNode.nodeType === ParseNodeType.Class) {
             if (isProtectedName) {
                 const declClassTypeInfo = this._evaluator.getTypeOfClass(classOrModuleNode);
-                if (declClassTypeInfo && declClassTypeInfo.decoratedType.category === TypeCategory.Class) {
+                if (declClassTypeInfo && isClass(declClassTypeInfo.decoratedType)) {
                     // Note that the access is to a protected class member.
                     isProtectedAccess = true;
 
@@ -1525,10 +1526,7 @@ export class Checker extends ParseTreeWalker {
 
                         // If the referencing class is a subclass of the declaring class, it's
                         // allowed to access a protected name.
-                        if (
-                            enclosingClassTypeInfo &&
-                            enclosingClassTypeInfo.decoratedType.category === TypeCategory.Class
-                        ) {
+                        if (enclosingClassTypeInfo && isClass(enclosingClassTypeInfo.decoratedType)) {
                             if (
                                 derivesFromClassRecursive(
                                     enclosingClassTypeInfo.decoratedType,
@@ -1700,11 +1698,7 @@ export class Checker extends ParseTreeWalker {
     private _validateFinalMemberOverrides(classType: ClassType) {
         classType.details.fields.forEach((localSymbol, name) => {
             const parentSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
-            if (
-                parentSymbol &&
-                parentSymbol.classType.category === TypeCategory.Class &&
-                isFinalVariable(parentSymbol.symbol)
-            ) {
+            if (parentSymbol && isClass(parentSymbol.classType) && isFinalVariable(parentSymbol.symbol)) {
                 const decl = localSymbol.getDeclarations()[0];
                 this._evaluator.addError(
                     Localizer.Diagnostic.finalRedeclarationBySubclass().format({
@@ -1750,7 +1744,7 @@ export class Checker extends ParseTreeWalker {
             // Get the symbol defined in the base class.
             const baseClassAndSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
 
-            if (!baseClassAndSymbol || baseClassAndSymbol.classType.category !== TypeCategory.Class) {
+            if (!baseClassAndSymbol || !isClass(baseClassAndSymbol.classType)) {
                 return;
             }
 
@@ -1958,12 +1952,7 @@ export class Checker extends ParseTreeWalker {
                     if (paramName === 'cls') {
                         const classTypeInfo = this._evaluator.getTypeOfClass(classNode);
                         const typeType = this._evaluator.getBuiltInType(classNode, 'type');
-                        if (
-                            typeType &&
-                            typeType.category === TypeCategory.Class &&
-                            classTypeInfo &&
-                            classTypeInfo.classType.category === TypeCategory.Class
-                        ) {
+                        if (typeType && isClass(typeType) && classTypeInfo && isClass(classTypeInfo.classType)) {
                             if (
                                 derivesFromClassRecursive(classTypeInfo.classType, typeType, /* ignoreUnknown */ true)
                             ) {
