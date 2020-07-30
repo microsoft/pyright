@@ -68,3 +68,11 @@ f5(1, b=2, c=3)
 
 f6(1, b=2)
 f6(a=1, b=2)
+
+class A:
+    def f(self, g: bool = False, /, **kwargs) -> None:
+        ...
+
+a = A()
+
+a.f(hello="world")

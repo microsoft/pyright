@@ -5076,7 +5076,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // the positional-only parameters, force the named parameters
         // into positional-only slots so we can report errors for them.
         if (positionalOnlyIndex >= 0 && positionalArgCount < positionalOnlyIndex) {
-            positionalArgCount = Math.min(positionalOnlyIndex, argList.length);
+            const firstParamWithDefault = typeParams.findIndex(param => param.hasDefault);
+            const positionOnlyWithoutDefaultsCount =
+                (firstParamWithDefault >= 0 && firstParamWithDefault < positionalOnlyIndex) ?
+                    firstParamWithDefault : positionalOnlyIndex;
+            positionalArgCount = Math.min(positionOnlyWithoutDefaultsCount, argList.length);
         }
 
         const validateArgTypeParams: ValidateArgTypeParams[] = [];
