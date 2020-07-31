@@ -188,8 +188,8 @@ export class TypeStubWriter extends ParseTreeWalker {
     visitFunction(node: FunctionNode) {
         const functionName = node.name.value;
 
-        // Skip if we're already within a function.
-        if (this._functionNestCount === 0) {
+        // Skip if we're already within a function or if the name is private/protected.
+        if (this._functionNestCount === 0 && !SymbolNameUtils.isPrivateOrProtectedName(functionName)) {
             this._emittedSuite = true;
             this._emitDocString = true;
             this._emitDecorators(node.decorators);
