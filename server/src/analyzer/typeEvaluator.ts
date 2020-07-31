@@ -122,12 +122,14 @@ import {
     InheritanceChain,
     isAnyOrUnknown,
     isClass,
+    isModule,
     isNever,
     isNone,
     isObject,
     isPossiblyUnbound,
     isSameWithoutLiteralValue,
     isTypeSame,
+    isTypeVar,
     isUnbound,
     isUnionableType,
     isUnknown,
@@ -2448,7 +2450,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         expectedTypeDiagAddendum?: DiagnosticAddendum
     ) {
         // Is the source expression a TypeVar() call?
-        if (type.category === TypeCategory.TypeVar) {
+        if (isTypeVar(type)) {
             if (srcExpr && srcExpr.nodeType === ParseNodeType.Call) {
                 const callType = getTypeOfExpression(srcExpr.leftExpression).type;
                 if (
@@ -2877,7 +2879,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             type = UnknownType.create();
         }
 
-        if (type.category === TypeCategory.TypeVar && type.isParamSpec) {
+        if (isTypeVar(type) && type.isParamSpec) {
             if (flags & EvaluatorFlags.ParamSpecDisallowed) {
                 addError(Localizer.Diagnostic.paramSpecContext(), node);
             }
@@ -3147,7 +3149,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 let firstTypeArg = typeArgs[0];
 
                 // If the type arg is a type var itself, specialize it in case it's bound.
-                if (firstTypeArg.category === TypeCategory.TypeVar) {
+                if (isTypeVar(firstTypeArg)) {
                     firstTypeArg = getConcreteTypeFromTypeVar(firstTypeArg);
                 }
 
@@ -4788,7 +4790,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // the type arg that corresponds to this type var maps back to the target type.
                 if (
                     synthTypeVar &&
-                    synthTypeVar.category === TypeCategory.TypeVar &&
+                    isTypeVar(synthTypeVar) &&
                     synthTypeVar.isSynthesized &&
                     synthTypeVar.synthesizedIndex !== undefined
                 ) {
@@ -7266,7 +7268,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 typeArgs[0].typeList.forEach((entry, index) => {
                     if (isEllipsisType(entry.type)) {
                         addError(Localizer.Diagnostic.ellipsisContext(), entry.node);
-                    } else if (entry.type.category === TypeCategory.Module) {
+                    } else if (isModule(entry.type)) {
                         addError(Localizer.Diagnostic.moduleContext(), entry.node);
                     } else if (isParamSpecType(entry.type)) {
                         addError(Localizer.Diagnostic.paramSpecContext(), entry.node);
@@ -7295,7 +7297,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (typeArgs && typeArgs.length > 1) {
             if (isEllipsisType(typeArgs[1].type)) {
                 addError(Localizer.Diagnostic.ellipsisContext(), typeArgs[1].node);
-            } else if (typeArgs[1].type.category === TypeCategory.Module) {
+            } else if (isModule(typeArgs[1].type)) {
                 addError(Localizer.Diagnostic.moduleContext(), typeArgs[1].node);
             } else if (isParamSpecType(typeArgs[1].type)) {
                 addError(Localizer.Diagnostic.paramSpecContext(), typeArgs[1].node);
@@ -7321,7 +7323,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (isEllipsisType(typeArgs[0].type)) {
             addError(Localizer.Diagnostic.ellipsisContext(), typeArgs[0].node);
-        } else if (typeArgs[0].type.category === TypeCategory.Module) {
+        } else if (isModule(typeArgs[0].type)) {
             addError(Localizer.Diagnostic.moduleContext(), typeArgs[0].node);
         } else if (isParamSpecType(typeArgs[0].type)) {
             addError(Localizer.Diagnostic.paramSpecContext(), typeArgs[0].node);
@@ -7480,7 +7482,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (isEllipsisType(typeArgs[0].type)) {
             addError(Localizer.Diagnostic.ellipsisContext(), typeArgs[0].node);
-        } else if (typeArgs[0].type.category === TypeCategory.Module) {
+        } else if (isModule(typeArgs[0].type)) {
             addError(Localizer.Diagnostic.moduleContext(), typeArgs[0].node);
         } else if (isParamSpecType(typeArgs[0].type)) {
             addError(Localizer.Diagnostic.paramSpecContext(), typeArgs[1].node);
@@ -7508,7 +7510,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     } else if (typeArgs!.length !== 2 || index !== 1) {
                         addError(Localizer.Diagnostic.ellipsisSecondArg(), typeArg.node);
                     }
-                } else if (typeArg.type.category === TypeCategory.Module) {
+                } else if (isModule(typeArg.type)) {
                     addError(Localizer.Diagnostic.moduleContext(), typeArg.node);
                 } else if (!allowParamSpec && isParamSpecType(typeArg.type)) {
                     addError(Localizer.Diagnostic.paramSpecContext(), typeArg.node);
@@ -7576,7 +7578,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Verify that we didn't receive any inappropriate ellipses.
                 if (isEllipsisType(typeArg.type)) {
                     addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
-                } else if (typeArg.type.category === TypeCategory.Module) {
+                } else if (isModule(typeArg.type)) {
                     addError(Localizer.Diagnostic.moduleContext(), typeArg.node);
                 } else if (isParamSpecType(typeArg.type)) {
                     addError(Localizer.Diagnostic.paramSpecContext(), typeArg.node);
@@ -7605,7 +7607,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const uniqueTypeVars: TypeVarType[] = [];
         if (typeArgs) {
             typeArgs.forEach((typeArg) => {
-                if (!(typeArg.type.category === TypeCategory.TypeVar)) {
+                if (!isTypeVar(typeArg.type)) {
                     addError(Localizer.Diagnostic.genericTypeArgTypeVar(), typeArg.node);
                 } else {
                     for (const typeVar of uniqueTypeVars) {
@@ -7888,7 +7890,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const typeParameters: TypeVarType[] = [];
 
                     // Skip this for a simple TypeVar (one that's not part of a union).
-                    if (rightHandType.category !== TypeCategory.TypeVar) {
+                    if (!isTypeVar(rightHandType)) {
                         doForSubtypes(rightHandType, (subtype) => {
                             addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(subtype));
                             return undefined;
@@ -9396,7 +9398,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Is there a cached module type associated with this node? If so, use
         // it instead of the type we just created.
         const cachedModuleType = readTypeCache(node) as ModuleType;
-        if (cachedModuleType && cachedModuleType.category === TypeCategory.Module && symbolType) {
+        if (cachedModuleType && isModule(cachedModuleType) && symbolType) {
             if (isTypeSame(symbolType, cachedModuleType)) {
                 symbolType = cachedModuleType;
             }
@@ -9475,7 +9477,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Is there a cached module type associated with this node? If so, use
         // it instead of the type we just created.
         const cachedModuleType = readTypeCache(node) as ModuleType;
-        if (cachedModuleType && cachedModuleType.category === TypeCategory.Module && symbolType) {
+        if (cachedModuleType && isModule(cachedModuleType) && symbolType) {
             if (isTypeSame(symbolType, cachedModuleType)) {
                 symbolType = cachedModuleType;
             }
@@ -9846,7 +9848,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             baseType = makeTypeVarsConcrete(baseType);
 
             let symbol: Symbol | undefined;
-            if (baseType.category === TypeCategory.Module) {
+            if (isModule(baseType)) {
                 symbol = ModuleType.getField(baseType, memberName);
             } else if (isClass(baseType)) {
                 const classMemberInfo = lookUpClassMember(baseType, memberName);
@@ -11115,7 +11117,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Verify that we didn't receive any inappropriate ellipses or modules.
                 if (isEllipsisType(typeArg.type)) {
                     addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
-                } else if (typeArg.type.category === TypeCategory.Module) {
+                } else if (isModule(typeArg.type)) {
                     addError(Localizer.Diagnostic.moduleContext(), typeArg.node);
                 }
             });
@@ -11393,7 +11395,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         if (member) {
                             symbol = member.symbol;
                         }
-                    } else if (subtype.category === TypeCategory.Module) {
+                    } else if (isModule(subtype)) {
                         symbol = ModuleType.getField(subtype, memberName);
                     }
 
@@ -12810,7 +12812,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
-        if (destType.category === TypeCategory.TypeVar) {
+        if (isTypeVar(destType)) {
             return assignTypeToTypeVar(
                 destType,
                 srcType,
@@ -12844,7 +12846,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return true;
         }
 
-        if (srcType.category === TypeCategory.TypeVar) {
+        if (isTypeVar(srcType)) {
             // In most cases, the source type will be specialized before
             // canAssignType is called, so we won't get here. However, there
             // are cases where this can occur (e.g. when we swap the src and dest
@@ -13004,7 +13006,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             flags,
                             recursionCount + 1
                         );
-                    } else if (destTypeArgs[0].category === TypeCategory.TypeVar) {
+                    } else if (isTypeVar(destTypeArgs[0])) {
                         if (isClass(srcType) || (isNone(srcType) && TypeBase.isInstantiable(srcType))) {
                             return canAssignType(
                                 destTypeArgs[0],
@@ -13087,7 +13089,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (ClassType.isBuiltIn(destType.classType) && destType.classType.details.name === 'object') {
                     return true;
                 }
-            } else if (srcType.category === TypeCategory.Module) {
+            } else if (isModule(srcType)) {
                 // Is the destination the built-in "ModuleType"?
                 if (ClassType.isBuiltIn(destClassType, 'ModuleType')) {
                     return true;
@@ -13223,7 +13225,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         // NoneType and ModuleType derive from object.
-        if (isNone(srcType) || srcType.category === TypeCategory.Module) {
+        if (isNone(srcType) || isModule(srcType)) {
             if (isObject(destType)) {
                 const destClassType = destType.classType;
                 if (ClassType.isBuiltIn(destClassType, 'object')) {
@@ -13632,7 +13634,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         let effectiveSrcType: Type = srcType;
 
-        if (srcType.category === TypeCategory.TypeVar) {
+        if (isTypeVar(srcType)) {
             if (isTypeSame(srcType, destType)) {
                 return true;
             }

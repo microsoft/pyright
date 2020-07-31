@@ -1195,6 +1195,14 @@ export function isObject(type: Type): type is ObjectType {
     return type.category === TypeCategory.Object;
 }
 
+export function isModule(type: Type): type is ModuleType {
+    return type.category === TypeCategory.Module;
+}
+
+export function isTypeVar(type: Type): type is TypeVarType {
+    return type.category === TypeCategory.TypeVar;
+}
+
 export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolean {
     if (type1.category !== type2.category) {
         return false;

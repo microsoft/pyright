@@ -21,7 +21,7 @@ import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { ClassType, isClass, isObject, TypeCategory } from '../analyzer/types';
+import { ClassType, isClass, isObject, isTypeVar, TypeCategory } from '../analyzer/types';
 import { specializeType } from '../analyzer/typeUtils';
 import {
     ClassMemberLookupFlags,
@@ -215,7 +215,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                 let baseType = subtype;
 
                 // This could be a bound TypeVar (e.g. used for "self" and "cls").
-                if (baseType.category === TypeCategory.TypeVar) {
+                if (isTypeVar(baseType)) {
                     baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
                 }
 
@@ -351,7 +351,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                     let baseType = subtype;
 
                     // This could be a bound TypeVar (e.g. used for "self" and "cls").
-                    if (baseType.category === TypeCategory.TypeVar) {
+                    if (isTypeVar(baseType)) {
                         baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
                     }
 

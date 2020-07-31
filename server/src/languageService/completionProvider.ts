@@ -36,7 +36,17 @@ import {
     getOverloadedFunctionDocStrings,
 } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluator';
-import { ClassType, FunctionType, isClass, isObject, ObjectType, Type, TypeCategory } from '../analyzer/types';
+import {
+    ClassType,
+    FunctionType,
+    isClass,
+    isModule,
+    isObject,
+    isTypeVar,
+    ObjectType,
+    Type,
+    TypeCategory,
+} from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule, specializeType } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
@@ -519,7 +529,7 @@ export class CompletionProvider {
         if (leftType) {
             doForSubtypes(leftType, (subtype) => {
                 let specializedSubtype = subtype;
-                if (subtype.category === TypeCategory.TypeVar) {
+                if (isTypeVar(subtype)) {
                     specializedSubtype = specializeType(subtype, /* typeVarMap */ undefined, /* makeConcrete */ true);
                 }
 
@@ -527,7 +537,7 @@ export class CompletionProvider {
                     getMembersForClass(specializedSubtype.classType, symbolTable, true);
                 } else if (isClass(specializedSubtype)) {
                     getMembersForClass(specializedSubtype, symbolTable, false);
-                } else if (specializedSubtype.category === TypeCategory.Module) {
+                } else if (isModule(specializedSubtype)) {
                     getMembersForModule(specializedSubtype, symbolTable);
                 }
 
@@ -1115,7 +1125,7 @@ export class CompletionProvider {
                                 }
                             }
 
-                            if (type.category === TypeCategory.Module) {
+                            if (isModule(type)) {
                                 documentation = getModuleDocString(type, primaryDecl, this._sourceMapper);
                             } else if (isClass(type)) {
                                 documentation = getClassDocString(type, primaryDecl, this._sourceMapper);

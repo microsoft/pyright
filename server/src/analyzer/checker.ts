@@ -86,6 +86,7 @@ import {
     isNone,
     isObject,
     isTypeSame,
+    isTypeVar,
     isUnknown,
     NoneType,
     ObjectType,
@@ -197,7 +198,7 @@ export class Checker extends ParseTreeWalker {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;
                     if (
                         isUnknown(paramType) ||
-                        (paramType.category === TypeCategory.TypeVar && paramType.isSynthesized && !paramType.boundType)
+                        (isTypeVar(paramType) && paramType.isSynthesized && !paramType.boundType)
                     ) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,

@@ -22,6 +22,7 @@ import {
     isNone,
     isObject,
     isTypeSame,
+    isTypeVar,
     isUnknown,
     maxTypeRecursionCount,
     ModuleType,
@@ -456,7 +457,7 @@ export function isNoReturnType(type: Type): boolean {
 }
 
 export function isParamSpecType(type: Type): boolean {
-    if (type.category !== TypeCategory.TypeVar) {
+    if (!isTypeVar(type)) {
         return false;
     }
 
@@ -485,7 +486,7 @@ export function partiallySpecializeType(type: Type, contextClassType: ClassType)
 // used as type arguments in other types) with their concrete form.
 export function makeTypeVarsConcrete(type: Type): Type {
     return doForSubtypes(type, (subtype) => {
-        if (subtype.category === TypeCategory.TypeVar) {
+        if (isTypeVar(subtype)) {
             if (subtype.boundType) {
                 return subtype.boundType;
             }
@@ -534,7 +535,7 @@ export function specializeType(
         return type;
     }
 
-    if (type.category === TypeCategory.TypeVar) {
+    if (isTypeVar(type)) {
         if (typeVarMap) {
             const replacementType = typeVarMap.getTypeVar(type.name);
             if (replacementType) {
@@ -577,7 +578,7 @@ export function specializeType(
                 const firstTypeArg = typeArgs[0];
                 if (isObject(firstTypeArg)) {
                     return specializeType(firstTypeArg.classType, typeVarMap, makeConcrete, recursionLevel + 1);
-                } else if (firstTypeArg.category === TypeCategory.TypeVar) {
+                } else if (isTypeVar(firstTypeArg)) {
                     if (typeVarMap) {
                         const replacementType = typeVarMap.getTypeVar(firstTypeArg.name);
                         if (replacementType && isObject(replacementType)) {
@@ -803,7 +804,7 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
         return combinedList;
     };
 
-    if (type.category === TypeCategory.TypeVar) {
+    if (isTypeVar(type)) {
         return [type];
     } else if (isClass(type)) {
         return getTypeVarsFromClass(type);

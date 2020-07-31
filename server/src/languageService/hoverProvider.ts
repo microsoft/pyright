@@ -23,7 +23,7 @@ import {
     getOverloadedFunctionDocStrings,
 } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { isClass, isObject, Type, TypeCategory, UnknownType } from '../analyzer/types';
+import { isClass, isModule, isObject, Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { ClassMemberLookupFlags, isProperty, lookUpClassMember } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
@@ -83,7 +83,7 @@ export class HoverProvider {
                     const type = evaluator.getType(node) || UnknownType.create();
 
                     let typeText = '';
-                    if (type.category === TypeCategory.Module) {
+                    if (isModule(type)) {
                         // Handle modules specially because submodules aren't associated with
                         // declarations, but we want them to be presented in the same way as
                         // the top-level module, which does have a declaration.
@@ -298,7 +298,7 @@ export class HoverProvider {
     ) {
         const docStrings: (string | undefined)[] = [];
 
-        if (type.category === TypeCategory.Module) {
+        if (isModule(type)) {
             docStrings.push(getModuleDocString(type, resolvedDecl, sourceMapper));
         } else if (isClass(type)) {
             docStrings.push(getClassDocString(type, resolvedDecl, sourceMapper));
