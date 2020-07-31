@@ -137,14 +137,6 @@ The following settings can be specified for each execution environment.
 **pythonPlatform** [string, optional]: Specifies the target platform that will be used for this execution environment. If not specified, the global `pythonPlatform` setting is used instead.
 
 
-# VS Code Extension Settings
-Pyright will import the following settings set through VS Code. These override the values provided in the configuration file.
-
-**python.venvPath**: Same as the **venvPath** setting described above.
-
-**python.analysis.typeshedPaths**: An array of typeshed paths to search. Pyright supports only one such path. If provided in the VS Code setting, the first entry overrides the **typeshedPath** configuration file entry described above.
-
-
 ## Sample Config File
 The following is an example of a pyright config file:
 ```json
