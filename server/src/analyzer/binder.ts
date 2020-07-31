@@ -1177,13 +1177,24 @@ export class Binder extends ParseTreeWalker {
         // declaration list because it should "win" when resolving the alias.
         const fileName = stripFileExtension(getFileName(this._fileInfo.filePath));
         if (fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length > 0) {
-            const symbolName = node.module.nameParts[0].value;
-            const symbol = this._bindNameToScope(this._currentScope, symbolName);
-            if (symbol) {
-                this._createAliasDeclarationForMultipartImportName(node, undefined, importInfo, symbol);
-            }
+            // If the symbol is going to be immediately replaced with a same-named
+            // imported symbol, skip this.
+            const isImmediatelyReplaced =
+                !node.isWildcardImport &&
+                node.imports.some((importSymbolNode) => {
+                    const nameNode = importSymbolNode.alias || importSymbolNode.name;
+                    return nameNode.value === node.module.nameParts[0].value;
+                });
 
-            this._createFlowAssignment(node.module.nameParts[0]);
+            if (!isImmediatelyReplaced) {
+                const symbolName = node.module.nameParts[0].value;
+                const symbol = this._bindNameToScope(this._currentScope, symbolName);
+                if (symbol) {
+                    this._createAliasDeclarationForMultipartImportName(node, undefined, importInfo, symbol);
+                }
+
+                this._createFlowAssignment(node.module.nameParts[0]);
+            }
         }
 
         if (node.isWildcardImport) {
