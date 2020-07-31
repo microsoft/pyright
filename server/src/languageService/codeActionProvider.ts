@@ -11,7 +11,6 @@ import { CancellationToken, CodeAction, CodeActionKind, Command } from 'vscode-l
 import { Commands } from '../commands/commands';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { AddMissingOptionalToParamAction, CreateTypeStubFileAction } from '../common/diagnostic';
-import { convertPathToUri } from '../common/pathUtils';
 import { Range } from '../common/textRange';
 import { WorkspaceServiceInstance } from '../languageServerBase';
 import { Localizer } from '../localization/localize';
@@ -25,16 +24,7 @@ export class CodeActionProvider {
     ) {
         throwIfCancellationRequested(token);
 
-        const sortImportsCodeAction = CodeAction.create(
-            Localizer.CodeAction.organizeImports(),
-            Command.create(Localizer.CodeAction.organizeImports(), Commands.orderImports, convertPathToUri(filePath)),
-            CodeActionKind.SourceOrganizeImports
-        );
         const codeActions: CodeAction[] = [];
-
-        if (!workspace.disableOrganizeImports) {
-            codeActions.push(sortImportsCodeAction);
-        }
 
         if (!workspace.disableLanguageServices) {
             const diags = await workspace.serviceInstance.getDiagnosticsForRange(filePath, range, token);
