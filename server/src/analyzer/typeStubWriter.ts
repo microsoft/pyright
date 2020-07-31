@@ -41,9 +41,6 @@ import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
-import { TypeEvaluator } from './typeEvaluator';
-import { ClassType, isNone, isObject } from './types';
-import * as TypeUtils from './typeUtils';
 
 class TrackedImport {
     constructor(public importName: string) {}
@@ -127,7 +124,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     private _trackedImportFrom = new Map<string, TrackedImportFrom>();
     private _accessedImportedSymbols = new Map<string, boolean>();
 
-    constructor(private _stubPath: string, private _sourceFile: SourceFile, private _evaluator: TypeEvaluator) {
+    constructor(private _stubPath: string, private _sourceFile: SourceFile) {
         super();
 
         // As a heuristic, we'll include all of the import statements
@@ -200,8 +197,28 @@ export class TypeStubWriter extends ParseTreeWalker {
             line += `def ${functionName}`;
             line += `(${node.parameters.map((param) => this._printParameter(param)).join(', ')})`;
 
+            let returnAnnotation: string | undefined;
             if (node.returnTypeAnnotation) {
-                line += ' -> ' + this._printExpression(node.returnTypeAnnotation, true);
+                returnAnnotation = this._printExpression(node.returnTypeAnnotation, true);
+            } else {
+                // Handle a few common cases where we always know the answer.
+                if (node.name.value === '__init__') {
+                    returnAnnotation = 'None';
+                } else if (node.name.value === '__str__') {
+                    returnAnnotation = 'str';
+                } else if (['__int__', '__hash__'].some((name) => name === node.name.value)) {
+                    returnAnnotation = 'int';
+                } else if (
+                    ['__eq__', '__ne__', '__gt__', '__lt__', '__ge__', '__le__'].some(
+                        (name) => name === node.name.value
+                    )
+                ) {
+                    returnAnnotation = 'bool';
+                }
+            }
+
+            if (returnAnnotation) {
+                line += ' -> ' + returnAnnotation;
             }
 
             line += ':';
@@ -480,10 +497,6 @@ export class TypeStubWriter extends ParseTreeWalker {
             this._lineEnd +
             this._lineEnd
         );
-        // this._emitLine('');
-        // this._emitLine('from typing import Any, Optional');
-        // this._emitLine('from typing import Any, List, Dict, Optional, Tuple, Type, Union');
-        // this._emitLine('from typing_extensions import Literal');
     }
 
     private _emitLine(line: string) {
@@ -503,18 +516,6 @@ export class TypeStubWriter extends ParseTreeWalker {
         return line;
     }
 
-    private _addImplicitImportFrom(importName: string, symbols: string[]) {
-        let trackedImportFrom = this._trackedImportFrom.get(importName);
-        if (!trackedImportFrom) {
-            trackedImportFrom = new TrackedImportFrom(importName, false);
-            this._trackedImportFrom.set(importName, trackedImportFrom);
-        }
-
-        symbols.forEach((symbol) => {
-            trackedImportFrom!.addSymbol(undefined, symbol, undefined, true);
-        });
-    }
-
     private _printParameter(node: ParameterNode): string {
         let line = '';
         if (node.category === ParameterCategory.VarArgList) {
@@ -530,20 +531,6 @@ export class TypeStubWriter extends ParseTreeWalker {
         let paramType = '';
         if (node.typeAnnotation) {
             paramType = this._printExpression(node.typeAnnotation, true);
-        } else if (node.defaultValue) {
-            // Try to infer the param type based on the default value.
-            const typeOfDefault = this._evaluator.getType(node.defaultValue);
-            if (typeOfDefault && !TypeUtils.isPartlyUnknown(typeOfDefault)) {
-                if (isNone(typeOfDefault)) {
-                    paramType = 'Optional[Any]';
-                    this._addImplicitImportFrom('typing', ['Any', 'Optional']);
-                } else if (isObject(typeOfDefault)) {
-                    const classType = typeOfDefault.classType;
-                    if (ClassType.isBuiltIn(classType, 'bool')) {
-                        paramType = 'bool';
-                    }
-                }
-            }
         }
 
         if (paramType) {
