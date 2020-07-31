@@ -20,6 +20,7 @@ import {
     isAnyOrUnknown,
     isClass,
     isNone,
+    isObject,
     isTypeSame,
     isUnknown,
     maxTypeRecursionCount,
@@ -153,7 +154,7 @@ export function derivesFromAnyOrUnknown(type: Type): boolean {
             if (ClassType.hasUnknownBaseClass(subtype)) {
                 anyOrUnknown = true;
             }
-        } else if (subtype.category === TypeCategory.Object) {
+        } else if (isObject(subtype)) {
             if (ClassType.hasUnknownBaseClass(subtype.classType)) {
                 anyOrUnknown = true;
             }
@@ -166,7 +167,7 @@ export function derivesFromAnyOrUnknown(type: Type): boolean {
 }
 
 export function stripLiteralValue(type: Type): Type {
-    if (type.category === TypeCategory.Object) {
+    if (isObject(type)) {
         if (type.classType.literalValue !== undefined) {
             type = ObjectType.create(ClassType.cloneWithLiteral(type.classType, undefined));
         }
@@ -239,7 +240,7 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
         }
     }
 
-    if (type.category === TypeCategory.Object) {
+    if (isObject(type)) {
         if (type.classType.typeArguments) {
             type = ObjectType.create(stripLiteralTypeArgsValue(type.classType, recursionCount + 1) as ClassType);
         }
@@ -283,7 +284,7 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
 // If the type is a concrete class X described by the object Type[X],
 // returns X. Otherwise returns the original type.
 export function transformTypeObjectToClass(type: Type): Type {
-    if (type.category !== TypeCategory.Object) {
+    if (!isObject(type)) {
         return type;
     }
 
@@ -298,7 +299,7 @@ export function transformTypeObjectToClass(type: Type): Type {
     }
 
     const typeArg = classType.typeArguments[0];
-    if (typeArg.category !== TypeCategory.Object) {
+    if (!isObject(typeArg)) {
         return type;
     }
 
@@ -423,7 +424,7 @@ export function getSpecializedTupleType(type: Type): ClassType | undefined {
 
     if (isClass(type)) {
         classType = type;
-    } else if (type.category === TypeCategory.Object) {
+    } else if (isObject(type)) {
         classType = type.classType;
     }
 
@@ -445,7 +446,7 @@ export function isEllipsisType(type: Type): boolean {
 }
 
 export function isNoReturnType(type: Type): boolean {
-    if (type.category === TypeCategory.Object) {
+    if (isObject(type)) {
         const classType = type.classType;
         if (ClassType.isBuiltIn(classType, 'NoReturn')) {
             return true;
@@ -463,7 +464,7 @@ export function isParamSpecType(type: Type): boolean {
 }
 
 export function isProperty(type: Type): boolean {
-    return type.category === TypeCategory.Object && ClassType.isPropertyClass(type.classType);
+    return isObject(type) && ClassType.isPropertyClass(type.classType);
 }
 
 // Partially specializes a type within the context of a specified
@@ -566,7 +567,7 @@ export function specializeType(
         return combineTypes(subtypes);
     }
 
-    if (type.category === TypeCategory.Object) {
+    if (isObject(type)) {
         const classType = _specializeClassType(type.classType, typeVarMap, makeConcrete, recursionLevel + 1);
 
         // Handle the "Type" special class.
@@ -574,12 +575,12 @@ export function specializeType(
             const typeArgs = classType.typeArguments;
             if (typeArgs && typeArgs.length >= 1) {
                 const firstTypeArg = typeArgs[0];
-                if (firstTypeArg.category === TypeCategory.Object) {
+                if (isObject(firstTypeArg)) {
                     return specializeType(firstTypeArg.classType, typeVarMap, makeConcrete, recursionLevel + 1);
                 } else if (firstTypeArg.category === TypeCategory.TypeVar) {
                     if (typeVarMap) {
                         const replacementType = typeVarMap.getTypeVar(firstTypeArg.name);
-                        if (replacementType && replacementType.category === TypeCategory.Object) {
+                        if (replacementType && isObject(replacementType)) {
                             return replacementType.classType;
                         }
                     }
@@ -615,7 +616,7 @@ export function lookUpObjectMember(
     memberName: string,
     flags = ClassMemberLookupFlags.Default
 ): ClassMember | undefined {
-    if (objectType.category === TypeCategory.Object) {
+    if (isObject(objectType)) {
         return lookUpClassMember(
             objectType.classType,
             memberName,
@@ -806,7 +807,7 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
         return [type];
     } else if (isClass(type)) {
         return getTypeVarsFromClass(type);
-    } else if (type.category === TypeCategory.Object) {
+    } else if (isObject(type)) {
         return getTypeVarsFromClass(type.classType);
     } else if (type.category === TypeCategory.Union) {
         const combinedList: TypeVarType[] = [];
@@ -1011,7 +1012,7 @@ export function derivesFromClassRecursive(classType: ClassType, baseClassToFind:
 // and return only the "int".
 export function removeFalsinessFromType(type: Type): Type {
     return doForSubtypes(type, (subtype) => {
-        if (subtype.category === TypeCategory.Object) {
+        if (isObject(subtype)) {
             if (subtype.classType.literalValue !== undefined) {
                 // If the object is already definitely truthy, it's fine to
                 // include, otherwise it should be removed.
@@ -1041,7 +1042,7 @@ export function removeFalsinessFromType(type: Type): Type {
 // and return only the "None".
 export function removeTruthinessFromType(type: Type): Type {
     return doForSubtypes(type, (subtype) => {
-        if (subtype.category === TypeCategory.Object) {
+        if (isObject(subtype)) {
             if (subtype.classType.literalValue !== undefined) {
                 // If the object is already definitely falsy, it's fine to
                 // include, otherwise it should be removed.
@@ -1279,7 +1280,7 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     }
 
     // See if an object or class has an unknown type argument.
-    if (type.category === TypeCategory.Object) {
+    if (isObject(type)) {
         return isPartlyUnknown(type.classType, false, recursionCount + 1);
     }
 
@@ -1471,7 +1472,7 @@ function _specializeFunctionType(
 // If the declared return type for the function is a Generator, AsyncGenerator,
 // Iterator, or AsyncIterator, returns the type arguments for the type.
 function _getGeneratorReturnTypeArgs(returnType: Type): Type[] | undefined {
-    if (returnType.category === TypeCategory.Object) {
+    if (isObject(returnType)) {
         const classType = returnType.classType;
         if (ClassType.isBuiltIn(classType)) {
             const className = classType.details.name;

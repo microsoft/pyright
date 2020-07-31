@@ -36,7 +36,7 @@ import {
     getOverloadedFunctionDocStrings,
 } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluator';
-import { ClassType, FunctionType, isClass, ObjectType, Type, TypeCategory } from '../analyzer/types';
+import { ClassType, FunctionType, isClass, isObject, ObjectType, Type, TypeCategory } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule, specializeType } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
@@ -523,7 +523,7 @@ export class CompletionProvider {
                     specializedSubtype = specializeType(subtype, /* typeVarMap */ undefined, /* makeConcrete */ true);
                 }
 
-                if (specializedSubtype.category === TypeCategory.Object) {
+                if (isObject(specializedSubtype)) {
                     getMembersForClass(specializedSubtype.classType, symbolTable, true);
                 } else if (isClass(specializedSubtype)) {
                     getMembersForClass(specializedSubtype, symbolTable, false);
@@ -536,7 +536,7 @@ export class CompletionProvider {
         }
 
         const completionList = CompletionList.create();
-        const objectThrough: ObjectType | undefined = leftType?.category === TypeCategory.Object ? leftType : undefined;
+        const objectThrough: ObjectType | undefined = leftType && isObject(leftType) ? leftType : undefined;
         this._addSymbolsForSymbolTable(symbolTable, (_) => true, priorWord, objectThrough, completionList);
 
         return completionList;
@@ -669,7 +669,7 @@ export class CompletionProvider {
     ) {
         const quoteValue = this._getQuoteValueFromPriorText(priorText);
         doForSubtypes(type, (subtype) => {
-            if (subtype.category === TypeCategory.Object) {
+            if (isObject(subtype)) {
                 if (ClassType.isBuiltIn(subtype.classType, 'str')) {
                     if (subtype.classType.literalValue !== undefined) {
                         this._addStringLiteralToCompletionList(
@@ -712,7 +712,7 @@ export class CompletionProvider {
             }
 
             const baseType = this._evaluator.getType(parentNode.baseExpression);
-            if (!baseType || baseType.category !== TypeCategory.Object) {
+            if (!baseType || !isObject(baseType)) {
                 return undefined;
             }
 
@@ -780,7 +780,7 @@ export class CompletionProvider {
         }
 
         const baseType = this._evaluator.getType(parentNode.parent.baseExpression);
-        if (!baseType || baseType.category !== TypeCategory.Object) {
+        if (!baseType || !isObject(baseType)) {
             return;
         }
 

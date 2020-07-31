@@ -21,7 +21,7 @@ import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { ClassType, isClass, TypeCategory } from '../analyzer/types';
+import { ClassType, isClass, isObject, TypeCategory } from '../analyzer/types';
 import { specializeType } from '../analyzer/typeUtils';
 import {
     ClassMemberLookupFlags,
@@ -219,7 +219,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                     baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
                 }
 
-                if (baseType.category !== TypeCategory.Object) {
+                if (!isObject(baseType)) {
                     return undefined;
                 }
 
@@ -235,7 +235,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                     return undefined;
                 }
 
-                if (memberType.category === TypeCategory.Object && ClassType.isPropertyClass(memberType.classType)) {
+                if (isObject(memberType) && ClassType.isPropertyClass(memberType.classType)) {
                     propertyDecls.forEach((decl) => {
                         this._addOutgoingCallForDeclaration(node.memberName, decl);
                     });
@@ -355,7 +355,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                         baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
                     }
 
-                    if (baseType.category !== TypeCategory.Object) {
+                    if (!isObject(baseType)) {
                         return undefined;
                     }
 

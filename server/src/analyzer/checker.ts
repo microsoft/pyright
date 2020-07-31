@@ -84,6 +84,7 @@ import {
     isClass,
     isNever,
     isNone,
+    isObject,
     isTypeSame,
     isUnknown,
     NoneType,
@@ -488,7 +489,7 @@ export class Checker extends ParseTreeWalker {
                                     })
                                 );
                             }
-                        } else if (subtype.category === TypeCategory.Object) {
+                        } else if (isObject(subtype)) {
                             if (
                                 !derivesFromClassRecursive(
                                     subtype.classType,
@@ -534,7 +535,7 @@ export class Checker extends ParseTreeWalker {
 
                 doForSubtypes(exceptionType, (subtype) => {
                     if (!isAnyOrUnknown(subtype) && !isNone(subtype)) {
-                        if (subtype.category === TypeCategory.Object) {
+                        if (isObject(subtype)) {
                             if (
                                 !derivesFromClassRecursive(
                                     subtype.classType,
@@ -594,7 +595,7 @@ export class Checker extends ParseTreeWalker {
         // to an assert are enclosed in parens and interpreted as a two-element tuple.
         //   assert (x > 3, "bad value x")
         const type = this._evaluator.getType(node.testExpression);
-        if (type && type.category === TypeCategory.Object) {
+        if (type && isObject(type)) {
             if (ClassType.isBuiltIn(type.classType, 'Tuple') && type.classType.typeArguments) {
                 if (type.classType.typeArguments.length > 0) {
                     const lastTypeArg = type.classType.typeArguments[type.classType.typeArguments.length - 1];
@@ -789,7 +790,7 @@ export class Checker extends ParseTreeWalker {
             resultingExceptionType = exceptionType;
         } else {
             // Handle the case where we have a Type[X] object.
-            if (exceptionType.category === TypeCategory.Object) {
+            if (isObject(exceptionType)) {
                 exceptionType = transformTypeObjectToClass(exceptionType);
             }
 
@@ -802,7 +803,7 @@ export class Checker extends ParseTreeWalker {
                     );
                 }
                 resultingExceptionType = ObjectType.create(exceptionType);
-            } else if (exceptionType.category === TypeCategory.Object) {
+            } else if (isObject(exceptionType)) {
                 const iterableType = this._evaluator.getTypeFromIterable(
                     exceptionType,
                     /* isAsync */ false,
@@ -1250,7 +1251,7 @@ export class Checker extends ParseTreeWalker {
 
         let isValidType = true;
         if (
-            arg1Type.category === TypeCategory.Object &&
+            isObject(arg1Type) &&
             ClassType.isBuiltIn(arg1Type.classType, 'Tuple') &&
             arg1Type.classType.typeArguments
         ) {
@@ -1298,7 +1299,7 @@ export class Checker extends ParseTreeWalker {
             if (ClassType.isBuiltIn(arg1Type) && nonstandardClassTypes.some((name) => name === arg1Type.details.name)) {
                 return;
             }
-        } else if (arg1Type.category === TypeCategory.Object) {
+        } else if (isObject(arg1Type)) {
             // The isinstance and issubclass call supports a variation where the second
             // parameter is a tuple of classes.
             const objClass = arg1Type.classType;
@@ -1370,7 +1371,7 @@ export class Checker extends ParseTreeWalker {
         };
 
         let filteredType: Type;
-        if (isInstanceCheck && arg0Type.category === TypeCategory.Object) {
+        if (isInstanceCheck && isObject(arg0Type)) {
             const remainingTypes = filterType(arg0Type.classType);
             filteredType = finalizeFilteredTypeList(remainingTypes);
         } else if (!isInstanceCheck && isClass(arg0Type)) {
@@ -1385,7 +1386,7 @@ export class Checker extends ParseTreeWalker {
                     foundAnyType = true;
                 }
 
-                if (isInstanceCheck && t.category === TypeCategory.Object) {
+                if (isInstanceCheck && isObject(t)) {
                     remainingTypes = remainingTypes.concat(filterType(t.classType));
                 } else if (!isInstanceCheck && isClass(t)) {
                     remainingTypes = remainingTypes.concat(filterType(t));

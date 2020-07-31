@@ -23,7 +23,7 @@ import {
     getOverloadedFunctionDocStrings,
 } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { isClass, Type, TypeCategory, UnknownType } from '../analyzer/types';
+import { isClass, isObject, Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { ClassMemberLookupFlags, isProperty, lookUpClassMember } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
@@ -254,7 +254,7 @@ export class HoverProvider {
         const instanceType = evaluator.getType(callLeftNode.parent);
         const functionType = evaluator.getTypeOfMember(initMethodMember);
 
-        if (!instanceType || !functionType || instanceType.category !== TypeCategory.Object) {
+        if (!instanceType || !functionType || !isObject(instanceType)) {
             return false;
         }
 

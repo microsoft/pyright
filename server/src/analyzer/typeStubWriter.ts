@@ -42,7 +42,7 @@ import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { TypeEvaluator } from './typeEvaluator';
-import { ClassType, isNone, TypeCategory } from './types';
+import { ClassType, isNone, isObject } from './types';
 import * as TypeUtils from './typeUtils';
 
 class TrackedImport {
@@ -537,7 +537,7 @@ export class TypeStubWriter extends ParseTreeWalker {
                 if (isNone(typeOfDefault)) {
                     paramType = 'Optional[Any]';
                     this._addImplicitImportFrom('typing', ['Any', 'Optional']);
-                } else if (typeOfDefault.category === TypeCategory.Object) {
+                } else if (isObject(typeOfDefault)) {
                     const classType = typeOfDefault.classType;
                     if (ClassType.isBuiltIn(classType, 'bool')) {
                         paramType = 'bool';

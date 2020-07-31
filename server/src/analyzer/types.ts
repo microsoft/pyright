@@ -1191,6 +1191,10 @@ export function isClass(type: Type): type is ClassType {
     return type.category === TypeCategory.Class;
 }
 
+export function isObject(type: Type): type is ObjectType {
+    return type.category === TypeCategory.Object;
+}
+
 export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolean {
     if (type1.category !== type2.category) {
         return false;
@@ -1465,12 +1469,12 @@ export function combineTypes(types: Type[]): Type {
     // Sort all of the literal types to the end.
     expandedTypes = expandedTypes.sort((type1, type2) => {
         if (
-            (type1.category === TypeCategory.Object && type1.classType.literalValue !== undefined) ||
+            (isObject(type1) && type1.classType.literalValue !== undefined) ||
             (isClass(type1) && type1.literalValue !== undefined)
         ) {
             return 1;
         } else if (
-            (type2.category === TypeCategory.Object && type2.classType.literalValue !== undefined) ||
+            (isObject(type2) && type2.classType.literalValue !== undefined) ||
             (isClass(type2) && type2.literalValue !== undefined)
         ) {
             return -1;
@@ -1480,7 +1484,7 @@ export function combineTypes(types: Type[]): Type {
 
     // If the union contains a NoReturn, remove it. NoReturn should
     // be used only when it's by itself.
-    const isNoReturn = (t: Type) => t.category === TypeCategory.Object && ClassType.isBuiltIn(t.classType, 'NoReturn');
+    const isNoReturn = (t: Type) => isObject(t) && ClassType.isBuiltIn(t.classType, 'NoReturn');
     if (expandedTypes.find((t) => isNoReturn(t))) {
         expandedTypes = expandedTypes.filter((t) => !isNoReturn(t));
     }
@@ -1523,7 +1527,7 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
         return isTypeSame(destType, srcType);
     }
 
-    if (srcType.category === TypeCategory.Object && srcType.classType.literalValue !== undefined) {
+    if (isObject(srcType) && srcType.classType.literalValue !== undefined) {
         // Strip the literal.
         srcType = ObjectType.create(ClassType.cloneWithLiteral(srcType.classType, undefined));
         return isTypeSame(destType, srcType);
@@ -1543,7 +1547,7 @@ function _addTypeIfUnique(types: Type[], typeToAdd: Type) {
 
         // If the typeToAdd is a literal value and there's already
         // a non-literal type that matches, don't add the literal value.
-        if (type.category === TypeCategory.Object && typeToAdd.category === TypeCategory.Object) {
+        if (isObject(type) && isObject(typeToAdd)) {
             if (isSameWithoutLiteralValue(type, typeToAdd)) {
                 if (type.classType.literalValue === undefined) {
                     return;
