@@ -486,7 +486,7 @@ export class Program {
                 this._bindFile(sourceFileInfo);
 
                 this._runEvaluatorWithCancellationToken(token, () => {
-                    const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile, this._evaluator);
+                    const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile);
                     writer.write();
                 });
             }
