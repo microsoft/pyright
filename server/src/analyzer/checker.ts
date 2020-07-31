@@ -1982,8 +1982,8 @@ export class Checker extends ParseTreeWalker {
             const functionTypeResult = this._evaluator.getTypeOfFunction(enclosingFunctionNode);
             if (functionTypeResult) {
                 assert(functionTypeResult.functionType.category === TypeCategory.Function);
-                const iteratorType = this._evaluator.getBuiltInType(node, 'Iterator');
-                declaredYieldType = getDeclaredGeneratorYieldType(functionTypeResult.functionType, iteratorType);
+                const iterableType = this._evaluator.getBuiltInType(node, 'Iterable');
+                declaredYieldType = getDeclaredGeneratorYieldType(functionTypeResult.functionType, iterableType);
             }
         }
 
