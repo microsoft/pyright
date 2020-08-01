@@ -280,6 +280,9 @@ export const enum EvaluatorFlags {
     // expression "()" as a type argument. When this appears
     // as a type argument in other contexts, it's illegal.
     AllowEmptyTupleAsType = 1 << 9,
+
+    // Interpret an ellipsis type annotation to mean "Unknown".
+    ConvertEllipsisToUnknown = 1 << 10,
 }
 
 interface EvaluatorUsage {
@@ -825,6 +828,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             case ParseNodeType.Ellipsis: {
                 if ((flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0) {
                     typeResult = { type: AnyType.create(true), node };
+                } else if ((flags & EvaluatorFlags.ConvertEllipsisToUnknown) !== 0) {
+                    typeResult = { type: UnknownType.create(), node };
                 } else {
                     const ellipsisType = getBuiltInType(node, 'ellipsis') || AnyType.create();
                     typeResult = { type: ellipsisType, node };
@@ -7819,7 +7824,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 let flags: EvaluatorFlags = EvaluatorFlags.DoNotSpecialize;
                 if (fileInfo.isStubFile) {
                     // An assignment of ellipsis means "Any" within a type stub file.
-                    flags |= EvaluatorFlags.ConvertEllipsisToAny;
+                    flags |= EvaluatorFlags.ConvertEllipsisToUnknown;
                 }
 
                 const isTypeAlias = isDeclaredTypeAlias(node.leftExpression);
