@@ -330,7 +330,7 @@
         "overrideParamType": "Parameter {index} type mismatch: base parameter is type \"{baseType}\", override parameter is type \"{overrideType}\"",
         "overrideReturnType": "Return type mismatch: base method returns type \"{baseType}\", override returns type \"{overrideType}\"",
         "overrideType": "Base class defines type as \"{type}\"",
-        "paramAssignment": "Parameter {index} of type \"{sourceType}\" cannot be assigned to type \"{destType}\"",
+        "paramAssignment": "Parameter {index}: type \"{sourceType}\" cannot be assigned to type \"{destType}\"",
         "paramType": "Parameter type is \"{paramType}\"",
         "propertyMissingDeleter": "Property \"{name}\" has no defined deleter",
         "propertyMissingSetter": "Property \"{name}\" has no defined setter",
