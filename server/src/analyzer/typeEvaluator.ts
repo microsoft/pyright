@@ -12818,15 +12818,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
         if (isTypeVar(destType)) {
-            return assignTypeToTypeVar(
-                destType,
-                srcType,
-                false,
-                diag,
-                typeVarMap || new TypeVarMap(),
-                flags,
-                recursionCount + 1
-            );
+            if (!reverseTypeVarMatching) {
+                return assignTypeToTypeVar(
+                    destType,
+                    srcType,
+                    false,
+                    diag,
+                    typeVarMap || new TypeVarMap(),
+                    flags,
+                    recursionCount + 1
+                );
+            }
         }
 
         if (isAnyOrUnknown(destType)) {
