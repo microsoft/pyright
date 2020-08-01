@@ -204,7 +204,12 @@ export function getPythonPathFromPythonInterpreter(
     if (interpreterPath) {
         result = getPathResultFromInterpreter(fs, interpreterPath, importFailureInfo);
     } else {
-        result = getPathResultFromInterpreter(fs, 'python3', importFailureInfo);
+        // On non-Windows platforms, always default to python3 first. We want to
+        // avoid this on Windows because it might invoke a script that displays
+        // a dialog box indicating that python can be downloaded from the app store.
+        if (process.platform !== 'win32') {
+            result = getPathResultFromInterpreter(fs, 'python3', importFailureInfo);
+        }
 
         // On some platforms, 'python3' might not exist. Try 'python' instead.
         if (!result) {
