@@ -1,6 +1,6 @@
 # This sample tests the "reportPrivateUsage" feature.
 
-from .private2 import TestClass, _TestClass
+from .private2 import TestClass, _TestClass, TestClass as _Foo
 
 _Test = 1
 
@@ -18,6 +18,8 @@ class Foo(object):
 a = _TestClass()
 
 b = TestClass()
+
+a = _Foo()
 
 # This should generate an error
 c = b.__priv1

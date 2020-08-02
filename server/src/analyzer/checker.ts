@@ -1498,6 +1498,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // If this symbol is an import alias (i.e. it's a local name rather than the original
+        // imported name), skip the private check.
+        if (primaryDeclaration.type === DeclarationType.Alias && primaryDeclaration.usesLocalName) {
+            return;
+        }
+
         primaryDeclaration = this._evaluator.resolveAliasDeclaration(primaryDeclaration, /* resolveLocalNames */ true);
         if (!primaryDeclaration || primaryDeclaration.node === node) {
             return;
