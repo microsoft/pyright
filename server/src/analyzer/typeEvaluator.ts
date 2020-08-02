@@ -3552,7 +3552,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         assignTypeToTypeVar(
                             param,
                             index < typeArgs.length ? convertToInstance(typeArgs[index].type) : UnknownType.create(),
-                            false,
+                            /* canNarrowType */ false,
                             diag,
                             typeVarMap
                         );
@@ -12843,7 +12843,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return assignTypeToTypeVar(
                     destType,
                     srcType,
-                    false,
+                    /* canNarrowType */ false,
                     diag,
                     typeVarMap || new TypeVarMap(),
                     flags,
@@ -12883,7 +12883,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return assignTypeToTypeVar(
                     srcType,
                     destType,
-                    true,
+                    /* canNarrowType */ true,
                     diag,
                     typeVarMap || new TypeVarMap(),
                     flags,
