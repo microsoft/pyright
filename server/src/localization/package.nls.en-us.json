@@ -118,6 +118,7 @@
         "functionDecoratorTypeUnknown": "Untyped function decorator obscures type of function; ignoring decorator",
         "genericClassAssigned": "Generic class type cannot be assigned",
         "genericClassDeleted": "Generic class type cannot be deleted",
+        "genericNotAllowed": "\"Generic\" is not valid in this context",
         "genericTypeArgMissing": "\"Generic\" requires at least one type argument",
         "genericTypeArgTypeVar": "Type argument for \"Generic\" must be a type variable",
         "genericTypeArgUnique": "Type arguments for \"Generic\" must be unique",

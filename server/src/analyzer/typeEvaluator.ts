@@ -269,7 +269,7 @@ export const enum EvaluatorFlags {
     // 'Final' is not allowed in this context.
     FinalDisallowed = 1 << 6,
 
-    // A ParamSpec isn't allowed
+    // A ParamSpec isn't allowed in this context.
     ParamSpecDisallowed = 1 << 7,
 
     // Expression is expected to be a type (class) rather
@@ -283,6 +283,10 @@ export const enum EvaluatorFlags {
 
     // Interpret an ellipsis type annotation to mean "Unknown".
     ConvertEllipsisToUnknown = 1 << 10,
+
+    // The Generic class type is allowed in this context. It is
+    // normally not allowed if ExpectingType is set.
+    GenericClassTypeAllowed = 1 << 11,
 }
 
 interface EvaluatorUsage {
@@ -2887,6 +2891,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (isTypeVar(type) && type.isParamSpec) {
             if (flags & EvaluatorFlags.ParamSpecDisallowed) {
                 addError(Localizer.Diagnostic.paramSpecContext(), node);
+            }
+        }
+
+        if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
+            if ((flags & EvaluatorFlags.GenericClassTypeAllowed) === 0) {
+                if (isClass(type) && ClassType.isBuiltIn(type, 'Generic')) {
+                    addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.genericNotAllowed(),
+                        node
+                    );
+                }
             }
         }
 
@@ -7991,7 +8008,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         node.arguments.forEach((arg) => {
             // Ignore keyword parameters other than metaclass or total.
             if (!arg.name || arg.name.value === 'metaclass') {
-                let argType = getTypeOfExpression(arg.valueExpression).type;
+                let argType = getTypeOfExpression(
+                    arg.valueExpression,
+                    undefined,
+                    EvaluatorFlags.ExpectingType | EvaluatorFlags.GenericClassTypeAllowed
+                ).type;
                 const isMetaclass = !!arg.name;
 
                 if (isMetaclass) {
