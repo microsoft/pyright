@@ -7605,7 +7605,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     function createGenericType(errorNode: ParseNode, classType: ClassType, typeArgs?: TypeResult[]): Type {
         // Make sure there's at least one type arg.
         if (!typeArgs || typeArgs.length === 0) {
-            addError(Localizer.Diagnostic.genericClassDeleted(), errorNode);
+            addError(Localizer.Diagnostic.genericTypeArgMissing(), errorNode);
         }
 
         // Make sure that all of the type args are typeVars and are unique.
