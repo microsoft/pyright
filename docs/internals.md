@@ -43,7 +43,7 @@ Pyright attempts to infer the types of global (module-level) variables, class va
 
 Pyright supports type narrowing (sometimes called “type guards”) to track assumptions that apply within certain code flow paths. For example, consider the following code:
 ```python
-def (a: Optional[Union[str, List[str]]):
+def func(a: Optional[Union[str, List[str]]):
     if isinstance(a, str):
         log(a)
     elif isinstance(a, list):
@@ -54,36 +54,38 @@ def (a: Optional[Union[str, List[str]]):
 
 In this example, the type evaluator knows that parameter a is either None, str, or List[str]. Within the first `if` clause, a is constrained to be a str. Within the `elif` clause, it is constrained to be a List[str], and within the `else` clause, it has to be None (by process of elimination). The type checker would therefore flag the final line as an error if the log method could not accept None as a parameter.
 
+Narrowing is also applied values are assigned to a variable.
+
+```python
+def func():
+    # The declared type of “a” is a union of three types
+    # (str, List[str] and None).
+    a: Optional[Union[str, List[str]]]
+    reveal_type(a) # Type is `Optional[Union[str, List[str]]]`
+    
+    a = "hi"
+    reveal_type(a) # Type is `str`
+
+    a = ["a", "b", "c"]
+    reveal_type(a) # Type is `List[str]`
+
+    a = None
+    reveal_type(a) # Type is `None`
+```
+
 If the type narrowing logic exhausts all possible subtypes, it can be assumed that a code path will never be taken. For example, consider the following:
 ```python
 def (a: Union[Foo, Bar]):
     if isinstance(a, Foo):
-        # a must be type Foo
+        # “a” must be type Foo
         a.do_something_1()
     elif isinstance(a, Bar):
-        # a must be type Bar
+        # “a” must be type Bar
         a.do_something_2()
     else:
-        # This code is unreachable, so type is "Never"
+        # This code is unreachable, so type of “a” is "Never"
         a.do_something_3()
 ```
 
 In this case, the type of parameter “a” is initially “Union[Foo, Bar]”. Within the “if” clause, the type narrowing logic will conclude that it must be of type “Foo”. Within the “elif” clause, it must be of type “Bar”. What type is it within the “else” clause? The type narrowing system has eliminated all possible subtypes, so it gives it the type “Never”. This is generally indicates that there’s a logic error in the code because there’s way that code block will ever be executed.
 
-## Type Inference
-
-In cases where explicit type annotations are not provided, Pyright attempts to infer the types. The inferred return type of a function is determined from all of the return (and yield) statements within the function’s definition. The inferred type of a local variable is determined by the expression that is assigned to that variable. Likewise, the type of a member variable is inferred from all assignments to that member variable within its defining class.
-
-The types of input parameters cannot be inferred, with the exception of the “self” or “cls” parameter for instance members and class members, respectively.
-
-If an inferred return type is unknown or partially unknown because input parameter types are not annotated, Pyright may still be able to infer the return type based on the types of arguments at the call site. 
-```python
-def add_values(a, b):
-    return a + b
-
-# The type of result1 is "int"
-result1 = add_values(1, 2)
-
-# Type type of result2 is "str"
-result2 = add_values('abc', 'def')
-```
