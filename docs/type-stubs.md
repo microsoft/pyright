@@ -47,7 +47,7 @@ A few common situations that need to be cleaned up:
 
 3. Decorator functions are especially problematic for static type analyzers. Unless properly typed, they completely hide the signature of any class or function they are applied to. For this reason, it is highly recommended that you enable the “reportUntypedFunctionDecorator” and “reportUntypedClassDecorator” switches in pyrightconfig.json. Most decorators simply return the same function they are passed. Those can easily be annotated with a TypeVar like this:
 
-```
+```python
 from typings import Any, Callable, TypeVar
 
 _FuncT = TypeVar('_FuncT', bound=Callable[..., Any])

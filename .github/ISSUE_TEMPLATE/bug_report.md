@@ -20,7 +20,7 @@ A clear and concise description of what you expected to happen.
 
 **Screenshots or Code**
 If applicable, add screenshots or the text of the code (surrounded by triple back ticks) to help explain your problem.
-```
+```python
 def foo(self) -> str:
     return 3
 ```

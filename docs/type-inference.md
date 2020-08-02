@@ -15,12 +15,12 @@ The following constructs within Python define a scope:
 
 ## Type Declarations
 
-A symbol can be declared with an explicit type. The “def” and “class” keywords, for example, declare a function or a class. Other symbols in Python can be introduced into a scope with no explicit type. Newer versions of Python have introduced syntax for providing type annotations to input parameters, return parameters, and variables.
+A symbol can be declared with an explicit type. The “def” and “class” keywords, for example, declare a symbol as a function or a class. Other symbols in Python can be introduced into a scope with no declared type. Newer versions of Python have introduced syntax for declaring the types of input parameters, return parameters, and variables.
 
 When a parameter or variable is annotated with a type, the type checker verifies that all values assigned to that parameter or variable conform to that type.
 
 Consider the following example:
-```
+```python
 def func1(p1: float, p2: str, p3, **p4) -> None:
     var1: int = p1    # This is a type violation
     var2: str = p2    # This is allowed because the types match
@@ -55,7 +55,7 @@ If a symbol’s type cannot be inferred, Pyright internally sets its type to “
 
 The simplest form of type inference is one that involves a single assignment to a symbol. The inferred type comes from the type of the source expression. Examples include:
 
-```
+```python
 var1 = 3                        # Inferred type is int
 var2 = "hi"                     # Inferred type is str
 var3 = list()                   # Inferred type is List[Unknown]
@@ -68,7 +68,7 @@ var6 = [p for p in [1, 2, 3]]   # Inferred type is List[int]
 
 When a symbol is assigned values in multiple places within the code, those values may have different types. The inferred type of the variable is the union of all such types.
 
-```
+```python
 # In this example, symbol var1 has an inferred type of Union[str, int].
 class Foo:
     def __init__(self):
@@ -98,7 +98,7 @@ This technique is called “bidirectional inference” because type inference fo
 
 Let’s look at a few examples:
 
-```
+```python
 var1 = []                       # Type of RHS is ambiguous
 var2: List[int] = []            # Type of LHS now makes type of RHS unambiguous
 var3 = [4]                      # Type is assumed to be List[int] 
@@ -111,7 +111,7 @@ var6: Tuple[float, ...] = (3,)  # Type of RHS is now Tuple[float, ...]
 
 As with variable assignments, function return types can be inferred from the `return` statements found within that function. The returned type is assumed to be the union of all types returned from all `return` statements. If a `return` statement is not followed by an expression, it is assumed to return `None`. Likewise, if the function does not end in a `return` statement, and the end of the function is reachable, an implicit `return None` is assumed.
 
-```
+```python
 # This function has two explicit return statements and one implicit
 # return (at the end). It does not have a declared return type,
 # so Pyright infers its return type based on the return expressions.
@@ -128,7 +128,7 @@ def func1(val: int):
 
 If there is no code path that returns from a function (e.g. all code paths raise an exception), Pyright infers a return type of `NoReturn`. As an exception to this rule, if the function is decorated with `@abstractmethod`, the return type is not inferred as `NoReturn` even if there is no return. This accommodates a common practice where an abstract method is implemented with a `raise NotImplementedError()` statement.
 
-```
+```python
 class Foo:
     # The inferred return type is NoReturn.
     def method1(self):
@@ -148,7 +148,7 @@ Pyright can infer the return type for a generator function from the `yield` stat
 
 It is common for input parameters to be unannotated. This can make it difficult for Pyright to infer the correct return type for a function. For example:
 
-```
+```python
 # The return type of this function cannot be fully inferred based
 # on the information provided because the types of parameters
 # a and b are unknown. In this case, the inferred return
@@ -165,7 +165,7 @@ def func1(a, b, c):
 
 In cases where all parameters are unannotated, Pyright uses a technique called _call-site return type inference_. It performs type inference using the the types of arguments passed to the function in a call expression. If the unannotated function calls other functions, call-site return type inference can be used recursively. Pyright limits this recursion to a small number for practical performance reasons.
 
-```
+```python
 def func2(p_int: int, p_str: str, p_flt: float):
     # The type of var1 is inferred to be Union[int, None] based
     # on call-site return type inference.
@@ -179,7 +179,7 @@ def func2(p_int: int, p_str: str, p_flt: float):
 
 Python 3.8 introduced support for _literal types_. This allows a type checker like Pyright to track specific literal values of str, bytes, int, bool, and enum values. As with other types, literal types can be declared.
 
-```
+```python
 # This function is allowed to return only values 1, 2 or 3.
 def func1() -> Literal[1, 2, 3]:
     ...
@@ -191,7 +191,7 @@ def func2(mode: Literal["r", "w", "rw"]) -> None:
 
 When Pyright is performing type inference, it generally does not infer literal types. Consider the following example:
 
-```
+```python
 # If Pyright inferred the type of var1 to be List[Literal[4]],
 # any attempt to append a value other than 4 to this list would
 # generate an error. Pyright therefore infers the broader
@@ -203,7 +203,7 @@ var1 = [4]
 
 When inferring the type of a tuple expression (in the absence of bidirectional inference hints), Pyright assumes that the tuple has a fixed length, and each tuple element is typed as specifically as possible.
 
-```
+```python
 # The inferred type is Tuple[Literal[1], Literal["a"], Literal[True]]
 var1 = (1, "a", True)
 
@@ -230,7 +230,7 @@ When inferring the type of a list expression (in the absence of bidirectional in
 
 These heuristics can be overridden through the use of bidirectional inference hints (e.g. by providing a declared type for the target of the assignment expression).
 
-```
+```python
 var1 = []                       # Infer List[Unknown]
 
 var2 = [1, 2]                   # Infer List[int]
@@ -255,7 +255,7 @@ When inferring the type of a dictionary expression (in the absence of bidirectio
     * Otherwise use the union of all key and value types `Dict[Union[(keys), Union[(values)]]]`.
 
 
-```
+```python
 var1 = {}                       # Infer Dict[Unknown, Unknown]
 
 var2 = {1: ""}                  # Infer Dict[int, str]
@@ -271,7 +271,7 @@ var4: Dict[str, float] = {"a": 3, "b": 3.4}
 
 Lambdas present a particular challenge for a Python type checker because there is no provision in the Python syntax for annotating the types of a lambda’s input parameters. The types of these parameters must therefore be inferred based on context using bidirectional type inference. Absent this context, a lambda’s input parameters (and often its return type) will be unknown.
 
-```
+```python
 # The type of var1 is (a: Unknown, b: Unknown) -> Unknown.
 var1 = lambda a, b: a + b
 

@@ -77,7 +77,7 @@ In cases where explicit type annotations are not provided, Pyright attempts to i
 The types of input parameters cannot be inferred, with the exception of the “self” or “cls” parameter for instance members and class members, respectively.
 
 If an inferred return type is unknown or partially unknown because input parameter types are not annotated, Pyright may still be able to infer the return type based on the types of arguments at the call site. 
-```
+```python
 def add_values(a, b):
     return a + b
 
