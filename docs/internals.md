@@ -57,10 +57,10 @@ In this example, the type evaluator knows that parameter a is either None, str, 
 Narrowing is also applied values are assigned to a variable.
 
 ```python
-def func():
+def func(b: Optional[Union[str, List[str]]]):
     # The declared type of “a” is a union of three types
     # (str, List[str] and None).
-    a: Optional[Union[str, List[str]]]
+    a: Optional[Union[str, List[str]]] = b
     reveal_type(a) # Type is `Optional[Union[str, List[str]]]`
     
     a = "hi"
