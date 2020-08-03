@@ -16,7 +16,13 @@ import { ConsoleInterface } from './console';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
 import { combinePaths, ensureTrailingDirectorySeparator, FileSpec, getFileSpec, normalizePath } from './pathUtils';
-import { latestStablePythonVersion, PythonVersion, versionFromString, versionToString } from './pythonVersion';
+import {
+    latestStablePythonVersion,
+    PythonVersion,
+    versionFromMajorMinor,
+    versionFromString,
+    versionToString,
+} from './pythonVersion';
 
 export class ExecutionEnvironment {
     // Default to "." which indicates every file in the project.
@@ -1245,7 +1251,10 @@ export class ConfigOptions {
         console: ConsoleInterface
     ): PythonVersion | undefined {
         try {
-            const commandLineArgs: string[] = ['--version'];
+            const commandLineArgs: string[] = [
+                '-c',
+                'import sys, json; json.dump(dict(major=sys.version_info[0], minor=sys.version_info[1]), sys.stdout)',
+            ];
             let execOutput: string;
 
             if (interpreterPath) {
@@ -1254,22 +1263,13 @@ export class ConfigOptions {
                 execOutput = child_process.execFileSync('python', commandLineArgs, { encoding: 'utf8' });
             }
 
-            // Parse the execOutput. It should be something like "Python 3.x.y".
-            const match = execOutput.match(/[0-9]+.[0-9]+.[0-9]+/);
-            if (!match) {
-                console.info(`Unable to get Python version from interpreter. Received "${execOutput}"`);
-                return undefined;
-            }
+            const versionJson: { major: number; minor: number } = JSON.parse(execOutput);
 
-            const versionString = match[0];
-            const version = versionFromString(versionString);
+            const version = versionFromMajorMinor(versionJson.major, versionJson.minor);
             if (version === undefined) {
-                console.info(`Unable to get Python version from interpreter. Received "${execOutput}"`);
-                return undefined;
-            }
-
-            if (version < PythonVersion.V3_0) {
-                console.info(`Python version from interpreter is unsupported: "${execOutput}"`);
+                console.info(
+                    `Python version ${versionJson.major}.${versionJson.minor} from interpreter is unsupported`
+                );
                 return undefined;
             }
 

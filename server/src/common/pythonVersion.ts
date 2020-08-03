@@ -43,15 +43,19 @@ export function versionFromString(verString: string): PythonVersion | undefined 
     const majorVersion = parseInt(split[0], 10);
     const minorVersion = parseInt(split[1], 10);
 
-    if (isNaN(majorVersion) || isNaN(minorVersion)) {
+    return versionFromMajorMinor(majorVersion, minorVersion);
+}
+
+export function versionFromMajorMinor(major: number, minor: number): PythonVersion | undefined {
+    if (isNaN(major) || isNaN(minor)) {
         return undefined;
     }
 
-    if (majorVersion > 255 || minorVersion > 255) {
+    if (major > 255 || minor > 255) {
         return undefined;
     }
 
-    const value = majorVersion * 256 + minorVersion;
+    const value = major * 256 + minor;
     if (PythonVersion[value] === undefined) {
         return undefined;
     }
