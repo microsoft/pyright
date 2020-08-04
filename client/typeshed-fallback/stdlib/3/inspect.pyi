@@ -2,7 +2,23 @@ import enum
 import sys
 from collections import OrderedDict
 from types import CodeType, FrameType, FunctionType, MethodType, ModuleType, TracebackType
-from typing import AbstractSet, Any, Callable, Dict, Generator, List, Mapping, NamedTuple, Optional, Sequence, Tuple, Type, Union
+from typing import (
+    AbstractSet,
+    Any,
+    Callable,
+    ClassVar,
+    Dict,
+    Generator,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    Union,
+)
+from typing_extensions import Literal
 
 #
 # Types and members
@@ -107,6 +123,12 @@ class Signature:
 
 # The name is the same as the enum's name in CPython
 class _ParameterKind(enum.IntEnum):
+    POSITIONAL_ONLY: int
+    POSITIONAL_OR_KEYWORD: int
+    VAR_POSITIONAL: int
+    KEYWORD_ONLY: int
+    VAR_KEYWORD: int
+
     if sys.version_info >= (3, 8):
         description: str
 
@@ -118,11 +140,11 @@ class Parameter:
     annotation: Any
 
     kind: _ParameterKind
-    POSITIONAL_ONLY: _ParameterKind = ...
-    POSITIONAL_OR_KEYWORD: _ParameterKind = ...
-    VAR_POSITIONAL: _ParameterKind = ...
-    KEYWORD_ONLY: _ParameterKind = ...
-    VAR_KEYWORD: _ParameterKind = ...
+    POSITIONAL_ONLY: ClassVar[Literal[_ParameterKind.POSITIONAL_ONLY]]
+    POSITIONAL_OR_KEYWORD: ClassVar[Literal[_ParameterKind.POSITIONAL_OR_KEYWORD]]
+    VAR_POSITIONAL: ClassVar[Literal[_ParameterKind.VAR_POSITIONAL]]
+    KEYWORD_ONLY: ClassVar[Literal[_ParameterKind.KEYWORD_ONLY]]
+    VAR_KEYWORD: ClassVar[Literal[_ParameterKind.VAR_KEYWORD]]
     def replace(
         self, *, name: Optional[str] = ..., kind: Optional[_ParameterKind] = ..., default: Any = ..., annotation: Any = ...
     ) -> Parameter: ...

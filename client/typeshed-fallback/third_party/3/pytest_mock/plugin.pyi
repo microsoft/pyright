@@ -14,17 +14,16 @@ def _get_mock_module(config: _Config) -> _MockModule: ...
 class MockFixture:
     mock_module: _MockModule
     patch: MockFixture._Patcher  # google/pytype#611
-    # The following aliases don't work due to google/pytype#612
-    Mock: Any  # actually unittest.mock.Mock
-    MagicMock: Any  # actually unittest.mock.MagicMock
-    NonCallableMock: Any  # actually unittest.mock.NonCallableMock
-    PropertyMock: Any  # actually unittest.mock.PropertyMock
-    call: Any  # actually unittest.mock.call
-    ANY: Any  # actually unittest.mock.ANY
-    DEFAULT: Any  # actually unittest.mock.DEFAULT
-    create_autospec: Any  # actually unittest.mock.create_autospec
-    sentinel: Any  # actually unittest.mock.sentinel
-    mock_open: Any  # actually unittest.mock.mock_open
+    Mock = unittest.mock.Mock
+    MagicMock = unittest.mock.MagicMock
+    NonCallableMock = unittest.mock.NonCallableMock
+    PropertyMock = unittest.mock.PropertyMock
+    call = unittest.mock.call
+    ANY = unittest.mock.ANY
+    DEFAULT = unittest.mock.DEFAULT
+    create_autospec = unittest.mock.create_autospec
+    sentinel = unittest.mock.sentinel
+    mock_open = unittest.mock.mock_open
     def __init__(self, config: _Config) -> None: ...
     def resetall(self) -> None: ...
     def stopall(self) -> None: ...

@@ -1,5 +1,5 @@
 import sys
-from _typeshed import AnyPath
+from _typeshed import AnyPath, StrPath
 from types import TracebackType
 from typing import IO, Callable, Dict, Iterable, Iterator, List, Mapping, Optional, Set, Tuple, Type, Union
 
@@ -162,8 +162,8 @@ class TarFile(Iterable[TarInfo]):
     if sys.version_info >= (3, 7):
         def add(
             self,
-            name: str,
-            arcname: Optional[str] = ...,
+            name: StrPath,
+            arcname: Optional[StrPath] = ...,
             recursive: bool = ...,
             *,
             filter: Optional[Callable[[TarInfo], Optional[TarInfo]]] = ...,
@@ -171,8 +171,8 @@ class TarFile(Iterable[TarInfo]):
     elif sys.version_info >= (3,):
         def add(
             self,
-            name: str,
-            arcname: Optional[str] = ...,
+            name: StrPath,
+            arcname: Optional[StrPath] = ...,
             recursive: bool = ...,
             exclude: Optional[Callable[[str], bool]] = ...,
             *,

@@ -122,26 +122,34 @@ class DatagramHandler(SocketHandler):
     def makeSocket(self) -> SocketType: ...  # type: ignore
 
 class SysLogHandler(Handler):
+    LOG_EMERG: int
     LOG_ALERT: int
     LOG_CRIT: int
-    LOG_DEBUG: int
-    LOG_EMERG: int
     LOG_ERR: int
-    LOG_INFO: int
-    LOG_NOTICE: int
     LOG_WARNING: int
-    LOG_AUTH: int
-    LOG_AUTHPRIV: int
-    LOG_CRON: int
-    LOG_DAEMON: int
-    LOG_FTP: int
+    LOG_NOTICE: int
+    LOG_INFO: int
+    LOG_DEBUG: int
+
     LOG_KERN: int
-    LOG_LPR: int
-    LOG_MAIL: int
-    LOG_NEWS: int
-    LOG_SYSLOG: int
     LOG_USER: int
+    LOG_MAIL: int
+    LOG_DAEMON: int
+    LOG_AUTH: int
+    LOG_SYSLOG: int
+    LOG_LPR: int
+    LOG_NEWS: int
     LOG_UUCP: int
+    LOG_CRON: int
+    LOG_AUTHPRIV: int
+    LOG_FTP: int
+
+    if sys.version_info >= (3, 9):
+        LOG_NTP: int
+        LOG_SECURITY: int
+        LOG_CONSOLE: int
+        LOG_SOLCRON: int
+
     LOG_LOCAL0: int
     LOG_LOCAL1: int
     LOG_LOCAL2: int
