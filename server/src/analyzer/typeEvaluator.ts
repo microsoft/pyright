@@ -12954,11 +12954,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             ) {
                 foundMatch = true;
             } else {
+                let bestTypeVarMap: TypeVarMap | undefined;
+                let bestTypeVarMapScore: number | undefined;
+
                 destType.subtypes.forEach((subtype) => {
-                    if (canAssignType(subtype, srcType, diagAddendum, typeVarMap, flags, recursionCount + 1)) {
+                    // Make a temporary clone of the typeVarMap. We don't want to modify
+                    // the original typeVarMap until we find the "optimal" typeVar mapping.
+                    const typeVarMapClone = typeVarMap?.clone();
+                    if (canAssignType(subtype, srcType, diagAddendum, typeVarMapClone, flags, recursionCount + 1)) {
                         foundMatch = true;
+
+                        if (typeVarMapClone) {
+                            // Ask the typeVarMap to compute a "score" for the current
+                            // contents of the table.
+                            const typeVarMapScore = typeVarMapClone.getScore();
+                            if (bestTypeVarMapScore === undefined || bestTypeVarMapScore <= typeVarMapScore) {
+                                // We found a typeVar mapping with a higher score than before.
+                                bestTypeVarMapScore = typeVarMapScore;
+                                bestTypeVarMap = typeVarMapClone;
+                            }
+                        }
                     }
                 });
+
+                // If we found a winning type var mapping, copy it back to typeVarMap.
+                if (typeVarMap && bestTypeVarMap) {
+                    typeVarMap.copyFromClone(bestTypeVarMap);
+                }
             }
 
             if (!foundMatch) {

@@ -10,7 +10,7 @@
  */
 
 import { assert } from '../common/debug';
-import { FunctionType, Type } from './types';
+import { ClassType, FunctionType, maxTypeRecursionCount, Type, TypeCategory } from './types';
 
 export class TypeVarMap {
     private _typeVarMap: Map<string, Type>;
@@ -38,6 +38,39 @@ export class TypeVarMap {
         newTypeVarMap._isLocked = this._isLocked;
 
         return newTypeVarMap;
+    }
+
+    // Copies a cloned type var map back into this object.
+    copyFromClone(clone: TypeVarMap) {
+        this._typeVarMap = clone._typeVarMap;
+        this._paramSpecMap = clone._paramSpecMap;
+        this._isNarrowableMap = clone._isNarrowableMap;
+        this._isLocked = clone._isLocked;
+    }
+
+    // Provides a "score" - a value that values completeness (number
+    // of type variables that are assigned) and completeness.
+    getScore() {
+        let score = 0;
+
+        // Sum the scores for the defined type vars.
+        this._typeVarMap.forEach((value) => {
+            // Add 1 to the score for each type variable defined.
+            score += 1;
+
+            // Add a fractional amount based on the complexity of the definition.
+            // The more complex, the lower the score. In the spirit of Occam's
+            // Razor, we always want to favor simple answers.
+            score += this._getComplexityScoreForType(value);
+        });
+
+        // Do the same for the param spec map.
+        this._paramSpecMap.forEach((value) => {
+            score += 1;
+            score += this._getComplexityScoreForType(value);
+        });
+
+        return score;
     }
 
     hasTypeVar(name: string): boolean {
@@ -86,5 +119,70 @@ export class TypeVarMap {
 
     isLocked(): boolean {
         return this._isLocked;
+    }
+
+    // Returns a "score" for a type that captures the relative complexity
+    // of the type. Scores should all be between 0 and 1 where 0 means
+    // very complex and 1 means simple. This is a heuristic, so there's
+    // often no objectively correct answer.
+    private _getComplexityScoreForType(type: Type, recursionCount = 0): number {
+        if (recursionCount > maxTypeRecursionCount) {
+            return 0;
+        }
+
+        switch (type.category) {
+            case TypeCategory.Function:
+            case TypeCategory.OverloadedFunction: {
+                // For now, return a constant for functions. We may want
+                // to make this heuristic in the future.
+                return 0.5;
+            }
+
+            case TypeCategory.Union: {
+                let minScore = 1;
+                type.subtypes.forEach((subtype) => {
+                    const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount + 1);
+                    if (subtypeScore < minScore) {
+                        minScore = subtypeScore;
+                    }
+                });
+
+                // Assume that a union is more complex than a non-union,
+                // and return half of the minimum score of the subtypes.
+                return minScore / 2;
+            }
+
+            case TypeCategory.Class: {
+                // Score a class as 0.5 plus half of the average complexity
+                // score of its type arguments.
+                return this._getComplexityScoreForClass(type, recursionCount + 1);
+            }
+
+            case TypeCategory.Object: {
+                return this._getComplexityScoreForClass(type.classType, recursionCount + 1);
+            }
+        }
+
+        // For all other types, return a score of 0.
+        return 0;
+    }
+
+    private _getComplexityScoreForClass(classType: ClassType, recursionCount: number): number {
+        let typeArgScoreSum = 0;
+        let typeArgCount = 0;
+
+        if (classType.typeArguments) {
+            classType.typeArguments.forEach((type) => {
+                typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount + 1);
+                typeArgCount++;
+            });
+        }
+
+        let score = 0.5;
+        if (typeArgCount > 0) {
+            score += (typeArgScoreSum / typeArgCount) * 0.5;
+        }
+
+        return score;
     }
 }
