@@ -223,10 +223,11 @@ export class Parser {
         textOffset: number,
         textLength: number,
         parseOptions: ParseOptions,
-        parseTypeAnnotation: boolean
+        parseTypeAnnotation: boolean,
+        initialParenDepth = 0
     ): ParseExpressionTextResults {
         const diagSink = new DiagnosticSink();
-        this._startNewParse(fileContents, textOffset, textLength, parseOptions, diagSink);
+        this._startNewParse(fileContents, textOffset, textLength, parseOptions, diagSink, initialParenDepth);
 
         let parseTree: ExpressionNode | undefined;
         if (parseTypeAnnotation) {
@@ -255,7 +256,8 @@ export class Parser {
         textOffset: number,
         textLength: number,
         parseOptions: ParseOptions,
-        diagSink: DiagnosticSink
+        diagSink: DiagnosticSink,
+        initialParenDepth = 0
     ) {
         this._fileContents = fileContents;
         this._parseOptions = parseOptions;
@@ -263,7 +265,7 @@ export class Parser {
 
         // Tokenize the file contents.
         const tokenizer = new Tokenizer();
-        this._tokenizerOutput = tokenizer.tokenize(fileContents, textOffset, textLength);
+        this._tokenizerOutput = tokenizer.tokenize(fileContents, textOffset, textLength, initialParenDepth);
         this._tokenIndex = 0;
     }
 
@@ -2974,7 +2976,8 @@ export class Parser {
             stringToken.start + stringToken.prefixLength + stringToken.quoteMarkLength + segment.offset + segmentOffset,
             segmentLength,
             this._parseOptions,
-            /* parseTypeAnnotation */ false
+            /* parseTypeAnnotation */ false,
+            /* initialParenDepth */ 1
         );
 
         parseResults.diagnostics.forEach((diag) => {

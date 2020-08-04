@@ -27,4 +27,12 @@ f = f"hello { 2 != 3 :3 }"
 g = f"hello { a[2:3] :3 }"
 
 # Test f-string with embedded bang.
-g = f"hello { b['hello!'] :3 }"
+h = f"hello { b['hello!'] :3 }"
+
+# Test f-string with expression that contains newlines.
+i = f"""
+    {
+        f''' hi ''' +
+        'bye'
+    }
+"""

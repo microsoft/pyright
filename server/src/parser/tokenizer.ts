@@ -191,7 +191,7 @@ export class Tokenizer {
     private _singleQuoteCount = 0;
     private _doubleQuoteCount = 0;
 
-    tokenize(text: string, start?: number, length?: number): TokenizerOutput {
+    tokenize(text: string, start?: number, length?: number, initialParenDepth = 0): TokenizerOutput {
         if (start === undefined) {
             start = 0;
         } else if (start < 0 || start > text.length) {
@@ -210,7 +210,7 @@ export class Tokenizer {
         this._cs.position = start;
         this._tokens = [];
         this._prevLineStart = 0;
-        this._parenDepth = 0;
+        this._parenDepth = initialParenDepth;
         this._lineRanges = [];
         this._indentAmounts = [];
 
