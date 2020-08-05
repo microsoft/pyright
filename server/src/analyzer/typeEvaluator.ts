@@ -837,7 +837,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 } else if ((flags & EvaluatorFlags.ConvertEllipsisToUnknown) !== 0) {
                     typeResult = { type: UnknownType.create(), node };
                 } else {
-                    const ellipsisType = getBuiltInType(node, 'ellipsis') || AnyType.create();
+                    const ellipsisType = getBuiltInObject(node, 'ellipsis') || AnyType.create();
                     typeResult = { type: ellipsisType, node };
                 }
                 break;
