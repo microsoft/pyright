@@ -222,6 +222,7 @@
         "stringUnsupportedEscape": "Unsupported escape sequence in string literal",
         "stringUnterminated": "String literal is unterminated",
         "stubFileMissing": "Stub file not found for \"{importName}\"",
+        "stubUsesGetAttr": "Type stub file is incomplete; \"__getattr__\" obscures type errors for module",
         "sublistParamsIncompatible": "Sublist parameters are not supported in Python 3.x",
         "superCallArgCount": "Expected no more than two arguments to \"super\" call",
         "superCallFirstArg": "Expected class type as first argument to \"super\" call but received \"{type}\"",

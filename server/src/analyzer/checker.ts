@@ -72,6 +72,7 @@ import { getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { ScopeType } from './scope';
+import { getScopeForNode } from './scopeUtils';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
@@ -268,6 +269,21 @@ export class Checker extends ParseTreeWalker {
         if (functionTypeResult) {
             // Validate that the function returns the declared type.
             this._validateFunctionReturn(node, functionTypeResult.functionType);
+        }
+
+        // If we're at the module level within a stub file, report a diagnostic
+        // if there is a '__getattr__' function defined when in strict mode.
+        // This signifies an incomplete stub file that obscures type errors.
+        if (this._fileInfo.isStubFile && node.name.value === '__getattr__') {
+            const scope = getScopeForNode(node);
+            if (scope?.type === ScopeType.Module) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportUnknownMemberType,
+                    DiagnosticRule.reportUnknownMemberType,
+                    Localizer.Diagnostic.stubUsesGetAttr(),
+                    node.name
+                );
+            }
         }
 
         this._scopedNodes.push(node);

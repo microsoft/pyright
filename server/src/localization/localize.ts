@@ -456,11 +456,12 @@ export namespace Localizer {
         export const returnTypePartiallyUnknown = () =>
             new ParameterizedString<{ returnType: string }>(getRawString('Diagnostic.returnTypePartiallyUnknown'));
         export const staticClsSelfParam = () => getRawString('Diagnostic.staticClsSelfParam');
-        export const stubFileMissing = () =>
-            new ParameterizedString<{ importName: string }>(getRawString('Diagnostic.stubFileMissing'));
         export const stringNonAsciiBytes = () => getRawString('Diagnostic.stringNonAsciiBytes');
         export const stringUnsupportedEscape = () => getRawString('Diagnostic.stringUnsupportedEscape');
         export const stringUnterminated = () => getRawString('Diagnostic.stringUnterminated');
+        export const stubFileMissing = () =>
+            new ParameterizedString<{ importName: string }>(getRawString('Diagnostic.stubFileMissing'));
+        export const stubUsesGetAttr = () => getRawString('Diagnostic.stubUsesGetAttr');
         export const sublistParamsIncompatible = () => getRawString('Diagnostic.sublistParamsIncompatible');
         export const superCallArgCount = () => getRawString('Diagnostic.superCallArgCount');
         export const superCallFirstArg = () =>
