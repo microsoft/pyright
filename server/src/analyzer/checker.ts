@@ -1261,6 +1261,13 @@ export class Checker extends ParseTreeWalker {
                 if (!isPrivate) {
                     return;
                 }
+
+                // If a stub is exporting a private type, we'll assume that the author
+                // knows what he or she is doing.
+                if (this._fileInfo.isStubFile) {
+                    return;
+                }
+
                 diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedClass;
                 nameNode = decl.node.name;
                 rule = DiagnosticRule.reportUnusedClass;
@@ -1271,6 +1278,13 @@ export class Checker extends ParseTreeWalker {
                 if (!isPrivate) {
                     return;
                 }
+
+                // If a stub is exporting a private type, we'll assume that the author
+                // knows what he or she is doing.
+                if (this._fileInfo.isStubFile) {
+                    return;
+                }
+
                 diagnosticLevel = this._fileInfo.diagnosticRuleSet.reportUnusedFunction;
                 nameNode = decl.node.name;
                 rule = DiagnosticRule.reportUnusedFunction;
