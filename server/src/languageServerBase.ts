@@ -95,6 +95,7 @@ export interface ServerSettings {
     watchForLibraryChanges?: boolean;
     diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap;
     logLevel?: LogLevel;
+    autoImportCompletions?: boolean;
 }
 
 export interface WorkspaceServiceInstance {

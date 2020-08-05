@@ -100,4 +100,7 @@ export class CommandLineOptions {
 
     // Indicates diagnostic severity overrides
     diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap;
+
+    // Offer auto-import completions.
+    autoImportCompletions?: boolean;
 }

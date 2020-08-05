@@ -67,6 +67,12 @@
             "type": "object",
             "title": "Pyright",
             "properties": {
+                "python.analysis.autoImportCompletions": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Offer auto-import completions.",
+                    "scope": "resource"
+                },
                 "python.analysis.autoSearchPaths": {
                     "type": "boolean",
                     "default": true,

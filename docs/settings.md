@@ -10,6 +10,8 @@ The Pyright VS Code extension honors the following settings.
 
 **pyright.useLibraryCodeForTypes** [boolean]: This setting is deprecated in favor of python.analysis.useLibraryCodeForTypes. It will be removed at a future time.
 
+**python.analysis.autoImportCompletions** [boolean]: Determines whether pyright offers auto-import completions.
+
 **python.analysis.autoSearchPaths** [boolean]: Determines whether pyright automatically adds common search paths like "src" if there are no execution environments defined in the config file.
 
 **python.analysis.diagnosticMode** ["openFilesOnly", "workspace"]: Determines whether pyright analyzes (and reports errors for) all files in the workspace, as indicated by the config file. If this option is set to "openFilesOnly", pyright analyzes only open files.
