@@ -196,6 +196,10 @@ export interface DiagnosticRuleSet {
 
     // Report usage of unbound or possibly unbound variables.
     reportUnboundVariable: DiagnosticLevel;
+
+    // Report statements that are syntactically correct but
+    // have no semantic meaning within a type stub file.
+    reportInvalidStubStatement: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -256,6 +260,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportImplicitStringConcatenation,
         DiagnosticRule.reportUndefinedVariable,
         DiagnosticRule.reportUnboundVariable,
+        DiagnosticRule.reportInvalidStubStatement,
     ];
 }
 
@@ -313,6 +318,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'warning',
         reportUndefinedVariable: 'warning',
+        reportInvalidStubStatement: 'none',
     };
 
     return diagSettings;
@@ -366,6 +372,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'error',
         reportUndefinedVariable: 'error',
+        reportInvalidStubStatement: 'none',
     };
 
     return diagSettings;
@@ -419,6 +426,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportImplicitStringConcatenation: 'none',
         reportUnboundVariable: 'error',
         reportUndefinedVariable: 'error',
+        reportInvalidStubStatement: 'error',
     };
 
     return diagSettings;
@@ -974,6 +982,13 @@ export class ConfigOptions {
                 configObj.reportUnboundVariable,
                 DiagnosticRule.reportUnboundVariable,
                 defaultSettings.reportUnboundVariable
+            ),
+
+            // Read the "reportInvalidStubStatement" entry.
+            reportInvalidStubStatement: this._convertDiagnosticLevel(
+                configObj.reportInvalidStubStatement,
+                DiagnosticRule.reportInvalidStubStatement,
+                defaultSettings.reportInvalidStubStatement
             ),
         };
 

@@ -345,6 +345,12 @@
       "title": "Controls reporting usage of implicit concatenation of string literals",
       "default": "warning"
     },
+    "reportInvalidStubStatement": {
+      "$id": "#/properties/reportInvalidStubStatement",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of statements that have no semantic meaning within a type stub",
+      "default": "none"
+    },
     "pythonVersion": {
       "$id": "#/properties/pythonVersion",
       "type": "string",

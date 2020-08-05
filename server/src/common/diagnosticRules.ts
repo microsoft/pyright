@@ -52,4 +52,5 @@ export const enum DiagnosticRule {
     reportImplicitStringConcatenation = 'reportImplicitStringConcatenation',
     reportUndefinedVariable = 'reportUndefinedVariable',
     reportUnboundVariable = 'reportUnboundVariable',
+    reportInvalidStubStatement = 'reportInvalidStubStatement',
 }

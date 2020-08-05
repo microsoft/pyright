@@ -329,6 +329,7 @@ export namespace Localizer {
         export const initSubclassClsParam = () => getRawString('Diagnostic.initSubclassClsParam');
         export const instanceMethodSelfParam = () => getRawString('Diagnostic.instanceMethodSelfParam');
         export const invalidIdentifierChar = () => getRawString('Diagnostic.invalidIdentifierChar');
+        export const invalidStubStatement = () => getRawString('Diagnostic.invalidStubStatement');
         export const invalidTokenChars = () =>
             new ParameterizedString<{ text: string }>(getRawString('Diagnostic.invalidTokenChars'));
         export const isInstanceInvalidType = () =>

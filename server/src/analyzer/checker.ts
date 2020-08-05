@@ -770,7 +770,84 @@ export class Checker extends ParseTreeWalker {
                 }
             }
 
+            if (!reportedUnreachable && this._fileInfo.isStubFile) {
+                this._validateStubStatement(statement);
+            }
+
             this.walk(statement);
+        }
+    }
+
+    private _validateStubStatement(statement: StatementNode) {
+        switch (statement.nodeType) {
+            case ParseNodeType.If:
+            case ParseNodeType.Function:
+            case ParseNodeType.Class:
+            case ParseNodeType.Error: {
+                // These are allowed in a stub file.
+                break;
+            }
+
+            case ParseNodeType.While:
+            case ParseNodeType.For:
+            case ParseNodeType.Try:
+            case ParseNodeType.With: {
+                // These are not allowed.
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement,
+                    DiagnosticRule.reportInvalidStubStatement,
+                    Localizer.Diagnostic.invalidStubStatement(),
+                    statement
+                );
+                break;
+            }
+
+            case ParseNodeType.StatementList: {
+                for (const substatement of statement.statements) {
+                    switch (substatement.nodeType) {
+                        case ParseNodeType.Assert:
+                        case ParseNodeType.AssignmentExpression:
+                        case ParseNodeType.AugmentedAssignment:
+                        case ParseNodeType.Await:
+                        case ParseNodeType.BinaryOperation:
+                        case ParseNodeType.Call:
+                        case ParseNodeType.Constant:
+                        case ParseNodeType.Del:
+                        case ParseNodeType.Dictionary:
+                        case ParseNodeType.Index:
+                        case ParseNodeType.For:
+                        case ParseNodeType.FormatString:
+                        case ParseNodeType.Global:
+                        case ParseNodeType.Lambda:
+                        case ParseNodeType.List:
+                        case ParseNodeType.MemberAccess:
+                        case ParseNodeType.Name:
+                        case ParseNodeType.Nonlocal:
+                        case ParseNodeType.Number:
+                        case ParseNodeType.Raise:
+                        case ParseNodeType.Return:
+                        case ParseNodeType.Set:
+                        case ParseNodeType.Slice:
+                        case ParseNodeType.Ternary:
+                        case ParseNodeType.Tuple:
+                        case ParseNodeType.Try:
+                        case ParseNodeType.UnaryOperation:
+                        case ParseNodeType.Unpack:
+                        case ParseNodeType.While:
+                        case ParseNodeType.With:
+                        case ParseNodeType.WithItem:
+                        case ParseNodeType.Yield:
+                        case ParseNodeType.YieldFrom: {
+                            this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement,
+                                DiagnosticRule.reportInvalidStubStatement,
+                                Localizer.Diagnostic.invalidStubStatement(),
+                                substatement
+                            );
+                        }
+                    }
+                }
+            }
         }
     }
 
