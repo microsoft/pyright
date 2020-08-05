@@ -868,23 +868,25 @@ export class Program {
             );
 
             // Filter out any name that is already defined in the current scope.
-            const currentScope = getScopeForNode(currentNode);
-
             const results: AutoImportResult[] = [];
-            const translatedWord = nameMap?.get(writtenWord);
-            if (translatedWord) {
-                // No filter is needed since we only do exact match.
-                const exactMatch = 1;
+
+            const currentScope = getScopeForNode(currentNode);
+            if (currentScope) {
+                const translatedWord = nameMap?.get(writtenWord);
+                if (translatedWord) {
+                    // No filter is needed since we only do exact match.
+                    const exactMatch = 1;
+                    results.push(
+                        ...autoImporter.getAutoImportCandidates(translatedWord, exactMatch, [], writtenWord, token)
+                    );
+                }
+
                 results.push(
-                    ...autoImporter.getAutoImportCandidates(translatedWord, exactMatch, [], writtenWord, token)
+                    ...autoImporter
+                        .getAutoImportCandidates(writtenWord, similarityLimit, [], undefined, token)
+                        .filter((r) => !currentScope.lookUpSymbolRecursive(r.name))
                 );
             }
-
-            results.push(
-                ...autoImporter
-                    .getAutoImportCandidates(writtenWord, similarityLimit, [], undefined, token)
-                    .filter((r) => !currentScope.lookUpSymbolRecursive(r.name))
-            );
 
             return results;
         });

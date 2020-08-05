@@ -30,6 +30,7 @@ import {
     SuiteNode,
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
+import { getScope } from './analyzerNodeInfo';
 import { decodeDocString } from './docStringUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 
@@ -578,10 +579,14 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
             case ParseNodeType.Function: {
                 if (curNode.parameters.some((param) => param === prevNode)) {
                     if (isParamNameNode) {
-                        return curNode;
+                        if (getScope(curNode) !== undefined) {
+                            return curNode;
+                        }
                     }
                 } else if (prevNode === curNode.suite) {
-                    return curNode;
+                    if (getScope(curNode) !== undefined) {
+                        return curNode;
+                    }
                 }
                 break;
             }
@@ -589,24 +594,32 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
             case ParseNodeType.Lambda: {
                 if (curNode.parameters.some((param) => param === prevNode)) {
                     if (isParamNameNode) {
-                        return curNode;
+                        if (getScope(curNode) !== undefined) {
+                            return curNode;
+                        }
                     }
                 } else if (prevNode === curNode.expression) {
-                    return curNode;
+                    if (getScope(curNode) !== undefined) {
+                        return curNode;
+                    }
                 }
                 break;
             }
 
             case ParseNodeType.Class: {
                 if (prevNode === curNode.suite) {
-                    return curNode;
+                    if (getScope(curNode) !== undefined) {
+                        return curNode;
+                    }
                 }
                 break;
             }
 
             case ParseNodeType.ListComprehension:
             case ParseNodeType.Module: {
-                return curNode;
+                if (getScope(curNode) !== undefined) {
+                    return curNode;
+                }
             }
         }
 

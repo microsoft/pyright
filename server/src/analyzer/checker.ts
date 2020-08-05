@@ -144,6 +144,10 @@ export class Checker extends ParseTreeWalker {
     walk(node: ParseNode) {
         if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
+        } else {
+            this._evaluator.suppressDiagnostics(() => {
+                super.walk(node);
+            });
         }
     }
 
@@ -947,17 +951,19 @@ export class Checker extends ParseTreeWalker {
 
     private _validateSymbolTables() {
         for (const scopedNode of this._scopedNodes) {
-            const scope = AnalyzerNodeInfo.getScope(scopedNode)!;
+            const scope = AnalyzerNodeInfo.getScope(scopedNode);
 
-            scope.symbolTable.forEach((symbol, name) => {
-                this._conditionallyReportUnusedSymbol(name, symbol, scope.type);
+            if (scope) {
+                scope.symbolTable.forEach((symbol, name) => {
+                    this._conditionallyReportUnusedSymbol(name, symbol, scope.type);
 
-                this._reportIncompatibleDeclarations(name, symbol);
+                    this._reportIncompatibleDeclarations(name, symbol);
 
-                this._reportMultipleFinalDeclarations(name, symbol);
+                    this._reportMultipleFinalDeclarations(name, symbol);
 
-                this._reportMultipleTypeAliasDeclarations(name, symbol);
-            });
+                    this._reportMultipleTypeAliasDeclarations(name, symbol);
+                });
+            }
         }
     }
 

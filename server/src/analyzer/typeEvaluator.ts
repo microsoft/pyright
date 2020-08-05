@@ -87,6 +87,7 @@ import {
 } from './codeFlow';
 import {
     AliasDeclaration,
+    ClassDeclaration,
     Declaration,
     DeclarationType,
     FunctionDeclaration,
@@ -430,6 +431,7 @@ export interface TypeEvaluator {
 
     isAfterNodeReachable: (node: ParseNode) => boolean;
     isNodeReachable: (node: ParseNode) => boolean;
+    suppressDiagnostics: (callback: () => void) => void;
 
     getDeclarationsForNameNode: (node: NameNode) => Declaration[] | undefined;
     getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
@@ -2117,7 +2119,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         const symbolWithScope = lookUpSymbolRecursive(nameNode, nameValue, /* honorCodeFlow */ false);
         if (!symbolWithScope) {
-            fail(`Missing symbol '${nameValue}'`);
+            // This can happen when we are evaluating a piece of code that was
+            // determined to be unreachable by the binder.
             return;
         }
 
@@ -2164,7 +2167,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // variable that can be overridden by a child class, use the more general
             // version by stripping off the literal.
             const scope = ScopeUtils.getScopeForNode(nameNode);
-            if (scope.type === ScopeType.Class) {
+            if (scope?.type === ScopeType.Class) {
                 const isConstant = isConstantName(nameValue);
                 const isPrivate = isPrivateOrProtectedName(nameValue);
 
@@ -2489,7 +2492,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Handle '__all__' as a special case in the module scope.
                 if (name.value === '__all__' && srcExpr) {
                     const scope = ScopeUtils.getScopeForNode(target);
-                    if (scope.type === ScopeType.Module) {
+                    if (scope?.type === ScopeType.Module) {
                         // It's common for modules to include the expression
                         // __all__ = ['a', 'b', 'c']
                         // We will mark the symbols referenced by these strings as accessed.
@@ -7963,7 +7966,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const fileInfo = getFileInfo(node);
         let classFlags = ClassTypeFlags.None;
         if (
-            scope.type === ScopeType.Builtin ||
+            scope?.type === ScopeType.Builtin ||
             fileInfo.isTypingStubFile ||
             fileInfo.isTypingExtensionsStubFile ||
             fileInfo.isBuiltInStubFile
@@ -7989,9 +7992,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Some classes refer to themselves within type arguments used within
         // base classes. We'll register the partially-constructed class type
         // to allow these to be resolved.
-        const classSymbol = scope.lookUpSymbol(node.name.value);
-        const classDecl = AnalyzerNodeInfo.getDeclaration(node)!;
-        setSymbolResolutionPartialType(classSymbol!, classDecl, classType);
+        const classSymbol = scope?.lookUpSymbol(node.name.value);
+        let classDecl: ClassDeclaration | undefined;
+        const decl = AnalyzerNodeInfo.getDeclaration(node);
+        if (decl) {
+            classDecl = decl as ClassDeclaration;
+        }
+        if (classDecl) {
+            setSymbolResolutionPartialType(classSymbol!, classDecl, classType);
+        }
         writeTypeCache(node, classType);
         writeTypeCache(node.name, classType);
 
@@ -8178,7 +8187,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // The scope for this class becomes the "fields" for the corresponding type.
         const innerScope = ScopeUtils.getScopeForNode(node.suite);
-        classType.details.fields = innerScope.symbolTable;
+        classType.details.fields = innerScope?.symbolTable || new Map<string, Symbol>();
 
         if (ClassType.isTypedDictClass(classType)) {
             synthesizeTypedDictClassMethods(node, classType);
@@ -8340,7 +8349,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return { functionType, decoratedType: decoratedType || UnknownType.create() };
         }
 
-        const functionDecl = AnalyzerNodeInfo.getDeclaration(node) as FunctionDeclaration;
+        let functionDecl: FunctionDeclaration | undefined;
+        const decl = AnalyzerNodeInfo.getDeclaration(node);
+        if (decl) {
+            functionDecl = decl as FunctionDeclaration;
+        }
 
         // There was no cached type, so create a new one.
         // Retrieve the containing class node if the function is a method.
@@ -8355,7 +8368,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         let functionFlags = getFunctionFlagsFromDecorators(node, !!containingClassNode);
-        if (functionDecl.isGenerator) {
+        if (functionDecl?.isGenerator) {
             functionFlags |= FunctionTypeFlags.Generator;
         }
 
@@ -8385,8 +8398,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Allow recursion by registering the partially-constructed
         // function type.
         const scope = ScopeUtils.getScopeForNode(node);
-        const functionSymbol = scope.lookUpSymbol(node.name.value);
-        setSymbolResolutionPartialType(functionSymbol!, functionDecl, functionType);
+        const functionSymbol = scope?.lookUpSymbol(node.name.value);
+        if (functionDecl) {
+            setSymbolResolutionPartialType(functionSymbol!, functionDecl, functionType);
+        }
         writeTypeCache(node, functionType);
         writeTypeCache(node.name, functionType);
 
@@ -8940,7 +8955,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // and creates an OverloadedFunctionType that includes this function and
     // all previous ones.
     function addOverloadsToFunctionType(node: FunctionNode, type: FunctionType): Type {
-        const functionDecl = AnalyzerNodeInfo.getDeclaration(node) as FunctionDeclaration;
+        let functionDecl: FunctionDeclaration | undefined;
+        const decl = AnalyzerNodeInfo.getDeclaration(node);
+        if (decl) {
+            functionDecl = decl as FunctionDeclaration;
+        }
         const symbolWithScope = lookUpSymbolRecursive(node, node.name.value, /* honorCodeFlow */ false);
         if (symbolWithScope) {
             const decls = symbolWithScope.symbol.getDeclarations();
@@ -9084,10 +9103,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             functionRecursionMap.set(node.id, true);
 
             try {
-                const functionDecl = AnalyzerNodeInfo.getDeclaration(node) as FunctionDeclaration;
+                let functionDecl: FunctionDeclaration | undefined;
+                const decl = AnalyzerNodeInfo.getDeclaration(node);
+                if (decl) {
+                    functionDecl = decl as FunctionDeclaration;
+                }
 
                 // Is it a generator?
-                if (functionDecl.yieldExpressions) {
+                if (functionDecl?.yieldExpressions) {
                     const inferredYieldTypes: Type[] = [];
                     functionDecl.yieldExpressions.forEach((yieldNode) => {
                         if (isNodeReachable(yieldNode)) {
@@ -9156,7 +9179,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         }
                     } else {
                         const inferredReturnTypes: Type[] = [];
-                        if (functionDecl.returnExpressions) {
+                        if (functionDecl?.returnExpressions) {
                             functionDecl.returnExpressions.forEach((returnNode) => {
                                 if (isNodeReachable(returnNode)) {
                                     if (returnNode.returnExpression) {
@@ -11214,10 +11237,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     function getBuiltInType(node: ParseNode, name: string): Type {
         const scope = ScopeUtils.getScopeForNode(node);
-        const builtInScope = ScopeUtils.getBuiltInScope(scope);
-        const nameType = builtInScope.lookUpSymbol(name);
-        if (nameType) {
-            return getEffectiveTypeOfSymbol(nameType);
+        if (scope) {
+            const builtInScope = ScopeUtils.getBuiltInScope(scope);
+            const nameType = builtInScope.lookUpSymbol(name);
+            if (nameType) {
+                return getEffectiveTypeOfSymbol(nameType);
+            }
         }
 
         return UnknownType.create();
@@ -11243,7 +11268,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     function lookUpSymbolRecursive(node: ParseNode, name: string, honorCodeFlow: boolean) {
         const scope = ScopeUtils.getScopeForNode(node);
-        let symbolWithScope = scope.lookUpSymbolRecursive(name);
+        let symbolWithScope = scope?.lookUpSymbolRecursive(name);
 
         if (symbolWithScope && honorCodeFlow) {
             // Filter the declarations based on flow reachability.
@@ -11337,10 +11362,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const functionDecl = type.details.declaration;
                 if (functionDecl.type === DeclarationType.Function) {
                     const functionNode = functionDecl.node;
-                    const functionScope = AnalyzerNodeInfo.getScope(functionNode)!;
-                    const paramSymbol = functionScope.lookUpSymbol(paramName)!;
-                    if (paramSymbol) {
-                        return paramSymbol.getDeclarations().find((decl) => decl.type === DeclarationType.Parameter);
+                    const functionScope = AnalyzerNodeInfo.getScope(functionNode);
+                    if (functionScope) {
+                        const paramSymbol = functionScope.lookUpSymbol(paramName)!;
+                        if (paramSymbol) {
+                            return paramSymbol
+                                .getDeclarations()
+                                .find((decl) => decl.type === DeclarationType.Parameter);
+                        }
                     }
                 }
             }
@@ -14376,6 +14405,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         verifyDeleteExpression,
         isAfterNodeReachable,
         isNodeReachable,
+        suppressDiagnostics,
         getDeclarationsForNameNode,
         getTypeForDeclaration,
         resolveAliasDeclaration,

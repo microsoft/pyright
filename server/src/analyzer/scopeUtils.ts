@@ -26,7 +26,7 @@ export function getBuiltInScope(currentScope: Scope): Scope {
 }
 
 // Locates the evaluation scope associated with the specified parse node.
-export function getScopeForNode(node: ParseNode): Scope {
+export function getScopeForNode(node: ParseNode): Scope | undefined {
     const scopeNode = getEvaluationScopeNode(node);
-    return getScope(scopeNode)!;
+    return getScope(scopeNode);
 }

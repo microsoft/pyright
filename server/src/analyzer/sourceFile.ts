@@ -227,9 +227,11 @@ export class SourceFile {
             const typeIgnoreLines = this._parseResults ? this._parseResults.tokenizerOutput.typeIgnoreLines : {};
             if (Object.keys(typeIgnoreLines).length > 0) {
                 diagList = diagList.filter((d) => {
-                    for (let line = d.range.start.line; line <= d.range.end.line; line++) {
-                        if (typeIgnoreLines[line]) {
-                            return false;
+                    if (d.category !== DiagnosticCategory.UnusedCode) {
+                        for (let line = d.range.start.line; line <= d.range.end.line; line++) {
+                            if (typeIgnoreLines[line]) {
+                                return false;
+                            }
                         }
                     }
 
