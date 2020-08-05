@@ -44,6 +44,7 @@ function getEffectiveCommandLineOptions(
     commandLineOptions.checkOnlyOpenFiles = serverSettings.openFilesOnly;
     commandLineOptions.useLibraryCodeForTypes = serverSettings.useLibraryCodeForTypes;
     commandLineOptions.typeCheckingMode = serverSettings.typeCheckingMode;
+    commandLineOptions.autoImportCompletions = serverSettings.autoImportCompletions;
 
     if (!trackFiles) {
         commandLineOptions.watchForSourceChanges = false;

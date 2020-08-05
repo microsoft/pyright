@@ -592,7 +592,7 @@ export class CompletionProvider {
 
         // Add auto-import suggestions from other modules.
         // Ignore this check for privates, since they are not imported.
-        if (!priorWord.startsWith('_') && !this._itemToResolve) {
+        if (this._configOptions.autoImportCompletions && !priorWord.startsWith('_') && !this._itemToResolve) {
             this._getAutoImportCompletions(priorWord, completionList);
         }
 

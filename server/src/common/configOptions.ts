@@ -488,6 +488,9 @@ export class ConfigOptions {
     // type information?
     useLibraryCodeForTypes: boolean;
 
+    // Offer auto-import completions.
+    autoImportCompletions = true;
+
     //---------------------------------------------------------------
     // Diagnostics Rule Set
 
@@ -1108,6 +1111,15 @@ export class ConfigOptions {
                         this.executionEnvironments.push(execEnv);
                     }
                 });
+            }
+        }
+
+        // Read the "autoImportCompletions" setting.
+        if (configObj.autoImportCompletions !== undefined) {
+            if (typeof configObj.autoImportCompletions !== 'boolean') {
+                console.info(`Config "autoImportCompletions" field must be true or false.`);
+            } else {
+                this.autoImportCompletions = configObj.autoImportCompletions;
             }
         }
     }

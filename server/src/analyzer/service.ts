@@ -504,6 +504,7 @@ export class AnalyzerService {
         configOptions.verboseOutput = !!commandLineOptions.verboseOutput;
         configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
         configOptions.useLibraryCodeForTypes = !!commandLineOptions.useLibraryCodeForTypes;
+        configOptions.autoImportCompletions = !!commandLineOptions.autoImportCompletions;
 
         // If there was no stub path specified, use a default path.
         if (commandLineOptions.stubPath) {

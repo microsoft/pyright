@@ -63,6 +63,7 @@ class PyrightServer extends LanguageServerBase {
             typeCheckingMode: 'basic',
             diagnosticSeverityOverrides: {},
             logLevel: LogLevel.Info,
+            autoImportCompletions: true,
         };
 
         try {
@@ -115,6 +116,10 @@ class PyrightServer extends LanguageServerBase {
 
                 if (pythonAnalysisSection.typeCheckingMode !== undefined) {
                     serverSettings.typeCheckingMode = pythonAnalysisSection.typeCheckingMode;
+                }
+
+                if (pythonAnalysisSection.autoImportCompletions !== undefined) {
+                    serverSettings.autoImportCompletions = pythonAnalysisSection.autoImportCompletions;
                 }
             } else {
                 serverSettings.autoSearchPaths = true;

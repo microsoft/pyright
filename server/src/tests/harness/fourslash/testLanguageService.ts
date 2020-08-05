@@ -62,6 +62,7 @@ export class TestLanguageService implements LanguageServerInterface {
             openFilesOnly: this._workspace.serviceInstance.getConfigOptions().checkOnlyOpenFiles,
             useLibraryCodeForTypes: this._workspace.serviceInstance.getConfigOptions().useLibraryCodeForTypes,
             disableLanguageServices: this._workspace.disableLanguageServices,
+            autoImportCompletions: this._workspace.serviceInstance.getConfigOptions().autoImportCompletions,
         };
 
         return settings;
