@@ -2089,7 +2089,11 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
 
-                    if (!isLegalMetaclassName) {
+                    // Some typeshed stubs use a name that starts with an underscore to designate
+                    // a parameter that cannot be positional.
+                    const isPrivateName = SymbolNameUtils.isPrivateOrProtectedName(paramName);
+
+                    if (!isLegalMetaclassName && !isPrivateName) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
                             DiagnosticRule.reportSelfClsParameterName,
