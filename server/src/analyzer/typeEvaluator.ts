@@ -7207,7 +7207,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         } else if (isPartlyUnknown(simplifiedType)) {
             const diagAddendum = new DiagnosticAddendum();
             diagAddendum.addMessage(
-                Localizer.DiagnosticAddendum.typeOfSymbol().format({ name: nameValue, type: printType(simplifiedType) })
+                Localizer.DiagnosticAddendum.typeOfSymbol().format({
+                    name: nameValue,
+                    type: printType(simplifiedType, /* expandTypeAlias */ true),
+                })
             );
             addDiagnostic(
                 diagLevel,
