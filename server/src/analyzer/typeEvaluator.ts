@@ -2565,7 +2565,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 );
                 const diagAddendum = new DiagnosticAddendum();
                 if (canAssignType(typeHintType, type, diagAddendum)) {
-                    type = narrowDeclaredTypeBasedOnAssignedType(typeHintType, type);
+                    // Don't attempt to narrow based on the annotated type if the type
+                    // is a enum because the annotated type in an enum doesn't reflect
+                    // the type of the symbol.
+                    if (!isObject(type) || !ClassType.isEnumClass(type.classType)) {
+                        type = narrowDeclaredTypeBasedOnAssignedType(typeHintType, type);
+                    }
                 }
 
                 assignTypeToExpression(target.valueExpression, type, srcExpr, expectedTypeDiagAddendum);
