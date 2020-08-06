@@ -8002,6 +8002,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (classDecl) {
             setSymbolResolutionPartialType(classSymbol!, classDecl, classType);
         }
+        classType.details.flags |= ClassTypeFlags.PartiallyConstructed;
         writeTypeCache(node, classType);
         writeTypeCache(node.name, classType);
 
@@ -8281,6 +8282,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             synthesizeDataClassMethods(node, classType, skipSynthesizedInit);
         }
+
+        // Clear the "partially constructed" flag.
+        classType.details.flags &= ~ClassTypeFlags.PartiallyConstructed;
 
         // Update the undecorated class type.
         writeTypeCache(node.name, classType);
@@ -11148,16 +11152,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (typeArgs && typeArgCount > typeParameters.length) {
-            if (typeParameters.length === 0) {
-                addError(Localizer.Diagnostic.typeArgsExpectingNone(), typeArgs[typeParameters.length].node);
-            } else {
-                addError(
-                    Localizer.Diagnostic.typeArgsTooMany().format({
-                        expected: typeParameters.length,
-                        received: typeArgCount,
-                    }),
-                    typeArgs[typeParameters.length].node
-                );
+            if (!ClassType.isPartiallyConstructed(classType)) {
+                if (typeParameters.length === 0) {
+                    addError(Localizer.Diagnostic.typeArgsExpectingNone(), typeArgs[typeParameters.length].node);
+                } else {
+                    addError(
+                        Localizer.Diagnostic.typeArgsTooMany().format({
+                            expected: typeParameters.length,
+                            received: typeArgCount,
+                        }),
+                        typeArgs[typeParameters.length].node
+                    );
+                }
             }
             typeArgCount = typeParameters.length;
         }
