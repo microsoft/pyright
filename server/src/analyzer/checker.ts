@@ -158,7 +158,7 @@ export class Checker extends ParseTreeWalker {
 
     visitStatementList(node: StatementListNode) {
         node.statements.forEach((statement) => {
-            if (isExpressionNode(statement) && !AnalyzerNodeInfo.isCodeUnreachable(statement)) {
+            if (isExpressionNode(statement)) {
                 // Evaluate the expression in case it wasn't otherwise evaluated
                 // through lazy analysis. This will mark referenced symbols as
                 // accessed and report any errors associated with it.

@@ -689,10 +689,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // context, logging any errors in the process. This may require the
     // type of surrounding statements to be evaluated.
     function getType(node: ExpressionNode): Type | undefined {
-        if (AnalyzerNodeInfo.isCodeUnreachable(node)) {
-            return undefined;
-        }
-
         evaluateTypesForExpressionInContext(node);
 
         // We assume here that the type for the node in question
