@@ -3055,8 +3055,7 @@ export class Parser {
         // PEP 498 says: Expressions cannot contain ':' or '!' outside of
         // strings or parentheses, brackets, or braces. The exception is
         // that the '!=' operator is allowed as a special case.
-        let inSingleQuote = false;
-        let inDoubleQuote = false;
+        const quoteStack: string[] = [];
         let braceCount = 0;
         let parenCount = 0;
         let bracketCount = 0;
@@ -3064,9 +3063,8 @@ export class Parser {
 
         while (segmentExprLength < segmentValue.length) {
             const curChar = segmentValue[segmentExprLength];
-            const ignoreSeparator =
-                inSingleQuote || inDoubleQuote || braceCount > 0 || parenCount > 0 || bracketCount > 0;
-            const inString = inSingleQuote || inDoubleQuote;
+            const ignoreSeparator = quoteStack.length > 0 || braceCount > 0 || parenCount > 0 || bracketCount > 0;
+            const inString = quoteStack.length > 0;
 
             if (curChar === '=') {
                 prevCharWasEqual = true;
@@ -3085,13 +3083,21 @@ export class Parser {
                             break;
                         }
                     }
-                } else if (curChar === "'") {
-                    if (!inDoubleQuote) {
-                        inSingleQuote = !inSingleQuote;
+                } else if (curChar === "'" || curChar === '"') {
+                    let quoteSequence = curChar;
+                    if (
+                        segmentExprLength + 2 < segmentValue.length &&
+                        segmentValue[segmentExprLength + 1] === curChar &&
+                        segmentValue[segmentExprLength + 2] === curChar
+                    ) {
+                        quoteSequence = curChar + curChar + curChar;
+                        segmentExprLength += 2;
                     }
-                } else if (curChar === '"') {
-                    if (!inSingleQuote) {
-                        inDoubleQuote = !inDoubleQuote;
+
+                    if (quoteStack.length > 0 && quoteStack[quoteStack.length - 1] === quoteSequence) {
+                        quoteStack.pop();
+                    } else {
+                        quoteStack.push(quoteSequence);
                     }
                 } else if (curChar === '(') {
                     if (!inString) {
