@@ -2026,6 +2026,16 @@ export class Checker extends ParseTreeWalker {
                     node.parameters.length > 0 ? node.parameters[0] : node.name
                 );
             }
+        } else if (node.name && node.name.value === '__class_getitem__') {
+            // __class_getitem__ overrides should have a "cls" parameter.
+            if (node.parameters.length === 0 || !node.parameters[0].name || node.parameters[0].name.value !== 'cls') {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
+                    DiagnosticRule.reportSelfClsParameterName,
+                    Localizer.Diagnostic.classGetItemClsParam(),
+                    node.parameters.length > 0 ? node.parameters[0] : node.name
+                );
+            }
         } else if (FunctionType.isStaticMethod(functionType)) {
             // Static methods should not have "self" or "cls" parameters.
             if (node.parameters.length > 0 && node.parameters[0].name) {

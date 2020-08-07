@@ -34,6 +34,7 @@
         "callableExtraArgs": "Expected only two type arguments to \"Callable\"",
         "callableFirstArg": "Expected parameter type list or \"...\"",
         "classDecoratorTypeUnknown": "Untyped class decorator obscures type of class; ignoring decorator",
+        "classGetItemClsParam": "__class_getitem__ override should take a \"cls\" parameter",
         "classMethodClsParam": "Class methods should take a \"cls\" parameter",
         "classVarFirstArgMissing": "Expected a type argument after \"ClassVar\"",
         "classVarTooManyArgs": "Expected only one type argument after \"ClassVar\"",
