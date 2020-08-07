@@ -964,7 +964,7 @@ export class CompletionProvider {
             const similarity = StringUtils.computeCompletionSimilarity(priorWord, argName);
 
             if (similarity > similarityLimit) {
-                const completionItem = CompletionItem.create(argName);
+                const completionItem = CompletionItem.create(argName + '=');
                 completionItem.kind = CompletionItemKind.Variable;
 
                 const completionItemData: CompletionItemData = {
