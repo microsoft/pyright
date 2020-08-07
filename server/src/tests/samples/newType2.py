@@ -15,8 +15,10 @@ class B(X2, A):
     ...
 
 
+# This should generate an error because the first arg is not a string.
 X3 = type(34, (object,))
 
+# This should generate an error because the second arg is not a tuple of class types.
 X4 = type("X4", 34)
 
 # This should generate an error because the second arg is not a tuple of class types.

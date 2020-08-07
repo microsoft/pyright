@@ -1144,7 +1144,7 @@ test('NewType1', () => {
 test('NewType2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType2.py']);
 
-    validateResults(analysisResults, 1);
+    validateResults(analysisResults, 4);
 });
 
 test('NewType3', () => {
