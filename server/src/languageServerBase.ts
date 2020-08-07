@@ -157,6 +157,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _hasWorkspaceFoldersCapability = false;
     protected _hasWatchFileCapability = false;
     protected _hasActiveParameterCapability = false;
+    protected _hasSignatureLabelOffsetCapability = false;
     protected _defaultClientConfig: any;
 
     // Tracks active file system watchers.
@@ -530,7 +531,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 let paramInfo: ParameterInformation[] = [];
                 if (sig.parameters) {
                     paramInfo = sig.parameters.map((param) =>
-                        ParameterInformation.create([param.startOffset, param.endOffset], param.documentation)
+                        ParameterInformation.create(
+                            this._hasSignatureLabelOffsetCapability ? [param.startOffset, param.endOffset] : param.text,
+                            param.documentation
+                        )
                     );
                 }
 
@@ -874,6 +878,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._hasVisualStudioExtensionsCapability = !!(capabilities as any).supportsVisualStudioExtensions;
         this._hasActiveParameterCapability = !!capabilities.textDocument?.signatureHelp?.signatureInformation
             ?.activeParameterSupport;
+        this._hasSignatureLabelOffsetCapability = !!capabilities.textDocument?.signatureHelp?.signatureInformation
+            ?.parameterInformation?.labelOffsetSupport;
 
         // Create a service instance for each of the workspace folders.
         if (params.workspaceFolders) {

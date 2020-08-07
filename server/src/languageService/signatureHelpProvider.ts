@@ -22,6 +22,7 @@ import { ParseResults } from '../parser/parser';
 export interface ParamInfo {
     startOffset: number;
     endOffset: number;
+    text: string;
     documentation?: string;
 }
 
@@ -97,6 +98,7 @@ export class SignatureHelpProvider {
             parameters.push({
                 startOffset: label.length,
                 endOffset: label.length + paramString.length,
+                text: paramString,
                 documentation: extractParameterDocumentation(functionDocString || '', paramName),
             });
 
