@@ -4172,6 +4172,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const className = callType.details.name;
 
                     if (className === 'type') {
+                        // Validate the constructor arguments.
+                        validateConstructorArguments(errorNode, argList, callType, skipUnknownArgCheck, expectedType);
+
                         // Handle the 'type' call specially.
                         if (argList.length === 1) {
                             // The one-parameter form of "type" returns the class
