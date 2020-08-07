@@ -8022,11 +8022,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         node.arguments.forEach((arg) => {
             // Ignore keyword parameters other than metaclass or total.
             if (!arg.name || arg.name.value === 'metaclass') {
-                let argType = getTypeOfExpression(
-                    arg.valueExpression,
-                    undefined,
-                    EvaluatorFlags.ExpectingType | EvaluatorFlags.GenericClassTypeAllowed
-                ).type;
+                let exprFlags = EvaluatorFlags.ExpectingType | EvaluatorFlags.GenericClassTypeAllowed;
+                if (fileInfo.isStubFile) {
+                    exprFlags |= EvaluatorFlags.AllowForwardReferences;
+                }
+
+                let argType = getTypeOfExpression(arg.valueExpression, undefined, exprFlags).type;
                 const isMetaclass = !!arg.name;
 
                 if (isMetaclass) {
