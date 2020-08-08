@@ -22,5 +22,5 @@ test('FString1', () => {
     const analysisResults = TestUtils.bindSampleFile('fstring1.py');
 
     assert.equal(analysisResults.errors.length, 2);
-    assert.equal(analysisResults.warnings.length, 0);
+    assert.equal(analysisResults.warnings.length, 1);
 });

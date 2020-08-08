@@ -287,9 +287,8 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
 
                                 localValue = String.fromCharCode(octalCode);
                             } else {
-                                localValue = '\\' + String.fromCharCode(curChar);
+                                localValue = '\\';
                                 addInvalidEscapeOffset();
-                                strOffset++;
                             }
                             break;
                     }
