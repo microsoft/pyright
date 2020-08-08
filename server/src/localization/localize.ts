@@ -456,6 +456,8 @@ export namespace Localizer {
         export const returnTypeUnknown = () => getRawString('Diagnostic.returnTypeUnknown');
         export const returnTypePartiallyUnknown = () =>
             new ParameterizedString<{ returnType: string }>(getRawString('Diagnostic.returnTypePartiallyUnknown'));
+        export const singleOverload = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.singleOverload'));
         export const staticClsSelfParam = () => getRawString('Diagnostic.staticClsSelfParam');
         export const stringNonAsciiBytes = () => getRawString('Diagnostic.stringNonAsciiBytes');
         export const stringUnsupportedEscape = () => getRawString('Diagnostic.stringUnsupportedEscape');

@@ -962,7 +962,29 @@ export class Checker extends ParseTreeWalker {
                     this._reportMultipleFinalDeclarations(name, symbol);
 
                     this._reportMultipleTypeAliasDeclarations(name, symbol);
+
+                    this._reportInvalidOverload(name, symbol);
                 });
+            }
+        }
+    }
+
+    private _reportInvalidOverload(name: string, symbol: Symbol) {
+        const typedDecls = symbol.getTypedDeclarations();
+        if (typedDecls.length === 1) {
+            const primaryDecl = typedDecls[0];
+            if (primaryDecl.type === DeclarationType.Function) {
+                const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+
+                if (type.category === TypeCategory.Function && FunctionType.isOverloaded(type)) {
+                    // There should never be a single overload.
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.singleOverload().format({ name }),
+                        primaryDecl.node.name
+                    );
+                }
             }
         }
     }
