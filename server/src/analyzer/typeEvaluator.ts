@@ -1126,6 +1126,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             diag,
             memberAccessFlags | MemberAccessFlags.SkipInstanceMembers
         );
+        let isMetaclassMember = false;
 
         // If it wasn't found on the class, see if it's part of the metaclass.
         if (!memberInfo) {
@@ -1140,6 +1141,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     memberAccessFlags | MemberAccessFlags.SkipInstanceMembers,
                     classType
                 );
+                isMetaclassMember = true;
             }
         }
 
@@ -1150,7 +1152,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 resultType.category === TypeCategory.OverloadedFunction
             ) {
                 if (memberInfo!.isClassMember) {
-                    resultType = bindFunctionToClassOrObject(classType, resultType);
+                    resultType = bindFunctionToClassOrObject(
+                        classType,
+                        resultType,
+                        /* treatAsClassMember */ isMetaclassMember
+                    );
                 }
             }
         }
