@@ -5580,6 +5580,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         isParamSpec: boolean
     ): Type | undefined {
         let typeVarName = '';
+        let firstConstraintArg: FunctionArgument | undefined;
 
         if (isParamSpec) {
             const fileInfo = getFileInfo(errorNode);
@@ -5673,11 +5674,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                     }
                     TypeVarType.addConstraint(typeVar, convertToInstance(argType));
+                    if (firstConstraintArg === undefined) {
+                        firstConstraintArg = argList[i];
+                    }
                 }
             } else {
                 addError(Localizer.Diagnostic.paramSpecUnknownArg(), argList[i].valueExpression || errorNode);
                 break;
             }
+        }
+
+        if (!isParamSpec && typeVar.constraints.length === 1 && firstConstraintArg) {
+            addDiagnostic(
+                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeVarSingleConstraint(),
+                firstConstraintArg.valueExpression || errorNode
+            );
         }
 
         return typeVar;
@@ -7032,13 +7045,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         // element type is a literal or a TypeVar bound to a literal.
                         const nonLiteralEntryType = stripLiteralValue(entryType);
                         if (entryType !== nonLiteralEntryType) {
-                            if (canAssignType(expectedListElementType, nonLiteralEntryType, new DiagnosticAddendum(), typeVarMap)) {
+                            if (
+                                canAssignType(
+                                    expectedListElementType,
+                                    nonLiteralEntryType,
+                                    new DiagnosticAddendum(),
+                                    typeVarMap
+                                )
+                            ) {
                                 assignedNonLiteral = true;
                             }
                         }
 
                         if (!assignedNonLiteral) {
-                            if (!canAssignType(expectedListElementType, entryType, new DiagnosticAddendum(), typeVarMap)) {
+                            if (
+                                !canAssignType(expectedListElementType, entryType, new DiagnosticAddendum(), typeVarMap)
+                            ) {
                                 return undefined;
                             }
                         }

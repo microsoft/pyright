@@ -345,7 +345,7 @@ test('ReturnTypes1', () => {
 test('Specialization1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialization1.py']);
 
-    validateResults(analysisResults, 7);
+    validateResults(analysisResults, 8);
 });
 
 test('Specialization2', () => {
@@ -1941,7 +1941,7 @@ test('ClassVar2', () => {
 test('TypeVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar1.py']);
 
-    validateResults(analysisResults, 2);
+    validateResults(analysisResults, 3);
 });
 
 test('TypeVar2', () => {

@@ -274,6 +274,7 @@
         "typeVarBoundAndConstrained": "TypeVar cannot be both bound and constrained",
         "typeVarFirstArg": "Expected name of TypeVar as first argument",
         "typeVarGeneric": "TypeVar bound type cannot be generic",
+        "typeVarSingleConstraint": "TypeVar cannot have only a single constraint",
         "typeVarUnknownParam": "\"{name}\" is unknown parameter to TypeVar",
         "typeVarVariance": "TypeVar cannot be both covariant and contravariant",
         "unaccessedClass": "Class \"{name}\" is not accessed",

@@ -4,7 +4,7 @@
 from typing import Generic, Iterable, TypeVar
 
 _T1 = TypeVar('_T1')
-_T2 = TypeVar('_T2', 'str') # 'str' should be treated as forward reference
+_T2 = TypeVar('_T2', 'str', 'int') # 'str' and 'int' should be treated as forward reference
 
 class Foo(Iterable[_T2], Generic[_T1, _T2]):
     def __init__(self, a: _T1, b: _T2):

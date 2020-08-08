@@ -50,7 +50,7 @@ def m4(c: Moo[List[C]]):
 
 # This should generate an error:
 # TypeVar constraint types can't be generic.
-_T2 = TypeVar('_T2', Iterable[_T1])
+_T2 = TypeVar('_T2', Iterable[_T1], int)
 
 # This should generate an error:
 # TypeVar bound types can't be generic.

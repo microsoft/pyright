@@ -18,3 +18,6 @@ my_dict = {}
 # assigned to an index expression.
 my_dict['var'] = TypeVar('T5')
 
+# This should generate an error because a TypeVar with a single
+# constraint is an error.
+T5 = TypeVar('T5', str)
