@@ -7020,13 +7020,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // If there is an expected type, see if we can match it.
         if (expectedType && entryTypes.length > 0) {
             const narrowedExpectedType = doForSubtypes(expectedType, (subtype) => {
-                const listElementType = getListTypeArg(subtype);
-                if (listElementType) {
+                const expectedListElementType = getListTypeArg(subtype);
+                if (expectedListElementType) {
                     const typeVarMap = new TypeVarMap();
 
                     for (const entryType of entryTypes) {
-                        if (!canAssignType(listElementType, entryType, new DiagnosticAddendum(), typeVarMap)) {
-                            return undefined;
+                        let assignedNonLiteral = false;
+
+                        // If the entry type is a literal value, try to assign a non-literal
+                        // type first to avoid over-narrowing. This may not work if the expected
+                        // element type is a literal or a TypeVar bound to a literal.
+                        const nonLiteralEntryType = stripLiteralValue(entryType);
+                        if (entryType !== nonLiteralEntryType) {
+                            if (canAssignType(expectedListElementType, nonLiteralEntryType, new DiagnosticAddendum(), typeVarMap)) {
+                                assignedNonLiteral = true;
+                            }
+                        }
+
+                        if (!assignedNonLiteral) {
+                            if (!canAssignType(expectedListElementType, entryType, new DiagnosticAddendum(), typeVarMap)) {
+                                return undefined;
+                            }
                         }
                     }
 
