@@ -198,7 +198,15 @@ export class Program {
             return sourceFileInfo.sourceFile;
         }
 
-        const sourceFile = new SourceFile(this._fs, filePath, false, this._console, this._logTracker);
+        const importName = this._getImportNameForFile(filePath);
+        const sourceFile = new SourceFile(
+            this._fs,
+            filePath,
+            importName,
+            /* isThirdPartyImport */ false,
+            this._console,
+            this._logTracker
+        );
         sourceFileInfo = {
             sourceFile,
             isTracked: true,
@@ -218,7 +226,15 @@ export class Program {
     setFileOpened(filePath: string, version: number | null, contents: string) {
         let sourceFileInfo = this._sourceFileMap.get(filePath);
         if (!sourceFileInfo) {
-            const sourceFile = new SourceFile(this._fs, filePath, false, this._console, this._logTracker);
+            const importName = this._getImportNameForFile(filePath);
+            const sourceFile = new SourceFile(
+                this._fs,
+                filePath,
+                importName,
+                /* isThirdPartyImport */ false,
+                this._console,
+                this._logTracker
+            );
             sourceFileInfo = {
                 sourceFile,
                 isTracked: false,
@@ -519,6 +535,14 @@ export class Program {
         return this._importResolver.fileSystem;
     }
 
+    private _getImportNameForFile(filePath: string) {
+        const moduleNameAndType = this._importResolver.getModuleNameForImport(
+            filePath,
+            this._configOptions.getDefaultExecEnvironment()
+        );
+        return moduleNameAndType.moduleName;
+    }
+
     // A "shadowed" file is a python source file that has been added to the program because
     // it "shadows" a type stub file for purposes of finding doc strings and definitions.
     // We need to track the relationship so if the original type stub is removed from the
@@ -527,7 +551,15 @@ export class Program {
         let shadowFileInfo = this._sourceFileMap.get(shadowImplPath);
 
         if (!shadowFileInfo) {
-            const sourceFile = new SourceFile(this._fs, shadowImplPath, false, this._console, this._logTracker);
+            const importName = this._getImportNameForFile(shadowImplPath);
+            const sourceFile = new SourceFile(
+                this._fs,
+                shadowImplPath,
+                importName,
+                /* isThirdPartyImport */ false,
+                this._console,
+                this._logTracker
+            );
             shadowFileInfo = {
                 sourceFile,
                 isTracked: false,
@@ -1705,9 +1737,11 @@ export class Program {
                 if (this._sourceFileMap.has(importPath)) {
                     importedFileInfo = this._sourceFileMap.get(importPath)!;
                 } else {
+                    const importName = this._getImportNameForFile(importPath);
                     const sourceFile = new SourceFile(
                         this._fs,
                         importPath,
+                        importName,
                         importInfo.isThirdPartyImport,
                         this._console,
                         this._logTracker

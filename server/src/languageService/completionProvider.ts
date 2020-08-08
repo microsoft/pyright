@@ -525,6 +525,7 @@ export class CompletionProvider {
     private _getMemberAccessCompletions(leftExprNode: ExpressionNode, priorWord: string): CompletionList | undefined {
         const leftType = this._evaluator.getType(leftExprNode);
         const symbolTable = new Map<string, Symbol>();
+        const completionList = CompletionList.create();
 
         if (leftType) {
             doForSubtypes(leftType, (subtype) => {
@@ -543,11 +544,13 @@ export class CompletionProvider {
 
                 return undefined;
             });
-        }
 
-        const completionList = CompletionList.create();
-        const objectThrough: ObjectType | undefined = leftType && isObject(leftType) ? leftType : undefined;
-        this._addSymbolsForSymbolTable(symbolTable, (_) => true, priorWord, objectThrough, completionList);
+            const objectThrough: ObjectType | undefined = leftType && isObject(leftType) ? leftType : undefined;
+            this._addSymbolsForSymbolTable(symbolTable, (_) => true, priorWord, objectThrough, completionList);
+
+            // const moduleNamesForType = getDeclaringModulesForType(leftType);
+            // TODO - log modules to telemetry.
+        }
 
         return completionList;
     }

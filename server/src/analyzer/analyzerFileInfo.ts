@@ -35,6 +35,7 @@ export interface AnalyzerFileInfo {
     fileContents: string;
     lines: TextRangeCollection<TextRange>;
     filePath: string;
+    moduleName: string;
     isStubFile: boolean;
     isTypingStubFile: boolean;
     isTypingExtensionsStubFile: boolean;

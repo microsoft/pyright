@@ -320,6 +320,7 @@ export class Binder extends ParseTreeWalker {
             node,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
+            moduleName: this._fileInfo.moduleName,
         };
 
         const symbol = this._bindNameToScope(this._currentScope, node.name.value);
@@ -376,6 +377,7 @@ export class Binder extends ParseTreeWalker {
             isGenerator: false,
             path: this._fileInfo.filePath,
             range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
+            moduleName: this._fileInfo.moduleName,
         };
 
         if (symbol) {
@@ -462,6 +464,7 @@ export class Binder extends ParseTreeWalker {
                                     TextRange.getEnd(paramNode),
                                     this._fileInfo.lines
                                 ),
+                                moduleName: this._fileInfo.moduleName,
                             };
 
                             symbol.addDeclaration(paramDeclaration);
@@ -528,6 +531,7 @@ export class Binder extends ParseTreeWalker {
                                     TextRange.getEnd(paramNode),
                                     this._fileInfo.lines
                                 ),
+                                moduleName: this._fileInfo.moduleName,
                             };
 
                             symbol.addDeclaration(paramDeclaration);
@@ -859,6 +863,7 @@ export class Binder extends ParseTreeWalker {
                     inferredTypeSource: node,
                     path: this._fileInfo.filePath,
                     range: convertOffsetsToRange(node.name.start, TextRange.getEnd(node.name), this._fileInfo.lines),
+                    moduleName: this._fileInfo.moduleName,
                 };
                 symbol.addDeclaration(declaration);
             }
@@ -1222,6 +1227,7 @@ export class Binder extends ParseTreeWalker {
                                     range: getEmptyRange(),
                                     usesLocalName: false,
                                     symbolName: name,
+                                    moduleName: this._fileInfo.moduleName,
                                 };
                                 symbol.addDeclaration(aliasDecl);
                                 names.push(name);
@@ -1260,6 +1266,7 @@ export class Binder extends ParseTreeWalker {
                             path: implicitImport.path,
                             range: getEmptyRange(),
                             usesLocalName: false,
+                            moduleName: this._fileInfo.moduleName,
                         };
 
                         // Handle the case of "from . import X". In this case,
@@ -1278,6 +1285,7 @@ export class Binder extends ParseTreeWalker {
                         symbolName: importedName,
                         submoduleFallback,
                         range: getEmptyRange(),
+                        moduleName: this._fileInfo.moduleName,
                     };
 
                     symbol.addDeclaration(aliasDecl);
@@ -1470,14 +1478,20 @@ export class Binder extends ParseTreeWalker {
                 .getDeclarations()
                 .find((decl) => decl.type === DeclarationType.Alias && decl.firstNamePart === firstNamePartValue);
 
-            const newDecl: AliasDeclaration = (existingDecl as AliasDeclaration) || {
-                type: DeclarationType.Alias,
-                node,
-                path: '',
-                range: getEmptyRange(),
-                firstNamePart: firstNamePartValue,
-                usesLocalName: !!importAlias,
-            };
+            let newDecl: AliasDeclaration;
+            if (existingDecl) {
+                newDecl = existingDecl as AliasDeclaration;
+            } else {
+                newDecl = {
+                    type: DeclarationType.Alias,
+                    node,
+                    path: '',
+                    moduleName: importInfo.importName,
+                    range: getEmptyRange(),
+                    firstNamePart: firstNamePartValue,
+                    usesLocalName: !!importAlias,
+                };
+            }
 
             // Add the implicit imports for this module if it's the last
             // name part we're resolving.
@@ -1535,6 +1549,7 @@ export class Binder extends ParseTreeWalker {
                 path: '*** unresolved ***',
                 range: getEmptyRange(),
                 usesLocalName: !!importAlias,
+                moduleName: '',
             };
             symbol.addDeclaration(newDecl);
         }
@@ -2090,6 +2105,7 @@ export class Binder extends ParseTreeWalker {
                 intrinsicType: type,
                 path: this._fileInfo.filePath,
                 range: getEmptyRange(),
+                moduleName: this._fileInfo.moduleName,
             });
             symbol.setIsIgnoredForProtocolMatch();
         }
@@ -2162,6 +2178,7 @@ export class Binder extends ParseTreeWalker {
                         inferredTypeSource: source,
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
+                        moduleName: this._fileInfo.moduleName,
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
                 }
@@ -2211,6 +2228,7 @@ export class Binder extends ParseTreeWalker {
                             target.memberName.start + target.memberName.length,
                             this._fileInfo.lines
                         ),
+                        moduleName: this._fileInfo.moduleName,
                     };
                     symbol.addDeclaration(declaration);
                 }
@@ -2275,6 +2293,7 @@ export class Binder extends ParseTreeWalker {
                         path: this._fileInfo.filePath,
                         typeAnnotationNode,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
+                        moduleName: this._fileInfo.moduleName,
                     };
                     symbolWithScope.symbol.addDeclaration(declaration);
 
@@ -2339,6 +2358,7 @@ export class Binder extends ParseTreeWalker {
                             target.memberName.start + target.memberName.length,
                             this._fileInfo.lines
                         ),
+                        moduleName: this._fileInfo.moduleName,
                     };
                     symbol.addDeclaration(declaration);
 
@@ -2568,6 +2588,7 @@ export class Binder extends ParseTreeWalker {
                     TextRange.getEnd(annotationNode),
                     this._fileInfo.lines
                 ),
+                moduleName: this._fileInfo.moduleName,
             });
         }
         return true;

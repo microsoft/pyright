@@ -100,6 +100,7 @@ export function buildAnalyzerFileInfo(
         fileContents,
         lines: parseResults.tokenizerOutput.lines,
         filePath,
+        moduleName: '',
         isStubFile: filePath.endsWith('.pyi'),
         isTypingStubFile: false,
         isTypingExtensionsStubFile: false,

@@ -166,15 +166,19 @@ export interface ModuleType extends TypeBase {
     // the module loader. We keep these separate so we don't
     // pollute the symbols exported by the module itself.
     loaderFields: SymbolTable;
+
+    // The period-delimited import name of this module.
+    moduleName: string;
 }
 
 export namespace ModuleType {
-    export function create(symbolTable?: SymbolTable) {
+    export function create(moduleName: string, symbolTable?: SymbolTable) {
         const newModuleType: ModuleType = {
             category: TypeCategory.Module,
             fields: symbolTable || new Map<string, Symbol>(),
             loaderFields: new Map<string, Symbol>(),
             flags: TypeFlags.Instantiable | TypeFlags.Instantiable,
+            moduleName,
         };
         return newModuleType;
     }
@@ -274,6 +278,7 @@ export const enum ClassTypeFlags {
 
 interface ClassDetails {
     name: string;
+    moduleName: string;
     flags: ClassTypeFlags;
     typeSourceId: TypeSourceId;
     baseClasses: Type[];
@@ -308,11 +313,18 @@ export interface ClassType extends TypeBase {
 }
 
 export namespace ClassType {
-    export function create(name: string, flags: ClassTypeFlags, typeSourceId: TypeSourceId, docString?: string) {
+    export function create(
+        name: string,
+        moduleName: string,
+        flags: ClassTypeFlags,
+        typeSourceId: TypeSourceId,
+        docString?: string
+    ) {
         const newClass: ClassType = {
             category: TypeCategory.Class,
             details: {
                 name,
+                moduleName,
                 flags,
                 typeSourceId,
                 baseClasses: [],
@@ -334,7 +346,12 @@ export namespace ClassType {
         isTypeArgumentExplicit: boolean,
         skipAbstractClassTest = false
     ): ClassType {
-        const newClassType = create(classType.details.name, classType.details.flags, classType.details.typeSourceId);
+        const newClassType = create(
+            classType.details.name,
+            classType.details.moduleName,
+            classType.details.flags,
+            classType.details.typeSourceId
+        );
 
         newClassType.details = classType.details;
         newClassType.typeArguments = typeArguments;
@@ -356,7 +373,12 @@ export namespace ClassType {
     }
 
     export function cloneWithLiteral(classType: ClassType, value: LiteralValue | undefined): ClassType {
-        const newClassType = create(classType.details.name, classType.details.flags, classType.details.typeSourceId);
+        const newClassType = create(
+            classType.details.name,
+            classType.details.moduleName,
+            classType.details.flags,
+            classType.details.typeSourceId
+        );
         newClassType.details = classType.details;
         if (classType.typeArguments) {
             newClassType.typeArguments = classType.typeArguments;
@@ -731,6 +753,7 @@ export const enum FunctionTypeFlags {
 
 interface FunctionDetails {
     name: string;
+    moduleName: string;
     flags: FunctionTypeFlags;
     parameters: FunctionParameter[];
     declaredReturnType?: Type;
@@ -766,19 +789,36 @@ export interface FunctionType extends TypeBase {
 }
 
 export namespace FunctionType {
-    export function createInstance(name: string, functionFlags: FunctionTypeFlags, docString?: string) {
-        return create(name, functionFlags, TypeFlags.Instance, docString);
+    export function createInstance(
+        name: string,
+        moduleName: string,
+        functionFlags: FunctionTypeFlags,
+        docString?: string
+    ) {
+        return create(name, moduleName, functionFlags, TypeFlags.Instance, docString);
     }
 
-    export function createInstantiable(name: string, functionFlags: FunctionTypeFlags, docString?: string) {
-        return create(name, functionFlags, TypeFlags.Instantiable, docString);
+    export function createInstantiable(
+        name: string,
+        moduleName: string,
+        functionFlags: FunctionTypeFlags,
+        docString?: string
+    ) {
+        return create(name, moduleName, functionFlags, TypeFlags.Instantiable, docString);
     }
 
-    function create(name: string, functionFlags: FunctionTypeFlags, typeFlags: TypeFlags, docString?: string) {
+    function create(
+        name: string,
+        moduleName: string,
+        functionFlags: FunctionTypeFlags,
+        typeFlags: TypeFlags,
+        docString?: string
+    ) {
         const newFunctionType: FunctionType = {
             category: TypeCategory.Function,
             details: {
                 name,
+                moduleName,
                 flags: functionFlags,
                 parameters: [],
                 docString,
@@ -791,11 +831,18 @@ export namespace FunctionType {
     // Creates a deep copy of the function type, including a fresh
     // version of _functionDetails.
     export function clone(type: FunctionType, deleteFirstParam = false): FunctionType {
-        const newFunction = create(type.details.name, type.details.flags, type.flags, type.details.docString);
+        const newFunction = create(
+            type.details.name,
+            type.details.moduleName,
+            type.details.flags,
+            type.flags,
+            type.details.docString
+        );
         const startParam = deleteFirstParam ? 1 : 0;
 
         newFunction.details = {
             name: type.details.name,
+            moduleName: type.details.moduleName,
             flags: type.details.flags,
             parameters: type.details.parameters.slice(startParam),
             declaredReturnType: type.details.declaredReturnType,
@@ -852,7 +899,13 @@ export namespace FunctionType {
         specializedTypes: SpecializedFunctionTypes,
         specializedInferredReturnType: Type | undefined
     ): FunctionType {
-        const newFunction = create(type.details.name, type.details.flags, type.flags, type.details.docString);
+        const newFunction = create(
+            type.details.name,
+            type.details.moduleName,
+            type.details.flags,
+            type.flags,
+            type.details.docString
+        );
         newFunction.details = type.details;
 
         assert(specializedTypes.parameterTypes.length === type.details.parameters.length);
@@ -868,7 +921,13 @@ export namespace FunctionType {
     // Creates a new function based on the parameters of another function. If
     // paramTemplate is undefined, use default (generic) parameters.
     export function cloneForParamSpec(type: FunctionType, paramTemplate: FunctionType | undefined) {
-        const newFunction = create(type.details.name, type.details.flags, type.flags, type.details.docString);
+        const newFunction = create(
+            type.details.name,
+            type.details.moduleName,
+            type.details.flags,
+            type.flags,
+            type.details.docString
+        );
 
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };

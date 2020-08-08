@@ -1677,9 +1677,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         const newType = FunctionType.createInstance(
             '__new__',
+            '',
             FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
         );
-        const initType = FunctionType.createInstance('__init__', FunctionTypeFlags.SynthesizedMethod);
+        const initType = FunctionType.createInstance('__init__', '', FunctionTypeFlags.SynthesizedMethod);
 
         FunctionType.addParameter(newType, {
             category: ParameterCategory.Simple,
@@ -1744,7 +1745,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 if (initArg && initArg.valueExpression) {
                                     const value = evaluateStaticBoolExpression(
                                         initArg.valueExpression,
-                                        getFileInfo(initArg).executionEnvironment
+                                        getFileInfo(node).executionEnvironment
                                     );
                                     if (value === false) {
                                         includeInInit = false;
@@ -1868,6 +1869,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Synthesize a __new__ method.
         const newType = FunctionType.createInstance(
             '__new__',
+            '',
             FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
         );
         FunctionType.addParameter(newType, {
@@ -1879,7 +1881,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         newType.details.declaredReturnType = ObjectType.create(classType);
 
         // Synthesize an __init__ method.
-        const initType = FunctionType.createInstance('__init__', FunctionTypeFlags.SynthesizedMethod);
+        const initType = FunctionType.createInstance('__init__', '', FunctionTypeFlags.SynthesizedMethod);
         FunctionType.addParameter(initType, {
             category: ParameterCategory.Simple,
             name: 'self',
@@ -1913,6 +1915,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const createGetFunction = (keyType: Type, valueType: Type) => {
                 const getOverload = FunctionType.createInstance(
                     'get',
+                    '',
                     FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
                 );
                 FunctionType.addParameter(getOverload, {
@@ -5711,6 +5714,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     // Creates a new custom enum class with named values.
     function createEnumType(errorNode: ExpressionNode, enumClass: ClassType, argList: FunctionArgument[]): ClassType {
+        const fileInfo = getFileInfo(errorNode);
         let className = 'enum';
         if (argList.length === 0) {
             addError(Localizer.Diagnostic.enumFirstArg(), errorNode);
@@ -5723,7 +5727,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        const classType = ClassType.create(className, ClassTypeFlags.EnumClass, errorNode.id);
+        const classType = ClassType.create(className, fileInfo.moduleName, ClassTypeFlags.EnumClass, errorNode.id);
         classType.details.baseClasses.push(enumClass);
         computeMroLinearization(classType);
 
@@ -5750,7 +5754,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // recommend using the more standard class declaration syntax.
                 // This diagnostic is part of the reportGeneralTypeIssues since
                 // it is of interest only to those who care about types.
-                const fileInfo = getFileInfo(errorNode);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
@@ -5774,15 +5777,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         // user to the exact spot in the string, but it's close enough.
                         const stringNode = entriesArg.valueExpression!;
                         assert(stringNode.nodeType === ParseNodeType.StringList);
+                        const fileInfo = getFileInfo(errorNode);
                         const declaration: VariableDeclaration = {
                             type: DeclarationType.Variable,
                             node: stringNode as StringListNode,
-                            path: getFileInfo(errorNode).filePath,
+                            path: fileInfo.filePath,
                             range: convertOffsetsToRange(
                                 stringNode.start,
                                 TextRange.getEnd(stringNode),
-                                getFileInfo(errorNode).lines
+                                fileInfo.lines
                             ),
+                            moduleName: fileInfo.moduleName,
                         };
                         newSymbol.addDeclaration(declaration);
                         classFields.set(entryName, newSymbol);
@@ -5798,6 +5803,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // in the Python specification: The static type checker will treat
     // the new type as if it were a subclass of the original type.
     function createNewType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
+        const fileInfo = getFileInfo(errorNode);
         let className = '_';
         if (argList.length >= 1) {
             const nameArg = argList[0];
@@ -5814,12 +5820,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (isClass(baseClass)) {
                 const classFlags =
                     baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
-                const classType = ClassType.create(className, classFlags, errorNode.id);
+                const classType = ClassType.create(className, fileInfo.moduleName, classFlags, errorNode.id);
                 classType.details.baseClasses.push(baseClass);
                 computeMroLinearization(classType);
 
                 // Synthesize an __init__ method that accepts only the specified type.
-                const initType = FunctionType.createInstance('__init__', FunctionTypeFlags.SynthesizedMethod);
+                const initType = FunctionType.createInstance('__init__', '', FunctionTypeFlags.SynthesizedMethod);
                 FunctionType.addParameter(initType, {
                     category: ParameterCategory.Simple,
                     name: 'self',
@@ -5836,6 +5842,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Synthesize a trivial __new__ method.
                 const newType = FunctionType.createInstance(
                     '__new__',
+                    '',
                     FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
                 );
                 FunctionType.addParameter(newType, {
@@ -5855,6 +5862,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     // Implements the semantics of the multi-parameter variant of the "type" call.
     function createType(errorNode: ExpressionNode, argList: FunctionArgument[]): ClassType | undefined {
+        const fileInfo = getFileInfo(errorNode);
         const arg0Type = getTypeForArgument(argList[0]);
         if (!isObject(arg0Type) || !ClassType.isBuiltIn(arg0Type.classType, 'str')) {
             return undefined;
@@ -5870,7 +5878,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return undefined;
         }
 
-        const classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
+        const classType = ClassType.create(className, fileInfo.moduleName, ClassTypeFlags.None, errorNode.id);
         arg1Type.classType.typeArguments.forEach((baseClass) => {
             if (isClass(baseClass) || isAnyOrUnknown(baseClass)) {
                 classType.details.baseClasses.push(baseClass);
@@ -5892,6 +5900,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         typedDictClass: ClassType,
         argList: FunctionArgument[]
     ): ClassType {
+        const fileInfo = getFileInfo(errorNode);
+
         // TypedDict supports two different syntaxes:
         // Point2D = TypedDict('Point2D', {'x': int, 'y': int, 'label': str})
         // Point2D = TypedDict('Point2D', x=int, y=int, label=str)
@@ -5911,7 +5921,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        const classType = ClassType.create(className, ClassTypeFlags.TypedDictClass, errorNode.id);
+        const classType = ClassType.create(className, fileInfo.moduleName, ClassTypeFlags.TypedDictClass, errorNode.id);
         classType.details.baseClasses.push(typedDictClass);
         computeMroLinearization(classType);
 
@@ -5968,13 +5978,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const declaration: VariableDeclaration = {
                         type: DeclarationType.Variable,
                         node: entry.keyExpression,
-                        path: getFileInfo(errorNode).filePath,
+                        path: fileInfo.filePath,
                         typeAnnotationNode: entry.valueExpression,
                         range: convertOffsetsToRange(
                             entry.keyExpression.start,
                             TextRange.getEnd(entry.keyExpression),
-                            getFileInfo(errorNode).lines
+                            fileInfo.lines
                         ),
+                        moduleName: fileInfo.moduleName,
                     };
                     newSymbol.addDeclaration(declaration);
 
@@ -5999,16 +6010,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     getTypeOfAnnotation(entry.valueExpression, /* allowFinal */ true);
 
                     const newSymbol = new Symbol(SymbolFlags.InstanceMember);
+                    const fileInfo = getFileInfo(errorNode);
                     const declaration: VariableDeclaration = {
                         type: DeclarationType.Variable,
                         node: entry.name,
-                        path: getFileInfo(errorNode).filePath,
+                        path: fileInfo.filePath,
                         typeAnnotationNode: entry.valueExpression,
                         range: convertOffsetsToRange(
                             entry.name.start,
                             TextRange.getEnd(entry.valueExpression),
-                            getFileInfo(errorNode).lines
+                            fileInfo.lines
                         ),
+                        moduleName: fileInfo.moduleName,
                     };
                     newSymbol.addDeclaration(declaration);
 
@@ -6054,6 +6067,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         argList: FunctionArgument[],
         includesTypes: boolean
     ): ClassType {
+        const fileInfo = getFileInfo(errorNode);
         let className = 'namedtuple';
         if (argList.length === 0) {
             addError(Localizer.Diagnostic.namedTupleFirstArg(), errorNode);
@@ -6066,7 +6080,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        const classType = ClassType.create(className, ClassTypeFlags.None, errorNode.id);
+        const classType = ClassType.create(className, fileInfo.moduleName, ClassTypeFlags.None, errorNode.id);
         const builtInNamedTuple = getTypingType(errorNode, 'NamedTuple') || UnknownType.create();
         classType.details.baseClasses.push(builtInNamedTuple);
         computeMroLinearization(classType);
@@ -6081,6 +6095,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (isClass(builtInTupleType)) {
             const constructorType = FunctionType.createInstance(
                 '__new__',
+                '',
                 FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
             );
             constructorType.details.declaredReturnType = ObjectType.create(classType);
@@ -6140,12 +6155,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 const declaration: VariableDeclaration = {
                                     type: DeclarationType.Variable,
                                     node: stringNode as StringListNode,
-                                    path: getFileInfo(errorNode).filePath,
+                                    path: fileInfo.filePath,
                                     range: convertOffsetsToRange(
                                         stringNode.start,
                                         TextRange.getEnd(stringNode),
-                                        getFileInfo(errorNode).lines
+                                        fileInfo.lines
                                     ),
+                                    moduleName: fileInfo.moduleName,
                                 };
                                 newSymbol.addDeclaration(declaration);
                                 classFields.set(entryName, newSymbol);
@@ -6225,13 +6241,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 const declaration: VariableDeclaration = {
                                     type: DeclarationType.Variable,
                                     node: entryNameNode,
-                                    path: getFileInfo(errorNode).filePath,
+                                    path: fileInfo.filePath,
                                     typeAnnotationNode: entryTypeNode,
                                     range: convertOffsetsToRange(
                                         entryNameNode.start,
                                         TextRange.getEnd(entryNameNode),
-                                        getFileInfo(errorNode).lines
+                                        fileInfo.lines
                                     ),
+                                    moduleName: fileInfo.moduleName,
                                 };
                                 newSymbol.addDeclaration(declaration);
                             }
@@ -6255,6 +6272,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // and we don't want to do it for __init__ as well.
             const initType = FunctionType.createInstance(
                 '__init__',
+                '',
                 FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.SkipConstructorCheck
             );
             FunctionType.addParameter(initType, selfParameter);
@@ -6264,8 +6282,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
             classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
-            const keysItemType = FunctionType.createInstance('keys', FunctionTypeFlags.SynthesizedMethod);
-            const itemsItemType = FunctionType.createInstance('items', FunctionTypeFlags.SynthesizedMethod);
+            const keysItemType = FunctionType.createInstance('keys', '', FunctionTypeFlags.SynthesizedMethod);
+            const itemsItemType = FunctionType.createInstance('items', '', FunctionTypeFlags.SynthesizedMethod);
             keysItemType.details.declaredReturnType = getBuiltInObject(errorNode, 'list', [
                 getBuiltInObject(errorNode, 'str'),
             ]);
@@ -6273,7 +6291,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             classFields.set('keys', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
             classFields.set('items', Symbol.createWithType(SymbolFlags.InstanceMember, itemsItemType));
 
-            const lenType = FunctionType.createInstance('__len__', FunctionTypeFlags.SynthesizedMethod);
+            const lenType = FunctionType.createInstance('__len__', '', FunctionTypeFlags.SynthesizedMethod);
             lenType.details.declaredReturnType = getBuiltInObject(errorNode, 'int');
             FunctionType.addParameter(lenType, selfParameter);
             classFields.set('__len__', Symbol.createWithType(SymbolFlags.ClassMember, lenType));
@@ -6281,6 +6299,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (addGenericGetAttribute) {
                 const getAttribType = FunctionType.createInstance(
                     '__getattribute__',
+                    '',
                     FunctionTypeFlags.SynthesizedMethod
                 );
                 getAttribType.details.declaredReturnType = AnyType.create();
@@ -7159,7 +7178,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     }
 
     function getTypeFromLambda(node: LambdaNode, expectedType: Type | undefined): TypeResult {
-        const functionType = FunctionType.createInstance('', FunctionTypeFlags.None);
+        const functionType = FunctionType.createInstance('', '', FunctionTypeFlags.None);
 
         // Pre-cache the newly-created function type.
         writeTypeCache(node, functionType);
@@ -7334,7 +7353,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // either an ellipsis or a list of parameter types. The second parameter, if
     // present, should specify the return type.
     function createCallableType(typeArgs?: TypeResult[]): FunctionType {
-        const functionType = FunctionType.createInstantiable('', FunctionTypeFlags.None);
+        const functionType = FunctionType.createInstantiable('', '', FunctionTypeFlags.None);
         functionType.details.declaredReturnType = AnyType.create();
 
         if (typeArgs && typeArgs.length > 0) {
@@ -7736,13 +7755,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     }
 
     function createSpecialBuiltInClass(node: ParseNode, assignedName: string, aliasMapEntry: AliasMapEntry): ClassType {
+        const fileInfo = getFileInfo(node);
         const specialClassType = ClassType.create(
             assignedName,
+            fileInfo.moduleName,
             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
             node.id
         );
 
-        const fileInfo = getFileInfo(node);
         if (fileInfo.isTypingExtensionsStubFile) {
             specialClassType.details.flags |= ClassTypeFlags.TypingExtensionClass;
         }
@@ -8033,6 +8053,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         classType = ClassType.create(
             node.name.value,
+            fileInfo.moduleName,
             classFlags,
             node.id,
             ParseTreeUtils.getDocString(node.suite.statements)
@@ -8436,6 +8457,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         functionType = FunctionType.createInstance(
             node.name.value,
+            fileInfo.moduleName,
             functionFlags,
             ParseTreeUtils.getDocString(node.suite.statements)
         );
@@ -8785,8 +8807,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         originalFunctionType: FunctionType,
         decoratorNode: DecoratorNode
     ): Type {
+        const fileInfo = getFileInfo(decoratorNode);
+
         let evaluatorFlags = EvaluatorFlags.DoNotSpecialize;
-        if (getFileInfo(decoratorNode).isStubFile) {
+        if (fileInfo.isStubFile) {
             // Some stub files (e.g. builtins.pyi) rely on forward
             // declarations of decorators.
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
@@ -8835,7 +8859,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // Handle properties and subclasses of properties specially.
             if (ClassType.isPropertyClass(decoratorType)) {
                 if (inputFunctionType.category === TypeCategory.Function) {
-                    return createProperty(decoratorType.details.name, inputFunctionType, decoratorNode.id);
+                    return createProperty(
+                        decoratorNode,
+                        decoratorType.details.name,
+                        inputFunctionType,
+                        decoratorNode.id
+                    );
                 }
             }
         }
@@ -8850,8 +8879,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return returnType;
     }
 
-    function createProperty(className: string, fget: FunctionType, typeSourceId: TypeSourceId): ObjectType {
-        const propertyClass = ClassType.create(className, ClassTypeFlags.PropertyClass, typeSourceId);
+    function createProperty(
+        decoratorNode: DecoratorNode,
+        className: string,
+        fget: FunctionType,
+        typeSourceId: TypeSourceId
+    ): ObjectType {
+        const fileInfo = getFileInfo(decoratorNode);
+        const propertyClass = ClassType.create(
+            className,
+            fileInfo.moduleName,
+            ClassTypeFlags.PropertyClass,
+            typeSourceId
+        );
         computeMroLinearization(propertyClass);
 
         const propertyObject = ObjectType.create(propertyClass);
@@ -8862,7 +8902,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         fields.set('fget', fgetSymbol);
 
         // Fill in the __get__ method.
-        const getFunction = FunctionType.createInstance('__get__', FunctionTypeFlags.SynthesizedMethod);
+        const getFunction = FunctionType.createInstance('__get__', '', FunctionTypeFlags.SynthesizedMethod);
         getFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
@@ -8880,7 +8920,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // Fill in the getter, setter and deleter methods.
         ['getter', 'setter', 'deleter'].forEach((accessorName) => {
-            const accessorFunction = FunctionType.createInstance(accessorName, FunctionTypeFlags.SynthesizedMethod);
+            const accessorFunction = FunctionType.createInstance(accessorName, '', FunctionTypeFlags.SynthesizedMethod);
             accessorFunction.details.parameters.push({
                 category: ParameterCategory.Simple,
                 name: 'self',
@@ -8907,6 +8947,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const classType = (prop as ObjectType).classType;
         const propertyClass = ClassType.create(
             classType.details.name,
+            classType.details.moduleName,
             classType.details.flags,
             classType.details.typeSourceId
         );
@@ -8927,7 +8968,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         fields.set('fset', fsetSymbol);
 
         // Fill in the __set__ method.
-        const setFunction = FunctionType.createInstance('__set__', FunctionTypeFlags.SynthesizedMethod);
+        const setFunction = FunctionType.createInstance('__set__', '', FunctionTypeFlags.SynthesizedMethod);
         setFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
@@ -8966,6 +9007,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const classType = (prop as ObjectType).classType;
         const propertyClass = ClassType.create(
             classType.details.name,
+            classType.details.moduleName,
             classType.details.flags,
             classType.details.typeSourceId
         );
@@ -8986,7 +9028,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         fields.set('fdel', fdelSymbol);
 
         // Fill in the __delete__ method.
-        const delFunction = FunctionType.createInstance('__delete__', FunctionTypeFlags.SynthesizedMethod);
+        const delFunction = FunctionType.createInstance('__delete__', '', FunctionTypeFlags.SynthesizedMethod);
         delFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
@@ -11544,6 +11586,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         range: getEmptyRange(),
                         implicitImports: new Map<string, ModuleLoaderActions>(),
                         usesLocalName: false,
+                        moduleName: '',
                     };
                     declarations.push(aliasDeclaration);
                 }
@@ -11738,7 +11781,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (loaderActions.implicitImports) {
                 loaderActions.implicitImports.forEach((implicitImport, name) => {
                     // Recursively apply loader actions.
-                    const importedModuleType = ModuleType.create();
+                    const moduleName = moduleType.moduleName ? moduleType.moduleName + '.' + name : '';
+                    const importedModuleType = ModuleType.create(moduleName);
                     const symbolType = applyLoaderActionsToModuleType(importedModuleType, implicitImport, importLookup);
 
                     const importedModuleSymbol = Symbol.createWithType(SymbolFlags.None, symbolType);
@@ -11755,7 +11799,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (resolvedDecl.type === DeclarationType.Alias) {
             // Build a module type that corresponds to the declaration and
             // its associated loader actions.
-            const moduleType = ModuleType.create();
+            const moduleType = ModuleType.create(resolvedDecl.moduleName);
             if (resolvedDecl.symbolName) {
                 if (resolvedDecl.submoduleFallback) {
                     return applyLoaderActionsToModuleType(
@@ -13311,7 +13355,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             } else if (isClass(srcType)) {
                 // Synthesize a function that represents the constructor for this class.
                 const constructorFunction = FunctionType.createInstance(
-                    '__init__',
+                    '__init__', '',
                     FunctionTypeFlags.StaticMethod |
                         FunctionTypeFlags.ConstructorMethod |
                         FunctionTypeFlags.SynthesizedMethod

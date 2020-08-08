@@ -1704,3 +1704,60 @@ export function printLiteralType(type: ObjectType): string {
 
     return `Literal[${literalStr}]`;
 }
+
+// Returns zero or more unique module names that point to the place(s)
+// where the type is declared. Unions, for example, can result in more
+// than one result. Type arguments are not included.
+export function getDeclaringModulesForType(type: Type): string[] {
+    const moduleList: string[] = [];
+    addDeclaringModuleNamesForType(type, moduleList);
+    return moduleList;
+}
+
+function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recursionCount = 0) {
+    if (recursionCount > maxTypeRecursionCount) {
+        return;
+    }
+
+    const addIfUnique = (moduleName: string) => {
+        if (moduleName && !moduleList.some((n) => n === moduleName)) {
+            moduleList.push(moduleName);
+        }
+    };
+
+    switch (type.category) {
+        case TypeCategory.Class: {
+            addIfUnique(type.details.moduleName);
+            break;
+        }
+
+        case TypeCategory.Object: {
+            addIfUnique(type.classType.details.moduleName);
+            break;
+        }
+
+        case TypeCategory.Function: {
+            addIfUnique(type.details.moduleName);
+            break;
+        }
+
+        case TypeCategory.OverloadedFunction: {
+            type.overloads.forEach((overload) => {
+                addDeclaringModuleNamesForType(overload, moduleList, recursionCount + 1);
+            });
+            break;
+        }
+
+        case TypeCategory.Union: {
+            type.subtypes.forEach((subtype) => {
+                addDeclaringModuleNamesForType(subtype, moduleList, recursionCount + 1);
+            });
+            break;
+        }
+
+        case TypeCategory.Module: {
+            addIfUnique(type.moduleName);
+            break;
+        }
+    }
+}

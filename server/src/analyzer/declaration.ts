@@ -52,6 +52,12 @@ export interface DeclarationBase {
     // contains the declaration.
     path: string;
     range: Range;
+
+    // The dot-separated import name for the file that
+    // contains the declaration (may not be definitive
+    // because a source file can be accessed via different
+    // import names in some cases).
+    moduleName: string;
 }
 
 export interface IntrinsicDeclaration extends DeclarationBase {

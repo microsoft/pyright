@@ -68,6 +68,9 @@ export class SourceFile {
     // File path on disk.
     private readonly _filePath: string;
 
+    // Period-delimited import path for the module.
+    private readonly _moduleName: string;
+
     // True if file is a type-hint (.pyi) file versus a python
     // (.py) file.
     private readonly _isStubFile: boolean;
@@ -158,6 +161,7 @@ export class SourceFile {
     constructor(
         fs: FileSystem,
         filePath: string,
+        moduleName: string,
         isThirdPartyImport: boolean,
         console?: ConsoleInterface,
         logTracker?: LogTracker
@@ -165,6 +169,7 @@ export class SourceFile {
         this.fileSystem = fs;
         this._console = console || new StandardConsole();
         this._filePath = filePath;
+        this._moduleName = moduleName;
         this._isStubFile = filePath.endsWith('.pyi');
         this._isThirdPartyImport = isThirdPartyImport;
         const fileName = getFileName(filePath);
@@ -924,6 +929,7 @@ export class SourceFile {
             fileContents,
             lines: this._parseResults!.tokenizerOutput.lines,
             filePath: this._filePath,
+            moduleName: this._moduleName,
             isStubFile: this._isStubFile,
             isTypingStubFile: this._isTypingStubFile,
             isTypingExtensionsStubFile: this._isTypingExtensionsStubFile,

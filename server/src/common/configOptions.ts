@@ -553,6 +553,10 @@ export class ConfigOptions {
         return execEnv;
     }
 
+    getDefaultExecEnvironment(): ExecutionEnvironment {
+        return new ExecutionEnvironment(this.projectRoot, this.defaultPythonVersion, this.defaultPythonPlatform);
+    }
+
     addExecEnvironmentForExtraPaths(fs: FileSystem, autoSearchPaths: boolean, extraPaths: string[]) {
         const paths: string[] = [];
 
