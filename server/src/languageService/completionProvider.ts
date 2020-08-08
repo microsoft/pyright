@@ -41,10 +41,12 @@ import {
     FunctionType,
     isClass,
     isModule,
+    isNone,
     isObject,
     isTypeVar,
     ObjectType,
     Type,
+    TypeBase,
     TypeCategory,
 } from '../analyzer/types';
 import { doForSubtypes, getMembersForClass, getMembersForModule, specializeType } from '../analyzer/typeUtils';
@@ -535,11 +537,24 @@ export class CompletionProvider {
                 }
 
                 if (isObject(specializedSubtype)) {
-                    getMembersForClass(specializedSubtype.classType, symbolTable, true);
+                    getMembersForClass(specializedSubtype.classType, symbolTable, /* includeInstanceVars */ true);
                 } else if (isClass(specializedSubtype)) {
-                    getMembersForClass(specializedSubtype, symbolTable, false);
+                    getMembersForClass(specializedSubtype, symbolTable, /* includeInstanceVars */ false);
                 } else if (isModule(specializedSubtype)) {
                     getMembersForModule(specializedSubtype, symbolTable);
+                } else if (
+                    specializedSubtype.category === TypeCategory.Function ||
+                    specializedSubtype.category === TypeCategory.OverloadedFunction
+                ) {
+                    const functionClass = this._evaluator.getBuiltInType(leftExprNode, 'function');
+                    if (functionClass && isClass(functionClass)) {
+                        getMembersForClass(functionClass, symbolTable, /* includeInstanceVars */ true);
+                    }
+                } else if (isNone(subtype)) {
+                    const objectClass = this._evaluator.getBuiltInType(leftExprNode, 'object');
+                    if (objectClass && isClass(objectClass)) {
+                        getMembersForClass(objectClass, symbolTable, TypeBase.isInstance(subtype));
+                    }
                 }
 
                 return undefined;
