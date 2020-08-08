@@ -1022,16 +1022,20 @@ export class CompletionProvider {
             // exported from this scope, don't include it in the
             // suggestion list.
             if (!symbol.isExternallyHidden() && includeSymbolCallback(name)) {
-                this._addSymbol(
-                    name,
-                    symbol,
-                    priorWord,
-                    completionList,
-                    undefined,
-                    undefined,
-                    undefined,
-                    objectThrough
-                );
+                // Don't add a symbol more than once. It may have already been
+                // added from an inner scope's symbol table.
+                if (!completionList.items.some((item) => item.label === name)) {
+                    this._addSymbol(
+                        name,
+                        symbol,
+                        priorWord,
+                        completionList,
+                        undefined,
+                        undefined,
+                        undefined,
+                        objectThrough
+                    );
+                }
             }
         });
     }
