@@ -32,8 +32,8 @@
 
     const xComplicatedSignatures = [
         {
-            label: '(a: int, b: int, c: int = 1234, d: str | None = None, **kwargs) -> int | str',
-            parameters: ['a: int', 'b: int', 'c: int = 1234', 'd: str | None = None', '**kwargs'],
+            label: '(a: int, b: int, c: int = 1234, d: str | None = None, **kwargs: Any) -> int | str',
+            parameters: ['a: int', 'b: int', 'c: int = 1234', 'd: str | None = None', '**kwargs: Any'],
         },
     ];
 

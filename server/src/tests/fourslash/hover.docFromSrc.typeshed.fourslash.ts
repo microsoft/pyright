@@ -17,7 +17,8 @@
 
 helper.verifyHover({
     marker: {
-        value: '```python\n(function) head: (url: str | bytes, **kwargs) -> Response\n```\nSends a HEAD request.',
+        value:
+            '```python\n(function) head: (url: str | bytes, **kwargs: Unknown) -> Response\n```\nSends a HEAD request.',
         kind: 'markdown',
     },
 });

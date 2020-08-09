@@ -28,8 +28,8 @@
             parameters: ['x: int', 'y: int'],
         },
         {
-            label: '(*args) -> None',
-            parameters: ['*args'],
+            label: '(*args: Unknown) -> None',
+            parameters: ['*args: Unknown'],
         },
     ];
 

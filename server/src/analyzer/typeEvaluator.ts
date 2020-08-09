@@ -13355,7 +13355,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             } else if (isClass(srcType)) {
                 // Synthesize a function that represents the constructor for this class.
                 const constructorFunction = FunctionType.createInstance(
-                    '__init__', '',
+                    '__init__',
+                    '',
                     FunctionTypeFlags.StaticMethod |
                         FunctionTypeFlags.ConstructorMethod |
                         FunctionTypeFlags.SynthesizedMethod
@@ -14174,27 +14175,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             let defaultValueAssignment = '=';
-            if (param.category === ParameterCategory.Simple) {
-                if (param.name) {
-                    // Avoid printing type types if parameter have unknown type.
-                    if (param.hasDeclaredType || param.isTypeInferred) {
-                        const paramType = FunctionType.getEffectiveParameterType(type, index);
-                        const paramTypeString =
-                            recursionCount < maxTypeRecursionCount
-                                ? printType(paramType, /* expandTypeAlias */ false, recursionCount + 1)
-                                : '';
-                        paramString += ': ' + paramTypeString;
+            if (param.name) {
+                // Avoid printing type types if parameter have unknown type.
+                if (param.hasDeclaredType || param.isTypeInferred) {
+                    const paramType = FunctionType.getEffectiveParameterType(type, index);
+                    const paramTypeString =
+                        recursionCount < maxTypeRecursionCount
+                            ? printType(paramType, /* expandTypeAlias */ false, recursionCount + 1)
+                            : '';
+                    paramString += ': ' + paramTypeString;
 
-                        // PEP8 indicates that the "=" for the default value should have surrounding
-                        // spaces when used with a type annotation.
-                        defaultValueAssignment = ' = ';
-                    } else if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0) {
-                        paramString += ': Unknown';
-                        defaultValueAssignment = ' = ';
-                    }
-                } else {
-                    paramString += '/';
+                    // PEP8 indicates that the "=" for the default value should have surrounding
+                    // spaces when used with a type annotation.
+                    defaultValueAssignment = ' = ';
+                } else if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0) {
+                    paramString += ': Unknown';
+                    defaultValueAssignment = ' = ';
                 }
+            } else {
+                paramString += '/';
             }
 
             if (type.details.declaration) {
