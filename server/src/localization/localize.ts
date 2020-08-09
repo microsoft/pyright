@@ -220,6 +220,7 @@ export namespace Localizer {
         export const declaredReturnTypeUnknown = () => getRawString('Diagnostic.declaredReturnTypeUnknown');
         export const defaultValueContainsCall = () => getRawString('Diagnostic.defaultValueContainsCall');
         export const defaultValueNotAllowed = () => getRawString('Diagnostic.defaultValueNotAllowed');
+        export const defaultValueNotEllipsis = () => getRawString('Diagnostic.defaultValueNotEllipsis');
         export const dictInAnnotation = () => getRawString('Diagnostic.dictInAnnotation');
         export const dictKeyValuePairs = () => getRawString('Diagnostic.dictKeyValuePairs');
         export const delTargetExpr = () => getRawString('Diagnostic.delTargetExpr');

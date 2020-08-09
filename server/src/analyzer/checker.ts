@@ -227,6 +227,19 @@ export class Checker extends ParseTreeWalker {
                         );
                     }
                 }
+
+                // If it's a stub file, report an issue of the default value expression is not "...".
+                if (param.defaultValue && this._fileInfo.isStubFile) {
+                    const defaultValueType = this._evaluator.getType(param.defaultValue);
+                    if (!defaultValueType || !isEllipsisType(defaultValueType)) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportInvalidStubStatement,
+                            DiagnosticRule.reportInvalidStubStatement,
+                            Localizer.Diagnostic.defaultValueNotEllipsis(),
+                            param.defaultValue
+                        );
+                    }
+                }
             });
 
             // If this is a stub, ensure that the return type is specified.

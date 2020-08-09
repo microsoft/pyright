@@ -348,7 +348,7 @@
     "reportInvalidStubStatement": {
       "$id": "#/properties/reportInvalidStubStatement",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of statements that have no semantic meaning within a type stub",
+      "title": "Controls reporting of type stub statements that do not conform to PEP 484",
       "default": "none"
     },
     "pythonVersion": {

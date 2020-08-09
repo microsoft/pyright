@@ -49,6 +49,7 @@
         "declaredReturnTypeUnknown": "Declared return type is unknown",
         "defaultValueContainsCall": "Function calls within default value initializer are not permitted",
         "defaultValueNotAllowed": "Parameter with \"*\" or \"**\" cannot have default value",
+        "defaultValueNotEllipsis": "Default values in stub files should be specified as \"...\"",
         "delTargetExpr": "Expression cannot be deleted",
         "dictInAnnotation": "Dictionary expression not allowed in type annotation",
         "dictKeyValuePairs": "Dictionary entries must contain key/value pairs",
