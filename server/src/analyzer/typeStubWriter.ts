@@ -296,24 +296,13 @@ export class TypeStubWriter extends ParseTreeWalker {
         let line = '';
 
         if (node.leftExpression.nodeType === ParseNodeType.Name) {
-            // Handle "__all__" assignments specially.
+            // Strip out "__all__" assignments.
             if (node.leftExpression.value === '__all__') {
-                this._emitLine(this._printExpression(node, false, true));
                 return false;
             }
 
             if (this._functionNestCount === 0) {
                 line = this._printExpression(node.leftExpression);
-            }
-        } else if (node.leftExpression.nodeType === ParseNodeType.MemberAccess) {
-            const baseExpression = node.leftExpression.leftExpression;
-            if (baseExpression.nodeType === ParseNodeType.Name) {
-                if (baseExpression.value === 'self') {
-                    const memberName = node.leftExpression.memberName.value;
-                    if (!SymbolNameUtils.isPrivateOrProtectedName(memberName)) {
-                        line = this._printExpression(node.leftExpression);
-                    }
-                }
             }
         }
 
@@ -339,14 +328,6 @@ export class TypeStubWriter extends ParseTreeWalker {
     }
 
     visitAugmentedAssignment(node: AugmentedAssignmentNode) {
-        if (this._classNestCount === 0 && this._functionNestCount === 0) {
-            if (node.leftExpression.nodeType === ParseNodeType.Name) {
-                if (node.leftExpression.value === '__all__') {
-                    this._emitLine(this._printExpression(node, false, true));
-                }
-            }
-        }
-
         return false;
     }
 
