@@ -200,6 +200,10 @@ export namespace Localizer {
         export const baseClassFinal = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.baseClassFinal'));
         export const baseClassUnknown = () => getRawString('Diagnostic.baseClassUnknown');
+        export const bindTypeMismatch = () =>
+            new ParameterizedString<{ type: string; methodName: string; paramName: string }>(
+                getRawString('Diagnostic.bindTypeMismatch')
+            );
         export const breakOutsideLoop = () => getRawString('Diagnostic.breakOutsideLoop');
         export const callableExtraArgs = () => getRawString('Diagnostic.callableExtraArgs');
         export const callableFirstArg = () => getRawString('Diagnostic.callableFirstArg');

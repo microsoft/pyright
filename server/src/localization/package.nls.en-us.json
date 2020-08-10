@@ -31,6 +31,7 @@
         "baseClassFinal": "Base class \"{type}\" is marked final and cannot be subclassed",
         "baseClassInvalid": "Argument to class must be a base class",
         "baseClassUnknown": "Base class type is unknown, obscuring type of derived class",
+        "bindTypeMismatch": "Could not bind method \"{methodName}\" because \"{type}\" is not assignable to parameter \"{paramName}\"",
         "breakOutsideLoop": "\"break\" can be used only within a loop",
         "callableExtraArgs": "Expected only two type arguments to \"Callable\"",
         "callableFirstArg": "Expected parameter type list or \"...\"",

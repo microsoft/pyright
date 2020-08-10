@@ -1112,19 +1112,21 @@ export class CompletionProvider {
                                     const functionType = objectThrough
                                         ? this._evaluator.bindFunctionToClassOrObject(objectThrough, type, false)
                                         : type;
-                                    if (functionType.category === TypeCategory.OverloadedFunction) {
-                                        typeDetail = functionType.overloads
-                                            .map(
-                                                (overload) =>
-                                                    name +
-                                                    this._evaluator.printType(overload, /* expandTypeAlias */ false)
-                                            )
-                                            .join('\n');
-                                    } else {
-                                        typeDetail =
-                                            name +
-                                            ': ' +
-                                            this._evaluator.printType(functionType, /* expandTypeAlias */ false);
+                                    if (functionType) {
+                                        if (functionType.category === TypeCategory.OverloadedFunction) {
+                                            typeDetail = functionType.overloads
+                                                .map(
+                                                    (overload) =>
+                                                        name +
+                                                        this._evaluator.printType(overload, /* expandTypeAlias */ false)
+                                                )
+                                                .join('\n');
+                                        } else {
+                                            typeDetail =
+                                                name +
+                                                ': ' +
+                                                this._evaluator.printType(functionType, /* expandTypeAlias */ false);
+                                        }
                                     }
                                     break;
                                 }
