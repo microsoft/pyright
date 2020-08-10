@@ -464,13 +464,13 @@ export class AnalyzerService {
             configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
         }
 
-        const reportDuplicateSetting = (settingName: string) => {
+        const reportDuplicateSetting = (settingName: string, configValue: number | string | boolean) => {
             const settingSource = commandLineOptions.fromVsCodeExtension
-                ? 'the VS Code settings'
+                ? 'the client settings'
                 : 'a command-line option';
             this._console.warn(
                 `The ${settingName} has been specified in both the config file and ` +
-                    `${settingSource}. The value in the config file (${configOptions.venvPath}) ` +
+                    `${settingSource}. The value in the config file (${configValue}) ` +
                     `will take precedence`
             );
         };
@@ -482,7 +482,7 @@ export class AnalyzerService {
             if (!configOptions.venvPath) {
                 configOptions.venvPath = commandLineOptions.venvPath;
             } else {
-                reportDuplicateSetting('venvPath');
+                reportDuplicateSetting('venvPath', configOptions.venvPath);
             }
         }
 
@@ -497,21 +497,28 @@ export class AnalyzerService {
             if (!configOptions.typeshedPath) {
                 configOptions.typeshedPath = commandLineOptions.typeshedPath;
             } else {
-                reportDuplicateSetting('typeshedPath');
+                reportDuplicateSetting('typeshedPath', configOptions.typeshedPath);
             }
         }
 
         configOptions.verboseOutput = !!commandLineOptions.verboseOutput;
         configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
-        configOptions.useLibraryCodeForTypes = !!commandLineOptions.useLibraryCodeForTypes;
         configOptions.autoImportCompletions = !!commandLineOptions.autoImportCompletions;
+
+        // If useLibraryCodeForTypes was not specified in the config, allow the settings
+        // or command line to override it.
+        if (configOptions.useLibraryCodeForTypes === undefined) {
+            configOptions.useLibraryCodeForTypes = !!commandLineOptions.useLibraryCodeForTypes;
+        } else if (commandLineOptions.useLibraryCodeForTypes !== undefined) {
+            reportDuplicateSetting('useLibraryCodeForTypes', configOptions.useLibraryCodeForTypes);
+        }
 
         // If there was no stub path specified, use a default path.
         if (commandLineOptions.stubPath) {
             if (!configOptions.stubPath) {
                 configOptions.stubPath = commandLineOptions.stubPath;
             } else {
-                reportDuplicateSetting('stubPath');
+                reportDuplicateSetting('stubPath', configOptions.stubPath);
             }
         } else {
             if (!configOptions.stubPath) {

@@ -76,6 +76,12 @@
       "title": "Specifies the default rule set to use for type checking",
       "default": "basic"
     },
+    "useLibraryCodeForTypes": {
+      "$id": "#/properties/useLibraryCodeForTypes",
+      "type": "boolean",
+      "title": "Use library implementations to extract type information when type stub is not present",
+      "default": false
+    },
     "typeshedPath": {
       "$id": "#/properties/typeshedPath",
       "type": "string",
