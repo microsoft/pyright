@@ -12548,7 +12548,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 ) {
                     const fgetDestReturnType = getFunctionEffectiveReturnType(fgetDestType);
                     const fgetSrcReturnType = getFunctionEffectiveReturnType(fgetSrcType);
-                    if (!canAssignType(fgetDestReturnType, fgetSrcReturnType, diag)) {
+                    if (!canAssignType(fgetDestReturnType, fgetSrcReturnType, diag, /* typeVarMap */ undefined, CanAssignFlags.Default, recursionCount + 1)) {
                         typesAreConsistent = false;
                     }
                 }
