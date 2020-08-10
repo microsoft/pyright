@@ -402,6 +402,10 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.returnTypeAnnotation);
         }
 
+        if (node.functionAnnotationComment) {
+            this.walk(node.functionAnnotationComment);
+        }
+
         // Find the function or module that contains this function and use its scope.
         // We can't simply use this._currentScope because functions within a class use
         // the scope of the containing function or module when they execute.

@@ -50,6 +50,7 @@ import {
     extendRange,
     FormatStringNode,
     ForNode,
+    FunctionAnnotationNode,
     FunctionNode,
     getNextNodeId,
     GlobalNode,
@@ -157,6 +158,12 @@ export interface ModuleImport {
     importedSymbols: string[] | undefined;
 }
 
+const enum ParseTextMode {
+    Expression,
+    VariableAnnotation,
+    FunctionAnnotation,
+}
+
 export class Parser {
     private _fileContents?: string;
     private _tokenizerOutput?: TokenizerOutput;
@@ -223,15 +230,17 @@ export class Parser {
         textOffset: number,
         textLength: number,
         parseOptions: ParseOptions,
-        parseTypeAnnotation: boolean,
+        parseTextMode = ParseTextMode.Expression,
         initialParenDepth = 0
     ): ParseExpressionTextResults {
         const diagSink = new DiagnosticSink();
         this._startNewParse(fileContents, textOffset, textLength, parseOptions, diagSink, initialParenDepth);
 
         let parseTree: ExpressionNode | undefined;
-        if (parseTypeAnnotation) {
+        if (parseTextMode === ParseTextMode.VariableAnnotation) {
             parseTree = this._parseTypeAnnotation(/* allowUnionNotation */ false);
+        } else if (parseTextMode === ParseTextMode.FunctionAnnotation) {
+            parseTree = this._parseFunctionTypeAnnotation();
         } else {
             parseTree = this._parseTestExpression(false);
         }
@@ -371,7 +380,7 @@ export class Parser {
     }
 
     // suite: ':' (simple_stmt | NEWLINE INDENT stmt+ DEDENT)
-    private _parseSuite(isFunction = false): SuiteNode {
+    private _parseSuite(isFunction = false, postColonCallback?: () => void): SuiteNode {
         const nextToken = this._peekToken();
         const suite = SuiteNode.create(nextToken);
 
@@ -385,10 +394,18 @@ export class Parser {
             }
         }
 
+        if (postColonCallback) {
+            postColonCallback();
+        }
+
         const wasFunction = this._isInFunction;
         this._isInFunction = isFunction;
 
         if (this._consumeTokenIfType(TokenType.NewLine)) {
+            if (postColonCallback) {
+                postColonCallback();
+            }
+
             const possibleIndent = this._peekToken();
             if (!this._consumeTokenIfType(TokenType.Indent)) {
                 this._addError(Localizer.Diagnostic.expectedIndentedBlock(), this._peekToken());
@@ -701,7 +718,7 @@ export class Parser {
             );
         }
 
-        const paramList = this._parseVarArgsList(TokenType.CloseParenthesis, true);
+        const paramList = this._parseVarArgsList(TokenType.CloseParenthesis, /* allowAnnotations */ true);
 
         if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
             this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
@@ -713,7 +730,12 @@ export class Parser {
             returnType = this._parseTypeAnnotation();
         }
 
-        const suite = this._parseSuite(true);
+        let functionTypeAnnotationToken: StringToken | undefined;
+        const suite = this._parseSuite(/* isFunction */ true, () => {
+            if (!functionTypeAnnotationToken) {
+                functionTypeAnnotationToken = this._getTypeAnnotationCommentText();
+            }
+        });
 
         const functionNode = FunctionNode.create(defToken, NameNode.create(nameToken), suite);
         if (asyncToken) {
@@ -741,6 +763,12 @@ export class Parser {
             functionNode.returnTypeAnnotation = returnType;
             functionNode.returnTypeAnnotation.parent = functionNode;
             extendRange(functionNode, returnType);
+        }
+
+        // If there was a type annotation comment for the function,
+        // parse it now.
+        if (functionTypeAnnotationToken) {
+            this._parseFunctionTypeAnnotationComment(functionTypeAnnotationToken, functionNode);
         }
 
         return functionNode;
@@ -834,7 +862,19 @@ export class Parser {
                 this._addError(Localizer.Diagnostic.paramAfterKwargsParam(), param);
             }
 
-            if (!this._consumeTokenIfType(TokenType.Comma)) {
+            const foundComma = this._consumeTokenIfType(TokenType.Comma);
+
+            if (allowAnnotations && !param.typeAnnotation) {
+                // Look for a type annotation comment at the end of the line.
+                const typeAnnotationComment = this._parseVariableTypeAnnotationComment();
+                if (typeAnnotationComment) {
+                    param.typeAnnotation = typeAnnotationComment;
+                    param.typeAnnotation.parent = param;
+                    extendRange(param, param.typeAnnotation);
+                }
+            }
+
+            if (!foundComma) {
                 break;
             }
         }
@@ -2434,7 +2474,7 @@ export class Parser {
     private _parseLambdaExpression(allowConditional = true): LambdaNode {
         const lambdaToken = this._getKeywordToken(KeywordType.Lambda);
 
-        const argList = this._parseVarArgsList(TokenType.Colon, false);
+        const argList = this._parseVarArgsList(TokenType.Colon, /* allowAnnotations */ false);
 
         if (!this._consumeTokenIfType(TokenType.Colon)) {
             this._addError(Localizer.Diagnostic.expectedColon(), this._peekToken());
@@ -2825,7 +2865,7 @@ export class Parser {
         const assignmentNode = AssignmentNode.create(leftExpr, rightExpr);
 
         // Look for a type annotation comment at the end of the line.
-        const typeAnnotationComment = this._getTypeAnnotationComment();
+        const typeAnnotationComment = this._parseVariableTypeAnnotationComment();
         if (typeAnnotationComment) {
             assignmentNode.typeAnnotationComment = typeAnnotationComment;
             assignmentNode.typeAnnotationComment.parent = assignmentNode;
@@ -2833,6 +2873,54 @@ export class Parser {
         }
 
         return assignmentNode;
+    }
+
+    private _parseFunctionTypeAnnotation(): FunctionAnnotationNode | undefined {
+        const openParenToken = this._peekToken();
+        if (!this._consumeTokenIfType(TokenType.OpenParenthesis)) {
+            this._addError(Localizer.Diagnostic.expectedOpenParen(), this._peekToken());
+            return undefined;
+        }
+
+        let paramAnnotations: ExpressionNode[] = [];
+
+        while (true) {
+            const nextTokenType = this._peekTokenType();
+            if (
+                nextTokenType === TokenType.CloseParenthesis ||
+                nextTokenType === TokenType.NewLine ||
+                nextTokenType === TokenType.EndOfStream
+            ) {
+                break;
+            }
+
+            const paramAnnotation = this._parseTypeAnnotation();
+            paramAnnotations.push(paramAnnotation);
+
+            if (!this._consumeTokenIfType(TokenType.Comma)) {
+                break;
+            }
+        }
+
+        if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
+            this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
+            this._consumeTokensUntilType([TokenType.Colon]);
+        }
+
+        if (!this._consumeTokenIfType(TokenType.Arrow)) {
+            this._addError(Localizer.Diagnostic.expectedArrow(), this._peekToken());
+            return undefined;
+        }
+
+        const returnType = this._parseTypeAnnotation();
+
+        let isParamListEllipsis = false;
+        if (paramAnnotations.length === 1 && paramAnnotations[0].nodeType === ParseNodeType.Ellipsis) {
+            paramAnnotations = [];
+            isParamListEllipsis = true;
+        }
+
+        return FunctionAnnotationNode.create(openParenToken, isParamListEllipsis, paramAnnotations, returnType);
     }
 
     private _parseTypeAnnotation(allowUnionNotation = true): ExpressionNode {
@@ -2901,7 +2989,7 @@ export class Parser {
         return StringNode.create(stringToken, unescapedResult.value, unescapedResult.unescapeErrors.length > 0);
     }
 
-    private _getTypeAnnotationComment(): ExpressionNode | undefined {
+    private _getTypeAnnotationCommentText(): StringToken | undefined {
         if (this._tokenIndex === 0) {
             return undefined;
         }
@@ -2932,24 +3020,24 @@ export class Parser {
         }
 
         const tokenOffset = curToken.start + curToken.length + match[1].length;
-        const stringToken = StringToken.create(
-            tokenOffset,
-            typeString.length,
-            StringTokenFlags.None,
-            typeString,
-            0,
-            undefined
-        );
+        return StringToken.create(tokenOffset, typeString.length, StringTokenFlags.None, typeString, 0, undefined);
+    }
+
+    private _parseVariableTypeAnnotationComment(): ExpressionNode | undefined {
+        const stringToken = this._getTypeAnnotationCommentText();
+        if (!stringToken) {
+            return undefined;
+        }
+
         const stringNode = this._makeStringNode(stringToken);
         const stringListNode = StringListNode.create([stringNode]);
-
         const parser = new Parser();
         const parseResults = parser.parseTextExpression(
             this._fileContents!,
-            tokenOffset,
-            typeString.length,
+            stringToken.start,
+            stringToken.length,
             this._parseOptions,
-            /* parseTypeAnnotation */ true
+            ParseTextMode.VariableAnnotation
         );
 
         parseResults.diagnostics.forEach((diag) => {
@@ -2961,6 +3049,33 @@ export class Parser {
         }
 
         return parseResults.parseTree;
+    }
+
+    private _parseFunctionTypeAnnotationComment(stringToken: StringToken, functionNode: FunctionNode): void {
+        const stringNode = this._makeStringNode(stringToken);
+        const stringListNode = StringListNode.create([stringNode]);
+        const parser = new Parser();
+        const parseResults = parser.parseTextExpression(
+            this._fileContents!,
+            stringToken.start,
+            stringToken.length,
+            this._parseOptions,
+            ParseTextMode.FunctionAnnotation
+        );
+
+        parseResults.diagnostics.forEach((diag) => {
+            this._addError(diag.message, stringListNode);
+        });
+
+        if (!parseResults.parseTree || parseResults.parseTree.nodeType !== ParseNodeType.FunctionAnnotation) {
+            return;
+        }
+
+        const functionAnnotation = parseResults.parseTree;
+
+        functionNode.functionAnnotationComment = functionAnnotation;
+        functionAnnotation.parent = functionNode;
+        extendRange(functionNode, functionAnnotation);
     }
 
     private _parseFormatStringSegment(
@@ -2976,7 +3091,7 @@ export class Parser {
             stringToken.start + stringToken.prefixLength + stringToken.quoteMarkLength + segment.offset + segmentOffset,
             segmentLength,
             this._parseOptions,
-            /* parseTypeAnnotation */ false,
+            ParseTextMode.Expression,
             /* initialParenDepth */ 1
         );
 
@@ -3182,7 +3297,7 @@ export class Parser {
                         tokenOffset + prefixLength,
                         unescapedString.length,
                         this._parseOptions,
-                        /* parseTypeAnnotation */ true
+                        ParseTextMode.VariableAnnotation
                     );
 
                     parseResults.diagnostics.forEach((diag) => {

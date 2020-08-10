@@ -7,6 +7,7 @@
  * Collection of static methods that operate on declarations.
  */
 
+import { ParseNodeType } from '../parser/parseNodes';
 import { Declaration, DeclarationType } from './declaration';
 
 export function hasTypeForDeclaration(declaration: Declaration): boolean {
@@ -17,8 +18,21 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
         case DeclarationType.Function:
             return true;
 
-        case DeclarationType.Parameter:
-            return !!declaration.node.typeAnnotation;
+        case DeclarationType.Parameter: {
+            if (declaration.node.typeAnnotation) {
+                return true;
+            }
+            const parameterParent = declaration.node.parent;
+            if (parameterParent?.nodeType === ParseNodeType.Function) {
+                if (
+                    parameterParent.functionAnnotationComment &&
+                    !parameterParent.functionAnnotationComment.isParamListEllipsis
+                ) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         case DeclarationType.Variable:
             return !!declaration.typeAnnotationNode;

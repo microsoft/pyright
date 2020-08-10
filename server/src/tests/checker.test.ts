@@ -1991,3 +1991,15 @@ test('Decorator2', () => {
 
     validateResults(analysisResults, 0);
 });
+
+test('FunctionAnnotation1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionAnnotation1.py']);
+
+    validateResults(analysisResults, 1);
+});
+
+test('FunctionAnnotation2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionAnnotation2.py']);
+
+    validateResults(analysisResults, 4);
+});

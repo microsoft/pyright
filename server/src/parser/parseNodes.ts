@@ -91,6 +91,7 @@ export const enum ParseNodeType {
     WithItem, // 60
     Yield,
     YieldFrom,
+    FunctionAnnotation,
 }
 
 export const enum ErrorExpressionCategory {
@@ -385,6 +386,7 @@ export interface FunctionNode extends ParseNodeBase {
     name: NameNode;
     parameters: ParameterNode[];
     returnTypeAnnotation?: ExpressionNode;
+    functionAnnotationComment?: FunctionAnnotationNode;
     suite: SuiteNode;
 }
 
@@ -656,7 +658,8 @@ export type ExpressionNode =
     | DictionaryExpandEntryNode
     | ListNode
     | SetNode
-    | DecoratorNode;
+    | DecoratorNode
+    | FunctionAnnotationNode;
 
 export function isExpressionNode(node: ParseNode): node is ExpressionNode {
     switch (node.nodeType) {
@@ -858,6 +861,41 @@ export namespace TypeAnnotationNode {
         typeAnnotation.parent = node;
 
         extendRange(node, typeAnnotation);
+
+        return node;
+    }
+}
+
+export interface FunctionAnnotationNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.FunctionAnnotation;
+    isParamListEllipsis: boolean;
+    paramTypeAnnotations: ExpressionNode[];
+    returnTypeAnnotation: ExpressionNode;
+}
+
+export namespace FunctionAnnotationNode {
+    export function create(
+        openParenToken: Token,
+        isParamListEllipsis: boolean,
+        paramTypeAnnotations: ExpressionNode[],
+        returnTypeAnnotation: ExpressionNode
+    ) {
+        const node: FunctionAnnotationNode = {
+            start: openParenToken.start,
+            length: openParenToken.length,
+            nodeType: ParseNodeType.FunctionAnnotation,
+            id: _nextNodeId++,
+            isParamListEllipsis,
+            paramTypeAnnotations,
+            returnTypeAnnotation,
+        };
+
+        paramTypeAnnotations.forEach((p) => {
+            p.parent = node;
+        });
+        returnTypeAnnotation.parent = node;
+
+        extendRange(node, returnTypeAnnotation);
 
         return node;
     }
@@ -1843,6 +1881,7 @@ export type ParseNode =
     | ForNode
     | FormatStringNode
     | FunctionNode
+    | FunctionAnnotationNode
     | GlobalNode
     | LambdaNode
     | ListNode

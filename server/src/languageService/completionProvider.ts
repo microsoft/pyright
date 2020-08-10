@@ -495,7 +495,7 @@ export class CompletionProvider {
 
     private _printMethodSignature(node: FunctionNode): string {
         const paramList = node.parameters
-            .map((param) => {
+            .map((param, index) => {
                 let paramString = '';
                 if (param.category === ParameterCategory.VarArgList) {
                     paramString += '*';
@@ -507,8 +507,9 @@ export class CompletionProvider {
                     paramString += param.name.value;
                 }
 
-                if (param.typeAnnotation) {
-                    paramString += ': ' + ParseTreeUtils.printExpression(param.typeAnnotation);
+                const paramTypeAnnotation = this._evaluator.getTypeAnnotationForParameter(node, index);
+                if (paramTypeAnnotation) {
+                    paramString += ': ' + ParseTreeUtils.printExpression(paramTypeAnnotation);
                 }
 
                 return paramString;
@@ -519,6 +520,9 @@ export class CompletionProvider {
 
         if (node.returnTypeAnnotation) {
             methodSignature += ' -> ' + ParseTreeUtils.printExpression(node.returnTypeAnnotation);
+        } else if (node.functionAnnotationComment) {
+            methodSignature +=
+                ' -> ' + ParseTreeUtils.printExpression(node.functionAnnotationComment.returnTypeAnnotation);
         }
 
         return methodSignature;

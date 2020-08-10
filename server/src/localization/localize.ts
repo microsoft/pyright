@@ -151,6 +151,10 @@ function loadStringsFromJsonFile(locale: string): StringLookupMap | undefined {
 
 export namespace Localizer {
     export namespace Diagnostic {
+        export const annotatedParamCountMismatch = () =>
+            new ParameterizedString<{ expected: number; received: number }>(
+                getRawString('Diagnostic.annotatedParamCountMismatch')
+            );
         export const annotatedTypeArgMissing = () => getRawString('Diagnostic.annotatedTypeArgMissing');
         export const annotationFormatString = () => getRawString('Diagnostic.annotationFormatString');
         export const annotationNotSupported = () => getRawString('Diagnostic.annotationNotSupported');
@@ -243,6 +247,7 @@ export namespace Localizer {
         export const exceptionTypeNotClass = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.exceptionTypeNotClass'));
         export const expectedAfterDecorator = () => getRawString('Diagnostic.expectedAfterDecorator');
+        export const expectedArrow = () => getRawString('Diagnostic.expectedArrow');
         export const expectedAsAfterException = () => getRawString('Diagnostic.expectedAsAfterException');
         export const expectedAssignRightHandExpr = () => getRawString('Diagnostic.expectedAssignRightHandExpr');
         export const expectedBinaryRightHandExpr = () => getRawString('Diagnostic.expectedBinaryRightHandExpr');

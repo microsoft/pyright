@@ -1,5 +1,6 @@
 {
     "Diagnostic": {
+        "annotatedParamCountMismatch": "Parameter annotation count mismatch: expected {expected} but received {received}",
         "annotatedTypeArgMissing": "Expected at least one type argument after \"Annotated\"",
         "annotationFormatString": "Type annotations cannot use format string literals (f-strings)",
         "annotationNotSupported": "Type annotation not supported for this type of expression",
@@ -68,6 +69,7 @@
         "exceptionTypeIncorrect": "\"{type}\" does not derive from BaseException",
         "exceptionTypeNotClass": "\"{type}\" is not valid exception class",
         "expectedAfterDecorator": "Expected function or class declaration after decorator",
+        "expectedArrow": "Expected \"->\" followed by return type annotation",
         "expectedAsAfterException": "Expected \"as\" after exception type",
         "expectedAssignRightHandExpr": "Expected expression to the right of \"=\"",
         "expectedBinaryRightHandExpr": "Expected expression to the right of operator",

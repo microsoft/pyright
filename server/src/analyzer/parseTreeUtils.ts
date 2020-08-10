@@ -773,6 +773,12 @@ export function isWithinTypeAnnotation(node: ParseNode, requireQuotedAnnotation:
             return isQuoted || !requireQuotedAnnotation;
         }
 
+        if (curNode.nodeType === ParseNodeType.Function && prevNode === curNode.functionAnnotationComment) {
+            // Type comments are always considered forward declarations even though
+            // they're not "quoted".
+            return true;
+        }
+
         if (curNode.nodeType === ParseNodeType.TypeAnnotation && prevNode === curNode.typeAnnotation) {
             return isQuoted || !requireQuotedAnnotation;
         }

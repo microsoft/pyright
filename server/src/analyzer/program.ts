@@ -502,7 +502,7 @@ export class Program {
                 this._bindFile(sourceFileInfo);
 
                 this._runEvaluatorWithCancellationToken(token, () => {
-                    const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile);
+                    const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile, this._evaluator);
                     writer.write();
                 });
             }

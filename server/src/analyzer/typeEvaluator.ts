@@ -464,6 +464,7 @@ export interface TypeEvaluator {
         insertionOffset: number,
         tokens: TextRangeCollection<Token>
     ) => CallSignatureInfo | undefined;
+    getTypeAnnotationForParameter: (node: FunctionNode, paramIndex: number) => ExpressionNode | undefined;
 
     canAssignType: (destType: Type, srcType: Type, diag: DiagnosticAddendum, typeVarMap?: TypeVarMap) => boolean;
     canOverrideMethod: (baseMethod: Type, overrideMethod: FunctionType, diag: DiagnosticAddendum) => boolean;
@@ -1202,6 +1203,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         return undefined;
+    }
+
+    function getTypeAnnotationForParameter(node: FunctionNode, paramIndex: number): ExpressionNode | undefined {
+        if (paramIndex >= node.parameters.length) {
+            return undefined;
+        }
+
+        const param = node.parameters[paramIndex];
+        if (param.typeAnnotation) {
+            return param.typeAnnotation;
+        }
+
+        if (!node.functionAnnotationComment || node.functionAnnotationComment.isParamListEllipsis) {
+            return undefined;
+        }
+
+        // We may need to skip the first parameter if this is a method.
+        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+        const functionFlags = getFunctionFlagsFromDecorators(node, !!containingClassNode);
+
+        let firstCommentAnnotationIndex = 0;
+        if (containingClassNode && (functionFlags & FunctionTypeFlags.StaticMethod) === 0) {
+            firstCommentAnnotationIndex = 1;
+        }
+
+        const paramAnnotations = node.functionAnnotationComment.paramTypeAnnotations;
+        const adjIndex = paramIndex - firstCommentAnnotationIndex;
+        if (adjIndex < 0 || adjIndex >= paramAnnotations.length) {
+            return undefined;
+        }
+
+        return paramAnnotations[adjIndex];
     }
 
     // Returns the signature(s) associated with a call node that contains
@@ -8276,7 +8309,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (initDecls.length === 1 && initDecls[0].type === DeclarationType.Function) {
                     const initDeclNode = initDecls[0].node;
                     const initParams = initDeclNode.parameters;
-                    if (initParams.length > 1 && !initParams.some((param) => param.typeAnnotation)) {
+
+                    if (
+                        initParams.length > 1 &&
+                        !initParams.some((param, index) => !!getTypeAnnotationForParameter(initDeclNode, index))
+                    ) {
                         const genericParams = initParams.filter(
                             (param, index) => index > 0 && param.name && param.category === ParameterCategory.Simple
                         );
@@ -8497,6 +8534,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             const returnType = getTypeOfAnnotation(node.returnTypeAnnotation);
             functionType.details.declaredReturnType = returnType;
+        } else if (node.functionAnnotationComment) {
+            // Temporarily set the return type to unknown in case of recursion.
+            functionType.details.declaredReturnType = UnknownType.create();
+
+            const returnType = getTypeOfAnnotation(node.functionAnnotationComment.returnTypeAnnotation);
+            functionType.details.declaredReturnType = returnType;
         } else {
             // If there was no return type annotation and this is a type stub,
             // we have no opportunity to infer the return type, so we'll indicate
@@ -8515,15 +8558,50 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const paramTypes: Type[] = [];
         let typeParamIndex = 0;
 
+        // Determine if the first parameter should be skipped for comment-based
+        // function annotations.
+        let firstCommentAnnotationIndex = 0;
+        if (containingClassType && (functionType.details.flags & FunctionTypeFlags.StaticMethod) === 0) {
+            firstCommentAnnotationIndex = 1;
+        }
+
+        // If there is a function annotation comment, validate that it has the correct
+        // number of parameter annotations.
+        if (node.functionAnnotationComment && !node.functionAnnotationComment.isParamListEllipsis) {
+            const expected = node.parameters.length - firstCommentAnnotationIndex;
+            const received = node.functionAnnotationComment.paramTypeAnnotations.length;
+            if (expected !== received) {
+                addError(
+                    Localizer.Diagnostic.annotatedParamCountMismatch().format({
+                        expected,
+                        received,
+                    }),
+                    node.functionAnnotationComment
+                );
+            }
+        }
+
         node.parameters.forEach((param, index) => {
             let paramType: Type | undefined;
             let annotatedType: Type | undefined;
             let concreteAnnotatedType: Type | undefined;
             let isNoneWithoutOptional = false;
+            let paramTypeNode: ExpressionNode | undefined;
 
             if (param.typeAnnotation) {
-                annotatedType = getTypeOfAnnotation(param.typeAnnotation);
-            } else if (addGenericParamTypes) {
+                paramTypeNode = param.typeAnnotation;
+            } else if (node.functionAnnotationComment && !node.functionAnnotationComment.isParamListEllipsis) {
+                const adjustedIndex = index - firstCommentAnnotationIndex;
+                if (adjustedIndex >= 0 && adjustedIndex < node.functionAnnotationComment.paramTypeAnnotations.length) {
+                    paramTypeNode = node.functionAnnotationComment.paramTypeAnnotations[adjustedIndex];
+                }
+            }
+
+            if (paramTypeNode) {
+                annotatedType = getTypeOfAnnotation(paramTypeNode);
+            }
+
+            if (!annotatedType && addGenericParamTypes) {
                 if (index > 0 && param.category === ParameterCategory.Simple && param.name) {
                     annotatedType = containingClassType!.details.typeParameters[typeParamIndex];
                     typeParamIndex++;
@@ -8573,10 +8651,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             param.defaultValue
                         );
 
-                        if (isNoneWithoutOptional && param.typeAnnotation) {
+                        if (isNoneWithoutOptional && paramTypeNode) {
                             const addOptionalAction: AddMissingOptionalToParamAction = {
                                 action: Commands.addMissingOptionalToParam,
-                                offsetOfTypeNode: param.typeAnnotation.start + 1,
+                                offsetOfTypeNode: paramTypeNode.start + 1,
                             };
                             if (diag) {
                                 diag.addAction(addOptionalAction);
@@ -8593,7 +8671,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 name: param.name ? param.name.value : undefined,
                 hasDefault: !!param.defaultValue,
                 defaultType: defaultValueType,
-                hasDeclaredType: !!param.typeAnnotation,
+                hasDeclaredType: !!paramTypeNode,
                 type: paramType || UnknownType.create(),
             };
 
@@ -9187,7 +9265,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     function inferFunctionReturnType(node: FunctionNode, isAbstract: boolean): Type | undefined {
         // This shouldn't be called if there is a declared return type.
-        assert(!node.returnTypeAnnotation);
+        const returnAnnotation = node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
+        assert(!returnAnnotation);
 
         // Is this type already cached?
         let inferredReturnType = readTypeCache(node.suite);
@@ -9806,15 +9885,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         assert(parent.nodeType === ParseNodeType.Function);
         const functionNode = parent as FunctionNode;
 
-        if (node.typeAnnotation) {
+        const paramIndex = functionNode.parameters.findIndex((param) => param === node);
+        const typeAnnotation = getTypeAnnotationForParameter(functionNode, paramIndex);
+
+        if (typeAnnotation) {
             writeTypeCache(
                 node.name!,
-                transformVariadicParamType(node, node.category, getTypeOfAnnotation(node.typeAnnotation))
+                transformVariadicParamType(node, node.category, getTypeOfAnnotation(typeAnnotation))
             );
             return;
         }
-
-        const paramIndex = functionNode.parameters.findIndex((param) => param === node);
 
         // We may be able to infer the type of the first parameter.
         if (paramIndex === 0) {
@@ -11716,6 +11796,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             case DeclarationType.Parameter: {
                 let typeAnnotationNode = declaration.node.typeAnnotation;
+
+                // If there wasn't an annotation, see if the parent function
+                // has a function-level annotation comment that provides
+                // this parameter's annotation type.
+                if (!typeAnnotationNode) {
+                    if (declaration.node.parent?.nodeType === ParseNodeType.Function) {
+                        const functionNode = declaration.node.parent;
+                        if (
+                            functionNode.functionAnnotationComment &&
+                            !functionNode.functionAnnotationComment.isParamListEllipsis
+                        ) {
+                            const paramIndex = functionNode.parameters.findIndex((param) => param === declaration.node);
+                            typeAnnotationNode = getTypeAnnotationForParameter(functionNode, paramIndex);
+                        }
+                    }
+                }
+
                 if (typeAnnotationNode && typeAnnotationNode.nodeType === ParseNodeType.StringList) {
                     typeAnnotationNode = typeAnnotationNode.typeAnnotation;
                 }
@@ -14478,8 +14575,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             fileInfo.fileContents,
             valueOffset,
             textValue.length,
-            parseOptions,
-            true
+            parseOptions
         );
 
         if (parseResults.parseTree) {
@@ -14518,6 +14614,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         bindFunctionToClassOrObject,
         getBoundMethod,
         getCallSignatureInfo,
+        getTypeAnnotationForParameter,
         canAssignType,
         canOverrideMethod,
         addError,

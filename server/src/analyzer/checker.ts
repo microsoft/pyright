@@ -244,7 +244,9 @@ export class Checker extends ParseTreeWalker {
 
             // If this is a stub, ensure that the return type is specified.
             if (this._fileInfo.isStubFile) {
-                if (!node.returnTypeAnnotation) {
+                const returnAnnotation =
+                    node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
+                if (!returnAnnotation) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportUnknownParameterType,
                         DiagnosticRule.reportUnknownParameterType,
@@ -271,6 +273,10 @@ export class Checker extends ParseTreeWalker {
 
         if (node.returnTypeAnnotation) {
             this.walk(node.returnTypeAnnotation);
+        }
+
+        if (node.functionAnnotationComment) {
+            this.walk(node.functionAnnotationComment);
         }
 
         this.walkMultiple(node.decorators);
@@ -1761,7 +1767,8 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        if (node.returnTypeAnnotation) {
+        const returnAnnotation = node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
+        if (returnAnnotation) {
             const functionNeverReturns = !this._evaluator.isAfterNodeReachable(node);
             const implicitlyReturnsNone = this._evaluator.isAfterNodeReachable(node.suite);
 
@@ -1773,7 +1780,7 @@ export class Checker extends ParseTreeWalker {
                         this._fileInfo.diagnosticRuleSet.reportUnknownVariableType,
                         DiagnosticRule.reportUnknownVariableType,
                         Localizer.Diagnostic.declaredReturnTypeUnknown(),
-                        node.returnTypeAnnotation
+                        returnAnnotation
                     );
                 } else if (isPartlyUnknown(declaredReturnType)) {
                     this._evaluator.addDiagnostic(
@@ -1782,7 +1789,7 @@ export class Checker extends ParseTreeWalker {
                         Localizer.Diagnostic.declaredReturnTypePartiallyUnknown().format({
                             returnType: this._evaluator.printType(declaredReturnType, /* expandTypeAlias */ false),
                         }),
-                        node.returnTypeAnnotation
+                        returnAnnotation
                     );
                 }
             }
@@ -1805,7 +1812,7 @@ export class Checker extends ParseTreeWalker {
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.noReturnReturnsNone(),
-                            node.returnTypeAnnotation
+                            returnAnnotation
                         );
                     }
                 } else if (!FunctionType.isAbstractMethod(functionType)) {
@@ -1828,7 +1835,7 @@ export class Checker extends ParseTreeWalker {
                                         /* expandTypeAlias */ false
                                     ),
                                 }) + diagAddendum.getString(),
-                                node.returnTypeAnnotation
+                                returnAnnotation
                             );
                         }
                     }

@@ -31,6 +31,7 @@ import {
     ExceptNode,
     FormatStringNode,
     ForNode,
+    FunctionAnnotationNode,
     FunctionNode,
     GlobalNode,
     IfNode,
@@ -284,7 +285,20 @@ export class ParseTreeWalker {
 
             case ParseNodeType.Function:
                 if (this.visitFunction(node)) {
-                    return [...node.decorators, node.name, ...node.parameters, node.returnTypeAnnotation, node.suite];
+                    return [
+                        ...node.decorators,
+                        node.name,
+                        ...node.parameters,
+                        node.returnTypeAnnotation,
+                        node.functionAnnotationComment,
+                        node.suite,
+                    ];
+                }
+                break;
+
+            case ParseNodeType.FunctionAnnotation:
+                if (this.visitFunctionAnnotation(node)) {
+                    return [...node.paramTypeAnnotations, node.returnTypeAnnotation];
                 }
                 break;
 
@@ -610,6 +624,10 @@ export class ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode) {
+        return true;
+    }
+
+    visitFunctionAnnotation(node: FunctionAnnotationNode) {
         return true;
     }
 
