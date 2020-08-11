@@ -712,21 +712,7 @@ export class Program {
 
             // For very large programs, we may need to discard the evaluator and
             // its cached types to avoid running out of heap space.
-            const typeCacheSize = this._evaluator.getTypeCacheSize();
-
-            // If the type cache size has exceeded a high-water mark, query the heap usage.
-            // Don't bother doing this until we hit this point because the heap usage may not
-            // drop immediately after we empty the cache due to garbage collection timing.
-            if (typeCacheSize > 750000) {
-                const heapSizeInMb = Math.round(process.memoryUsage().heapUsed / (1024 * 1024));
-
-                // Don't allow the heap to get close to the 2GB limit imposed by
-                // the OS when running Node in a 32-bit process.
-                if (heapSizeInMb > 1536) {
-                    this._console.info(`Emptying type cache to avoid heap overflow. Heap size used: ${heapSizeInMb}MB`);
-                    this._createNewEvaluator();
-                }
-            }
+            this._handleMemoryHighUsage();
 
             fileToCheck.sourceFile.check(this._evaluator);
 
@@ -1115,6 +1101,10 @@ export class Program {
                 this._bindFile(sourceFileInfo);
 
                 sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator, query, token);
+
+                // This operation can consume significant memory, so check
+                // for situations where we need to discard the type cache.
+                this._handleMemoryHighUsage();
             }
         });
     }
@@ -1454,6 +1444,24 @@ export class Program {
         this._bindFile(sourceFileInfo);
 
         return sourceFileInfo.sourceFile.performQuickAction(command, args, token);
+    }
+
+    private _handleMemoryHighUsage() {
+        const typeCacheSize = this._evaluator.getTypeCacheSize();
+
+        // If the type cache size has exceeded a high-water mark, query the heap usage.
+        // Don't bother doing this until we hit this point because the heap usage may not
+        // drop immediately after we empty the cache due to garbage collection timing.
+        if (typeCacheSize > 750000) {
+            const heapSizeInMb = Math.round(process.memoryUsage().heapUsed / (1024 * 1024));
+
+            // Don't allow the heap to get close to the 2GB limit imposed by
+            // the OS when running Node in a 32-bit process.
+            if (heapSizeInMb > 1536) {
+                this._console.info(`Emptying type cache to avoid heap overflow. Heap size used: ${heapSizeInMb}MB`);
+                this._createNewEvaluator();
+            }
+        }
     }
 
     private _isUserCode(fileInfo: SourceFileInfo | undefined) {
