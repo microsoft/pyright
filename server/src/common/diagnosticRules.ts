@@ -8,7 +8,9 @@
  * that can be enabled or disabled in the configuration.
  */
 
-export const enum DiagnosticRule {
+// Not const enum since keys need to be inspected in tests
+// to match declaration of user-visible settings in package.json
+export enum DiagnosticRule {
     strictListInference = 'strictListInference',
     strictDictionaryInference = 'strictDictionaryInference',
     strictParameterNoneValue = 'strictParameterNoneValue',
