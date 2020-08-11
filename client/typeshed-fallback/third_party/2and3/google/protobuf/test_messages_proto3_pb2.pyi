@@ -1,4 +1,4 @@
-from typing import Iterable, List, Mapping, MutableMapping, Optional, Text, Tuple, cast
+from typing import Iterable, List, Mapping, MutableMapping, Optional, Text, Tuple
 
 from google.protobuf.any_pb2 import Any
 from google.protobuf.duration_pb2 import Duration

@@ -1,6 +1,6 @@
 import sys
 from abc import abstractmethod
-from typing import Any, Optional, Pattern, Text, Tuple, TypeVar, Union
+from typing import Optional, Pattern, Text, Tuple, TypeVar, Union
 
 _T = TypeVar("_T", bound=Version)
 

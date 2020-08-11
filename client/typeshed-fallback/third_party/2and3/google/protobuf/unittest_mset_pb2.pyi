@@ -1,4 +1,3 @@
-import builtins
 from typing import Iterable, Optional, Text
 
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer

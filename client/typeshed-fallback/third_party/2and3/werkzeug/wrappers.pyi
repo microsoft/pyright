@@ -1,4 +1,3 @@
-import sys
 from _typeshed.wsgi import InputStream, WSGIEnvironment
 from datetime import datetime
 from typing import (

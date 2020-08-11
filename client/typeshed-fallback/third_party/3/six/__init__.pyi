@@ -27,7 +27,7 @@ from typing import (
     overload,
 )
 
-from . import moves
+from . import moves as moves
 
 _T = TypeVar("_T")
 _K = TypeVar("_K")

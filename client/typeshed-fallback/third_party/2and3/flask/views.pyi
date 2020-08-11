@@ -4,8 +4,6 @@
 
 from typing import Any
 
-from .globals import request
-
 http_method_funcs: Any
 
 class View:

@@ -81,7 +81,7 @@ class NullAttribute(Attribute[None]):
 class MapAttributeMeta(type):
     def __init__(self, name, bases, attrs) -> None: ...
 
-class MapAttribute(Generic[_KT, _VT], Attribute[Mapping[_KT, _VT]], metaclass=MapAttributeMeta):
+class MapAttribute(Attribute[Mapping[_KT, _VT]], metaclass=MapAttributeMeta):
     attribute_values: Any
     def __init__(
         self,
@@ -100,7 +100,7 @@ class MapAttribute(Generic[_KT, _VT], Attribute[Mapping[_KT, _VT]], metaclass=Ma
     def is_type_safe(self, key: Any, value: Any) -> bool: ...
     def validate(self) -> bool: ...
 
-class ListAttribute(Generic[_T], Attribute[List[_T]]):
+class ListAttribute(Attribute[List[_T]]):
     element_type: Any
     def __init__(
         self,

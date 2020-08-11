@@ -1,7 +1,6 @@
 from typing import (
     Any,
     Callable,
-    Generic,
     Iterable,
     Iterator,
     List,
@@ -17,7 +16,6 @@ from typing import (
 from google.protobuf.descriptor import Descriptor
 from google.protobuf.internal.message_listener import MessageListener
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
-from google.protobuf.message import Message
 
 _T = TypeVar("_T")
 _K = TypeVar("_K")

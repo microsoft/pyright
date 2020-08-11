@@ -3,7 +3,6 @@
 from email.charset import Charset
 from email.contentmanager import ContentManager
 from email.errors import MessageDefect
-from email.header import Header
 from email.policy import Policy
 from typing import Any, Generator, Iterator, List, Optional, Sequence, Tuple, TypeVar, Union
 

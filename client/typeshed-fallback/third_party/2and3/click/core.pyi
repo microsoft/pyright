@@ -3,7 +3,6 @@ from typing import (
     Callable,
     ContextManager,
     Dict,
-    Generator,
     Iterable,
     List,
     Mapping,

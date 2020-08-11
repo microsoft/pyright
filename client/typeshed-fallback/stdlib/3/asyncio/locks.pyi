@@ -1,9 +1,8 @@
 import sys
 from types import TracebackType
-from typing import Any, Awaitable, Callable, Generator, Iterable, Optional, Type, TypeVar, Union
+from typing import Any, Awaitable, Callable, Generator, Optional, Type, TypeVar, Union
 
 from .events import AbstractEventLoop
-from .futures import Future
 
 _T = TypeVar("_T")
 

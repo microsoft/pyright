@@ -6,7 +6,6 @@ from typing import (
     Any,
     Callable,
     ContextManager as ContextManager,
-    Generator,
     Generic,
     Iterable,
     Iterator,
@@ -65,7 +64,7 @@ if sys.version_info >= (3, 5):
 
 if sys.version_info >= (3,):
     class ContextDecorator:
-        def __call__(self, func: Callable[..., None]) -> Callable[..., ContextManager[None]]: ...
+        def __call__(self, func: _F) -> _F: ...
     _U = TypeVar("_U", bound=ExitStack)
     class ExitStack(ContextManager[ExitStack]):
         def __init__(self) -> None: ...

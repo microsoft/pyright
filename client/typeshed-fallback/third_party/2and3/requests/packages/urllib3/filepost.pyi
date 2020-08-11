@@ -1,10 +1,7 @@
 from typing import Any
 
-# from .packages import six
-from . import fields, packages
+from . import fields
 
-# six = packages.six
-# b = six.b
 RequestField = fields.RequestField
 
 writer: Any

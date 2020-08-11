@@ -1,4 +1,3 @@
-from ipaddress import IPv4Address, IPv6Address
 from typing import Any
 
 def compat_ip_address(address: object) -> Any: ...

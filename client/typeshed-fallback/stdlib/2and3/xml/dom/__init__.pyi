@@ -1,3 +1,5 @@
+from typing import Any
+
 class Node:
     ELEMENT_NODE: int
     ATTRIBUTE_NODE: int
@@ -32,7 +34,7 @@ VALIDATION_ERR: int
 
 class DOMException(Exception):
     code: int
-    def __init__(self, *args, **kw) -> None: ...
+    def __init__(self, *args: Any, **kw: Any) -> None: ...
     def _get_code(self) -> int: ...
 
 class IndexSizeErr(DOMException): ...

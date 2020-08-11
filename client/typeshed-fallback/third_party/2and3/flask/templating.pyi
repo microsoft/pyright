@@ -6,9 +6,6 @@ from typing import Any, Iterable, Text, Union
 
 from jinja2 import BaseLoader, Environment as BaseEnvironment
 
-from .globals import _app_ctx_stack, _request_ctx_stack
-from .signals import before_render_template, template_rendered
-
 class Environment(BaseEnvironment):
     app: Any = ...
     def __init__(self, app: Any, **options: Any) -> None: ...

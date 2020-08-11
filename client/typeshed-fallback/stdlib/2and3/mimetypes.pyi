@@ -1,7 +1,7 @@
 # Stubs for mimetypes
 
 import sys
-from typing import IO, AnyStr, Dict, List, Optional, Sequence, Text, Tuple, Union
+from typing import IO, Dict, List, Optional, Sequence, Text, Tuple, Union
 
 if sys.version_info >= (3, 8):
     from os import PathLike

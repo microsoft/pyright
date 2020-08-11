@@ -1,5 +1,5 @@
 import sys
-from typing import Any, ByteString, Optional, Sequence, Tuple, Type, TypeVar, Union
+from typing import Any, ByteString, Sequence, Tuple, Type, TypeVar, Union
 
 from .descriptor import Descriptor, DescriptorBase, FieldDescriptor
 

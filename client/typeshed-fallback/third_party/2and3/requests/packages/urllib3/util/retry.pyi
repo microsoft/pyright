@@ -1,6 +1,6 @@
 from typing import Any
 
-from .. import exceptions, packages
+from .. import exceptions
 
 ConnectTimeoutError = exceptions.ConnectTimeoutError
 MaxRetryError = exceptions.MaxRetryError

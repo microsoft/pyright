@@ -2,8 +2,6 @@
 
 from typing import Any
 
-from . import packages
-
 def guess_content_type(filename, default=...): ...
 def format_header_param(name, value): ...
 

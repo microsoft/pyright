@@ -2,7 +2,7 @@
 
 from email.message import Message
 from types import TracebackType
-from typing import IO, Any, BinaryIO, Callable, Iterable, List, Mapping, Optional, Tuple, Type, TypeVar
+from typing import IO, Any, BinaryIO, Callable, Iterable, List, Optional, Tuple, Type, TypeVar
 
 _AIUT = TypeVar("_AIUT", bound=addbase)
 

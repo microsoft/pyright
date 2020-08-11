@@ -2,7 +2,6 @@ import datetime
 import logging
 import sys
 import unittest.result
-import warnings
 from types import TracebackType
 from typing import (
     Any,
@@ -27,6 +26,7 @@ from typing import (
     Union,
     overload,
 )
+from warnings import WarningMessage
 
 _E = TypeVar("_E", bound=BaseException)
 _FT = TypeVar("_FT", bound=Callable[..., Any])
@@ -63,7 +63,7 @@ class TestCase:
     def skipTest(self, reason: Any) -> None: ...
     def subTest(self, msg: Any = ..., **params: Any) -> ContextManager[None]: ...
     def debug(self) -> None: ...
-    def _addSkip(self, result: unittest.result.TestResult, test_case: unittest.case.TestCase, reason: str) -> None: ...
+    def _addSkip(self, result: unittest.result.TestResult, test_case: TestCase, reason: str) -> None: ...
     def assertEqual(self, first: Any, second: Any, msg: Any = ...) -> None: ...
     def assertNotEqual(self, first: Any, second: Any, msg: Any = ...) -> None: ...
     def assertTrue(self, expr: Any, msg: Any = ...) -> None: ...
@@ -260,10 +260,10 @@ class _AssertRaisesContext(Generic[_E]):
     ) -> bool: ...
 
 class _AssertWarnsContext:
-    warning: warnings.WarningMessage
+    warning: WarningMessage
     filename: str
     lineno: int
-    warnings: List[warnings.WarningMessage]
+    warnings: List[WarningMessage]
     def __enter__(self) -> _AssertWarnsContext: ...
     def __exit__(
         self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]
@@ -273,7 +273,7 @@ class _AssertLogsContext:
     LOGGING_FORMAT: str
     records: List[logging.LogRecord]
     output: List[str]
-    def __init__(self, test_case: unittest.case.TestCase, logger_name: str, level: int) -> None: ...
+    def __init__(self, test_case: TestCase, logger_name: str, level: int) -> None: ...
     def __enter__(self) -> _AssertLogsContext: ...
     def __exit__(
         self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[TracebackType]

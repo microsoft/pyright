@@ -1,6 +1,6 @@
 import sys
 from types import FrameType, TracebackType
-from typing import Any, Callable, Iterable, List, Mapping, Optional, Text, Tuple, Type, TypeVar, Union
+from typing import Any, Callable, Iterable, List, Mapping, Optional, Text, Type, TypeVar, Union
 
 # TODO recursive type
 _TF = Callable[[FrameType, str, Any], Optional[Callable[..., Any]]]

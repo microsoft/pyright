@@ -13,7 +13,7 @@ class JSONDecoder:
     object_hook: Callable[[Dict[str, Any]], Any]
     parse_float: Callable[[str], Any]
     parse_int: Callable[[str], Any]
-    parse_constant = ...  # Callable[[str], Any]
+    parse_constant: Callable[[str], Any] = ...
     strict: bool
     object_pairs_hook: Callable[[List[Tuple[str, Any]]], Any]
 

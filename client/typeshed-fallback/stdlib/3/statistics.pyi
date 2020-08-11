@@ -11,7 +11,7 @@ _Number = TypeVar("_Number", float, Decimal, Fraction)
 
 # Used in median_high, median_low
 class _Sortable(Protocol):
-    def __lt__(self, other) -> bool: ...
+    def __lt__(self, other: Any) -> bool: ...
 
 _SortableT = TypeVar("_SortableT", bound=_Sortable)
 

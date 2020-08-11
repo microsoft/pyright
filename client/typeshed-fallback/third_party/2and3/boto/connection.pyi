@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Text
+from typing import Any, Optional
 
 from six.moves import http_client
 

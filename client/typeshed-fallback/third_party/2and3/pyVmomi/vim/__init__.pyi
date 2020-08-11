@@ -3,7 +3,6 @@ from enum import Enum
 from typing import Any, List
 
 from ..vmodl.query import PropertyCollector
-from . import event, fault, view
 from .event import EventManager
 from .option import OptionManager
 from .view import ViewManager

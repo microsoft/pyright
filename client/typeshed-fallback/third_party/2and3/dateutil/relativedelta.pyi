@@ -1,5 +1,5 @@
 from datetime import date, datetime, timedelta
-from typing import Any, List, Optional, SupportsFloat, TypeVar, Union, overload
+from typing import Optional, SupportsFloat, TypeVar, Union, overload
 
 from ._common import weekday
 

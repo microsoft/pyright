@@ -27,6 +27,9 @@ from .context import BaseContext
 if sys.version_info >= (3, 8):
     from .shared_memory import _SLT, ShareableList, SharedMemory
 
+    _SharedMemory = SharedMemory
+    _ShareableList = ShareableList
+
 _T = TypeVar("_T")
 _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
@@ -138,5 +141,5 @@ if sys.version_info >= (3, 8):
     class SharedMemoryServer(Server): ...
     class SharedMemoryManager(BaseManager):
         def get_server(self) -> SharedMemoryServer: ...
-        def SharedMemory(self, size: int) -> SharedMemory: ...  # noqa: F811
-        def ShareableList(self, sequence: Optional[Iterable[_SLT]]) -> ShareableList[_SLT]: ...  # noqa: F811
+        def SharedMemory(self, size: int) -> _SharedMemory: ...
+        def ShareableList(self, sequence: Optional[Iterable[_SLT]]) -> _ShareableList[_SLT]: ...

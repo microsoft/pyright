@@ -6,9 +6,6 @@ from typing import Any, Optional
 
 import click
 
-from .globals import current_app
-from .helpers import get_debug_flag, get_env, get_load_dotenv
-
 class NoAppException(click.UsageError): ...
 
 def find_best_app(script_info: Any, module: Any): ...

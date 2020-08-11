@@ -1,6 +1,6 @@
 import sys
 from _typeshed import StrPath
-from typing import IO, Any, Container, Iterable, Optional, Sequence, Type, TypeVar, Union, overload
+from typing import IO, Any, Container, Iterable, Optional, Sequence, Type, TypeVar, overload
 from typing_extensions import Literal
 
 class NullTranslations:

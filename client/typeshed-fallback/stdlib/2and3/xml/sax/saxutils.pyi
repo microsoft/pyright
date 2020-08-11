@@ -2,7 +2,7 @@ import sys
 from _typeshed import SupportsWrite
 from codecs import StreamReaderWriter, StreamWriter
 from io import RawIOBase, TextIOBase
-from typing import Mapping, Optional, Text, TextIO, Union
+from typing import Mapping, Optional, Text, Union
 from xml.sax import handler, xmlreader
 
 def escape(data: Text, entities: Mapping[Text, Text] = ...) -> Text: ...

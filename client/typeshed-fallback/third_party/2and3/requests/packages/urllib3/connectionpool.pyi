@@ -1,6 +1,6 @@
 from typing import Any
 
-from . import connection, exceptions, packages, request, response
+from . import connection, exceptions, request, response
 from .connection import BaseSSLError as BaseSSLError, ConnectionError as ConnectionError, HTTPException as HTTPException
 from .packages import ssl_match_hostname
 from .util import connection as _connection, retry, timeout, url

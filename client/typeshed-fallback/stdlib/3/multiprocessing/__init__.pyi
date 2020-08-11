@@ -1,7 +1,6 @@
 import sys
-from ctypes import _CData
 from logging import Logger
-from multiprocessing import connection, pool, sharedctypes, spawn, synchronize
+from multiprocessing import connection, pool, sharedctypes, synchronize
 from multiprocessing.context import (
     AuthenticationError as AuthenticationError,
     BaseContext,
@@ -18,7 +17,7 @@ from multiprocessing.process import active_children as active_children, current_
 # These are technically functions that return instances of these Queue classes. See #4313 for discussion
 from multiprocessing.queues import JoinableQueue as JoinableQueue, Queue as Queue, SimpleQueue as SimpleQueue
 from multiprocessing.spawn import freeze_support as freeze_support
-from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Type, Union, overload
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Tuple, Union, overload
 from typing_extensions import Literal
 
 if sys.version_info >= (3, 8):

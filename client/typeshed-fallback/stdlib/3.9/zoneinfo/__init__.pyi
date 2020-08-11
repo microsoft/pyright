@@ -1,7 +1,7 @@
 import os
 import typing
-from datetime import datetime, tzinfo
-from typing import Any, Iterable, Optional, Protocol, Sequence, Set, Type, Union
+from datetime import tzinfo
+from typing import Any, AnyStr, Iterable, Optional, Protocol, Sequence, Set, Type, Union
 
 _T = typing.TypeVar("_T", bound="ZoneInfo")
 
@@ -23,7 +23,7 @@ class ZoneInfo(tzinfo):
 # Note: Both here and in clear_cache, the types allow the use of `str` where
 # a sequence of strings is required. This should be remedied if a solution
 # to this typing bug is found: https://github.com/python/typing/issues/256
-def reset_tzpath(to: Optional[Sequence[Union[os.PathLike, str]]] = ...) -> None: ...
+def reset_tzpath(to: Optional[Sequence[Union[os.PathLike[AnyStr], str]]] = ...) -> None: ...
 def available_timezones() -> Set[str]: ...
 
 TZPATH: Sequence[str]

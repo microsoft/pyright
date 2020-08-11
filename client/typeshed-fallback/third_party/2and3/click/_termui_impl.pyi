@@ -1,8 +1,8 @@
-from typing import ContextManager, Generic, Iterator, Optional, TypeVar
+from typing import Generic, Optional, TypeVar
 
 _T = TypeVar("_T")
 
-class ProgressBar(object, Generic[_T]):
+class ProgressBar(Generic[_T]):
     def update(self, n_steps: int) -> None: ...
     def finish(self) -> None: ...
     def __enter__(self) -> ProgressBar[_T]: ...

@@ -1,4 +1,4 @@
-from typing import Any, Generic, List, Tuple, TypeVar
+from typing import Generic, List, Tuple, TypeVar
 
 from google.protobuf.descriptor import EnumDescriptor
 

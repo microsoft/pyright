@@ -13,7 +13,6 @@ from typing import (
     Mapping,
     Optional,
     Sequence,
-    Sized,
     Text,
     Tuple,
     Type,

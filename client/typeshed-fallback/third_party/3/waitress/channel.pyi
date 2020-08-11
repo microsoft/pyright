@@ -3,11 +3,10 @@ from threading import Condition, Lock
 from typing import Mapping, Optional, Sequence, Tuple
 
 from waitress.adjustments import Adjustments
-from waitress.buffers import OverflowableBuffer, ReadOnlyFileBasedBuffer
+from waitress.buffers import OverflowableBuffer
 from waitress.parser import HTTPRequestParser
 from waitress.server import BaseWSGIServer
-from waitress.task import ErrorTask, Task, WSGITask
-from waitress.utilities import InternalServerError
+from waitress.task import ErrorTask, WSGITask
 
 from . import wasyncore as wasyncore
 

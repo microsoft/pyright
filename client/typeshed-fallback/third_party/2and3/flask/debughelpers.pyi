@@ -4,10 +4,6 @@
 
 from typing import Any
 
-from .app import Flask
-from .blueprints import Blueprint
-from .globals import _request_ctx_stack
-
 class UnexpectedUnicodeError(AssertionError, UnicodeError): ...
 
 class DebugFilesKeyError(KeyError, AssertionError):

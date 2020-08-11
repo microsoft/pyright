@@ -1,6 +1,5 @@
 from typing import Any, Iterable, Iterator, Optional
 
-from .bucket import Bucket
 from .key import Key
 
 def bucket_lister(

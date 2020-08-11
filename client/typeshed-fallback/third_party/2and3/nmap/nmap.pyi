@@ -1,4 +1,3 @@
-import sys
 from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Text, Tuple, TypeVar
 from typing_extensions import TypedDict
 

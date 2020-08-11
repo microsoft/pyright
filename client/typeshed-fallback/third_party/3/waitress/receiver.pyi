@@ -2,7 +2,7 @@ from io import BytesIO
 from typing import Optional
 
 from waitress.buffers import OverflowableBuffer
-from waitress.utilities import BadRequest, find_double_newline
+from waitress.utilities import BadRequest
 
 class FixedStreamReceiver:
     completed: bool = ...

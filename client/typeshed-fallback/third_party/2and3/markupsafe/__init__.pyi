@@ -1,7 +1,7 @@
 import string
 import sys
 from collections import Mapping
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Text, Tuple, Union
+from typing import Any, Callable, Iterable, List, Optional, Sequence, Text, Tuple, Union
 
 from markupsafe._compat import text_type
 from markupsafe._native import escape as escape, escape_silent as escape_silent, soft_unicode as soft_unicode

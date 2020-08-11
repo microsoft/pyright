@@ -4,8 +4,6 @@
 
 from typing import Any
 
-from .globals import request
-
 def wsgi_errors_stream(): ...
 def has_level_handler(logger: Any): ...
 

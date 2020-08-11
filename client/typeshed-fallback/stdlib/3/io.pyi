@@ -2,7 +2,6 @@ import builtins
 import codecs
 import sys
 from _typeshed import ReadableBuffer, WriteableBuffer
-from mmap import mmap
 from types import TracebackType
 from typing import IO, Any, BinaryIO, Callable, Iterable, Iterator, List, Optional, TextIO, Tuple, Type, TypeVar, Union
 

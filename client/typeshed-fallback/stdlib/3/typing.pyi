@@ -1,5 +1,3 @@
-# Stubs for typing
-
 import collections  # Needed by aliases like DefaultDict, see mypy issue 2986
 import sys
 from abc import ABCMeta, abstractmethod
@@ -21,7 +19,7 @@ class TypeVar:
         self,
         name: str,
         *constraints: Type[Any],
-        bound: Optional[Type[Any]] = ...,
+        bound: Union[None, Type[Any], str] = ...,
         covariant: bool = ...,
         contravariant: bool = ...,
     ) -> None: ...

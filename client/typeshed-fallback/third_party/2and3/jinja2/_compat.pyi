@@ -2,10 +2,8 @@ import sys
 from typing import Any, Optional
 
 if sys.version_info[0] >= 3:
-    from io import BytesIO
     from urllib.parse import quote_from_bytes as url_quote
 else:
-    from cStringIO import StringIO as BytesIO
     from urllib import quote as url_quote
 
 PY2: Any

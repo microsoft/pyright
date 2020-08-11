@@ -1,4 +1,4 @@
-import email
+import email.message
 from _typeshed import AnyPath
 from types import TracebackType
 from typing import (

@@ -4,9 +4,6 @@
 
 from typing import Any, Optional
 
-from .globals import _app_ctx_stack, _request_ctx_stack
-from .signals import appcontext_popped, appcontext_pushed
-
 class _AppCtxGlobals:
     def get(self, name: Any, default: Optional[Any] = ...): ...
     def pop(self, name: Any, default: Any = ...): ...

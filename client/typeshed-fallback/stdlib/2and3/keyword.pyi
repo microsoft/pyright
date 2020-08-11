@@ -1,5 +1,5 @@
 import sys
-from typing import Sequence, Text, Union
+from typing import Sequence, Text
 
 def iskeyword(s: Text) -> bool: ...
 

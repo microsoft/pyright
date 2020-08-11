@@ -81,7 +81,7 @@ class SSLProtocol(protocols.Protocol):
     _extra: Dict[str, Any]
     _write_backlog: Deque[Tuple[bytes, int]]
     _write_buffer_size: int
-    _waiter: futures.Future
+    _waiter: futures.Future[Any]
     _loop: events.AbstractEventLoop
     _app_transport: _SSLProtocolTransport
     _sslpipe: Optional[_SSLPipe]
@@ -100,7 +100,7 @@ class SSLProtocol(protocols.Protocol):
             loop: events.AbstractEventLoop,
             app_protocol: protocols.BaseProtocol,
             sslcontext: ssl.SSLContext,
-            waiter: futures.Future,
+            waiter: futures.Future[Any],
             server_side: bool = ...,
             server_hostname: Optional[str] = ...,
             call_connection_made: bool = ...,

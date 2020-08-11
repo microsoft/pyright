@@ -1,4 +1,3 @@
-import sys
 from typing import Any, Dict, Text, TypeVar, Union
 
 from google.protobuf.message import Message

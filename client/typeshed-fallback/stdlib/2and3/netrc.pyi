@@ -1,4 +1,4 @@
-from typing import AnyStr, Dict, List, Optional, Tuple, overload
+from typing import Dict, List, Optional, Tuple
 
 class NetrcParseError(Exception):
     filename: Optional[str]

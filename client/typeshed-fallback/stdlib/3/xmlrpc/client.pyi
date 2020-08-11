@@ -1,10 +1,10 @@
 import gzip
 import http.client
-import io
 import sys
 import time
 from _typeshed import SupportsRead, SupportsWrite
 from datetime import datetime
+from io import BytesIO
 from types import TracebackType
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Protocol, Tuple, Type, Union, overload
 from typing_extensions import Literal
@@ -60,7 +60,7 @@ def _strftime(value: _XMLDate) -> str: ...  # undocumented
 class DateTime:
 
     value: str  # undocumented
-    def __init__(self, value: Union[int, str, datetime, time.struct_time, Tuple[int, ...]] = ...): ...
+    def __init__(self, value: Union[int, str, datetime, time.struct_time, Tuple[int, ...]] = ...) -> None: ...
     def __lt__(self, other: _DateTimeComparable) -> bool: ...
     def __le__(self, other: _DateTimeComparable) -> bool: ...
     def __gt__(self, other: _DateTimeComparable) -> bool: ...
@@ -198,7 +198,7 @@ def gzip_decode(data: bytes, max_decode: int = ...) -> bytes: ...  # undocumente
 
 class GzipDecodedResponse(gzip.GzipFile):  # undocumented
 
-    io: io.BytesIO
+    io: BytesIO
     def __init__(self, response: SupportsRead[bytes]) -> None: ...
     def close(self) -> None: ...
 
@@ -268,7 +268,7 @@ class ServerProxy:
     if sys.version_info >= (3, 8):
         def __init__(
             self,
-            uri,
+            uri: str,
             transport: Optional[Transport] = ...,
             encoding: Optional[str] = ...,
             verbose: bool = ...,
@@ -282,7 +282,7 @@ class ServerProxy:
     else:
         def __init__(
             self,
-            uri,
+            uri: str,
             transport: Optional[Transport] = ...,
             encoding: Optional[str] = ...,
             verbose: bool = ...,

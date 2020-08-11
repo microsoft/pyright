@@ -4,7 +4,7 @@ import sys
 from _typeshed import StrPath
 from logging import FileHandler, Handler, LogRecord
 from socket import SocketType
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, overload
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 if sys.version_info >= (3, 7):
     from queue import Queue, SimpleQueue

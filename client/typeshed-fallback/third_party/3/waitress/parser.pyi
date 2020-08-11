@@ -2,19 +2,10 @@ from io import BytesIO
 from typing import Mapping, Optional, Pattern, Sequence, Tuple, Union
 
 from waitress.adjustments import Adjustments
-from waitress.buffers import OverflowableBuffer
-from waitress.compat import tostr, unquote_bytes_to_wsgi, urlparse
 from waitress.receiver import ChunkedReceiver, FixedStreamReceiver
-from waitress.utilities import (
-    BadRequest,
-    Error,
-    RequestEntityTooLarge,
-    RequestHeaderFieldsTooLarge,
-    ServerNotImplemented,
-    find_double_newline,
-)
+from waitress.utilities import Error
 
-from .rfc7230 import HEADER_FIELD
+from .rfc7230 import HEADER_FIELD as HEADER_FIELD
 
 class ParsingError(Exception): ...
 class TransferEncodingNotImplemented(Exception): ...

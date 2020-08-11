@@ -1,4 +1,4 @@
-from typing import IO, Any, Dict, List, Optional, Tuple, Union, overload
+from typing import IO, Any, Dict, List, Optional, Tuple, overload
 
 def get_config_var(name: str) -> Optional[str]: ...
 @overload

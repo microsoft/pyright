@@ -1,7 +1,6 @@
 # Stubs for lib2to3.pygram (Python 3.6)
 
 from lib2to3.pgen2.grammar import Grammar
-from typing import Any
 
 class Symbols:
     def __init__(self, grammar: Grammar) -> None: ...

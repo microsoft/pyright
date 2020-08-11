@@ -7,7 +7,7 @@ from .key import Key
 class S3WebsiteEndpointTranslate:
     trans_region: Dict[str, str]
     @classmethod
-    def translate_region(self, reg: Text) -> str: ...
+    def translate_region(cls, reg: Text) -> str: ...
 
 S3Permissions: List[str]
 

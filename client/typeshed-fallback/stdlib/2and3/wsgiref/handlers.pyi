@@ -5,7 +5,7 @@ from typing import IO, Callable, Dict, List, MutableMapping, Optional, Text, Tup
 
 from .headers import Headers
 from .types import ErrorStream, InputStream, StartResponse, WSGIApplication, WSGIEnvironment
-from .util import FileWrapper, guess_scheme
+from .util import FileWrapper
 
 _exc_info = Tuple[Optional[Type[BaseException]], Optional[BaseException], Optional[TracebackType]]
 

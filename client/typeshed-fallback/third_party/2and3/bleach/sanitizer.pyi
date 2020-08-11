@@ -1,4 +1,4 @@
-from typing import Any, Callable, Container, Dict, Iterable, List, Optional, Pattern, Text, Type, Union
+from typing import Any, Callable, Container, Dict, Iterable, List, Optional, Pattern, Text, Union
 
 ALLOWED_TAGS: List[Text]
 ALLOWED_ATTRIBUTES: Dict[Text, List[Text]]

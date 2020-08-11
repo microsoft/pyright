@@ -1,8 +1,6 @@
 from io import TextIOWrapper
 from typing import Any, Callable, Optional, Pattern, Sequence, Tuple
 
-from waitress import serve
-
 HELP: str
 RUNNER_PATTERN: Pattern
 

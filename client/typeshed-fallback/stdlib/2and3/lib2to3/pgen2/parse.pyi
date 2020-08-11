@@ -2,7 +2,7 @@
 
 from lib2to3.pgen2.grammar import _DFAS, Grammar
 from lib2to3.pytree import _NL, _Convert, _RawNode
-from typing import Any, Dict, List, Optional, Sequence, Set, Text, Tuple
+from typing import Any, List, Optional, Sequence, Set, Text, Tuple
 
 _Context = Sequence[Any]
 

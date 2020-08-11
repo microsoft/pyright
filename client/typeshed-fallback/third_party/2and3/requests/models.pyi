@@ -1,10 +1,9 @@
 # Stubs for requests.models (Python 3)
 
 import datetime
-import types
-from typing import Any, Dict, Iterator, List, MutableMapping, Optional, Text, Union
+from typing import Any, Dict, Iterator, List, Optional, Text, Union
 
-from . import auth, compat, cookies, exceptions, hooks, status_codes, structures, utils
+from . import auth, cookies, exceptions, hooks, status_codes, structures, utils
 from .cookies import RequestsCookieJar
 from .packages.urllib3 import exceptions as urllib3_exceptions, fields, filepost, util
 

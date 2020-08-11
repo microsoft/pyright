@@ -151,6 +151,9 @@ class SupportsRead(Protocol[_T_co]):
 class SupportsReadline(Protocol[_T_co]):
     def readline(self, __length: int = ...) -> _T_co: ...
 
+class SupportsNoArgReadline(Protocol[_T_co]):
+    def readline(self) -> _T_co: ...
+
 class SupportsWrite(Protocol[_T_contra]):
     def write(self, __s: _T_contra) -> int: ...
 

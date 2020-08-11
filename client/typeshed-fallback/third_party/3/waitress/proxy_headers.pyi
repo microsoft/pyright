@@ -2,7 +2,7 @@ from collections import namedtuple
 from logging import Logger
 from typing import Any, Callable, Mapping, Optional, Sequence, Set
 
-from .utilities import BadRequest
+from .utilities import BadRequest as BadRequest
 
 PROXY_HEADERS: frozenset
 

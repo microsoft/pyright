@@ -4,6 +4,7 @@
 # based on http://docs.python.org/3.2/library/sys.html
 
 import sys
+from builtins import object as _object
 from importlib.abc import MetaPathFinder
 from types import FrameType, ModuleType, TracebackType
 from typing import Any, Callable, Dict, List, NoReturn, Optional, Sequence, TextIO, Tuple, Type, TypeVar, Union, overload
@@ -208,7 +209,7 @@ if sys.version_info >= (3, 8):
         exc_value: Optional[BaseException]
         exc_traceback: Optional[TracebackType]
         err_msg: Optional[str]
-        object: Optional[object]
+        object: Optional[_object]
     unraisablehook: Callable[[UnraisableHookArgs], Any]
     def addaudithook(hook: Callable[[str, Tuple[Any, ...]], Any]) -> None: ...
     def audit(__event: str, *args: Any) -> None: ...

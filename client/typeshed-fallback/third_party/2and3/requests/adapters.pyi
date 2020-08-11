@@ -2,7 +2,7 @@
 
 from typing import Any, Container, Mapping, Optional, Text, Tuple, Union
 
-from . import auth, compat, cookies, exceptions, models, structures, utils
+from . import cookies, exceptions, models, structures, utils
 from .packages.urllib3 import exceptions as urllib3_exceptions, poolmanager, response
 from .packages.urllib3.util import retry
 

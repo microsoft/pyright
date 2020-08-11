@@ -10,7 +10,7 @@ class Index(metaclass=IndexMeta):
     def count(cls, hash_key, consistent_read: bool = ..., **filters) -> int: ...
     @classmethod
     def query(
-        self,
+        cls,
         hash_key,
         scan_index_forward: Optional[Any] = ...,
         consistent_read: bool = ...,

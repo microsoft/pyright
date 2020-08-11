@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Text, Tuple, cast
+from typing import Iterable, List, Optional, Text, Tuple
 
 from google.protobuf.descriptor_pb2 import FileOptions
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer, RepeatedScalarFieldContainer

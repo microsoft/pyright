@@ -11,7 +11,6 @@ from typing import (
     Optional,
     Sequence,
     Set,
-    Text,
     Tuple,
     Type,
     TypeVar,
