@@ -14504,7 +14504,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         const getter = getTypeOfMember(getterInfo);
                         if (getter.category === TypeCategory.Function) {
                             const returnType = getFunctionEffectiveReturnType(getter);
-                            return printType(returnType, /* expandTypeAlias */ false, recursionCount + 1);
+                            return `${printType(
+                                returnType,
+                                /* expandTypeAlias */ false,
+                                recursionCount + 1
+                            )} (property)`;
                         }
                     }
                 }
