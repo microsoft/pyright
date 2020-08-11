@@ -236,9 +236,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     abstract async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
 
-    protected getConfiguration(workspace: WorkspaceServiceInstance, section: string) {
+    protected async getConfiguration(scopeUri: string | undefined, section: string) {
         if (this._hasConfigurationCapability) {
-            const scopeUri = workspace.rootUri ? workspace.rootUri : undefined;
             const item: ConfigurationItem = {
                 scopeUri,
                 section,
