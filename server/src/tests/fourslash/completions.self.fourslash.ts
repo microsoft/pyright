@@ -36,7 +36,7 @@ await helper.verifyCompletion('included', {
                 label: 'prop1',
                 documentation: {
                     kind: 'markdown',
-                    value: '```python\nprop1: Literal[2]\n```\n---\nProperty 1.',
+                    value: '```python\nprop1: Literal[2] (property)\n```\n---\nProperty 1.',
                 },
             },
             {

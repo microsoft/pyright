@@ -56,14 +56,14 @@ await helper.verifyCompletion('included', {
                 label: 'read_only_prop',
                 documentation: {
                     kind: 'markdown',
-                    value: '```python\nread_only_prop: bool\n```\n---\nThe read-only property.',
+                    value: '```python\nread_only_prop: bool (property)\n```\n---\nThe read-only property.',
                 },
             },
             {
                 label: 'read_write_prop',
                 documentation: {
                     kind: 'markdown',
-                    value: '```python\nread_write_prop: bool\n```\n---\nThe read-write property.',
+                    value: '```python\nread_write_prop: bool (property)\n```\n---\nThe read-write property.',
                 },
             },
         ],
