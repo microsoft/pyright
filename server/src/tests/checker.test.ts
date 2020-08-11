@@ -748,6 +748,12 @@ test('AbstractClass4', () => {
     validateResults(analysisResults, 1);
 });
 
+test('AbstractClass5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['abstractClass5.py']);
+
+    validateResults(analysisResults, 2);
+});
+
 test('Module1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['module1.py']);
 

@@ -9221,6 +9221,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // one and adds a new function.
                     const newOverload = OverloadedFunctionType.create();
                     newOverload.overloads = overloadedTypes;
+
+                    const prevOverload = overloadedTypes[overloadedTypes.length - 2];
+                    const isPrevOverloadAbstract = FunctionType.isAbstractMethod(prevOverload);
+                    const isCurrentOverloadAbstract = FunctionType.isAbstractMethod(type);
+
+                    if (isPrevOverloadAbstract !== isCurrentOverloadAbstract) {
+                        addDiagnostic(
+                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.overloadAbstractMismatch().format({ name: node.name.value }),
+                            node.name
+                        );
+                    }
+
                     return newOverload;
                 }
             }

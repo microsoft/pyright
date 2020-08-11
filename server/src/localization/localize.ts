@@ -419,6 +419,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.obscuredVariableDeclaration'));
         export const operatorLessOrGreaterDeprecated = () => getRawString('Diagnostic.operatorLessOrGreaterDeprecated');
         export const optionalExtraArgs = () => getRawString('Diagnostic.optionalExtraArgs');
+        export const overloadAbstractMismatch = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadAbstractMismatch'));
         export const paramAfterKwargsParam = () => getRawString('Diagnostic.paramAfterKwargsParam');
         export const paramAlreadyAssigned = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramAlreadyAssigned'));
