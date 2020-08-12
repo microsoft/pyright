@@ -813,15 +813,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             ),
                         };
                     }
-
-                    if (expectedType) {
-                        const adjExpectedType = makeTypeVarsConcrete(expectedType);
-                        if (!isAnyOrUnknown(adjExpectedType)) {
-                            if (canAssignType(expectedType, typeResult.type, new DiagnosticAddendum(), undefined)) {
-                                typeResult.type = expectedType;
-                            }
-                        }
-                    }
                 }
                 break;
             }
@@ -6969,7 +6960,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             let addUnknown = true;
 
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
-                const keyType = getTypeOfExpression(entryNode.keyExpression, expectedKeyType).type;
+                let keyType = getTypeOfExpression(entryNode.keyExpression, expectedKeyType).type;
+                if (expectedKeyType) {
+                    const adjExpectedKeyType = makeTypeVarsConcrete(expectedKeyType);
+                    if (!isAnyOrUnknown(adjExpectedKeyType)) {
+                        if (canAssignType(adjExpectedKeyType, keyType, new DiagnosticAddendum(), undefined)) {
+                            keyType = adjExpectedKeyType;
+                        }
+                    }
+                }
                 let valueType: Type | undefined;
 
                 if (
