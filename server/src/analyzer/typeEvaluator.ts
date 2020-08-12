@@ -7935,6 +7935,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             _promote: { alias: '', module: 'builtins' },
             no_type_check: { alias: '', module: 'builtins' },
             NoReturn: { alias: '', module: 'builtins' },
+            Counter: { alias: 'Counter', module: 'collections' },
             List: { alias: 'list', module: 'builtins' },
             Dict: { alias: 'dict', module: 'builtins' },
             DefaultDict: { alias: 'defaultdict', module: 'collections' },
