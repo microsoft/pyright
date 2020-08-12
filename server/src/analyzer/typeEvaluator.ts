@@ -813,6 +813,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             ),
                         };
                     }
+
+                    if (expectedType) {
+                        const adjExpectedType = makeTypeVarsConcrete(expectedType);
+                        if (!isAnyOrUnknown(adjExpectedType)) {
+                            if (canAssignType(expectedType, typeResult.type, new DiagnosticAddendum(), undefined)) {
+                                typeResult.type = expectedType;
+                            }
+                        }
+                    }
                 }
                 break;
             }
@@ -6941,7 +6950,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (expectedType && isObject(expectedType)) {
             const expectedClass = expectedType.classType;
-            if (ClassType.isBuiltIn(expectedClass, 'Dict') || ClassType.isBuiltIn(expectedClass, 'dict')) {
+            if (
+                ClassType.isBuiltIn(expectedClass, 'Mapping') ||
+                ClassType.isBuiltIn(expectedClass, 'Dict') ||
+                ClassType.isBuiltIn(expectedClass, 'dict')
+            ) {
                 if (expectedClass.typeArguments && expectedClass.typeArguments.length === 2) {
                     expectedKeyType = specializeType(expectedClass.typeArguments[0], /* typeVarMap */ undefined);
                     expectedValueType = specializeType(expectedClass.typeArguments[1], /* typeVarMap */ undefined);

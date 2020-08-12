@@ -994,6 +994,12 @@ test('Dictionary1', () => {
     validateResults(analysisResults, 2);
 });
 
+test('Dictionary2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dictionary2.py']);
+
+    validateResults(analysisResults, 1);
+});
+
 test('Classes1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classes1.py']);
 
