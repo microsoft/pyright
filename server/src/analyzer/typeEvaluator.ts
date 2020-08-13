@@ -10011,8 +10011,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         while (curNode) {
             switch (curNode.nodeType) {
                 case ParseNodeType.Assignment: {
-                    evaluateTypesForAssignmentStatement(curNode);
-                    return;
+                    // See if the assignment is part of a chain of assignments. If so,
+                    // evaluate the entire chain.
+                    const isInAssignmentChain =
+                        curNode.parent &&
+                        (curNode.parent.nodeType === ParseNodeType.Assignment ||
+                            curNode.parent.nodeType === ParseNodeType.AssignmentExpression ||
+                            curNode.parent.nodeType === ParseNodeType.AugmentedAssignment) &&
+                        curNode.parent.rightExpression === curNode;
+                    if (!isInAssignmentChain) {
+                        evaluateTypesForAssignmentStatement(curNode);
+                        return;
+                    }
+                    break;
                 }
 
                 case ParseNodeType.AssignmentExpression: {
