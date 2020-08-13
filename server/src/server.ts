@@ -56,6 +56,7 @@ class PyrightServer extends LanguageServerBase {
     async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings> {
         const serverSettings: ServerSettings = {
             watchForSourceChanges: true,
+            watchForLibraryChanges: true,
             openFilesOnly: true,
             useLibraryCodeForTypes: false,
             disableLanguageServices: false,
