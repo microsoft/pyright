@@ -479,7 +479,7 @@ export function partiallySpecializeType(type: Type, contextClassType: ClassType)
 
     // Partially specialize the type using the specialized class type vars.
     const typeVarMap = buildTypeVarMapFromSpecializedClass(contextClassType);
-    return specializeType(type, typeVarMap, false);
+    return specializeType(type, typeVarMap, /* makeConcrete */ false);
 }
 
 // Replaces all of the top-level TypeVars (as opposed to TypeVars
@@ -1385,7 +1385,7 @@ function _specializeClassType(
 // that fits the specified constraints.
 export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel = 0): Type {
     if (type.boundType) {
-        return specializeType(type.boundType, undefined, false, recursionLevel + 1);
+        return specializeType(type.boundType, undefined, /* makeConcrete */ false, recursionLevel + 1);
     }
 
     // Note that we can't use constraints for specialization because
@@ -1575,7 +1575,7 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
     classType.details.baseClasses.forEach((baseClass) => {
         if (isClass(baseClass)) {
-            const typeVarMap = buildTypeVarMapFromSpecializedClass(baseClass, false);
+            const typeVarMap = buildTypeVarMapFromSpecializedClass(baseClass, /* makeConcrete */ false);
             classListsToMerge.push(
                 baseClass.details.mro.map((mroClass) => {
                     return specializeType(mroClass, typeVarMap);
@@ -1588,13 +1588,13 @@ export function computeMroLinearization(classType: ClassType): boolean {
 
     classListsToMerge.push(
         classType.details.baseClasses.map((baseClass) => {
-            const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, false);
+            const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, /* makeConcrete */ false);
             return specializeType(baseClass, typeVarMap);
         })
     );
 
     // The first class in the MRO is the class itself.
-    const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, false);
+    const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, /* makeConcrete */ false);
     classType.details.mro.push(specializeType(classType, typeVarMap));
 
     // Helper function that returns true if the specified searchClass
