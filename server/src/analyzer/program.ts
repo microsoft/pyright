@@ -505,6 +505,10 @@ export class Program {
                     const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile, this._evaluator);
                     writer.write();
                 });
+
+                // This operation can consume significant memory, so check
+                // for situations where we need to discard the type cache.
+                this._handleMemoryHighUsage();
             }
         }
     }
@@ -1034,6 +1038,10 @@ export class Program {
                             token
                         );
                     }
+
+                    // This operation can consume significant memory, so check
+                    // for situations where we need to discard the type cache.
+                    this._handleMemoryHighUsage();
                 }
 
                 // Make sure to include declarations regardless where they are defined
@@ -1293,6 +1301,10 @@ export class Program {
 
                         curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator, token);
                     }
+
+                    // This operation can consume significant memory, so check
+                    // for situations where we need to discard the type cache.
+                    this._handleMemoryHighUsage();
                 }
             } else if (this._isUserCode(sourceFileInfo)) {
                 sourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator, token);
@@ -1389,6 +1401,10 @@ export class Program {
                 if (itemsToAdd) {
                     items = items.concat(...itemsToAdd);
                 }
+
+                // This operation can consume significant memory, so check
+                // for situations where we need to discard the type cache.
+                this._handleMemoryHighUsage();
             }
         }
 
