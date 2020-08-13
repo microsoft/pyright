@@ -6745,13 +6745,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             }
                         }
 
-                        return getTypeFromMagicMethodReturn(
+                        let returnType = getTypeFromMagicMethodReturn(
                             rightSubtype,
                             [leftSubtype],
                             '__contains__',
                             errorNode,
                             /* expectedType */ undefined
                         );
+
+                        if (!returnType) {
+                            // If __contains__ was not supported, fall back
+                            // on an iterable.
+                            const iteratorType = getTypeFromIterable(
+                                rightSubtype,
+                                /* isAsync */ false,
+                                errorNode,
+                                /* supportGetItem */ false
+                            );
+
+                            if (iteratorType && canAssignType(iteratorType, leftSubtype, new DiagnosticAddendum())) {
+                                returnType = iteratorType;
+                            }
+                        }
+
+                        return returnType;
                     });
                 });
 
