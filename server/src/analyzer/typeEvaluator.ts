@@ -3900,26 +3900,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const baseTypeClass = baseType.classType;
 
             if (
-                isClass(baseTypeClass) &&
-                ClassType.isBuiltIn(baseTypeClass, 'Tuple') &&
-                baseTypeClass.typeArguments &&
-                baseTypeClass.typeArguments.length > 0
+                node.items.items[0].nodeType === ParseNodeType.Number &&
+                node.items.items[0].isInteger &&
+                !node.items.items[0].isImaginary
             ) {
-                if (
-                    node.items.items[0].nodeType === ParseNodeType.Number &&
-                    node.items.items[0].isInteger &&
-                    !node.items.items[0].isImaginary
-                ) {
+                const tupleType = getSpecializedTupleType(baseTypeClass);
+                if (tupleType && tupleType.typeArguments && tupleType.typeArguments.length > 0) {
                     const numberNode = node.items.items[0];
 
                     if (numberNode.isInteger && numberNode.value >= 0) {
-                        if (
-                            baseTypeClass.typeArguments.length === 2 &&
-                            isEllipsisType(baseTypeClass.typeArguments[1])
-                        ) {
-                            return baseTypeClass.typeArguments[0];
-                        } else if (numberNode.value < baseTypeClass.typeArguments.length) {
-                            return baseTypeClass.typeArguments[numberNode.value];
+                        if (tupleType.typeArguments.length === 2 && isEllipsisType(tupleType.typeArguments[1])) {
+                            return tupleType.typeArguments[0];
+                        } else if (numberNode.value < tupleType.typeArguments.length) {
+                            return tupleType.typeArguments[numberNode.value];
                         }
                     }
                 }
@@ -3930,11 +3923,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const builtInTupleType = getBuiltInType(node, 'Tuple');
             if (isClass(builtInTupleType)) {
                 indexType = convertToInstance(
-                    ClassType.cloneForSpecialization(
-                        builtInTupleType,
-                        indexTypeList,
-                        /* isTypeArgumentExplicit */ false
-                    )
+                    cloneTupleForSpecialization(builtInTupleType, indexTypeList, /* isTypeArgumentExplicit */ false)
                 );
             } else {
                 indexType = UnknownType.create();
@@ -4082,11 +4071,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             type = convertToInstance(
-                ClassType.cloneForSpecialization(builtInTupleType, tupleTypes, /* isTypeArgumentExplicit */ false)
+                cloneTupleForSpecialization(builtInTupleType, tupleTypes, /* isTypeArgumentExplicit */ true)
             );
         }
 
         return { type, node };
+    }
+
+    function cloneTupleForSpecialization(tupleClass: ClassType, typeArgs: Type[], isTypeArgumentExplicit: boolean) {
+        // Create a copy of the Tuple class that overrides the normal MRO
+        // entries with a version of Tuple and tuple that are specialized
+        // appropriately.
+        let combinedTupleType: Type = AnyType.create(false);
+        if (typeArgs.length === 2 && isEllipsisType(typeArgs[1])) {
+            combinedTupleType = typeArgs[0];
+        } else {
+            combinedTupleType = combineTypes(typeArgs);
+        }
+
+        const specializedTuple = ClassType.cloneForSpecialization(tupleClass, typeArgs, isTypeArgumentExplicit);
+        specializedTuple.details = { ...specializedTuple.details };
+        specializedTuple.details.mro = [...specializedTuple.details.mro];
+        specializedTuple.details.mro[0] = specializedTuple;
+        specializedTuple.details.mro[1] = ClassType.cloneForSpecialization(
+            specializedTuple.details.mro[1] as ClassType,
+            [combinedTupleType],
+            isTypeArgumentExplicit
+        );
+
+        return specializedTuple;
     }
 
     function getTypeFromCall(node: CallNode, expectedType: Type | undefined, flags: EvaluatorFlags): TypeResult {
@@ -7421,7 +7434,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const keyType = stripLiteralValue(getTypeOfExpression(node.expression.keyExpression).type);
             const valueType = stripLiteralValue(getTypeOfExpression(node.expression.valueExpression).type);
 
-            type = getBuiltInObject(node, 'Tuple', [keyType, valueType]);
+            type = getBuiltInType(node, 'Tuple');
+            if (isClass(type)) {
+                type = convertToInstance(
+                    cloneTupleForSpecialization(type, [keyType, valueType], /* isTypeArgumentExplicit */ true)
+                );
+            }
         } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
             getTypeOfExpression(node.expression.expandExpression);
 
@@ -7693,14 +7711,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         classType: ClassType,
         typeArgs: TypeResult[] | undefined,
         paramLimit?: number,
-        allowEllipsis = false,
         allowParamSpec = false
     ): Type {
+        const isTuple = ClassType.isBuiltIn(classType, 'Tuple');
+
         if (typeArgs) {
             // Verify that we didn't receive any inappropriate ellipses or modules.
             typeArgs.forEach((typeArg, index) => {
                 if (isEllipsisType(typeArg.type)) {
-                    if (!allowEllipsis) {
+                    if (!isTuple) {
                         addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
                     } else if (typeArgs!.length !== 2 || index !== 1) {
                         addError(Localizer.Diagnostic.ellipsisSecondArg(), typeArg.node);
@@ -7714,16 +7733,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             // Handle Tuple[()] as a special case, as defined in PEP 483.
             if (ClassType.isBuiltIn(classType, 'Tuple')) {
-                if (typeArgs.length === 1) {
-                    const arg0Type = typeArgs[0].type;
-                    if (
-                        isObject(arg0Type) &&
-                        ClassType.isBuiltIn(arg0Type.classType, 'Tuple') &&
-                        arg0Type.classType.typeArguments &&
-                        arg0Type.classType.typeArguments.length === 0
-                    ) {
-                        typeArgs = [];
-                    }
+                if (
+                    typeArgs.length === 1 &&
+                    isObject(typeArgs[0].type) &&
+                    ClassType.isBuiltIn(typeArgs[0].type.classType, 'Tuple') &&
+                    typeArgs[0].type.classType.typeArguments &&
+                    typeArgs[0].type.classType.typeArguments.length === 0
+                ) {
+                    typeArgs = [];
                 }
             }
         }
@@ -7749,17 +7766,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        // If no type args are provided and ellipses are allowed,
-        // default to [Any, ...]. For example, Tuple is equivalent
-        // to Tuple[Any, ...].
-        if (!typeArgs && allowEllipsis) {
-            typeArgTypes.push(AnyType.create(false));
-            typeArgTypes.push(AnyType.create(true));
+        // Handle tuple as a special case.
+        if (isTuple) {
+            // If no type args are provided and it's a tuple, default to [Any, ...].
+            if (!typeArgs) {
+                typeArgTypes.push(AnyType.create(false));
+                typeArgTypes.push(AnyType.create(true));
+            }
+
+            return cloneTupleForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
         }
 
-        const specializedType = ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
-
-        return specializedType;
+        return ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
     }
 
     // Unpacks the index expression for a "Union[X, Y, Z]" type annotation.
@@ -7817,13 +7835,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             });
         }
 
-        return createSpecialType(
-            classType,
-            typeArgs,
-            /* paramLimit */ undefined,
-            /* allowEllipsis */ false,
-            /* allowParamSpec */ true
-        );
+        return createSpecialType(classType, typeArgs, /* paramLimit */ undefined, /* allowParamSpec */ true);
     }
 
     function transformTypeForPossibleEnumClass(node: NameNode, typeOfExpr: Type): Type {
@@ -11385,7 +11397,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 case 'Tuple': {
-                    return createSpecialType(classType, typeArgs, undefined, true);
+                    return createSpecialType(classType, typeArgs, undefined);
                 }
 
                 case 'Union': {

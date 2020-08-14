@@ -429,11 +429,25 @@ export function getSpecializedTupleType(type: Type): ClassType | undefined {
         classType = type.classType;
     }
 
-    if (classType && ClassType.isBuiltIn(classType, 'Tuple')) {
+    if (!classType) {
+        return undefined;
+    }
+
+    // See if this class derives from Tuple. If it does, we'll assume that it
+    // hasn't been overridden in a way that changes the behavior of the tuple class.
+    const tupleClass = classType.details.mro.find(
+        (mroClass) => isClass(mroClass) && ClassType.isBuiltIn(mroClass, 'Tuple')
+    );
+    if (!tupleClass || !isClass(tupleClass)) {
+        return undefined;
+    }
+
+    if (ClassType.isSameGenericClass(classType, tupleClass)) {
         return classType;
     }
 
-    return undefined;
+    const typeVarMap = buildTypeVarMapFromSpecializedClass(classType);
+    return specializeType(tupleClass, typeVarMap) as ClassType;
 }
 
 export function isEllipsisType(type: Type): boolean {
@@ -946,18 +960,6 @@ export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeCo
     // fill in concrete types.
     if (!typeArguments && !makeConcrete) {
         typeArguments = typeParameters;
-    }
-
-    // Handle the special case where the source is a Tuple with heterogenous
-    // type arguments. In this case, we'll create a union out of the heterogeneous
-    // types.
-    if (ClassType.isBuiltIn(classType, 'Tuple') && classType.typeArguments) {
-        if (classType.typeArguments.length > 1) {
-            const lastTypeArg = classType.typeArguments[classType.typeArguments.length - 1];
-            if (!isEllipsisType(lastTypeArg)) {
-                typeArguments = [combineTypes(classType.typeArguments)];
-            }
-        }
     }
 
     return buildTypeVarMap(typeParameters, typeArguments);
