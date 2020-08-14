@@ -4490,15 +4490,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                         type = convertToInstance(castToType);
                     } else {
-                        // If this is a stub file, analyze the first argument using the
-                        // "expecting type" semantics. This will cache the type for later. Some
-                        // type stubs rely on using forward declarations for this parameter.
-                        if (argList.length > 0) {
-                            const fileInfo = getFileInfo(errorNode);
-                            if (fileInfo.isStubFile) {
-                                getTypeForArgumentExpectingType(argList[0], fileInfo);
-                            }
-                        }
                         type = validateCallArguments(
                             errorNode,
                             argList,
