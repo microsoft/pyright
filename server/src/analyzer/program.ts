@@ -1106,13 +1106,16 @@ export class Program {
             }
 
             for (const sourceFileInfo of this._sourceFileList) {
-                this._bindFile(sourceFileInfo);
+                // "Find symbols" includes references only from user code.
+                if (this._isUserCode(sourceFileInfo)) {
+                    this._bindFile(sourceFileInfo);
 
-                sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator, query, token);
+                    sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator, query, token);
 
-                // This operation can consume significant memory, so check
-                // for situations where we need to discard the type cache.
-                this._handleMemoryHighUsage();
+                    // This operation can consume significant memory, so check
+                    // for situations where we need to discard the type cache.
+                    this._handleMemoryHighUsage();
+                }
             }
         });
     }
