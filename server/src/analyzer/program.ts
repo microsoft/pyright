@@ -1106,9 +1106,8 @@ export class Program {
             }
 
             for (const sourceFileInfo of this._sourceFileList) {
-                // "Find symbols" will only include references from user code
-                // unless the file is explicitly opened in the editor.
-                if (this._isUserCode(sourceFileInfo) || sourceFileInfo.isOpenByClient) {
+                // "Find symbols" includes references only from user code.
+                if (this._isUserCode(sourceFileInfo)) {
                     this._bindFile(sourceFileInfo);
 
                     sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator, query, token);
