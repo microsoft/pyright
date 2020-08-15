@@ -1427,8 +1427,16 @@ function _specializeFunctionType(
 
     // Handle functions with a parameter specification in a special manner.
     if (functionType.details.paramSpec) {
-        const paramSpec = typeVarMap?.getParamSpec(functionType.details.paramSpec.name);
-        functionType = FunctionType.cloneForParamSpec(functionType, paramSpec);
+        let paramSpec = typeVarMap?.getParamSpec(functionType.details.paramSpec.name);
+        if (!paramSpec && makeConcrete) {
+            paramSpec = [
+                { name: 'args', type: AnyType.create() },
+                { name: 'kwargs', type: AnyType.create() },
+            ];
+        }
+        if (paramSpec) {
+            functionType = FunctionType.cloneForParamSpec(functionType, paramSpec);
+        }
     }
 
     const declaredReturnType =

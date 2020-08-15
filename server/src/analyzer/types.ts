@@ -788,6 +788,11 @@ export interface FunctionType extends TypeBase {
     inferredReturnType?: Type;
 }
 
+export interface ParamSpecEntry {
+    name: string;
+    type: Type;
+}
+
 export namespace FunctionType {
     export function createInstance(
         name: string,
@@ -918,9 +923,8 @@ export namespace FunctionType {
         return newFunction;
     }
 
-    // Creates a new function based on the parameters of another function. If
-    // paramTemplate is undefined, use default (generic) parameters.
-    export function cloneForParamSpec(type: FunctionType, paramTemplate: FunctionType | undefined) {
+    // Creates a new function based on the parameters of another function.
+    export function cloneForParamSpec(type: FunctionType, paramTypes: ParamSpecEntry[] | undefined) {
         const newFunction = create(
             type.details.name,
             type.details.moduleName,
@@ -936,10 +940,16 @@ export namespace FunctionType {
         // since we're replacing it.
         delete newFunction.details.paramSpec;
 
-        if (paramTemplate) {
-            newFunction.details.parameters = paramTemplate.details.parameters;
-        } else {
-            FunctionType.addDefaultParameters(newFunction);
+        if (paramTypes) {
+            newFunction.details.parameters = paramTypes.map((specEntry, index) => {
+                return {
+                    category: ParameterCategory.Simple,
+                    name: specEntry.name,
+                    isNameSynthesized: true,
+                    hasDeclaredType: true,
+                    type: specEntry.type,
+                };
+            });
         }
 
         return newFunction;

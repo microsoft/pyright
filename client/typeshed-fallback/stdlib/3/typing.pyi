@@ -46,6 +46,12 @@ if sys.version_info >= (3, 8):
     # TypedDict is a (non-subscriptable) special form.
     TypedDict: object
 
+if sys.version_info >= (3, 10):
+    class ParamSpec:
+        __name__: str
+        def __init__(self, name: str) -> None: ...
+    Concatenate: _SpecialForm = ...
+
 if sys.version_info < (3, 7):
     class GenericMeta(type): ...
 

@@ -42,6 +42,8 @@
         "classVarTooManyArgs": "Expected only one type argument after \"ClassVar\"",
         "comprehensionInDict": "Comprehension cannot be used with other dictionary entries",
         "comprehensionInSet": "Comprehension cannot be used with other set entries",
+        "concatenateParamSpecMissing": "Last type argument for \"Concatenate\" must be a ParamSpec",
+        "concatenateTypeArgsMissing": "\"Concatenate\" requires at least two type arguments",
         "constantRedefinition": "\"{name}\" is constant and cannot be redefined",
         "continueInFinally": "\"continue\" cannot be used within a finally clause",
         "continueOutsideLoop": "\"continue\" can be used only within a loop",

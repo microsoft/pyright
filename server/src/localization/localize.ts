@@ -214,6 +214,8 @@ export namespace Localizer {
         export const classVarTooManyArgs = () => getRawString('Diagnostic.classVarTooManyArgs');
         export const comprehensionInDict = () => getRawString('Diagnostic.comprehensionInDict');
         export const comprehensionInSet = () => getRawString('Diagnostic.comprehensionInSet');
+        export const concatenateParamSpecMissing = () => getRawString('Diagnostic.concatenateParamSpecMissing');
+        export const concatenateTypeArgsMissing = () => getRawString('Diagnostic.concatenateTypeArgsMissing');
         export const constantRedefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.constantRedefinition'));
         export const constructorNoArgs = () =>

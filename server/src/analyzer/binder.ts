@@ -2573,6 +2573,7 @@ export class Binder extends ParseTreeWalker {
             Annotated: true,
             TypeAlias: true,
             OrderedDict: true,
+            Concatenate: true,
         };
 
         const assignedName = assignedNameNode.value;

@@ -10,17 +10,17 @@
  */
 
 import { assert } from '../common/debug';
-import { ClassType, FunctionType, maxTypeRecursionCount, Type, TypeCategory } from './types';
+import { ClassType, maxTypeRecursionCount, ParamSpecEntry, Type, TypeCategory } from './types';
 
 export class TypeVarMap {
     private _typeVarMap: Map<string, Type>;
-    private _paramSpecMap: Map<string, FunctionType>;
+    private _paramSpecMap: Map<string, ParamSpecEntry[]>;
     private _isNarrowableMap: Map<string, boolean>;
     private _isLocked = false;
 
     constructor() {
         this._typeVarMap = new Map<string, Type>();
-        this._paramSpecMap = new Map<string, FunctionType>();
+        this._paramSpecMap = new Map<string, ParamSpecEntry[]>();
         this._isNarrowableMap = new Map<string, boolean>();
     }
 
@@ -64,11 +64,7 @@ export class TypeVarMap {
             score += this._getComplexityScoreForType(value);
         });
 
-        // Do the same for the param spec map.
-        this._paramSpecMap.forEach((value) => {
-            score += 1;
-            score += this._getComplexityScoreForType(value);
-        });
+        score += this._paramSpecMap.size;
 
         return score;
     }
@@ -91,11 +87,11 @@ export class TypeVarMap {
         return this._paramSpecMap.has(name);
     }
 
-    getParamSpec(name: string): FunctionType | undefined {
+    getParamSpec(name: string): ParamSpecEntry[] | undefined {
         return this._paramSpecMap.get(name);
     }
 
-    setParamSpec(name: string, type: FunctionType) {
+    setParamSpec(name: string, type: ParamSpecEntry[]) {
         assert(!this._isLocked);
         this._paramSpecMap.set(name, type);
     }

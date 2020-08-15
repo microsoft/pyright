@@ -141,6 +141,7 @@ import {
     NoneType,
     ObjectType,
     OverloadedFunctionType,
+    ParamSpecEntry,
     removeNoneFromUnion,
     removeUnboundFromUnion,
     Type,
@@ -4352,6 +4353,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         className === 'Protocol' ||
                         className === 'Generic' ||
                         className === 'Callable' ||
+                        className === 'Concatenate' ||
                         className === 'Type'
                     ) {
                         const fileInfo = getFileInfo(errorNode);
@@ -5345,7 +5347,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: funcArg,
                     errorNode: argList[argIndex].valueExpression || errorNode,
-                    paramName: paramName,
+                    paramName: typeParams[paramIndex].isNameSynthesized ? undefined : paramName,
                 });
 
                 trySetActive(argList[argIndex], typeParams[paramIndex]);
@@ -5380,7 +5382,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: argList[argIndex],
                     errorNode: argList[argIndex].valueExpression || errorNode,
-                    paramName: paramName,
+                    paramName: typeParams[paramIndex].isNameSynthesized ? undefined : paramName,
                 });
                 trySetActive(argList[argIndex], typeParams[paramIndex]);
 
@@ -5505,7 +5507,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                         type: param.defaultType,
                                     },
                                     errorNode: errorNode,
-                                    paramName: param.name,
+                                    paramName: param.isNameSynthesized ? undefined : param.name,
                                 });
                             }
                         }
@@ -7548,10 +7550,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             } else if (isEllipsisType(typeArgs[0].type)) {
                 FunctionType.addDefaultParameters(functionType);
             } else if (isParamSpecType(typeArgs[0].type)) {
-                FunctionType.addDefaultParameters(functionType);
                 functionType.details.paramSpec = typeArgs[0].type as TypeVarType;
             } else {
-                addError(Localizer.Diagnostic.callableFirstArg(), typeArgs[0].node);
+                if (isClass(typeArgs[0].type) && ClassType.isBuiltIn(typeArgs[0].type, 'Concatenate')) {
+                    const concatTypeArgs = typeArgs[0].type.typeArguments;
+                    if (concatTypeArgs && concatTypeArgs.length > 0) {
+                        concatTypeArgs.forEach((typeArg, index) => {
+                            if (index === concatTypeArgs.length - 1) {
+                                if (isParamSpecType(typeArg)) {
+                                    functionType.details.paramSpec = typeArg as TypeVarType;
+                                }
+                            } else {
+                                FunctionType.addParameter(functionType, {
+                                    category: ParameterCategory.Simple,
+                                    name: `__p${index}`,
+                                    isNameSynthesized: true,
+                                    hasDeclaredType: true,
+                                    type: typeArg,
+                                });
+                            }
+                        });
+                    }
+                } else {
+                    addError(Localizer.Diagnostic.callableFirstArg(), typeArgs[0].node);
+                }
             }
         } else {
             FunctionType.addDefaultParameters(functionType, /* useUnknown */ true);
@@ -7735,6 +7757,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         return typeArgs[0].type;
+    }
+
+    function createConcatenateType(
+        errorNode: ParseNode,
+        classType: ClassType,
+        typeArgs: TypeResult[] | undefined
+    ): Type {
+        if (!typeArgs || typeArgs.length === 0) {
+            addError(Localizer.Diagnostic.concatenateTypeArgsMissing(), errorNode);
+        } else {
+            typeArgs.forEach((typeArg, index) => {
+                if (index === typeArgs.length - 1) {
+                    if (!isParamSpecType(typeArg.type)) {
+                        addError(Localizer.Diagnostic.concatenateParamSpecMissing(), typeArg.node);
+                    }
+                } else {
+                    if (isParamSpecType(typeArg.type)) {
+                        addError(Localizer.Diagnostic.paramSpecContext(), typeArg.node);
+                    }
+                }
+            });
+        }
+
+        return createSpecialType(classType, typeArgs, /* paramLimit */ undefined, /* allowParamSpec */ true);
     }
 
     function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
@@ -7996,6 +8042,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             Optional: { alias: '', module: 'builtins' },
             Annotated: { alias: '', module: 'builtins' },
             TypeAlias: { alias: '', module: 'builtins' },
+            Concatenate: { alias: '', module: 'builtins' },
         };
 
         const aliasMapEntry = specialTypes[assignedName];
@@ -11465,6 +11512,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 case 'Annotated': {
                     return createAnnotatedType(errorNode, typeArgs);
                 }
+
+                case 'Concatenate': {
+                    return createConcatenateType(errorNode, classType, typeArgs);
+                }
             }
         }
 
@@ -13875,13 +13926,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const nonDefaultSrcParamCount = srcParams.filter((param) => !!param.name && !param.hasDefault).length;
 
             if (destParamCount < nonDefaultSrcParamCount) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.functionTooFewParams().format({
-                        expected: nonDefaultSrcParamCount,
-                        received: destParamCount,
-                    })
-                );
-                canAssign = false;
+                if (!destType.details.paramSpec) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.functionTooFewParams().format({
+                            expected: nonDefaultSrcParamCount,
+                            received: destParamCount,
+                        })
+                    );
+                    canAssign = false;
+                }
             }
 
             if (destParamCount > srcParamCount) {
@@ -13922,7 +13975,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // Are we assigning to a function with a ParamSpec?
         if (destType.details.paramSpec && typeVarMap && !typeVarMap.isLocked()) {
-            typeVarMap.setParamSpec(destType.details.paramSpec.name, srcType);
+            typeVarMap.setParamSpec(
+                destType.details.paramSpec.name,
+                srcType.details.parameters
+                    .map((p, index) => {
+                        const paramSpecEntry: ParamSpecEntry = {
+                            name: p.name || `__p${index}`,
+                            type: p.type,
+                        };
+                        return paramSpecEntry;
+                    })
+                    .slice(destType.details.parameters.length, srcType.details.parameters.length)
+            );
         }
 
         return canAssign;
@@ -14638,6 +14702,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Callable notation.
                 const parts = printFunctionParts(type, recursionCount);
                 if (type.details.paramSpec) {
+                    if (type.details.parameters.length > 0) {
+                        // Remove the args and kwargs parameters from the end.
+                        const paramTypes = type.details.parameters.map((param) => printType(param.type));
+                        return `Callable[Concatenate[${paramTypes.join(', ')}, ${type.details.paramSpec.name}], ${
+                            parts[1]
+                        }]`;
+                    }
                     return `Callable[${type.details.paramSpec.name}, ${parts[1]}]`;
                 }
                 return `(${parts[0].join(', ')}) -> ${parts[1]}`;
