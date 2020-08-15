@@ -48,6 +48,9 @@ export interface ClassMember {
 
     // True if instance member, false if class member
     isInstanceMember: boolean;
+
+    // True if member has declared type, false if inferred
+    isTypeDeclared: boolean;
 }
 
 export const enum ClassMemberLookupFlags {
@@ -450,6 +453,18 @@ export function getSpecializedTupleType(type: Type): ClassType | undefined {
     return specializeType(tupleClass, typeVarMap) as ClassType;
 }
 
+export function isLiteralType(type: Type, allowLiteralUnions = true): boolean {
+    if (isObject(type)) {
+        return type.classType.literalValue !== undefined;
+    }
+
+    if (type.category === TypeCategory.Union) {
+        return !type.subtypes.some((t) => !isObject(t) || t.classType.literalValue === undefined);
+    }
+
+    return false;
+}
+
 export function isEllipsisType(type: Type): boolean {
     // Ellipses are translated into both a special form of "Any" or
     // a distinct class depending on the context.
@@ -690,11 +705,13 @@ export function lookUpClassMember(
                 if ((flags & ClassMemberLookupFlags.SkipInstanceVariables) === 0) {
                     const symbol = memberFields.get(memberName);
                     if (symbol && symbol.isInstanceMember()) {
-                        if (!declaredTypesOnly || symbol.hasTypedDeclarations()) {
+                        const hasDeclaredType = symbol.hasTypedDeclarations();
+                        if (!declaredTypesOnly || hasDeclaredType) {
                             return {
                                 symbol,
                                 isInstanceMember: true,
                                 classType: specializedMroClass,
+                                isTypeDeclared: hasDeclaredType,
                             };
                         }
                     }
@@ -707,7 +724,8 @@ export function lookUpClassMember(
                         (flags & ClassMemberLookupFlags.SkipIfInaccessibleToInstance) === 0 ||
                         !symbol.isInaccessibleToInstance()
                     ) {
-                        if (!declaredTypesOnly || symbol.hasTypedDeclarations()) {
+                        const hasDeclaredType = symbol.hasTypedDeclarations();
+                        if (!declaredTypesOnly || hasDeclaredType) {
                             let isInstanceMember = false;
 
                             // For data classes and typed dicts, variables that are declared
@@ -729,6 +747,7 @@ export function lookUpClassMember(
                                 symbol,
                                 isInstanceMember,
                                 classType: specializedMroClass,
+                                isTypeDeclared: hasDeclaredType,
                             };
                         }
                     }
@@ -747,6 +766,7 @@ export function lookUpClassMember(
                 symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
                 isInstanceMember: false,
                 classType: UnknownType.create(),
+                isTypeDeclared: false,
             };
         }
     } else if (isAnyOrUnknown(classType)) {
@@ -756,6 +776,7 @@ export function lookUpClassMember(
             symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
             isInstanceMember: false,
             classType: UnknownType.create(),
+            isTypeDeclared: false,
         };
     }
 

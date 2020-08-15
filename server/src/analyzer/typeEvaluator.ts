@@ -173,6 +173,7 @@ import {
     getSpecializedTupleType,
     getTypeVarArgumentsRecursive,
     isEllipsisType,
+    isLiteralType,
     isNoReturnType,
     isOptionalType,
     isParamSpecType,
@@ -11078,8 +11079,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 }
 
-                // Look for X == <literal> or X != <literal>
                 if (equalsOrNotEqualsOperator) {
+                    // Look for X == <literal> or X != <literal>
                     const adjIsPositiveTest =
                         testExpression.operator === OperatorType.Equals ? isPositiveTest : !isPositiveTest;
 
@@ -11097,6 +11098,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         if (isObject(leftType) && leftType.classType.literalValue !== undefined) {
                             return (type: Type) => {
                                 return narrowTypeForLiteralComparison(type, leftType, adjIsPositiveTest);
+                            };
+                        }
+                    }
+
+                    // Look for X.Y == <literal> or X.Y != <literal>
+                    if (
+                        testExpression.leftExpression.nodeType === ParseNodeType.MemberAccess &&
+                        ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.leftExpression)
+                    ) {
+                        const rightType = getTypeOfExpression(testExpression.rightExpression).type;
+                        const memberName = testExpression.leftExpression.memberName;
+                        if (isObject(rightType) && rightType.classType.literalValue !== undefined) {
+                            return (type: Type) => {
+                                return narrowTypeForDiscriminatedFieldComparison(
+                                    type,
+                                    memberName.value,
+                                    rightType,
+                                    adjIsPositiveTest
+                                );
                             };
                         }
                     }
@@ -11355,6 +11375,43 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return undefined;
             }
 
+            return subtype;
+        });
+
+        return canNarrow ? narrowedType : referenceType;
+    }
+
+    // Attempts to narrow a type (make it more constrained) based on a comparison
+    // (equal or not equal) between a discriminating node that has a declared
+    // literal type to a literal value.
+    function narrowTypeForDiscriminatedFieldComparison(
+        referenceType: Type,
+        memberName: string,
+        literalType: ObjectType,
+        isPositiveTest: boolean
+    ): Type {
+        let canNarrow = true;
+
+        const narrowedType = doForSubtypes(referenceType, (subtype) => {
+            subtype = transformTypeObjectToClass(subtype);
+
+            let memberInfo: ClassMember | undefined;
+            if (isObject(subtype)) {
+                memberInfo = lookUpObjectMember(subtype, memberName);
+            } else if (isClass(subtype)) {
+                memberInfo = lookUpClassMember(subtype, memberName);
+            }
+
+            if (memberInfo && memberInfo.isTypeDeclared) {
+                const memberType = getTypeOfMember(memberInfo);
+
+                if (isLiteralType(memberType, /* allowLiteralUnions */ false)) {
+                    const isAssignable = canAssignType(memberType, literalType, new DiagnosticAddendum());
+                    return isAssignable === isPositiveTest ? subtype : undefined;
+                }
+            }
+
+            canNarrow = false;
             return subtype;
         });
 

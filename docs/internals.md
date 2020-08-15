@@ -74,8 +74,9 @@ def func(b: Optional[Union[str, List[str]]]):
 ```
 
 If the type narrowing logic exhausts all possible subtypes, it can be assumed that a code path will never be taken. For example, consider the following:
+
 ```python
-def (a: Union[Foo, Bar]):
+def func(a: Union[Foo, Bar]):
     if isinstance(a, Foo):
         # “a” must be type Foo
         a.do_something_1()
@@ -89,3 +90,22 @@ def (a: Union[Foo, Bar]):
 
 In this case, the type of parameter “a” is initially “Union[Foo, Bar]”. Within the “if” clause, the type narrowing logic will conclude that it must be of type “Foo”. Within the “elif” clause, it must be of type “Bar”. What type is it within the “else” clause? The type narrowing system has eliminated all possible subtypes, so it gives it the type “Never”. This is generally indicates that there’s a logic error in the code because there’s way that code block will ever be executed.
 
+Narrowing is also used to discriminate between members of a union type when the union members have a common member with literal declared types that differentiate the types.
+
+```python
+class Foo:
+    kind: Literal["Foo"]
+    def do_something_1(self):
+        pass
+
+class Bar:
+    kind: Literal["Bar"]
+    def do_something_2(self):
+        pass
+
+def func(a: Union[Foo, Bar]):
+    if a.kind == "Foo":
+        a.do_something_1()
+    else:
+        a.do_something_2()
+```

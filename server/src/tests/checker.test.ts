@@ -330,6 +330,12 @@ test('TypeConstraint16', () => {
     validateResults(analysisResults, 2);
 });
 
+test('TypeConstraint17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint17.py']);
+
+    validateResults(analysisResults, 8);
+});
+
 test('CircularBaseClass', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circularBaseClass.py']);
 
