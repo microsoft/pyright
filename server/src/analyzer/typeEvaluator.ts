@@ -5698,7 +5698,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // arose due to bidirectional type matching.
                 if (!isPartlyUnknown(argParam.paramType) && !isClass(simplifiedType)) {
                     diagAddendum.addMessage(
-                        Localizer.DiagnosticAddendum.argumentType().format({ type: printType(simplifiedType) })
+                        Localizer.DiagnosticAddendum.argumentType().format({
+                            type: printType(simplifiedType, /* expandTypeAlias */ true),
+                        })
                     );
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
