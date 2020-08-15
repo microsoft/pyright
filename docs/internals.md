@@ -90,7 +90,7 @@ def func(a: Union[Foo, Bar]):
 
 In this case, the type of parameter “a” is initially “Union[Foo, Bar]”. Within the “if” clause, the type narrowing logic will conclude that it must be of type “Foo”. Within the “elif” clause, it must be of type “Bar”. What type is it within the “else” clause? The type narrowing system has eliminated all possible subtypes, so it gives it the type “Never”. This is generally indicates that there’s a logic error in the code because there’s way that code block will ever be executed.
 
-Narrowing is also used to discriminate between members of a union type when the union members have a common member with literal declared types that differentiate the types.
+Narrowing is also used to discriminate between subtypes of a union when the union subtypes have a common member with declared literal types that differentiate between the subtypes.
 
 ```python
 class Foo:
