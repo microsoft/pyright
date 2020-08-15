@@ -92,6 +92,7 @@ import {
     NoneType,
     ObjectType,
     Type,
+    TypeBase,
     TypeCategory,
     UnknownType,
 } from './types';
@@ -1399,6 +1400,10 @@ export class Checker extends ParseTreeWalker {
                         if (subtype.isTypeArgumentExplicit) {
                             isSupported = false;
                         }
+                        break;
+
+                    case TypeCategory.Function:
+                        isSupported = TypeBase.isInstantiable(subtype);
                         break;
 
                     default:

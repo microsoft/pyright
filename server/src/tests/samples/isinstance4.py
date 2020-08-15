@@ -26,7 +26,7 @@ def get_type_of_object(object: Union[Callable[..., Any], CustomClass]):
     if isinstance(object, LambdaType):
         return "is lambda"
 
-    if callable(object):
+    if isinstance(object, Callable):
         return "is callable"
 
     return "nothing"
