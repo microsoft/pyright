@@ -879,7 +879,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case ParseNodeType.Ternary: {
-                typeResult = getTypeFromTernary(node, flags);
+                typeResult = getTypeFromTernary(node, flags, expectedType);
                 break;
             }
 
@@ -7293,11 +7293,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return { type, node };
     }
 
-    function getTypeFromTernary(node: TernaryNode, flags: EvaluatorFlags): TypeResult {
+    function getTypeFromTernary(node: TernaryNode, flags: EvaluatorFlags, expectedType: Type | undefined): TypeResult {
         getTypeOfExpression(node.testExpression);
 
-        const ifType = getTypeOfExpression(node.ifExpression, undefined, flags);
-        const elseType = getTypeOfExpression(node.elseExpression, undefined, flags);
+        const ifType = getTypeOfExpression(node.ifExpression, expectedType, flags);
+        const elseType = getTypeOfExpression(node.elseExpression, expectedType, flags);
 
         const type = combineTypes([ifType.type, elseType.type]);
         return { type, node };
