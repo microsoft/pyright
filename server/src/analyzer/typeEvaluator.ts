@@ -15014,22 +15014,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     subtypes = filteredSubtypes;
                 }
 
-                const isLiteral = (type: Type) => isObject(type) && type.classType.literalValue !== undefined;
+                const isLiteralObject = (type: Type) => isObject(type) && type.classType.literalValue !== undefined;
+                const isLiteralClass = (type: Type) => isClass(type) && type.literalValue !== undefined;
 
                 const subtypeStrings: string[] = [];
                 while (subtypes.length > 0) {
                     const subtype = subtypes.shift()!;
-                    if (isLiteral(subtype)) {
-                        // Combine all literal values. Rather than printing Union[Literal[1],
+                    if (isLiteralObject(subtype)) {
+                        // Combine all literal objects. Rather than printing Union[Literal[1],
                         // Literal[2]], print Literal[1, 2].
-                        const literals = subtypes.filter((t) => isLiteral(t));
+                        const literals = subtypes.filter((t) => isLiteralObject(t));
                         literals.unshift(subtype);
-                        const literalValues = literals.map((t) => printLiteralValue(t as ObjectType));
+                        const literalValues = literals.map((t) => printLiteralValue((t as ObjectType).classType));
                         subtypeStrings.push(`Literal[${literalValues.join(', ')}]`);
 
                         // Remove the items we've handled.
                         if (literals.length > 1) {
-                            subtypes = subtypes.filter((t) => !isLiteral(t));
+                            subtypes = subtypes.filter((t) => !isLiteralObject(t));
+                        }
+                    } else if (isLiteralClass(subtype)) {
+                        // Combine all literal classes.
+                        const literals = subtypes.filter((t) => isLiteralClass(t));
+                        literals.unshift(subtype);
+                        const literalValues = literals.map((t) => printLiteralValue(t as ClassType));
+                        subtypeStrings.push(`Type[Literal[${literalValues.join(', ')}]]`);
+
+                        // Remove the items we've handled.
+                        if (literals.length > 1) {
+                            subtypes = subtypes.filter((t) => !isLiteralClass(t));
                         }
                     } else {
                         subtypeStrings.push(printType(subtype, /* expandTypeAlias */ false, recursionCount + 1));

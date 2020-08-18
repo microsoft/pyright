@@ -106,7 +106,7 @@ export const enum CanAssignFlags {
     DisallowAssignFromAny = 1 << 3,
 
     // For function types, skip the return type check.
-    SkipFunctionReturnTypeCheck = 1 << 4,
+    SkipFunctionReturnTypeCheck = 1 << 5,
 }
 
 export interface TypedDictEntry {
@@ -1713,15 +1713,15 @@ export function computeMroLinearization(classType: ClassType): boolean {
     return isMroFound;
 }
 
-export function printLiteralValue(type: ObjectType): string {
-    const literalValue = type.classType.literalValue;
+export function printLiteralValue(type: ClassType): string {
+    const literalValue = type.literalValue;
     if (literalValue === undefined) {
         return '';
     }
 
     let literalStr: string;
     if (typeof literalValue === 'string') {
-        const prefix = type.classType.details.name === 'bytes' ? 'b' : '';
+        const prefix = type.details.name === 'bytes' ? 'b' : '';
         literalStr = literalValue.toString();
         if (literalStr.indexOf('\n') >= 0) {
             literalStr = `${prefix}'''${literalStr.replace(tripleTickRegEx, "\\'\\'\\'")}'''`;
@@ -1740,7 +1740,7 @@ export function printLiteralValue(type: ObjectType): string {
 }
 
 export function printLiteralType(type: ObjectType): string {
-    const literalStr = printLiteralValue(type);
+    const literalStr = printLiteralValue(type.classType);
     if (!literalStr) {
         return '';
     }
