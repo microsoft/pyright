@@ -12361,7 +12361,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 // If the symbol is private or constant, we can retain the literal
                                 // value. Otherwise, strip them off to make the type less specific,
                                 // allowing other values to be assigned to it in subclasses.
-                                if (!isPrivate && !isConstant && !isEnum && !isFinalVar) {
+                                if (TypeBase.isInstance(type) && !isPrivate && !isConstant && !isEnum && !isFinalVar) {
                                     type = stripLiteralValue(type);
                                 }
                             }
