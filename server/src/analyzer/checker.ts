@@ -97,6 +97,7 @@ import {
     UnknownType,
 } from './types';
 import {
+    CanAssignFlags,
     ClassMemberLookupFlags,
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
@@ -311,6 +312,17 @@ export class Checker extends ParseTreeWalker {
         }
 
         this._scopedNodes.push(node);
+
+        if (functionTypeResult && functionTypeResult.decoratedType.category === TypeCategory.OverloadedFunction) {
+            const overloads = functionTypeResult.decoratedType.overloads;
+            if (overloads.length > 1) {
+                this._validateOverloadConsistency(
+                    node,
+                    overloads[overloads.length - 1],
+                    overloads.slice(0, overloads.length - 1)
+                );
+            }
+        }
 
         return false;
     }
@@ -789,6 +801,41 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    private _validateOverloadConsistency(
+        node: FunctionNode,
+        functionType: FunctionType,
+        prevOverloads: FunctionType[]
+    ) {
+        for (let i = 0; i < prevOverloads.length; i++) {
+            const prevOverload = prevOverloads[i];
+            if (this._isOverlappingOverload(functionType, prevOverload)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.overlappingOverload().format({
+                        name: node.name.value,
+                        obscured: prevOverloads.length + 1,
+                        obscuredBy: i + 1,
+                    }),
+                    node.name
+                );
+                break;
+            }
+        }
+    }
+
+    private _isOverlappingOverload(functionType: FunctionType, prevOverload: FunctionType) {
+        return this._evaluator.canAssignType(
+            functionType,
+            prevOverload,
+            new DiagnosticAddendum(),
+            /* typeVarMap */ undefined,
+            CanAssignFlags.MatchTypeVarsExactly |
+                CanAssignFlags.SkipFunctionReturnTypeCheck |
+                CanAssignFlags.DisallowAssignFromAny
+        );
     }
 
     private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
