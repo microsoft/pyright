@@ -749,6 +749,10 @@ export const enum FunctionTypeFlags {
 
     // Function has one or more parameters that are missing type annotations
     UnannotatedParams = 1 << 13,
+
+    // Any collection of parameters will match this function. This is used
+    // for Callable[..., x].
+    SkipParamCompatibilityCheck = 1 << 14,
 }
 
 interface FunctionDetails {
@@ -1032,6 +1036,10 @@ export namespace FunctionType {
 
     export function hasUnannotatedParams(type: FunctionType) {
         return (type.details.flags & FunctionTypeFlags.UnannotatedParams) !== 0;
+    }
+
+    export function shouldSkipParamCompatibilityCheck(type: FunctionType) {
+        return (type.details.flags & FunctionTypeFlags.SkipParamCompatibilityCheck) !== 0;
     }
 
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {

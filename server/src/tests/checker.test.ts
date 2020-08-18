@@ -419,7 +419,7 @@ test('Lambda1', () => {
 test('Lambda2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['lambda2.py']);
 
-    validateResults(analysisResults, 4);
+    validateResults(analysisResults, 5);
 });
 
 test('Lambda3', () => {

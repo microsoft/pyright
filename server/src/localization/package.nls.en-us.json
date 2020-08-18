@@ -315,6 +315,7 @@
     "DiagnosticAddendum": {
         "argParam": "Argument corresponds to parameter \"{paramName}\"",
         "argParamFunction": "Argument corresponds to parameter \"{paramName}\" in function \"{functionName}\"",
+        "argsParamMissing": "Parameter *{paramName} has no corresponding parameter",
         "argumentType": "Argument type is \"{type}\"",
         "argumentTypes": "Argument types: ({types})",
         "assignToNone": "Cannot assign to \"None\"",
@@ -322,8 +323,8 @@
         "finalMethod": "Final method",
         "keyUndefined": "\"{name}\" is not a defined key in \"{type}\"",
         "functionReturnTypeMismatch": "Function return type \"{sourceType}\" is not compatible with type \"{destType}\"",
-        "functionTooFewParams": "Function accepts too few parameters; expected {expected} but received {received}",
-        "functionTooManyParams": "Function accepts too many parameters; expected {expected} but received {received}",
+        "functionTooFewParams": "Function accepts too few positional parameters; expected {expected} but received {received}",
+        "functionTooManyParams": "Function accepts too many positional parameters; expected {expected} but received {received}",
         "literalAssignmentMismatch": "\"{sourceType}\" cannot be assigned to type \"{destType}\"",
         "memberSetClassVar": "Member \"{name}\" cannot be assigned through a class instance because it is a ClassVar",
         "memberAssignment": "Expression of type \"{type}\" cannot be assigned to member \"{name}\" of class \"{classType}\"",

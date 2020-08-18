@@ -95,6 +95,18 @@ export const enum CanAssignFlags {
     // the types are contravariant. Perform type var matching
     // on dest type vars rather than source type var.
     ReverseTypeVarMatching = 1 << 1,
+
+    // Normally type vars are treated as variables that need to
+    // be "solved". If this flag is set, they are treated as types
+    // that must match exactly.
+    MatchTypeVarsExactly = 1 << 2,
+
+    // If the dest is not Any but the src is Any, treat it
+    // as incompatible.
+    DisallowAssignFromAny = 1 << 3,
+
+    // For function types, skip the return type check.
+    SkipFunctionReturnTypeCheck = 1 << 4,
 }
 
 export interface TypedDictEntry {

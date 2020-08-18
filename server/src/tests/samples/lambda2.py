@@ -13,6 +13,8 @@ foo2: Callable[[int, int], int] = lambda x, /: x + 1
 # parameters provided by the lambda.
 foo3: Callable[[int, int], int] = lambda x, /, y, z: x + 1
 
+# This should generate an error because there is no named
+# parameter y.
 foo4: Callable[[int, int], int] = lambda x, *, y: x + y + 1
 
 # This should generate an error because there are too few

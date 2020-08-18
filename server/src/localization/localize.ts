@@ -625,6 +625,8 @@ export namespace Localizer {
             new ParameterizedString<{ paramName: string; functionName: string }>(
                 getRawString('DiagnosticAddendum.argParamFunction')
             );
+        export const argsParamMissing = () =>
+            new ParameterizedString<{ paramName: string }>(getRawString('DiagnosticAddendum.argsParamMissing'));
         export const argumentType = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.argumentType'));
         export const argumentTypes = () =>
