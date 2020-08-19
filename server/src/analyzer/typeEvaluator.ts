@@ -12988,7 +12988,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             srcArgCount = 1;
                         }
 
-                        if (srcTypeArgs.length === destArgCount || isDestHomogenousTuple || isSrcHomogeneousType) {
+                        if ((srcTypeArgs.length === destArgCount && !isSrcHomogeneousType) || isDestHomogenousTuple) {
                             for (let i = 0; i < Math.max(destArgCount, srcArgCount); i++) {
                                 const expectedDestType =
                                     (isDestHomogenousTuple ? destTypeArgs[0] : destTypeArgs[i]) || AnyType.create();
