@@ -156,7 +156,7 @@ export class DiagnosticAddendum {
 
         // Prepend indentation for readability. Skip if there are no
         // messages at this level.
-        const extraSpace = this._messages.length > 0 ? '  ' : '';
+        const extraSpace = this._messages.length > 0 ? '  ' : '';
         return this._messages.concat(childLines).map((line) => extraSpace + line);
     }
 }
