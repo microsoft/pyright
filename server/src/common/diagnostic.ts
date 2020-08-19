@@ -11,6 +11,9 @@ import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from './configOptions';
 import { Range } from './textRange';
 
+const defaultMaxDepth = 5;
+const defaultMaxLineCount = 8;
+
 export const enum DiagnosticCategory {
     Error,
     Warning,
@@ -105,7 +108,7 @@ export class DiagnosticAddendum {
         return newAddendum;
     }
 
-    getString(maxDepth = 5, maxLineCount = 5): string {
+    getString(maxDepth = defaultMaxDepth, maxLineCount = defaultMaxLineCount): string {
         let lines = this._getLinesRecursive(maxDepth);
 
         if (lines.length > maxLineCount) {
@@ -147,7 +150,8 @@ export class DiagnosticAddendum {
 
         const childLines: string[] = [];
         for (const addendum of this._childAddenda) {
-            childLines.push(...addendum._getLinesRecursive(maxDepth - 1));
+            const maxDepthRemaining = this._messages.length > 0 ? maxDepth - 1 : maxDepth;
+            childLines.push(...addendum._getLinesRecursive(maxDepthRemaining));
         }
 
         // Prepend indentation for readability. Skip if there are no

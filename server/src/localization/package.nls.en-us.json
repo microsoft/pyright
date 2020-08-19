@@ -339,6 +339,7 @@
         "namedParamTypeMismatch": "Named parameter \"{name}\" of type \"{sourceType}\" cannot be assigned to type \"{destType}\"",
         "noOverloadAssignable": "No overloaded function matches type \"{type}\"",
         "overloadCallName": "Calling function \"{name}\"",
+        "overloadNotAssignable": "One or more overloads of \"{name}\" is not assignable",
         "overriddenMethod": "Overridden method",
         "overriddenSymbol": "Overridden symbol",
         "overrideParamCount": "Parameter count mismatch; base method has {baseCount}, but override has {overrideCount}",
