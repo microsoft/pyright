@@ -157,9 +157,13 @@ function processArgs() {
         }
     }
 
-    options.verboseOutput = !!args.verbose;
+    if (args.verbose) {
+        options.verboseOutput = true;
+    }
+    if (args.lib) {
+        options.useLibraryCodeForTypes = true;
+    }
     options.checkOnlyOpenFiles = false;
-    options.useLibraryCodeForTypes = !!args.lib;
 
     const watch = args.watch !== undefined;
     options.watchForSourceChanges = watch;
