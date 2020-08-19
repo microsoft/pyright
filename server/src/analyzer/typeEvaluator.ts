@@ -12994,18 +12994,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                     (isDestHomogenousTuple ? destTypeArgs[0] : destTypeArgs[i]) || AnyType.create();
                                 const expectedSrcType =
                                     (isSrcHomogeneousType ? srcTypeArgs[0] : srcTypeArgs[i]) || AnyType.create();
+                                const entryDiag = diag.createAddendum();
 
                                 if (
                                     !canAssignType(
                                         expectedDestType,
                                         expectedSrcType,
-                                        diag.createAddendum(),
+                                        entryDiag.createAddendum(),
                                         curTypeVarMap,
                                         flags,
                                         recursionCount + 1
                                     )
                                 ) {
-                                    diag.addMessage(
+                                    entryDiag.addMessage(
                                         Localizer.DiagnosticAddendum.tupleEntryTypeMismatch().format({ entry: i + 1 })
                                     );
                                     return false;
@@ -13499,17 +13500,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // For union sources, all of the types need to be assignable to the dest.
             srcType.subtypes.forEach((t) => {
                 if (!canAssignType(destType, t, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(t),
-                            destType: printType(destType),
-                        })
-                    );
                     isIncompatible = true;
                 }
             });
 
             if (isIncompatible) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(srcType),
+                        destType: printType(destType),
+                    })
+                );
                 return false;
             }
 
