@@ -106,7 +106,7 @@ export const enum CanAssignFlags {
     DisallowAssignFromAny = 1 << 3,
 
     // For function types, skip the return type check.
-    SkipFunctionReturnTypeCheck = 1 << 5,
+    SkipFunctionReturnTypeCheck = 1 << 4,
 }
 
 export interface TypedDictEntry {
