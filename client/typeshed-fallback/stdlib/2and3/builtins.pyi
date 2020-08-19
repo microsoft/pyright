@@ -1207,8 +1207,9 @@ if sys.version_info >= (3, 6):
     # This class is to be exported as PathLike from os,
     # but we define it here as _PathLike to avoid import cycle issues.
     # See https://github.com/python/typeshed/pull/991#issuecomment-288160993
-    class _PathLike(Generic[AnyStr]):
-        def __fspath__(self) -> AnyStr: ...
+    _AnyStr_co = TypeVar("_AnyStr_co", str, bytes, covariant=True)
+    class _PathLike(Protocol[_AnyStr_co]):
+        def __fspath__(self) -> _AnyStr_co: ...
     def compile(
         source: Union[str, bytes, mod, AST],
         filename: Union[str, bytes, _PathLike[Any]],

@@ -46,14 +46,14 @@ if sys.version_info >= (3, 8):
     # TypedDict is a (non-subscriptable) special form.
     TypedDict: object
 
+if sys.version_info < (3, 7):
+    class GenericMeta(type): ...
+
 if sys.version_info >= (3, 10):
     class ParamSpec:
         __name__: str
         def __init__(self, name: str) -> None: ...
     Concatenate: _SpecialForm = ...
-
-if sys.version_info < (3, 7):
-    class GenericMeta(type): ...
 
 # Return type that indicates a function does not return.
 # This type is equivalent to the None type, but the no-op Union is necessary to
@@ -202,6 +202,8 @@ class Awaitable(Protocol[_T_co]):
     def __await__(self) -> Generator[Any, None, _T_co]: ...
 
 class Coroutine(Awaitable[_V_co], Generic[_T_co, _T_contra, _V_co]):
+    __name__: str
+    __qualname__: str
     @property
     def cr_await(self) -> Optional[Any]: ...
     @property

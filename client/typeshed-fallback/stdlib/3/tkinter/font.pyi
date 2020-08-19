@@ -9,21 +9,10 @@ ITALIC: Literal["italic"]
 
 def nametofont(name: str) -> Font: ...
 
-# _TkinterSequence[T] represents a sequence that tkinter understands. It
-# differs from typing.Sequence[T]. For example, collections.deque a valid
-# Sequence but not a valid _TkinterSequence:
-#
-#    >>> tkinter.Label(font=('Helvetica', 12, collections.deque(['bold'])))
-#    Traceback (most recent call last):
-#      ...
-#    _tkinter.TclError: unknown font style "deque(['bold'])"
-_T = TypeVar("_T")
-_TkinterSequence = Union[List[_T], Tuple[_T, ...]]
-
 # See 'FONT DESCRIPTIONS' in font man page. This uses str because Literal
 # inside Tuple doesn't work.
 _FontDescription = Union[
-    str, Font, Tuple[str, int], Tuple[str, int, _TkinterSequence[str]],
+    str, Font, Tuple[str, int], Tuple[str, int, str], Tuple[str, int, tkinter._TkinterSequence[str]],
 ]
 
 class _FontDict(TypedDict):

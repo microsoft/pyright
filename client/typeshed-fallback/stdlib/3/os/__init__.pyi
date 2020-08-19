@@ -265,7 +265,7 @@ if sys.version_info >= (3, 6):
 _FdOrAnyPath = Union[int, AnyPath]
 
 if sys.version_info >= (3, 6):
-    class DirEntry(PathLike[AnyStr]):
+    class DirEntry(Generic[AnyStr]):
         # This is what the scandir interator yields
         # The constructor is hidden
 

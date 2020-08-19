@@ -62,7 +62,7 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
             request: bytes,
             client_address: Tuple[str, int],
             server: socketserver.BaseServer,
-            directory: Optional[Union[str, _PathLike[str]]],
+            directory: Optional[Union[str, _PathLike[str]]] = ...,
         ) -> None: ...
     else:
         def __init__(self, request: bytes, client_address: Tuple[str, int], server: socketserver.BaseServer) -> None: ...
