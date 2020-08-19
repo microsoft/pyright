@@ -16,8 +16,8 @@ def func1(a: int, b: int) -> int:
 
 
 @overload
-def func1(a: int, b: int, *, named: int = 3) -> str:
-    return ""
+def func1(a: int, b: int, *, named: int = 3) -> int:
+    return 1
 
 
 # This should generate an error because the overload is obscured.
@@ -61,6 +61,18 @@ def func4(a: int, *, c: int, b: int) -> int:
 @overload
 def func4(a: int, *, b: int, c: int) -> int:
     return 1
+
+
+# This should generate an error because the overload is overlapping
+# in an unsafe way (i.e. returns an incompatible type).
+@overload
+def func5(a: int, b: int) -> int:
+    return 3
+
+
+@overload
+def func5(a: float, b: float = 3.4, *c: int, d: float = 4.5) -> str:
+    return ""
 
 
 _T1 = TypeVar("_T1")

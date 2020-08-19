@@ -824,6 +824,54 @@ export class Checker extends ParseTreeWalker {
                 break;
             }
         }
+
+        for (let i = 0; i < prevOverloads.length; i++) {
+            const prevOverload = prevOverloads[i];
+            if (this._isOverlappingOverload(prevOverload, functionType)) {
+                const prevReturnType = FunctionType.getSpecializedReturnType(prevOverload);
+                const returnType = FunctionType.getSpecializedReturnType(functionType);
+
+                if (
+                    prevReturnType &&
+                    returnType &&
+                    !this._evaluator.canAssignType(returnType, prevReturnType, new DiagnosticAddendum())
+                ) {
+                    const altNode = this._findNodeForOverload(node, prevOverload);
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.overloadReturnTypeMismatch().format({
+                            name: node.name.value,
+                            newIndex: prevOverloads.length + 1,
+                            prevIndex: i + 1,
+                        }),
+                        (altNode || node).name
+                    );
+                    break;
+                }
+            }
+        }
+    }
+
+    // Mypy reports overlapping overload errors on the line that contains the
+    // earlier overload. Typeshed stubs contain type: ignore comments on these
+    // lines, so it is important for us to report them in the same manner.
+    private _findNodeForOverload(functionNode: FunctionNode, overloadType: FunctionType): FunctionNode | undefined {
+        const decls = this._evaluator.getDeclarationsForNameNode(functionNode.name);
+        if (!decls) {
+            return undefined;
+        }
+
+        for (const decl of decls) {
+            if (decl.type === DeclarationType.Function) {
+                const functionType = this._evaluator.getTypeOfFunction(decl.node);
+                if (functionType?.functionType === overloadType) {
+                    return decl.node;
+                }
+            }
+        }
+
+        return undefined;
     }
 
     private _isOverlappingOverload(functionType: FunctionType, prevOverload: FunctionType) {

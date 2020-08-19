@@ -427,6 +427,10 @@ export namespace Localizer {
             );
         export const overloadAbstractMismatch = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.overloadAbstractMismatch'));
+        export const overloadReturnTypeMismatch = () =>
+            new ParameterizedString<{ name: string; newIndex: number; prevIndex: number }>(
+                getRawString('Diagnostic.overloadReturnTypeMismatch')
+            );
         export const paramAfterKwargsParam = () => getRawString('Diagnostic.paramAfterKwargsParam');
         export const paramAlreadyAssigned = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramAlreadyAssigned'));
