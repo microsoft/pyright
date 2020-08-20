@@ -1073,7 +1073,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             argList,
             decoratorCall,
             undefined,
-            EvaluatorFlags.DoNotCheckForUnknownArgs
+            EvaluatorFlags.DoNotCheckForUnknownArgs | EvaluatorFlags.DoNotSpecialize
         ).type;
     }
 
