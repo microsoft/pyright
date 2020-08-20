@@ -796,8 +796,12 @@ export class TestState {
     }
 
     async verifyCompletion(
-        verifyMode: 'exact' | 'included' | 'excluded',
-        map: { [marker: string]: { completions: { label: string; documentation?: { kind: string; value: string } }[] } }
+        verifyMode: _.FourSlashCompletionVerificationMode,
+        map: {
+            [marker: string]: {
+                completions: _.FourSlashCompletionItem[];
+            };
+        }
     ): Promise<void> {
         this._analyze();
 
@@ -892,6 +896,7 @@ export class TestState {
                 parameters: string[];
             }[];
             activeParameters?: (number | undefined)[];
+            callHasParameters?: boolean;
         };
     }): void {
         this._analyze();
@@ -937,6 +942,10 @@ export class TestState {
                 actual!.signatures.map((sig) => sig.activeParameter),
                 expected.activeParameters
             );
+
+            if (expected.callHasParameters !== undefined) {
+                assert.equal(actual.callHasParameters, expected.callHasParameters);
+            }
         }
     }
 

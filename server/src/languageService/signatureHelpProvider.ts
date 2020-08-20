@@ -35,6 +35,7 @@ export interface SignatureInfo {
 
 export interface SignatureHelpResults {
     signatures: SignatureInfo[];
+    callHasParameters: boolean;
 }
 
 export class SignatureHelpProvider {
@@ -80,9 +81,11 @@ export class SignatureHelpProvider {
         }
 
         const signatures = callSignatureInfo.signatures.map((sig) => this._makeSignature(sig, evaluator));
+        const callHasParameters = !!callSignatureInfo.callNode.arguments?.length;
 
         return {
             signatures,
+            callHasParameters,
         };
     }
 

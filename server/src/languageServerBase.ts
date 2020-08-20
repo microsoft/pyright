@@ -18,6 +18,8 @@ import {
     CodeAction,
     CodeActionParams,
     Command,
+    CompletionList,
+    CompletionParams,
     CompletionTriggerKind,
     ConfigurationItem,
     Connection,
@@ -170,6 +172,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     private _pendingCommandCancellationSource: CancellationTokenSource | undefined;
 
     private _progressReporter: ProgressReporter;
+
+    private _lastTriggerKind: CompletionTriggerKind | undefined = CompletionTriggerKind.Invoked;
 
     // Global root path - the basis for all global settings.
     rootPath = '';
@@ -542,7 +546,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 return sigInfo;
             });
 
-            let activeSignature: number | null = signatures.findIndex((sig) => sig.activeParameter !== undefined);
+            // A signature is active if it contains an active parameter,
+            // or if both the signature and its invocation have no parameters.
+            const isActive = (sig: SignatureInformation) =>
+                sig.activeParameter !== undefined ||
+                (!signatureHelpResults.callHasParameters && !sig.parameters?.length);
+
+            let activeSignature: number | null = signatures.findIndex(isActive);
             if (activeSignature === -1) {
                 activeSignature = null;
             }
@@ -562,9 +572,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 const prevActiveSignature = params.context.activeSignatureHelp?.activeSignature ?? null;
                 if (prevActiveSignature !== null && prevActiveSignature < signatures.length) {
                     const sig = signatures[prevActiveSignature];
-                    if (sig.activeParameter !== undefined) {
+                    if (isActive(sig)) {
                         activeSignature = prevActiveSignature;
-                        activeParameter = sig.activeParameter;
+                        activeParameter = sig.activeParameter ?? null;
                     }
                 }
             }
@@ -580,48 +590,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return { signatures, activeSignature, activeParameter };
         });
 
-        let lastTriggerKind: CompletionTriggerKind | undefined = CompletionTriggerKind.Invoked;
-        this._connection.onCompletion(async (params, token) => {
-            // We set completion incomplete for the first invocation and next consecutive call,
-            // but after that we mark it as completed so the client doesn't repeatedly call back.
-            // We mark the first one as incomplete because completion could be invoked without
-            // any meaningful character provided, such as an explicit completion invocation (ctrl+space)
-            // or a period. That might cause us to not include some items (e.g., auto-imports).
-            // The next consecutive call provides some characters to help us to pick
-            // better completion items. After that, we are not going to introduce new items,
-            // so we can let the client to do the filtering and caching.
-            const completionIncomplete =
-                lastTriggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions ||
-                params.context?.triggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions;
-
-            lastTriggerKind = params.context?.triggerKind;
-
-            const filePath = convertUriToPath(params.textDocument.uri);
-
-            const position: Position = {
-                line: params.position.line,
-                character: params.position.character,
-            };
-
-            const workspace = await this.getWorkspaceForFile(filePath);
-            if (workspace.disableLanguageServices) {
-                return;
-            }
-
-            const completions = await workspace.serviceInstance.getCompletionsForPosition(
-                filePath,
-                position,
-                workspace.rootPath,
-                token
-            );
-
-            if (completions) {
-                completions.isIncomplete = completionIncomplete;
-            }
-
-            return completions;
-        });
-
+        this._connection.onCompletion((params, token) => this.onCompletion(params, token));
         this._connection.onCompletionResolve(async (params, token) => {
             // Cancellation bugs in vscode and LSP:
             // https://github.com/microsoft/vscode-languageserver-node/issues/615
@@ -996,6 +965,49 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         typeStubTargetImportName?: string
     ) {
         AnalyzerServiceExecutor.runWithOptions(this.rootPath, workspace, serverSettings, typeStubTargetImportName);
+    }
+
+    protected async onCompletion(
+        params: CompletionParams,
+        token: CancellationToken
+    ): Promise<CompletionList | undefined> {
+        // We set completion incomplete for the first invocation and next consecutive call,
+        // but after that we mark it as completed so the client doesn't repeatedly call back.
+        // We mark the first one as incomplete because completion could be invoked without
+        // any meaningful character provided, such as an explicit completion invocation (ctrl+space)
+        // or a period. That might cause us to not include some items (e.g., auto-imports).
+        // The next consecutive call provides some characters to help us to pick
+        // better completion items. After that, we are not going to introduce new items,
+        // so we can let the client to do the filtering and caching.
+        const completionIncomplete =
+            this._lastTriggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions ||
+            params.context?.triggerKind !== CompletionTriggerKind.TriggerForIncompleteCompletions;
+
+        this._lastTriggerKind = params.context?.triggerKind;
+
+        const filePath = convertUriToPath(params.textDocument.uri);
+        const position: Position = {
+            line: params.position.line,
+            character: params.position.character,
+        };
+
+        const workspace = await this.getWorkspaceForFile(filePath);
+        if (workspace.disableLanguageServices) {
+            return;
+        }
+
+        const completions = await workspace.serviceInstance.getCompletionsForPosition(
+            filePath,
+            position,
+            workspace.rootPath,
+            token
+        );
+
+        if (completions) {
+            completions.isIncomplete = completionIncomplete;
+        }
+
+        return completions;
     }
 
     protected convertLogLevel(logLevel?: string): LogLevel {

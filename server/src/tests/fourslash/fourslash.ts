@@ -23,6 +23,13 @@
  */
 
 declare namespace _ {
+    type FourSlashCompletionVerificationMode = 'exact' | 'included' | 'excluded';
+    interface FourSlashCompletionItem {
+        label: string;
+        insertionText?: string;
+        documentation?: { kind: string; value: string };
+    }
+
     interface TextRange {
         start: number;
         length: number;
@@ -143,9 +150,11 @@ declare namespace _ {
         ): Promise<any>;
         verifyHover(map: { [marker: string]: { value: string; kind: string } }): void;
         verifyCompletion(
-            verifyMode: 'exact' | 'included' | 'excluded',
+            verifyMode: FourSlashCompletionVerificationMode,
             map: {
-                [marker: string]: { completions: { label: string; documentation?: { kind: string; value: string } }[] };
+                [marker: string]: {
+                    completions: FourSlashCompletionItem[];
+                };
             }
         ): Promise<void>;
         verifySignature(map: {
@@ -156,6 +165,7 @@ declare namespace _ {
                     parameters: string[];
                 }[];
                 activeParameters?: (number | undefined)[];
+                callHasParameters?: boolean;
             };
         }): void;
         verifyFindAllReferences(map: {

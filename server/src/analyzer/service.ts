@@ -31,7 +31,7 @@ import { ConsoleInterface, StandardConsole } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
-import { FileSystem, FileWatcher } from '../common/fileSystem';
+import { FileSystem, FileWatcher, ignoredWatchEventFunction } from '../common/fileSystem';
 import {
     combinePaths,
     FileSpec,
@@ -452,7 +452,6 @@ export class AnalyzerService {
                     );
                 }
             }
-            this._updateLibraryFileWatcher();
         } else {
             configOptions.addExecEnvironmentForExtraPaths(
                 this._fs,
@@ -501,7 +500,7 @@ export class AnalyzerService {
             }
         }
 
-        configOptions.verboseOutput = !!commandLineOptions.verboseOutput;
+        configOptions.verboseOutput = commandLineOptions.verboseOutput ?? configOptions.verboseOutput;
         configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
         configOptions.autoImportCompletions = !!commandLineOptions.autoImportCompletions;
 
@@ -678,8 +677,8 @@ export class AnalyzerService {
         return this._commandLineOptions?.typeCheckingMode;
     }
 
-    private get _verboseOutput() {
-        return !!this._commandLineOptions?.verboseOutput;
+    private get _verboseOutput(): boolean {
+        return !!this._configOptions.verboseOutput;
     }
 
     private get _typeStubTargetImportName() {
@@ -982,7 +981,12 @@ export class AnalyzerService {
                     this._console.info(`Adding fs watcher for directories:\n ${fileList.join('\n')}`);
                 }
 
+                const isIgnored = ignoredWatchEventFunction(fileList);
                 this._sourceFileWatcher = this._fs.createFileSystemWatcher(fileList, (event, path) => {
+                    if (isIgnored(path)) {
+                        return;
+                    }
+
                     if (this._verboseOutput) {
                         this._console.info(`Received fs event '${event}' for path '${path}'`);
                     }
@@ -1052,8 +1056,12 @@ export class AnalyzerService {
                 if (this._verboseOutput) {
                     this._console.info(`Adding fs watcher for library directories:\n ${watchList.join('\n')}`);
                 }
-
+                const isIgnored = ignoredWatchEventFunction(watchList);
                 this._libraryFileWatcher = this._fs.createFileSystemWatcher(watchList, (event, path) => {
+                    if (isIgnored(path)) {
+                        return;
+                    }
+
                     if (this._verboseOutput) {
                         this._console.info(`Received fs event '${event}' for path '${path}'`);
                     }
