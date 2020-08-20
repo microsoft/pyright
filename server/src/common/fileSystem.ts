@@ -80,6 +80,21 @@ export function createFromRealFileSystem(
     return new RealFileSystem(fileWatcherProvider ?? new ChokidarFileWatcherProvider(console ?? new NullConsole()));
 }
 
+// File watchers can give "changed" event even for a file open. but for those cases,
+// it will give relative path rather than absolute path. To get rid of such cases,
+// we will drop any event with relative paths. this trick is copied from VS Code
+// (https://github.com/microsoft/vscode/blob/master/src/vs/platform/files/node/watcher/unix/chokidarWatcherService.ts)
+export function ignoredWatchEventFunction(paths: string[]) {
+    const normalizedPaths = paths.map((p) => p.toLowerCase());
+    return (path: string): boolean => {
+        if (!path || path.indexOf('__pycache__')) {
+            return true;
+        }
+        const normalizedPath = path.toLowerCase();
+        return normalizedPaths.every((p) => normalizedPath.indexOf(p) < 0);
+    };
+}
+
 const _isMacintosh = process.platform === 'darwin';
 const _isLinux = process.platform === 'linux';
 
@@ -216,7 +231,7 @@ class ChokidarFileWatcherProvider implements FileWatcherProvider {
             watcherOptions.usePolling = false;
         }
 
-        const excludes: string[] = [];
+        const excludes: string[] = ['**/__pycache__/**'];
         if (_isMacintosh || _isLinux) {
             if (paths.some((path) => path === '' || path === '/')) {
                 excludes.push('/dev/**');
