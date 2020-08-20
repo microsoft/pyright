@@ -238,7 +238,11 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                                     const lookaheadChar = getEscapedCharacter(charCount);
                                     if (lookaheadChar === Char.CloseBrace) {
                                         break;
-                                    } else if (!_isAlphaNumericChar(lookaheadChar) && lookaheadChar !== Char.Space) {
+                                    } else if (
+                                        !_isAlphaNumericChar(lookaheadChar) &&
+                                        lookaheadChar !== Char.Hyphen &&
+                                        !_isWhitespaceChar(lookaheadChar)
+                                    ) {
                                         foundIllegalChar = true;
                                         break;
                                     } else {
@@ -428,6 +432,10 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
             strOffset++;
         }
     }
+}
+
+function _isWhitespaceChar(charCode: number): boolean {
+    return charCode === Char.Space || charCode === Char.Tab;
 }
 
 function _isAlphaNumericChar(charCode: number): boolean {
