@@ -110,6 +110,7 @@ import {
     isProperty,
     lookUpClassMember,
     makeTypeVarsConcrete,
+    partiallySpecializeType,
     specializeType,
     transformTypeObjectToClass,
 } from './typeUtils';
@@ -2025,7 +2026,10 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
-            const baseClassSymbolType = this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol);
+            const baseClassSymbolType = partiallySpecializeType(
+                this._evaluator.getEffectiveTypeOfSymbol(baseClassAndSymbol.symbol),
+                baseClassAndSymbol.classType
+            );
             const diagAddendum = new DiagnosticAddendum();
 
             if (
