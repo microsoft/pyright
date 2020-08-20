@@ -87,7 +87,7 @@ export function createFromRealFileSystem(
 export function ignoredWatchEventFunction(paths: string[]) {
     const normalizedPaths = paths.map((p) => p.toLowerCase());
     return (path: string): boolean => {
-        if (!path || path.indexOf('__pycache__')) {
+        if (!path || path.indexOf('__pycache__') >= 0) {
             return true;
         }
         const normalizedPath = path.toLowerCase();
