@@ -1,7 +1,7 @@
 # This sample tests the reportIncompatibleMethodOverride
 # configuration option.
 
-from typing import Union
+from typing import Iterable, List, Sequence, Union
 
 
 class ParentClass():
@@ -115,3 +115,40 @@ class ChildClass(ParentClass):
     # method with a class.
     class my_method16:
         pass
+
+
+
+class A:
+    def test(self, t: Sequence[int]) -> Sequence[str]:
+        ...
+
+
+class GeneralizedArgument(A):
+    def test(self, t: Iterable[int], bbb: str = "") -> Sequence[str]:
+        ...
+
+
+class NarrowerArgument(A):
+    # This should generate error because List[int] is narrower
+    # than Iterable[int].
+    def test(self, t: List[int]) -> Sequence[str]:
+        ...
+
+
+class NarrowerReturn(A):
+    def test(self, t: Sequence[int]) -> List[str]:
+        ...
+
+
+class GeneralizedReturn1(A):
+    # This should generate an error because Iterable[str] is
+    # wider than Sequence[str].
+    def test(self, t: Sequence[int]) -> Iterable[str]:
+        ...
+
+class GeneralizedReturn2(A):
+    # This should generate an error because List[int] is
+    # incompatible with Sequence[str].
+    def test(self, t: Sequence[int]) -> List[int]:
+        ...
+

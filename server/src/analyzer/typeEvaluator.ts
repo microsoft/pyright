@@ -14395,18 +14395,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const baseParamType = FunctionType.getEffectiveParameterType(baseMethod, i);
                 const overrideParamType = FunctionType.getEffectiveParameterType(overrideMethod, i);
 
-                if (
-                    baseParam.category !== overrideParam.category ||
-                    !canAssignType(baseParamType, overrideParamType, diag.createAddendum())
-                ) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.overrideParamType().format({
-                            index: i + 1,
-                            baseType: printType(baseParamType),
-                            overrideType: printType(overrideParamType),
-                        })
-                    );
-                    canOverride = false;
+                const baseIsSynthesizedTypeVar = isTypeVar(baseParamType) && baseParamType.isSynthesized;
+                const overrideIsSynthesizedTypeVar = isTypeVar(overrideParamType) && overrideParamType.isSynthesized;
+                if (!baseIsSynthesizedTypeVar && !overrideIsSynthesizedTypeVar) {
+                    if (
+                        baseParam.category !== overrideParam.category ||
+                        !canAssignType(overrideParamType, baseParamType, diag.createAddendum())
+                    ) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.overrideParamType().format({
+                                index: i + 1,
+                                baseType: printType(baseParamType),
+                                overrideType: printType(overrideParamType),
+                            })
+                        );
+                        canOverride = false;
+                    }
                 }
             }
         }
