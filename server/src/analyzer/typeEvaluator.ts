@@ -6561,6 +6561,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
+        // Handle the special case where the unary operator is + or -, the operand
+        // is a literal int, and the resulting type is an int. In these cases, we'll
+        // want to interpret the resulting type as a literal.
+        if (node.operator === OperatorType.Add || node.operator === OperatorType.Subtract) {
+            if (
+                isObject(type) &&
+                ClassType.isBuiltIn(type.classType, 'int') &&
+                isObject(exprType) &&
+                ClassType.isBuiltIn(exprType.classType, 'int') &&
+                typeof exprType.classType.literalValue === 'number'
+            ) {
+                const value =
+                    node.operator === OperatorType.Add
+                        ? exprType.classType.literalValue
+                        : -exprType.classType.literalValue;
+                type = ObjectType.create(ClassType.cloneWithLiteral(type.classType, value));
+            }
+        }
+
         return { type, node };
     }
 

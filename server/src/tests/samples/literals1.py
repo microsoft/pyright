@@ -39,3 +39,6 @@ invalidType = 3  # type: Literal[3.4]
 # This should generate an error because 2
 # is not a valid literal value.
 mismatch = 2  # type: Literal[3, 4, '5']
+
+a: Literal[3] = -(-(+++3))
+b: Literal[-2] = +-+2
