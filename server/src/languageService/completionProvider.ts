@@ -1025,6 +1025,34 @@ export class CompletionProvider {
                     this._addSymbolsForSymbolTable(scope.symbolTable, () => true, priorWord, undefined, completionList);
                     scope = scope.parent;
                 }
+
+                // If this is a class scope, add symbols from parent classes.
+                if (curNode.nodeType === ParseNodeType.Class) {
+                    const classType = this._evaluator.getTypeOfClass(curNode);
+                    if (classType && isClass(classType.classType)) {
+                        classType.classType.details.mro.forEach((baseClass, index) => {
+                            if (isClass(baseClass)) {
+                                this._addSymbolsForSymbolTable(
+                                    baseClass.details.fields,
+                                    (name) => {
+                                        const symbol = baseClass.details.fields.get(name);
+                                        if (!symbol || !symbol.isClassMember()) {
+                                            return false;
+                                        }
+
+                                        // Return only variables, not methods or classes.
+                                        return symbol
+                                            .getDeclarations()
+                                            .some((decl) => decl.type === DeclarationType.Variable);
+                                    },
+                                    priorWord,
+                                    undefined,
+                                    completionList
+                                );
+                            }
+                        });
+                    }
+                }
                 break;
             }
 
