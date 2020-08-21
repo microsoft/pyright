@@ -1192,26 +1192,8 @@ export class Binder extends ParseTreeWalker {
         // submodule. In that case, we want to the symbol to appear later in the
         // declaration list because it should "win" when resolving the alias.
         const fileName = stripFileExtension(getFileName(this._fileInfo.filePath));
-        if (fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length > 0) {
-            // If the symbol is going to be immediately replaced with a same-named
-            // imported symbol, skip this.
-            const isImmediatelyReplaced =
-                !node.isWildcardImport &&
-                node.imports.some((importSymbolNode) => {
-                    const nameNode = importSymbolNode.alias || importSymbolNode.name;
-                    return nameNode.value === node.module.nameParts[0].value;
-                });
-
-            if (!isImmediatelyReplaced) {
-                const symbolName = node.module.nameParts[0].value;
-                const symbol = this._bindNameToScope(this._currentScope!, symbolName);
-                if (symbol) {
-                    this._createAliasDeclarationForMultipartImportName(node, undefined, importInfo, symbol);
-                }
-
-                this._createFlowAssignment(node.module.nameParts[0]);
-            }
-        }
+        const isModuleInitFile =
+            fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length > 0;
 
         if (node.isWildcardImport) {
             if (ParseTreeUtils.getEnclosingClass(node) || ParseTreeUtils.getEnclosingFunction(node)) {
@@ -1224,6 +1206,19 @@ export class Binder extends ParseTreeWalker {
                 const lookupInfo = this._fileInfo.importLookup(resolvedPath);
                 if (lookupInfo) {
                     const wildcardNames = this._getWildcardImportNames(lookupInfo);
+
+                    if (isModuleInitFile) {
+                        // If the symbol is going to be immediately replaced with a same-named
+                        // imported symbol, skip this.
+                        const isImmediatelyReplaced = wildcardNames.some((name) => {
+                            return name === node.module.nameParts[0].value;
+                        });
+
+                        if (!isImmediatelyReplaced) {
+                            this._addImplicitFromImport(node, importInfo);
+                        }
+                    }
+
                     wildcardNames.forEach((name) => {
                         const symbol = lookupInfo.symbolTable.get(name)!;
 
@@ -1250,6 +1245,19 @@ export class Binder extends ParseTreeWalker {
                 this._createFlowWildcardImport(node, names);
             }
         } else {
+            if (isModuleInitFile) {
+                // If the symbol is going to be immediately replaced with a same-named
+                // imported symbol, skip this.
+                const isImmediatelyReplaced = node.imports.some((importSymbolNode) => {
+                    const nameNode = importSymbolNode.alias || importSymbolNode.name;
+                    return nameNode.value === node.module.nameParts[0].value;
+                });
+
+                if (!isImmediatelyReplaced) {
+                    this._addImplicitFromImport(node, importInfo);
+                }
+            }
+
             node.imports.forEach((importSymbolNode) => {
                 const importedName = importSymbolNode.name.value;
                 const nameNode = importSymbolNode.alias || importSymbolNode.name;
@@ -1467,6 +1475,16 @@ export class Binder extends ParseTreeWalker {
         });
 
         return false;
+    }
+
+    private _addImplicitFromImport(node: ImportFromNode, importInfo?: ImportResult) {
+        const symbolName = node.module.nameParts[0].value;
+        const symbol = this._bindNameToScope(this._currentScope!, symbolName);
+        if (symbol) {
+            this._createAliasDeclarationForMultipartImportName(node, undefined, importInfo, symbol);
+        }
+
+        this._createFlowAssignment(node.module.nameParts[0]);
     }
 
     private _createAliasDeclarationForMultipartImportName(
