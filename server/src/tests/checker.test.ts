@@ -991,13 +991,13 @@ test('TypeAlias3', () => {
 test('TypeAlias4', () => {
     const configOptions = new ConfigOptions('.');
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_8;
-    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
-    validateResults(analysisResults38, 1);
-
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
-    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
-    validateResults(analysisResults39, 6);
+    const analysisResults3_9 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
+    validateResults(analysisResults3_9, 6);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults3_10 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
+    validateResults(analysisResults3_10, 6);
 });
 
 test('TypeAlias5', () => {

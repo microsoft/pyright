@@ -426,6 +426,7 @@ export interface TypeEvaluator {
     getType: (node: ExpressionNode) => Type | undefined;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
+    getTypeOfAnnotation: (node: ExpressionNode, allowFinal?: boolean) => Type;
     evaluateTypesForStatement: (node: ParseNode) => void;
 
     getDeclaredTypeForExpression: (expression: ExpressionNode) => Type | undefined;
@@ -8162,8 +8163,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Determine whether there is a declared type.
                 const declaredType = getDeclaredTypeForExpression(node.leftExpression);
 
-                // Evaluate the type of the right-hand side. Don't specialize it in
-                // case it's a type alias with generic type arguments.
                 let flags: EvaluatorFlags = EvaluatorFlags.DoNotSpecialize;
                 if (fileInfo.isStubFile) {
                     // An assignment of ellipsis means "Any" within a type stub file.
@@ -12139,12 +12138,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 if (typeAnnotationNode) {
+                    const isTypeAlias = isDeclaredTypeAlias(typeAnnotationNode);
+                    const typeAliasNode = isTypeAlias
+                        ? ParseTreeUtils.getTypeAnnotationNode(typeAnnotationNode)
+                        : undefined;
                     let declaredType = getTypeOfAnnotation(typeAnnotationNode);
                     if (declaredType) {
                         // Apply enum transform if appropriate.
                         if (declaration.node.nodeType === ParseNodeType.Name) {
                             declaredType = transformTypeForPossibleEnumClass(declaration.node, declaredType);
                         }
+
+                        if (typeAliasNode && typeAliasNode.valueExpression.nodeType === ParseNodeType.Name) {
+                            const typeParameters: TypeVarType[] = [];
+                            if (!isTypeVar(declaredType)) {
+                                doForSubtypes(declaredType, (subtype) => {
+                                    addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(subtype));
+                                    return undefined;
+                                });
+                            }
+                            declaredType = TypeBase.cloneForTypeAlias(
+                                declaredType,
+                                typeAliasNode.valueExpression.value,
+                                typeParameters.length > 0 ? typeParameters : undefined
+                            );
+                        }
+
                         return declaredType;
                     }
                 }
@@ -15226,6 +15245,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         getType,
         getTypeOfClass,
         getTypeOfFunction,
+        getTypeOfAnnotation,
         evaluateTypesForStatement,
         getDeclaredTypeForExpression,
         verifyDeleteExpression,

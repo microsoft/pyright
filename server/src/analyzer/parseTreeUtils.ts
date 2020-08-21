@@ -28,6 +28,7 @@ import {
     ParseNodeType,
     StatementNode,
     SuiteNode,
+    TypeAnnotationNode,
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
@@ -647,6 +648,28 @@ export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {
     }
 
     return evaluationScope;
+}
+
+// Given a node within a type annotation expression, returns the type annotation
+// node that contains it (if applicable).
+export function getTypeAnnotationNode(node: ParseNode): TypeAnnotationNode | undefined {
+    let prevNode = node;
+    let curNode = node.parent;
+
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.TypeAnnotation) {
+            if (curNode.typeAnnotation === prevNode) {
+                return curNode;
+            }
+
+            break;
+        }
+
+        prevNode = curNode;
+        curNode = curNode.parent;
+    }
+
+    return undefined;
 }
 
 // PEP 591 spells out certain limited cases where an assignment target
