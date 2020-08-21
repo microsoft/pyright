@@ -254,6 +254,8 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
                 type.skipAbstractClassTest
             );
         }
+
+        return type;
     }
 
     if (isObject(type)) {
@@ -265,9 +267,16 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
     }
 
     if (type.category === TypeCategory.Union) {
-        return doForSubtypes(type, (subtype) => {
-            return stripLiteralTypeArgsValue(subtype, recursionCount + 1);
+        let typeChanged = false;
+        const transformedUnion = doForSubtypes(type, (subtype) => {
+            const transformedType = stripLiteralTypeArgsValue(subtype, recursionCount + 1);
+            if (transformedType !== subtype) {
+                typeChanged = true;
+            }
+            return transformedType;
         });
+
+        return typeChanged ? transformedUnion : type;
     }
 
     if (type.category === TypeCategory.Function) {
@@ -288,10 +297,15 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
 
     if (type.category === TypeCategory.OverloadedFunction) {
         const strippedOverload = OverloadedFunctionType.create();
-        strippedOverload.overloads = type.overloads.map(
-            (t) => stripLiteralTypeArgsValue(t, recursionCount + 1) as FunctionType
-        );
-        return strippedOverload;
+        let typeChanged = false;
+        strippedOverload.overloads = type.overloads.map((t) => {
+            const transformedOverload = stripLiteralTypeArgsValue(t, recursionCount + 1) as FunctionType;
+            if (transformedOverload !== t) {
+                typeChanged = true;
+            }
+            return transformedOverload;
+        });
+        return typeChanged ? strippedOverload : type;
     }
 
     return type;

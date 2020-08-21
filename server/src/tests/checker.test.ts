@@ -1935,15 +1935,15 @@ test('ThreePartVersion1', () => {
 test('Unions1', () => {
     const configOptions = new ConfigOptions('.');
 
-    // Analyze with Python 3.8 settings. This will generate errors.
-    configOptions.defaultPythonVersion = PythonVersion.V3_8;
-    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['unions1.py'], configOptions);
-    validateResults(analysisResults38, 7);
+    // Analyze with Python 3.9 settings. This will generate errors.
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults3_9 = TestUtils.typeAnalyzeSampleFiles(['unions1.py'], configOptions);
+    validateResults(analysisResults3_9, 7);
 
-    // Analyze with Python 3.9 settings.
+    // Analyze with Python 3.10 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
-    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['unions1.py'], configOptions);
-    validateResults(analysisResults39, 0);
+    const analysisResults3_10 = TestUtils.typeAnalyzeSampleFiles(['unions1.py'], configOptions);
+    validateResults(analysisResults3_10, 0);
 });
 
 test('Unions2', () => {

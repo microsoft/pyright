@@ -150,6 +150,14 @@ export class Symbol {
             const declIndex = this._declarations.findIndex((decl) => areDeclarationsSame(decl, declaration));
             if (declIndex < 0) {
                 this._declarations.push(declaration);
+
+                // If there is more than one declaration for a symbol, we will
+                // assume it is not a type alias.
+                this._declarations.forEach((decl) => {
+                    if (decl.type === DeclarationType.Variable && decl.typeAliasName) {
+                        delete decl.typeAliasName;
+                    }
+                });
             } else {
                 // If the new declaration has a defined type, it should replace
                 // the existing one.
@@ -170,8 +178,8 @@ export class Symbol {
                             curDecl.isFinal = true;
                         }
 
-                        if (declaration.isTypeAlias) {
-                            curDecl.isTypeAlias = true;
+                        if (declaration.isExplicitTypeAlias) {
+                            curDecl.isExplicitTypeAlias = true;
                         }
 
                         if (!curDecl.inferredTypeSource && declaration.inferredTypeSource) {

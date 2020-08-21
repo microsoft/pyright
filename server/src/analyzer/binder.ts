@@ -578,7 +578,14 @@ export class Binder extends ParseTreeWalker {
         }
 
         this.walk(node.rightExpression);
-        this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression);
+
+        let isPossibleTypeAlias = true;
+        if (ParseTreeUtils.getEnclosingClass(node) || ParseTreeUtils.getEnclosingFunction(node)) {
+            // We will assume that type aliases are defined only at the module level.
+            isPossibleTypeAlias = false;
+        }
+
+        this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression, isPossibleTypeAlias);
 
         this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
 
@@ -2169,7 +2176,11 @@ export class Binder extends ParseTreeWalker {
         this._notLocalBindings = prevNonLocalBindings;
     }
 
-    private _addInferredTypeAssignmentForVariable(target: ExpressionNode, source: ParseNode) {
+    private _addInferredTypeAssignmentForVariable(
+        target: ExpressionNode,
+        source: ParseNode,
+        isPossibleTypeAlias = false
+    ) {
         switch (target.nodeType) {
             case ParseNodeType.Name: {
                 const name = target;
@@ -2180,6 +2191,7 @@ export class Binder extends ParseTreeWalker {
                         node: target,
                         isConstant: isConstantName(target.value),
                         inferredTypeSource: source,
+                        typeAliasName: isPossibleTypeAlias ? target : undefined,
                         path: this._fileInfo.filePath,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),
                         moduleName: this._fileInfo.moduleName,
@@ -2274,10 +2286,10 @@ export class Binder extends ParseTreeWalker {
                 const symbolWithScope = this._currentScope!.lookUpSymbolRecursive(name.value);
                 if (symbolWithScope && symbolWithScope.symbol) {
                     const finalInfo = this._isAnnotationFinal(typeAnnotation);
-                    const isTypeAlias = this._isAnnotationTypeAlias(typeAnnotation);
+                    const isExplicitTypeAlias = this._isAnnotationTypeAlias(typeAnnotation);
 
                     let typeAnnotationNode: ExpressionNode | undefined = typeAnnotation;
-                    if (isTypeAlias) {
+                    if (isExplicitTypeAlias) {
                         typeAnnotationNode = undefined;
 
                         // Type aliases are allowed only in the global scope.
@@ -2293,7 +2305,8 @@ export class Binder extends ParseTreeWalker {
                         node: target,
                         isConstant: isConstantName(name.value),
                         isFinal: finalInfo.isFinal,
-                        isTypeAlias,
+                        isExplicitTypeAlias,
+                        typeAliasName: isExplicitTypeAlias ? target : undefined,
                         path: this._fileInfo.filePath,
                         typeAnnotationNode,
                         range: convertOffsetsToRange(name.start, TextRange.getEnd(name), this._fileInfo.lines),

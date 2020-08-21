@@ -94,7 +94,7 @@ import {
     ModuleLoaderActions,
     VariableDeclaration,
 } from './declaration';
-import { isTypeAliasDeclaration } from './declarationUtils';
+import { isExplicitTypeAliasDeclaration, isPossibleTypeAliasDeclaration } from './declarationUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
@@ -1450,8 +1450,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 );
                 if (symbolWithScope) {
                     const symbol = symbolWithScope.symbol;
-                    return symbol.getDeclarations().find((decl) => isTypeAliasDeclaration(decl)) !== undefined;
+                    return symbol.getDeclarations().find((decl) => isExplicitTypeAliasDeclaration(decl)) !== undefined;
                 }
+            }
+        }
+
+        return false;
+    }
+
+    // Determines whether the specified expression is possibly an implicit type alias.
+    // In Python, type aliases look the same as simple assignments, but we use some heuristics
+    // to tell them apart.
+    function isPossibleImplicitTypeAlias(expression: ExpressionNode): boolean {
+        if (expression.nodeType === ParseNodeType.Name) {
+            const symbolWithScope = lookUpSymbolRecursive(
+                expression,
+                expression.value,
+                /* honorCodeFlow */ false
+            );
+            if (symbolWithScope) {
+                const symbol = symbolWithScope.symbol;
+                return symbol.getDeclarations().find((decl) => isPossibleTypeAliasDeclaration(decl)) !== undefined;
             }
         }
 
@@ -8007,6 +8026,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return typeOfExpr;
     }
 
+    function transformTypeForTypeAlias(type: Type, name: NameNode): Type {
+        if (!TypeBase.isInstantiable(type)) {
+            return type;
+        }
+
+        // Determine if there are any generic type parameters associated
+        // with this type alias.
+        const typeParameters: TypeVarType[] = [];
+
+        // Skip this for a simple TypeVar (one that's not part of a union).
+        if (!isTypeVar(type)) {
+            doForSubtypes(type, (subtype) => {
+                addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(subtype));
+                return undefined;
+            });
+        }
+
+        return TypeBase.cloneForTypeAlias(type, name.value, typeParameters.length > 0 ? typeParameters : undefined);
+    }
+
     function createSpecialBuiltInClass(node: ParseNode, assignedName: string, aliasMapEntry: AliasMapEntry): ClassType {
         const fileInfo = getFileInfo(node);
         const specialClassType = ClassType.create(
@@ -8169,29 +8208,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     flags |= EvaluatorFlags.ConvertEllipsisToUnknown;
                 }
 
-                const isTypeAlias = isDeclaredTypeAlias(node.leftExpression);
                 let typeAliasNameNode: NameNode | undefined;
-                if (isTypeAlias) {
+                if (isDeclaredTypeAlias(node.leftExpression)) {
                     flags |=
                         EvaluatorFlags.ExpectingType |
                         EvaluatorFlags.EvaluateStringLiteralAsType |
                         EvaluatorFlags.ParamSpecDisallowed;
 
                     typeAliasNameNode = (node.leftExpression as TypeAnnotationNode).valueExpression as NameNode;
-                } else {
-                    // The assignment isn't a declared type alias. See if it is potentially
-                    // a type alias. We'll consider it a potential type alias if the target
-                    // of the assignment is a simple name and this is the only place where
-                    // it is assigned.
+                } else if (isPossibleImplicitTypeAlias(node.leftExpression)) {
                     if (node.leftExpression.nodeType === ParseNodeType.Name) {
-                        const targetSymbolWithScope = lookUpSymbolRecursive(
-                            node.leftExpression,
-                            node.leftExpression.value,
-                            /* honorCodeFlow */ false
-                        );
-                        if (targetSymbolWithScope && targetSymbolWithScope.symbol.getDeclarations().length === 1) {
-                            typeAliasNameNode = node.leftExpression;
-                        }
+                        typeAliasNameNode = node.leftExpression;
                     }
                 }
 
@@ -8231,25 +8258,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     rightHandType = transformTypeForPossibleEnumClass(node.leftExpression, rightHandType);
                 }
 
-                // If this is a type alias, record its name based on the assignment target.
-                if (typeAliasNameNode && TypeBase.isInstantiable(rightHandType)) {
-                    // Determine if there are any generic type parameters associated
-                    // with this type alias.
-                    const typeParameters: TypeVarType[] = [];
-
-                    // Skip this for a simple TypeVar (one that's not part of a union).
-                    if (!isTypeVar(rightHandType)) {
-                        doForSubtypes(rightHandType, (subtype) => {
-                            addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(subtype));
-                            return undefined;
-                        });
-                    }
-
-                    rightHandType = TypeBase.cloneForTypeAlias(
-                        rightHandType,
-                        typeAliasNameNode.value,
-                        typeParameters.length > 0 ? typeParameters : undefined
-                    );
+                if (typeAliasNameNode) {
+                    // If this is a type alias, record its name based on the assignment target.
+                    rightHandType = transformTypeForTypeAlias(rightHandType, typeAliasNameNode);
                 }
             }
         }
@@ -12138,8 +12149,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 if (typeAnnotationNode) {
-                    const isTypeAlias = isDeclaredTypeAlias(typeAnnotationNode);
-                    const typeAliasNode = isTypeAlias
+                    const typeAliasNode = isDeclaredTypeAlias(typeAnnotationNode)
                         ? ParseTreeUtils.getTypeAnnotationNode(typeAnnotationNode)
                         : undefined;
                     let declaredType = getTypeOfAnnotation(typeAnnotationNode);
@@ -12150,18 +12160,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         }
 
                         if (typeAliasNode && typeAliasNode.valueExpression.nodeType === ParseNodeType.Name) {
-                            const typeParameters: TypeVarType[] = [];
-                            if (!isTypeVar(declaredType)) {
-                                doForSubtypes(declaredType, (subtype) => {
-                                    addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(subtype));
-                                    return undefined;
-                                });
-                            }
-                            declaredType = TypeBase.cloneForTypeAlias(
-                                declaredType,
-                                typeAliasNode.valueExpression.value,
-                                typeParameters.length > 0 ? typeParameters : undefined
-                            );
+                            declaredType = transformTypeForTypeAlias(declaredType, typeAliasNode.valueExpression);
                         }
 
                         return declaredType;
@@ -12266,6 +12265,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 inferredType = transformTypeForPossibleEnumClass(resolvedDecl.node, inferredType);
             }
 
+            if (inferredType && resolvedDecl.typeAliasName) {
+                inferredType = transformTypeForTypeAlias(inferredType, resolvedDecl.typeAliasName);
+            }
+
             return inferredType;
         }
 
@@ -12348,8 +12351,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     }
 
     function getEffectiveTypeOfSymbolForUsage(symbol: Symbol, usageNode?: NameNode): EffectiveTypeResult {
-        // If there's a declared type, it takes precedence over
-        // inferred types.
+        // If there's a declared type, it takes precedence over inferred types.
         if (symbol.hasTypedDeclarations()) {
             return {
                 type: getDeclaredTypeOfSymbol(symbol) || UnknownType.create(),
@@ -12390,6 +12392,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                         if (type) {
                             const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
+                            const isTypeAlias =
+                                isExplicitTypeAliasDeclaration(decl) || isPossibleTypeAliasDeclaration(decl);
 
                             type = stripLiteralTypeArgsValue(type);
 
@@ -12399,7 +12403,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 // If the symbol is private or constant, we can retain the literal
                                 // value. Otherwise, strip them off to make the type less specific,
                                 // allowing other values to be assigned to it in subclasses.
-                                if (TypeBase.isInstance(type) && !isPrivate && !isConstant && !isEnum && !isFinalVar) {
+                                if (
+                                    TypeBase.isInstance(type) &&
+                                    !isTypeAlias &&
+                                    !isPrivate &&
+                                    !isConstant &&
+                                    !isEnum &&
+                                    !isFinalVar
+                                ) {
                                     type = stripLiteralValue(type);
                                 }
                             }

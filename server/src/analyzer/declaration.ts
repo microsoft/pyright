@@ -111,7 +111,10 @@ export interface VariableDeclaration extends DeclarationBase {
     isFinal?: boolean;
 
     // Is the declaration an explicit TypeAlias?
-    isTypeAlias?: boolean;
+    isExplicitTypeAlias?: boolean;
+
+    // If the declaration is a type alias, points to the alias name.
+    typeAliasName?: NameNode;
 
     // Is the declaration a class or instance variable defined
     // by a member access, or is it a direct variable declaration

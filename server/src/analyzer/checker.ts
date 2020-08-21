@@ -67,7 +67,7 @@ import {
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
-import { isFinalVariableDeclaration, isTypeAliasDeclaration } from './declarationUtils';
+import { isExplicitTypeAliasDeclaration, isFinalVariableDeclaration } from './declarationUtils';
 import { getTopLevelImports } from './importStatementUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -1141,7 +1141,7 @@ export class Checker extends ParseTreeWalker {
 
     private _reportMultipleTypeAliasDeclarations(name: string, symbol: Symbol) {
         const decls = symbol.getDeclarations();
-        const typeAliasDecl = decls.find((decl) => isTypeAliasDeclaration(decl));
+        const typeAliasDecl = decls.find((decl) => isExplicitTypeAliasDeclaration(decl));
 
         // If this is a type alias, there should be only one declaration.
         if (typeAliasDecl && decls.length > 1) {
