@@ -126,6 +126,7 @@ export class ParseOptions {
     constructor() {
         this.isStubFile = false;
         this.pythonVersion = latestStablePythonVersion;
+        this.reportInvalidStringEscapeSequence = false;
     }
 
     isStubFile: boolean;

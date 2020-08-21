@@ -31,8 +31,8 @@ import { FileSpec } from './common/pathUtils';
 import { Range } from './common/textRange';
 
 export class BackgroundAnalysisBase {
-    private _worker: Worker;
-    private _console: ConsoleInterface;
+    private _worker: Worker | undefined;
+    private _console: ConsoleInterface | undefined;
     private _onAnalysisCompletion: AnalysisCompleteCallback = nullCallback;
 
     protected constructor() {
@@ -184,11 +184,15 @@ export class BackgroundAnalysisBase {
     }
 
     private _enqueueRequest(request: AnalysisRequest) {
-        this._worker.postMessage(request, request.port ? [request.port] : undefined);
+        if (this._worker) {
+            this._worker.postMessage(request, request.port ? [request.port] : undefined);
+        }
     }
 
     protected log(level: LogLevel, msg: string) {
-        log(this._console, level, msg);
+        if (this._console) {
+            log(this._console, level, msg);
+        }
     }
 }
 

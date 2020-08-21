@@ -150,7 +150,7 @@ class OwningFileToken extends FileBasedToken {
 }
 
 class FileBasedCancellationTokenSource implements AbstractCancellationTokenSource {
-    private _token: CancellationToken;
+    private _token: CancellationToken | undefined;
     constructor(private _cancellationFilePath: string, private _ownFile: boolean = false) {}
 
     get token(): CancellationToken {

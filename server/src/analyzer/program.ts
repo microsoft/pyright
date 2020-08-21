@@ -121,7 +121,7 @@ export class Program {
     private _sourceFileList: SourceFileInfo[] = [];
     private _sourceFileMap = new Map<string, SourceFileInfo>();
     private _allowedThirdPartyImports: string[] | undefined;
-    private _evaluator: TypeEvaluator;
+    private _evaluator: TypeEvaluator | undefined;
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
     private _logTracker: LogTracker;
@@ -339,7 +339,7 @@ export class Program {
     }
 
     isCheckingOnlyOpenFiles() {
-        return this._configOptions.checkOnlyOpenFiles;
+        return this._configOptions.checkOnlyOpenFiles || false;
     }
 
     getSourceFile(filePath: string): SourceFile | undefined {
@@ -502,7 +502,7 @@ export class Program {
                 this._bindFile(sourceFileInfo);
 
                 this._runEvaluatorWithCancellationToken(token, () => {
-                    const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile, this._evaluator);
+                    const writer = new TypeStubWriter(typeStubPath, sourceFileInfo.sourceFile, this._evaluator!);
                     writer.write();
                 });
 
@@ -718,7 +718,7 @@ export class Program {
             // its cached types to avoid running out of heap space.
             this._handleMemoryHighUsage();
 
-            fileToCheck.sourceFile.check(this._evaluator);
+            fileToCheck.sourceFile.check(this._evaluator!);
 
             // Detect import cycles that involve the file.
             if (this._configOptions.diagnosticRuleSet.reportImportCycles !== 'none') {
@@ -984,7 +984,7 @@ export class Program {
             return sourceFileInfo.sourceFile.getDefinitionsForPosition(
                 this._createSourceMapper(execEnv),
                 position,
-                this._evaluator,
+                this._evaluator!,
                 token
             );
         });
@@ -1009,7 +1009,7 @@ export class Program {
             const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
                 this._createSourceMapper(execEnv),
                 position,
-                this._evaluator,
+                this._evaluator!,
                 token
             );
 
@@ -1034,7 +1034,7 @@ export class Program {
                         curSourceFileInfo.sourceFile.addReferences(
                             referencesResult,
                             includeDeclaration,
-                            this._evaluator,
+                            this._evaluator!,
                             token
                         );
                     }
@@ -1069,7 +1069,7 @@ export class Program {
                             locations: [],
                         };
 
-                        declFileInfo.sourceFile.addReferences(tempResult, includeDeclaration, this._evaluator, token);
+                        declFileInfo.sourceFile.addReferences(tempResult, includeDeclaration, this._evaluator!, token);
                         for (const loc of tempResult.locations) {
                             // Include declarations only. And throw away any references
                             if (loc.path === decl.path && doesRangeContain(decl.range, loc.range)) {
@@ -1079,7 +1079,7 @@ export class Program {
                     }
                 }
             } else {
-                sourceFileInfo.sourceFile.addReferences(referencesResult, includeDeclaration, this._evaluator, token);
+                sourceFileInfo.sourceFile.addReferences(referencesResult, includeDeclaration, this._evaluator!, token);
             }
 
             return referencesResult.locations;
@@ -1092,7 +1092,7 @@ export class Program {
             if (sourceFileInfo) {
                 this._bindFile(sourceFileInfo);
 
-                sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(symbolList, this._evaluator, token);
+                sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(symbolList, this._evaluator!, token);
             }
         });
     }
@@ -1110,7 +1110,7 @@ export class Program {
                 if (this._isUserCode(sourceFileInfo)) {
                     this._bindFile(sourceFileInfo);
 
-                    sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator, query, token);
+                    sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator!, query, token);
 
                     // This operation can consume significant memory, so check
                     // for situations where we need to discard the type cache.
@@ -1133,7 +1133,7 @@ export class Program {
             return sourceFileInfo.sourceFile.getHoverForPosition(
                 this._createSourceMapper(execEnv),
                 position,
-                this._evaluator,
+                this._evaluator!,
                 token
             );
         });
@@ -1156,7 +1156,7 @@ export class Program {
             return sourceFileInfo.sourceFile.getDocumentHighlight(
                 this._createSourceMapper(execEnv),
                 position,
-                this._evaluator,
+                this._evaluator!,
                 token
             );
         });
@@ -1178,7 +1178,7 @@ export class Program {
             return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
                 position,
                 this._lookUpImport,
-                this._evaluator,
+                this._evaluator!,
                 token
             );
         });
@@ -1205,7 +1205,7 @@ export class Program {
                 this._configOptions,
                 this._importResolver,
                 this._lookUpImport,
-                this._evaluator,
+                this._evaluator!,
                 this._createSourceMapper(execEnv),
                 () => this._buildModuleSymbolsMap(sourceFileInfo, token),
                 token
@@ -1249,7 +1249,7 @@ export class Program {
                 this._configOptions,
                 this._importResolver,
                 this._lookUpImport,
-                this._evaluator,
+                this._evaluator!,
                 this._createSourceMapper(execEnv),
                 () => this._buildModuleSymbolsMap(sourceFileInfo, token),
                 completionItem,
@@ -1276,7 +1276,7 @@ export class Program {
             const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
                 this._createSourceMapper(execEnv),
                 position,
-                this._evaluator,
+                this._evaluator!,
                 token
             );
 
@@ -1302,7 +1302,7 @@ export class Program {
                     if (this._isUserCode(curSourceFileInfo)) {
                         this._bindFile(curSourceFileInfo);
 
-                        curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator, token);
+                        curSourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator!, token);
                     }
 
                     // This operation can consume significant memory, so check
@@ -1310,7 +1310,7 @@ export class Program {
                     this._handleMemoryHighUsage();
                 }
             } else if (this._isUserCode(sourceFileInfo)) {
-                sourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator, token);
+                sourceFileInfo.sourceFile.addReferences(referencesResult, true, this._evaluator!, token);
             }
 
             const editActions: FileEditAction[] = [];
@@ -1338,7 +1338,7 @@ export class Program {
         const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
             this._createSourceMapper(execEnv),
             position,
-            this._evaluator,
+            this._evaluator!,
             token
         );
 
@@ -1354,7 +1354,7 @@ export class Program {
         return CallHierarchyProvider.getCallForDeclaration(
             referencesResult.symbolName,
             targetDecl,
-            this._evaluator,
+            this._evaluator!,
             token
         );
     }
@@ -1374,7 +1374,7 @@ export class Program {
         const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
             this._createSourceMapper(execEnv),
             position,
-            this._evaluator,
+            this._evaluator!,
             token
         );
 
@@ -1397,7 +1397,7 @@ export class Program {
                     referencesResult.symbolName,
                     targetDecl,
                     curSourceFileInfo.sourceFile.getParseResults()!,
-                    this._evaluator,
+                    this._evaluator!,
                     token
                 );
 
@@ -1429,7 +1429,7 @@ export class Program {
         const referencesResult = sourceFileInfo.sourceFile.getDeclarationForPosition(
             this._createSourceMapper(execEnv),
             position,
-            this._evaluator,
+            this._evaluator!,
             token
         );
 
@@ -1444,7 +1444,7 @@ export class Program {
         return CallHierarchyProvider.getOutgoingCallsForDeclaration(
             targetDecl,
             sourceFileInfo.sourceFile.getParseResults()!,
-            this._evaluator,
+            this._evaluator!,
             token
         );
     }
@@ -1466,7 +1466,7 @@ export class Program {
     }
 
     private _handleMemoryHighUsage() {
-        const typeCacheSize = this._evaluator.getTypeCacheSize();
+        const typeCacheSize = this._evaluator!.getTypeCacheSize();
 
         // If the type cache size has exceeded a high-water mark, query the heap usage.
         // Don't bother doing this until we hit this point because the heap usage may not
@@ -1495,7 +1495,7 @@ export class Program {
             // Don't support cancellation in debug mode because cancellation
             // checks and exceptions interfere with debugging.
             if (token && !isDebugMode()) {
-                return this._evaluator.runWithCancellationToken(token, callback);
+                return this._evaluator!.runWithCancellationToken(token, callback);
             } else {
                 return callback();
             }
@@ -1630,7 +1630,7 @@ export class Program {
         const sourceMapper = new SourceMapper(
             this._importResolver,
             execEnv,
-            this._evaluator,
+            this._evaluator!,
             (stubFilePath: string, implFilePath: string) => {
                 const stubFileInfo = this._sourceFileMap.get(stubFilePath);
                 if (!stubFileInfo) {
@@ -1650,7 +1650,7 @@ export class Program {
             return false;
         }
 
-        let thirdPartyImportAllowed = this._configOptions.useLibraryCodeForTypes;
+        let thirdPartyImportAllowed = this._configOptions.useLibraryCodeForTypes || false;
 
         if (
             importResult.importType === ImportType.ThirdParty ||

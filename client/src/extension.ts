@@ -110,7 +110,7 @@ export function activate(context: ExtensionContext) {
                                 return getPythonPathFromPythonExtension(languageClient.outputChannel, uri, () => {
                                     // Posts a "workspace/didChangeConfiguration" message to the service
                                     // so it re-queries the settings for all workspaces.
-                                    this.languageClient!.sendNotification(DidChangeConfigurationNotification.type, {
+                                    languageClient.sendNotification(DidChangeConfigurationNotification.type, {
                                         settings: null,
                                     });
                                 });
@@ -166,8 +166,8 @@ export function activate(context: ExtensionContext) {
                     };
 
                     languageClient
-                        .sendRequest('workspace/executeCommand', cmd)
-                        .then((edits: TextEdit[] | undefined) => {
+                        .sendRequest<TextEdit[] | undefined>('workspace/executeCommand', cmd)
+                        .then((edits) => {
                             if (edits && edits.length > 0) {
                                 editor.edit((editBuilder) => {
                                     edits.forEach((edit) => {

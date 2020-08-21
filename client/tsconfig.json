@@ -4,13 +4,16 @@
 		"noImplicitAny": true,
 		"noImplicitReturns": true,
 		"strictNullChecks": true,
-        "skipLibCheck": true,
+		"skipLibCheck": true,
 		"target": "es6",
 		"module": "commonjs",
 		"moduleResolution": "node",
+		"strict": true,
 		"rootDir": ".",
 		"outDir": "out",
-		"lib": [ "es2016" ],
+		"lib": [
+			"es2016"
+		],
 		"sourceMap": true
 	},
 	"exclude": [
@@ -18,6 +21,8 @@
 		"server"
 	],
 	"references": [
-		{ "path": "../server" }
+		{
+			"path": "../server"
+		}
 	]
 }

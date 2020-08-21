@@ -71,7 +71,7 @@ test('UtilsFindMatchCovariant', () => {
     const item2 = new D(2, 'Hello2');
     const data: B[] = [new B(0), item1, item2, new B(3)];
     assert.equal(
-        utils.find(data, (e: D) => e.value === 2),
+        utils.find(data, (e: B) => e.value === 2),
         item2
     );
 });

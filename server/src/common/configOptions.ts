@@ -479,14 +479,14 @@ export class ConfigOptions {
     strict: FileSpec[] = [];
 
     // Emit verbose information to console?
-    verboseOutput: boolean;
+    verboseOutput?: boolean;
 
     // Perform type checking and report diagnostics only for open files?
-    checkOnlyOpenFiles: boolean;
+    checkOnlyOpenFiles?: boolean;
 
     // In the absence of type stubs, use library implementations to extract
     // type information?
-    useLibraryCodeForTypes: boolean;
+    useLibraryCodeForTypes?: boolean;
 
     // Offer auto-import completions.
     autoImportCompletions = true;

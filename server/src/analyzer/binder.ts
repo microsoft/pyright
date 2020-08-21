@@ -148,7 +148,7 @@ export class Binder extends ParseTreeWalker {
     private _deferredBindingTasks: DeferredBindingTask[] = [];
 
     // The current scope in effect.
-    private _currentScope: Scope;
+    private _currentScope: Scope | undefined;
 
     // Name bindings that are not local to the current scope.
     private _notLocalBindings = new Map<string, NameBindingType>();
@@ -158,7 +158,7 @@ export class Binder extends ParseTreeWalker {
     private _nestedExceptDepth = 0;
 
     // Current control-flow node.
-    private _currentFlowNode: FlowNode;
+    private _currentFlowNode: FlowNode | undefined;
 
     // Current target function declaration, if currently binding
     // a function. This allows return and yield statements to be
@@ -186,7 +186,7 @@ export class Binder extends ParseTreeWalker {
 
     // Map of symbols within the current execution scope
     // and require code flow analysis to resolve.
-    private _currentExecutionScopeReferenceMap: Map<string, string>;
+    private _currentExecutionScopeReferenceMap: Map<string, string> | undefined;
 
     // Flow node that is used for unreachable code.
     private static _unreachableFlowNode: FlowNode = {
@@ -209,8 +209,8 @@ export class Binder extends ParseTreeWalker {
             isBuiltInModule ? ScopeType.Builtin : ScopeType.Module,
             this._fileInfo.builtinsScope,
             () => {
-                AnalyzerNodeInfo.setScope(node, this._currentScope);
-                AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+                AnalyzerNodeInfo.setScope(node, this._currentScope!);
+                AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
                 // Bind implicit names.
                 // List taken from https://docs.python.org/3/reference/import.html#__name__
@@ -229,7 +229,7 @@ export class Binder extends ParseTreeWalker {
 
                 this._walkStatementsAndReportUnreachable(node.statements);
 
-                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap);
+                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap!);
 
                 // Associate the code flow node at the end of the module with the module.
                 AnalyzerNodeInfo.setAfterFlowNode(node, this._currentFlowNode);
@@ -323,7 +323,7 @@ export class Binder extends ParseTreeWalker {
             moduleName: this._fileInfo.moduleName,
         };
 
-        const symbol = this._bindNameToScope(this._currentScope, node.name.value);
+        const symbol = this._bindNameToScope(this._currentScope!, node.name.value);
         if (symbol) {
             symbol.addDeclaration(classDeclaration);
         }
@@ -333,8 +333,8 @@ export class Binder extends ParseTreeWalker {
 
         this.walkMultiple(node.arguments);
 
-        this._createNewScope(ScopeType.Class, this._currentScope, () => {
-            AnalyzerNodeInfo.setScope(node, this._currentScope);
+        this._createNewScope(ScopeType.Class, this._currentScope!, () => {
+            AnalyzerNodeInfo.setScope(node, this._currentScope!);
 
             // Bind implicit names.
             // Note that __class__, __dict__ and __doc__ are skipped here
@@ -368,7 +368,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitFunction(node: FunctionNode): boolean {
-        const symbol = this._bindNameToScope(this._currentScope, node.name.value);
+        const symbol = this._bindNameToScope(this._currentScope!, node.name.value);
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
         const functionDeclaration: FunctionDeclaration = {
             type: DeclarationType.Function,
@@ -428,7 +428,7 @@ export class Binder extends ParseTreeWalker {
         // Don't walk the body of the function until we're done analyzing
         // the current scope.
         this._createNewScope(ScopeType.Function, functionOrModuleScope, () => {
-            AnalyzerNodeInfo.setScope(node, this._currentScope);
+            AnalyzerNodeInfo.setScope(node, this._currentScope!);
 
             // Bind implicit names.
             // List taken from https://docs.python.org/3/reference/datamodel.html
@@ -457,7 +457,7 @@ export class Binder extends ParseTreeWalker {
 
                 node.parameters.forEach((paramNode) => {
                     if (paramNode.name) {
-                        const symbol = this._bindNameToScope(this._currentScope, paramNode.name.value);
+                        const symbol = this._bindNameToScope(this._currentScope!, paramNode.name.value);
                         if (symbol) {
                             const paramDeclaration: ParameterDeclaration = {
                                 type: DeclarationType.Parameter,
@@ -497,7 +497,7 @@ export class Binder extends ParseTreeWalker {
                 AnalyzerNodeInfo.setAfterFlowNode(node, returnFlowNode);
             });
 
-            AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap);
+            AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap!);
         });
 
         this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ false, /* unbound */ false);
@@ -515,8 +515,8 @@ export class Binder extends ParseTreeWalker {
             }
         });
 
-        this._createNewScope(ScopeType.Function, this._currentScope, () => {
-            AnalyzerNodeInfo.setScope(node, this._currentScope);
+        this._createNewScope(ScopeType.Function, this._currentScope!, () => {
+            AnalyzerNodeInfo.setScope(node, this._currentScope!);
 
             this._deferBinding(() => {
                 // Create a start node for the lambda.
@@ -524,7 +524,7 @@ export class Binder extends ParseTreeWalker {
 
                 node.parameters.forEach((paramNode) => {
                     if (paramNode.name) {
-                        const symbol = this._bindNameToScope(this._currentScope, paramNode.name.value);
+                        const symbol = this._bindNameToScope(this._currentScope!, paramNode.name.value);
                         if (symbol) {
                             const paramDeclaration: ParameterDeclaration = {
                                 type: DeclarationType.Parameter,
@@ -550,7 +550,7 @@ export class Binder extends ParseTreeWalker {
                 // Walk the expression that make up the lambda body.
                 this.walk(node.expression);
 
-                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap);
+                AnalyzerNodeInfo.setCodeFlowExpressions(node, this._currentExecutionScopeReferenceMap!);
             });
         });
 
@@ -662,7 +662,7 @@ export class Binder extends ParseTreeWalker {
         if (this._isNarrowingExpression(node.valueExpression, expressionList)) {
             expressionList.forEach((expr) => {
                 const referenceKey = createKeyForReference(expr);
-                this._currentExecutionScopeReferenceMap.set(referenceKey, referenceKey);
+                this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
             });
         }
         return true;
@@ -678,14 +678,14 @@ export class Binder extends ParseTreeWalker {
         const preElseLabel = this._createBranchLabel();
         const postForLabel = this._createBranchLabel();
 
-        this._addAntecedent(preForLabel, this._currentFlowNode);
+        this._addAntecedent(preForLabel, this._currentFlowNode!);
         this._currentFlowNode = preForLabel;
         this._addAntecedent(preElseLabel, this._currentFlowNode);
         this._createAssignmentTargetFlowNodes(node.targetExpression, /* walkTargets */ true, /* unbound */ false);
 
         this._bindLoopStatement(preForLabel, postForLabel, () => {
             this.walk(node.forSuite);
-            this._addAntecedent(preForLabel, this._currentFlowNode);
+            this._addAntecedent(preForLabel, this._currentFlowNode!);
         });
 
         this._currentFlowNode = this._finishFlowLabel(preElseLabel);
@@ -701,7 +701,7 @@ export class Binder extends ParseTreeWalker {
 
     visitContinue(node: ContinueNode): boolean {
         if (this._currentContinueTarget) {
-            this._addAntecedent(this._currentContinueTarget, this._currentFlowNode);
+            this._addAntecedent(this._currentContinueTarget, this._currentFlowNode!);
         }
         this._currentFlowNode = Binder._unreachableFlowNode;
 
@@ -711,7 +711,7 @@ export class Binder extends ParseTreeWalker {
 
     visitBreak(node: BreakNode): boolean {
         if (this._currentBreakTarget) {
-            this._addAntecedent(this._currentBreakTarget, this._currentFlowNode);
+            this._addAntecedent(this._currentBreakTarget, this._currentFlowNode!);
         }
         this._currentFlowNode = Binder._unreachableFlowNode;
 
@@ -731,12 +731,12 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.returnExpression);
         }
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
         if (this._currentReturnTarget) {
-            this._addAntecedent(this._currentReturnTarget, this._currentFlowNode);
+            this._addAntecedent(this._currentReturnTarget, this._currentFlowNode!);
         }
         this._finallyTargets.forEach((target) => {
-            this._addAntecedent(target, this._currentFlowNode);
+            this._addAntecedent(target, this._currentFlowNode!);
         });
         this._currentFlowNode = Binder._unreachableFlowNode;
         return false;
@@ -753,12 +753,12 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitMemberAccess(node: MemberAccessNode): boolean {
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
         return true;
     }
 
     visitName(node: NameNode): boolean {
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
 
         // Name nodes have no children.
         return false;
@@ -811,7 +811,7 @@ export class Binder extends ParseTreeWalker {
         );
 
         const preLoopLabel = this._createLoopLabel();
-        this._addAntecedent(preLoopLabel, this._currentFlowNode);
+        this._addAntecedent(preLoopLabel, this._currentFlowNode!);
         this._currentFlowNode = preLoopLabel;
 
         this._bindConditional(node.testExpression, thenLabel, elseLabel);
@@ -856,7 +856,7 @@ export class Binder extends ParseTreeWalker {
 
         if (node.name) {
             this.walk(node.name);
-            const symbol = this._bindNameToScope(this._currentScope, node.name.value);
+            const symbol = this._bindNameToScope(this._currentScope!, node.name.value);
             this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ true, /* unbound */ false);
 
             if (symbol) {
@@ -900,7 +900,7 @@ export class Binder extends ParseTreeWalker {
         }
 
         this._finallyTargets.forEach((target) => {
-            this._addAntecedent(target, this._currentFlowNode);
+            this._addAntecedent(target, this._currentFlowNode!);
         });
 
         this._currentFlowNode = Binder._unreachableFlowNode;
@@ -967,7 +967,7 @@ export class Binder extends ParseTreeWalker {
         // added by the try block, so all of the exception targets
         // must have the pre-try flow node as an antecedent.
         curExceptTargets.forEach((exceptLabel) => {
-            this._addAntecedent(exceptLabel, this._currentFlowNode);
+            this._addAntecedent(exceptLabel, this._currentFlowNode!);
         });
 
         // We don't perfectly handle nested finally clauses, which are not
@@ -990,7 +990,7 @@ export class Binder extends ParseTreeWalker {
         if (node.elseSuite) {
             this.walk(node.elseSuite);
         }
-        this._addAntecedent(preFinallyLabel, this._currentFlowNode);
+        this._addAntecedent(preFinallyLabel, this._currentFlowNode!);
         if (!this._isCodeUnreachable()) {
             isAfterElseAndExceptsReachable = true;
         }
@@ -1077,7 +1077,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitGlobal(node: GlobalNode): boolean {
-        const globalScope = this._currentScope.getGlobalScope();
+        const globalScope = this._currentScope!.getGlobalScope();
 
         node.nameList.forEach((name) => {
             const nameValue = name.value;
@@ -1087,7 +1087,7 @@ export class Binder extends ParseTreeWalker {
                 this._addError(Localizer.Diagnostic.nonLocalRedefinition().format({ name: nameValue }), name);
             }
 
-            const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
+            const valueWithScope = this._currentScope!.lookUpSymbolRecursive(nameValue);
 
             // Was the name already assigned within this scope before it was declared global?
             if (valueWithScope && valueWithScope.scope === this._currentScope) {
@@ -1106,7 +1106,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitNonlocal(node: NonlocalNode): boolean {
-        const globalScope = this._currentScope.getGlobalScope();
+        const globalScope = this._currentScope!.getGlobalScope();
 
         if (this._currentScope === globalScope) {
             this._addError(Localizer.Diagnostic.nonLocalInModule(), node);
@@ -1119,7 +1119,7 @@ export class Binder extends ParseTreeWalker {
                     this._addError(Localizer.Diagnostic.globalRedefinition().format({ name: nameValue }), name);
                 }
 
-                const valueWithScope = this._currentScope.lookUpSymbolRecursive(nameValue);
+                const valueWithScope = this._currentScope!.lookUpSymbolRecursive(nameValue);
 
                 // Was the name already assigned within this scope before it was declared nonlocal?
                 if (valueWithScope && valueWithScope.scope === this._currentScope) {
@@ -1149,7 +1149,7 @@ export class Binder extends ParseTreeWalker {
                 symbolName = firstNamePartValue;
             }
 
-            const symbol = this._bindNameToScope(this._currentScope, symbolName);
+            const symbol = this._bindNameToScope(this._currentScope!, symbolName);
             if (symbol && this._fileInfo.isStubFile && !node.alias) {
                 // PEP 484 indicates that imported symbols should not be
                 // considered "reexported" from a type stub file unless
@@ -1197,7 +1197,7 @@ export class Binder extends ParseTreeWalker {
 
             if (!isImmediatelyReplaced) {
                 const symbolName = node.module.nameParts[0].value;
-                const symbol = this._bindNameToScope(this._currentScope, symbolName);
+                const symbol = this._bindNameToScope(this._currentScope!, symbolName);
                 if (symbol) {
                     this._createAliasDeclarationForMultipartImportName(node, undefined, importInfo, symbol);
                 }
@@ -1222,7 +1222,7 @@ export class Binder extends ParseTreeWalker {
 
                         // Don't include the ignored names in the symbol table.
                         if (!symbol.isIgnoredForProtocolMatch()) {
-                            const symbol = this._bindNameToScope(this._currentScope, name);
+                            const symbol = this._bindNameToScope(this._currentScope!, name);
                             if (symbol) {
                                 const aliasDecl: AliasDeclaration = {
                                     type: DeclarationType.Alias,
@@ -1246,7 +1246,7 @@ export class Binder extends ParseTreeWalker {
             node.imports.forEach((importSymbolNode) => {
                 const importedName = importSymbolNode.name.value;
                 const nameNode = importSymbolNode.alias || importSymbolNode.name;
-                const symbol = this._bindNameToScope(this._currentScope, nameNode.value);
+                const symbol = this._bindNameToScope(this._currentScope!, nameNode.value);
 
                 if (symbol) {
                     if (this._fileInfo.isStubFile && !importSymbolNode.alias) {
@@ -1407,7 +1407,7 @@ export class Binder extends ParseTreeWalker {
 
     visitListComprehension(node: ListComprehensionNode): boolean {
         this._createNewScope(ScopeType.ListComprehension, this._currentScope, () => {
-            AnalyzerNodeInfo.setScope(node, this._currentScope);
+            AnalyzerNodeInfo.setScope(node, this._currentScope!);
 
             const falseLabel = this._createBranchLabel();
 
@@ -1434,7 +1434,7 @@ export class Binder extends ParseTreeWalker {
                     // if it's the same name as a symbol in an outer scope. If so, we'll
                     // create an alias node in the control flow graph.
                     for (const addedSymbol of addedSymbols) {
-                        const aliasSymbol = this._currentScope.parent!.lookUpSymbol(addedSymbol[0]);
+                        const aliasSymbol = this._currentScope!.parent!.lookUpSymbol(addedSymbol[0]);
                         if (aliasSymbol) {
                             this._createAssignmentAliasFlowNode(addedSymbol[1].id, aliasSymbol.id);
                         }
@@ -1455,7 +1455,7 @@ export class Binder extends ParseTreeWalker {
             }
 
             this.walk(node.expression);
-            this._addAntecedent(falseLabel, this._currentFlowNode);
+            this._addAntecedent(falseLabel, this._currentFlowNode!);
             this._currentFlowNode = this._finishFlowLabel(falseLabel);
         });
 
@@ -1610,7 +1610,7 @@ export class Binder extends ParseTreeWalker {
         let foundUnreachableStatement = false;
 
         for (const statement of statements) {
-            AnalyzerNodeInfo.setFlowNode(statement, this._currentFlowNode);
+            AnalyzerNodeInfo.setFlowNode(statement, this._currentFlowNode!);
 
             if (!foundUnreachableStatement) {
                 foundUnreachableStatement = this._isCodeUnreachable();
@@ -1689,11 +1689,11 @@ export class Binder extends ParseTreeWalker {
         if (!this._isLogicalExpression(node)) {
             this._addAntecedent(
                 trueTarget,
-                this._createFlowConditional(FlowFlags.TrueCondition, this._currentFlowNode, node)
+                this._createFlowConditional(FlowFlags.TrueCondition, this._currentFlowNode!, node)
             );
             this._addAntecedent(
                 falseTarget,
-                this._createFlowConditional(FlowFlags.FalseCondition, this._currentFlowNode, node)
+                this._createFlowConditional(FlowFlags.FalseCondition, this._currentFlowNode!, node)
             );
         }
     }
@@ -1720,7 +1720,7 @@ export class Binder extends ParseTreeWalker {
 
         expressionList.forEach((expr) => {
             const referenceKey = createKeyForReference(expr);
-            this._currentExecutionScopeReferenceMap.set(referenceKey, referenceKey);
+            this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
         });
 
         const conditionalFlowNode: FlowCondition = {
@@ -1912,13 +1912,13 @@ export class Binder extends ParseTreeWalker {
                 flags: FlowFlags.Call,
                 id: getUniqueFlowNodeId(),
                 node,
-                antecedent: this._currentFlowNode,
+                antecedent: this._currentFlowNode!,
             };
 
             this._currentFlowNode = flowNode;
         }
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
     }
 
     private _createAssignmentAliasFlowNode(targetSymbolId: number, aliasSymbolId: number) {
@@ -1926,7 +1926,7 @@ export class Binder extends ParseTreeWalker {
             const flowNode: FlowAssignmentAlias = {
                 flags: FlowFlags.AssignmentAlias,
                 id: getUniqueFlowNodeId(),
-                antecedent: this._currentFlowNode,
+                antecedent: this._currentFlowNode!,
                 targetSymbolId,
                 aliasSymbolId,
             };
@@ -1938,23 +1938,23 @@ export class Binder extends ParseTreeWalker {
     private _createFlowAssignment(node: NameNode | MemberAccessNode, unbound = false) {
         let targetSymbolId = indeterminateSymbolId;
         if (node.nodeType === ParseNodeType.Name) {
-            const symbolWithScope = this._currentScope.lookUpSymbolRecursive(node.value);
+            const symbolWithScope = this._currentScope!.lookUpSymbolRecursive(node.value);
             assert(symbolWithScope !== undefined);
             targetSymbolId = symbolWithScope!.symbol.id;
         }
 
-        const prevFlowNode = this._currentFlowNode;
+        const prevFlowNode = this._currentFlowNode!;
         if (!this._isCodeUnreachable() && isCodeFlowSupportedForReference(node)) {
             const flowNode: FlowAssignment = {
                 flags: FlowFlags.Assignment,
                 id: getUniqueFlowNodeId(),
                 node,
-                antecedent: this._currentFlowNode,
+                antecedent: this._currentFlowNode!,
                 targetSymbolId,
             };
 
             const referenceKey = createKeyForReference(node);
-            this._currentExecutionScopeReferenceMap.set(referenceKey, referenceKey);
+            this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
 
             if (unbound) {
                 flowNode.flags |= FlowFlags.Unbind;
@@ -1970,7 +1970,7 @@ export class Binder extends ParseTreeWalker {
         // associated, use the previous flow node (applies in the del case).
         // Otherwise, the node will be evaluated as unbound at this point in the flow.
         if (!unbound || AnalyzerNodeInfo.getFlowNode(node) === undefined) {
-            AnalyzerNodeInfo.setFlowNode(node, unbound ? prevFlowNode : this._currentFlowNode);
+            AnalyzerNodeInfo.setFlowNode(node, unbound ? prevFlowNode : this._currentFlowNode!);
         }
     }
 
@@ -1981,18 +1981,18 @@ export class Binder extends ParseTreeWalker {
                 id: getUniqueFlowNodeId(),
                 node,
                 names,
-                antecedent: this._currentFlowNode,
+                antecedent: this._currentFlowNode!,
             };
 
             this._addExceptTargets(flowNode);
             this._currentFlowNode = flowNode;
         }
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
     }
 
     private _isCodeUnreachable() {
-        return !!(this._currentFlowNode.flags & FlowFlags.Unreachable);
+        return !!(this._currentFlowNode!.flags & FlowFlags.Unreachable);
     }
 
     private _addExceptTargets(flowNode: FlowNode) {
@@ -2018,7 +2018,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _addAntecedent(label: FlowLabel, antecedent: FlowNode) {
-        if (!(this._currentFlowNode.flags & FlowFlags.Unreachable)) {
+        if (!(this._currentFlowNode!.flags & FlowFlags.Unreachable)) {
             // Don't add the same antecedent twice.
             if (!label.antecedents.some((existing) => existing.id === antecedent.id)) {
                 label.antecedents.push(antecedent);
@@ -2061,7 +2061,7 @@ export class Binder extends ParseTreeWalker {
     private _bindPossibleTupleNamedTarget(target: ExpressionNode, addedSymbols?: Map<string, Symbol>) {
         switch (target.nodeType) {
             case ParseNodeType.Name: {
-                this._bindNameToScope(this._currentScope, target.value, addedSymbols);
+                this._bindNameToScope(this._currentScope!, target.value, addedSymbols);
                 break;
             }
 
@@ -2117,7 +2117,7 @@ export class Binder extends ParseTreeWalker {
 
     // Adds a new symbol with the specified name if it doesn't already exist.
     private _addSymbolToCurrentScope(nameValue: string, isInitiallyUnbound: boolean, isInaccessibleToInstance = false) {
-        let symbol = this._currentScope.lookUpSymbol(nameValue);
+        let symbol = this._currentScope!.lookUpSymbol(nameValue);
 
         if (!symbol) {
             let symbolFlags = SymbolFlags.None;
@@ -2126,7 +2126,7 @@ export class Binder extends ParseTreeWalker {
                 symbolFlags |= SymbolFlags.InitiallyUnbound;
             }
 
-            if (this._currentScope.type === ScopeType.Class) {
+            if (this._currentScope!.type === ScopeType.Class) {
                 symbolFlags |= SymbolFlags.ClassMember;
             }
 
@@ -2140,7 +2140,7 @@ export class Binder extends ParseTreeWalker {
 
             // Add the symbol. Assume that symbols with a default type source ID
             // are "implicit" symbols added to the scope. These are not initially unbound.
-            symbol = this._currentScope.addSymbol(nameValue, symbolFlags);
+            symbol = this._currentScope!.addSymbol(nameValue, symbolFlags);
         }
 
         return symbol;
@@ -2173,7 +2173,7 @@ export class Binder extends ParseTreeWalker {
         switch (target.nodeType) {
             case ParseNodeType.Name: {
                 const name = target;
-                const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
+                const symbolWithScope = this._currentScope!.lookUpSymbolRecursive(name.value);
                 if (symbolWithScope && symbolWithScope.symbol) {
                     const declaration: VariableDeclaration = {
                         type: DeclarationType.Variable,
@@ -2271,7 +2271,7 @@ export class Binder extends ParseTreeWalker {
         switch (target.nodeType) {
             case ParseNodeType.Name: {
                 const name = target;
-                const symbolWithScope = this._currentScope.lookUpSymbolRecursive(name.value);
+                const symbolWithScope = this._currentScope!.lookUpSymbolRecursive(name.value);
                 if (symbolWithScope && symbolWithScope.symbol) {
                     const finalInfo = this._isAnnotationFinal(typeAnnotation);
                     const isTypeAlias = this._isAnnotationTypeAlias(typeAnnotation);
@@ -2281,7 +2281,7 @@ export class Binder extends ParseTreeWalker {
                         typeAnnotationNode = undefined;
 
                         // Type aliases are allowed only in the global scope.
-                        if (this._currentScope.type !== ScopeType.Module) {
+                        if (this._currentScope!.type !== ScopeType.Module) {
                             this._addError(Localizer.Diagnostic.typeAliasNotInModule(), typeAnnotation);
                         }
                     } else if (finalInfo.isFinal) {
@@ -2581,7 +2581,7 @@ export class Binder extends ParseTreeWalker {
         if (!specialTypes[assignedName]) {
             return false;
         }
-        const symbol = this._bindNameToScope(this._currentScope, assignedName);
+        const symbol = this._bindNameToScope(this._currentScope!, assignedName);
 
         if (symbol) {
             symbol.addDeclaration({
@@ -2601,9 +2601,9 @@ export class Binder extends ParseTreeWalker {
 
     private _deferBinding(callback: () => void) {
         this._deferredBindingTasks.push({
-            scope: this._currentScope,
+            scope: this._currentScope!,
             nonLocalBindingsMap: this._notLocalBindings,
-            codeFlowExpressionMap: this._currentExecutionScopeReferenceMap,
+            codeFlowExpressionMap: this._currentExecutionScopeReferenceMap!,
             callback,
         });
     }
@@ -2645,7 +2645,7 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.expression);
         }
 
-        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode);
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
     }
 
     private _addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, textRange: TextRange) {

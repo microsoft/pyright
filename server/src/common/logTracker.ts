@@ -73,7 +73,7 @@ export interface LogState {
 }
 
 class State {
-    private _addendum: string;
+    private _addendum: string | undefined;
 
     add(_addendum: string) {
         this._addendum = _addendum;
