@@ -1153,6 +1153,7 @@ export namespace AnyType {
 export interface UnionType extends TypeBase {
     category: TypeCategory.Union;
     subtypes: Type[];
+    literalStringMap?: Map<string, Type>;
 }
 
 export namespace UnionType {
@@ -1163,21 +1164,43 @@ export namespace UnionType {
             flags: TypeFlags.Instance | TypeFlags.Instantiable,
         };
 
-        addTypes(newUnionType, subtypes);
-
         return newUnionType;
     }
 
-    export function addTypes(unionType: UnionType, subtypes: Type[]) {
-        for (const newType of subtypes) {
-            assert(newType.category !== TypeCategory.Union);
-            assert(newType.category !== TypeCategory.Never);
-            unionType.flags &= newType.flags;
-            unionType.subtypes.push(newType);
+    export function addType(unionType: UnionType, newType: Type) {
+        assert(newType.category !== TypeCategory.Union);
+        assert(newType.category !== TypeCategory.Never);
+
+        // If we're adding a string literal type, add it to the
+        // literal string map to speed up some operations. It's not
+        // uncommon for unions to contain hundreds of string literals.
+        if (
+            isObject(newType) &&
+            ClassType.isBuiltIn(newType.classType, 'str') &&
+            newType.classType.literalValue !== undefined
+        ) {
+            if (unionType.literalStringMap === undefined) {
+                unionType.literalStringMap = new Map<string, Type>();
+            }
+            unionType.literalStringMap.set(newType.classType.literalValue as string, newType);
         }
+
+        unionType.flags &= newType.flags;
+        unionType.subtypes.push(newType);
     }
 
     export function containsType(unionType: UnionType, subtype: Type, recursionCount = 0): boolean {
+        // Handle string literals as a special case because unions can sometimes
+        // contain hundreds of string literal types.
+        if (
+            isObject(subtype) &&
+            ClassType.isBuiltIn(subtype.classType, 'str') &&
+            subtype.classType.literalValue !== undefined &&
+            unionType.literalStringMap !== undefined
+        ) {
+            return unionType.literalStringMap.has(subtype.classType.literalValue as string);
+        }
+
         return unionType.subtypes.find((t) => isTypeSame(t, subtype, recursionCount + 1)) !== undefined;
     }
 }
@@ -1597,21 +1620,22 @@ export function combineTypes(types: Type[]): Type {
         return UnknownType.create();
     }
 
-    const resultingTypes: Type[] = [];
+    const newUnionType = UnionType.create();
+
     expandedTypes.forEach((t, index) => {
         if (index === 0) {
-            resultingTypes.push(t);
+            UnionType.addType(newUnionType, t);
         } else {
-            _addTypeIfUnique(resultingTypes, t);
+            _addTypeIfUnique(newUnionType, t);
         }
     });
 
     // If only one type remains, convert it from a union to a simple type.
-    if (resultingTypes.length === 1) {
-        return resultingTypes[0];
+    if (newUnionType.subtypes.length === 1) {
+        return newUnionType.subtypes[0];
     }
 
-    return UnionType.create(resultingTypes);
+    return newUnionType;
 }
 
 // Determines whether the dest type is the same as the source type with
@@ -1638,9 +1662,24 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
     return false;
 }
 
-function _addTypeIfUnique(types: Type[], typeToAdd: Type) {
-    for (let i = 0; i < types.length; i++) {
-        const type = types[i];
+function _addTypeIfUnique(unionType: UnionType, typeToAdd: Type) {
+    // Handle the addition of a string literal in a special manner to
+    // avoid n^2 behavior in unions that contain hundreds of string
+    // literal types.
+    if (
+        isObject(typeToAdd) &&
+        ClassType.isBuiltIn(typeToAdd.classType, 'str') &&
+        typeToAdd.classType.literalValue !== undefined &&
+        unionType.literalStringMap !== undefined
+    ) {
+        if (!unionType.literalStringMap.has(typeToAdd.classType.literalValue as string)) {
+            UnionType.addType(unionType, typeToAdd);
+        }
+        return;
+    }
+
+    for (let i = 0; i < unionType.subtypes.length; i++) {
+        const type = unionType.subtypes[i];
 
         // Does this type already exist in the types array?
         if (isTypeSame(type, typeToAdd)) {
@@ -1663,12 +1702,12 @@ function _addTypeIfUnique(types: Type[], typeToAdd: Type) {
                     typeToAdd.classType.literalValue !== undefined &&
                     !typeToAdd.classType.literalValue === type.classType.literalValue
                 ) {
-                    types[i] = ObjectType.create(ClassType.cloneWithLiteral(type.classType, undefined));
+                    unionType.subtypes[i] = ObjectType.create(ClassType.cloneWithLiteral(type.classType, undefined));
                     return;
                 }
             }
         }
     }
 
-    types.push(typeToAdd);
+    UnionType.addType(unionType, typeToAdd);
 }
