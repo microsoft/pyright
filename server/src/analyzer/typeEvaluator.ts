@@ -147,6 +147,7 @@ import {
     Type,
     TypeBase,
     TypeCategory,
+    TypedDictEntry,
     TypeSourceId,
     TypeVarType,
     UnboundType,
@@ -195,7 +196,6 @@ import {
     stripLiteralTypeArgsValue,
     stripLiteralValue,
     transformTypeObjectToClass,
-    TypedDictEntry,
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 
@@ -1463,11 +1463,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // to tell them apart.
     function isPossibleImplicitTypeAlias(expression: ExpressionNode): boolean {
         if (expression.nodeType === ParseNodeType.Name) {
-            const symbolWithScope = lookUpSymbolRecursive(
-                expression,
-                expression.value,
-                /* honorCodeFlow */ false
-            );
+            const symbolWithScope = lookUpSymbolRecursive(expression, expression.value, /* honorCodeFlow */ false);
             if (symbolWithScope) {
                 const symbol = symbolWithScope.symbol;
                 return symbol.getDeclarations().find((decl) => isPossibleTypeAliasDeclaration(decl)) !== undefined;
@@ -14691,8 +14687,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     }
 
     function getTypedDictMembersForClass(classType: ClassType) {
+        // Were the entries already calculated and cached?
+        if (!classType.details.typedDictEntries) {
+            const entries = new Map<string, TypedDictEntry>();
+            getTypedDictMembersForClassRecursive(classType, entries);
+
+            // Cache the entries for next time.
+            classType.details.typedDictEntries = entries;
+        }
+
+        // Create a copy of the entries so the caller can mutate them.
         const entries = new Map<string, TypedDictEntry>();
-        getTypedDictMembersForClassRecursive(classType, entries);
+        classType.details.typedDictEntries!.forEach((value, key) => {
+            entries.set(key, { ...value });
+        });
+
         return entries;
     }
 

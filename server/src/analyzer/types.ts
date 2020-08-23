@@ -203,6 +203,12 @@ export interface DataClassEntry {
     type: Type;
 }
 
+export interface TypedDictEntry {
+    valueType: Type;
+    isRequired: boolean;
+    isProvided: boolean;
+}
+
 export const enum ClassTypeFlags {
     None = 0,
 
@@ -289,6 +295,7 @@ interface ClassDetails {
     typeParameters: TypeVarType[];
     docString?: string;
     dataClassEntries?: DataClassEntry[];
+    typedDictEntries?: Map<string, TypedDictEntry>;
 }
 
 export interface ClassType extends TypeBase {

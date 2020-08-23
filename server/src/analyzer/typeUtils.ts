@@ -109,12 +109,6 @@ export const enum CanAssignFlags {
     SkipFunctionReturnTypeCheck = 1 << 4,
 }
 
-export interface TypedDictEntry {
-    valueType: Type;
-    isRequired: boolean;
-    isProvided: boolean;
-}
-
 const singleTickRegEx = /'/g;
 const tripleTickRegEx = /'''/g;
 
