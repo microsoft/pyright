@@ -180,6 +180,8 @@ export class Parser {
     private _importedModules: ModuleImport[] = [];
     private _containsWildcardImport = false;
     private _assignmentExpressionsAllowed = true;
+    private _typingImportAliases: string[] = [];
+    private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
 
     parseSourceFile(fileContents: string, parseOptions: ParseOptions, diagSink: DiagnosticSink): ParseResults {
         timingStats.tokenizeFileTime.timeOperation(() => {
@@ -1283,6 +1285,30 @@ export class Parser {
             importedSymbols: importFromNode.imports.map((imp) => imp.name.value),
         });
 
+        let isTypingImport = false;
+        if (importFromNode.module.nameParts.length === 1) {
+            const firstNamePartValue = importFromNode.module.nameParts[0].value;
+            if (firstNamePartValue === 'typing' || firstNamePartValue === 'typing_extensions') {
+                isTypingImport = true;
+            }
+        }
+
+        if (isTypingImport) {
+            const typingSymbolsOfInterest = ['Literal', 'TypeAlias'];
+
+            if (importFromNode.isWildcardImport) {
+                typingSymbolsOfInterest.forEach((s) => {
+                    this._typingSymbolAliases.set(s, s);
+                });
+            } else {
+                importFromNode.imports.forEach((imp) => {
+                    if (typingSymbolsOfInterest.some((s) => s === imp.name.value)) {
+                        this._typingSymbolAliases.set(imp.alias?.value || imp.name.value, imp.name.value);
+                    }
+                });
+            }
+        }
+
         return importFromNode;
     }
 
@@ -1323,6 +1349,13 @@ export class Parser {
                 nameParts: importAsNode.module.nameParts.map((p) => p.value),
                 importedSymbols: undefined,
             });
+
+            if (modName.nameParts.length === 1) {
+                const firstNamePartValue = modName.nameParts[0].value;
+                if (firstNamePartValue === 'typing' || firstNamePartValue === 'typing_extensions') {
+                    this._typingImportAliases.push(importAsNode.alias?.value || firstNamePartValue);
+                }
+            }
 
             if (!this._consumeTokenIfType(TokenType.Comma)) {
                 break;
@@ -2052,18 +2085,23 @@ export class Parser {
         return leftExpr;
     }
 
+    // Determines whether the expression refers to a type exported by the typing
+    // or typing_extensions modules. We can directly evaluate the types at binding
+    // time. We assume here that the code isn't making use of some custom type alias
+    // to refer to the typing types.
     private _isTypingAnnotation(typeAnnotation: ExpressionNode, name: string): boolean {
         if (typeAnnotation.nodeType === ParseNodeType.Name) {
-            if (typeAnnotation.value === name) {
+            const alias = this._typingSymbolAliases.get(typeAnnotation.value);
+            if (alias === name) {
                 return true;
             }
         } else if (typeAnnotation.nodeType === ParseNodeType.MemberAccess) {
             if (
                 typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
-                (typeAnnotation.leftExpression.value === 'typing' || typeAnnotation.leftExpression.value === 't') &&
                 typeAnnotation.memberName.value === name
             ) {
-                return true;
+                const baseName = typeAnnotation.leftExpression.value;
+                return this._typingImportAliases.some((alias) => alias === baseName);
             }
         }
 

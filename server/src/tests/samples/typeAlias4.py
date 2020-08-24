@@ -1,11 +1,11 @@
 # This sample tests the handling of the Python 3.9
 # TypeAlias feature as documented in PEP 613.
 
-from typing import TypeAlias, Union
+from typing import TypeAlias as TA, Union
 
-type1: TypeAlias = Union[int, str]
+type1: TA = Union[int, str]
 
-type2: TypeAlias = "ClassA"
+type2: TA = "ClassA"
 
 class ClassA:
     pass
@@ -25,20 +25,20 @@ requires_string(type2)
 # is later declared as a TypeAlias.
 my_type3 = int
 
-my_type3: TypeAlias = Union[int, str]
+my_type3: TA = Union[int, str]
 
 # This should generate an error because the symbol
 # was previously declared as a TypeAlias.
-my_type3: TypeAlias = int
+my_type3: TA = int
 
 # This should generate an error because the expression
 # on the RHS evaluates to an object, not a class.
-my_type4: TypeAlias = 3
+my_type4: TA = 3
 
 # This should generate an error because the expression
 # on the RHS evaluates to an object, not a class.
-my_type5: TypeAlias = True
+my_type5: TA = True
 
 # This should generate an error because the expression
 # on the RHS evaluates to an object, not a class.
-my_type7: TypeAlias = list()
+my_type7: TA = list()

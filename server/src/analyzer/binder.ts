@@ -188,6 +188,13 @@ export class Binder extends ParseTreeWalker {
     // and require code flow analysis to resolve.
     private _currentExecutionScopeReferenceMap: Map<string, string> | undefined;
 
+    // Aliases of "typing" and "typing_extensions".
+    private _typingImportAliases: string[] = [];
+
+    // Map of imports of specific symbols imported from "typing" and "typing_extensions"
+    // and the names they alias to.
+    private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
+
     // Flow node that is used for unreachable code.
     private static _unreachableFlowNode: FlowNode = {
         flags: FlowFlags.Unreachable,
@@ -1172,12 +1179,19 @@ export class Binder extends ParseTreeWalker {
             }
 
             this._createFlowAssignment(node.alias ? node.alias : node.module.nameParts[0]);
+
+            if (node.module.nameParts.length === 1) {
+                if (firstNamePartValue === 'typing' || firstNamePartValue === 'typing_extensions') {
+                    this._typingImportAliases.push(node.alias?.value || firstNamePartValue);
+                }
+            }
         }
 
         return true;
     }
 
     visitImportFrom(node: ImportFromNode): boolean {
+        const typingSymbolsOfInterest = ['Final', 'TypeAlias'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
         let resolvedPath = '';
@@ -1194,6 +1208,14 @@ export class Binder extends ParseTreeWalker {
         const fileName = stripFileExtension(getFileName(this._fileInfo.filePath));
         const isModuleInitFile =
             fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length > 0;
+
+        let isTypingImport = false;
+        if (node.module.nameParts.length === 1) {
+            const firstNamePartValue = node.module.nameParts[0].value;
+            if (firstNamePartValue === 'typing' || firstNamePartValue === 'typing_extensions') {
+                isTypingImport = true;
+            }
+        }
 
         if (node.isWildcardImport) {
             if (ParseTreeUtils.getEnclosingClass(node) || ParseTreeUtils.getEnclosingFunction(node)) {
@@ -1243,6 +1265,12 @@ export class Binder extends ParseTreeWalker {
                 }
 
                 this._createFlowWildcardImport(node, names);
+
+                if (isTypingImport) {
+                    typingSymbolsOfInterest.forEach((s) => {
+                        this._typingSymbolAliases.set(s, s);
+                    });
+                }
             }
         } else {
             if (isModuleInitFile) {
@@ -1309,6 +1337,12 @@ export class Binder extends ParseTreeWalker {
 
                     symbol.addDeclaration(aliasDecl);
                     this._createFlowAssignment(importSymbolNode.alias || importSymbolNode.name);
+
+                    if (isTypingImport) {
+                        if (typingSymbolsOfInterest.some((s) => s === importSymbolNode.name.value)) {
+                            this._typingSymbolAliases.set(nameNode.value, importSymbolNode.name.value);
+                        }
+                    }
                 }
             });
         }
@@ -2408,22 +2442,23 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
+    // Determines whether the expression refers to a type exported by the typing
+    // or typing_extensions modules. We can directly evaluate the types at binding
+    // time. We assume here that the code isn't making use of some custom type alias
+    // to refer to the typing types.
     private _isTypingAnnotation(typeAnnotation: ExpressionNode, name: string): boolean {
         if (typeAnnotation.nodeType === ParseNodeType.Name) {
-            // We need to make an assumption in this code that the symbol "Final"
-            // will resolve to typing.Final. This is because of the poor way
-            // the "Final" support was specified. We need to evaluate it
-            // in the binder before we have a way to resolve symbol names.
-            if (typeAnnotation.value === name) {
+            const alias = this._typingSymbolAliases.get(typeAnnotation.value);
+            if (alias === name) {
                 return true;
             }
         } else if (typeAnnotation.nodeType === ParseNodeType.MemberAccess) {
             if (
                 typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
-                (typeAnnotation.leftExpression.value === 'typing' || typeAnnotation.leftExpression.value === 't') &&
                 typeAnnotation.memberName.value === name
             ) {
-                return true;
+                const baseName = typeAnnotation.leftExpression.value;
+                return this._typingImportAliases.some((alias) => alias === baseName);
             }
         }
 
