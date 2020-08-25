@@ -9,7 +9,8 @@ class Bar(Foo):
     pass
 
 class Bar2(Foo, metaclass=type):
-    pass
+    def my_method(self):
+        print(__class__)
 
 # This should generate an error because only one metaclass is supported.
 class Bar3(Foo, metaclass=type, metaclass=type):
