@@ -10083,7 +10083,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (parent.nodeType === ParseNodeType.ModuleName) {
-            getTypeOfExpression(lastContextualExpression);
+            // A name within a module name isn't an expression,
+            // so there's nothing we can evaluate here.
             return;
         }
 
@@ -11970,6 +11971,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 namePartIndex < importInfo.resolvedPaths.length
             ) {
                 if (importInfo.resolvedPaths[namePartIndex]) {
+                    evaluateTypesForStatement(node);
+
                     // Synthesize an alias declaration for this name part. The only
                     // time this case is used is for the hover provider.
                     const aliasDeclaration: AliasDeclaration = {
