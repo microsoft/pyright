@@ -32,10 +32,6 @@ export const enum SymbolFlags {
     // Indicates that the symbol is an instance member of a class.
     InstanceMember = 1 << 3,
 
-    // Most class variables are visible to class instances, but
-    // in a few cases, they are not accessible through instances.
-    InaccessibleToInstance = 1 << 4,
-
     // Indicates that the symbol is considered "private" to the
     // class and should not be accessed outside or overridden.
     PrivateMember = 1 << 5,
@@ -112,10 +108,6 @@ export class Symbol {
 
     isClassMember() {
         return !!(this._flags & SymbolFlags.ClassMember);
-    }
-
-    isInaccessibleToInstance() {
-        return !!(this._flags & SymbolFlags.InaccessibleToInstance);
     }
 
     setIsInstanceMember() {

@@ -343,26 +343,6 @@ export class Binder extends ParseTreeWalker {
         this._createNewScope(ScopeType.Class, this._currentScope!, () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope!);
 
-            // Bind implicit names.
-            // Note that __class__, __dict__ and __doc__ are skipped here
-            // because the builtins.pyi type stub declares these in the
-            // 'object' class.
-            this._addBuiltInSymbolToCurrentScope('__base__', node, 'Any');
-            this._addBuiltInSymbolToCurrentScope('__bases__', node, 'Any');
-            this._addBuiltInSymbolToCurrentScope('__basicsize__', node, 'int');
-            this._addBuiltInSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');
-            this._addBuiltInSymbolToCurrentScope('__dictoffset__', node, 'int');
-            this._addBuiltInSymbolToCurrentScope('__flags__', node, 'int');
-            this._addBuiltInSymbolToCurrentScope('__itemsize__', node, 'int');
-            this._addBuiltInSymbolToCurrentScope('__module__', node, 'str');
-            this._addBuiltInSymbolToCurrentScope('__mro__', node, 'Any');
-            this._addBuiltInSymbolToCurrentScope('__name__', node, 'str', /* isInaccessibleToInstance */ true);
-            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_0) {
-                this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str');
-                this._addBuiltInSymbolToCurrentScope('__text_signature__', node, 'str');
-            }
-            this._addBuiltInSymbolToCurrentScope('__subclasses__', node, 'Any');
-
             // Analyze the suite.
             this.walk(node.suite);
         });
@@ -436,27 +416,6 @@ export class Binder extends ParseTreeWalker {
         // the current scope.
         this._createNewScope(ScopeType.Function, functionOrModuleScope, () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope!);
-
-            // Bind implicit names.
-            // List taken from https://docs.python.org/3/reference/datamodel.html
-            this._addBuiltInSymbolToCurrentScope('__doc__', node, 'str');
-            this._addBuiltInSymbolToCurrentScope('__name__', node, 'str');
-            if (this._fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_3) {
-                this._addBuiltInSymbolToCurrentScope('__qualname__', node, 'str');
-            }
-            this._addBuiltInSymbolToCurrentScope('__module__', node, 'str');
-            this._addBuiltInSymbolToCurrentScope('__defaults__', node, 'Any');
-            this._addBuiltInSymbolToCurrentScope('__code__', node, 'Any');
-            this._addBuiltInSymbolToCurrentScope('__globals__', node, 'Any');
-            this._addBuiltInSymbolToCurrentScope('__dict__', node, 'Any');
-            this._addBuiltInSymbolToCurrentScope('__closure__', node, 'Any');
-            this._addBuiltInSymbolToCurrentScope('__annotations__', node, 'Any');
-            this._addBuiltInSymbolToCurrentScope('__kwdefaults__', node, 'Any');
-
-            const enclosingClass = ParseTreeUtils.getEnclosingClass(node);
-            if (enclosingClass) {
-                this._addBuiltInSymbolToCurrentScope('__class__', node, 'class');
-            }
 
             this._deferBinding(() => {
                 // Create a start node for the function.
@@ -2153,14 +2112,9 @@ export class Binder extends ParseTreeWalker {
     private _addBuiltInSymbolToCurrentScope(
         nameValue: string,
         node: ModuleNode | ClassNode | FunctionNode,
-        type: IntrinsicType,
-        isInaccessibleToInstance = false
+        type: IntrinsicType
     ) {
-        const symbol = this._addSymbolToCurrentScope(
-            nameValue,
-            /* isInitiallyUnbound */ false,
-            isInaccessibleToInstance
-        );
+        const symbol = this._addSymbolToCurrentScope(nameValue, /* isInitiallyUnbound */ false);
         if (symbol) {
             symbol.addDeclaration({
                 type: DeclarationType.Intrinsic,
@@ -2175,7 +2129,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     // Adds a new symbol with the specified name if it doesn't already exist.
-    private _addSymbolToCurrentScope(nameValue: string, isInitiallyUnbound: boolean, isInaccessibleToInstance = false) {
+    private _addSymbolToCurrentScope(nameValue: string, isInitiallyUnbound: boolean) {
         let symbol = this._currentScope!.lookUpSymbol(nameValue);
 
         if (!symbol) {
@@ -2187,10 +2141,6 @@ export class Binder extends ParseTreeWalker {
 
             if (this._currentScope!.type === ScopeType.Class) {
                 symbolFlags |= SymbolFlags.ClassMember;
-            }
-
-            if (isInaccessibleToInstance) {
-                symbolFlags |= SymbolFlags.InaccessibleToInstance;
             }
 
             if (this._fileInfo.isStubFile && isPrivateOrProtectedName(nameValue)) {

@@ -17,7 +17,7 @@ class Foo2(FooBase):
         pass
     
     def hello2(self):
-        return __class__()
+        return self.__class__()
 
     @staticmethod
     def aaa():

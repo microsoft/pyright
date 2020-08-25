@@ -327,9 +327,6 @@ export const enum MemberAccessFlags {
     // Consider writes to symbols flagged as ClassVars as an error.
     DisallowClassVarWrites = 1 << 4,
 
-    // Don't allow access to attributes that are accessible only through the class.
-    SkipIfInaccessibleToInstance = 1 << 5,
-
     // This set of flags is appropriate for looking up methods.
     SkipForMethodLookup = SkipInstanceMembers | SkipGetAttributeCheck,
 }
@@ -1098,9 +1095,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             memberName,
             usage,
             diag,
-            memberAccessFlags |
-                MemberAccessFlags.DisallowClassVarWrites |
-                MemberAccessFlags.SkipIfInaccessibleToInstance
+            memberAccessFlags | MemberAccessFlags.DisallowClassVarWrites
         );
 
         let resultType = memberInfo ? memberInfo.type : undefined;
@@ -3318,9 +3313,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
         if (flags & MemberAccessFlags.SkipObjectBaseClass) {
             classLookupFlags |= ClassMemberLookupFlags.SkipObjectBaseClass;
-        }
-        if (flags & MemberAccessFlags.SkipIfInaccessibleToInstance) {
-            classLookupFlags |= ClassMemberLookupFlags.SkipIfInaccessibleToInstance;
         }
 
         // Always look for a member with a declared type first.
@@ -8516,6 +8508,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (!computeMroLinearization(classType)) {
             addError(Localizer.Diagnostic.methodOrdering(), node.name);
+        }
+
+        // If a metaclass wasn't specified, assume "type".
+        if (!getMetaclass(classType)) {
+            if (!ClassType.isBuiltIn(classType, 'type')) {
+                const typeMetaclass = getBuiltInType(node, 'type');
+                if (typeMetaclass && isClass(typeMetaclass)) {
+                    classType.details.metaClass = typeMetaclass;
+                }
+            }
         }
 
         // The scope for this class becomes the "fields" for the corresponding type.
@@ -13792,7 +13794,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (metaclass) {
                     if (isAnyOrUnknown(metaclass)) {
                         return true;
-                    } else if (isClass(metaclass)) {
+                    } else if (isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
                         // Handle EnumMeta, which requires special-case handling because
                         // of the way it's defined in enum.pyi. The type var _T must be
                         // manually set to the corresponding enum object type.
