@@ -1101,7 +1101,9 @@ export class Binder extends ParseTreeWalker {
                     this._addError(Localizer.Diagnostic.nonLocalNoBinding().format({ name: nameValue }), name);
                 }
 
-                this._notLocalBindings.set(nameValue, NameBindingType.Nonlocal);
+                if (valueWithScope) {
+                    this._notLocalBindings.set(nameValue, NameBindingType.Nonlocal);
+                }
             });
         }
 
