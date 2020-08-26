@@ -2203,7 +2203,9 @@ export class Parser {
                 extendRange(indexNode, indexNode);
 
                 if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
-                    return this._handleExpressionParseError(
+                    // Handle the error case, but don't use the error node in this
+                    // case because it creates problems for the completion provider.
+                    this._handleExpressionParseError(
                         ErrorExpressionCategory.MissingIndexCloseBracket,
                         Localizer.Diagnostic.expectedCloseBracket(),
                         indexNode
