@@ -13,7 +13,7 @@
         "url": "https://github.com/Microsoft/pyright"
     },
     "engines": {
-        "vscode": "^1.47.0"
+        "vscode": "^1.48.0"
     },
     "keywords": [
         "python"
@@ -614,14 +614,16 @@
         "build": "tsc -p ./"
     },
     "devDependencies": {
-        "@types/vscode": "^1.47.0",
-        "typescript": "^3.9.5",
-        "vsce": "^1.77.0"
+        "@types/node": "~12.12.54",
+        "@types/vscode": "^1.48.0",
+        "typescript": "^4.0.2",
+        "vsce": "^1.79.3"
     },
     "dependencies": {
         "leven": "^3.1.0",
-        "vscode-languageclient": "^7.0.0-next.8",
-        "vscode-languageserver": "^7.0.0-next.6",
+        "vscode-jsonrpc": "6.0.0-next.4",
+        "vscode-languageclient": "7.0.0-next.8",
+        "vscode-languageserver": "7.0.0-next.6",
         "vscode-uri": "^2.1.2"
     }
 }
