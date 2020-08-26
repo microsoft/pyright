@@ -56,6 +56,10 @@ You can install the latest-published version of the Pyright VS Code extension di
 ### Vim
 For vim/neovim users, you can install [coc-pyright](https://github.com/fannheyward/coc-pyright), Pyright extension for coc.nvim.
 
+### Emacs
+For emacs users, you can install [lsp-mode](https://github.com/emacs-lsp/lsp-mode) that includes [lsp-pyright](https://github.com/emacs-lsp/lsp-pyright).
+To activate the pyright extension follow the instructions in the [docs](https://emacs-lsp.github.io/lsp-pyright/).
+
 ### Command-line
 The latest version of the command-line tool can be installed with npm, which is part of node. If you don't have a recent version of node on your system, install that first from [nodejs.org](nodejs.org). 
 
