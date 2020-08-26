@@ -78,7 +78,13 @@ export function activate(context: ExtensionContext) {
             // Synchronize the setting section to the server.
             configurationSection: ['python', 'pyright'],
         },
-        connectionOptions: { cancellationStrategy: cancellationStrategy },
+        connectionOptions: {
+            // This "any" cast is needed temporarily because of an
+            // incompatibility between two of the vscode libraries.
+            // TODO - Remove this cast once the vscode library definitions
+            // come back into sync.
+            cancellationStrategy: cancellationStrategy as any
+        },
         middleware: {
             // Use the middleware hook to override the configuration call. This allows
             // us to inject the proper "python.pythonPath" setting from the Python extension's
