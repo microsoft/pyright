@@ -11640,10 +11640,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (typeArgs && typeArgCount > typeParameters.length) {
             if (!ClassType.isPartiallyConstructed(classType)) {
+                const fileInfo = getFileInfo(errorNode);
                 if (typeParameters.length === 0) {
-                    addError(Localizer.Diagnostic.typeArgsExpectingNone(), typeArgs[typeParameters.length].node);
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeArgsExpectingNone(),
+                        typeArgs[typeParameters.length].node
+                    );
                 } else {
-                    addError(
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.typeArgsTooMany().format({
                             expected: typeParameters.length,
                             received: typeArgCount,
