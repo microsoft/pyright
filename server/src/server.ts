@@ -11,7 +11,6 @@ import {
     CodeActionKind,
     CodeActionParams,
     Command,
-    Connection,
     ExecuteCommandParams,
 } from 'vscode-languageserver/node';
 import { isMainThread } from 'worker_threads';
@@ -25,7 +24,12 @@ import { LogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
 import { convertUriToPath, getDirectoryPath, normalizeSlashes } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
-import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
+import {
+    LanguageServerBase,
+    ProgressReporterConnection,
+    ServerSettings,
+    WorkspaceServiceInstance,
+} from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
@@ -178,7 +182,7 @@ class PyrightServer extends LanguageServerBase {
     }
 }
 
-function reporterFactory(connection: Connection): ProgressReporter {
+function reporterFactory(connection: ProgressReporterConnection): ProgressReporter {
     return {
         isEnabled(data: AnalysisResults): boolean {
             return true;

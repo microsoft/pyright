@@ -74,6 +74,7 @@ export interface TextChange {
 export interface HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory;
 
+    runIndexer(workspace: WorkspaceServiceInstance, noStdLib: boolean): void;
     getCodeActionsForPosition(
         workspace: WorkspaceServiceInstance,
         filePath: string,
@@ -164,6 +165,12 @@ export class TestState {
             disableOrganizeImports: false,
             isInitialized: createDeferred<boolean>(),
         };
+
+        const indexer = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexer]);
+        const indexerWithoutStdLib = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexerWithoutStdLib]);
+        if (indexer || indexerWithoutStdLib) {
+            this._hostSpecificFeatures.runIndexer(this.workspace, indexerWithoutStdLib);
+        }
 
         if (this._files.length > 0) {
             // Open the first file by default
@@ -815,7 +822,7 @@ export class TestState {
             const expectedCompletions = map[markerName].completions;
             const completionPosition = this._convertOffsetToPosition(filePath, marker.position);
 
-            const result = await this.program.getCompletionsForPosition(
+            const result = await this.workspace.serviceInstance.getCompletionsForPosition(
                 filePath,
                 completionPosition,
                 this.workspace.rootPath,
@@ -850,7 +857,7 @@ export class TestState {
                         assert.equal(actual.label, expected.label);
                         if (expectedCompletions[i].documentation !== undefined) {
                             if (actual.documentation === undefined) {
-                                this.program.resolveCompletionItem(filePath, actual, CancellationToken.None);
+                                this.program.resolveCompletionItem(filePath, actual, undefined, CancellationToken.None);
                             }
 
                             if (MarkupContent.is(actual.documentation)) {

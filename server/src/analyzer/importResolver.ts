@@ -31,6 +31,7 @@ import {
 import { versionToString } from '../common/pythonVersion';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import * as StringUtils from '../common/stringUtils';
+import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as PythonPathUtils from './pythonPathUtils';
 import { isDunderName } from './symbolNameUtils';
@@ -300,6 +301,12 @@ export class ImportResolver {
     }
 
     // Intended to be overridden by subclasses to provide additional stub
+    // path capabilities. Return undefined if no extra stub path were found.
+    protected getTypeshedPathEx(execEnv: ExecutionEnvironment, importFailureInfo: string[]): string | undefined {
+        return undefined;
+    }
+
+    // Intended to be overridden by subclasses to provide additional stub
     // resolving capabilities. Return undefined if no stubs were found for
     // this import.
     protected resolveImportEx(
@@ -526,6 +533,18 @@ export class ImportResolver {
             }
         }
 
+        const thirdPartyTypeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);
+        if (thirdPartyTypeshedPathEx) {
+            const candidateModuleName = this._getModuleNameFromPath(thirdPartyTypeshedPathEx, filePath);
+
+            // Does this candidate look better than the previous best module name?
+            // We'll always try to use the shortest version.
+            if (!moduleName || (candidateModuleName && candidateModuleName.length < moduleName.length)) {
+                moduleName = candidateModuleName;
+                importType = ImportType.ThirdParty;
+            }
+        }
+
         // Look for the import in the list of third-party packages.
         const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
         for (const searchPath of pythonSearchPaths) {
@@ -545,6 +564,11 @@ export class ImportResolver {
 
         // We didn't find any module name.
         return { moduleName: '', importType: ImportType.Local, isLocalTypingsFile };
+    }
+
+    getTypeshedStdLibPath(execEnv: ExecutionEnvironment) {
+        const unused: string[] = [];
+        return this._getTypeshedPath(true, execEnv, unused);
     }
 
     getImportRoots(execEnv: ExecutionEnvironment, useTypeshedVersionedFolders: boolean) {
@@ -581,6 +605,11 @@ export class ImportResolver {
             } else {
                 roots.push(typeshedPath);
             }
+        }
+
+        const typeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);
+        if (typeshedPathEx) {
+            roots.push(typeshedPathEx);
         }
 
         const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
@@ -664,7 +693,22 @@ export class ImportResolver {
             parts[0] = parts[0].substr(0, parts[0].length - stubsSuffix.length);
         }
 
+        // Check whether parts contains invalid characters.
+        if (parts.some((p) => !this._isIdentifier(p))) {
+            return undefined;
+        }
+
         return parts.join('.');
+    }
+
+    private _isIdentifier(value: string) {
+        for (let i = 0; i < value.length; i++) {
+            if (i === 0 ? !isIdentifierStartChar(value.charCodeAt(i)) : !isIdentifierChar(value.charCodeAt(i))) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private _getPythonSearchPaths(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
@@ -693,7 +737,11 @@ export class ImportResolver {
         isStdLib: boolean,
         importFailureInfo: string[]
     ): ImportResult | undefined {
-        importFailureInfo.push(`Looking for typeshed ${isStdLib ? 'stdlib' : 'third_party'} path`);
+        importFailureInfo.push(
+            `Looking for typeshed ${
+                isStdLib ? PythonPathUtils.stdLibFolderName : PythonPathUtils.thirdPartyFolderName
+            } path`
+        );
 
         const typeshedPath = this._getTypeshedPath(isStdLib, execEnv, importFailureInfo);
         if (!typeshedPath) {

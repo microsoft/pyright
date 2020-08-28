@@ -15,7 +15,7 @@ await helper.verifyCompletion('included', {
                 label: 'Test',
                 documentation: {
                     kind: 'markdown',
-                    value: 'Auto-import from test2\n\n',
+                    value: 'Auto-import\n\n```\nfrom test2 import Test\n```',
                 },
             },
         ],

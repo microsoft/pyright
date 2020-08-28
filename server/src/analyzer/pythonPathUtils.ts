@@ -29,6 +29,9 @@ interface PythonPathResult {
 
 const cachedSearchPaths = new Map<string, PythonPathResult>();
 
+export const stdLibFolderName = 'stdlib';
+export const thirdPartyFolderName = 'third_party';
+
 export function getTypeShedFallbackPath(fs: FileSystem) {
     let moduleDirectory = fs.getModulePath();
     if (!moduleDirectory) {
@@ -53,7 +56,7 @@ export function getTypeShedFallbackPath(fs: FileSystem) {
 }
 
 export function getTypeshedSubdirectory(typeshedPath: string, isStdLib: boolean) {
-    return combinePaths(typeshedPath, isStdLib ? 'stdlib' : 'third_party');
+    return combinePaths(typeshedPath, isStdLib ? stdLibFolderName : thirdPartyFolderName);
 }
 
 export function findPythonSearchPaths(

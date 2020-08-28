@@ -35,6 +35,7 @@ import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
     getDirectoryPath,
+    getFileName,
     getRelativePath,
     makeDirectories,
     normalizePath,
@@ -47,10 +48,10 @@ import {
     AutoImporter,
     AutoImportResult,
     buildModuleSymbolsMap,
-    ImportNameMap,
     ModuleSymbolMap,
 } from '../languageService/autoImporter';
 import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
+import { IndexResults } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
@@ -64,6 +65,7 @@ import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
 import { SourceMapper } from './sourceMapper';
+import { isPrivateOrProtectedName } from './symbolNameUtils';
 import { createTypeEvaluator, PrintTypeFlags, TypeEvaluator } from './typeEvaluator';
 import { TypeStubWriter } from './typeStubWriter';
 
@@ -103,6 +105,13 @@ export interface MaxAnalysisTime {
     // to reduce overall analysis time but needs to be short enough
     // to remain responsive if an open file is modified.
     noOpenFilesTimeInMs: number;
+}
+
+export interface Indices {
+    setWorkspaceIndex(path: string, indexResults: IndexResults): void;
+    getIndex(execEnv: string): Map<string, IndexResults> | undefined;
+    setIndex(execEnv: string, path: string, indexResults: IndexResults): void;
+    reset(): void;
 }
 
 interface UpdateImportInfo {
@@ -396,12 +405,14 @@ export class Program {
             }
 
             if (!this._configOptions.checkOnlyOpenFiles) {
-                // Do type analysis of remaining files.
-                const allFiles = this._sourceFileList;
                 const effectiveMaxTime = maxTime ? maxTime.noOpenFilesTimeInMs : Number.MAX_VALUE;
 
                 // Now do type parsing and analysis of the remaining.
-                for (const sourceFileInfo of allFiles) {
+                for (const sourceFileInfo of this._sourceFileList) {
+                    if (!this._isUserCode(sourceFileInfo)) {
+                        continue;
+                    }
+
                     if (this._checkTypes(sourceFileInfo)) {
                         if (elapsedTime.getDurationInMilliseconds() > effectiveMaxTime) {
                             return true;
@@ -411,6 +422,26 @@ export class Program {
             }
 
             return false;
+        });
+    }
+
+    indexWorkspace(callback: (path: string, results: IndexResults) => void, token: CancellationToken) {
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            // Go through all workspace files to create indexing data.
+            // This will cause all files in the workspace to be parsed and bound. We might
+            // need to drop some of those parse tree and binding info once indexing is done
+            // if it didn't exist before.
+            for (const sourceFileInfo of this._sourceFileList) {
+                if (!this._isUserCode(sourceFileInfo)) {
+                    continue;
+                }
+
+                this._bindFile(sourceFileInfo);
+                const results = sourceFileInfo.sourceFile.index(false, token);
+                if (results) {
+                    callback(sourceFileInfo.sourceFile.getFilePath(), results);
+                }
+            }
         });
     }
 
@@ -849,7 +880,7 @@ export class Program {
         range: Range,
         similarityLimit: number,
         nameMap: Map<string, string> | undefined,
-        importMap: ImportNameMap | undefined,
+        libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
     ): AutoImportResult[] {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
@@ -885,8 +916,9 @@ export class Program {
                 sourceFile.getFilePath(),
                 this._importResolver,
                 parseTree,
+                [],
                 map,
-                importMap
+                libraryMap
             );
 
             // Filter out any name that is already defined in the current scope.
@@ -899,13 +931,13 @@ export class Program {
                     // No filter is needed since we only do exact match.
                     const exactMatch = 1;
                     results.push(
-                        ...autoImporter.getAutoImportCandidates(translatedWord, exactMatch, [], writtenWord, token)
+                        ...autoImporter.getAutoImportCandidates(translatedWord, exactMatch, writtenWord, token)
                     );
                 }
 
                 results.push(
                     ...autoImporter
-                        .getAutoImportCandidates(writtenWord, similarityLimit, [], undefined, token)
+                        .getAutoImportCandidates(writtenWord, similarityLimit, undefined, token)
                         .filter((r) => !currentScope.lookUpSymbolRecursive(r.name))
                 );
             }
@@ -1086,13 +1118,37 @@ export class Program {
         });
     }
 
+    getFileIndex(filePath: string, importSymbolsOnly: boolean, token: CancellationToken): IndexResults | undefined {
+        if (importSymbolsOnly) {
+            // Memory optimization. We only want to hold onto symbols
+            // usable outside when importSymbolsOnly is on.
+            const name = stripFileExtension(getFileName(filePath));
+            if (isPrivateOrProtectedName(name)) {
+                return undefined;
+            }
+        }
+
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            const sourceFileInfo = this._sourceFileMap.get(filePath);
+            if (!sourceFileInfo) {
+                return undefined;
+            }
+
+            this._bindFile(sourceFileInfo);
+            return sourceFileInfo.sourceFile.index(importSymbolsOnly, token);
+        });
+    }
+
     addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[], token: CancellationToken) {
         return this._runEvaluatorWithCancellationToken(token, () => {
             const sourceFileInfo = this._sourceFileMap.get(filePath);
             if (sourceFileInfo) {
-                this._bindFile(sourceFileInfo);
+                if (!sourceFileInfo.sourceFile.getCachedIndexResults()) {
+                    // If we already have cached index for this file, no need to bind this file.
+                    this._bindFile(sourceFileInfo);
+                }
 
-                sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(symbolList, this._evaluator!, token);
+                sourceFileInfo.sourceFile.addHierarchicalSymbolsForDocument(symbolList, token);
             }
         });
     }
@@ -1105,17 +1161,22 @@ export class Program {
                 return;
             }
 
+            // "Workspace symbols" searches symbols only from user code.
             for (const sourceFileInfo of this._sourceFileList) {
-                // "Find symbols" includes references only from user code.
-                if (this._isUserCode(sourceFileInfo)) {
-                    this._bindFile(sourceFileInfo);
-
-                    sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, this._evaluator!, query, token);
-
-                    // This operation can consume significant memory, so check
-                    // for situations where we need to discard the type cache.
-                    this._handleMemoryHighUsage();
+                if (!this._isUserCode(sourceFileInfo)) {
+                    continue;
                 }
+
+                if (!sourceFileInfo.sourceFile.getCachedIndexResults()) {
+                    // If we already have cached index for this file, no need to bind this file.
+                    this._bindFile(sourceFileInfo);
+                }
+
+                sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, query, token);
+
+                // This operation can consume significant memory, so check
+                // for situations where we need to discard the type cache.
+                this._handleMemoryHighUsage();
             }
         });
     }
@@ -1188,6 +1249,7 @@ export class Program {
         filePath: string,
         position: Position,
         workspacePath: string,
+        libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
     ): Promise<CompletionList | undefined> {
         const sourceFileInfo = this._sourceFileMap.get(filePath);
@@ -1207,6 +1269,7 @@ export class Program {
                 this._lookUpImport,
                 this._evaluator!,
                 this._createSourceMapper(execEnv),
+                libraryMap,
                 () => this._buildModuleSymbolsMap(sourceFileInfo, token),
                 token
             );
@@ -1235,7 +1298,12 @@ export class Program {
         return completionList;
     }
 
-    resolveCompletionItem(filePath: string, completionItem: CompletionItem, token: CancellationToken) {
+    resolveCompletionItem(
+        filePath: string,
+        completionItem: CompletionItem,
+        libraryMap: Map<string, IndexResults> | undefined,
+        token: CancellationToken
+    ) {
         return this._runEvaluatorWithCancellationToken(token, () => {
             const sourceFileInfo = this._sourceFileMap.get(filePath);
             if (!sourceFileInfo) {
@@ -1251,6 +1319,7 @@ export class Program {
                 this._lookUpImport,
                 this._evaluator!,
                 this._createSourceMapper(execEnv),
+                libraryMap,
                 () => this._buildModuleSymbolsMap(sourceFileInfo, token),
                 completionItem,
                 token

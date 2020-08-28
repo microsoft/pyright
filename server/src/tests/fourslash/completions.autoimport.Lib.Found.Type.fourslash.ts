@@ -19,7 +19,7 @@ await helper.verifyCompletion('included', {
                 label: 'Test',
                 documentation: {
                     kind: 'markdown',
-                    value: 'Auto-import from testLib\n\n',
+                    value: 'Auto-import\n\n```\nfrom testLib import Test\n```',
                 },
             },
         ],

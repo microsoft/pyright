@@ -24,7 +24,7 @@ import {
 } from 'vscode-languageserver-types';
 
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
-import { createAnalysisCancellationTokenSource } from '../common/cancellationUtils';
+import { createBackgroundThreadCancellationTokenSource } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
@@ -46,7 +46,7 @@ import {
 } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
-import { ImportNameMap } from '../languageService/autoImporter';
+import { IndexResults } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { AnalysisCompleteCallback } from './analysis';
@@ -176,6 +176,17 @@ export class AnalyzerService {
         this._scheduleReanalysis(false);
     }
 
+    test_setIndexing(
+        workspaceIndices: Map<string, IndexResults>,
+        libraryIndices: Map<string, Map<string, IndexResults>>
+    ) {
+        this._backgroundAnalysisProgram.test_setIndexing(workspaceIndices, libraryIndices);
+    }
+
+    startIndexing() {
+        this._backgroundAnalysisProgram.startIndexing();
+    }
+
     setFileClosed(path: string) {
         this._backgroundAnalysisProgram.setFileClosed(path);
         this._scheduleReanalysis(false);
@@ -190,10 +201,16 @@ export class AnalyzerService {
         range: Range,
         similarityLimit: number,
         nameMap: Map<string, string> | undefined,
-        importMap: ImportNameMap | undefined,
         token: CancellationToken
     ) {
-        return this._program.getAutoImports(filePath, range, similarityLimit, nameMap, importMap, token);
+        return this._program.getAutoImports(
+            filePath,
+            range,
+            similarityLimit,
+            nameMap,
+            this._backgroundAnalysisProgram.getIndexing(filePath),
+            token
+        );
     }
 
     getDefinitionForPosition(
@@ -247,11 +264,22 @@ export class AnalyzerService {
         workspacePath: string,
         token: CancellationToken
     ): Promise<CompletionList | undefined> {
-        return this._program.getCompletionsForPosition(filePath, position, workspacePath, token);
+        return this._program.getCompletionsForPosition(
+            filePath,
+            position,
+            workspacePath,
+            this._backgroundAnalysisProgram.getIndexing(filePath),
+            token
+        );
     }
 
     resolveCompletionItem(filePath: string, completionItem: CompletionItem, token: CancellationToken) {
-        this._program.resolveCompletionItem(filePath, completionItem, token);
+        this._program.resolveCompletionItem(
+            filePath,
+            completionItem,
+            this._backgroundAnalysisProgram.getIndexing(filePath),
+            token
+        );
     }
 
     performQuickAction(
@@ -988,7 +1016,7 @@ export class AnalyzerService {
                     }
 
                     if (this._verboseOutput) {
-                        this._console.info(`Received fs event '${event}' for path '${path}'`);
+                        this._console.info(`SourceFile: Received fs event '${event}' for path '${path}'`);
                     }
 
                     // Delete comes in as a change event, so try to distinguish here.
@@ -1063,7 +1091,7 @@ export class AnalyzerService {
                     }
 
                     if (this._verboseOutput) {
-                        this._console.info(`Received fs event '${event}' for path '${path}'`);
+                        this._console.info(`LibraryFile: Received fs event '${event}' for path '${path}'}'`);
                     }
 
                     this._scheduleLibraryAnalysis();
@@ -1078,6 +1106,7 @@ export class AnalyzerService {
         if (this._libraryReanalysisTimer) {
             clearTimeout(this._libraryReanalysisTimer);
             this._libraryReanalysisTimer = undefined;
+            this._backgroundAnalysisProgram?.cancelIndexing();
         }
     }
 
@@ -1099,7 +1128,7 @@ export class AnalyzerService {
             // and reanalyze.
             this.invalidateAndForceReanalysis();
             this._scheduleReanalysis(false);
-        }, 100);
+        }, 1000);
     }
 
     private _removeConfigFileWatcher() {
@@ -1234,7 +1263,7 @@ export class AnalyzerService {
             }
 
             // This creates a cancellation source only if it actually gets used.
-            this._backgroundAnalysisCancellationSource = createAnalysisCancellationTokenSource();
+            this._backgroundAnalysisCancellationSource = createBackgroundThreadCancellationTokenSource();
             const moreToAnalyze = this._backgroundAnalysisProgram.startAnalysis(
                 this._backgroundAnalysisCancellationSource.token
             );

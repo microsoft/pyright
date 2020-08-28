@@ -12,6 +12,8 @@ export const enum GlobalMetadataOptionNames {
     projectRoot = 'projectroot',
     ignoreCase = 'ignorecase',
     typeshed = 'typeshed',
+    indexer = 'indexer',
+    indexerWithoutStdLib = 'indexerwithoutstdlib',
 }
 
 /** Any option name not belong to this will become global option */

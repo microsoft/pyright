@@ -7,17 +7,22 @@
  */
 
 import { CancellationToken } from 'vscode-languageserver';
-import { MessageChannel, MessagePort, parentPort, Worker, workerData } from 'worker_threads';
+import { MessageChannel, MessagePort, parentPort, threadId, Worker, workerData } from 'worker_threads';
 
 import { AnalysisCompleteCallback, AnalysisResults, analyzeProgram, nullCallback } from './analyzer/analysis';
 import { ImportResolver } from './analyzer/importResolver';
-import { Program } from './analyzer/program';
+import { Indices, Program } from './analyzer/program';
+import {
+    BackgroundThreadBase,
+    createConfigOptionsFrom,
+    getBackgroundWaiter,
+    LogData,
+    run,
+} from './backgroundThreadBase';
 import {
     disposeCancellationToken,
     getCancellationTokenFromId,
     getCancellationTokenId,
-    OperationCanceledException,
-    setCancellationFolderName,
     throwIfCancellationRequested,
 } from './common/cancellationUtils';
 import { ConfigOptions } from './common/configOptions';
@@ -26,22 +31,20 @@ import * as debug from './common/debug';
 import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { LanguageServiceExtension } from './common/extensibility';
-import { createFromRealFileSystem, FileSystem } from './common/fileSystem';
-import { FileSpec } from './common/pathUtils';
+import { FileSystem } from './common/fileSystem';
 import { Range } from './common/textRange';
+import { IndexResults } from './languageService/documentSymbolProvider';
 
 export class BackgroundAnalysisBase {
     private _worker: Worker | undefined;
-    private _console: ConsoleInterface | undefined;
     private _onAnalysisCompletion: AnalysisCompleteCallback = nullCallback;
 
-    protected constructor() {
+    protected constructor(protected console: ConsoleInterface) {
         // Don't allow instantiation of this type directly.
     }
 
-    protected setup(worker: Worker, console: ConsoleInterface) {
+    protected setup(worker: Worker) {
         this._worker = worker;
-        this._console = console;
 
         // global channel to communicate from BG channel to main thread.
         worker.on('message', (msg: AnalysisResponse) => {
@@ -103,7 +106,7 @@ export class BackgroundAnalysisBase {
         this._enqueueRequest({ requestType: 'markFilesDirty', data: { filePaths, evenIfContentsAreSame } });
     }
 
-    startAnalysis(token: CancellationToken) {
+    startAnalysis(indices: Indices | undefined, token: CancellationToken) {
         const { port1, port2 } = new MessageChannel();
 
         // Handle response from background thread to main thread.
@@ -111,6 +114,12 @@ export class BackgroundAnalysisBase {
             switch (msg.requestType) {
                 case 'analysisResult': {
                     this._onAnalysisCompletion(convertAnalysisResults(msg.data));
+                    break;
+                }
+
+                case 'indexResult': {
+                    const { path, indexResults } = msg.data;
+                    indices?.setWorkspaceIndex(path, indexResults);
                     break;
                 }
 
@@ -128,6 +137,18 @@ export class BackgroundAnalysisBase {
 
         const cancellationId = getCancellationTokenId(token);
         this._enqueueRequest({ requestType: 'analyze', data: cancellationId, port: port2 });
+    }
+
+    startIndexing(configOptions: ConfigOptions, indices: Indices) {
+        /* noop */
+    }
+
+    refreshIndexing(configOptions: ConfigOptions, indices?: Indices) {
+        /* noop */
+    }
+
+    cancelIndexing(configOptions: ConfigOptions) {
+        /* noop */
     }
 
     async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
@@ -190,41 +211,35 @@ export class BackgroundAnalysisBase {
     }
 
     protected log(level: LogLevel, msg: string) {
-        if (this._console) {
-            log(this._console, level, msg);
-        }
+        log(this.console, level, msg);
     }
 }
 
-export class BackgroundAnalysisRunnerBase {
-    private _fs: FileSystem;
+export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
-    private _program: Program;
+    protected program: Program;
 
     protected constructor(private _extension?: LanguageServiceExtension) {
-        const data = workerData as InitializationData;
-        setCancellationFolderName(data.cancellationFolderName);
+        super(workerData as InitializationData);
 
         // Stash the base directory into a global variable.
-        (global as any).__rootDirectory = data.rootDirectory;
-        this.log(LogLevel.Info, `Background analysis root directory: ${data.rootDirectory}`);
-
-        this._fs = createFromRealFileSystem(this._getConsole());
+        const data = workerData as InitializationData;
+        this.log(LogLevel.Info, `Background analysis(${threadId}) root directory: ${data.rootDirectory}`);
 
         this._configOptions = new ConfigOptions(data.rootDirectory);
-        this._importResolver = this.createImportResolver(this._fs, this._configOptions);
-        this._program = new Program(
+        this._importResolver = this.createImportResolver(this.fs, this._configOptions);
+        this.program = new Program(
             this._importResolver,
             this._configOptions,
-            this._getConsole(),
+            this.getConsole(),
             this._extension,
-            'BG'
+            `BG(${threadId})`
         );
     }
 
     start() {
-        this.log(LogLevel.Info, `Background analysis started`);
+        this.log(LogLevel.Info, `Background analysis(${threadId}) started`);
 
         // Get requests from main thread.
         parentPort?.on('message', (msg: AnalysisRequest) => {
@@ -234,13 +249,13 @@ export class BackgroundAnalysisRunnerBase {
                     const token = getCancellationTokenFromId(msg.data);
 
                     // Report files to analyze first.
-                    const filesLeftToAnalyze = this._program.getFilesToAnalyzeCount();
+                    const filesLeftToAnalyze = this.program.getFilesToAnalyzeCount();
 
                     this._onAnalysisCompletion(port, {
                         diagnostics: [],
-                        filesInProgram: this._program.getFileCount(),
+                        filesInProgram: this.program.getFileCount(),
                         filesRequiringAnalysis: filesLeftToAnalyze,
-                        checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
+                        checkingOnlyOpenFiles: this.program.isCheckingOnlyOpenFiles(),
                         fatalErrorOccurred: false,
                         configParseErrorOccurred: false,
                         elapsedTime: 0,
@@ -252,14 +267,16 @@ export class BackgroundAnalysisRunnerBase {
 
                     while (moreToAnalyze) {
                         moreToAnalyze = analyzeProgram(
-                            this._program,
+                            this.program,
                             maxTime,
                             this._configOptions,
                             (result) => this._onAnalysisCompletion(port, result),
-                            this._getConsole(),
+                            this.getConsole(),
                             token
                         );
                     }
+
+                    this.processIndexing(port, token);
 
                     this._analysisDone(port, msg.data);
                     break;
@@ -271,7 +288,7 @@ export class BackgroundAnalysisRunnerBase {
                         const token = getCancellationTokenFromId(cancellationId);
                         throwIfCancellationRequested(token);
 
-                        return this._program.getDiagnosticsForRange(filePath, range);
+                        return this.program.getDiagnosticsForRange(filePath, range);
                     }, msg.port!);
                     break;
                 }
@@ -282,57 +299,57 @@ export class BackgroundAnalysisRunnerBase {
                         const token = getCancellationTokenFromId(cancellationId);
 
                         analyzeProgram(
-                            this._program,
+                            this.program,
                             undefined,
                             this._configOptions,
                             nullCallback,
-                            this._getConsole(),
+                            this.getConsole(),
                             token
                         );
-                        this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
+                        this.program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
                     }, msg.port!);
                     break;
                 }
 
                 case 'setConfigOptions': {
                     this._configOptions = createConfigOptionsFrom(msg.data);
-                    this._importResolver = this.createImportResolver(this._fs, this._configOptions);
-                    this._program.setConfigOptions(this._configOptions);
-                    this._program.setImportResolver(this._importResolver);
+                    this._importResolver = this.createImportResolver(this.fs, this._configOptions);
+                    this.program.setConfigOptions(this._configOptions);
+                    this.program.setImportResolver(this._importResolver);
                     break;
                 }
 
                 case 'setTrackedFiles': {
-                    const diagnostics = this._program.setTrackedFiles(msg.data);
-                    this._reportDiagnostics(diagnostics, this._program.getFilesToAnalyzeCount(), 0);
+                    const diagnostics = this.program.setTrackedFiles(msg.data);
+                    this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
                     break;
                 }
 
                 case 'setAllowedThirdPartyImports': {
-                    this._program.setAllowedThirdPartyImports(msg.data);
+                    this.program.setAllowedThirdPartyImports(msg.data);
                     break;
                 }
 
                 case 'setFileOpened': {
                     const { filePath, version, contents } = msg.data;
-                    this._program.setFileOpened(filePath, version, contents);
+                    this.program.setFileOpened(filePath, version, contents);
                     break;
                 }
 
                 case 'setFileClosed': {
-                    const diagnostics = this._program.setFileClosed(msg.data);
-                    this._reportDiagnostics(diagnostics, this._program.getFilesToAnalyzeCount(), 0);
+                    const diagnostics = this.program.setFileClosed(msg.data);
+                    this._reportDiagnostics(diagnostics, this.program.getFilesToAnalyzeCount(), 0);
                     break;
                 }
 
                 case 'markAllFilesDirty': {
-                    this._program.markAllFilesDirty(msg.data);
+                    this.program.markAllFilesDirty(msg.data);
                     break;
                 }
 
                 case 'markFilesDirty': {
                     const { filePaths, evenIfContentsAreSame } = msg.data;
-                    this._program.markFilesDirty(filePaths, evenIfContentsAreSame);
+                    this.program.markFilesDirty(filePaths, evenIfContentsAreSame);
                     break;
                 }
 
@@ -342,14 +359,14 @@ export class BackgroundAnalysisRunnerBase {
                     this._importResolver.invalidateCache();
 
                     // Mark all files with one or more errors dirty.
-                    this._program.markAllFilesDirty(true);
+                    this.program.markAllFilesDirty(true);
                     break;
                 }
 
                 case 'restart': {
                     // recycle import resolver
-                    this._importResolver = this.createImportResolver(this._fs, this._configOptions);
-                    this._program.setImportResolver(this._importResolver);
+                    this._importResolver = this.createImportResolver(this.fs, this._configOptions);
+                    this.program.setImportResolver(this._importResolver);
                     break;
                 }
 
@@ -367,21 +384,25 @@ export class BackgroundAnalysisRunnerBase {
         });
     }
 
-    protected log(level: LogLevel, msg: string) {
-        parentPort?.postMessage({ requestType: 'log', data: { level: level, message: msg } });
-    }
-
     protected createImportResolver(fs: FileSystem, options: ConfigOptions): ImportResolver {
         return new ImportResolver(fs, options);
+    }
+
+    protected processIndexing(port: MessagePort, token: CancellationToken) {
+        /* noop */
+    }
+
+    protected reportIndex(port: MessagePort, result: { path: string; indexResults: IndexResults }) {
+        port.postMessage({ requestType: 'indexResult', data: result });
     }
 
     private _reportDiagnostics(diagnostics: FileDiagnostics[], filesLeftToAnalyze: number, elapsedTime: number) {
         if (parentPort) {
             this._onAnalysisCompletion(parentPort, {
                 diagnostics,
-                filesInProgram: this._program.getFileCount(),
+                filesInProgram: this.program.getFileCount(),
                 filesRequiringAnalysis: filesLeftToAnalyze,
-                checkingOnlyOpenFiles: this._program.isCheckingOnlyOpenFiles(),
+                checkingOnlyOpenFiles: this.program.isCheckingOnlyOpenFiles(),
                 fatalErrorOccurred: false,
                 configParseErrorOccurred: false,
                 elapsedTime,
@@ -396,92 +417,6 @@ export class BackgroundAnalysisRunnerBase {
     private _analysisDone(port: MessagePort, cancellationId: string) {
         port.postMessage({ requestType: 'analysisDone', data: cancellationId });
     }
-
-    private _getConsole() {
-        return {
-            log: (msg: string) => {
-                this.log(LogLevel.Log, msg);
-            },
-            info: (msg: string) => {
-                this.log(LogLevel.Info, msg);
-            },
-            warn: (msg: string) => {
-                this.log(LogLevel.Warn, msg);
-            },
-            error: (msg: string) => {
-                this.log(LogLevel.Error, msg);
-            },
-            // We always generate logs in the background. For the foreground,
-            // we'll decide decide based on user setting whether.
-            level: LogLevel.Log,
-        };
-    }
-}
-
-function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
-    const configOptions = new ConfigOptions(jsonObject.projectRoot);
-    const getFileSpec = (fileSpec: any): FileSpec => {
-        return { wildcardRoot: fileSpec.wildcardRoot, regExp: new RegExp(fileSpec.regExp.source) };
-    };
-
-    configOptions.pythonPath = jsonObject.pythonPath;
-    configOptions.typeshedPath = jsonObject.typeshedPath;
-    configOptions.stubPath = jsonObject.stubPath;
-    configOptions.autoExcludeVenv = jsonObject.autoExcludeVenv;
-    configOptions.verboseOutput = jsonObject.verboseOutput;
-    configOptions.checkOnlyOpenFiles = jsonObject.checkOnlyOpenFiles;
-    configOptions.useLibraryCodeForTypes = jsonObject.useLibraryCodeForTypes;
-    configOptions.internalTestMode = jsonObject.internalTestMode;
-    configOptions.venvPath = jsonObject.venvPath;
-    configOptions.defaultVenv = jsonObject.defaultVenv;
-    configOptions.defaultPythonVersion = jsonObject.defaultPythonVersion;
-    configOptions.defaultPythonPlatform = jsonObject.defaultPythonPlatform;
-    configOptions.diagnosticRuleSet = jsonObject.diagnosticRuleSet;
-    configOptions.executionEnvironments = jsonObject.executionEnvironments;
-    configOptions.autoImportCompletions = jsonObject.autoImportCompletions;
-    configOptions.include = jsonObject.include.map((f: any) => getFileSpec(f));
-    configOptions.exclude = jsonObject.exclude.map((f: any) => getFileSpec(f));
-    configOptions.ignore = jsonObject.ignore.map((f: any) => getFileSpec(f));
-    configOptions.strict = jsonObject.strict.map((f: any) => getFileSpec(f));
-
-    return configOptions;
-}
-
-function run(code: () => any, port: MessagePort) {
-    try {
-        const result = code();
-        port.postMessage({ kind: 'ok', data: result });
-    } catch (e) {
-        if (OperationCanceledException.is(e)) {
-            port.postMessage({ kind: 'cancelled', data: e.message });
-            return;
-        }
-
-        port.postMessage({ kind: 'failed', data: `Exception: ${e.message} in ${e.stack}` });
-    }
-}
-
-function getBackgroundWaiter<T>(port: MessagePort): Promise<T> {
-    return new Promise((resolve, reject) => {
-        port.on('message', (m: RequestResponse) => {
-            switch (m.kind) {
-                case 'ok':
-                    resolve(m.data);
-                    break;
-
-                case 'cancelled':
-                    reject(new OperationCanceledException());
-                    break;
-
-                case 'failed':
-                    reject(m.data);
-                    break;
-
-                default:
-                    debug.fail(`unknown kind ${m.kind}`);
-            }
-        });
-    });
 }
 
 function convertAnalysisResults(result: AnalysisResults): AnalysisResults {
@@ -523,6 +458,7 @@ function convertDiagnostics(diagnostics: Diagnostic[]) {
 export interface InitializationData {
     rootDirectory: string;
     cancellationFolderName?: string;
+    runner?: string;
 }
 
 interface AnalysisRequest {
@@ -545,16 +481,6 @@ interface AnalysisRequest {
 }
 
 interface AnalysisResponse {
-    requestType: 'log' | 'analysisResult' | 'analysisDone';
+    requestType: 'log' | 'analysisResult' | 'indexResult' | 'analysisDone';
     data: any;
-}
-
-interface RequestResponse {
-    kind: 'ok' | 'failed' | 'cancelled';
-    data: any;
-}
-
-interface LogData {
-    level: LogLevel;
-    message: string;
 }

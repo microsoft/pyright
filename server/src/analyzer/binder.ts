@@ -107,6 +107,7 @@ import { Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { getNamesInDunderAll } from './symbolUtils';
 
 export const enum NameBindingType {
     // With "nonlocal" keyword
@@ -1586,46 +1587,16 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _getWildcardImportNames(lookupInfo: ImportLookupResult): string[] {
-        const namesToImport: string[] = [];
-
-        // Is there an __all__ statement? If so, it overrides the normal
-        // wildcard logic.
-        const allSymbol = lookupInfo.symbolTable.get('__all__');
-        if (allSymbol) {
-            const decls = allSymbol.getDeclarations();
-
-            // For now, we handle only the case where __all__ is defined
-            // through a simple assignment. Some libraries use more complex
-            // logic like __all__.extend(X) or __all__ += X. We'll punt on
-            // those for now.
-            if (decls.length === 1 && decls[0].type === DeclarationType.Variable) {
-                const firstDecl = decls[0];
-                if (firstDecl.node.parent && firstDecl.node.parent.nodeType === ParseNodeType.Assignment) {
-                    const expr = firstDecl.node.parent.rightExpression;
-                    if (expr.nodeType === ParseNodeType.List) {
-                        expr.entries.forEach((listEntryNode) => {
-                            if (
-                                listEntryNode.nodeType === ParseNodeType.StringList &&
-                                listEntryNode.strings.length === 1 &&
-                                listEntryNode.strings[0].nodeType === ParseNodeType.String
-                            ) {
-                                const entryName = listEntryNode.strings[0].value;
-                                if (lookupInfo.symbolTable.get(entryName)) {
-                                    namesToImport.push(entryName);
-                                }
-                            }
-                        });
-
-                        return namesToImport;
-                    }
-                }
-            }
+        let namesToImport = getNamesInDunderAll(lookupInfo.symbolTable);
+        if (namesToImport) {
+            return namesToImport;
         }
 
         // Import all names that don't begin with an underscore.
+        namesToImport = [];
         lookupInfo.symbolTable.forEach((_, name) => {
             if (!name.startsWith('_')) {
-                namesToImport.push(name);
+                namesToImport!.push(name);
             }
         });
 

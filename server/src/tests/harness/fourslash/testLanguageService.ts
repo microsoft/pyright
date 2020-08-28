@@ -28,6 +28,9 @@ import { HostSpecificFeatures } from './testState';
 
 export class TestFeatures implements HostSpecificFeatures {
     importResolverFactory: ImportResolverFactory = AnalyzerService.createImportResolver;
+    runIndexer(workspace: WorkspaceServiceInstance, noStdLib: boolean): void {
+        /* empty */
+    }
     getCodeActionsForPosition(
         workspace: WorkspaceServiceInstance,
         filePath: string,
