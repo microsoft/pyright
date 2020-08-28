@@ -223,6 +223,11 @@ class ChokidarFileWatcherProvider implements FileWatcherProvider {
             interval: 1000, // while not used in normal cases, if any error causes chokidar to fallback to polling, increase its intervals
             binaryInterval: 1000,
             disableGlobbing: true, // fix https://github.com/Microsoft/vscode/issues/4586
+            awaitWriteFinish: {
+                // this will make sure we re-scan files once file changes are written to disk
+                stabilityThreshold: 1000,
+                pollInterval: 1000,
+            },
         };
 
         if (_isMacintosh) {

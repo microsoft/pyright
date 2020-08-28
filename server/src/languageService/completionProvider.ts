@@ -73,6 +73,7 @@ import {
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { AutoImporter, ModuleSymbolMap } from './autoImporter';
+import { IndexResults } from './documentSymbolProvider';
 
 const _keywords: string[] = [
     // Expression keywords
@@ -197,6 +198,7 @@ export class CompletionProvider {
         private _importLookup: ImportLookup,
         private _evaluator: TypeEvaluator,
         private _sourceMapper: SourceMapper,
+        private _libraryMap: Map<string, IndexResults> | undefined,
         private _moduleSymbolsCallback: () => ModuleSymbolMap,
         private _cancellationToken: CancellationToken
     ) {}
@@ -879,13 +881,14 @@ export class CompletionProvider {
             this._filePath,
             this._importResolver,
             this._parseResults,
-            moduleSymbolMap
+            completionList.items.filter((i) => !i.data?.autoImport).map((i) => i.label),
+            moduleSymbolMap,
+            this._libraryMap
         );
 
         for (const result of autoImporter.getAutoImportCandidates(
             priorWord,
             similarityLimit,
-            completionList.items.filter((i) => !i.data?.autoImport).map((i) => i.label),
             undefined,
             this._cancellationToken
         )) {
@@ -902,12 +905,14 @@ export class CompletionProvider {
             } else {
                 this._addNameToCompletionList(
                     result.name,
-                    CompletionItemKind.Module,
+                    result.kind ?? CompletionItemKind.Module,
                     priorWord,
                     completionList,
-                    result.name,
+                    undefined,
                     '',
-                    result.isImportFrom ? `Auto-import from ${result.source}` : `Auto-import ${result.source}`,
+                    result.isImportFrom
+                        ? `Auto-import\n\n\`\`\`\nfrom ${result.source} import ${result.name}\n\`\`\``
+                        : `Auto-import\n\n\`\`\`\nimport ${result.source}\n\`\`\``,
                     undefined,
                     result.edits
                 );
@@ -1218,7 +1223,7 @@ export class CompletionProvider {
 
             let autoImportText: string | undefined;
             if (autoImportSource) {
-                autoImportText = `Auto-import from ${autoImportSource}`;
+                autoImportText = `Auto-import\n\n\`\`\`\nfrom ${autoImportSource} import ${name}\n\`\`\``;
             }
 
             this._addNameToCompletionList(
@@ -1304,7 +1309,6 @@ export class CompletionProvider {
             if (autoImportText) {
                 markdownString += autoImportText;
                 markdownString += '\n\n';
-                completionItem.data.autoImport = autoImportText;
             }
 
             if (typeDetail) {
@@ -1315,6 +1319,8 @@ export class CompletionProvider {
                 markdownString += '---\n';
                 markdownString += convertDocStringToMarkdown(documentation);
             }
+
+            markdownString = markdownString.trimEnd();
 
             if (markdownString) {
                 completionItem.documentation = {

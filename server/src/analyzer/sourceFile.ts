@@ -17,6 +17,7 @@ import {
 } from 'vscode-languageserver';
 import { isMainThread } from 'worker_threads';
 
+import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { OperationCanceledException } from '../common/cancellationUtils';
 import { ConfigOptions, ExecutionEnvironment, getBasicDiagnosticRuleSet } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
@@ -26,7 +27,7 @@ import { DiagnosticSink, TextRangeDiagnosticSink } from '../common/diagnosticSin
 import { TextEditAction } from '../common/editAction';
 import { FileSystem } from '../common/fileSystem';
 import { LogTracker } from '../common/logTracker';
-import { getFileName, normalizeSlashes } from '../common/pathUtils';
+import { getFileName, normalizeSlashes, stripFileExtension } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { DocumentRange, getEmptyRange, Position, TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
@@ -35,7 +36,7 @@ import { ModuleSymbolMap } from '../languageService/autoImporter';
 import { CompletionItemData, CompletionProvider } from '../languageService/completionProvider';
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
-import { DocumentSymbolProvider } from '../languageService/documentSymbolProvider';
+import { DocumentSymbolProvider, IndexResults } from '../languageService/documentSymbolProvider';
 import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
 import { performQuickAction } from '../languageService/quickActions';
 import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
@@ -125,6 +126,7 @@ export class SourceFile {
     private _parseResults?: ParseResults;
     private _moduleSymbolTable?: SymbolTable;
     private _binderResults?: BinderResults;
+    private _cachedIndexResults?: IndexResults;
 
     // Reentrancy check for binding.
     private _isBindingInProgress = false;
@@ -148,6 +150,9 @@ export class SourceFile {
 
     // Do we need to perform an additional type analysis pass?
     private _isCheckingNeeded = true;
+
+    // Do we need to perform an indexing step?
+    private _indexingNeeded = true;
 
     // Information about implicit and explicit imports from this file.
     private _imports?: ImportResult[];
@@ -348,11 +353,33 @@ export class SourceFile {
         return false;
     }
 
+    // This should be only called if none of information from this file
+    // will be ever used again. otherwise, Same file will get parsed/bound again.
+    markDirtyAndDropEverything(): void {
+        // This doesn't currently drop info created implicitly
+        // by binding this file such as implicit imports.
+        //
+        // Future improvement could be adding a mode in the binder
+        // that only adds symbols (including aliases) from the given file to symbol table
+        // but prevents any symbol created from other file.
+        //
+        // Index generator or features that consume it such as
+        // document symbols, workspace symbols, auto-importer already drop symbols
+        // from other files, so no need to create those.
+        this.markDirty();
+        this._parseResults = undefined;
+        this._parseDiagnostics = [];
+        this._bindDiagnostics = [];
+    }
+
     markDirty(): void {
         this._fileContentsVersion++;
         this._isCheckingNeeded = true;
+        this._isBindingNeeded = true;
+        this._indexingNeeded = true;
         this._moduleSymbolTable = undefined;
         this._binderResults = undefined;
+        this._cachedIndexResults = undefined;
     }
 
     markReanalysisRequired(): void {
@@ -364,8 +391,10 @@ export class SourceFile {
         if (this._parseResults && this._parseResults.containsWildcardImport) {
             this._parseTreeNeedsCleaning = true;
             this._isBindingNeeded = true;
+            this._indexingNeeded = true;
             this._moduleSymbolTable = undefined;
             this._binderResults = undefined;
+            this._cachedIndexResults = undefined;
         }
     }
 
@@ -417,6 +446,14 @@ export class SourceFile {
         return this._isBindingNeeded;
     }
 
+    isIndexingRequired() {
+        if (this.isBindingRequired()) {
+            return true;
+        }
+
+        return this._indexingNeeded;
+    }
+
     isCheckingRequired() {
         if (this.isBindingRequired()) {
             return true;
@@ -431,6 +468,14 @@ export class SourceFile {
         }
 
         return undefined;
+    }
+
+    getCachedIndexResults(): IndexResults | undefined {
+        return this._cachedIndexResults;
+    }
+
+    cacheIndexResults(indexResults: IndexResults) {
+        this._cachedIndexResults = indexResults;
     }
 
     // Adds a new circular dependency for this file but only if
@@ -562,6 +607,7 @@ export class SourceFile {
             }
 
             this._analyzedFileContentsVersion = this._fileContentsVersion;
+            this._indexingNeeded = true;
             this._isBindingNeeded = true;
             this._isCheckingNeeded = true;
             this._parseTreeNeedsCleaning = false;
@@ -570,6 +616,20 @@ export class SourceFile {
 
             return true;
         });
+    }
+
+    index(importSymbolsOnly: boolean, token: CancellationToken): IndexResults | undefined {
+        // If we have no completed analysis job, there's nothing to do.
+        if (!this._parseResults || !this.isIndexingRequired()) {
+            return undefined;
+        }
+
+        this._indexingNeeded = false;
+        const symbols = DocumentSymbolProvider.indexSymbols(this._parseResults, importSymbolsOnly, token);
+
+        const name = stripFileExtension(getFileName(this._filePath));
+        const privateOrProtected = SymbolNameUtils.isPrivateOrProtectedName(name);
+        return { privateOrProtected, symbols };
     }
 
     getDefinitionsForPosition(
@@ -634,36 +694,32 @@ export class SourceFile {
         );
     }
 
-    addHierarchicalSymbolsForDocument(
-        symbolList: DocumentSymbol[],
-        evaluator: TypeEvaluator,
-        token: CancellationToken
-    ) {
+    addHierarchicalSymbolsForDocument(symbolList: DocumentSymbol[], token: CancellationToken) {
         // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults) {
+        if (!this._parseResults && !this._cachedIndexResults) {
             return;
         }
 
-        DocumentSymbolProvider.addHierarchicalSymbolsForDocument(symbolList, this._parseResults, evaluator, token);
+        DocumentSymbolProvider.addHierarchicalSymbolsForDocument(
+            this.getCachedIndexResults(),
+            this._parseResults,
+            symbolList,
+            token
+        );
     }
 
-    addSymbolsForDocument(
-        symbolList: SymbolInformation[],
-        evaluator: TypeEvaluator,
-        query: string,
-        token: CancellationToken
-    ) {
+    addSymbolsForDocument(symbolList: SymbolInformation[], query: string, token: CancellationToken) {
         // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults) {
+        if (!this._parseResults && !this._cachedIndexResults) {
             return;
         }
 
         DocumentSymbolProvider.addSymbolsForDocument(
-            symbolList,
-            query,
-            this._filePath,
+            this.getCachedIndexResults(),
             this._parseResults,
-            evaluator,
+            this._filePath,
+            query,
+            symbolList,
             token
         );
     }
@@ -718,6 +774,7 @@ export class SourceFile {
         importLookup: ImportLookup,
         evaluator: TypeEvaluator,
         sourceMapper: SourceMapper,
+        libraryMap: Map<string, IndexResults> | undefined,
         moduleSymbolsCallback: () => ModuleSymbolMap,
         token: CancellationToken
     ): CompletionList | undefined {
@@ -743,6 +800,7 @@ export class SourceFile {
             importLookup,
             evaluator,
             sourceMapper,
+            libraryMap,
             moduleSymbolsCallback,
             token
         );
@@ -756,6 +814,7 @@ export class SourceFile {
         importLookup: ImportLookup,
         evaluator: TypeEvaluator,
         sourceMapper: SourceMapper,
+        libraryMap: Map<string, IndexResults> | undefined,
         moduleSymbolsCallback: () => ModuleSymbolMap,
         completionItem: CompletionItem,
         token: CancellationToken
@@ -776,6 +835,7 @@ export class SourceFile {
             importLookup,
             evaluator,
             sourceMapper,
+            libraryMap,
             moduleSymbolsCallback,
             token
         );
@@ -856,6 +916,7 @@ export class SourceFile {
             // Prepare for the next stage of the analysis.
             this._diagnosticVersion++;
             this._isCheckingNeeded = true;
+            this._indexingNeeded = true;
             this._isBindingNeeded = false;
         });
     }

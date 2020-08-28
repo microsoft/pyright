@@ -261,8 +261,8 @@ export function getCancellationStrategyFromArgv(argv: string[]): CancellationStr
     }
 }
 
-let analysisId = 0;
-export function createAnalysisCancellationTokenSource() {
+let cancellationSourceId = 0;
+export function createBackgroundThreadCancellationTokenSource(): AbstractCancellationTokenSource {
     if (!cancellationFolderName) {
         // File-based cancellation is not used.
         // Return regular cancellation token source.
@@ -270,7 +270,7 @@ export function createAnalysisCancellationTokenSource() {
     }
 
     return new FileBasedCancellationTokenSource(
-        getCancellationFilePath(cancellationFolderName, `analysis-${String(analysisId++)}`),
+        getCancellationFilePath(cancellationFolderName, `source-${String(cancellationSourceId++)}`),
         true
     );
 }

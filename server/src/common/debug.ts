@@ -98,6 +98,14 @@ export function formatEnum(value = 0, enumObject: any, isFlags?: boolean) {
     return value.toString();
 }
 
+export function getErrorString(error: any): string {
+    return (
+        (error.stack ? error.stack.toString() : undefined) ||
+        (typeof error.message === 'string' ? error.message : undefined) ||
+        JSON.stringify(error)
+    );
+}
+
 function getEnumMembers(enumObject: any) {
     const result: [number, string][] = [];
     for (const name of Object.keys(enumObject)) {

@@ -16,15 +16,17 @@ import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { LanguageServiceExtension } from '../common/extensibility';
 import { Range } from '../common/textRange';
+import { IndexResults } from '../languageService/documentSymbolProvider';
 import { AnalysisCompleteCallback, analyzeProgram } from './analysis';
 import { ImportResolver } from './importResolver';
-import { MaxAnalysisTime, Program } from './program';
+import { Indices, MaxAnalysisTime, Program } from './program';
 
 export class BackgroundAnalysisProgram {
     private _program: Program;
     private _backgroundAnalysis?: BackgroundAnalysisBase;
     private _onAnalysisCompletion?: AnalysisCompleteCallback;
     private _maxAnalysisTime?: MaxAnalysisTime;
+    private _indices: Indices | undefined;
 
     constructor(
         private _console: ConsoleInterface,
@@ -115,7 +117,7 @@ export class BackgroundAnalysisProgram {
 
     startAnalysis(token: CancellationToken): boolean {
         if (this._backgroundAnalysis) {
-            this._backgroundAnalysis.startAnalysis(token);
+            this._backgroundAnalysis.startAnalysis(this._indices, token);
             return false;
         }
 
@@ -127,6 +129,38 @@ export class BackgroundAnalysisProgram {
             this._console,
             token
         );
+    }
+
+    test_setIndexing(
+        workspaceIndices: Map<string, IndexResults>,
+        libraryIndices: Map<string, Map<string, IndexResults>>
+    ) {
+        const indices = this._getIndices();
+        for (const [filePath, indexResults] of workspaceIndices) {
+            indices.setWorkspaceIndex(filePath, indexResults);
+        }
+
+        for (const [execEnvRoot, map] of libraryIndices) {
+            for (const [libraryPath, indexResults] of map) {
+                indices.setIndex(execEnvRoot, libraryPath, indexResults);
+            }
+        }
+    }
+
+    startIndexing() {
+        this._backgroundAnalysis?.startIndexing(this._configOptions, this._getIndices());
+    }
+
+    refreshIndexing() {
+        this._backgroundAnalysis?.refreshIndexing(this._configOptions, this._indices);
+    }
+
+    cancelIndexing() {
+        this._backgroundAnalysis?.cancelIndexing(this._configOptions);
+    }
+
+    getIndexing(filePath: string) {
+        return this._indices?.getIndex(this._configOptions.findExecEnvironment(filePath).root);
     }
 
     async getDiagnosticsForRange(filePath: string, range: Range, token: CancellationToken): Promise<Diagnostic[]> {
@@ -152,6 +186,8 @@ export class BackgroundAnalysisProgram {
     }
 
     invalidateAndForceReanalysis() {
+        this.refreshIndexing();
+
         this._backgroundAnalysis?.invalidateAndForceReanalysis();
 
         // Make sure the import resolver doesn't have invalid
@@ -171,6 +207,42 @@ export class BackgroundAnalysisProgram {
 
     restart() {
         this._backgroundAnalysis?.restart();
+    }
+
+    private _getIndices(): Indices {
+        if (!this._indices) {
+            const program = this._program;
+
+            // The map holds onto index results of library files per execution root.
+            // The map will be refreshed together when library files are re-scanned.
+            // It can't be cached by sourceFile since some of library files won't have
+            // corresponding sourceFile created.
+            const map = new Map<string, Map<string, IndexResults>>();
+            this._indices = {
+                setWorkspaceIndex(path: string, indexResults: IndexResults): void {
+                    // Index result of workspace file will be cached by each sourceFile
+                    // and it will go away when the source file goes away.
+                    program.getSourceFile(path)?.cacheIndexResults(indexResults);
+                },
+                getIndex(execEnv: string): Map<string, IndexResults> | undefined {
+                    return map.get(execEnv);
+                },
+                setIndex(execEnv: string, path: string, indexResults: IndexResults): void {
+                    let indicesMap = map.get(execEnv);
+                    if (!indicesMap) {
+                        indicesMap = new Map<string, IndexResults>();
+                        map.set(execEnv, indicesMap);
+                    }
+
+                    indicesMap.set(path, indexResults);
+                },
+                reset(): void {
+                    map.clear();
+                },
+            };
+        }
+
+        return this._indices!;
     }
 
     private _reportDiagnosticsForRemovedFiles(fileDiags: FileDiagnostics[]) {

@@ -14,7 +14,7 @@ import { ConsoleInterface } from './common/console';
 
 export class BackgroundAnalysis extends BackgroundAnalysisBase {
     constructor(console: ConsoleInterface) {
-        super();
+        super(console);
 
         const initialData: InitializationData = {
             rootDirectory: (global as any).__rootDirectory as string,
@@ -23,7 +23,7 @@ export class BackgroundAnalysis extends BackgroundAnalysisBase {
 
         // this will load this same file in BG thread and start listener
         const worker = new Worker(__filename, { workerData: initialData });
-        this.setup(worker, console);
+        this.setup(worker);
     }
 }
 

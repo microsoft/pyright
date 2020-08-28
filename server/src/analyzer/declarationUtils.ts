@@ -84,3 +84,26 @@ export function isExplicitTypeAliasDeclaration(decl: Declaration) {
 export function isPossibleTypeAliasDeclaration(decl: Declaration) {
     return decl.type === DeclarationType.Variable && !!decl.typeAliasName;
 }
+
+export function getNameFromDeclaration(declaration: Declaration) {
+    switch (declaration.type) {
+        case DeclarationType.Alias:
+            return declaration.symbolName;
+
+        case DeclarationType.Class:
+        case DeclarationType.Function:
+            return declaration.node.name.value;
+
+        case DeclarationType.Parameter:
+            return declaration.node.name?.value;
+
+        case DeclarationType.Variable:
+            return declaration.node.nodeType === ParseNodeType.Name ? declaration.node.value : undefined;
+
+        case DeclarationType.Intrinsic:
+        case DeclarationType.SpecialBuiltInClass:
+            return undefined;
+    }
+
+    throw new Error(`Shouldn't reach here`);
+}

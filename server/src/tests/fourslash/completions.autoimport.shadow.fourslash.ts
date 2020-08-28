@@ -37,7 +37,7 @@ await helper.verifyCompletion('exact', {
                 label: 'MyShadow',
                 documentation: {
                     kind: 'markdown',
-                    value: 'Auto-import from testLib\n\n',
+                    value: 'Auto-import\n\n```\nfrom testLib import MyShadow\n```',
                 },
             },
         ],

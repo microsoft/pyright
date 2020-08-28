@@ -129,6 +129,12 @@ export interface LanguageServerInterface {
     readonly fs: FileSystem;
 }
 
+// This is a subset of the LSP Connection, defined to not expose the LSP library
+// in the public interface.
+export interface ProgressReporterConnection {
+    sendNotification: (method: string, params?: any) => void;
+}
+
 export interface ServerOptions {
     productName: string;
     rootDirectory: string;
@@ -137,7 +143,7 @@ export interface ServerOptions {
     maxAnalysisTimeInForeground?: MaxAnalysisTime;
     supportedCommands?: string[];
     supportedCodeActions?: string[];
-    progressReporterFactory?: (connection: Connection) => ProgressReporter;
+    progressReporterFactory?: (connection: ProgressReporterConnection) => ProgressReporter;
 }
 
 interface InternalFileWatcher extends FileWatcher {

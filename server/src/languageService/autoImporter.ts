@@ -5,8 +5,10 @@
  *
  */
 
-import { CancellationToken } from 'vscode-languageserver';
+import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-languageserver';
 
+import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
+import { DeclarationType } from '../analyzer/declaration';
 import { ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
 import {
@@ -18,7 +20,6 @@ import {
     ImportStatements,
 } from '../analyzer/importStatementUtils';
 import { SourceFileInfo } from '../analyzer/program';
-import { SymbolTable } from '../analyzer/symbol';
 import { Symbol } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -28,20 +29,29 @@ import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from 
 import * as StringUtils from '../common/stringUtils';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import {
+    getIndexAliasData,
+    includeAliasDeclarationInIndex,
+    IndexAliasData,
+    IndexResults,
+} from './documentSymbolProvider';
 
-export type ModuleSymbolMap = Map<string, SymbolTable>;
+export interface AutoImportSymbol {
+    readonly importAlias?: IndexAliasData;
+    readonly symbol?: Symbol;
+    readonly kind?: CompletionItemKind;
+}
 
-export type ImportName = string;
-export type FullImportName = string;
-export type FilePath = string;
+export interface ModuleSymbolTable {
+    forEach(callbackfn: (symbol: AutoImportSymbol, name: string) => void): void;
+}
 
-export type ImportsMap = Map<FullImportName, FilePath>;
-export type ImportNameMap = Map<ImportName, ImportsMap>;
+export type ModuleSymbolMap = Map<string, ModuleSymbolTable>;
 
 // Build a map of all modules within this program and the module-
 // level scope that contains the symbol table for the module.
 export function buildModuleSymbolsMap(files: SourceFileInfo[], token: CancellationToken): ModuleSymbolMap {
-    const moduleSymbolMap = new Map<string, SymbolTable>();
+    const moduleSymbolMap = new Map<string, ModuleSymbolTable>();
 
     files.forEach((file) => {
         throwIfCancellationRequested(token);
@@ -52,9 +62,61 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
             return;
         }
 
+        const filePath = file.sourceFile.getFilePath();
         const symbolTable = file.sourceFile.getModuleSymbolTable();
         if (symbolTable) {
-            moduleSymbolMap.set(file.sourceFile.getFilePath(), symbolTable);
+            const fileName = stripFileExtension(getFileName(filePath));
+
+            // Don't offer imports from files that are named with private
+            // naming semantics like "_ast.py".
+            if (SymbolNameUtils.isPrivateOrProtectedName(fileName)) {
+                return;
+            }
+
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(file.sourceFile.getParseResults()!.parseTree);
+            moduleSymbolMap.set(filePath, {
+                forEach(callbackfn: (value: AutoImportSymbol, key: string) => void): void {
+                    symbolTable.forEach((symbol, name) => {
+                        if (symbol.isExternallyHidden()) {
+                            return;
+                        }
+
+                        const declarations = symbol.getDeclarations();
+                        if (!declarations || declarations.length === 0) {
+                            return;
+                        }
+
+                        const declaration = declarations[0];
+                        if (!declaration) {
+                            return;
+                        }
+
+                        let importAlias: IndexAliasData | undefined;
+                        if (declaration.type === DeclarationType.Alias) {
+                            if (!includeAliasDeclarationInIndex(declaration)) {
+                                return;
+                            }
+
+                            importAlias = getIndexAliasData(fileInfo?.importLookup, declaration);
+                        }
+
+                        const variableKind =
+                            declaration.type === DeclarationType.Variable &&
+                            !declaration.isConstant &&
+                            !declaration.isFinal
+                                ? CompletionItemKind.Variable
+                                : undefined;
+                        callbackfn({ importAlias, symbol, kind: variableKind }, name);
+                    });
+                },
+            });
+            return;
+        }
+
+        const indexResults = file.sourceFile.getCachedIndexResults();
+        if (indexResults && !indexResults.privateOrProtected) {
+            moduleSymbolMap.set(filePath, createModuleSymbolTableFromIndexResult(indexResults));
+            return;
         }
     });
 
@@ -68,6 +130,7 @@ export interface AutoImportResult {
     source: string;
     edits: TextEditAction[];
     alias?: string;
+    kind?: CompletionItemKind;
 }
 
 interface ImportParts {
@@ -75,215 +138,335 @@ interface ImportParts {
     importName: string;
     importSource: string;
     filePath: string;
-    moduleAndType: ModuleNameAndType;
+    numberOfNameParts: number;
+    moduleNameAndType: ModuleNameAndType;
+}
+
+interface ImportAliasData {
+    importParts: ImportParts;
+    importGroup: ImportGroup;
+    symbol?: Symbol;
 }
 
 export class AutoImporter {
+    private _importStatements: ImportStatements;
+
     constructor(
         private _configOptions: ConfigOptions,
         private _filePath: string,
         private _importResolver: ImportResolver,
         private _parseResults: ParseResults,
+        private _excludes: string[],
         private _moduleSymbolMap: ModuleSymbolMap,
-        private _packageMap?: ImportNameMap
-    ) {}
+        private _libraryMap?: Map<string, IndexResults>
+    ) {
+        this._importStatements = getTopLevelImports(this._parseResults.parseTree);
+    }
 
     getAutoImportCandidates(
         word: string,
         similarityLimit: number,
-        excludes: string[],
         aliasName: string | undefined,
         token: CancellationToken
     ) {
         const results: AutoImportResult[] = [];
-        const importStatements = getTopLevelImports(this._parseResults.parseTree);
+        const importAliasMap = new Map<string, Map<string, ImportAliasData>>();
 
-        this._addImportsFromModuleMap(word, similarityLimit, excludes, aliasName, importStatements, results, token);
-        this._addImportsFromPackages(word, similarityLimit, excludes, aliasName, importStatements, results, token);
-
+        this._addImportsFromModuleMap(word, similarityLimit, aliasName, importAliasMap, results, token);
+        this._addImportsFromLibraryMap(word, similarityLimit, aliasName, importAliasMap, results, token);
+        this._addImportsFromImportAliasMap(importAliasMap, aliasName, results, token);
         return results;
     }
 
-    private _addImportsFromPackages(
+    private _addImportsFromLibraryMap(
         word: string,
         similarityLimit: number,
-        excludes: string[],
         aliasName: string | undefined,
-        importStatements: ImportStatements,
+        aliasMap: Map<string, Map<string, ImportAliasData>>,
         results: AutoImportResult[],
         token: CancellationToken
     ) {
-        if (!this._packageMap) {
-            return;
-        }
-
-        this._packageMap.forEach((imports, name) => {
-            throwIfCancellationRequested(token);
-
-            // Don't offer imports from files that are named with private
-            // naming semantics like "_ast.py".
-            if (SymbolNameUtils.isPrivateOrProtectedName(name)) {
+        this._libraryMap?.forEach((indexResults, filePath) => {
+            if (indexResults.privateOrProtected) {
                 return;
             }
 
-            const isSimilar = this._isSimilar(word, name, similarityLimit);
-            if (!isSimilar) {
+            if (this._moduleSymbolMap.has(filePath)) {
+                // Module map is already taking care of this file. this can happen if the module is used by
+                // user code.
                 return;
             }
 
-            imports.forEach((filePath, fullImport) => {
-                throwIfCancellationRequested(token);
-                const importParts = this._getImportParts(filePath);
-                if (!importParts) {
-                    return;
-                }
-                this._addAutoImports(importParts, excludes, importStatements, aliasName, results);
-            });
+            // See if this file should be offered as an implicit import.
+            const isStubFileOrHasInit = this._isStubFileOrHasInit(this._libraryMap!, filePath);
+            this._processModuleSymbolTable(
+                createModuleSymbolTableFromIndexResult(indexResults),
+                filePath,
+                word,
+                similarityLimit,
+                isStubFileOrHasInit,
+                aliasName,
+                aliasMap,
+                results,
+                token
+            );
         });
     }
 
     private _addImportsFromModuleMap(
         word: string,
         similarityLimit: number,
-        excludes: string[],
         aliasName: string | undefined,
-        importStatements: ImportStatements,
+        aliasMap: Map<string, Map<string, ImportAliasData>>,
         results: AutoImportResult[],
         token: CancellationToken
     ) {
-        this._moduleSymbolMap.forEach((symbolTable, filePath) => {
+        this._moduleSymbolMap.forEach((topLevelSymbols, filePath) => {
+            // See if this file should be offered as an implicit import.
+            const isStubFileOrHasInit = this._isStubFileOrHasInit(this._moduleSymbolMap!, filePath);
+            this._processModuleSymbolTable(
+                topLevelSymbols,
+                filePath,
+                word,
+                similarityLimit,
+                isStubFileOrHasInit,
+                aliasName,
+                aliasMap,
+                results,
+                token
+            );
+        });
+    }
+
+    private _isStubFileOrHasInit<T>(map: Map<string, T>, filePath: string) {
+        const fileDir = getDirectoryPath(filePath);
+        const initPathPy = combinePaths(fileDir, '__init__.py');
+        const initPathPyi = initPathPy + 'i';
+        const isStub = filePath.endsWith('.pyi');
+        const hasInit = map.has(initPathPy) || map.has(initPathPyi);
+        return { isStub, hasInit };
+    }
+
+    private _processModuleSymbolTable(
+        topLevelSymbols: ModuleSymbolTable,
+        filePath: string,
+        word: string,
+        similarityLimit: number,
+        isStubOrHasInit: { isStub: boolean; hasInit: boolean },
+        aliasName: string | undefined,
+        importAliasMap: Map<string, Map<string, ImportAliasData>>,
+        results: AutoImportResult[],
+        token: CancellationToken
+    ) {
+        throwIfCancellationRequested(token);
+
+        const [importSource, importGroup, moduleNameAndType] = this._getImportPartsForSymbols(filePath);
+        if (!importSource) {
+            return;
+        }
+
+        const numberOfNameParts = importSource.split('.').length;
+        topLevelSymbols.forEach((autoImportSymbol, name) => {
             throwIfCancellationRequested(token);
 
-            const fileName = stripFileExtension(getFileName(filePath));
-
-            // Don't offer imports from files that are named with private
-            // naming semantics like "_ast.py".
-            if (SymbolNameUtils.isPrivateOrProtectedName(fileName)) {
+            if (
+                !isStubOrHasInit.isStub &&
+                autoImportSymbol.kind === CompletionItemKind.Variable &&
+                /[a-z]/.test(name)
+            ) {
+                // If it is not a stub file and symbol is Variable, we only include it if
+                // name is all upper case.
                 return;
             }
 
-            symbolTable.forEach((symbol, name) => {
-                throwIfCancellationRequested(token);
-
-                // For very short matching strings, we will require an exact match. Otherwise
-                // we will tend to return a list that's too long. Once we get beyond two
-                // characters, we can do a fuzzy match.
-                const isSimilar = this._isSimilar(word, name, similarityLimit);
-                if (!isSimilar || symbol.isExternallyHidden()) {
-                    return;
-                }
-
-                const alreadyIncluded = this._containsName(name, undefined, excludes, results);
-                if (alreadyIncluded) {
-                    return;
-                }
-
-                const declarations = symbol.getDeclarations();
-                if (!declarations || declarations.length === 0) {
-                    return;
-                }
-
-                // Don't include imported symbols, only those that
-                // are declared within this file.
-                if (declarations[0].path !== filePath) {
-                    return;
-                }
-
-                let importSource: string;
-                let importGroup = ImportGroup.Local;
-                let moduleNameAndType: ModuleNameAndType | undefined;
-
-                const localImport = importStatements.mapByFilePath.get(filePath);
-                if (localImport) {
-                    importSource = localImport.moduleName;
-                    importGroup = getImportGroup(localImport);
-                } else {
-                    moduleNameAndType = this._getModuleNameAndTypeFromFilePath(filePath);
-                    importSource = moduleNameAndType.moduleName;
-                    if (!importSource) {
-                        return;
-                    }
-
-                    importGroup = this._getImportGroupFromModuleNameAndType(moduleNameAndType);
-                }
-
-                const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
-                    name,
-                    importStatements,
-                    filePath,
-                    importSource,
-                    importGroup,
-                    aliasName
-                );
-
-                results.push({
-                    name,
-                    symbol,
-                    source: importSource,
-                    edits: autoImportTextEdits,
-                    isImportFrom: true,
-                    alias: aliasName,
-                });
-            });
-
-            // See if this file should be offered as an implicit import.
-            const fileDir = getDirectoryPath(filePath);
-            const initPathPy = combinePaths(fileDir, '__init__.py');
-            const initPathPyi = initPathPy + 'i';
-            const isStubFile = filePath.endsWith('.pyi');
-            const hasInit = this._moduleSymbolMap.has(initPathPy) || this._moduleSymbolMap.has(initPathPyi);
-
-            // If the current file is in a directory that also contains an "__init__.py[i]"
-            // file, we can use that directory name as an implicit import target.
-            // Or if the file is a stub file, we can use it as import target.
-            if (!isStubFile && !hasInit) {
-                return;
-            }
-
-            const importParts = this._getImportParts(filePath);
-            if (!importParts) {
-                return;
-            }
-
-            const isSimilar = this._isSimilar(word, importParts.importName, similarityLimit);
+            // For very short matching strings, we will require an exact match. Otherwise
+            // we will tend to return a list that's too long. Once we get beyond two
+            // characters, we can do a fuzzy match.
+            const isSimilar = this._isSimilar(word, name, similarityLimit);
             if (!isSimilar) {
                 return;
             }
 
-            this._addAutoImports(importParts, excludes, importStatements, aliasName, results);
-        });
-    }
+            const alreadyIncluded = this._containsName(name, undefined, results);
+            if (alreadyIncluded) {
+                return;
+            }
 
-    private _addAutoImports(
-        importParts: ImportParts,
-        excludes: string[],
-        importStatements: ImportStatements,
-        aliasName: string | undefined,
-        results: AutoImportResult[]
-    ) {
-        const alreadyIncluded = this._containsName(importParts.importName, importParts.importSource, excludes, results);
+            // We will collect all aliases and then process it later
+            if (autoImportSymbol.importAlias) {
+                this._addToImportAliasMap(
+                    autoImportSymbol.importAlias,
+                    {
+                        importParts: {
+                            namePart: name,
+                            importName: name,
+                            importSource,
+                            filePath,
+                            numberOfNameParts,
+                            moduleNameAndType,
+                        },
+                        importGroup,
+                        symbol: autoImportSymbol.symbol,
+                    },
+                    importAliasMap
+                );
+                return;
+            }
+
+            const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
+                name,
+                filePath,
+                importSource,
+                importGroup,
+                aliasName
+            );
+
+            results.push({
+                name,
+                symbol: autoImportSymbol.symbol,
+                source: importSource,
+                edits: autoImportTextEdits,
+                isImportFrom: true,
+                alias: aliasName,
+                kind: autoImportSymbol.kind,
+            });
+        });
+
+        // If the current file is in a directory that also contains an "__init__.py[i]"
+        // file, we can use that directory name as an implicit import target.
+        // Or if the file is a stub file, we can use it as import target.
+        if (!isStubOrHasInit.isStub && !isStubOrHasInit.hasInit) {
+            return;
+        }
+
+        const importParts = this._getImportParts(filePath);
+        if (!importParts) {
+            return;
+        }
+
+        const isSimilar = this._isSimilar(word, importParts.importName, similarityLimit);
+        if (!isSimilar) {
+            return;
+        }
+
+        const alreadyIncluded = this._containsName(importParts.importName, importParts.importSource, results);
         if (alreadyIncluded) {
             return;
         }
 
-        const importGroup = this._getImportGroupFromModuleNameAndType(importParts.moduleAndType);
-        const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
-            importParts.namePart,
-            importStatements,
-            importParts.filePath,
-            importParts.importSource,
-            importGroup,
-            aliasName
+        this._addToImportAliasMap(
+            { modulePath: filePath, originalName: importParts.importName },
+            { importParts, importGroup },
+            importAliasMap
         );
+    }
 
-        results.push({
-            name: importParts.importName,
-            alias: aliasName,
-            symbol: undefined,
-            source: importParts.importSource,
-            edits: autoImportTextEdits,
-            isImportFrom: !!importParts.namePart,
+    private _addImportsFromImportAliasMap(
+        importAliasMap: Map<string, Map<string, ImportAliasData>>,
+        aliasName: string | undefined,
+        results: AutoImportResult[],
+        token: CancellationToken
+    ) {
+        throwIfCancellationRequested(token);
+
+        importAliasMap.forEach((mapPerSymbolName, filePath) => {
+            mapPerSymbolName.forEach((importAliasData, symbolName) => {
+                throwIfCancellationRequested(token);
+
+                const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
+                    importAliasData.importParts.namePart,
+                    importAliasData.importParts.filePath,
+                    importAliasData.importParts.importSource,
+                    importAliasData.importGroup,
+                    aliasName
+                );
+
+                results.push({
+                    name: importAliasData.importParts.importName,
+                    alias: aliasName,
+                    symbol: importAliasData.symbol,
+                    source: importAliasData.importParts.importSource,
+                    edits: autoImportTextEdits,
+                    isImportFrom: !!importAliasData.importParts.namePart,
+                });
+            });
         });
+    }
+
+    private _addToImportAliasMap(
+        alias: IndexAliasData,
+        data: ImportAliasData,
+        importAliasMap: Map<string, Map<string, ImportAliasData>>
+    ) {
+        // Since we don't resolve alias declaration using type evaluator, there is still a chance
+        // where we show multiple aliases for same symbols. but this should still reduce number of
+        // such cases.
+        if (!importAliasMap.has(alias.modulePath)) {
+            const map = new Map<string, ImportAliasData>();
+            map.set(alias.originalName, data);
+            importAliasMap.set(alias.modulePath, map);
+            return;
+        }
+
+        const map = importAliasMap.get(alias.modulePath)!;
+        if (!map.has(alias.originalName)) {
+            map.set(alias.originalName, data);
+            return;
+        }
+
+        const existingData = map.get(alias.originalName)!;
+        const comparison = this._compareImportAliasData(existingData, data);
+        if (comparison <= 0) {
+            // Existing data is better than new one.
+            return;
+        }
+
+        // Keep the new data.
+        map.set(alias.originalName, data);
+    }
+
+    private _compareImportAliasData(left: ImportAliasData, right: ImportAliasData) {
+        const groupComparison = left.importGroup - right.importGroup;
+        if (groupComparison !== 0) {
+            return groupComparison;
+        }
+
+        const dotComparison = left.importParts.numberOfNameParts - right.importParts.numberOfNameParts;
+        if (dotComparison !== 0) {
+            return dotComparison;
+        }
+
+        if (left.symbol && !right.symbol) {
+            return -1;
+        }
+
+        if (!left.symbol && right.symbol) {
+            return 1;
+        }
+
+        return StringUtils.getStringComparer()(left.importParts.importName, right.importParts.importName);
+    }
+
+    private _getImportPartsForSymbols(filePath: string): [string | undefined, ImportGroup, ModuleNameAndType] {
+        const localImport = this._importStatements.mapByFilePath.get(filePath);
+        if (localImport) {
+            return [
+                localImport.moduleName,
+                getImportGroup(localImport),
+                {
+                    importType: ImportType.Local,
+                    isLocalTypingsFile: false,
+                    moduleName: localImport.moduleName,
+                },
+            ];
+        } else {
+            const moduleNameAndType = this._getModuleNameAndTypeFromFilePath(filePath);
+            return [
+                moduleNameAndType.moduleName,
+                this._getImportGroupFromModuleNameAndType(moduleNameAndType),
+                moduleNameAndType,
+            ];
+        }
     }
 
     private _getImportParts(filePath: string) {
@@ -309,7 +492,8 @@ export class AutoImporter {
                 importName: index > 0 ? importNamePart! : importSource,
                 importSource: index > 0 ? importSource.substring(0, index) : importSource,
                 filePath,
-                moduleAndType: module,
+                numberOfNameParts: importSource.split('.').length,
+                moduleNameAndType: module,
             };
         }
     }
@@ -324,8 +508,8 @@ export class AutoImporter {
             : word.length > 0 && name.startsWith(word);
     }
 
-    private _containsName(name: string, source: string | undefined, excludes: string[], results: AutoImportResult[]) {
-        if (excludes.find((e) => e === name)) {
+    private _containsName(name: string, source: string | undefined, results: AutoImportResult[]) {
+        if (this._excludes.find((e) => e === name)) {
             return true;
         }
 
@@ -357,7 +541,6 @@ export class AutoImporter {
 
     private _getTextEditsForAutoImportByFilePath(
         symbolName: string | undefined,
-        importStatements: ImportStatements,
         filePath: string,
         moduleName: string,
         importGroup: ImportGroup,
@@ -365,7 +548,7 @@ export class AutoImporter {
     ): TextEditAction[] {
         if (symbolName) {
             // Does an 'import from' statement already exist? If so, we'll reuse it.
-            const importStatement = importStatements.mapByFilePath.get(filePath);
+            const importStatement = this._importStatements.mapByFilePath.get(filePath);
             if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
                 return getTextEditsForAutoImportSymbolAddition(
                     symbolName,
@@ -378,11 +561,106 @@ export class AutoImporter {
 
         return getTextEditsForAutoImportInsertion(
             symbolName,
-            importStatements,
+            this._importStatements,
             moduleName,
             importGroup,
             this._parseResults,
             aliasName
         );
+    }
+}
+
+function createModuleSymbolTableFromIndexResult(indexResults: IndexResults): ModuleSymbolTable {
+    return {
+        forEach(callbackfn: (value: AutoImportSymbol, key: string) => void): void {
+            indexResults.symbols.forEach((data) => {
+                if (!data.externallyVisible) {
+                    return;
+                }
+
+                callbackfn(
+                    {
+                        importAlias: data.alias,
+                        kind: convertSymbolKindToCompletionItemKind(data.kind),
+                    },
+                    data.name
+                );
+            });
+        },
+    };
+}
+
+function convertSymbolKindToCompletionItemKind(kind: SymbolKind) {
+    switch (kind) {
+        case SymbolKind.File:
+            return CompletionItemKind.File;
+
+        case SymbolKind.Module:
+        case SymbolKind.Namespace:
+            return CompletionItemKind.Module;
+
+        case SymbolKind.Package:
+            return CompletionItemKind.Folder;
+
+        case SymbolKind.Class:
+            return CompletionItemKind.Class;
+
+        case SymbolKind.Method:
+            return CompletionItemKind.Method;
+
+        case SymbolKind.Property:
+            return CompletionItemKind.Property;
+
+        case SymbolKind.Field:
+            return CompletionItemKind.Field;
+
+        case SymbolKind.Constructor:
+            return CompletionItemKind.Constructor;
+
+        case SymbolKind.Enum:
+            return CompletionItemKind.Enum;
+
+        case SymbolKind.Interface:
+            return CompletionItemKind.Interface;
+
+        case SymbolKind.Function:
+            return CompletionItemKind.Function;
+
+        case SymbolKind.Variable:
+        case SymbolKind.Array:
+            return CompletionItemKind.Variable;
+
+        case SymbolKind.String:
+            return CompletionItemKind.Text;
+
+        case SymbolKind.Number:
+        case SymbolKind.Boolean:
+            return CompletionItemKind.Value;
+
+        case SymbolKind.Constant:
+        case SymbolKind.Null:
+            return CompletionItemKind.Constant;
+
+        case SymbolKind.Object:
+        case SymbolKind.Key:
+            return CompletionItemKind.Value;
+
+        case SymbolKind.EnumMember:
+            return CompletionItemKind.EnumMember;
+
+        case SymbolKind.Struct:
+            return CompletionItemKind.Struct;
+
+        case SymbolKind.Event:
+            return CompletionItemKind.Event;
+
+        case SymbolKind.Operator:
+            return CompletionItemKind.Operator;
+
+        case SymbolKind.TypeParameter:
+            return CompletionItemKind.TypeParameter;
+
+        default:
+            return undefined;
     }
 }
