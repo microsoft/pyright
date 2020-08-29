@@ -22,5 +22,5 @@ class ClassA:
         return ""
 
     # Too many annotations
-    def method2(self, a, b): # type: (str, int, int) -> str
+    def method2(self, a, b): # type: (str, int, int, int) -> str
         return ""

@@ -4320,7 +4320,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (isClass(targetClassType)) {
             // If the class derives from one or more unknown classes,
             // return unknown here to prevent spurious errors.
-            if (targetClassType.details.mro.some(mroBase => isAnyOrUnknown(mroBase))) {
+            if (targetClassType.details.mro.some((mroBase) => isAnyOrUnknown(mroBase))) {
                 return UnknownType.create();
             }
 
@@ -8807,7 +8807,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (node.functionAnnotationComment && !node.functionAnnotationComment.isParamListEllipsis) {
             const expected = node.parameters.length - firstCommentAnnotationIndex;
             const received = node.functionAnnotationComment.paramTypeAnnotations.length;
-            if (expected !== received) {
+
+            // For methods with "self" or "cls" parameters, the annotation list
+            // can either include or exclude the annotation for the first parameter.
+            if (firstCommentAnnotationIndex > 0 && received === node.parameters.length) {
+                firstCommentAnnotationIndex = 0;
+            } else if (received !== expected) {
                 addError(
                     Localizer.Diagnostic.annotatedParamCountMismatch().format({
                         expected,

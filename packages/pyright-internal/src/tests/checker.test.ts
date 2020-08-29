@@ -2074,3 +2074,9 @@ test('FunctionAnnotation2', () => {
 
     validateResults(analysisResults, 4);
 });
+
+test('FunctionAnnotation3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionAnnotation3.py']);
+
+    validateResults(analysisResults, 2);
+});
