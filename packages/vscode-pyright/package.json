@@ -620,12 +620,13 @@
         "webpack-dev": "npm run clean && webpack --mode development --watch --info-verbosity verbose --progress"
     },
     "dependencies": {
-        "vscode-jsonrpc": "6.0.0-next.4",
-        "vscode-languageclient": "7.0.0-next.8",
-        "vscode-languageserver": "7.0.0-next.6",
+        "vscode-jsonrpc": "6.0.0-next.5",
+        "vscode-languageclient": "7.0.0-next.9",
+        "vscode-languageserver": "7.0.0-next.7",
         "vscode-uri": "^2.1.2"
     },
     "devDependencies": {
+        "@types/node": "~12.12.54",
         "@types/vscode": "^1.48.0",
         "chalk": "^4.1.0",
         "clean-webpack-plugin": "^3.0.0",
