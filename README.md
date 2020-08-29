@@ -56,6 +56,9 @@ You can install the latest-published version of the Pyright VS Code extension di
 ### Vim
 For vim/neovim users, you can install [coc-pyright](https://github.com/fannheyward/coc-pyright), Pyright extension for coc.nvim.
 
+### Sublime Text
+For sublime text users, you can install the [LSP-pyright](https://github.com/sublimelsp/LSP-pyright) plugin from [package control](https://packagecontrol.io/packages/LSP-pyright).
+
 ### Emacs
 For emacs users, you can install [lsp-mode](https://github.com/emacs-lsp/lsp-mode) that includes [lsp-pyright](https://github.com/emacs-lsp/lsp-pyright).
 To activate the pyright extension follow the instructions in the [docs](https://emacs-lsp.github.io/lsp-pyright/).
