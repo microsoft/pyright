@@ -9,6 +9,7 @@ on:
       - master
       - main
       - monorepo-2 # TODO: Remove
+      - monorepo-3 # TODO: Remove
   pull_request_target:
     branches:
       - master
