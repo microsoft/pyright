@@ -10,7 +10,7 @@
  * Unit tests for Python tokenizer.
  */
 
-import * as assert from 'assert';
+import assert from 'assert';
 
 import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { Tokenizer } from '../parser/tokenizer';

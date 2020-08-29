@@ -49,7 +49,7 @@ export const srcFolder = normalizeSlashes('/.src');
 /**
  * Create a virtual file system from a physical file system using the following path mappings:
  *
- *  - `/typeshed-fallback` is a directory mapped to `${workspaceRoot}/../client/typeshed-fallback`
+ *  - `/typeshed-fallback` is a directory mapped to `packages/pyright-internal/typeshed-fallback`
  *  - `/.src` is a virtual directory to be used for tests.
  *
  * @param host it provides an access to host (real) file system
@@ -119,10 +119,7 @@ function getBuiltLocal(
 ): TestFileSystem {
     // Ensure typeshed folder
     if (!mountPaths.has(typeshedFolder)) {
-        mountPaths.set(
-            typeshedFolder,
-            resolvePaths(host.getWorkspaceRoot(), '../client/' + pathConsts.typeshedFallback)
-        );
+        mountPaths.set(typeshedFolder, resolvePaths(host.getWorkspaceRoot(), pathConsts.typeshedFallback));
     }
 
     if (!canReuseCache(host, mountPaths)) {

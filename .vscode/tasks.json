@@ -1,0 +1,46 @@
+{
+    "version": "2.0.0",
+    "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+    },
+    "tasks": [
+        {
+            "label": "Watch extension",
+            "type": "npm",
+            "script": "watch:extension",
+            "isBackground": true,
+            // From vscode-tsl-problem-matcher.
+            "problemMatcher": {
+                "owner": "custom",
+                "fileLocation": "absolute",
+                "pattern": [
+                    {
+                        "kind": "location",
+                        "regexp": "(ERROR|WARNING) in (.*?):(\\d+):(\\d+)",
+                        "severity": 1,
+                        "file": 2,
+                        "line": 3,
+                        "column": 4
+                    },
+                    {
+                        "regexp": "\\s*(@typescript-eslint\\/.+):\\s*(.*)$",
+                        "code": 1,
+                        "message": 2
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": {
+                        "regexp": "Compiling.*?|Compilation .*?starting"
+                    },
+                    "endsPattern": {
+                        "regexp": "Compiled .*?successfully|Compilation .*?finished"
+                    }
+                }
+            }
+        }
+    ]
+}

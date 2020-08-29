@@ -9,7 +9,6 @@
  * runs in another process.
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
 import {
     commands,
@@ -36,7 +35,8 @@ import {
     TransportKind,
 } from 'vscode-languageclient/node';
 
-import { Commands } from '../../server/src/commands/commands';
+import { Commands } from 'pyright-internal/commands/commands';
+
 import { FileBasedCancellationStrategy } from './cancellationUtils';
 import { ProgressReporting } from './progress';
 
@@ -47,8 +47,7 @@ const pythonPathChangedListenerMap = new Map<string, string>();
 export function activate(context: ExtensionContext) {
     cancellationStrategy = new FileBasedCancellationStrategy();
 
-    const bundlePath = context.asAbsolutePath(path.join('server', 'server.bundle.js'));
-    const nonBundlePath = context.asAbsolutePath(path.join('server', 'src', 'server.js'));
+    const bundlePath = context.asAbsolutePath(path.join('dist', 'server.js'));
     const debugOptions = { execArgv: ['--nolazy', '--inspect=6600'] };
 
     // If the extension is launched in debug mode, then the debug server options are used.
@@ -58,7 +57,7 @@ export function activate(context: ExtensionContext) {
         // build includes only the bundled package, so we don't want to crash if
         // someone starts the production extension in debug mode.
         debug: {
-            module: fs.existsSync(nonBundlePath) ? nonBundlePath : bundlePath,
+            module: bundlePath,
             transport: TransportKind.ipc,
             args: cancellationStrategy.getCommandLineArguments(),
             options: debugOptions,

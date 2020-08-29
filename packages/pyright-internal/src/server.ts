@@ -16,13 +16,13 @@ import {
 import { isMainThread } from 'worker_threads';
 
 import { AnalysisResults } from './analyzer/analysis';
-import { BackgroundAnalysis } from './backgroundAnalysis';
+import { BackgroundAnalysis, BackgroundAnalysisRunner } from './backgroundAnalysis';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
 import { LogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
-import { convertUriToPath, getDirectoryPath, normalizeSlashes } from './common/pathUtils';
+import { convertUriToPath, normalizeSlashes } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
 import {
     LanguageServerBase,
@@ -43,8 +43,8 @@ class PyrightServer extends LanguageServerBase {
 
         // When executed from CLI command (pyright-langserver), __rootDirectory is
         // already defined. When executed from VSCode extension, rootDirectory should
-        // be the parent directory of __dirname.
-        const rootDirectory = (global as any).__rootDirectory || getDirectoryPath(__dirname);
+        // be __dirname.
+        const rootDirectory = (global as any).__rootDirectory || __dirname;
         super({
             productName: 'Pyright',
             rootDirectory,
@@ -202,6 +202,11 @@ function reporterFactory(connection: ProgressReporterConnection): ProgressReport
     };
 }
 
-if (isMainThread) {
-    new PyrightServer();
+export function main() {
+    if (isMainThread) {
+        new PyrightServer();
+    } else {
+        const runner = new BackgroundAnalysisRunner();
+        runner.start();
+    }
 }

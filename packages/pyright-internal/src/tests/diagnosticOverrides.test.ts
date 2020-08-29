@@ -14,7 +14,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 
 describe('Diagnostic overrides', () => {
     test('Compare DiagnosticRule to pyrightconfig.schema.json', () => {
-        const schemasFolder = path.resolve(__dirname, '..', '..', '..', 'client', 'schemas');
+        const schemasFolder = path.resolve(__dirname, '..', '..', '..', 'vscode-pyright', 'schemas');
         const schemaJson = path.join(schemasFolder, 'pyrightconfig.schema.json');
         const jsonString = fs.readFileSync(schemaJson, { encoding: 'utf-8' });
         const json = JSON.parse(jsonString);
@@ -60,7 +60,7 @@ describe('Diagnostic overrides', () => {
         }
     });
     test('Compare DiagnosticRule to package.json', () => {
-        const extensionRoot = path.resolve(__dirname, '..', '..', '..', 'client');
+        const extensionRoot = path.resolve(__dirname, '..', '..', '..', 'vscode-pyright');
         const packageJson = path.join(extensionRoot, 'package.json');
         const jsonString = fs.readFileSync(packageJson, { encoding: 'utf-8' });
         const json = JSON.parse(jsonString);

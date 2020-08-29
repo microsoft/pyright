@@ -5,7 +5,7 @@
         "plugin:@typescript-eslint/recommended"
     ],
     "env": {
-        "browser": true
+        "browser": false
     },
     "parser": "@typescript-eslint/parser",
     "parserOptions": {
@@ -22,7 +22,19 @@
         "no-constant-condition": 0,
         "no-inner-declarations": 0,
         "no-undef": 0,
-        "simple-import-sort/sort": "error",
+        "simple-import-sort/sort": [
+            "error",
+            {
+                "groups": [
+                    // Defaults from simple-import-sort, but with local packages between third-party and relative imports.
+                    ["^\\u0000"],
+                    ["^@?\\w"],
+                    ["^[^.]"],
+                    ["^pyright"],
+                    ["^\\."]
+                  ]
+            }
+        ],
         "@typescript-eslint/explicit-function-return-type": 0,
         "@typescript-eslint/explicit-module-boundary-types": 0,
         "@typescript-eslint/ban-types": 0,

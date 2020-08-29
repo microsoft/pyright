@@ -6,7 +6,7 @@
  * run analyzer from background thread
  */
 
-import { isMainThread, Worker } from 'worker_threads';
+import { Worker } from 'worker_threads';
 
 import { BackgroundAnalysisBase, BackgroundAnalysisRunnerBase, InitializationData } from './backgroundAnalysisBase';
 import { getCancellationFolderName } from './common/cancellationUtils';
@@ -27,14 +27,8 @@ export class BackgroundAnalysis extends BackgroundAnalysisBase {
     }
 }
 
-class BackgroundAnalysisRunner extends BackgroundAnalysisRunnerBase {
+export class BackgroundAnalysisRunner extends BackgroundAnalysisRunnerBase {
     constructor() {
         super();
     }
-}
-
-// this lets the runner start in the worker thread
-if (!isMainThread) {
-    const runner = new BackgroundAnalysisRunner();
-    runner.start();
 }

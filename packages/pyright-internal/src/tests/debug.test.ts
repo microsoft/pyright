@@ -4,7 +4,7 @@
  * Licensed under the MIT license.
  */
 
-import * as assert from 'assert';
+import assert from 'assert';
 
 import * as debug from '../common/debug';
 

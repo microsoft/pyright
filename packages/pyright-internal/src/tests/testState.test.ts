@@ -6,7 +6,7 @@
  * Tests and show how to use TestState in unit test
  */
 
-import * as assert from 'assert';
+import assert from 'assert';
 
 import { combinePaths, comparePathsCaseSensitive, getFileName, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';

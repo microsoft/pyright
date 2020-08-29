@@ -1,45 +1,32 @@
 {
-    "name": "pyright",
-    "displayName": "Pyright",
-    "description": "Type checker for the Python language",
-    "version": "1.1.65",
-    "license": "MIT",
-    "author": {
-        "name": "Microsoft Corporation"
-    },
-    "publisher": "Microsoft Corporation",
-    "engines": {
-        "node": ">=12.0.0"
-    },
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/Microsoft/pyright"
-    },
+    "name": "pyright-root",
+    "private": true,
     "scripts": {
-        "install:all": "npm install && cd server && npm install && cd ../client && npm install && cd ..",
-        "build": "npm run clean && npm run build:clientServerDebug && npm run build:cli",
-        "build:client": "cd client && npm run build && cd ..",
-        "build:clientServerDebug": "npm run build:serverDebug && npm run build:client",
-        "build:serverProd": "cd server && npm run build:serverProd && cd ..",
-        "build:serverDebug": "cd server && npm run build:serverDebug && cd ..",
-        "build:cli": "cd server && npm run build:cli && cd ..",
-        "clean": "del-cli \"./client/server\" && del-cli \"./client/out\" && del-cli \"./dist\"",
-        "package": "npm run install:all && npm run clean && npm run build:serverProd && npm run build:cli && cd client && npx vsce package && cd .."
+        "postinstall": "npm run bootstrap",
+        "bootstrap": "node ./build/skipBootstrap.js || lerna bootstrap",
+        "clean": "lerna run --no-bail --stream clean",
+        "install:all": "npm install && lerna exec --no-bail npm install",
+        "update:all": "npm update && lerna exec --no-bail npm update",
+        "build:extension:dev": "cd packages/vscode-pyright && npm run webpack",
+        "build:cli:dev": "cd packages/pyright && npm run webpack",
+        "watch:extension": "cd packages/vscode-pyright && npm run webpack-dev",
+        "check": "npm run check:syncpack && npm run check:eslint && npm run check:prettier",
+        "check:syncpack": "syncpack list-mismatches",
+        "fix:syncpack": "syncpack fix-mismatches --indent \"    \" && npm run install:all",
+        "check:eslint": "eslint .",
+        "fix:eslint": "eslint --fix .",
+        "check:prettier": "prettier -c .",
+        "fix:prettier": "prettier --write ."
     },
     "devDependencies": {
-        "@types/node": "~12.12.54",
         "@typescript-eslint/eslint-plugin": "^3.10.1",
         "@typescript-eslint/parser": "^3.10.1",
-        "del-cli": "^3.0.1",
         "eslint": "^7.7.0",
         "eslint-config-prettier": "^6.11.0",
         "eslint-plugin-simple-import-sort": "^5.0.3",
-        "prettier": "2.0.5",
+        "lerna": "^3.22.1",
+        "prettier": "2.1.1",
+        "syncpack": "^5.5.6",
         "typescript": "^4.0.2"
-    },
-    "main": "index.js",
-    "bin": {
-        "pyright": "index.js",
-        "pyright-langserver": "langserver.index.js"
     }
 }

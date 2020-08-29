@@ -7,7 +7,7 @@
  * Unit tests for pathUtils module.
  */
 
-import * as assert from 'assert';
+import assert from 'assert';
 import * as path from 'path';
 
 import { Comparison } from '../common/core';

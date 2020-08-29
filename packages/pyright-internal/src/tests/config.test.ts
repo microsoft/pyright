@@ -7,7 +7,7 @@
  * Unit tests for parsing of pyrightconfig.json files.
  */
 
-import * as assert from 'assert';
+import assert from 'assert';
 
 import { AnalyzerService } from '../analyzer/service';
 import { CommandLineOptions } from '../common/commandLineOptions';
@@ -17,7 +17,7 @@ import { createFromRealFileSystem } from '../common/fileSystem';
 import { combinePaths, getBaseFileName, normalizePath, normalizeSlashes } from '../common/pathUtils';
 
 test('FindFilesWithConfigFile', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
+    const cwd = normalizePath(process.cwd());
     const service = new AnalyzerService('<default>', createFromRealFileSystem(), new NullConsole());
     const commandLineOptions = new CommandLineOptions(cwd, true);
     commandLineOptions.configFilePath = 'src/tests/samples/project1';
@@ -41,7 +41,7 @@ test('FindFilesWithConfigFile', () => {
 });
 
 test('FindFilesVirtualEnvAutoDetectExclude', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
+    const cwd = normalizePath(process.cwd());
     const service = new AnalyzerService('<default>', createFromRealFileSystem(), new NullConsole());
     const commandLineOptions = new CommandLineOptions(cwd, true);
     commandLineOptions.configFilePath = 'src/tests/samples/project_with_venv_auto_detect_exclude';
@@ -59,7 +59,7 @@ test('FindFilesVirtualEnvAutoDetectExclude', () => {
 });
 
 test('FindFilesVirtualEnvAutoDetectInclude', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
+    const cwd = normalizePath(process.cwd());
     const service = new AnalyzerService('<default>', createFromRealFileSystem(), new NullConsole());
     const commandLineOptions = new CommandLineOptions(cwd, true);
     commandLineOptions.configFilePath = 'src/tests/samples/project_with_venv_auto_detect_include';
@@ -77,7 +77,7 @@ test('FindFilesVirtualEnvAutoDetectInclude', () => {
 });
 
 test('FileSpecNotAnArray', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
+    const cwd = normalizePath(process.cwd());
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -91,7 +91,7 @@ test('FileSpecNotAnArray', () => {
 });
 
 test('FileSpecNotAString', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
+    const cwd = normalizePath(process.cwd());
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -105,7 +105,7 @@ test('FileSpecNotAString', () => {
 });
 
 test('SomeFileSpecsAreInvalid', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
+    const cwd = normalizePath(process.cwd());
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -130,7 +130,7 @@ test('SomeFileSpecsAreInvalid', () => {
 });
 
 test('ConfigBadJson', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
+    const cwd = normalizePath(process.cwd());
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -144,7 +144,7 @@ test('ConfigBadJson', () => {
 });
 
 test('FindExecEnv1', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
+    const cwd = normalizePath(process.cwd());
     const configOptions = new ConfigOptions(cwd);
 
     // Build a config option with three execution environments.
@@ -166,7 +166,7 @@ test('FindExecEnv1', () => {
 });
 
 test('PythonPlatform', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server'));
+    const cwd = normalizePath(process.cwd());
     const nullConsole = new NullConsole();
     const configOptions = new ConfigOptions(cwd);
 
@@ -186,7 +186,7 @@ test('PythonPlatform', () => {
 });
 
 test('AutoSearchPathsOn', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server/src/tests/samples/project_src'));
+    const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src'));
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -209,7 +209,7 @@ test('AutoSearchPathsOn', () => {
 });
 
 test('AutoSearchPathsOff', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server/src/tests/samples/project_src'));
+    const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src'));
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -222,7 +222,7 @@ test('AutoSearchPathsOff', () => {
 });
 
 test('AutoSearchPathsOnSrcIsPkg', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server/src/tests/samples/project_src_is_pkg'));
+    const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_is_pkg'));
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -236,9 +236,7 @@ test('AutoSearchPathsOnSrcIsPkg', () => {
 });
 
 test('AutoSearchPathsOnWithConfigExecEnv', () => {
-    const cwd = normalizePath(
-        combinePaths(process.cwd(), '../server/src/tests/samples/project_src_with_config_exec_env')
-    );
+    const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_with_config_exec_env'));
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);
@@ -263,7 +261,7 @@ test('AutoSearchPathsOnWithConfigExecEnv', () => {
 });
 
 test('AutoSearchPathsOnAndExtraPaths', () => {
-    const cwd = normalizePath(combinePaths(process.cwd(), '../server/src/tests/samples/project_src_with_extra_paths'));
+    const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_src_with_extra_paths'));
     const nullConsole = new NullConsole();
     const service = new AnalyzerService('<default>', createFromRealFileSystem(nullConsole), nullConsole);
     const commandLineOptions = new CommandLineOptions(cwd, false);

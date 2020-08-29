@@ -1,8 +1,9 @@
 {
-    "name": "pyright",
+    "name": "vscode-pyright",
     "displayName": "Pyright",
     "description": "VS Code static type checking for Python",
     "version": "1.1.65",
+    "private": true,
     "license": "MIT",
     "author": {
         "name": "Microsoft Corporation"
@@ -27,7 +28,7 @@
         "workspaceContains:mspythonconfig.json"
     ],
     "icon": "images/pyright-icon.png",
-    "main": "./out/src/extension",
+    "main": "./dist/extension.js",
     "contributes": {
         "languages": [
             {
@@ -540,10 +541,10 @@
                     "default": "info",
                     "description": "Specifies the level of logging for the Output panel",
                     "enum": [
-                        "Error",
-                        "Warning",
-                        "Info",
-                        "Trace"
+                        "error",
+                        "warning",
+                        "info",
+                        "trace"
                     ]
                 },
                 "python.analysis.typeCheckingMode": {
@@ -610,20 +611,33 @@
         ]
     },
     "scripts": {
-        "vscode:prepublish": "npm run build",
-        "build": "tsc -p ./"
-    },
-    "devDependencies": {
-        "@types/node": "~12.12.54",
-        "@types/vscode": "^1.48.0",
-        "typescript": "^4.0.2",
-        "vsce": "^1.79.3"
+        "clean": "shx rm -rf ./dist ./out",
+        "prepackage": "node ./build/renamePackage.js pyright",
+        "package": "vsce package",
+        "postpackage": "node ./build/renamePackage.js vscode-pyright",
+        "vscode:prepublish": "node ./build/checkPackage.js && npm run clean && webpack --mode production --progress",
+        "webpack": "webpack --mode development --progress",
+        "webpack-dev": "npm run clean && webpack --mode development --watch --info-verbosity verbose --progress"
     },
     "dependencies": {
-        "leven": "^3.1.0",
         "vscode-jsonrpc": "6.0.0-next.4",
         "vscode-languageclient": "7.0.0-next.8",
         "vscode-languageserver": "7.0.0-next.6",
         "vscode-uri": "^2.1.2"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.48.0",
+        "chalk": "^4.1.0",
+        "clean-webpack-plugin": "^3.0.0",
+        "copy-webpack-plugin": "^6.0.3",
+        "detect-indent": "^6.0.0",
+        "fs-extra": "^9.0.1",
+        "shx": "^0.3.2",
+        "ts-loader": "^8.0.3",
+        "tsconfig-paths-webpack-plugin": "^3.3.0",
+        "typescript": "^4.0.2",
+        "vsce": "^1.79.3",
+        "webpack": "^5.0.0-beta.26",
+        "webpack-cli": "^3.3.12"
     }
 }

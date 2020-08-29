@@ -7,7 +7,7 @@
  * and how to use parseTestData API itself for other unit tests
  */
 
-import * as assert from 'assert';
+import assert from 'assert';
 
 import { combinePaths, getBaseFileName, normalizeSlashes } from '../common/pathUtils';
 import { compareStringsCaseSensitive } from '../common/stringUtils';

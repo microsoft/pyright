@@ -14,7 +14,7 @@ import { timingStats } from './common/timing';
 /* eslint-enable */
 
 import * as chalk from 'chalk';
-import * as commandLineArgs from 'command-line-args';
+import commandLineArgs from 'command-line-args';
 import { CommandLineOptions, OptionDefinition } from 'command-line-args';
 import * as process from 'process';
 
@@ -378,4 +378,6 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
     };
 }
 
-processArgs();
+export function main() {
+    processArgs();
+}

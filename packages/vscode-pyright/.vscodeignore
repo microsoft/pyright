@@ -1,12 +1,13 @@
-# Don't include the large "lsif" files that are included
-# in some node_modules.
-**/*.lsif
+# Until https://github.com/microsoft/vscode-vsce/issues/417 is fixed,
+# ignore known build artifacts.
 
-# No need to include source maps, original copy of the src or tests.
-**/*.map
+node_modules
+.vscode/**
+.vscode-test/**
+out/**
+src/**
+.gitignore
+build/**
 
-tsconfig.json
-
-# Omit all of the server directory except for the main bundle.
-server
-!server/server.bundle.js
+tsconfig.*
+webpack.*

@@ -1,7 +1,8 @@
-*.json
-*.md
+**/package-lock.json
 **/dist/**
 **/out/**
-**/client/server/**
 **/typeshed-fallback/**
-**/.github/**
+
+*.json
+*.md
+**/.github/ISSUE_TEMPLATE/**
