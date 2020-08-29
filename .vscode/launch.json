@@ -5,10 +5,10 @@
             "name": "Pyright CLI",
             "type": "node",
             "request": "launch",
-            "program": "${workspaceRoot}/index.debug.js",
+            "program": "${workspaceRoot}/packages/pyright/dist/pyright.js",
             "protocol": "inspector",
             "cwd": "${workspaceRoot}",
-            "preLaunchTask": "npm: build:serverDebug",
+            "preLaunchTask": "npm: build:cli:dev",
             "args": [
                 "-p",
                 "${workspaceRoot}/../brain",
@@ -16,42 +16,64 @@
             ],
             "internalConsoleOptions": "openOnSessionStart",
             "outFiles": [
-                "${workspaceRoot}/client/server/**/*.js"
+                "${workspaceRoot}/packages/pyright/dist/**/*.js"
             ]
         },
         {
-            "name": "Pyright Tests",
+            "name": "Pyright tests",
             "type": "node",
             "request": "launch",
             "args": [
-                "--config",
-                "${workspaceRoot}/server/jest.config.js",
-                "-runInBand"
+                "--runInBand"
             ],
-            "cwd": "${workspaceRoot}/server",
+            "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
             "disableOptimisticBPs": true,
-            "program": "${workspaceFolder}/server/node_modules/jest/bin/jest"
+            "program": "${workspaceFolder}/packages/pyright-internal/node_modules/jest/bin/jest"
         },
         {
-            "name": "Pyright Language Client",
+            "name": "Pyright extension",
             "type": "extensionHost",
             "request": "launch",
-            "runtimeExecutable": "${workspaceRoot}/client/out/src/extension.js",
-            "preLaunchTask": "npm: build:clientServerDebug",
+            "runtimeExecutable": "${workspaceRoot}/packages/vscode-pyright/dist/extension.js",
+            "preLaunchTask": "npm: build:extension:dev",
             "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/client"
+                "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode-pyright",
+                // The published extension is named "ms-pyright.pyright", but in debug mode it's "ms-pyright.vscode-pyright"
+                // to allow the extension code to participate in the lerna monorepo. Make sure that the published extension
+                // isn't enabled, otherwise both are loaded and conflict.
+                "--disable-extension=ms-pyright.pyright"
             ],
             "stopOnEntry": false,
             "smartStep": true,
             "sourceMaps": true,
             "outFiles": [
-                "${workspaceRoot}/server/out/**/*.js"
+                "${workspaceRoot}/packages/vscode-pyright/dist/**/*.js"
             ]
         },
         {
-            "name": "Pyright Language Server",
+            "name": "Pyright extension (watch mode)",
+            "type": "extensionHost",
+            "request": "launch",
+            "runtimeExecutable": "${workspaceRoot}/packages/vscode-pyright/dist/extension.js",
+            "preLaunchTask": "Watch extension",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode-pyright",
+                // The published extension is named "ms-pyright.pyright", but in debug mode it's "ms-pyright.vscode-pyright"
+                // to allow the extension code to participate in the lerna monorepo. Make sure that the published extension
+                // isn't enabled, otherwise both are loaded and conflict.
+                "--disable-extension=ms-pyright.pyright"
+            ],
+            "stopOnEntry": false,
+            "smartStep": true,
+            "sourceMaps": true,
+            "outFiles": [
+                "${workspaceRoot}/packages/vscode-pyright/dist/**/*.js"
+            ]
+        },
+        {
+            "name": "Pyright attach server",
             "type": "node",
             "request": "attach",
             "protocol": "inspector",
@@ -59,7 +81,7 @@
             "smartStep": true,
             "sourceMaps": true,
             "outFiles": [
-                "${workspaceRoot}/server/out/**/*.js"
+                "${workspaceRoot}/packages/vscode-pyright/dist/**/*.js"
             ]
         },
         {
@@ -68,17 +90,13 @@
             "request": "launch",
             "args": [
                 "${fileBasenameNoExtension}",
-                "--config",
-                "${workspaceRoot}/server/jest.config.js"
+                "--runInBand",
             ],
-            "cwd": "${workspaceRoot}/server",
+            "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
             "disableOptimisticBPs": true,
-            "program": "${workspaceFolder}/server/node_modules/jest/bin/jest",
-            "windows": {
-                "program": "${workspaceFolder}/server/node_modules/jest/bin/jest"
-            }
+            "program": "${workspaceFolder}/packages/pyright-internal/node_modules/jest/bin/jest"
         },
         {
             "name": "Pyright fourslash current file",
@@ -87,17 +105,13 @@
             "args": [
                 "fourSlashRunner.test.ts",
                 "-t ${fileBasenameNoExtension}",
-                "--config",
-                "${workspaceRoot}/server/jest.config.js"
+                "--runInBand",
             ],
-            "cwd": "${workspaceRoot}/server",
+            "cwd": "${workspaceRoot}/packages/pyright-internal",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen",
             "disableOptimisticBPs": true,
-            "program": "${workspaceFolder}/server/node_modules/jest/bin/jest",
-            "windows": {
-                "program": "${workspaceFolder}/server/node_modules/jest/bin/jest"
-            }
+            "program": "${workspaceFolder}/packages/pyright-internal/node_modules/jest/bin/jest"
         }
     ]
 }

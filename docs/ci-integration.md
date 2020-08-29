@@ -3,7 +3,8 @@
 ### Running Pyright as a pre-commit hook
 
 You can configure pyright to run as a git hook (e.g. prior to each check-in) by using the following hook definition:
-```
+
+```yml
 -   repo: local
     hooks:
     -   id: pyright
@@ -19,7 +20,7 @@ You can configure pyright to run as a git hook (e.g. prior to each check-in) by 
 
 Alternatively, you can run pyright from a bash script. Here's a script that installs the latest version of pyright and runs it.
 
-```
+```bash
 #!/bin/bash
 PATH_TO_PYRIGHT=`which pyright`
 

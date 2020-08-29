@@ -1,0 +1,149 @@
+name: 'Validation'
+
+env:
+  NODE_VERSION: '12' # Shipped with VS Code.
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+    branches:
+      - master
+      - main
+
+jobs:
+  typecheck:
+    if: github.repository == 'microsoft/pyright'
+    runs-on: ubuntu-18.04
+    name: Typecheck
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v2-beta
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Get npm cache directory
+        id: npm-cache
+        run: |
+          echo "::set-output name=dir::$(npm config get cache)"
+      - uses: actions/cache@v2
+        with:
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - run: npm install
+
+      - run: npx lerna exec --stream --no-bail -- tsc --noEmit
+
+  style:
+    if: github.repository == 'microsoft/pyright'
+    runs-on: ubuntu-18.04
+    name: Style
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v2-beta
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Get npm cache directory
+        id: npm-cache
+        run: |
+          echo "::set-output name=dir::$(npm config get cache)"
+      - uses: actions/cache@v2
+        with:
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - run: npm install
+
+      - name: Check diff after npm install
+        run: git diff --exit-code --name-only
+
+      - run: npm run check
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-10.15, windows-2019, ubuntu-18.04]
+
+    name: Test ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: typecheck
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v2-beta
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Get npm cache directory
+        id: npm-cache
+        run: |
+          echo "::set-output name=dir::$(npm config get cache)"
+      - uses: actions/cache@v2
+        with:
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - run: npm install
+
+      - name: npm test (pyright-internal)
+        run: npm test
+        working-directory: packages/pyright-internal
+
+  build:
+    runs-on: ubuntu-18.04
+    name: Build
+    needs: typecheck
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-node@v2-beta
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Get npm cache directory
+        id: npm-cache
+        run: |
+          echo "::set-output name=dir::$(npm config get cache)"
+      - uses: actions/cache@v2
+        with:
+          path: ${{ steps.npm-cache.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - run: npm install
+
+      - run: npm publish --dry-run
+        working-directory: packages/pyright
+
+      - run: npm run package
+        working-directory: packages/vscode-pyright
+
+  required:
+    runs-on: ubuntu-18.04
+    name: Required
+    needs:
+      - typecheck
+      - style
+      - test
+      - build
+
+    steps:
+      - run: echo All required jobs succeeded.

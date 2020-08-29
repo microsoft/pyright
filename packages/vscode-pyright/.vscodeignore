@@ -1,0 +1,13 @@
+# Until https://github.com/microsoft/vscode-vsce/issues/417 is fixed,
+# ignore known build artifacts.
+
+node_modules
+.vscode/**
+.vscode-test/**
+out/**
+src/**
+.gitignore
+build/**
+
+tsconfig.*
+webpack.*
