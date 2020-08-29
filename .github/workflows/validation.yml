@@ -64,7 +64,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-
 
-      - run: npm install
+      - run: npm run install:all
 
       - name: Check diff after npm install
         run: git diff --exit-code --name-only
