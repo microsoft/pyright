@@ -1773,7 +1773,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // entries added by this class.
         const localDataClassEntries: DataClassEntry[] = [];
         const fullDataClassEntries: DataClassEntry[] = [];
-        addInheritedDataClassEntries(classType, fullDataClassEntries);
+        const allAncestorsKnown = addInheritedDataClassEntries(classType, fullDataClassEntries);
+
+        if (!allAncestorsKnown) {
+            // If one or more ancestor classes have an unknown type, we cannot
+            // safely determine the parameter list, so we'll accept any parameters
+            // to avoid a false positive.
+            FunctionType.addDefaultParameters(initType);
+        }
 
         // Maintain a list of "type evaluators".
         type TypeEvaluator = () => Type;
@@ -1902,7 +1909,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         });
 
         const symbolTable = classType.details.fields;
-        if (!skipSynthesizeInit) {
+        if (!skipSynthesizeInit && allAncestorsKnown) {
             fullDataClassEntries.forEach((entry) => {
                 if (entry.includeInInit) {
                     const functionParam: FunctionParameter = {
@@ -2775,8 +2782,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     // Builds a sorted list of dataclass entries that are inherited by
     // the specified class. These entries must be unique and in reverse-MRO
-    // order.
+    // order. Returns true if all of the class types in the hierarchy are
+    // known, false if one or more are unknown.
     function addInheritedDataClassEntries(classType: ClassType, entries: DataClassEntry[]) {
+        let allAncestorsAreKnown = true;
+
         for (let i = classType.details.mro.length - 1; i >= 0; i--) {
             const mroClass = classType.details.mro[i];
 
@@ -2793,8 +2803,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         entries.push(entry);
                     }
                 });
+            } else {
+                allAncestorsAreKnown = false;
             }
         }
+        return allAncestorsAreKnown;
     }
 
     function getReturnTypeFromGenerator(type: Type): Type | undefined {
