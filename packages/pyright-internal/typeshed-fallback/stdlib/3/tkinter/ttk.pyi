@@ -234,7 +234,31 @@ class Entry(Widget, tkinter.Entry):
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
     def configure(self, cnf: _EntryOptionName) -> Tuple[str, str, str, Any, Any]: ...
-    config = configure  # type: ignore
+    # config must be copy/pasted, otherwise ttk.Entry().config is mypy error (don't know why)
+    @overload  # type: ignore
+    def config(
+        self,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        background: tkinter._Color = ...,
+        cursor: tkinter._Cursor = ...,
+        exportselection: bool = ...,
+        font: _FontDescription = ...,
+        foreground: tkinter._Color = ...,
+        invalidcommand: tkinter._EntryValidateCommand = ...,
+        justify: Literal["left", "center", "right"] = ...,
+        show: str = ...,
+        state: Literal["normal", "disabled", "readonly"] = ...,
+        style: str = ...,
+        takefocus: tkinter._TakeFocusValue = ...,
+        textvariable: tkinter.Variable = ...,
+        validate: Literal["none", "focus", "focusin", "focusout", "key", "all"] = ...,
+        validatecommand: tkinter._EntryValidateCommand = ...,
+        width: int = ...,
+        xscrollcommand: tkinter._XYScrollCommand = ...,
+    ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
+    @overload
+    def config(self, cnf: _EntryOptionName) -> Tuple[str, str, str, Any, Any]: ...
     def cget(self, key: _EntryOptionName) -> Any: ...  # type: ignore
     def bbox(self, index): ...
     def identify(self, x, y): ...
@@ -277,7 +301,7 @@ class Combobox(Entry):
         height: int = ...,
         invalidcommand: tkinter._EntryValidateCommand = ...,  # undocumented
         justify: Literal["left", "center", "right"] = ...,
-        postcommand: Union[Callable[[], None], str] = ...,
+        postcommand: Union[Callable[[], Any], str] = ...,
         show: Any = ...,  # undocumented
         state: Literal["normal", "readonly", "disabled"] = ...,
         style: str = ...,
@@ -302,7 +326,7 @@ class Combobox(Entry):
         height: int = ...,
         invalidcommand: tkinter._EntryValidateCommand = ...,
         justify: Literal["left", "center", "right"] = ...,
-        postcommand: Union[Callable[[], None], str] = ...,
+        postcommand: Union[Callable[[], Any], str] = ...,
         show: Any = ...,
         state: Literal["normal", "readonly", "disabled"] = ...,
         style: str = ...,
@@ -316,7 +340,34 @@ class Combobox(Entry):
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
     def configure(self, cnf: _ComboboxOptionName) -> Tuple[str, str, str, Any, Any]: ...
-    config = configure  # type: ignore
+    # config must be copy/pasted, otherwise ttk.Combobox().config is mypy error (don't know why)
+    @overload  # type: ignore
+    def config(
+        self,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        background: tkinter._Color = ...,
+        cursor: tkinter._Cursor = ...,
+        exportselection: bool = ...,
+        font: _FontDescription = ...,
+        foreground: tkinter._Color = ...,
+        height: int = ...,
+        invalidcommand: tkinter._EntryValidateCommand = ...,
+        justify: Literal["left", "center", "right"] = ...,
+        postcommand: Union[Callable[[], Any], str] = ...,
+        show: Any = ...,
+        state: Literal["normal", "readonly", "disabled"] = ...,
+        style: str = ...,
+        takefocus: tkinter._TakeFocusValue = ...,
+        textvariable: tkinter.Variable = ...,
+        validate: Literal["none", "focus", "focusin", "focusout", "key", "all"] = ...,
+        validatecommand: tkinter._EntryValidateCommand = ...,
+        values: tkinter._TkinterSequence[str] = ...,
+        width: int = ...,
+        xscrollcommand: tkinter._XYScrollCommand = ...,
+    ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
+    @overload
+    def config(self, cnf: _ComboboxOptionName) -> Tuple[str, str, str, Any, Any]: ...
     def cget(self, key: _ComboboxOptionName) -> Any: ...  # type: ignore
     def current(self, newindex: Optional[Any] = ...): ...
     def set(self, value): ...
@@ -638,7 +689,20 @@ class Panedwindow(Widget, tkinter.PanedWindow):
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
     def configure(self, cnf: _PanedwindowOptionName) -> Tuple[str, str, str, Any, Any]: ...
-    config = configure  # type: ignore
+    # config must be copy/pasted, otherwise ttk.Panedwindow().config is mypy error (don't know why)
+    @overload  # type: ignore
+    def config(
+        self,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        cursor: tkinter._Cursor = ...,
+        height: int = ...,
+        style: str = ...,
+        takefocus: tkinter._TakeFocusValue = ...,
+        width: int = ...,
+    ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
+    @overload
+    def config(self, cnf: _PanedwindowOptionName) -> Tuple[str, str, str, Any, Any]: ...
     def cget(self, key: _PanedwindowOptionName) -> Any: ...  # type: ignore
     forget: Any
     def insert(self, pos, child, **kw): ...
@@ -767,7 +831,7 @@ class Scale(Widget, tkinter.Scale):
         master: Optional[tkinter.Misc] = ...,
         *,
         class_: str = ...,
-        command: Union[str, Callable[[str], None]] = ...,
+        command: Union[str, Callable[[str], Any]] = ...,
         cursor: tkinter._Cursor = ...,
         from_: float = ...,
         length: tkinter._ScreenUnits = ...,
@@ -784,7 +848,7 @@ class Scale(Widget, tkinter.Scale):
         self,
         cnf: Optional[Dict[str, Any]] = ...,
         *,
-        command: Union[str, Callable[[str], None]] = ...,
+        command: Union[str, Callable[[str], Any]] = ...,
         cursor: tkinter._Cursor = ...,
         from_: float = ...,
         length: tkinter._ScreenUnits = ...,
@@ -798,7 +862,26 @@ class Scale(Widget, tkinter.Scale):
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
     def configure(self, cnf: _ScaleOptionName) -> Tuple[str, str, str, Any, Any]: ...
-    config = configure  # type: ignore
+    # config must be copy/pasted, otherwise ttk.Scale().config is mypy error (don't know why)
+    @overload  # type: ignore
+    def config(
+        self,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        command: Union[str, Callable[[str], Any]] = ...,
+        cursor: tkinter._Cursor = ...,
+        from_: float = ...,
+        length: tkinter._ScreenUnits = ...,
+        orient: Literal["horizontal", "vertical"] = ...,
+        state: Any = ...,
+        style: str = ...,
+        takefocus: tkinter._TakeFocusValue = ...,
+        to: float = ...,
+        value: float = ...,
+        variable: tkinter.DoubleVar = ...,
+    ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
+    @overload
+    def config(self, cnf: _ScaleOptionName) -> Tuple[str, str, str, Any, Any]: ...
     def cget(self, key: _ScaleOptionName) -> Any: ...  # type: ignore
     def get(self, x: Optional[Any] = ..., y: Optional[Any] = ...): ...
 
@@ -829,7 +912,20 @@ class Scrollbar(Widget, tkinter.Scrollbar):
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
     def configure(self, cnf: _ScrollbarOptionName) -> Tuple[str, str, str, Any, Any]: ...
-    config = configure  # type: ignore
+    # config must be copy/pasted, otherwise ttk.Scrollbar().config is mypy error (don't know why)
+    @overload  # type: ignore
+    def config(
+        self,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        command: Union[Callable[..., Optional[Tuple[float, float]]], str] = ...,
+        cursor: tkinter._Cursor = ...,
+        orient: Literal["horizontal", "vertical"] = ...,
+        style: str = ...,
+        takefocus: tkinter._TakeFocusValue = ...,
+    ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
+    @overload
+    def config(self, cnf: _ScrollbarOptionName) -> Tuple[str, str, str, Any, Any]: ...
     def cget(self, key: _ScrollbarOptionName) -> Any: ...  # type: ignore
 
 _SeparatorOptionName = Literal["class", "cursor", "orient", "style", "takefocus"]
@@ -920,7 +1016,7 @@ if sys.version_info >= (3, 7):
             *,
             background: tkinter._Color = ...,  # undocumented
             class_: str = ...,
-            command: Union[Callable[[], None], str, tkinter._TkinterSequence[str]] = ...,
+            command: Union[Callable[[], Any], str, tkinter._TkinterSequence[str]] = ...,
             cursor: tkinter._Cursor = ...,
             exportselection: bool = ...,  # undocumented
             font: _FontDescription = ...,  # undocumented
@@ -949,7 +1045,7 @@ if sys.version_info >= (3, 7):
             cnf: Optional[Dict[str, Any]] = ...,
             *,
             background: tkinter._Color = ...,
-            command: Union[Callable[[], None], str, tkinter._TkinterSequence[str]] = ...,
+            command: Union[Callable[[], Any], str, tkinter._TkinterSequence[str]] = ...,
             cursor: tkinter._Cursor = ...,
             exportselection: bool = ...,
             font: _FontDescription = ...,
@@ -1111,7 +1207,7 @@ class OptionMenu(Menubutton):
         # rest of these are keyword-only because *args syntax used above
         style: str = ...,
         direction: Union[Literal["above"], Literal["below"], Literal["left"], Literal["right"], Literal["flush"]] = ...,
-        command: Optional[Callable[[tkinter.StringVar], None]] = ...,
+        command: Optional[Callable[[tkinter.StringVar], Any]] = ...,
     ) -> None: ...
     # configure, config, cget, destroy are inherited from Menubutton
     # destroy and __setitem__ are overrided, signature does not change

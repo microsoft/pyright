@@ -15,9 +15,10 @@
 import array
 import mmap
 import sys
-from typing import AbstractSet, Container, Protocol, Text, Tuple, TypeVar, Union
+from typing import AbstractSet, Container, Iterable, Protocol, Text, Tuple, TypeVar, Union
 from typing_extensions import Literal
 
+_KT = TypeVar("_KT")
 _KT_co = TypeVar("_KT_co", covariant=True)
 _KT_contra = TypeVar("_KT_contra", contravariant=True)
 _VT = TypeVar("_VT")
@@ -29,6 +30,10 @@ _T_contra = TypeVar("_T_contra", contravariant=True)
 
 class SupportsItems(Protocol[_KT_co, _VT_co]):
     def items(self) -> AbstractSet[Tuple[_KT_co, _VT_co]]: ...
+
+class SupportsKeysAndGetItem(Protocol[_KT, _VT_co]):
+    def keys(self) -> Iterable[_KT]: ...
+    def __getitem__(self, __k: _KT) -> _VT_co: ...
 
 class SupportsGetItem(Container[_KT_contra], Protocol[_KT_contra, _VT_co]):
     def __getitem__(self, __k: _KT_contra) -> _VT_co: ...
@@ -131,12 +136,8 @@ OpenBinaryModeUpdating = Literal[
     "b+x",
     "+bx",
 ]
-OpenBinaryModeWriting = Literal[
-    "wb", "bw", "ab", "ba", "xb", "bx",
-]
-OpenBinaryModeReading = Literal[
-    "rb", "br", "rbU", "rUb", "Urb", "brU", "bUr", "Ubr",
-]
+OpenBinaryModeWriting = Literal["wb", "bw", "ab", "ba", "xb", "bx"]
+OpenBinaryModeReading = Literal["rb", "br", "rbU", "rUb", "Urb", "brU", "bUr", "Ubr"]
 OpenBinaryMode = Union[OpenBinaryModeUpdating, OpenBinaryModeReading, OpenBinaryModeWriting]
 
 class HasFileno(Protocol):

@@ -48,7 +48,7 @@ class ZipExtFile(io.BufferedIOBase):
     name: str
     if sys.version_info >= (3, 7):
         def __init__(
-            self, fileobj: IO[bytes], mode: str, zipinfo: ZipInfo, pwd: Optional[bytes] = ..., close_fileobj: bool = ...,
+            self, fileobj: IO[bytes], mode: str, zipinfo: ZipInfo, pwd: Optional[bytes] = ..., close_fileobj: bool = ...
         ) -> None: ...
     else:
         def __init__(

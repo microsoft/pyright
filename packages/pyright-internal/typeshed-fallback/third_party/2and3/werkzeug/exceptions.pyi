@@ -148,10 +148,7 @@ class UnavailableForLegalReasons(HTTPException):
 
 class InternalServerError(HTTPException):
     def __init__(
-        self,
-        description: Optional[Text] = ...,
-        response: Optional[Response] = ...,
-        original_exception: Optional[Exception] = ...,
+        self, description: Optional[Text] = ..., response: Optional[Response] = ..., original_exception: Optional[Exception] = ...
     ) -> None: ...
     code: int
     description: Text

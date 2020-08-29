@@ -47,7 +47,7 @@ class FunctionLoader(BaseLoader):
     load_func: Any
     def __init__(self, load_func) -> None: ...
     def get_source(
-        self, environment: Environment, template: Text,
+        self, environment: Environment, template: Text
     ) -> Tuple[Text, Optional[Text], Optional[Callable[..., Any]]]: ...
 
 class PrefixLoader(BaseLoader):

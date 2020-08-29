@@ -1,6 +1,8 @@
-from typing import List, Type
+from typing import Any, List, Type
 
 from pyVmomi.vim import ManagedEntity
+
+def __getattr__(name: str) -> Any: ...  # incomplete
 
 class ContainerView:
     def Destroy(self) -> None: ...

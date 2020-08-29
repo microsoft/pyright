@@ -67,7 +67,7 @@ elif sys.version_info >= (3, 6):
 
 else:
     def namedtuple(
-        typename: str, field_names: Union[str, Iterable[str]], verbose: bool = ..., rename: bool = ...,
+        typename: str, field_names: Union[str, Iterable[str]], verbose: bool = ..., rename: bool = ...
     ) -> Type[Tuple[Any, ...]]: ...
 
 class UserDict(MutableMapping[_KT, _VT]):

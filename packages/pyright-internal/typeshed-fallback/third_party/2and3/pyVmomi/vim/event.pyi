@@ -1,5 +1,7 @@
 from datetime import datetime
-from typing import List
+from typing import Any, List
+
+def __getattr__(name: str) -> Any: ...  # incomplete
 
 class Event:
     createdTime: datetime

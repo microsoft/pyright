@@ -91,6 +91,7 @@ class Cookie:
     value: Optional[str]
     port: Optional[str]
     path: str
+    path_specified: bool
     secure: bool
     expires: Optional[int]
     discard: bool

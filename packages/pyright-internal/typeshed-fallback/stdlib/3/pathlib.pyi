@@ -1,8 +1,10 @@
 import os
 import sys
-from _typeshed import OpenBinaryMode, OpenTextMode
+from _typeshed import OpenBinaryMode, OpenBinaryModeReading, OpenBinaryModeUpdating, OpenBinaryModeWriting, OpenTextMode
+from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
 from types import TracebackType
-from typing import IO, Any, BinaryIO, Generator, List, Optional, Sequence, TextIO, Tuple, Type, TypeVar, Union, overload
+from typing import IO, Any, BinaryIO, Generator, List, Optional, Sequence, Text, TextIO, Tuple, Type, TypeVar, Union, overload
+from typing_extensions import Literal
 
 _P = TypeVar("_P", bound=PurePath)
 
@@ -83,28 +85,76 @@ class Path(PurePath):
         def mkdir(self, mode: int = ..., parents: bool = ...) -> None: ...
     else:
         def mkdir(self, mode: int = ..., parents: bool = ..., exist_ok: bool = ...) -> None: ...
-    @overload
-    def open(
-        self,
-        mode: OpenTextMode = ...,
-        buffering: int = ...,
-        encoding: Optional[str] = ...,
-        errors: Optional[str] = ...,
-        newline: Optional[str] = ...,
-    ) -> TextIO: ...
-    @overload
-    def open(
-        self, mode: OpenBinaryMode, buffering: int = ..., encoding: None = ..., errors: None = ..., newline: None = ...
-    ) -> BinaryIO: ...
-    @overload
-    def open(
-        self,
-        mode: str,
-        buffering: int = ...,
-        encoding: Optional[str] = ...,
-        errors: Optional[str] = ...,
-        newline: Optional[str] = ...,
-    ) -> IO[Any]: ...
+    if sys.version_info >= (3,):
+        # Adapted from builtins.open
+        # Text mode: always returns a TextIOWrapper
+        @overload
+        def open(
+            self,
+            mode: OpenTextMode = ...,
+            buffering: int = ...,
+            encoding: Optional[str] = ...,
+            errors: Optional[str] = ...,
+            newline: Optional[str] = ...,
+        ) -> TextIOWrapper: ...
+        # Unbuffered binary mode: returns a FileIO
+        @overload
+        def open(
+            self, mode: OpenBinaryMode, buffering: Literal[0], encoding: None = ..., errors: None = ..., newline: None = ...
+        ) -> FileIO: ...
+        # Buffering is on: return BufferedRandom, BufferedReader, or BufferedWriter
+        @overload
+        def open(
+            self,
+            mode: OpenBinaryModeUpdating,
+            buffering: Literal[-1, 1] = ...,
+            encoding: None = ...,
+            errors: None = ...,
+            newline: None = ...,
+        ) -> BufferedRandom: ...
+        @overload
+        def open(
+            self,
+            mode: OpenBinaryModeWriting,
+            buffering: Literal[-1, 1] = ...,
+            encoding: None = ...,
+            errors: None = ...,
+            newline: None = ...,
+        ) -> BufferedWriter: ...
+        @overload
+        def open(
+            self,
+            mode: OpenBinaryModeReading,
+            buffering: Literal[-1, 1] = ...,
+            encoding: None = ...,
+            errors: None = ...,
+            newline: None = ...,
+        ) -> BufferedReader: ...
+        # Buffering cannot be determined: fall back to BinaryIO
+        @overload
+        def open(
+            self, mode: OpenBinaryMode, buffering: int, encoding: None = ..., errors: None = ..., newline: None = ...
+        ) -> BinaryIO: ...
+        # Fallback if mode is not specified
+        @overload
+        def open(
+            self,
+            mode: str,
+            buffering: int = ...,
+            encoding: Optional[str] = ...,
+            errors: Optional[str] = ...,
+            newline: Optional[str] = ...,
+        ) -> IO[Any]: ...
+    else:
+        # Adapted from _io.open
+        def open(
+            self,
+            mode: Text = ...,
+            buffering: int = ...,
+            encoding: Optional[Text] = ...,
+            errors: Optional[Text] = ...,
+            newline: Optional[Text] = ...,
+        ) -> IO[Any]: ...
     def owner(self) -> str: ...
     if sys.version_info >= (3, 9):
         def readlink(self: _P) -> _P: ...

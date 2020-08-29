@@ -57,7 +57,7 @@ class SequenceMatcher(Generic[_T]):
 # mypy thinks the signatures of the overloads overlap, but the types still work fine
 @overload
 def get_close_matches(  # type: ignore
-    word: AnyStr, possibilities: Iterable[AnyStr], n: int = ..., cutoff: float = ...,
+    word: AnyStr, possibilities: Iterable[AnyStr], n: int = ..., cutoff: float = ...
 ) -> List[AnyStr]: ...
 @overload
 def get_close_matches(

@@ -6,12 +6,14 @@ from pyVmomi.vmodl import DynamicProperty
 
 class PropertyCollector:
     class PropertySpec:
+        all: bool
         type: Type[ManagedEntity]
         pathSet: List[str]
     class TraversalSpec:
         path: str
         skip: bool
         type: Type[ContainerView]
+        def __getattr__(self, name: str) -> Any: ...  # incomplete
     class RetrieveOptions:
         maxObjects: int
     class ObjectSpec:
@@ -21,9 +23,11 @@ class PropertyCollector:
     class FilterSpec:
         propSet: List[PropertyCollector.PropertySpec]
         objectSet: List[PropertyCollector.ObjectSpec]
+        def __getattr__(self, name: str) -> Any: ...  # incomplete
     class ObjectContent:
         obj: ManagedEntity
         propSet: List[DynamicProperty]
+        def __getattr__(self, name: str) -> Any: ...  # incomplete
     class RetrieveResult:
         objects: List[PropertyCollector.ObjectContent]
         token: Optional[str]
@@ -31,3 +35,4 @@ class PropertyCollector:
         self, specSet: List[PropertyCollector.FilterSpec], options: PropertyCollector.RetrieveOptions
     ) -> PropertyCollector.RetrieveResult: ...
     def ContinueRetrievePropertiesEx(self, token: str) -> PropertyCollector.RetrieveResult: ...
+    def __getattr__(self, name: str) -> Any: ...  # incomplete
