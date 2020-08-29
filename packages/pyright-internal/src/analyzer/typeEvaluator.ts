@@ -4318,6 +4318,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // If the lookup failed, try to return the first base class. An error
         // will be reported by the member lookup logic at a later time.
         if (isClass(targetClassType)) {
+            // If the class derives from one or more unknown classes,
+            // return unknown here to prevent spurious errors.
+            if (targetClassType.details.mro.some(mroBase => isAnyOrUnknown(mroBase))) {
+                return UnknownType.create();
+            }
+
             const baseClasses = targetClassType.details.baseClasses;
             if (baseClasses.length > 0) {
                 const baseClassType = baseClasses[0];
