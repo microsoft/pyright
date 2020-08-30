@@ -55,6 +55,13 @@ const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
 const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExtensions];
 const stubsSuffix = '-stubs';
 
+// Should we allow partial resolution for third-party packages? Some use tricks
+// to populate their package namespaces, so we might be able to partially resolve
+// a multi - part import(e.g. "a.b.c") but not fully resolve it. If this is set to
+// false, we will have some false positives. If it is set to true, we won't report
+// errors when these partial-resolutions fail.
+const allowPartialResolutionForThirdPartyPackages = false;
+
 export class ImportResolver {
     private _configOptions: ConfigOptions;
     private _cachedPythonSearchPaths = new Map<string, string[]>();
@@ -226,15 +233,13 @@ export class ImportResolver {
         const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
         if (pythonSearchPaths.length > 0) {
             for (const searchPath of pythonSearchPaths) {
-                // Allow partial resolution because some third-party packages
-                // use tricks to populate their package namespaces.
                 importFailureInfo.push(`Looking in python search path '${searchPath}'`);
                 const thirdPartyImport = this.resolveAbsoluteImport(
                     searchPath,
                     moduleDescriptor,
                     importName,
                     importFailureInfo,
-                    /* allowPartial */ true,
+                    /* allowPartial */ allowPartialResolutionForThirdPartyPackages,
                     /* allowNativeLib */ true,
                     /* allowStubPackages */ true,
                     allowPyi
