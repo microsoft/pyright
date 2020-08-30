@@ -49,7 +49,13 @@ import {
     TypeBase,
     TypeCategory,
 } from '../analyzer/types';
-import { doForSubtypes, getMembersForClass, getMembersForModule, specializeType } from '../analyzer/typeUtils';
+import {
+    doForSubtypes,
+    getMembersForClass,
+    getMembersForModule,
+    isProperty,
+    specializeType,
+} from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
@@ -1420,8 +1426,13 @@ export class CompletionProvider {
                     ? CompletionItemKind.Constant
                     : CompletionItemKind.Variable;
 
-            case DeclarationType.Function:
+            case DeclarationType.Function: {
+                const functionType = this._evaluator.getTypeOfFunction(resolvedDeclaration.node);
+                if (functionType && isProperty(functionType.decoratedType)) {
+                    return CompletionItemKind.Property;
+                }
                 return resolvedDeclaration.isMethod ? CompletionItemKind.Method : CompletionItemKind.Function;
+            }
 
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass:
