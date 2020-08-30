@@ -701,10 +701,10 @@ export class Binder extends ParseTreeWalker {
 
     visitReturn(node: ReturnNode): boolean {
         if (this._targetFunctionDeclaration) {
-            if (!this._targetFunctionDeclaration.returnExpressions) {
-                this._targetFunctionDeclaration.returnExpressions = [];
+            if (!this._targetFunctionDeclaration.returnStatements) {
+                this._targetFunctionDeclaration.returnStatements = [];
             }
-            this._targetFunctionDeclaration.returnExpressions.push(node);
+            this._targetFunctionDeclaration.returnStatements.push(node);
         }
 
         if (node.returnExpression) {
@@ -865,6 +865,13 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitRaise(node: RaiseNode): boolean {
+        if (this._targetFunctionDeclaration) {
+            if (!this._targetFunctionDeclaration.raiseStatements) {
+                this._targetFunctionDeclaration.raiseStatements = [];
+            }
+            this._targetFunctionDeclaration.raiseStatements.push(node);
+        }
+
         if (!node.typeExpression && this._nestedExceptDepth === 0) {
             this._addError(Localizer.Diagnostic.raiseParams(), node);
         }
@@ -2629,10 +2636,10 @@ export class Binder extends ParseTreeWalker {
         }
 
         if (this._targetFunctionDeclaration) {
-            if (!this._targetFunctionDeclaration.yieldExpressions) {
-                this._targetFunctionDeclaration.yieldExpressions = [];
+            if (!this._targetFunctionDeclaration.yieldStatements) {
+                this._targetFunctionDeclaration.yieldStatements = [];
             }
-            this._targetFunctionDeclaration.yieldExpressions.push(node);
+            this._targetFunctionDeclaration.yieldStatements.push(node);
             this._targetFunctionDeclaration.isGenerator = true;
         }
 

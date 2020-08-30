@@ -14,6 +14,6 @@ class FakeOsModule(object):
     _stat_mode: int = stat.S_IFDIR
 
     def stat(self):
-        raise NotImplementedError()
+        return None
 
 

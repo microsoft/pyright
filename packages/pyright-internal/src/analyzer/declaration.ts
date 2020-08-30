@@ -21,6 +21,7 @@ import {
     NameNode,
     ParameterNode,
     ParseNode,
+    RaiseNode,
     ReturnNode,
     StringListNode,
     TypeAnnotationNode,
@@ -83,8 +84,9 @@ export interface FunctionDeclaration extends DeclarationBase {
     node: FunctionNode;
     isMethod: boolean;
     isGenerator: boolean;
-    returnExpressions?: ReturnNode[];
-    yieldExpressions?: (YieldNode | YieldFromNode)[];
+    returnStatements?: ReturnNode[];
+    yieldStatements?: (YieldNode | YieldFromNode)[];
+    raiseStatements?: RaiseNode[];
 }
 
 export interface ParameterDeclaration extends DeclarationBase {

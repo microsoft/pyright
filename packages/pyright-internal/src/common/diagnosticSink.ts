@@ -80,6 +80,14 @@ export class DiagnosticSink {
     getWarnings() {
         return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.Warning);
     }
+
+    getInformation() {
+        return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.Information);
+    }
+
+    getUnusedCode() {
+        return this._diagnosticList.filter((diag) => diag.category === DiagnosticCategory.UnusedCode);
+    }
 }
 
 // Specialized version of DiagnosticSink that works with TextRange objects

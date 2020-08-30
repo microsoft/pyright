@@ -33,6 +33,8 @@ export interface FileAnalysisResult {
     parseResults?: ParseResults;
     errors: Diagnostic[];
     warnings: Diagnostic[];
+    infos: Diagnostic[];
+    unusedCodes: Diagnostic[];
 }
 
 export interface FileParseResult {
@@ -130,6 +132,8 @@ export function bindSampleFile(fileName: string, configOptions = new ConfigOptio
         parseResults: parseInfo.parseResults,
         errors: fileInfo.diagnosticSink.getErrors(),
         warnings: fileInfo.diagnosticSink.getWarnings(),
+        infos: fileInfo.diagnosticSink.getInformation(),
+        unusedCodes: fileInfo.diagnosticSink.getUnusedCode(),
     };
 }
 
@@ -159,6 +163,8 @@ export function typeAnalyzeSampleFiles(
                 parseResults: sourceFile.getParseResults(),
                 errors: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Error),
                 warnings: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Warning),
+                infos: diagnostics.filter((diag) => diag.category === DiagnosticCategory.Information),
+                unusedCodes: diagnostics.filter((diag) => diag.category === DiagnosticCategory.UnusedCode),
             };
             return analysisResult;
         } else {
@@ -169,6 +175,8 @@ export function typeAnalyzeSampleFiles(
                 parseResults: undefined,
                 errors: [],
                 warnings: [],
+                infos: [],
+                unusedCodes: [],
             };
             return analysisResult;
         }

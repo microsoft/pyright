@@ -9554,9 +9554,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 // Is it a generator?
-                if (functionDecl?.yieldExpressions) {
+                if (functionDecl?.yieldStatements) {
                     const inferredYieldTypes: Type[] = [];
-                    functionDecl.yieldExpressions.forEach((yieldNode) => {
+                    functionDecl.yieldStatements.forEach((yieldNode) => {
                         if (isNodeReachable(yieldNode)) {
                             if (yieldNode.nodeType === ParseNodeType.YieldFrom) {
                                 const iteratorType = getTypeOfExpression(yieldNode.expression).type;
@@ -9611,7 +9611,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         // If the function always raises and never returns, assume a "NoReturn" type.
                         // Skip this for abstract methods which often are implemented with "raise
                         // NotImplementedError()".
-                        if (isAbstract) {
+                        if (isAbstract || methodAlwaysRaisesNotImplemented(functionDecl)) {
                             inferredReturnType = UnknownType.create();
                         } else {
                             const noReturnClass = getTypingType(node, 'NoReturn');
@@ -9623,8 +9623,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         }
                     } else {
                         const inferredReturnTypes: Type[] = [];
-                        if (functionDecl?.returnExpressions) {
-                            functionDecl.returnExpressions.forEach((returnNode) => {
+                        if (functionDecl?.returnStatements) {
+                            functionDecl.returnStatements.forEach((returnNode) => {
                                 if (isNodeReachable(returnNode)) {
                                     if (returnNode.returnExpression) {
                                         const returnType = getTypeOfExpression(returnNode.returnExpression).type;
@@ -9655,6 +9655,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         return inferredReturnType;
+    }
+
+    // Determines whether the function consists only of a "raise" statement
+    // and the exception type raised is a NotImplementedError. This is commonly
+    // used for abstract methods that
+    function methodAlwaysRaisesNotImplemented(functionDecl?: FunctionDeclaration): boolean {
+        if (
+            !functionDecl ||
+            !functionDecl.isMethod ||
+            functionDecl.returnStatements ||
+            functionDecl.yieldStatements ||
+            !functionDecl.raiseStatements
+        ) {
+            return false;
+        }
+
+        for (const raiseStatement of functionDecl.raiseStatements) {
+            if (!raiseStatement.typeExpression || raiseStatement.valueExpression) {
+                return false;
+            }
+            const raiseType = getTypeOfExpression(raiseStatement.typeExpression).type;
+            const classType = isClass(raiseType) ? raiseType : isObject(raiseType) ? raiseType.classType : undefined;
+            if (!classType || !ClassType.isBuiltIn(classType, 'NotImplementedError')) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     function evaluateTypesForForStatement(node: ForNode): void {
@@ -10413,7 +10441,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // we'll assume the yield statements are reachable. Also, don't
                     // infer a "no return" type for abstract methods.
                     if (
-                        !functionType.details.declaration.yieldExpressions &&
+                        !functionType.details.declaration.yieldStatements &&
                         !FunctionType.isAbstractMethod(functionType) &&
                         !FunctionType.isStubDefinition(functionType)
                     ) {

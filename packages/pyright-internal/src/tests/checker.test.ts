@@ -214,10 +214,24 @@ test('Builtins1', () => {
     }
 });
 
-function validateResults(results: TestUtils.FileAnalysisResult[], errorCount: number, warningCount = 0) {
+function validateResults(
+    results: TestUtils.FileAnalysisResult[],
+    errorCount: number,
+    warningCount = 0,
+    infoCount?: number,
+    unusedCode?: number
+) {
     assert.equal(results.length, 1);
     assert.equal(results[0].errors.length, errorCount);
     assert.equal(results[0].warnings.length, warningCount);
+
+    if (infoCount !== undefined) {
+        assert.equal(results[0].infos.length, infoCount);
+    }
+
+    if (unusedCode !== undefined) {
+        assert.equal(results[0].unusedCodes.length, unusedCode);
+    }
 }
 
 test('BadToken1', () => {
@@ -500,6 +514,12 @@ test('Function11', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function11.py']);
 
     validateResults(analysisResults, 2);
+});
+
+test('Function12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function12.py']);
+
+    validateResults(analysisResults, 0, 0, 0, 2);
 });
 
 test('Annotations1', () => {
