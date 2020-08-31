@@ -164,6 +164,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _hasWatchFileCapability = false;
     protected _hasActiveParameterCapability = false;
     protected _hasSignatureLabelOffsetCapability = false;
+    protected _supportsUnnecessaryDiagnosticTag = false;
     protected _defaultClientConfig: any;
 
     // Tracks active file system watchers.
@@ -854,6 +855,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             ?.activeParameterSupport;
         this._hasSignatureLabelOffsetCapability = !!capabilities.textDocument?.signatureHelp?.signatureInformation
             ?.parameterInformation?.labelOffsetSupport;
+        const supportedDiagnosticTags = capabilities.textDocument?.publishDiagnostics?.tagSupport?.valueSet || [];
+        this._supportsUnnecessaryDiagnosticTag = supportedDiagnosticTags.some(
+            (tag) => tag === DiagnosticTag.Unnecessary
+        );
 
         // Create a service instance for each of the workspace folders.
         if (params.workspaceFolders) {
@@ -1062,7 +1067,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     }
 
     private _convertDiagnostics(diags: AnalyzerDiagnostic[]): Diagnostic[] {
-        return diags.map((diag) => {
+        const convertedDiags: Diagnostic[] = [];
+
+        diags.forEach((diag) => {
             const severity = convertCategoryToSeverity(diag.category);
 
             let source = this._serverOptions.productName;
@@ -1076,6 +1083,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             if (diag.category === DiagnosticCategory.UnusedCode) {
                 vsDiag.tags = [DiagnosticTag.Unnecessary];
                 vsDiag.severity = DiagnosticSeverity.Hint;
+
+                // If the client doesn't support "unnecessary" tags, don't report unused code.
+                if (!this._supportsUnnecessaryDiagnosticTag) {
+                    return;
+                }
             }
 
             const relatedInfo = diag.getRelatedInfo();
@@ -1088,7 +1100,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 });
             }
 
-            return vsDiag;
+            convertedDiags.push(vsDiag);
         });
 
         function convertCategoryToSeverity(category: DiagnosticCategory) {
@@ -1103,6 +1115,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     return DiagnosticSeverity.Hint;
             }
         }
+
+        return convertedDiags;
     }
 
     protected recordUserInteractionTime() {
