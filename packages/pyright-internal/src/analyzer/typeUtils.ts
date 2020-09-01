@@ -1526,6 +1526,36 @@ function _getGeneratorReturnTypeArgs(returnType: Type): Type[] | undefined {
     return undefined;
 }
 
+export function requiresTypeArguments(classType: ClassType) {
+    if (classType.details.typeParameters.length > 0) {
+        // If there are type parameters, type arguments are needed.
+        // The exception is if type parameters have been synthesized
+        // for classes that have untyped constructors.
+        return !classType.details.typeParameters[0].isSynthesized;
+    }
+
+    // There are a few built-in special classes that require
+    // type arguments even though typeParameters is empty.
+    if (ClassType.isBuiltIn(classType)) {
+        const specialClasses = [
+            'Tuple',
+            'Callable',
+            'Generic',
+            'Type',
+            'Optional',
+            'Union',
+            'Final',
+            'Literal',
+            'Annotated',
+        ];
+        if (specialClasses.some((t) => t === classType.details.name)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 export function requiresSpecialization(type: Type, recursionCount = 0): boolean {
     switch (type.category) {
         case TypeCategory.Class: {

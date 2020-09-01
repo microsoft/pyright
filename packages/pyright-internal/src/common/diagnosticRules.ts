@@ -46,6 +46,7 @@ export enum DiagnosticRule {
     reportUnknownLambdaType = 'reportUnknownLambdaType',
     reportUnknownVariableType = 'reportUnknownVariableType',
     reportUnknownMemberType = 'reportUnknownMemberType',
+    reportMissingTypeArgument = 'reportMissingTypeArgument',
     reportCallInDefaultInitializer = 'reportCallInDefaultInitializer',
     reportUnnecessaryIsInstance = 'reportUnnecessaryIsInstance',
     reportUnnecessaryCast = 'reportUnnecessaryCast',

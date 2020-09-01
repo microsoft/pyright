@@ -1503,6 +1503,19 @@ test('GenericTypes32', () => {
     validateResults(analysisResults, 0);
 });
 
+test('GenericTypes33', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, reportMissingTypeArgument is disabled.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes33.py']);
+    validateResults(analysisResults, 0);
+
+    // Turn on errors.
+    configOptions.diagnosticRuleSet.reportMissingTypeArgument = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes33.py'], configOptions);
+    validateResults(analysisResults, 3);
+});
+
 test('Protocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol1.py']);
 

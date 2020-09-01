@@ -119,7 +119,7 @@
                         "reportMissingImports": {
                             "type": "string",
                             "description": "Diagnostics for imports that have no corresponding imported python file or type stub file.",
-                            "default": "warning",
+                            "default": "error",
                             "enum": [
                                 "none",
                                 "information",
@@ -141,7 +141,7 @@
                         "reportMissingTypeStubs": {
                             "type": "string",
                             "description": "Diagnostics for imports that have no corresponding type stub file (either a typeshed file or a custom type stub). The type checker requires type stubs to do its best job at analysis.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -152,7 +152,7 @@
                         "reportImportCycles": {
                             "type": "string",
                             "description": "Diagnostics for cyclical import chains. These are not errors in Python, but they do slow down type analysis and often hint at architectural layering issues. Generally, they should be avoided.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -163,7 +163,7 @@
                         "reportUnusedImport": {
                             "type": "string",
                             "description": "Diagnostics for an imported symbol that is not referenced within that file.",
-                            "default": "information",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -174,7 +174,7 @@
                         "reportUnusedClass": {
                             "type": "string",
                             "description": "Diagnostics for a class with a private name (starting with an underscore) that is not accessed.",
-                            "default": "information",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -185,7 +185,7 @@
                         "reportUnusedFunction": {
                             "type": "string",
                             "description": "Diagnostics for a function or method with a private name (starting with an underscore) that is not accessed.",
-                            "default": "information",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -196,7 +196,7 @@
                         "reportUnusedVariable": {
                             "type": "string",
                             "description": "Diagnostics for a variable that is not accessed.",
-                            "default": "information",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -207,7 +207,7 @@
                         "reportDuplicateImport": {
                             "type": "string",
                             "description": "Diagnostics for an imported symbol or module that is imported more than once.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -218,7 +218,7 @@
                         "reportOptionalSubscript": {
                             "type": "string",
                             "description": "Diagnostics for an attempt to subscript (index) a variable with an Optional type.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -229,7 +229,7 @@
                         "reportOptionalMemberAccess": {
                             "type": "string",
                             "description": "Diagnostics for an attempt to access a member of a variable with an Optional type.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -240,7 +240,7 @@
                         "reportOptionalCall": {
                             "type": "string",
                             "description": "Diagnostics for an attempt to call a variable with an Optional type.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -251,7 +251,7 @@
                         "reportOptionalIterable": {
                             "type": "string",
                             "description": "Diagnostics for an attempt to use an Optional type as an iterable value (e.g. within a for statement).",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -262,7 +262,7 @@
                         "reportOptionalContextManager": {
                             "type": "string",
                             "description": "Diagnostics for an attempt to use an Optional type as a context manager (as a parameter to a with statement).",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -273,7 +273,7 @@
                         "reportOptionalOperand": {
                             "type": "string",
                             "description": "Diagnostics for an attempt to use an Optional type as an operand to a binary or unary operator (like '+', '==', 'or', 'not').",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -284,7 +284,7 @@
                         "reportUntypedFunctionDecorator": {
                             "type": "string",
                             "description": "Diagnostics for function decorators that have no type annotations. These obscure the function type, defeating many type analysis features.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -295,7 +295,7 @@
                         "reportUntypedClassDecorator": {
                             "type": "string",
                             "description": "Diagnostics for class decorators that have no type annotations. These obscure the class type, defeating many type analysis features.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -306,7 +306,7 @@
                         "reportUntypedBaseClass": {
                             "type": "string",
                             "description": "Diagnostics for base classes whose type cannot be determined statically. These obscure the class type, defeating many type analysis features.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -317,7 +317,7 @@
                         "reportUntypedNamedTuple": {
                             "type": "string",
                             "description": "Diagnostics when “namedtuple” is used rather than “NamedTuple”. The former contains no type information, whereas the latter does.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -328,7 +328,7 @@
                         "reportPrivateUsage": {
                             "type": "string",
                             "description": "Diagnostics for incorrect usage of private or protected variables or functions. Protected class members begin with a single underscore _ and can be accessed only by subclasses. Private class members begin with a double underscore but do not end in a double underscore and can be accessed only within the declaring class. Variables and functions declared outside of a class are considered private if their names start with either a single or double underscore, and they cannot be accessed outside of the declaring module.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -339,7 +339,7 @@
                         "reportConstantRedefinition": {
                             "type": "string",
                             "description": "Diagnostics for attempts to redefine variables whose names are all-caps with underscores and numerals.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -350,7 +350,7 @@
                         "reportIncompatibleMethodOverride": {
                             "type": "string",
                             "description": "Diagnostics for methods that override a method of the same name in a base class in an incompatible manner (wrong number of parameters, incompatible parameter types, or incompatible return type).",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -361,7 +361,7 @@
                         "reportIncompatibleVariableOverride": {
                             "type": "string",
                             "description": "Diagnostics for overrides in subclasses that redefine a variable in an incompatible way.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -383,7 +383,7 @@
                         "reportUnknownParameterType": {
                             "type": "string",
                             "description": "Diagnostics for input or return parameters for functions or methods that have an unknown type.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -394,7 +394,7 @@
                         "reportUnknownArgumentType": {
                             "type": "string",
                             "description": "Diagnostics for call arguments for functions or methods that have an unknown type.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -405,7 +405,7 @@
                         "reportUnknownLambdaType": {
                             "type": "string",
                             "description": "Diagnostics for input or return parameters for lambdas that have an unknown type.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -416,7 +416,7 @@
                         "reportUnknownVariableType": {
                             "type": "string",
                             "description": "Diagnostics for variables that have an unknown type..",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -427,7 +427,18 @@
                         "reportUnknownMemberType": {
                             "type": "string",
                             "description": "Diagnostics for class or instance variables that have an unknown type.",
-                            "default": "warning",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
+                        "reportMissingTypeArgument": {
+                            "type": "string",
+                            "description": "Diagnostics for generic class reference with missing type arguments.",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -438,7 +449,7 @@
                         "reportCallInDefaultInitializer": {
                             "type": "string",
                             "description": "Diagnostics for function calls within a default value initialization expression. Such calls can mask expensive operations that are performed at module initialization time.",
-                            "default": "information",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -449,7 +460,7 @@
                         "reportUnnecessaryIsInstance": {
                             "type": "string",
                             "description": "Diagnostics for 'isinstance' or 'issubclass' calls where the result is statically determined to be always true or always false. Such calls are often indicative of a programming error.",
-                            "default": "information",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -460,7 +471,7 @@
                         "reportUnnecessaryCast": {
                             "type": "string",
                             "description": "Diagnostics for 'cast' calls that are statically determined to be unnecessary. Such calls are sometimes indicative of a programming error.",
-                            "default": "information",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -471,7 +482,7 @@
                         "reportAssertAlwaysTrue": {
                             "type": "string",
                             "description": "Diagnostics for 'assert' statement that will provably always assert. This can be indicative of a programming error.",
-                            "default": "information",
+                            "default": "warning",
                             "enum": [
                                 "none",
                                 "information",
@@ -482,7 +493,7 @@
                         "reportSelfClsParameterName": {
                             "type": "string",
                             "description": "Diagnostics for a missing or misnamed “self” parameter in instance methods and “cls” parameter in class methods. Instance methods in metaclasses (classes that derive from “type”) are allowed to use “cls” for instance methods.",
-                            "default": "information",
+                            "default": "warning",
                             "enum": [
                                 "none",
                                 "information",
@@ -493,7 +504,7 @@
                         "reportImplicitStringConcatenation": {
                             "type": "string",
                             "description": "Diagnostics for two or more string literals that follow each other, indicating an implicit concatenation. This is considered a bad practice and often masks bugs such as missing commas.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -504,7 +515,7 @@
                         "reportInvalidStubStatement": {
                             "type": "string",
                             "description": "Diagnostics for type stub statements that do not conform to PEP 484",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
@@ -515,7 +526,7 @@
                         "reportUndefinedVariable": {
                             "type": "string",
                             "description": "Diagnostics for a missing or misnamed “self” parameter in instance methods and “cls” parameter in class methods. Instance methods in metaclasses (classes that derive from “type”) are allowed to use “cls” for instance methods.",
-                            "default": "warning",
+                            "default": "error",
                             "enum": [
                                 "none",
                                 "information",
@@ -526,7 +537,7 @@
                         "reportUnboundVariable": {
                             "type": "string",
                             "description": "Diagnostics for unbound and possibly unbound variables.",
-                            "default": "information",
+                            "default": "error",
                             "enum": [
                                 "none",
                                 "information",

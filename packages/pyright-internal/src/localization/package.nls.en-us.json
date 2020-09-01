@@ -250,6 +250,8 @@
         "typeAliasRedeclared": "\"{name}\" is declared as a TypeAlias and can be assigned only once",
         "typeArgsExpectingNone": "Expected no type arguments",
         "typeArgsMismatchOne": "Expected one type argument but received {received}",
+        "typeArgsMissingForAlias": "Expected type arguments for generic type alias \"{name}\"",
+        "typeArgsMissingForClass": "Expected type arguments for generic class \"{name}\"",
         "typeArgsTooMany": "Too many type arguments provided; expected {expected} but received {received}",
         "typeAssignmentMismatch": "Expression of type \"{sourceType}\" cannot be assigned to declared type \"{destType}\"",
         "typeCallNotAllowed": "type() call should not be used in type annotation",

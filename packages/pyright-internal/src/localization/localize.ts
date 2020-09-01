@@ -515,6 +515,10 @@ export namespace Localizer {
         export const typeArgsExpectingNone = () => getRawString('Diagnostic.typeArgsExpectingNone');
         export const typeArgsMismatchOne = () =>
             new ParameterizedString<{ received: number }>(getRawString('Diagnostic.typeArgsMismatchOne'));
+        export const typeArgsMissingForAlias = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeArgsMissingForAlias'));
+        export const typeArgsMissingForClass = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeArgsMissingForClass'));
         export const typeArgsTooMany = () =>
             new ParameterizedString<{ expected: number; received: number }>(getRawString('Diagnostic.typeArgsTooMany'));
         export const typeAssignmentMismatch = () =>

@@ -170,6 +170,9 @@ export interface DiagnosticRuleSet {
     // Report usage of unknown input or return parameters?
     reportUnknownMemberType: DiagnosticLevel;
 
+    // Report usage of generic class without explicit type arguments?
+    reportMissingTypeArgument: DiagnosticLevel;
+
     // Report usage of function call within default value
     // initialization expression?
     reportCallInDefaultInitializer: DiagnosticLevel;
@@ -252,6 +255,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnknownLambdaType,
         DiagnosticRule.reportUnknownVariableType,
         DiagnosticRule.reportUnknownMemberType,
+        DiagnosticRule.reportMissingTypeArgument,
         DiagnosticRule.reportCallInDefaultInitializer,
         DiagnosticRule.reportUnnecessaryIsInstance,
         DiagnosticRule.reportUnnecessaryCast,
@@ -310,6 +314,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnknownLambdaType: 'none',
         reportUnknownVariableType: 'none',
         reportUnknownMemberType: 'none',
+        reportMissingTypeArgument: 'none',
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
@@ -364,6 +369,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnknownLambdaType: 'none',
         reportUnknownVariableType: 'none',
         reportUnknownMemberType: 'none',
+        reportMissingTypeArgument: 'none',
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
@@ -418,6 +424,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnknownLambdaType: 'error',
         reportUnknownVariableType: 'error',
         reportUnknownMemberType: 'error',
+        reportMissingTypeArgument: 'error',
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'error',
         reportUnnecessaryCast: 'error',
@@ -941,6 +948,13 @@ export class ConfigOptions {
                 configObj.reportUnknownMemberType,
                 DiagnosticRule.reportUnknownMemberType,
                 defaultSettings.reportUnknownMemberType
+            ),
+
+            // Read the "reportMissingTypeArgument" entry.
+            reportMissingTypeArgument: this._convertDiagnosticLevel(
+                configObj.reportMissingTypeArgument,
+                DiagnosticRule.reportMissingTypeArgument,
+                defaultSettings.reportMissingTypeArgument
             ),
 
             // Read the "reportCallInDefaultInitializer" entry.
