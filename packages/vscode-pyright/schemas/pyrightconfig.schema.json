@@ -139,7 +139,7 @@
       "$id": "#/properties/reportMissingModuleSource",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of imports that cannot be resolved to source files",
-      "default": "none"
+      "default": "warning"
     },
     "reportMissingTypeStubs": {
       "$id": "#/properties/reportMissingTypeStubs",
@@ -339,11 +339,11 @@
       "title": "Controls reporting assert expressions that will always evaluate to true",
       "default": "warning"
     },
-    "reportUndefinedVariable": {
-      "$id": "#/properties/reportUndefinedVariable",
+    "reportImplicitStringConcatenation": {
+      "$id": "#/properties/reportImplicitStringConcatenation",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting of attempts to use an undefined variable",
-      "default": "error"
+      "title": "Controls reporting usage of implicit concatenation of string literals",
+      "default": "warning"
     },
     "reportUnboundVariable": {
       "$id": "#/properties/reportUnboundVariable",
@@ -351,11 +351,11 @@
       "title": "Controls reporting of attempts to use an unbound or possibly unbound variable",
       "default": "error"
     },
-    "reportImplicitStringConcatenation": {
-      "$id": "#/properties/reportImplicitStringConcatenation",
+    "reportUndefinedVariable": {
+      "$id": "#/properties/reportUndefinedVariable",
       "$ref": "#/definitions/diagnostic",
-      "title": "Controls reporting usage of implicit concatenation of string literals",
-      "default": "warning"
+      "title": "Controls reporting of attempts to use an undefined variable",
+      "default": "error"
     },
     "reportInvalidStubStatement": {
       "$id": "#/properties/reportInvalidStubStatement",
