@@ -2969,31 +2969,7 @@ export class Parser {
         const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
         this._isParsingTypeAnnotation = true;
 
-        let result: ExpressionNode | undefined;
-        let bitwiseOrToken: Token | undefined;
-
-        while (true) {
-            const annotationExpr = this._parseAtomExpression();
-
-            // Is this the first atom we've seen, or are we creating a
-            // union with previous types?
-            if (result === undefined || bitwiseOrToken === undefined) {
-                result = annotationExpr;
-            } else {
-                result = BinaryOperationNode.create(result, annotationExpr, bitwiseOrToken, OperatorType.BitwiseOr);
-            }
-
-            if (!allowUnionNotation) {
-                break;
-            }
-
-            bitwiseOrToken = this._peekToken();
-            if (this._peekOperatorType() === OperatorType.BitwiseOr) {
-                this._getNextToken();
-            } else {
-                break;
-            }
-        }
+        const result = this._parseTestExpression(/* allowAssignmentExpression */ false);
 
         this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 
