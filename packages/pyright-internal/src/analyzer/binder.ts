@@ -341,7 +341,14 @@ export class Binder extends ParseTreeWalker {
 
         this.walkMultiple(node.arguments);
 
-        this._createNewScope(ScopeType.Class, this._currentScope!, () => {
+        // For nested classes, use the scope that contains the outermost
+        // class rather than the immediate parent.
+        let parentScope = this._currentScope!;
+        while (parentScope.type === ScopeType.Class) {
+            parentScope = parentScope.parent!;
+        }
+
+        this._createNewScope(ScopeType.Class, parentScope, () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope!);
 
             // Analyze the suite.
