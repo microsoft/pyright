@@ -130,7 +130,7 @@
                         "reportMissingModuleSource": {
                             "type": "string",
                             "description": "Diagnostics for imports that have no corresponding source file. This happens when a type stub is found, but the module source file was not found, indicating that the code may fail at runtime when using this execution environment. Type checking will be done using the type stub.",
-                            "default": "warning",
+                            "default": "none",
                             "enum": [
                                 "none",
                                 "information",
