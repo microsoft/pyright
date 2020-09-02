@@ -2970,7 +2970,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         if (requiresTypeArguments(type) && !type.typeArguments) {
                             addDiagnostic(
                                 fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
-                                DiagnosticRule.reportGeneralTypeIssues,
+                                DiagnosticRule.reportMissingTypeArgument,
                                 Localizer.Diagnostic.typeArgsMissingForClass().format({
                                     name: type.details.name,
                                 }),
@@ -2997,7 +2997,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 ) {
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
-                        DiagnosticRule.reportGeneralTypeIssues,
+                        DiagnosticRule.reportMissingTypeArgument,
                         Localizer.Diagnostic.typeArgsMissingForAlias().format({
                             name: type.typeAliasInfo.aliasName,
                         }),
