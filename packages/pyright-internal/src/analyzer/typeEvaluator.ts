@@ -56,6 +56,7 @@ import {
     ParameterNode,
     ParseNode,
     ParseNodeType,
+    RaiseNode,
     SetNode,
     SliceNode,
     StringListNode,
@@ -435,6 +436,7 @@ export interface TypeEvaluator {
     evaluateTypesForStatement: (node: ParseNode) => void;
 
     getDeclaredTypeForExpression: (expression: ExpressionNode) => Type | undefined;
+    verifyRaiseExceptionType: (node: RaiseNode) => void;
     verifyDeleteExpression: (node: ExpressionNode) => void;
 
     isAfterNodeReachable: (node: ParseNode) => boolean;
@@ -2721,6 +2723,86 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     target
                 );
                 break;
+            }
+        }
+    }
+
+    function verifyRaiseExceptionType(node: RaiseNode) {
+        const baseExceptionType = getBuiltInType(node, 'BaseException');
+
+        if (node.typeExpression) {
+            const exceptionType = getType(node.typeExpression);
+
+            // Validate that the argument of "raise" is an exception object or class.
+            // If it is a class, validate that the class's constructor accepts zero
+            // arguments.
+            if (exceptionType && baseExceptionType && isClass(baseExceptionType)) {
+                const diagAddendum = new DiagnosticAddendum();
+
+                doForSubtypes(exceptionType, (subtype) => {
+                    if (!isAnyOrUnknown(subtype)) {
+                        if (isClass(subtype)) {
+                            if (!derivesFromClassRecursive(subtype, baseExceptionType, /* ignoreUnknown */ false)) {
+                                diagAddendum.addMessage(
+                                    Localizer.Diagnostic.exceptionTypeIncorrect().format({
+                                        type: printType(subtype, /* expandTypeAlias */ false),
+                                    })
+                                );
+                            } else {
+                                let callResult: CallResult | undefined;
+                                suppressDiagnostics(() => {
+                                    callResult = validateConstructorArguments(
+                                        node.typeExpression!,
+                                        [],
+                                        subtype,
+                                        /* skipUnknownArgCheck */ false,
+                                        /* expectedType */ undefined
+                                    );
+                                });
+
+                                if (callResult && callResult.argumentErrors) {
+                                    diagAddendum.addMessage(
+                                        Localizer.Diagnostic.exceptionTypeNotInstantiable().format({
+                                            type: printType(subtype, /* expandTypeAlias */ false),
+                                        })
+                                    );
+                                }
+                            }
+                        } else if (isObject(subtype)) {
+                            if (
+                                !derivesFromClassRecursive(
+                                    subtype.classType,
+                                    baseExceptionType,
+                                    /* ignoreUnknown */ false
+                                )
+                            ) {
+                                diagAddendum.addMessage(
+                                    Localizer.Diagnostic.exceptionTypeIncorrect().format({
+                                        type: printType(subtype, /* expandTypeAlias */ false),
+                                    })
+                                );
+                            }
+                        } else {
+                            diagAddendum.addMessage(
+                                Localizer.Diagnostic.exceptionTypeIncorrect().format({
+                                    type: printType(subtype, /* expandTypeAlias */ false),
+                                })
+                            );
+                        }
+                    }
+
+                    return subtype;
+                });
+
+                if (!diagAddendum.isEmpty()) {
+                    const fileInfo = getFileInfo(node);
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.expectedExceptionClass() + diagAddendum.getString(),
+                        node.typeExpression
+                    );
+                }
             }
         }
     }
@@ -15327,6 +15409,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         getTypeOfAnnotation,
         evaluateTypesForStatement,
         getDeclaredTypeForExpression,
+        verifyRaiseExceptionType,
         verifyDeleteExpression,
         isAfterNodeReachable,
         isNodeReachable,

@@ -252,6 +252,8 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.exceptionTypeIncorrect'));
         export const exceptionTypeNotClass = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.exceptionTypeNotClass'));
+        export const exceptionTypeNotInstantiable = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.exceptionTypeNotInstantiable'));
         export const expectedAfterDecorator = () => getRawString('Diagnostic.expectedAfterDecorator');
         export const expectedArrow = () => getRawString('Diagnostic.expectedArrow');
         export const expectedAsAfterException = () => getRawString('Diagnostic.expectedAsAfterException');

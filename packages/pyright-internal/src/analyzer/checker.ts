@@ -524,63 +524,10 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitRaise(node: RaiseNode): boolean {
-        const baseExceptionType = this._evaluator.getBuiltInType(node, 'BaseException') as ClassType;
-
-        if (node.typeExpression) {
-            const exceptionType = this._evaluator.getType(node.typeExpression);
-
-            // Validate that the argument of "raise" is an exception object or class.
-            if (exceptionType && baseExceptionType && isClass(baseExceptionType)) {
-                const diagAddendum = new DiagnosticAddendum();
-
-                doForSubtypes(exceptionType, (subtype) => {
-                    if (!isAnyOrUnknown(subtype)) {
-                        if (isClass(subtype)) {
-                            if (!derivesFromClassRecursive(subtype, baseExceptionType, /* ignoreUnknown */ false)) {
-                                diagAddendum.addMessage(
-                                    Localizer.Diagnostic.exceptionTypeIncorrect().format({
-                                        type: this._evaluator.printType(subtype, /* expandTypeAlias */ false),
-                                    })
-                                );
-                            }
-                        } else if (isObject(subtype)) {
-                            if (
-                                !derivesFromClassRecursive(
-                                    subtype.classType,
-                                    baseExceptionType,
-                                    /* ignoreUnknown */ false
-                                )
-                            ) {
-                                diagAddendum.addMessage(
-                                    Localizer.Diagnostic.exceptionTypeIncorrect().format({
-                                        type: this._evaluator.printType(subtype, /* expandTypeAlias */ false),
-                                    })
-                                );
-                            }
-                        } else {
-                            diagAddendum.addMessage(
-                                Localizer.Diagnostic.exceptionTypeIncorrect().format({
-                                    type: this._evaluator.printType(subtype, /* expandTypeAlias */ false),
-                                })
-                            );
-                        }
-                    }
-
-                    return subtype;
-                });
-
-                if (!diagAddendum.isEmpty()) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.expectedExceptionClass() + diagAddendum.getString(),
-                        node.typeExpression
-                    );
-                }
-            }
-        }
+        this._evaluator.verifyRaiseExceptionType(node);
 
         if (node.valueExpression) {
+            const baseExceptionType = this._evaluator.getBuiltInType(node, 'BaseException') as ClassType;
             const exceptionType = this._evaluator.getType(node.valueExpression);
 
             // Validate that the argument of "raise" is an exception object or None.
