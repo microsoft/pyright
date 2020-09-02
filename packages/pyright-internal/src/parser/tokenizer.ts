@@ -335,8 +335,7 @@ export class Tokenizer {
                 if (this._cs.position === 0) {
                     return false;
                 }
-                this._handleInvalid();
-                break;
+                return this._handleInvalid();
             }
 
             case Char.CarriageReturn: {
@@ -365,8 +364,7 @@ export class Tokenizer {
                     this._addLineRange();
                     return true;
                 }
-                this._handleInvalid();
-                return false;
+                return this._handleInvalid();
             }
 
             case Char.OpenParenthesis: {
@@ -457,8 +455,7 @@ export class Tokenizer {
 
                 if (!this._tryIdentifier()) {
                     if (!this._tryOperator()) {
-                        this._handleInvalid();
-                        return false;
+                        return this._handleInvalid();
                     }
                 }
                 return true;
@@ -904,7 +901,17 @@ export class Tokenizer {
 
     private _handleInvalid(): boolean {
         const start = this._cs.position;
-        this._cs.skipToWhitespace();
+        while (true) {
+            if (
+                this._cs.currentChar === Char.LineFeed ||
+                this._cs.currentChar === Char.CarriageReturn ||
+                this._cs.isAtWhiteSpace() ||
+                this._cs.isEndOfStream()
+            ) {
+                break;
+            }
+            this._cs.moveNext();
+        }
         const length = this._cs.position - start;
         if (length > 0) {
             this._tokens.push(Token.create(TokenType.Invalid, start, length, this._getComments()));

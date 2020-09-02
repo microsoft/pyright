@@ -75,6 +75,21 @@ test('NewLines', () => {
     assert.equal(results.tokens.contains(6), false);
 });
 
+test('InvalidWithNewLine', () => {
+    const t = new Tokenizer();
+    const results = t.tokenize('\\\\\r\n\\aaa \t\f\n');
+    assert.equal(results.tokens.count, 4 + _implicitTokenCountNoImplicitNewLine);
+
+    assert.equal(results.tokens.getItemAt(0).type, TokenType.Invalid);
+    assert.equal(results.tokens.getItemAt(0).length, 2);
+    assert.equal(results.tokens.getItemAt(1).type, TokenType.NewLine);
+    assert.equal((results.tokens.getItemAt(1) as NewLineToken).newLineType, NewLineType.CarriageReturnLineFeed);
+    assert.equal(results.tokens.getItemAt(2).type, TokenType.Invalid);
+    assert.equal(results.tokens.getItemAt(2).length, 4);
+    assert.equal(results.tokens.getItemAt(3).type, TokenType.NewLine);
+    assert.equal((results.tokens.getItemAt(3) as NewLineToken).newLineType, NewLineType.LineFeed);
+});
+
 test('ParenNewLines', () => {
     const t = new Tokenizer();
     const results = t.tokenize('\n(\n(\n)\n)\n)\n');
