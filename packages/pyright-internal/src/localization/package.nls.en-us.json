@@ -158,6 +158,7 @@
         "memberAccess": "Cannot access member \"{name}\" for type \"{type}\"",
         "memberDelete": "Cannot delete member \"{name}\" for type \"{type}\"",
         "memberSet": "Cannot assign member \"{name}\" for type \"{type}\"",
+        "metaclassConflict": "The metaclass of a derived class must be a subclass of the metaclasses of all its base classes",
         "metaclassDuplicate": "Only one metaclass can be provided",
         "methodNotDefined": "\"{name}\" method not defined",
         "methodNotDefinedOnType": "\"{name}\" method not defined on type \"{type}\"",

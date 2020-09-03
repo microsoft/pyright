@@ -289,7 +289,8 @@ interface ClassDetails {
     typeSourceId: TypeSourceId;
     baseClasses: Type[];
     mro: Type[];
-    metaClass?: ClassType | UnknownType;
+    declaredMetaclass?: ClassType | UnknownType;
+    effectiveMetaclass?: ClassType | UnknownType;
     aliasClass?: ClassType;
     fields: SymbolTable;
     typeParameters: TypeVarType[];
@@ -325,6 +326,8 @@ export namespace ClassType {
         moduleName: string,
         flags: ClassTypeFlags,
         typeSourceId: TypeSourceId,
+        declaredMetaclass: ClassType | UnknownType | undefined,
+        effectiveMetaclass: ClassType | UnknownType | undefined,
         docString?: string
     ) {
         const newClass: ClassType = {
@@ -335,6 +338,8 @@ export namespace ClassType {
                 flags,
                 typeSourceId,
                 baseClasses: [],
+                declaredMetaclass,
+                effectiveMetaclass,
                 mro: [],
                 fields: new Map<string, Symbol>(),
                 typeParameters: [],
@@ -357,7 +362,9 @@ export namespace ClassType {
             classType.details.name,
             classType.details.moduleName,
             classType.details.flags,
-            classType.details.typeSourceId
+            classType.details.typeSourceId,
+            classType.details.declaredMetaclass,
+            classType.details.effectiveMetaclass
         );
 
         newClassType.details = classType.details;
@@ -384,7 +391,9 @@ export namespace ClassType {
             classType.details.name,
             classType.details.moduleName,
             classType.details.flags,
-            classType.details.typeSourceId
+            classType.details.typeSourceId,
+            classType.details.declaredMetaclass,
+            classType.details.effectiveMetaclass
         );
         newClassType.details = classType.details;
         if (classType.typeArguments) {
@@ -567,11 +576,11 @@ export namespace ClassType {
             }
         }
 
-        if (class1Details.metaClass || class2Details.metaClass) {
+        if (class1Details.declaredMetaclass || class2Details.declaredMetaclass) {
             if (
-                !class1Details.metaClass ||
-                !class2Details.metaClass ||
-                !isTypeSame(class1Details.metaClass, class2Details.metaClass)
+                !class1Details.declaredMetaclass ||
+                !class2Details.declaredMetaclass ||
+                !isTypeSame(class1Details.declaredMetaclass, class2Details.declaredMetaclass)
             ) {
                 return false;
             }

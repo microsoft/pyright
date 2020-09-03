@@ -368,6 +368,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string; type: string }>(getRawString('Diagnostic.memberDelete'));
         export const memberSet = () =>
             new ParameterizedString<{ name: string; type: string }>(getRawString('Diagnostic.memberSet'));
+        export const metaclassConflict = () => getRawString('Diagnostic.metaclassConflict');
         export const metaclassDuplicate = () => getRawString('Diagnostic.metaclassDuplicate');
         export const methodNotDefined = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.methodNotDefined'));

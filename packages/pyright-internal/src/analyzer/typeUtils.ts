@@ -789,24 +789,6 @@ export function lookUpClassMember(
     return undefined;
 }
 
-export function getMetaclass(type: ClassType): ClassType | UnknownType | undefined {
-    for (const mroClass of type.details.mro) {
-        if (isClass(mroClass)) {
-            if (mroClass.details.metaClass) {
-                if (isClass(mroClass.details.metaClass)) {
-                    return mroClass.details.metaClass;
-                } else {
-                    return UnknownType.create();
-                }
-            }
-        } else {
-            return UnknownType.create();
-        }
-    }
-
-    return undefined;
-}
-
 // Combines two lists of type var types, maintaining the combined order
 // but removing any duplicates.
 export function addTypeVarsToListIfUnique(list1: TypeVarType[], list2: TypeVarType[]) {
@@ -1254,9 +1236,9 @@ export function getMembersForClass(classType: ClassType, symbolTable: SymbolTabl
         }
     }
 
-    // If the class has a metaclass, add its members as well.
+    // Add members of the metaclass as well.
     if (!includeInstanceVars) {
-        const metaclass = getMetaclass(classType);
+        const metaclass = classType.details.effectiveMetaclass;
         if (metaclass && isClass(metaclass)) {
             for (const mroClass of metaclass.details.mro) {
                 if (isClass(mroClass)) {

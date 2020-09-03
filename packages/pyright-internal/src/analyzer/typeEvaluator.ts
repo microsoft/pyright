@@ -172,7 +172,6 @@ import {
     getConcreteTypeFromTypeVar,
     getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType,
-    getMetaclass,
     getSpecializedTupleType,
     getTypeVarArgumentsRecursive,
     isEllipsisType,
@@ -1150,7 +1149,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // If it wasn't found on the class, see if it's part of the metaclass.
         if (!memberInfo) {
-            const metaclass = getMetaclass(classType);
+            const metaclass = classType.details.effectiveMetaclass;
             if (metaclass && isClass(metaclass)) {
                 memberInfo = getTypeFromClassMemberName(
                     errorNode,
@@ -1725,13 +1724,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             } else if (isClass(subtype)) {
                 // Handle the case where the class itself is iterable.
                 // This is true for classes that derive from Enum, for example.
-                const metaclassType = getMetaclass(subtype);
-                if (metaclassType) {
-                    if (isClass(metaclassType)) {
-                        const returnType = getIteratorReturnType(ObjectType.create(subtype), metaclassType, diag);
-                        if (returnType) {
-                            return returnType;
-                        }
+                const metaclassType = subtype.details.effectiveMetaclass;
+                if (metaclassType && isClass(metaclassType)) {
+                    const returnType = getIteratorReturnType(ObjectType.create(subtype), metaclassType, diag);
+                    if (returnType) {
+                        return returnType;
                     }
                 }
             }
@@ -6035,7 +6032,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        const classType = ClassType.create(className, fileInfo.moduleName, ClassTypeFlags.EnumClass, errorNode.id);
+        const classType = ClassType.create(
+            className,
+            fileInfo.moduleName,
+            ClassTypeFlags.EnumClass,
+            errorNode.id,
+            /* declaredMetaclass */ undefined,
+            enumClass.details.effectiveMetaclass
+        );
         classType.details.baseClasses.push(enumClass);
         computeMroLinearization(classType);
 
@@ -6128,7 +6132,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             if (isClass(baseClass)) {
                 const classFlags =
                     baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
-                const classType = ClassType.create(className, fileInfo.moduleName, classFlags, errorNode.id);
+                const classType = ClassType.create(
+                    className,
+                    fileInfo.moduleName,
+                    classFlags,
+                    errorNode.id,
+                    /* declaredMetaclass */ undefined,
+                    baseClass.details.effectiveMetaclass
+                );
                 classType.details.baseClasses.push(baseClass);
                 computeMroLinearization(classType);
 
@@ -6186,7 +6197,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return undefined;
         }
 
-        const classType = ClassType.create(className, fileInfo.moduleName, ClassTypeFlags.None, errorNode.id);
+        const classType = ClassType.create(
+            className,
+            fileInfo.moduleName,
+            ClassTypeFlags.None,
+            errorNode.id,
+            /* declaredMetaclass */ undefined,
+            arg1Type.classType.details.effectiveMetaclass
+        );
         arg1Type.classType.typeArguments.forEach((baseClass) => {
             if (isClass(baseClass) || isAnyOrUnknown(baseClass)) {
                 classType.details.baseClasses.push(baseClass);
@@ -6229,7 +6247,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        const classType = ClassType.create(className, fileInfo.moduleName, ClassTypeFlags.TypedDictClass, errorNode.id);
+        const classType = ClassType.create(
+            className,
+            fileInfo.moduleName,
+            ClassTypeFlags.TypedDictClass,
+            errorNode.id,
+            /* declaredMetaclass */ undefined,
+            typedDictClass.details.effectiveMetaclass
+        );
         classType.details.baseClasses.push(typedDictClass);
         computeMroLinearization(classType);
 
@@ -6388,7 +6413,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        const classType = ClassType.create(className, fileInfo.moduleName, ClassTypeFlags.None, errorNode.id);
+        const namedTupleType = getTypingType(errorNode, 'NamedTuple') || UnknownType.create();
+
+        const classType = ClassType.create(
+            className,
+            fileInfo.moduleName,
+            ClassTypeFlags.None,
+            errorNode.id,
+            /* declaredMetaclass */ undefined,
+            isClass(namedTupleType) ? namedTupleType.details.effectiveMetaclass : UnknownType.create()
+        );
+        classType.details.baseClasses.push(namedTupleType);
 
         const classFields = classType.details.fields;
         classFields.set(
@@ -6617,8 +6652,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             classFields.set('__getattribute__', Symbol.createWithType(SymbolFlags.ClassMember, getAttribType));
         }
 
-        const namedTupleType = getTypingType(errorNode, 'NamedTuple') || UnknownType.create();
-        classType.details.baseClasses.push(namedTupleType);
         computeMroLinearization(classType);
 
         updateNamedTupleBaseClass(classType, entryTypes, !addGenericGetAttribute);
@@ -7127,7 +7160,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return handleObjectSubtype(subtype);
             } else if (isClass(subtype)) {
                 // See if the class has a metaclass that handles the operation.
-                const metaclass = getMetaclass(subtype);
+                const metaclass = subtype.details.effectiveMetaclass;
                 if (metaclass && isClass(metaclass)) {
                     return handleObjectSubtype(ObjectType.create(metaclass), subtype);
                 }
@@ -8183,7 +8216,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             assignedName,
             fileInfo.moduleName,
             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
-            node.id
+            node.id,
+            /* declaredMetaclass */ undefined,
+            /* effectiveMetaclass */ undefined
         );
 
         if (fileInfo.isTypingExtensionsStubFile) {
@@ -8213,15 +8248,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        if (aliasClass && isClass(aliasClass) && isClass(specialClassType)) {
+        if (aliasClass && isClass(aliasClass)) {
             specialClassType.details.baseClasses.push(aliasClass);
 
             if (aliasMapEntry.alias) {
                 specialClassType.details.aliasClass = aliasClass;
             }
+            specialClassType.details.effectiveMetaclass = aliasClass.details.effectiveMetaclass;
         } else {
             specialClassType.details.baseClasses.push(UnknownType.create());
+            specialClassType.details.effectiveMetaclass = UnknownType.create();
         }
+
         computeMroLinearization(specialClassType);
 
         return specialClassType;
@@ -8452,6 +8490,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             fileInfo.moduleName,
             classFlags,
             node.id,
+            /* declaredMetaclass */ undefined,
+            /* effectiveMetaclass */ undefined,
             ParseTreeUtils.getDocString(node.suite.statements)
         );
 
@@ -8571,7 +8611,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (isMetaclass) {
                     if (isClass(argType) || isUnknown(argType)) {
-                        classType.details.metaClass = argType;
+                        classType.details.declaredMetaclass = argType;
                         if (isClass(argType)) {
                             if (ClassType.isBuiltIn(argType, 'EnumMeta')) {
                                 classType.details.flags |= ClassTypeFlags.EnumClass;
@@ -8653,15 +8693,57 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             addError(Localizer.Diagnostic.methodOrdering(), node.name);
         }
 
-        // If a metaclass wasn't specified, assume "type".
-        if (!getMetaclass(classType)) {
-            if (!ClassType.isBuiltIn(classType, 'type')) {
-                const typeMetaclass = getBuiltInType(node, 'type');
-                if (typeMetaclass && isClass(typeMetaclass)) {
-                    classType.details.metaClass = typeMetaclass;
+        // Determine the effective metaclass and detect metaclass conflicts.
+        let effectiveMetaclass = classType.details.declaredMetaclass;
+        let reportedMetaclassConflict = false;
+
+        if (!effectiveMetaclass || isClass(effectiveMetaclass)) {
+            for (const baseClass of classType.details.baseClasses) {
+                if (isClass(baseClass)) {
+                    const baseClassMeta = baseClass.details.effectiveMetaclass;
+                    if (baseClassMeta && isClass(baseClassMeta)) {
+                        // Make sure there is no metaclass conflict.
+                        if (!effectiveMetaclass) {
+                            effectiveMetaclass = baseClassMeta;
+                        } else if (
+                            derivesFromClassRecursive(baseClassMeta, effectiveMetaclass, /* ignoreUnknown */ true)
+                        ) {
+                            effectiveMetaclass = baseClassMeta;
+                        } else if (
+                            !derivesFromClassRecursive(effectiveMetaclass, baseClassMeta, /* ignoreUnknown */ true)
+                        ) {
+                            if (!reportedMetaclassConflict) {
+                                addDiagnostic(
+                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.metaclassConflict(),
+                                    node.name
+                                );
+                                // Don't report more than once.
+                                reportedMetaclassConflict = true;
+                            }
+                        }
+                    } else {
+                        effectiveMetaclass = UnknownType.create();
+                        break;
+                    }
+                } else {
+                    // If one of the base classes is unknown, then the effective
+                    // metaclass is also unknowable.
+                    effectiveMetaclass = UnknownType.create();
+                    break;
                 }
             }
         }
+
+        // If we haven't found an effective metaclass, assume "type", which
+        // is the metaclass for "object".
+        if (!effectiveMetaclass) {
+            const typeMetaclass = getBuiltInType(node, 'type');
+            effectiveMetaclass = typeMetaclass && isClass(typeMetaclass) ? typeMetaclass : UnknownType.create();
+        }
+
+        classType.details.effectiveMetaclass = effectiveMetaclass;
 
         // The scope for this class becomes the "fields" for the corresponding type.
         const innerScope = ScopeUtils.getScopeForNode(node.suite);
@@ -9342,11 +9424,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         typeSourceId: TypeSourceId
     ): ObjectType {
         const fileInfo = getFileInfo(decoratorNode);
+        const typeMetaclass = getBuiltInType(decoratorNode, 'type');
         const propertyClass = ClassType.create(
             className,
             fileInfo.moduleName,
             ClassTypeFlags.PropertyClass,
-            typeSourceId
+            typeSourceId,
+            /* declaredMetaclass */ undefined,
+            isClass(typeMetaclass) ? typeMetaclass : UnknownType.create()
         );
         computeMroLinearization(propertyClass);
 
@@ -9405,7 +9490,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             classType.details.name,
             classType.details.moduleName,
             classType.details.flags,
-            classType.details.typeSourceId
+            classType.details.typeSourceId,
+            classType.details.declaredMetaclass,
+            classType.details.effectiveMetaclass
         );
         computeMroLinearization(propertyClass);
 
@@ -9465,7 +9552,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             classType.details.name,
             classType.details.moduleName,
             classType.details.flags,
-            classType.details.typeSourceId
+            classType.details.typeSourceId,
+            classType.details.declaredMetaclass,
+            classType.details.effectiveMetaclass
         );
         computeMroLinearization(propertyClass);
 
@@ -13926,7 +14015,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 // Determine if the metaclass can be assigned to the object.
-                const metaclass = getMetaclass(srcType);
+                const metaclass = srcType.details.effectiveMetaclass;
                 if (metaclass) {
                     if (isAnyOrUnknown(metaclass)) {
                         return true;
