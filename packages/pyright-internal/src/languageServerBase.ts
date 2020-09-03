@@ -44,9 +44,11 @@ import {
     WatchKind,
     WorkDoneProgressReporter,
     WorkspaceEdit,
+    WorkspaceFolder,
 } from 'vscode-languageserver/node';
 
 import { AnalysisResults } from './analyzer/analysis';
+import { BackgroundAnalysisProgram } from './analyzer/backgroundAnalysisProgram';
 import { ImportResolver } from './analyzer/importResolver';
 import { MaxAnalysisTime } from './analyzer/program';
 import { AnalyzerService, configFileNames } from './analyzer/service';
@@ -76,7 +78,7 @@ import { ProgressReporter, ProgressReportTracker } from './common/progressReport
 import { convertWorkspaceEdits } from './common/textEditUtils';
 import { Position } from './common/textRange';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
-import { CompletionItemData } from './languageService/completionProvider';
+import { CompletionItemData, CompletionResults } from './languageService/completionProvider';
 import { convertHoverResults } from './languageService/hoverProvider';
 import { Localizer } from './localization/localize';
 import { WorkspaceMap } from './workspaceMap';
@@ -215,7 +217,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._workspaceMap = new WorkspaceMap(this);
 
         // Set up callbacks.
-        this._setupConnection(_serverOptions.supportedCommands ?? [], _serverOptions.supportedCodeActions ?? []);
+        this.setupConnection(_serverOptions.supportedCommands ?? [], _serverOptions.supportedCodeActions ?? []);
 
         this._progressReporter = new ProgressReportTracker(
             this._serverOptions.progressReporterFactory
@@ -287,6 +289,24 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return new ImportResolver(fs, options);
     }
 
+    protected createBackgroundAnalysisProgram(
+        console: ConsoleInterface,
+        configOptions: ConfigOptions,
+        importResolver: ImportResolver,
+        extension?: LanguageServiceExtension,
+        backgroundAnalysis?: BackgroundAnalysisBase,
+        maxAnalysisTime?: MaxAnalysisTime
+    ): BackgroundAnalysisProgram {
+        return new BackgroundAnalysisProgram(
+            console,
+            configOptions,
+            importResolver,
+            extension,
+            backgroundAnalysis,
+            maxAnalysisTime
+        );
+    }
+
     protected setExtension(extension: any): void {
         this._serverOptions.extension = extension;
     }
@@ -308,7 +328,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             undefined,
             this._serverOptions.extension,
             this.createBackgroundAnalysis(),
-            this._serverOptions.maxAnalysisTimeInForeground
+            this._serverOptions.maxAnalysisTimeInForeground,
+            this.createBackgroundAnalysisProgram.bind(this)
         );
 
         service.setCompletionCallback((results) => this.onAnalysisCompletedHandler(results));
@@ -380,7 +401,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return fileWatcher;
     }
 
-    private _setupConnection(supportedCommands: string[], supportedCodeActions: string[]): void {
+    protected setupConnection(supportedCommands: string[], supportedCodeActions: string[]): void {
         // After the server has started the client sends an initialize request. The server receives
         // in the passed params the rootPath of the workspace plus the client capabilities.
         this._connection.onInitialize((params) => this.initialize(params, supportedCommands, supportedCodeActions));
@@ -598,6 +619,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
 
         this._connection.onCompletion((params, token) => this.onCompletion(params, token));
+
         this._connection.onCompletionResolve(async (params, token) => {
             // Cancellation bugs in vscode and LSP:
             // https://github.com/microsoft/vscode-languageserver-node/issues/615
@@ -762,15 +784,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
                     event.added.forEach(async (workspace) => {
                         const rootPath = convertUriToPath(workspace.uri);
-                        const newWorkspace: WorkspaceServiceInstance = {
-                            workspaceName: workspace.name,
-                            rootPath,
-                            rootUri: workspace.uri,
-                            serviceInstance: this.createAnalyzerService(workspace.name),
-                            disableLanguageServices: false,
-                            disableOrganizeImports: false,
-                            isInitialized: createDeferred<boolean>(),
-                        };
+                        const newWorkspace = this.createWorkspaceServiceInstance(workspace, rootPath);
                         this._workspaceMap.set(rootPath, newWorkspace);
                         await this.updateSettingsForWorkspace(newWorkspace);
                     });
@@ -833,6 +847,16 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
     }
 
+    protected getWorkspaceCompletionsForPosition(
+        workspace: WorkspaceServiceInstance,
+        filePath: string,
+        position: Position,
+        workspacePath: string,
+        token: CancellationToken
+    ): Promise<CompletionResults | undefined> {
+        return workspace.serviceInstance.getCompletionsForPosition(filePath, position, workspacePath, token);
+    }
+
     updateSettingsForAllWorkspaces(): void {
         this._workspaceMap.forEach((workspace) => {
             this.updateSettingsForWorkspace(workspace).ignoreErrors();
@@ -864,26 +888,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         if (params.workspaceFolders) {
             params.workspaceFolders.forEach((folder) => {
                 const path = convertUriToPath(folder.uri);
-                this._workspaceMap.set(path, {
-                    workspaceName: folder.name,
-                    rootPath: path,
-                    rootUri: folder.uri,
-                    serviceInstance: this.createAnalyzerService(folder.name),
-                    disableLanguageServices: false,
-                    disableOrganizeImports: false,
-                    isInitialized: createDeferred<boolean>(),
-                });
+                this._workspaceMap.set(path, this.createWorkspaceServiceInstance(folder, path));
             });
         } else if (params.rootPath) {
-            this._workspaceMap.set(params.rootPath, {
-                workspaceName: '',
-                rootPath: params.rootPath,
-                rootUri: '',
-                serviceInstance: this.createAnalyzerService(params.rootPath),
-                disableLanguageServices: false,
-                disableOrganizeImports: false,
-                isInitialized: createDeferred<boolean>(),
-            });
+            this._workspaceMap.set(params.rootPath, this.createWorkspaceServiceInstance(undefined, params.rootPath));
         }
 
         const result: InitializeResult = {
@@ -922,6 +930,21 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return result;
     }
 
+    protected createWorkspaceServiceInstance(
+        workspace: WorkspaceFolder | undefined,
+        rootPath: string
+    ): WorkspaceServiceInstance {
+        return {
+            workspaceName: workspace?.name ?? '',
+            rootPath,
+            rootUri: workspace?.uri ?? '',
+            serviceInstance: this.createAnalyzerService(workspace?.name ?? rootPath),
+            disableLanguageServices: false,
+            disableOrganizeImports: false,
+            isInitialized: createDeferred<boolean>(),
+        };
+    }
+
     protected onAnalysisCompletedHandler(results: AnalysisResults): void {
         // Send the computed diagnostics to the client.
         results.diagnostics.forEach((fileDiag) => {
@@ -956,8 +979,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         }
     }
 
-    async updateSettingsForWorkspace(workspace: WorkspaceServiceInstance): Promise<void> {
-        const serverSettings = await this.getSettings(workspace);
+    async updateSettingsForWorkspace(
+        workspace: WorkspaceServiceInstance,
+        serverSettings?: ServerSettings
+    ): Promise<void> {
+        serverSettings = serverSettings ?? (await this.getSettings(workspace));
 
         // Set logging level first.
         (this.console as ConsoleWithLogLevel).level = serverSettings.logLevel ?? LogLevel.Info;
@@ -1007,18 +1033,19 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return;
         }
 
-        const completions = await workspace.serviceInstance.getCompletionsForPosition(
+        const completions = await this.getWorkspaceCompletionsForPosition(
+            workspace,
             filePath,
             position,
             workspace.rootPath,
             token
         );
 
-        if (completions) {
-            completions.isIncomplete = completionIncomplete;
+        if (completions && completions.completionList) {
+            completions.completionList.isIncomplete = completionIncomplete;
         }
 
-        return completions;
+        return completions?.completionList;
     }
 
     protected convertLogLevel(logLevel?: string): LogLevel {

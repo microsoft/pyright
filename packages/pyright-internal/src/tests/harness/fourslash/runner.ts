@@ -11,8 +11,16 @@ import * as ts from 'typescript';
 import { combinePaths } from '../../../common/pathUtils';
 import * as host from '../host';
 import { parseTestData } from './fourSlashParser';
+import { FourSlashData } from './fourSlashTypes';
 import { HostSpecificFeatures, TestState } from './testState';
 import { Consts } from './testState.Consts';
+
+export type TestStateFactory = (
+    basePath: string,
+    testData: FourSlashData,
+    mountPaths?: Map<string, string>,
+    hostSpecificFeatures?: HostSpecificFeatures
+) => TestState;
 
 /**
  * run given fourslash test file
@@ -25,10 +33,11 @@ export function runFourSlashTest(
     fileName: string,
     cb?: jest.DoneCallback,
     mountPaths?: Map<string, string>,
-    hostSpecificFeatures?: HostSpecificFeatures
+    hostSpecificFeatures?: HostSpecificFeatures,
+    testStateFactory?: TestStateFactory
 ) {
     const content = host.HOST.readFile(fileName)!;
-    runFourSlashTestContent(basePath, fileName, content, cb, mountPaths, hostSpecificFeatures);
+    runFourSlashTestContent(basePath, fileName, content, cb, mountPaths, hostSpecificFeatures, testStateFactory);
 }
 
 /**
@@ -45,7 +54,8 @@ export function runFourSlashTestContent(
     content: string,
     cb?: jest.DoneCallback,
     mountPaths?: Map<string, string>,
-    hostSpecificFeatures?: HostSpecificFeatures
+    hostSpecificFeatures?: HostSpecificFeatures,
+    testStateFactory?: TestStateFactory
 ) {
     // give file paths an absolute path for the virtual file system
     const absoluteBasePath = combinePaths('/', basePath);
@@ -53,7 +63,10 @@ export function runFourSlashTestContent(
 
     // parse out the files and their metadata
     const testData = parseTestData(absoluteBasePath, content, absoluteFileName);
-    const state = new TestState(absoluteBasePath, testData, mountPaths, hostSpecificFeatures);
+    const state =
+        testStateFactory !== undefined
+            ? testStateFactory(absoluteBasePath, testData, mountPaths, hostSpecificFeatures)
+            : new TestState(absoluteBasePath, testData, mountPaths, hostSpecificFeatures);
     const output = ts.transpileModule(content, {
         reportDiagnostics: true,
         compilerOptions: { target: ts.ScriptTarget.ES2015 },

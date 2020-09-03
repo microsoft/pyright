@@ -10,7 +10,6 @@
 import {
     CancellationToken,
     CompletionItem,
-    CompletionList,
     DocumentHighlight,
     DocumentSymbol,
     SymbolInformation,
@@ -33,6 +32,7 @@ import { DocumentRange, getEmptyRange, Position, TextRange } from '../common/tex
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/autoImporter';
+import { CompletionResults } from '../languageService/completionProvider';
 import { CompletionItemData, CompletionProvider } from '../languageService/completionProvider';
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
@@ -777,7 +777,7 @@ export class SourceFile {
         libraryMap: Map<string, IndexResults> | undefined,
         moduleSymbolsCallback: () => ModuleSymbolMap,
         token: CancellationToken
-    ): CompletionList | undefined {
+    ): CompletionResults | undefined {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults) {
             return undefined;

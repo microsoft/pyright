@@ -4,7 +4,7 @@ Pyright offers flexible configuration options specified in a JSON-formatted text
 
 Relative paths specified within the config file are relative to the config file’s location. Paths with shell variables (including `~`) are not supported.
 
-## Master Pyright Config Options
+## Main Pyright Config Options
 
 **include** [array of paths, optional]: Paths of directories or files that should be included. If no paths are specified, pyright defaults to the directory that contains the config file. Paths may contain wildcard characters ** (a directory or multiple levels of directories), * (a sequence of zero or more characters), or ? (a single character). If no include paths are specified, the root path for the workspace is assumed.
 

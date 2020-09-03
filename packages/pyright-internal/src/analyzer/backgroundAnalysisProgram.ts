@@ -264,3 +264,12 @@ export class BackgroundAnalysisProgram {
         }
     }
 }
+
+export type BackgroundAnalysisProgramFactory = (
+    console: ConsoleInterface,
+    configOptions: ConfigOptions,
+    importResolver: ImportResolver,
+    extension?: LanguageServiceExtension,
+    backgroundAnalysis?: BackgroundAnalysisBase,
+    maxAnalysisTime?: MaxAnalysisTime
+) => BackgroundAnalysisProgram;
