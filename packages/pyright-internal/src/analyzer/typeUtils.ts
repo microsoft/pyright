@@ -473,7 +473,7 @@ export function isLiteralType(type: Type, allowLiteralUnions = true): boolean {
         return type.classType.literalValue !== undefined;
     }
 
-    if (type.category === TypeCategory.Union) {
+    if (allowLiteralUnions && type.category === TypeCategory.Union) {
         return !type.subtypes.some((t) => !isObject(t) || t.classType.literalValue === undefined);
     }
 
