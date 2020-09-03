@@ -154,6 +154,11 @@ declare namespace _ {
             map: {
                 [marker: string]: {
                     completions: FourSlashCompletionItem[];
+                    moduleContext?: {
+                        lastKnownModule?: string;
+                        lastKnownMemberName?: string;
+                        unknownMemberName?: string;
+                    };
                 };
             }
         ): Promise<void>;

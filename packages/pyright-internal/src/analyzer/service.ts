@@ -12,7 +12,6 @@ import {
     AbstractCancellationTokenSource,
     CancellationToken,
     CompletionItem,
-    CompletionList,
     DocumentSymbol,
     SymbolInformation,
 } from 'vscode-languageserver';
@@ -46,11 +45,12 @@ import {
 } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
+import { CompletionResults } from '../languageService/completionProvider';
 import { IndexResults } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { AnalysisCompleteCallback } from './analysis';
-import { BackgroundAnalysisProgram } from './backgroundAnalysisProgram';
+import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
 import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
 import { MaxAnalysisTime } from './program';
 import { findPythonSearchPaths, getPythonPathFromPythonInterpreter } from './pythonPathUtils';
@@ -83,6 +83,7 @@ export class AnalyzerService {
     private _backgroundAnalysisProgram: BackgroundAnalysisProgram;
     private _backgroundAnalysisCancellationSource: AbstractCancellationTokenSource | undefined;
     private _maxAnalysisTimeInForeground?: MaxAnalysisTime;
+    private _backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory;
     private _disposed = false;
 
     constructor(
@@ -93,7 +94,8 @@ export class AnalyzerService {
         configOptions?: ConfigOptions,
         extension?: LanguageServiceExtension,
         backgroundAnalysis?: BackgroundAnalysisBase,
-        maxAnalysisTime?: MaxAnalysisTime
+        maxAnalysisTime?: MaxAnalysisTime,
+        backgroundAnalysisProgramFactory?: BackgroundAnalysisProgramFactory
     ) {
         this._instanceName = instanceName;
         this._console = console || new StandardConsole();
@@ -101,17 +103,29 @@ export class AnalyzerService {
         this._extension = extension;
         this._importResolverFactory = importResolverFactory || AnalyzerService.createImportResolver;
         this._maxAnalysisTimeInForeground = maxAnalysisTime;
+        this._backgroundAnalysisProgramFactory = backgroundAnalysisProgramFactory;
 
         configOptions = configOptions ?? new ConfigOptions(process.cwd());
         const importResolver = this._importResolverFactory(fs, configOptions);
-        this._backgroundAnalysisProgram = new BackgroundAnalysisProgram(
-            this._console,
-            configOptions,
-            importResolver,
-            this._extension,
-            backgroundAnalysis,
-            this._maxAnalysisTimeInForeground
-        );
+
+        this._backgroundAnalysisProgram =
+            backgroundAnalysisProgramFactory !== undefined
+                ? backgroundAnalysisProgramFactory(
+                      this._console,
+                      configOptions,
+                      importResolver,
+                      this._extension,
+                      backgroundAnalysis,
+                      this._maxAnalysisTimeInForeground
+                  )
+                : new BackgroundAnalysisProgram(
+                      this._console,
+                      configOptions,
+                      importResolver,
+                      this._extension,
+                      backgroundAnalysis,
+                      this._maxAnalysisTimeInForeground
+                  );
     }
 
     clone(instanceName: string, backgroundAnalysis?: BackgroundAnalysisBase): AnalyzerService {
@@ -123,7 +137,8 @@ export class AnalyzerService {
             this._backgroundAnalysisProgram.configOptions,
             this._extension,
             backgroundAnalysis,
-            this._maxAnalysisTimeInForeground
+            this._maxAnalysisTimeInForeground,
+            this._backgroundAnalysisProgramFactory
         );
     }
 
@@ -135,6 +150,10 @@ export class AnalyzerService {
         this._clearReloadConfigTimer();
         this._clearReanalysisTimer();
         this._clearLibraryReanalysisTimer();
+    }
+
+    get backgroundAnalysisProgram(): BackgroundAnalysisProgram {
+        return this._backgroundAnalysisProgram;
     }
 
     static createImportResolver(fs: FileSystem, options: ConfigOptions): ImportResolver {
@@ -263,7 +282,7 @@ export class AnalyzerService {
         position: Position,
         workspacePath: string,
         token: CancellationToken
-    ): Promise<CompletionList | undefined> {
+    ): Promise<CompletionResults | undefined> {
         return this._program.getCompletionsForPosition(
             filePath,
             position,
