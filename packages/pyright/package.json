@@ -36,8 +36,9 @@
     "files": [
         "/dist"
     ],
+    "main": "index.js",
     "bin": {
-        "pyright": "dist/pyright.js",
-        "pyright-langserver": "dist/pyright-langserver.js"
+        "pyright": "index.js",
+        "pyright-langserver": "langserver.index.js"
     }
 }
