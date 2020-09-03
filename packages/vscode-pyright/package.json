@@ -82,7 +82,7 @@
                 },
                 "python.analysis.stubPath": {
                     "type": "string",
-                    "default": "",
+                    "default": "typings",
                     "description": "Path to directory containing custom type stub files.",
                     "scope": "resource"
                 },

@@ -253,7 +253,7 @@ export class TestState {
         const marker = this.getMarkerByName(markerString);
         const ranges = this.getRanges().filter((r) => r.marker === marker);
         if (ranges.length !== 1) {
-            this._raiseError(`no matching range for ${markerString}`);
+            this.raiseError(`no matching range for ${markerString}`);
         }
 
         const range = ranges[0];
@@ -261,7 +261,7 @@ export class TestState {
     }
 
     convertPositionRange(range: Range) {
-        return this._convertOffsetsToRange(range.fileName, range.pos, range.end);
+        return this.convertOffsetsToRange(range.fileName, range.pos, range.end);
     }
 
     goToPosition(positionOrLineAndColumn: number | Position) {
@@ -327,7 +327,7 @@ export class TestState {
         if (this.testData.rangesByText) {
             return this.testData.rangesByText;
         }
-        const result = this._createMultiMap<Range>(this.getRanges(), (r) => this._rangeText(r));
+        const result = this.createMultiMap<Range>(this.getRanges(), (r) => this._rangeText(r));
         this.testData.rangesByText = result;
 
         return result;
@@ -462,7 +462,7 @@ export class TestState {
 
         // organize things per file
         const resultPerFile = this._getDiagnosticsPerFile();
-        const rangePerFile = this._createMultiMap<Range>(this.getRanges(), (r) => r.fileName);
+        const rangePerFile = this.createMultiMap<Range>(this.getRanges(), (r) => r.fileName);
 
         if (!hasDiagnostics(resultPerFile) && rangePerFile.size === 0) {
             // no errors and no error is expected. we are done
@@ -470,7 +470,7 @@ export class TestState {
         }
 
         for (const [file, ranges] of rangePerFile.entries()) {
-            const rangesPerCategory = this._createMultiMap<Range>(ranges, (r) => {
+            const rangesPerCategory = this.createMultiMap<Range>(ranges, (r) => {
                 if (map) {
                     const name = this.getMarkerName(r.marker!);
                     return map[name].category;
@@ -503,10 +503,10 @@ export class TestState {
                         ? result.warnings
                         : category === 'information'
                         ? result.information
-                        : this._raiseError(`unexpected category ${category}`);
+                        : this.raiseError(`unexpected category ${category}`);
 
                 if (expected.length !== actual.length) {
-                    this._raiseError(
+                    this.raiseError(
                         `contains unexpected result - expected: ${stringify(expected)}, actual: ${stringify(actual)}`
                     );
                 }
@@ -522,7 +522,7 @@ export class TestState {
                     });
 
                     if (matches.length === 0) {
-                        this._raiseError(`doesn't contain expected range: ${stringify(range)}`);
+                        this.raiseError(`doesn't contain expected range: ${stringify(range)}`);
                     }
 
                     // if map is provided, check message as well
@@ -531,7 +531,7 @@ export class TestState {
                         const message = map[name].message;
 
                         if (matches.filter((d) => message === d.message).length !== 1) {
-                            this._raiseError(
+                            this.raiseError(
                                 `message doesn't match: ${message} of ${name} - ${stringify(
                                     range
                                 )}, actual: ${stringify(matches)}`
@@ -543,7 +543,7 @@ export class TestState {
         }
 
         if (hasDiagnostics(resultPerFile)) {
-            this._raiseError(`these diagnostics were unexpected: ${stringify(resultPerFile)}`);
+            this.raiseError(`these diagnostics were unexpected: ${stringify(resultPerFile)}`);
         }
 
         function hasDiagnostics(
@@ -586,7 +586,7 @@ export class TestState {
             const codeActions = await this._getCodeActions(range);
             if (verifyCodeActionCount) {
                 if (codeActions.length !== map[name].codeActions.length) {
-                    this._raiseError(
+                    this.raiseError(
                         `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(codeActions)}`
                     );
                 }
@@ -616,7 +616,7 @@ export class TestState {
                 });
 
                 if (matches.length !== 1) {
-                    this._raiseError(
+                    this.raiseError(
                         `doesn't contain expected result: ${stringify(expected)}, actual: ${stringify(codeActions)}`
                     );
                 }
@@ -655,7 +655,7 @@ export class TestState {
             const expectedText: string = Object.values(files)[0];
 
             if (actualText !== expectedText) {
-                this._raiseError(
+                this.raiseError(
                     `doesn't contain expected result: ${stringify(expectedText)}, actual: ${stringify(actualText)}`
                 );
             }
@@ -681,7 +681,7 @@ export class TestState {
             const codeActions = await this._getCodeActions(range);
             if (verifyCodeActionCount) {
                 if (codeActions.length !== Object.keys(map).length) {
-                    this._raiseError(
+                    this.raiseError(
                         `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(codeActions)}`
                     );
                 }
@@ -689,7 +689,7 @@ export class TestState {
 
             const matches = codeActions.filter((c) => c.title === map[name].title);
             if (matches.length === 0) {
-                this._raiseError(
+                this.raiseError(
                     `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(codeActions)}`
                 );
             }
@@ -713,7 +713,7 @@ export class TestState {
                                     (e) => rangesAreEqual(e.range, edit.range) && e.newText === edit.newText
                                 ).length !== 1
                             ) {
-                                this._raiseError(
+                                this.raiseError(
                                     `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(
                                         edits
                                     )}`
@@ -739,7 +739,7 @@ export class TestState {
                 continue;
             }
 
-            const rangePos = this._convertOffsetsToRange(range.fileName, range.pos, range.end);
+            const rangePos = this.convertOffsetsToRange(range.fileName, range.pos, range.end);
 
             const actual = convertHoverResults(
                 this.program.getHoverForPosition(range.fileName, rangePos.start, CancellationToken.None)
@@ -807,6 +807,11 @@ export class TestState {
         map: {
             [marker: string]: {
                 completions: _.FourSlashCompletionItem[];
+                moduleContext?: {
+                    lastKnownModule?: string;
+                    lastKnownMemberName?: string;
+                    unknownMemberName?: string;
+                };
             };
         }
     ): Promise<void> {
@@ -820,7 +825,7 @@ export class TestState {
 
             const filePath = marker.fileName;
             const expectedCompletions = map[markerName].completions;
-            const completionPosition = this._convertOffsetToPosition(filePath, marker.position);
+            const completionPosition = this.convertOffsetToPosition(filePath, marker.position);
 
             const result = await this.workspace.serviceInstance.getCompletionsForPosition(
                 filePath,
@@ -829,31 +834,33 @@ export class TestState {
                 CancellationToken.None
             );
 
-            if (result) {
+            if (result?.completionList) {
                 if (verifyMode === 'exact') {
-                    if (result.items.length !== expectedCompletions.length) {
+                    if (result.completionList.items.length !== expectedCompletions.length) {
                         assert.fail(
                             `Expected ${expectedCompletions.length} items but received ${
-                                result.items.length
-                            }. Actual completions:\n${stringify(result.items.map((r) => r.label))}`
+                                result.completionList.items.length
+                            }. Actual completions:\n${stringify(result.completionList.items.map((r) => r.label))}`
                         );
                     }
                 }
 
                 for (let i = 0; i < expectedCompletions.length; i++) {
                     const expected = expectedCompletions[i];
-                    const actualIndex = result.items.findIndex((a) => a.label === expected.label);
+                    const actualIndex = result.completionList.items.findIndex((a) => a.label === expected.label);
                     if (actualIndex >= 0) {
                         if (verifyMode === 'excluded') {
                             // we're not supposed to find the completions passed to the test
                             assert.fail(
                                 `Completion item with label "${
                                     expected.label
-                                }" unexpected. Actual completions:\n${stringify(result.items.map((r) => r.label))}`
+                                }" unexpected. Actual completions:\n${stringify(
+                                    result.completionList.items.map((r) => r.label)
+                                )}`
                             );
                         }
 
-                        const actual: CompletionItem = result.items[actualIndex];
+                        const actual: CompletionItem = result.completionList.items[actualIndex];
                         assert.equal(actual.label, expected.label);
                         if (expectedCompletions[i].documentation !== undefined) {
                             if (actual.documentation === undefined) {
@@ -870,27 +877,50 @@ export class TestState {
                             }
                         }
 
-                        result.items.splice(actualIndex, 1);
+                        result.completionList.items.splice(actualIndex, 1);
                     } else {
                         if (verifyMode === 'included' || verifyMode === 'exact') {
                             // we're supposed to find all items passed to the test
                             assert.fail(
                                 `Completion item with label "${
                                     expected.label
-                                }" expected. Actual completions:\n${stringify(result.items.map((r) => r.label))}`
+                                }" expected. Actual completions:\n${stringify(
+                                    result.completionList.items.map((r) => r.label)
+                                )}`
                             );
                         }
                     }
                 }
 
                 if (verifyMode === 'exact') {
-                    if (result.items.length !== 0) {
+                    if (result.completionList.items.length !== 0) {
                         // we removed every item we found, there should not be any remaining
-                        assert.fail(`Completion items unexpected: ${stringify(result.items.map((r) => r.label))}`);
+                        assert.fail(
+                            `Completion items unexpected: ${stringify(result.completionList.items.map((r) => r.label))}`
+                        );
                     }
                 }
             } else {
                 assert.fail('Failed to get completions');
+            }
+
+            if (map[markerName].moduleContext !== undefined && result?.moduleContext !== undefined) {
+                const expectedModule = map[markerName].moduleContext?.lastKnownModule;
+                const expectedType = map[markerName].moduleContext?.lastKnownMemberName;
+                const expectedName = map[markerName].moduleContext?.unknownMemberName;
+                if (
+                    result?.moduleContext?.lastKnownModule !== expectedModule ||
+                    result?.moduleContext?.lastKnownMemberName !== expectedType ||
+                    result?.moduleContext?.unknownMemberName !== expectedName
+                ) {
+                    assert.fail(
+                        `Expected completion results moduleContext with \n    lastKnownModule: "${expectedModule}"\n    lastKnownMemberName: "${expectedType}"\n    unknownMemberName: "${expectedName}"\n  Actual moduleContext:\n    lastKnownModule: "${
+                            result.moduleContext?.lastKnownModule ?? ''
+                        }"\n    lastKnownMemberName: "${
+                            result.moduleContext?.lastKnownMemberName ?? ''
+                        }\n    unknownMemberName: "${result.moduleContext?.unknownMemberName ?? ''}" `
+                    );
+                }
             }
         }
     }
@@ -917,7 +947,7 @@ export class TestState {
             }
 
             const expected = map[name];
-            const position = this._convertOffsetToPosition(fileName, marker.position);
+            const position = this.convertOffsetToPosition(fileName, marker.position);
 
             const actual = this.program.getSignatureHelpForPosition(fileName, position, CancellationToken.None);
 
@@ -973,7 +1003,7 @@ export class TestState {
 
             const expected = map[name].references;
 
-            const position = this._convertOffsetToPosition(fileName, marker.position);
+            const position = this.convertOffsetToPosition(fileName, marker.position);
             const actual = this.program.getReferencesForPosition(fileName, position, true, CancellationToken.None);
 
             assert.equal(actual?.length ?? 0, expected.length);
@@ -1011,7 +1041,7 @@ export class TestState {
 
             const expected = map[name].references;
 
-            const position = this._convertOffsetToPosition(fileName, marker.position);
+            const position = this.convertOffsetToPosition(fileName, marker.position);
             const actual = this.program.getDocumentHighlight(fileName, position, CancellationToken.None);
 
             assert.equal(actual?.length ?? 0, expected.length);
@@ -1044,7 +1074,7 @@ export class TestState {
 
             const expected = map[name].definitions;
 
-            const position = this._convertOffsetToPosition(fileName, marker.position);
+            const position = this.convertOffsetToPosition(fileName, marker.position);
             const actual = this.program.getDefinitionsForPosition(fileName, position, CancellationToken.None);
 
             assert.equal(actual?.length ?? 0, expected.length);
@@ -1073,7 +1103,7 @@ export class TestState {
 
             const expected = map[name];
 
-            const position = this._convertOffsetToPosition(fileName, marker.position);
+            const position = this.convertOffsetToPosition(fileName, marker.position);
             const actual = this.program.renameSymbolAtPosition(
                 fileName,
                 position,
@@ -1144,13 +1174,13 @@ export class TestState {
         return convertPositionToOffset(position, lines)!;
     }
 
-    private _convertOffsetToPosition(fileName: string, offset: number): Position {
+    protected convertOffsetToPosition(fileName: string, offset: number): Position {
         const lines = this._getTextRangeCollection(fileName);
 
         return convertOffsetToPosition(offset, lines);
     }
 
-    private _convertOffsetsToRange(fileName: string, startOffset: number, endOffset: number): PositionRange {
+    protected convertOffsetsToRange(fileName: string, startOffset: number, endOffset: number): PositionRange {
         const lines = this._getTextRangeCollection(fileName);
 
         return {
@@ -1175,7 +1205,7 @@ export class TestState {
         return tokenizer.tokenize(fileContents).lines;
     }
 
-    private _raiseError(message: string): never {
+    protected raiseError(message: string): never {
         throw new Error(this._messageAtLastKnownMarker(message));
     }
 
@@ -1211,7 +1241,7 @@ export class TestState {
         return text.replace(/\s/g, '');
     }
 
-    private _createMultiMap<T>(values?: T[], getKey?: (t: T) => string): MultiMap<T> {
+    protected createMultiMap<T>(values?: T[], getKey?: (t: T) => string): MultiMap<T> {
         const map = new Map<string, T[]>() as MultiMap<T>;
         map.add = multiMapAdd;
         map.remove = multiMapRemove;
@@ -1256,7 +1286,7 @@ export class TestState {
     private _getOnlyRange() {
         const ranges = this.getRanges();
         if (ranges.length !== 1) {
-            this._raiseError('Exactly one range should be specified in the test file.');
+            this.raiseError('Exactly one range should be specified in the test file.');
         }
 
         return ranges[0];
@@ -1272,7 +1302,7 @@ export class TestState {
     private _verifyTextMatches(actualText: string, includeWhitespace: boolean, expectedText: string) {
         const removeWhitespace = (s: string): string => (includeWhitespace ? s : this._removeWhitespace(s));
         if (removeWhitespace(actualText) !== removeWhitespace(expectedText)) {
-            this._raiseError(
+            this.raiseError(
                 `Actual range text doesn't match expected text.\n${this._showTextDiff(expectedText, actualText)}`
             );
         }
@@ -1316,7 +1346,7 @@ export class TestState {
     // Get the text of the entire line the caret is currently at
     private _getCurrentLineContent() {
         return this._getLineContent(
-            this._convertOffsetToPosition(this.activeFile.fileName, this.currentCaretPosition).line
+            this.convertOffsetToPosition(this.activeFile.fileName, this.currentCaretPosition).line
         );
     }
 
@@ -1366,7 +1396,7 @@ export class TestState {
     }
 
     private _getLineColStringAtPosition(position: number, file: FourSlashFile = this.activeFile) {
-        const pos = this._convertOffsetToPosition(file.fileName, position);
+        const pos = this.convertOffsetToPosition(file.fileName, position);
         return `line ${pos.line + 1}, col ${pos.character}`;
     }
 
@@ -1426,7 +1456,7 @@ export class TestState {
                 };
                 return [filePath, value] as [string, typeof value];
             } else {
-                this._raiseError(`Source file not found for ${this._files[index]}`);
+                this.raiseError(`Source file not found for ${this._files[index]}`);
             }
         });
 
@@ -1472,8 +1502,8 @@ export class TestState {
     private _getCodeActions(range: Range) {
         const file = range.fileName;
         const textRange = {
-            start: this._convertOffsetToPosition(file, range.pos),
-            end: this._convertOffsetToPosition(file, range.end),
+            start: this.convertOffsetToPosition(file, range.pos),
+            end: this.convertOffsetToPosition(file, range.end),
         };
 
         return this._hostSpecificFeatures.getCodeActionsForPosition(
@@ -1494,7 +1524,7 @@ export class TestState {
 
             const actual = this.fs.readFileSync(normalizedFilePath, 'utf8');
             if (actual !== expected) {
-                this._raiseError(
+                this.raiseError(
                     `doesn't contain expected result: ${stringify(expected)}, actual: ${stringify(actual)}`
                 );
             }
