@@ -76,6 +76,7 @@ export interface SourceFileInfo {
     // Information about the source file
     isTypeshedFile: boolean;
     isThirdPartyImport: boolean;
+    isThirdPartyPyTypedPresent: boolean;
     diagnosticsVersion?: number;
     builtinsImport?: SourceFileInfo;
 
@@ -112,6 +113,7 @@ export interface Indices {
 interface UpdateImportInfo {
     isTypeshedFile: boolean;
     isThirdPartyImport: boolean;
+    isPyTypedPresent: boolean;
 }
 
 // Container for all of the files that are being analyzed. Files
@@ -221,6 +223,7 @@ export class Program {
             isOpenByClient: false,
             isTypeshedFile: false,
             isThirdPartyImport: false,
+            isThirdPartyPyTypedPresent: false,
             diagnosticsVersion: undefined,
             imports: [],
             importedBy: [],
@@ -249,6 +252,7 @@ export class Program {
                 isOpenByClient: true,
                 isTypeshedFile: false,
                 isThirdPartyImport: false,
+                isThirdPartyPyTypedPresent: false,
                 diagnosticsVersion: undefined,
                 imports: [],
                 importedBy: [],
@@ -600,6 +604,7 @@ export class Program {
                 isOpenByClient: false,
                 isTypeshedFile: false,
                 isThirdPartyImport: false,
+                isThirdPartyPyTypedPresent: false,
                 diagnosticsVersion: undefined,
                 imports: [],
                 importedBy: [],
@@ -1718,7 +1723,10 @@ export class Program {
             return false;
         }
 
-        let thirdPartyImportAllowed = this._configOptions.useLibraryCodeForTypes || false;
+        let thirdPartyImportAllowed =
+            this._configOptions.useLibraryCodeForTypes ||
+            (importResult.importType === ImportType.ThirdParty && !!importResult.isPyTypedPresent) ||
+            (importResult.importType === ImportType.Local && importer.isThirdPartyPyTypedPresent);
 
         if (
             importResult.importType === ImportType.ThirdParty ||
@@ -1768,6 +1776,33 @@ export class Program {
         // list of imports for this file.
         const imports = sourceFileInfo.sourceFile.getImports();
 
+        // Create a local function that determines whether the import should
+        // be considered a "third-party import" and whether it is coming from
+        // a third-party package that claims to be typed. An import is
+        // considered third-party if it is external to the importer
+        // or is internal but the importer is itself a third-party package.
+        const getThirdPartyImportInfo = (importResult: ImportResult) => {
+            let isThirdPartyImport = false;
+            let isPyTypedPresent = false;
+
+            if (importResult.importType === ImportType.ThirdParty) {
+                isThirdPartyImport = true;
+                if (importResult.isPyTypedPresent) {
+                    isPyTypedPresent = true;
+                }
+            } else if (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local) {
+                isThirdPartyImport = true;
+                if (sourceFileInfo.isThirdPartyPyTypedPresent) {
+                    isPyTypedPresent = true;
+                }
+            }
+
+            return {
+                isThirdPartyImport,
+                isPyTypedPresent,
+            };
+        };
+
         // Create a map of unique imports, since imports can appear more than once.
         const newImportPathMap = new Map<string, UpdateImportInfo>();
         imports.forEach((importResult) => {
@@ -1776,11 +1811,11 @@ export class Program {
                     if (importResult.resolvedPaths.length > 0) {
                         const filePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
                         if (filePath) {
+                            const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
                             newImportPathMap.set(filePath, {
                                 isTypeshedFile: !!importResult.isTypeshedFile,
-                                isThirdPartyImport:
-                                    importResult.importType === ImportType.ThirdParty ||
-                                    (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local),
+                                isThirdPartyImport: thirdPartyTypeInfo.isThirdPartyImport,
+                                isPyTypedPresent: thirdPartyTypeInfo.isPyTypedPresent,
                             });
                         }
                     }
@@ -1788,11 +1823,11 @@ export class Program {
 
                 importResult.implicitImports.forEach((implicitImport) => {
                     if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
+                        const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
                         newImportPathMap.set(implicitImport.path, {
                             isTypeshedFile: !!importResult.isTypeshedFile,
-                            isThirdPartyImport:
-                                importResult.importType === ImportType.ThirdParty ||
-                                (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local),
+                            isThirdPartyImport: thirdPartyTypeInfo.isThirdPartyImport,
+                            isPyTypedPresent: thirdPartyTypeInfo.isPyTypedPresent,
                         });
                     }
                 });
@@ -1847,6 +1882,7 @@ export class Program {
                         isOpenByClient: false,
                         isTypeshedFile: importInfo.isTypeshedFile,
                         isThirdPartyImport: importInfo.isThirdPartyImport,
+                        isThirdPartyPyTypedPresent: importInfo.isPyTypedPresent,
                         diagnosticsVersion: undefined,
                         imports: [],
                         importedBy: [],

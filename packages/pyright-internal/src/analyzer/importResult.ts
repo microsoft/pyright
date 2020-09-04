@@ -73,4 +73,11 @@ export interface ImportResult {
     // If resolved from a type hint (.pyi), then store the import result
     // from .py here.
     nonStubImportResult?: ImportResult;
+
+    // Is there a "py.typed" file (as described in PEP 561) present in
+    // the package that was used to resolve the import?
+    isPyTypedPresent?: boolean;
+
+    // The directory of the package, if found.
+    packageDirectory?: string;
 }
