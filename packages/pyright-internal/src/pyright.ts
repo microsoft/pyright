@@ -211,24 +211,26 @@ function processArgs() {
             process.exit(ExitStatus.NoErrors);
         }
 
-        if (!watch) {
-            // Print the total time.
-            timingStats.printSummary(console);
-        }
+        if (!args.outputjson) {
+            if (!watch) {
+                // Print the total time.
+                timingStats.printSummary(console);
+            }
 
-        if (args.stats !== undefined) {
-            // Print the stats details.
-            service.printStats();
-            timingStats.printDetails(console);
-        }
+            if (args.stats !== undefined) {
+                // Print the stats details.
+                service.printStats();
+                timingStats.printDetails(console);
+            }
 
-        if (args.dependencies) {
-            service.printDependencies(!!args.verbose);
+            if (args.dependencies) {
+                service.printDependencies(!!args.verbose);
+            }
         }
 
         if (!watch) {
             process.exit(errorCount > 0 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors);
-        } else {
+        } else if (!args.outputjson) {
             console.log('Watching for file changes...');
         }
     });
