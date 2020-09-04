@@ -150,7 +150,7 @@ export class HoverProvider {
                 // the type alias when printing the type information.
                 const type = evaluator.getType(typeNode);
                 let expandTypeAlias = false;
-                if (type?.typeAliasInfo) {
+                if (type?.typeAliasInfo && node.value === type.typeAliasInfo.aliasName) {
                     if (type.typeAliasInfo.aliasName === typeNode.value) {
                         expandTypeAlias = true;
                     }

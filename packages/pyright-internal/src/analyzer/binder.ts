@@ -567,6 +567,11 @@ export class Binder extends ParseTreeWalker {
         if (ParseTreeUtils.getEnclosingClass(node) || ParseTreeUtils.getEnclosingFunction(node)) {
             // We will assume that type aliases are defined only at the module level.
             isPossibleTypeAlias = false;
+        } else if (node.rightExpression.nodeType === ParseNodeType.Call) {
+            // Some special built-in types defined in typing.pyi use
+            // assignments of the form List = _Alias(). We don't want to
+            // treat these as type aliases.
+            isPossibleTypeAlias = false;
         }
 
         this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression, isPossibleTypeAlias);
