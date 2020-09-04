@@ -6624,7 +6624,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         const keysItemType = FunctionType.createInstance('keys', '', FunctionTypeFlags.SynthesizedMethod);
         const itemsItemType = FunctionType.createInstance('items', '', FunctionTypeFlags.SynthesizedMethod);
-        keysItemType.details.declaredReturnType = getBuiltInObject(errorNode, 'list', [
+        keysItemType.details.declaredReturnType = getBuiltInObject(errorNode, 'List', [
             getBuiltInObject(errorNode, 'str'),
         ]);
         itemsItemType.details.declaredReturnType = keysItemType.details.declaredReturnType;
@@ -7228,7 +7228,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             inferredEntryType = stripLiteralValue(inferredEntryType);
         }
 
-        const type = getBuiltInObject(node, 'set', [inferredEntryType]);
+        const type = getBuiltInObject(node, 'Set', [inferredEntryType]);
 
         return { type, node };
     }
@@ -7408,7 +7408,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             valueType = stripLiteralValue(valueType);
         }
 
-        const type = getBuiltInObject(node, 'dict', [keyType, valueType]);
+        const type = getBuiltInObject(node, 'Dict', [keyType, valueType]);
 
         return { type, node, expectedTypeDiagAddendum: !diagAddendum.isEmpty() ? diagAddendum : undefined };
     }
@@ -7509,7 +7509,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             inferredEntryType = stripLiteralValue(inferredEntryType);
         }
 
-        const type = getBuiltInObject(node, 'list', [inferredEntryType]);
+        const type = getBuiltInObject(node, 'List', [inferredEntryType]);
 
         return { type, node };
     }
