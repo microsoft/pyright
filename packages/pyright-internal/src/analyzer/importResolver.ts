@@ -795,7 +795,7 @@ export class ImportResolver {
                     importFailureInfo
                 );
 
-                if (typingsImport && typingsImport.isImportFound) {
+                if (typingsImport.isImportFound) {
                     // We will treat typings files as "local" rather than "third party".
                     typingsImport.importType = ImportType.Local;
                     typingsImport.isLocalTypingsFile = true;
@@ -818,7 +818,7 @@ export class ImportResolver {
             /* useStubPackage */ undefined,
             allowPyi
         );
-        if (localImport && localImport.isImportFound && !localImport.isNamespacePackage) {
+        if (localImport.isImportFound && !localImport.isNamespacePackage) {
             return localImport;
         }
         bestResultSoFar = localImport;
@@ -835,7 +835,7 @@ export class ImportResolver {
                 /* useStubPackage */ undefined,
                 allowPyi
             );
-            if (localImport && localImport.isImportFound) {
+            if (localImport.isImportFound) {
                 return localImport;
             }
 
@@ -1022,7 +1022,7 @@ export class ImportResolver {
                     importName,
                     importFailureInfo
                 );
-                if (importInfo && importInfo.isImportFound) {
+                if (importInfo.isImportFound) {
                     importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
                     return importInfo;
                 }
@@ -1151,10 +1151,6 @@ export class ImportResolver {
 
         // Now try to match the module parts from the current directory location.
         const absImport = this.resolveAbsoluteImport(curDir, moduleDescriptor, importName, importFailureInfo);
-        if (!absImport) {
-            return undefined;
-        }
-
         return this._filterImplicitImports(absImport, moduleDescriptor.importedSymbols);
     }
 
