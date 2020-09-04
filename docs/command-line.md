@@ -59,6 +59,6 @@ If the “--outputjson” option is specified on the command line, diagnostics a
         }
     }
 }
+```
 
 Line and character numbers are zero-based.
-```
