@@ -278,7 +278,7 @@ export class Binder extends ParseTreeWalker {
                 );
             } else {
                 // Source found, but type stub is missing
-                if (!importResult.isStubFile && importResult.importType === ImportType.ThirdParty) {
+                if (!importResult.isStubFile && importResult.importType === ImportType.ThirdParty && !importResult.isPyTypedPresent) {
                     const diagnostic = this._addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportMissingTypeStubs,
                         DiagnosticRule.reportMissingTypeStubs,

@@ -54,6 +54,7 @@ type CachedImportResults = Map<string, ImportResult>;
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
 const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExtensions];
 const stubsSuffix = '-stubs';
+const pyTypedFileName = 'py.typed';
 
 // Should we allow partial resolution for third-party packages? Some use tricks
 // to populate their package namespaces, so we might be able to partially resolve
@@ -61,6 +62,11 @@ const stubsSuffix = '-stubs';
 // false, we will have some false positives. If it is set to true, we won't report
 // errors when these partial-resolutions fail.
 const allowPartialResolutionForThirdPartyPackages = false;
+
+interface PyTypedInfo {
+    isPyTypedPresent: boolean;
+    isPartiallyTyped: boolean;
+}
 
 export class ImportResolver {
     private _configOptions: ConfigOptions;
@@ -465,9 +471,9 @@ export class ImportResolver {
         importFailureInfo: string[],
         allowPartial = false,
         allowNativeLib = false,
-        allowStubPackages = false,
+        useStubPackage = false,
         allowPyi = true
-    ): ImportResult | undefined {
+    ): ImportResult {
         importFailureInfo.push(`Attempting to resolve using root path '${rootPath}'`);
 
         // Starting at the specified path, walk the file system to find the
@@ -478,6 +484,7 @@ export class ImportResolver {
         let isStubFile = false;
         let isNativeLib = false;
         let implicitImports: ImplicitImport[] = [];
+        let packageDirectory: string | undefined;
 
         // Handle the "from . import XXX" case.
         if (moduleDescriptor.nameParts.length === 0) {
@@ -501,28 +508,21 @@ export class ImportResolver {
             implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
         } else {
             for (let i = 0; i < moduleDescriptor.nameParts.length; i++) {
+                const isFirstPart = i === 0;
                 const isLastPart = i === moduleDescriptor.nameParts.length - 1;
                 dirPath = combinePaths(dirPath, moduleDescriptor.nameParts[i]);
-                let foundDirectory = false;
 
-                if (allowPyi && allowStubPackages) {
-                    // PEP 561 indicates that package authors can ship their stubs
-                    // separately from their package implementation by appending
-                    // the string '-stubs' to its top-level directory name. We'll
-                    // look there first.
-                    const stubsDirPath = dirPath + stubsSuffix;
-                    foundDirectory =
-                        this.fileSystem.existsSync(stubsDirPath) && isDirectory(this.fileSystem, stubsDirPath);
-                    if (foundDirectory) {
-                        dirPath = stubsDirPath;
-                    }
+                if (useStubPackage && isFirstPart) {
+                    dirPath += stubsSuffix;
                 }
 
-                if (!foundDirectory) {
-                    foundDirectory = this.fileSystem.existsSync(dirPath) && isDirectory(this.fileSystem, dirPath);
-                }
+                const foundDirectory = this.fileSystem.existsSync(dirPath) && isDirectory(this.fileSystem, dirPath);
 
                 if (foundDirectory) {
+                    if (isFirstPart) {
+                        packageDirectory = dirPath;
+                    }
+
                     if (!isLastPart) {
                         // We are not at the last part, and we found a directory,
                         // so continue to look for the next part.
@@ -638,6 +638,7 @@ export class ImportResolver {
             isStubFile,
             isNativeLib,
             implicitImports,
+            packageDirectory,
         };
     }
 
@@ -659,6 +660,40 @@ export class ImportResolver {
         allowPyi = true
     ): ImportResult | undefined {
         return undefined;
+    }
+
+    private _getPyTypedInfo(dirPath: string): PyTypedInfo {
+        let isPyTypedPresent = false;
+        let isPartiallyTyped = false;
+
+        if (this.fileSystem.existsSync(dirPath) && isDirectory(this.fileSystem, dirPath)) {
+            const pyTypedPath = combinePaths(dirPath, pyTypedFileName);
+
+            if (this.fileSystem.existsSync(dirPath) && isFile(this.fileSystem, pyTypedPath)) {
+                isPyTypedPresent = true;
+
+                // Read the contents of the file as text.
+                const fileStats = this.fileSystem.statSync(pyTypedPath);
+
+                // Do a quick sanity check on the size before we attempt to read it. This
+                // file should always be really small - typically zero bytes in length.
+                if (fileStats.size > 0 && fileStats.size < 16 * 1024) {
+                    const pyTypedContents = this.fileSystem.readFileSync(pyTypedPath, 'utf8');
+
+                    // PEP 561 doesn't specify the format of "py.typed" in any detail other than
+                    // to say that "If a stub package is partial it MUST include partial\n in a top
+                    // level py.typed file."
+                    if (pyTypedContents.match(/partial\n/) || pyTypedContents.match(/partial\r\n/)) {
+                        isPartiallyTyped = true;
+                    }
+                }
+            }
+        }
+
+        return {
+            isPyTypedPresent,
+            isPartiallyTyped,
+        };
     }
 
     private _lookUpResultsInCache(
@@ -778,9 +813,9 @@ export class ImportResolver {
             moduleDescriptor,
             importName,
             importFailureInfo,
-            undefined,
-            undefined,
-            undefined,
+            /* allowPartial */ undefined,
+            /* allowNativeLib */ undefined,
+            /* useStubPackage */ undefined,
             allowPyi
         );
         if (localImport && localImport.isImportFound && !localImport.isNamespacePackage) {
@@ -795,9 +830,9 @@ export class ImportResolver {
                 moduleDescriptor,
                 importName,
                 importFailureInfo,
-                undefined,
-                undefined,
-                undefined,
+                /* allowPartial */ undefined,
+                /* allowNativeLib */ undefined,
+                /* useStubPackage */ undefined,
                 allowPyi
             );
             if (localImport && localImport.isImportFound) {
@@ -820,19 +855,53 @@ export class ImportResolver {
         if (pythonSearchPaths.length > 0) {
             for (const searchPath of pythonSearchPaths) {
                 importFailureInfo.push(`Looking in python search path '${searchPath}'`);
-                const thirdPartyImport = this.resolveAbsoluteImport(
-                    searchPath,
-                    moduleDescriptor,
-                    importName,
-                    importFailureInfo,
-                    /* allowPartial */ allowPartialResolutionForThirdPartyPackages,
-                    /* allowNativeLib */ true,
-                    /* allowStubPackages */ true,
-                    allowPyi
-                );
+
+                // Is there a "py.typed" file present?
+                const dirPath = combinePaths(searchPath, moduleDescriptor.nameParts[0]);
+                let pyTypedInfo: PyTypedInfo | undefined;
+                let thirdPartyImport: ImportResult | undefined;
+
+                if (allowPyi) {
+                    pyTypedInfo = this._getPyTypedInfo(dirPath + stubsSuffix);
+
+                    // Look for packaged stubs first. PEP 561 indicates that package authors can ship
+                    // their stubs separately from their package implementation by appending the string
+                    // '-stubs' to its top - level directory name. We'll look there first.
+                    thirdPartyImport = this.resolveAbsoluteImport(
+                        searchPath,
+                        moduleDescriptor,
+                        importName,
+                        importFailureInfo,
+                        /* allowPartial */ allowPartialResolutionForThirdPartyPackages,
+                        /* allowNativeLib */ false,
+                        /* useStubPackage */ true,
+                        allowPyi
+                    );
+                }
+
+                if (!thirdPartyImport?.isImportFound) {
+                    // Either we didn't look for a packaged stub or we looked but didn't find one.
+                    // If there was a packaged stub directory, we can stop searching unless
+                    // it happened to be marked as "partially typed".
+                    if (!thirdPartyImport?.packageDirectory || pyTypedInfo?.isPartiallyTyped) {
+                        pyTypedInfo = this._getPyTypedInfo(dirPath);
+
+                        thirdPartyImport = this.resolveAbsoluteImport(
+                            searchPath,
+                            moduleDescriptor,
+                            importName,
+                            importFailureInfo,
+                            /* allowPartial */ allowPartialResolutionForThirdPartyPackages,
+                            /* allowNativeLib */ true,
+                            /* useStubPackage */ false,
+                            allowPyi
+                        );
+                    }
+                }
 
                 if (thirdPartyImport) {
                     thirdPartyImport.importType = ImportType.ThirdParty;
+                    thirdPartyImport.isPyTypedPresent = pyTypedInfo?.isPyTypedPresent;
 
                     if (thirdPartyImport.isImportFound && thirdPartyImport.isStubFile) {
                         return thirdPartyImport;
