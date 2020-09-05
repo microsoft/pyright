@@ -814,7 +814,7 @@ export class ImportResolver {
             importName,
             importFailureInfo,
             /* allowPartial */ undefined,
-            /* allowNativeLib */ undefined,
+            /* allowNativeLib */ true,
             /* useStubPackage */ undefined,
             allowPyi
         );
@@ -831,7 +831,7 @@ export class ImportResolver {
                 importName,
                 importFailureInfo,
                 /* allowPartial */ undefined,
-                /* allowNativeLib */ undefined,
+                /* allowNativeLib */ true,
                 /* useStubPackage */ undefined,
                 allowPyi
             );
