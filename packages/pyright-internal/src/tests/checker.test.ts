@@ -624,6 +624,18 @@ test('Properties5', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Properties6', () => {
+    // Analyze with reportPropertyTypeMismatch enabled.
+    const analysisResult1 = TestUtils.typeAnalyzeSampleFiles(['properties6.py']);
+    validateResults(analysisResult1, 2);
+
+    // Analyze with reportPropertyTypeMismatch disabled.
+    const configOptions = new ConfigOptions('.');
+    configOptions.diagnosticRuleSet.reportPropertyTypeMismatch = 'none';
+    const analysisResult2 = TestUtils.typeAnalyzeSampleFiles(['properties6.py'], configOptions);
+    validateResults(analysisResult2, 0);
+});
+
 test('Operators1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators1.py']);
 

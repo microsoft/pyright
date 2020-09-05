@@ -116,6 +116,17 @@
                                 "error"
                             ]
                         },
+                        "reportPropertyTypeMismatch": {
+                            "type": "string",
+                            "description": "Diagnostics for property whose setter and getter have mismatched types.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportMissingImports": {
                             "type": "string",
                             "description": "Diagnostics for imports that have no corresponding imported python file or type stub file.",

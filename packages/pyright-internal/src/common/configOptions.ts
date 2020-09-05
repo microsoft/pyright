@@ -80,6 +80,9 @@ export interface DiagnosticRuleSet {
     // Report general type issues?
     reportGeneralTypeIssues: DiagnosticLevel;
 
+    // Report mismatch in types between property getter and setter?
+    reportPropertyTypeMismatch: DiagnosticLevel;
+
     // Report missing imports?
     reportMissingImports: DiagnosticLevel;
 
@@ -226,6 +229,7 @@ export function getBooleanDiagnosticRules() {
 export function getDiagLevelDiagnosticRules() {
     return [
         DiagnosticRule.reportGeneralTypeIssues,
+        DiagnosticRule.reportPropertyTypeMismatch,
         DiagnosticRule.reportMissingImports,
         DiagnosticRule.reportMissingModuleSource,
         DiagnosticRule.reportMissingTypeStubs,
@@ -285,6 +289,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         strictParameterNoneValue: false,
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'none',
+        reportPropertyTypeMismatch: 'none',
         reportMissingImports: 'warning',
         reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'none',
@@ -340,6 +345,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         strictParameterNoneValue: false,
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'error',
+        reportPropertyTypeMismatch: 'error',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'none',
@@ -395,6 +401,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         strictParameterNoneValue: true,
         enableTypeIgnoreComments: true, // Not overridden by strict mode
         reportGeneralTypeIssues: 'error',
+        reportPropertyTypeMismatch: 'error',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'error',
@@ -745,6 +752,13 @@ export class ConfigOptions {
                 configObj.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 defaultSettings.reportGeneralTypeIssues
+            ),
+
+            // Read the "reportPropertyTypeMismatch" entry.
+            reportPropertyTypeMismatch: this._convertDiagnosticLevel(
+                configObj.reportPropertyTypeMismatch,
+                DiagnosticRule.reportPropertyTypeMismatch,
+                defaultSettings.reportPropertyTypeMismatch
             ),
 
             // Read the "reportMissingImports" entry.

@@ -491,6 +491,7 @@ export namespace Localizer {
         export const returnTypeUnknown = () => getRawString('Diagnostic.returnTypeUnknown');
         export const returnTypePartiallyUnknown = () =>
             new ParameterizedString<{ returnType: string }>(getRawString('Diagnostic.returnTypePartiallyUnknown'));
+        export const setterGetterTypeMismatch = () => getRawString('Diagnostic.setterGetterTypeMismatch');
         export const singleOverload = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.singleOverload'));
         export const staticClsSelfParam = () => getRawString('Diagnostic.staticClsSelfParam');

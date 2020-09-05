@@ -102,6 +102,10 @@ export const enum CanAssignFlags {
 
     // For function types, skip the return type check.
     SkipFunctionReturnTypeCheck = 1 << 4,
+
+    // Normally type vars are specialized during type comparisons.
+    // With this flag, a type var must match a type var exactly.
+    DoNotSpecializeTypeVars = 1 << 5,
 }
 
 const singleTickRegEx = /'/g;
@@ -508,7 +512,7 @@ export function isParamSpecType(type: Type): boolean {
     return type.isParamSpec;
 }
 
-export function isProperty(type: Type): boolean {
+export function isProperty(type: Type): type is ObjectType {
     return isObject(type) && ClassType.isPropertyClass(type.classType);
 }
 

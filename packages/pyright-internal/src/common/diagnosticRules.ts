@@ -17,6 +17,7 @@ export enum DiagnosticRule {
     enableTypeIgnoreComments = 'enableTypeIgnoreComments',
 
     reportGeneralTypeIssues = 'reportGeneralTypeIssues',
+    reportPropertyTypeMismatch = 'reportPropertyTypeMismatch',
     reportMissingImports = 'reportMissingImports',
     reportMissingModuleSource = 'reportMissingModuleSource',
     reportMissingTypeStubs = 'reportMissingTypeStubs',

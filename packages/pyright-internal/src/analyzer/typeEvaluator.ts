@@ -9180,7 +9180,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
-            const newDecoratedType = applyFunctionDecorator(decoratedType, functionType, decorator);
+            const newDecoratedType = applyFunctionDecorator(decoratedType, functionType, decorator, node);
             if (isUnknown(newDecoratedType)) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
@@ -9342,7 +9342,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     function applyFunctionDecorator(
         inputFunctionType: Type,
         originalFunctionType: FunctionType,
-        decoratorNode: DecoratorNode
+        decoratorNode: DecoratorNode,
+        functionNode: FunctionNode
     ): Type {
         const fileInfo = getFileInfo(decoratorNode);
 
@@ -9377,7 +9378,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (isProperty(baseType)) {
                     const memberName = decoratorNode.leftExpression.memberName.value;
                     if (memberName === 'setter') {
-                        return clonePropertyWithSetter(baseType, originalFunctionType);
+                        return clonePropertyWithSetter(baseType, originalFunctionType, functionNode);
                     } else if (memberName === 'deleter') {
                         return clonePropertyWithDeleter(baseType, originalFunctionType);
                     }
@@ -9479,7 +9480,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return propertyObject;
     }
 
-    function clonePropertyWithSetter(prop: Type, fset: FunctionType): Type {
+    function clonePropertyWithSetter(prop: Type, fset: FunctionType, errorNode: FunctionNode): Type {
         if (!isProperty(prop)) {
             return prop;
         }
@@ -9504,6 +9505,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 fields.set(name, symbol);
             }
         });
+
+        // Verify parameters for fset.
+        if (errorNode.parameters.length >= 2 && errorNode.parameters[1].typeAnnotation) {
+            // Verify consistency of the type.
+            const fgetType = getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);
+            if (fgetType && !isAnyOrUnknown(fgetType)) {
+                const fsetType = getTypeOfAnnotation(errorNode.parameters[1].typeAnnotation);
+
+                // The setter type should be assignable to the getter type.
+                const diag = new DiagnosticAddendum();
+                if (
+                    !canAssignType(
+                        fgetType,
+                        fsetType,
+                        diag,
+                        /* typeVarMap */ undefined,
+                        CanAssignFlags.DoNotSpecializeTypeVars
+                    )
+                ) {
+                    addDiagnostic(
+                        getFileInfo(errorNode).diagnosticRuleSet.reportPropertyTypeMismatch,
+                        DiagnosticRule.reportPropertyTypeMismatch,
+                        Localizer.Diagnostic.setterGetterTypeMismatch() + diag.getString(),
+                        errorNode.parameters[1].typeAnnotation
+                    );
+                }
+            }
+        }
 
         // Fill in the fset method.
         const fsetSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fset);
@@ -13121,31 +13150,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (ClassType.isPropertyClass(destType) && ClassType.isPropertyClass(srcType)) {
             let typesAreConsistent = true;
 
-            const fgetDest = destType.details.fields.get('fget');
-            const fgetSrc = srcType.details.fields.get('fget');
-            if (fgetDest && fgetSrc) {
-                const fgetDestType = getDeclaredTypeOfSymbol(fgetDest);
-                const fgetSrcType = getDeclaredTypeOfSymbol(fgetSrc);
+            const fgetDestReturnType = getGetterTypeFromProperty(destType, /* inferTypeIfNeeded */ true);
+            const fgetSrcReturnType = getGetterTypeFromProperty(srcType, /* inferTypeIfNeeded */ true);
+            if (fgetDestReturnType && fgetSrcReturnType) {
                 if (
-                    fgetDestType &&
-                    fgetSrcType &&
-                    fgetDestType.category === TypeCategory.Function &&
-                    fgetSrcType.category === TypeCategory.Function
+                    !canAssignType(
+                        fgetDestReturnType,
+                        fgetSrcReturnType,
+                        diag,
+                        /* typeVarMap */ undefined,
+                        CanAssignFlags.Default,
+                        recursionCount + 1
+                    )
                 ) {
-                    const fgetDestReturnType = getFunctionEffectiveReturnType(fgetDestType);
-                    const fgetSrcReturnType = getFunctionEffectiveReturnType(fgetSrcType);
-                    if (
-                        !canAssignType(
-                            fgetDestReturnType,
-                            fgetSrcReturnType,
-                            diag,
-                            /* typeVarMap */ undefined,
-                            CanAssignFlags.Default,
-                            recursionCount + 1
-                        )
-                    ) {
-                        typesAreConsistent = false;
-                    }
+                    typesAreConsistent = false;
                 }
             }
 
@@ -13348,6 +13366,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         return true;
+    }
+
+    function getGetterTypeFromProperty(propertyClass: ClassType, inferTypeIfNeeded: boolean): Type | undefined {
+        if (!ClassType.isPropertyClass(propertyClass)) {
+            return undefined;
+        }
+
+        const fgetSymbol = propertyClass.details.fields.get('fget');
+
+        if (fgetSymbol) {
+            const fgetType = getDeclaredTypeOfSymbol(fgetSymbol);
+            if (fgetType && fgetType.category === TypeCategory.Function) {
+                return getFunctionEffectiveReturnType(fgetType, /* args */ undefined, inferTypeIfNeeded);
+            }
+        }
+
+        return undefined;
     }
 
     function verifyTypeArgumentsAssignable(
@@ -13746,6 +13781,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     flags,
                     recursionCount + 1
                 );
+            }
+
+            if (flags & CanAssignFlags.DoNotSpecializeTypeVars) {
+                if (destType !== srcType) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(destType),
+                        })
+                    );
+                    return false;
+                }
+                return true;
             }
 
             const specializedSrcType = getConcreteTypeFromTypeVar(srcType);
