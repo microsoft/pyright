@@ -519,6 +519,12 @@ export class Parser {
             return undefined;
         }
 
+        if (target.nodeType === ParseNodeType.Unpack) {
+            this._addError(Localizer.Diagnostic.unpackIllegalInComprehension(), target);
+        } else if (target.nodeType === ParseNodeType.DictionaryExpandEntry) {
+            this._addError(Localizer.Diagnostic.dictExpandIllegalInComprehension(), target);
+        }
+
         const listCompNode = ListComprehensionNode.create(target);
 
         const compList: ListComprehensionIterNode[] = [compFor];
@@ -2650,6 +2656,7 @@ export class Parser {
             let doubleStarExpression: ExpressionNode | undefined;
             let keyExpression: ExpressionNode | undefined;
             let valueExpression: ExpressionNode | undefined;
+            const doubleStar = this._peekToken();
 
             if (this._consumeTokenIfOperator(OperatorType.Power)) {
                 doubleStarExpression = this._parseExpression(false);
@@ -2688,6 +2695,7 @@ export class Parser {
                     this._addError(Localizer.Diagnostic.unpackInSet(), doubleStarExpression);
                 } else {
                     const listEntryNode = DictionaryExpandEntryNode.create(doubleStarExpression);
+                    extendRange(listEntryNode, doubleStar);
                     let expandEntryNode: DictionaryEntryNode = listEntryNode;
                     const listComp = this._tryParseListComprehension(listEntryNode);
                     if (listComp) {

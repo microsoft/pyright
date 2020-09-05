@@ -234,6 +234,8 @@ export namespace Localizer {
         export const dictInAnnotation = () => getRawString('Diagnostic.dictInAnnotation');
         export const dictKeyValuePairs = () => getRawString('Diagnostic.dictKeyValuePairs');
         export const delTargetExpr = () => getRawString('Diagnostic.delTargetExpr');
+        export const dictExpandIllegalInComprehension = () =>
+            getRawString('Diagnostic.dictExpandIllegalInComprehension');
         export const duplicateArgsParam = () => getRawString('Diagnostic.duplicateArgsParam');
         export const duplicateCatchAll = () => getRawString('Diagnostic.duplicateCatchAll');
         export const duplicateImport = () =>
@@ -616,6 +618,7 @@ export namespace Localizer {
             new ParameterizedString<{ testType: string; classType: string }>(
                 getRawString('Diagnostic.unnecessaryIsSubclassNever')
             );
+        export const unpackIllegalInComprehension = () => getRawString('Diagnostic.unpackIllegalInComprehension');
         export const unpackInDict = () => getRawString('Diagnostic.unpackInDict');
         export const unpackInSet = () => getRawString('Diagnostic.unpackInSet');
         export const unpackTuplesIllegal = () => getRawString('Diagnostic.unpackTuplesIllegal');
