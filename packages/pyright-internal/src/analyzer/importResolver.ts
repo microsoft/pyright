@@ -574,7 +574,11 @@ export class ImportResolver {
                     importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
                     resolvedPaths.push(pyFilePath);
                 } else {
-                    if (allowNativeLib) {
+                    if (
+                        allowNativeLib &&
+                        this.fileSystem.existsSync(fileDirectory) &&
+                        isDirectory(this.fileSystem, fileDirectory)
+                    ) {
                         const filesInDir = this._getFilesInDirectory(fileDirectory);
                         const nativeLibFileName = filesInDir.find((f) => {
                             // Strip off the final file extension and the part of the file name
