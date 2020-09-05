@@ -7435,7 +7435,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         let entryTypes = node.entries.map((entry) => {
             if (entry.nodeType === ParseNodeType.ListComprehension) {
-                return getElementTypeFromListComprehension(entry);
+                return getElementTypeFromListComprehension(entry, expectedEntryType);
             }
             return getTypeOfExpression(entry, expectedEntryType).type;
         });
@@ -7678,7 +7678,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     // Returns the type of one entry returned by the list comprehension,
     // as opposed to the entire list.
-    function getElementTypeFromListComprehension(node: ListComprehensionNode): Type {
+    function getElementTypeFromListComprehension(node: ListComprehensionNode, expectedElementType?: Type): Type {
         // "Execute" the list comprehensions from start to finish.
         for (const comprehension of node.comprehensions) {
             if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
@@ -7717,11 +7717,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 );
             }
         } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
+            // The parser should have reported an error in this case because it's not allowed.
             getTypeOfExpression(node.expression.expandExpression);
-
-            // TODO - need to implement
         } else if (isExpressionNode(node)) {
-            type = stripLiteralValue(getTypeOfExpression(node.expression as ExpressionNode).type);
+            type = stripLiteralValue(getTypeOfExpression(node.expression as ExpressionNode, expectedElementType).type);
         }
 
         return type;
