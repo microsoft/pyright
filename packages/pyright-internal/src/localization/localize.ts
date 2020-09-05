@@ -345,6 +345,14 @@ export namespace Localizer {
         export const inconsistentTabs = () => getRawString('Diagnostic.inconsistentTabs');
         export const initSubclassClsParam = () => getRawString('Diagnostic.initSubclassClsParam');
         export const instanceMethodSelfParam = () => getRawString('Diagnostic.instanceMethodSelfParam');
+        export const internalBindError = () =>
+            new ParameterizedString<{ file: string; message: string }>(getRawString('Diagnostic.internalBindError'));
+        export const internalParseError = () =>
+            new ParameterizedString<{ file: string; message: string }>(getRawString('Diagnostic.internalParseError'));
+        export const internalTypeCheckingError = () =>
+            new ParameterizedString<{ file: string; message: string }>(
+                getRawString('Diagnostic.internalTypeCheckingError')
+            );
         export const invalidIdentifierChar = () => getRawString('Diagnostic.invalidIdentifierChar');
         export const invalidStubStatement = () => getRawString('Diagnostic.invalidStubStatement');
         export const invalidTokenChars = () =>
