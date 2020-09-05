@@ -1,8 +1,7 @@
 # This sample tests bidirectional type inference (expected type) for
 # lists that include TypedDicts.
 
-from typing import List
-from typing_extensions import TypedDict
+from typing import List, TypedDict
 
 
 MessageTypeDef = TypedDict("MessageTypeDef", {"Id": str, "Handle": str})
