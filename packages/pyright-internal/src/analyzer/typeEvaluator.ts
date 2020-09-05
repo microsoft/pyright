@@ -9729,6 +9729,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // Wrap in a Coroutine, which is a subclass of Awaitable.
             const coroutineType = getTypingType(node, 'Coroutine');
             if (coroutineType && isClass(coroutineType)) {
+                // Don't wrap a NoReturn in a Coroutine. Treat it as an Any.
+                if (isNoReturnType(returnType)) {
+                    returnType = AnyType.create();
+                }
+
                 awaitableReturnType = ObjectType.create(
                     ClassType.cloneForSpecialization(
                         coroutineType,
@@ -10641,7 +10646,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 functionType = overloadedFunction.overloads[overloadedFunction.overloads.length - 1];
             }
 
-            if (functionType) {
+            if (functionType && !FunctionType.isAsync(functionType)) {
                 if (functionType.details.declaredReturnType) {
                     callIsNoReturn = isNoReturnType(functionType.details.declaredReturnType);
                 } else if (functionType.inferredReturnType) {
