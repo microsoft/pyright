@@ -1035,13 +1035,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             evaluatorFlags |= EvaluatorFlags.FinalDisallowed;
         }
 
-        const classType = getTypeOfExpression(node, undefined, evaluatorFlags).type;
+        const classType = getTypeOfExpression(node, /* expectedType */ undefined, evaluatorFlags).type;
 
         return convertToInstance(classType);
     }
 
     function getTypeFromDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
-        const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
+        const baseTypeResult = getTypeOfExpression(
+            node.leftExpression,
+            /* expectedType */ undefined,
+            EvaluatorFlags.DoNotSpecialize
+        );
 
         let decoratorCall = baseTypeResult;
 
@@ -13528,7 +13532,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return false;
             }
 
-            if (curTypeVarMapping && !isAnyOrUnknown(curTypeVarMapping)) {
+            if (curTypeVarMapping && !isAnyOrUnknown(curTypeVarMapping) && !isTypeVar(srcType)) {
                 if (!isTypeSame(curTypeVarMapping, constrainedType)) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeConstraint().format({
@@ -13539,9 +13543,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     return false;
                 }
             } else {
-                // Assign the type to the type var.
+                // Assign the type to the type var. If the source is a TypeVar, don't
+                // specialize it to one of the constrained types. Leave it generic.
                 if (!typeVarMap.isLocked()) {
-                    typeVarMap.setTypeVar(destType.name, constrainedType, false);
+                    typeVarMap.setTypeVar(destType.name, isTypeVar(srcType) ? srcType : constrainedType, false);
                 }
             }
 
