@@ -24,6 +24,8 @@ import {
     getStringComparer,
 } from './stringUtils';
 
+let _fsCaseSensitivity: boolean | undefined = undefined;
+
 export interface FileSpec {
     // File specs can contain wildcard characters (**, *, ?). This
     // specifies the first portion of the file spec that contains
@@ -867,7 +869,17 @@ export function convertPathToUri(path: string): string {
     return URI.file(path).toString();
 }
 
-let _fsCaseSensitivity: boolean | undefined = undefined;
+// For file systems that are case-insensitive, returns a lowercase
+// version of the path. For case-sensitive file systems, leaves the
+// path as is.
+export function normalizePathCase(fs: FileSystem, path: string) {
+    if (isFileSystemCaseSensitive(fs)) {
+        return path;
+    }
+
+    return path.toLowerCase();
+}
+
 export function isFileSystemCaseSensitive(fs: FileSystem) {
     if (_fsCaseSensitivity !== undefined) {
         return _fsCaseSensitivity;
