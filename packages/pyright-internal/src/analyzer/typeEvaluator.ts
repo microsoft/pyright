@@ -2141,7 +2141,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     }
 
     function addUnusedCode(node: ParseNode, textRange: TextRange) {
-        if (!isDiagnosticSuppressed && !isSpeculativeMode(node) && !incompleteTypeTracker.isIncompleteTypeMode()) {
+        if (!isDiagnosticSuppressedForNode(node)) {
             const fileInfo = getFileInfo(node);
             fileInfo.diagnosticSink.addUnusedCodeWithTextRange(Localizer.Diagnostic.unreachableCode(), textRange);
         }
@@ -2153,12 +2153,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         node: ParseNode,
         range?: TextRange
     ) {
-        if (!isDiagnosticSuppressed && !isSpeculativeMode(node) && !incompleteTypeTracker.isIncompleteTypeMode()) {
+        if (!isDiagnosticSuppressedForNode(node)) {
             const fileInfo = getFileInfo(node);
             return fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range || node);
         }
 
         return undefined;
+    }
+
+    function isDiagnosticSuppressedForNode(node: ParseNode) {
+        return isDiagnosticSuppressed || isSpeculativeMode(node) || incompleteTypeTracker.isIncompleteTypeMode();
     }
 
     function addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, node: ParseNode) {
@@ -5782,54 +5786,56 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         let diag = new DiagnosticAddendum();
 
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
-            const fileInfo = getFileInfo(argParam.errorNode);
-            const argTypeText = printType(argType);
-            const paramTypeText = printType(argParam.paramType);
+            if (!isDiagnosticSuppressedForNode(argParam.errorNode)) {
+                const fileInfo = getFileInfo(argParam.errorNode);
+                const argTypeText = printType(argType);
+                const paramTypeText = printType(argParam.paramType);
 
-            let message: string;
-            if (argParam.paramName) {
-                if (functionName) {
-                    message = Localizer.Diagnostic.argAssignmentParamFunction().format({
-                        argType: argTypeText,
-                        paramType: paramTypeText,
-                        functionName,
-                        paramName: argParam.paramName,
-                    });
+                let message: string;
+                if (argParam.paramName) {
+                    if (functionName) {
+                        message = Localizer.Diagnostic.argAssignmentParamFunction().format({
+                            argType: argTypeText,
+                            paramType: paramTypeText,
+                            functionName,
+                            paramName: argParam.paramName,
+                        });
+                    } else {
+                        message = Localizer.Diagnostic.argAssignmentParam().format({
+                            argType: argTypeText,
+                            paramType: paramTypeText,
+                            paramName: argParam.paramName,
+                        });
+                    }
                 } else {
-                    message = Localizer.Diagnostic.argAssignmentParam().format({
-                        argType: argTypeText,
-                        paramType: paramTypeText,
-                        paramName: argParam.paramName,
-                    });
+                    if (functionName) {
+                        message = Localizer.Diagnostic.argAssignmentFunction().format({
+                            argType: argTypeText,
+                            paramType: paramTypeText,
+                            functionName,
+                        });
+                    } else {
+                        message = Localizer.Diagnostic.argAssignment().format({
+                            argType: argTypeText,
+                            paramType: paramTypeText,
+                        });
+                    }
                 }
-            } else {
-                if (functionName) {
-                    message = Localizer.Diagnostic.argAssignmentFunction().format({
-                        argType: argTypeText,
-                        paramType: paramTypeText,
-                        functionName,
-                    });
-                } else {
-                    message = Localizer.Diagnostic.argAssignment().format({
-                        argType: argTypeText,
-                        paramType: paramTypeText,
-                    });
+
+                // If we have an expected type diagnostic addendum, use that
+                // instead of the local diagnostic addendum because it will
+                // be more informative.
+                if (expectedTypeDiag) {
+                    diag = expectedTypeDiag;
                 }
-            }
 
-            // If we have an expected type diagnostic addendum, use that
-            // instead of the local diagnostic addendum because it will
-            // be more informative.
-            if (expectedTypeDiag) {
-                diag = expectedTypeDiag;
+                addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    message + diag.getString(),
+                    argParam.errorNode
+                );
             }
-
-            addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                message + diag.getString(),
-                argParam.errorNode
-            );
             return false;
         } else if (!skipUnknownCheck) {
             const simplifiedType = removeUnboundFromUnion(argType);
