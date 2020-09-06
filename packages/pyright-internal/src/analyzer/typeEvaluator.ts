@@ -10392,6 +10392,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return;
         }
 
+        if (parent.nodeType === ParseNodeType.Argument && lastContextualExpression === parent.name) {
+            // A name used to specify a named parameter in an argument isn't an
+            // expression, so there's nothing we can evaluate here.
+            return;
+        }
+
         if (parent.nodeType === ParseNodeType.Return && parent.returnExpression) {
             const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
             const declaredReturnType = enclosingFunctionNode
