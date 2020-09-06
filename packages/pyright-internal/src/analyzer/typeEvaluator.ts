@@ -13409,8 +13409,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // of type arguments, but there are a few special cases where this
                     // isn't true (e.g. assigning a Tuple[X, Y, Z] to a tuple[W]).
                     const destArgIndex = srcArgIndex >= destTypeArgs.length ? destTypeArgs.length - 1 : srcArgIndex;
-                    assert(destArgIndex >= 0);
-                    const destTypeArg = destTypeArgs[destArgIndex];
+                    const destTypeArg = destArgIndex >= 0 ? destTypeArgs[destArgIndex] : UnknownType.create();
                     const destTypeParam =
                         destArgIndex < destTypeParams.length ? destTypeParams[destArgIndex] : undefined;
                     const assignmentDiag = new DiagnosticAddendum();
