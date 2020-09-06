@@ -13538,7 +13538,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return false;
             }
 
-            if (curTypeVarMapping && !isAnyOrUnknown(curTypeVarMapping) && !isTypeVar(srcType)) {
+            const isSrcTypeVar = isTypeVar(srcType) && !srcType.isSynthesized;
+            if (curTypeVarMapping && !isAnyOrUnknown(curTypeVarMapping) && !isSrcTypeVar) {
                 if (!isTypeSame(curTypeVarMapping, constrainedType)) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeConstraint().format({
@@ -13552,7 +13553,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Assign the type to the type var. If the source is a TypeVar, don't
                 // specialize it to one of the constrained types. Leave it generic.
                 if (!typeVarMap.isLocked()) {
-                    typeVarMap.setTypeVar(destType.name, isTypeVar(srcType) ? srcType : constrainedType, false);
+                    typeVarMap.setTypeVar(destType.name, isSrcTypeVar ? srcType : constrainedType, false);
                 }
             }
 
