@@ -14714,6 +14714,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             });
         }
 
+        // Perform partial specialization of type variables to allow for
+        // "higher-order" type variables.
+        if (typeVarMap && !typeVarMap.isLocked()) {
+            typeVarMap.getTypeVars().forEach((entry) => {
+                const specializedType = specializeType(entry.type, typeVarMap, /* makeConcrete */ false);
+                if (specializedType !== entry.type) {
+                    typeVarMap.setTypeVar(entry.typeVar, specializedType, typeVarMap.isNarrowable(entry.typeVar));
+                }
+            });
+        }
+
         // Match the return parameter.
         if (checkReturnType) {
             const destReturnType = getFunctionEffectiveReturnType(destType);
