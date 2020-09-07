@@ -3926,7 +3926,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (baseType.typeAliasInfo && type !== baseType) {
                         const typeArgs: Type[] = [];
                         baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
-                            typeArgs.push(typeVarMap.getTypeVar(typeParam.details.name) || UnknownType.create());
+                            typeArgs.push(typeVarMap.getTypeVar(typeParam) || UnknownType.create());
                         });
 
                         type = TypeBase.cloneForTypeAlias(
@@ -5231,7 +5231,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const syntheticTypeVarMap = new TypeVarMap();
         if (canAssignType(genericExpectedType, specializedType, new DiagnosticAddendum(), syntheticTypeVarMap)) {
             genericExpectedType.details.typeParameters.forEach((typeVar, index) => {
-                const synthTypeVar = syntheticTypeVarMap.getTypeVar(typeVar.details.name);
+                const synthTypeVar = syntheticTypeVarMap.getTypeVar(typeVar);
 
                 // Is this one of the synthesized type vars we allocated above? If so,
                 // the type arg that corresponds to this type var maps back to the target type.
@@ -5243,11 +5243,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 ) {
                     const targetTypeVar = specializedType.details.typeParameters[synthTypeVar.details.synthesizedIndex];
                     if (index < expectedTypeArgs.length) {
-                        typeVarMap.setTypeVar(
-                            targetTypeVar.details.name,
-                            expectedTypeArgs[index],
-                            /* isNarrowable */ false
-                        );
+                        typeVarMap.setTypeVar(targetTypeVar, expectedTypeArgs[index], /* isNarrowable */ false);
                     }
                 }
             });
@@ -13522,11 +13518,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
                 const typeArgType =
                     i < curSrcType.typeArguments.length ? curSrcType.typeArguments[i] : UnknownType.create();
-                typeVarMap.setTypeVar(
-                    destType.details.typeParameters[i].details.name,
-                    typeArgType,
-                    /* isNarrowable */ true
-                );
+                typeVarMap.setTypeVar(destType.details.typeParameters[i], typeArgType, /* isNarrowable */ true);
             }
         }
 
@@ -13664,7 +13656,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         flags = CanAssignFlags.Default,
         recursionCount = 0
     ): boolean {
-        const curTypeVarMapping = typeVarMap.getTypeVar(destType.details.name);
+        const curTypeVarMapping = typeVarMap.getTypeVar(destType);
 
         if (destType.details.isParamSpec) {
             diag.addMessage(
@@ -13708,7 +13700,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Assign the type to the type var. If the source is a TypeVar, don't
                 // specialize it to one of the constrained types. Leave it generic.
                 if (!typeVarMap.isLocked()) {
-                    typeVarMap.setTypeVar(destType.details.name, isSrcTypeVar ? srcType : constrainedType, false);
+                    typeVarMap.setTypeVar(destType, isSrcTypeVar ? srcType : constrainedType, false);
                 }
             }
 
@@ -13717,7 +13709,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // Handle the unconstrained (but possibly bound) case.
         let updatedType = srcType;
-        const curTypeIsNarrowable = typeVarMap.isNarrowable(destType.details.name) && !typeVarMap.isLocked();
+        const curTypeIsNarrowable = typeVarMap.isNarrowable(destType) && !typeVarMap.isLocked();
         const updatedTypeIsNarrowable = canNarrowType && curTypeIsNarrowable;
 
         if (curTypeVarMapping) {
@@ -13821,7 +13813,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (!typeVarMap.isLocked()) {
-            typeVarMap.setTypeVar(destType.details.name, updatedType, updatedTypeIsNarrowable);
+            typeVarMap.setTypeVar(destType, updatedType, updatedTypeIsNarrowable);
         }
 
         return true;
@@ -14238,15 +14230,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (isAnyOrUnknown(metaclass)) {
                         return true;
                     } else if (isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
-                        // Handle EnumMeta, which requires special-case handling because
-                        // of the way it's defined in enum.pyi. The type var _T must be
-                        // manually set to the corresponding enum object type.
-                        if (typeVarMap && ClassType.isBuiltIn(metaclass, 'EnumMeta')) {
-                            if (!typeVarMap.isLocked()) {
-                                typeVarMap.setTypeVar('_T', ObjectType.create(srcType), false);
-                            }
-                        }
-
                         return canAssignClass(
                             destClassType,
                             metaclass,
@@ -14764,7 +14747,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // Are we assigning to a function with a ParamSpec?
             if (destType.details.paramSpec && typeVarMap && !typeVarMap.isLocked()) {
                 typeVarMap.setParamSpec(
-                    destType.details.paramSpec.details.name,
+                    destType.details.paramSpec,
                     srcType.details.parameters
                         .map((p, index) => {
                             const paramSpecEntry: ParamSpecEntry = {

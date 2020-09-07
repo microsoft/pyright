@@ -10,7 +10,7 @@
  */
 
 import { assert } from '../common/debug';
-import { ClassType, maxTypeRecursionCount, ParamSpecEntry, Type, TypeCategory } from './types';
+import { ClassType, maxTypeRecursionCount, ParamSpecEntry, Type, TypeCategory, TypeVarType } from './types';
 
 export class TypeVarMap {
     private _typeVarMap: Map<string, Type>;
@@ -27,12 +27,12 @@ export class TypeVarMap {
     clone() {
         const newTypeVarMap = new TypeVarMap();
 
-        this._typeVarMap.forEach((value, name) => {
-            newTypeVarMap.setTypeVar(name, value, this.isNarrowable(name));
+        this._typeVarMap.forEach((value, key) => {
+            newTypeVarMap._setTypeVarByKey(key, value, this._isNarrowableByKey(key));
         });
 
-        this._paramSpecMap.forEach((value, name) => {
-            newTypeVarMap.setParamSpec(name, value);
+        this._paramSpecMap.forEach((value, key) => {
+            newTypeVarMap._setParamSpecByKey(key, value);
         });
 
         newTypeVarMap._isLocked = this._isLocked;
@@ -69,42 +69,42 @@ export class TypeVarMap {
         return score;
     }
 
-    hasTypeVar(name: string): boolean {
-        return this._typeVarMap.has(name);
+    hasTypeVar(reference: TypeVarType): boolean {
+        return this._typeVarMap.has(this._getKey(reference));
     }
 
-    getTypeVar(name: string): Type | undefined {
-        return this._typeVarMap.get(name);
+    getTypeVar(reference: TypeVarType): Type | undefined {
+        return this._typeVarMap.get(this._getKey(reference));
     }
 
-    setTypeVar(name: string, type: Type, isNarrowable: boolean) {
+    setTypeVar(reference: TypeVarType, type: Type, isNarrowable: boolean) {
         assert(!this._isLocked);
-        this._typeVarMap.set(name, type);
-        this._isNarrowableMap.set(name, isNarrowable);
+        const key = this._getKey(reference);
+        this._setTypeVarByKey(key, type, isNarrowable);
     }
 
-    hasParamSpec(name: string): boolean {
-        return this._paramSpecMap.has(name);
+    hasParamSpec(reference: TypeVarType): boolean {
+        return this._paramSpecMap.has(this._getKey(reference));
     }
 
-    getParamSpec(name: string): ParamSpecEntry[] | undefined {
-        return this._paramSpecMap.get(name);
+    getParamSpec(reference: TypeVarType): ParamSpecEntry[] | undefined {
+        return this._paramSpecMap.get(this._getKey(reference));
     }
 
-    setParamSpec(name: string, type: ParamSpecEntry[]) {
+    setParamSpec(reference: TypeVarType, type: ParamSpecEntry[]) {
         assert(!this._isLocked);
-        this._paramSpecMap.set(name, type);
+        const key = this._getKey(reference);
+        this._setParamSpecByKey(key, type);
     }
 
     typeVarCount() {
         return this._typeVarMap.size;
     }
 
-    isNarrowable(name: string): boolean {
-        const isNarrowable = this._isNarrowableMap.get(name);
+    isNarrowable(reference: TypeVarType): boolean {
+        const key = this._getKey(reference);
 
-        // Unless told otherwise, assume type is narrowable.
-        return isNarrowable !== undefined ? isNarrowable : true;
+        return this._isNarrowableByKey(key);
     }
 
     lock() {
@@ -115,6 +115,26 @@ export class TypeVarMap {
 
     isLocked(): boolean {
         return this._isLocked;
+    }
+
+    private _getKey(reference: TypeVarType) {
+        return reference.scopeId || reference.details.name;
+    }
+
+    private _setTypeVarByKey(key: string, type: Type, isNarrowable: boolean) {
+        this._typeVarMap.set(key, type);
+        this._isNarrowableMap.set(key, isNarrowable);
+    }
+
+    private _setParamSpecByKey(key: string, type: ParamSpecEntry[]) {
+        this._paramSpecMap.set(key, type);
+    }
+
+    private _isNarrowableByKey(key: string) {
+        const isNarrowable = this._isNarrowableMap.get(key);
+
+        // Unless told otherwise, assume type is narrowable.
+        return isNarrowable !== undefined ? isNarrowable : true;
     }
 
     // Returns a "score" for a type that captures the relative complexity

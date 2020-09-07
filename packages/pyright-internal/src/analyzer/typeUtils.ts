@@ -585,7 +585,7 @@ export function specializeType(
 
     if (isTypeVar(type)) {
         if (typeVarMap) {
-            const replacementType = typeVarMap.getTypeVar(type.details.name);
+            const replacementType = typeVarMap.getTypeVar(type);
             if (replacementType) {
                 // If we're replacing a TypeVar with another type and the
                 // original is not an instance, convert the replacement so it's also
@@ -628,7 +628,7 @@ export function specializeType(
                     return specializeType(firstTypeArg.classType, typeVarMap, makeConcrete, recursionLevel + 1);
                 } else if (isTypeVar(firstTypeArg)) {
                     if (typeVarMap) {
-                        const replacementType = typeVarMap.getTypeVar(firstTypeArg.details.name);
+                        const replacementType = typeVarMap.getTypeVar(firstTypeArg);
                         if (replacementType && isObject(replacementType)) {
                             return replacementType.classType;
                         }
@@ -946,8 +946,8 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
             break;
 
         case TypeCategory.TypeVar:
-            if (!typeVarMap.hasTypeVar(destType.details.name)) {
-                typeVarMap.setTypeVar(destType.details.name, srcType, typeVarMap.isNarrowable(destType.details.name));
+            if (!typeVarMap.hasTypeVar(destType)) {
+                typeVarMap.setTypeVar(destType, srcType, typeVarMap.isNarrowable(destType));
             }
             break;
     }
@@ -974,7 +974,6 @@ export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeCo
 export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] | undefined): TypeVarMap {
     const typeVarMap = new TypeVarMap();
     typeParameters.forEach((typeParam, index) => {
-        const typeVarName = typeParam.details.name;
         let typeArgType: Type;
 
         if (typeArgs) {
@@ -987,7 +986,7 @@ export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] 
             typeArgType = getConcreteTypeFromTypeVar(typeParam);
         }
 
-        typeVarMap.setTypeVar(typeVarName, typeArgType, false);
+        typeVarMap.setTypeVar(typeParam, typeArgType, false);
     });
 
     return typeVarMap;
@@ -1369,10 +1368,10 @@ function _specializeClassType(
         ClassType.getTypeParameters(classType).forEach((typeParam) => {
             let typeArgType: Type;
 
-            if (typeVarMap && typeVarMap.getTypeVar(typeParam.details.name)) {
+            if (typeVarMap && typeVarMap.hasTypeVar(typeParam)) {
                 // If the type var map already contains this type var, use
                 // the existing type.
-                typeArgType = typeVarMap.getTypeVar(typeParam.details.name)!;
+                typeArgType = typeVarMap.getTypeVar(typeParam)!;
                 specializationNeeded = true;
             } else {
                 // If the type var map wasn't provided or doesn't contain this
@@ -1439,7 +1438,7 @@ function _specializeFunctionType(
 
     // Handle functions with a parameter specification in a special manner.
     if (functionType.details.paramSpec) {
-        let paramSpec = typeVarMap?.getParamSpec(functionType.details.paramSpec.details.name);
+        let paramSpec = typeVarMap?.getParamSpec(functionType.details.paramSpec);
         if (!paramSpec && makeConcrete) {
             paramSpec = [
                 { name: 'args', type: AnyType.create() },
