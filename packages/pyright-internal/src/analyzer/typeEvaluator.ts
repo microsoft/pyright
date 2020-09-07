@@ -166,6 +166,7 @@ import {
     ClassMemberLookupFlags,
     computeMroLinearization,
     convertToInstance,
+    convertToInstantiable,
     derivesFromClassRecursive,
     doForSubtypes,
     enumerateLiteralsForType,
@@ -198,7 +199,6 @@ import {
     stripLiteralTypeArgsValue,
     stripLiteralValue,
     transformTypeObjectToClass,
-    convertToInstantiable,
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 
