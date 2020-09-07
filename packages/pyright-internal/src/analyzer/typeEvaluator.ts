@@ -311,7 +311,7 @@ export const enum EvaluatorFlags {
     // TypeVars within this expression that are otherwise not
     // associated with an outer scope should be associated with
     // the containing function's scope.
-    AssociateTypeVarsWithFunction = 1 << 15,
+    AssociateTypeVarsWithCurrentScope = 1 << 15,
 }
 
 interface EvaluatorUsage {
@@ -1015,11 +1015,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return fileInfo.futureImports.get('annotations') !== undefined || fileInfo.isStubFile;
     }
 
-    function getTypeOfAnnotation(
-        node: ExpressionNode,
-        allowFinal = false,
-        associateTypeVarsWithFunction = false
-    ): Type {
+    function getTypeOfAnnotation(node: ExpressionNode, allowFinal = false, associateTypeVarsWithScope = false): Type {
         const fileInfo = getFileInfo(node);
 
         // Special-case the typing.pyi file, which contains some special
@@ -1042,8 +1038,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
         }
 
-        if (associateTypeVarsWithFunction) {
-            evaluatorFlags |= EvaluatorFlags.AssociateTypeVarsWithFunction;
+        if (associateTypeVarsWithScope) {
+            evaluatorFlags |= EvaluatorFlags.AssociateTypeVarsWithCurrentScope;
         } else {
             evaluatorFlags |= EvaluatorFlags.DisallowTypeVarsWithoutScopeId;
         }
@@ -3174,8 +3170,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // defined by an enclosing scope (either a class or function).
         if (isTypeVar(type) && TypeBase.isInstantiable(type)) {
             type = findScopedTypeVar(node, type);
-            if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0) {
-                if (type.scopeId && !type.details.isSynthesized && !type.details.isParamSpec) {
+            if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0 && type.scopeId) {
+                if (!type.details.isSynthesized && !type.details.isParamSpec) {
                     addDiagnostic(
                         getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -3183,13 +3179,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         node
                     );
                 }
-            } else if ((flags & EvaluatorFlags.AssociateTypeVarsWithFunction) !== 0) {
+            } else if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
                 if (!type.scopeId) {
-                    const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
-                    if (enclosingFunction) {
-                        type = TypeVarType.cloneForScopeId(type, enclosingFunction.id);
+                    const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
+                    if (enclosingScope) {
+                        type = TypeVarType.cloneForScopeId(type, enclosingScope.id);
                     } else {
-                        fail('AssociateTypeVarsWithFunction flag was set but enclosing function not found');
+                        fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
                     }
                 }
             } else if ((flags & EvaluatorFlags.DisallowTypeVarsWithoutScopeId) !== 0) {
@@ -8646,7 +8642,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 let exprFlags =
                     EvaluatorFlags.ExpectingType |
                     EvaluatorFlags.GenericClassTypeAllowed |
-                    EvaluatorFlags.DisallowTypeVarsWithScopeId;
+                    EvaluatorFlags.DisallowTypeVarsWithScopeId |
+                    EvaluatorFlags.AssociateTypeVarsWithCurrentScope;
                 if (fileInfo.isStubFile) {
                     exprFlags |= EvaluatorFlags.AllowForwardReferences;
                 }
@@ -8807,9 +8804,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // TODO - if genericTypeParameters are provided, make sure that
         // typeParameters is a proper subset.
-        classType.details.typeParameters = (genericTypeParameters || typeParameters).map((typeVar) =>
-            TypeVarType.cloneForScopeId(typeVar, node.id)
-        );
+        classType.details.typeParameters = genericTypeParameters || typeParameters;
 
         if (!computeMroLinearization(classType)) {
             addError(Localizer.Diagnostic.methodOrdering(), node.name);
@@ -9156,7 +9151,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 annotatedType = getTypeOfAnnotation(
                     paramTypeNode,
                     /* allowFinal */ false,
-                    /* associateTypeVarsWithFunction */ true
+                    /* associateTypeVarsWithScope */ true
                 );
             }
 
@@ -9244,11 +9239,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         });
 
-        if (containingClassType) {
+        if (containingClassNode && containingClassType) {
             // If the first parameter doesn't have an explicit type annotation,
             // provide a type if it's an instance, class or constructor method.
             if (functionType.details.parameters.length > 0 && !node.parameters[0].typeAnnotation) {
-                const inferredParamType = inferFirstParamType(functionType.details.flags, containingClassType);
+                const inferredParamType = inferFirstParamType(
+                    functionType.details.flags,
+                    containingClassType,
+                    containingClassNode
+                );
                 if (inferredParamType) {
                     functionType.details.parameters[0].type = inferredParamType;
                     if (!isAnyOrUnknown(inferredParamType)) {
@@ -9281,7 +9280,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const returnType = getTypeOfAnnotation(
                 node.returnTypeAnnotation,
                 /* allowFinal */ false,
-                /* associateTypeVarsWithFunction */ true
+                /* associateTypeVarsWithScope */ true
             );
             functionType.details.declaredReturnType = returnType;
         } else if (node.functionAnnotationComment) {
@@ -9291,7 +9290,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             const returnType = getTypeOfAnnotation(
                 node.functionAnnotationComment.returnTypeAnnotation,
                 /* allowFinal */ false,
-                /* associateTypeVarsWithFunction */ true
+                /* associateTypeVarsWithScope */ true
             );
             functionType.details.declaredReturnType = returnType;
         } else {
@@ -9348,7 +9347,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return { functionType, decoratedType };
     }
 
-    function inferFirstParamType(flags: FunctionTypeFlags, containingClassType: ClassType): Type | undefined {
+    function inferFirstParamType(
+        flags: FunctionTypeFlags,
+        containingClassType: ClassType,
+        containingClassNode: ClassNode
+    ): Type | undefined {
         if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
             if (containingClassType) {
                 if (ClassType.isProtocolClass(containingClassType)) {
@@ -9368,6 +9371,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         /* isParamSpec */ false,
                         /* isSynthesized */ true
                     );
+                    clsType.scopeId = TypeVarType.makeScopeId(clsType.details.name, containingClassNode.id);
                     clsType.details.boundType = selfSpecializeClassType(
                         containingClassType,
                         /* setSkipAbstractClassTest */ true
@@ -9379,6 +9383,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         /* isParamSpec */ false,
                         /* isSynthesized */ true
                     );
+                    selfType.scopeId = TypeVarType.makeScopeId(selfType.details.name, containingClassNode.id);
                     selfType.details.boundType = ObjectType.create(
                         selfSpecializeClassType(containingClassType, /* setSkipAbstractClassTest */ true)
                     );
@@ -10581,11 +10586,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 transformVariadicParamType(
                     node,
                     node.category,
-                    getTypeOfAnnotation(
-                        typeAnnotation,
-                        /* allowFinal */ false,
-                        /* associateTypeVarsWithFunction */ true
-                    )
+                    getTypeOfAnnotation(typeAnnotation, /* allowFinal */ false, /* associateTypeVarsWithScope */ true)
                 )
             );
             return;
@@ -10600,7 +10601,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const functionFlags = getFunctionFlagsFromDecorators(functionNode, true);
                     // If the first parameter doesn't have an explicit type annotation,
                     // provide a type if it's an instance, class or constructor method.
-                    const inferredParamType = inferFirstParamType(functionFlags, classInfo.classType);
+                    const inferredParamType = inferFirstParamType(
+                        functionFlags,
+                        classInfo.classType,
+                        containingClassNode
+                    );
                     writeTypeCache(node.name!, inferredParamType || UnknownType.create());
                     return;
                 }
@@ -12605,7 +12610,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     const declaredType = getTypeOfAnnotation(
                         typeAnnotationNode,
                         /* allowFinal */ false,
-                        /* associateTypeVarsWithFunction */ true
+                        /* associateTypeVarsWithScope */ true
                     );
                     return transformVariadicParamType(declaration.node, declaration.node.category, declaredType);
                 }

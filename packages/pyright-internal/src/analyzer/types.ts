@@ -1265,8 +1265,12 @@ export namespace TypeVarType {
 
     export function cloneForScopeId(type: TypeVarType, nodeId: number) {
         const newInstance: TypeVarType = { ...type };
-        newInstance.scopeId = `${type.details.name}.${nodeId.toString()}`;
+        newInstance.scopeId = makeScopeId(type.details.name, nodeId);
         return newInstance;
+    }
+
+    export function makeScopeId(name: string, nodeId: number) {
+        return `${name}.${nodeId.toString()}`;
     }
 
     function create(name: string, isParamSpec: boolean, isSynthesized: boolean, typeFlags: TypeFlags) {
