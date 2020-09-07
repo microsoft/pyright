@@ -12,27 +12,37 @@
 import { assert } from '../common/debug';
 import { ClassType, maxTypeRecursionCount, ParamSpecEntry, Type, TypeCategory, TypeVarType } from './types';
 
+export interface TypeVarMapEntry {
+    typeVar: TypeVarType;
+    type: Type;
+}
+
+export interface ParamSpecMapEntry {
+    paramSpec: TypeVarType;
+    type: ParamSpecEntry[];
+}
+
 export class TypeVarMap {
-    private _typeVarMap: Map<string, Type>;
-    private _paramSpecMap: Map<string, ParamSpecEntry[]>;
+    private _typeVarMap: Map<string, TypeVarMapEntry>;
+    private _paramSpecMap: Map<string, ParamSpecMapEntry>;
     private _isNarrowableMap: Map<string, boolean>;
     private _isLocked = false;
 
     constructor() {
-        this._typeVarMap = new Map<string, Type>();
-        this._paramSpecMap = new Map<string, ParamSpecEntry[]>();
+        this._typeVarMap = new Map<string, TypeVarMapEntry>();
+        this._paramSpecMap = new Map<string, ParamSpecMapEntry>();
         this._isNarrowableMap = new Map<string, boolean>();
     }
 
     clone() {
         const newTypeVarMap = new TypeVarMap();
 
-        this._typeVarMap.forEach((value, key) => {
-            newTypeVarMap._setTypeVarByKey(key, value, this._isNarrowableByKey(key));
+        this._typeVarMap.forEach((value) => {
+            newTypeVarMap.setTypeVar(value.typeVar, value.type, this.isNarrowable(value.typeVar));
         });
 
-        this._paramSpecMap.forEach((value, key) => {
-            newTypeVarMap._setParamSpecByKey(key, value);
+        this._paramSpecMap.forEach((value) => {
+            newTypeVarMap.setParamSpec(value.paramSpec, value.type);
         });
 
         newTypeVarMap._isLocked = this._isLocked;
@@ -61,7 +71,7 @@ export class TypeVarMap {
             // Add a fractional amount based on the complexity of the definition.
             // The more complex, the lower the score. In the spirit of Occam's
             // Razor, we always want to favor simple answers.
-            score += this._getComplexityScoreForType(value);
+            score += this._getComplexityScoreForType(value.type);
         });
 
         score += this._paramSpecMap.size;
@@ -74,13 +84,24 @@ export class TypeVarMap {
     }
 
     getTypeVar(reference: TypeVarType): Type | undefined {
-        return this._typeVarMap.get(this._getKey(reference));
+        return this._typeVarMap.get(this._getKey(reference))?.type;
     }
 
     setTypeVar(reference: TypeVarType, type: Type, isNarrowable: boolean) {
         assert(!this._isLocked);
         const key = this._getKey(reference);
-        this._setTypeVarByKey(key, type, isNarrowable);
+        this._typeVarMap.set(key, { typeVar: reference, type });
+        this._isNarrowableMap.set(key, isNarrowable);
+    }
+
+    getTypeVars(): TypeVarMapEntry[] {
+        const entries: TypeVarMapEntry[] = [];
+
+        this._typeVarMap.forEach((entry) => {
+            entries.push(entry);
+        });
+
+        return entries;
     }
 
     hasParamSpec(reference: TypeVarType): boolean {
@@ -88,13 +109,12 @@ export class TypeVarMap {
     }
 
     getParamSpec(reference: TypeVarType): ParamSpecEntry[] | undefined {
-        return this._paramSpecMap.get(this._getKey(reference));
+        return this._paramSpecMap.get(this._getKey(reference))?.type;
     }
 
     setParamSpec(reference: TypeVarType, type: ParamSpecEntry[]) {
         assert(!this._isLocked);
-        const key = this._getKey(reference);
-        this._setParamSpecByKey(key, type);
+        this._paramSpecMap.set(this._getKey(reference), { paramSpec: reference, type });
     }
 
     typeVarCount() {
@@ -119,15 +139,6 @@ export class TypeVarMap {
 
     private _getKey(reference: TypeVarType) {
         return reference.scopeId || reference.details.name;
-    }
-
-    private _setTypeVarByKey(key: string, type: Type, isNarrowable: boolean) {
-        this._typeVarMap.set(key, type);
-        this._isNarrowableMap.set(key, isNarrowable);
-    }
-
-    private _setParamSpecByKey(key: string, type: ParamSpecEntry[]) {
-        this._paramSpecMap.set(key, type);
     }
 
     private _isNarrowableByKey(key: string) {
