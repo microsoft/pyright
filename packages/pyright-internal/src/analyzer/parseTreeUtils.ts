@@ -632,6 +632,36 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
     return undefined!;
 }
 
+// Returns the parse node corresponding to the function or class that
+// contains the specified typeVar reference.
+export function getTypeVarScopeNode(node: ParseNode): EvaluationScopeNode {
+    let prevNode: ParseNode | undefined;
+    let curNode: ParseNode | undefined = node;
+
+    while (curNode) {
+        switch (curNode.nodeType) {
+            case ParseNodeType.Function: {
+                if (prevNode === curNode.suite) {
+                    return curNode;
+                }
+                break;
+            }
+
+            case ParseNodeType.Class: {
+                if (prevNode === curNode.suite) {
+                    return curNode;
+                }
+                break;
+            }
+        }
+
+        prevNode = curNode;
+        curNode = curNode.parent;
+    }
+
+    return undefined!;
+}
+
 // Returns the parse node corresponding to the scope that is used
 // for executing the code referenced in the specified node.
 export function getExecutionScopeNode(node: ParseNode): ExecutionScopeNode {

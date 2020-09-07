@@ -1214,9 +1214,7 @@ export namespace UnionType {
     }
 }
 
-export interface TypeVarType extends TypeBase {
-    category: TypeCategory.TypeVar;
-
+export interface TypeVarDetails {
     name: string;
     constraints: Type[];
     boundType?: Type;
@@ -1227,6 +1225,17 @@ export interface TypeVarType extends TypeBase {
     // Internally created (e.g. for pseudo-generic classes)
     isSynthesized: boolean;
     synthesizedIndex?: number;
+}
+
+export interface TypeVarType extends TypeBase {
+    category: TypeCategory.TypeVar;
+    details: TypeVarDetails;
+
+    // An id that uniquely identifies the scope in which this TypeVar is
+    // defined. Valid scopes include classes or functions. The scopeId
+    // is a string formatted as <name>.<nodeId> where nodeId is the
+    // parse node of a class or function declaration.
+    scopeId?: string;
 }
 
 export namespace TypeVarType {
@@ -1254,22 +1263,30 @@ export namespace TypeVarType {
         return newInstance;
     }
 
+    export function cloneForScopeId(type: TypeVarType, nodeId: number) {
+        const newInstance: TypeVarType = { ...type };
+        newInstance.scopeId = `${type.details.name}.${nodeId.toString()}`;
+        return newInstance;
+    }
+
     function create(name: string, isParamSpec: boolean, isSynthesized: boolean, typeFlags: TypeFlags) {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
-            name,
-            constraints: [],
-            isCovariant: false,
-            isContravariant: false,
-            isParamSpec,
-            isSynthesized,
+            details: {
+                name,
+                constraints: [],
+                isCovariant: false,
+                isContravariant: false,
+                isParamSpec,
+                isSynthesized,
+            },
             flags: typeFlags,
         };
         return newTypeVarType;
     }
 
     export function addConstraint(typeVarType: TypeVarType, constraintType: Type) {
-        typeVarType.constraints.push(constraintType);
+        typeVarType.details.constraints.push(constraintType);
     }
 }
 
@@ -1462,12 +1479,16 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
         case TypeCategory.TypeVar: {
             const type2TypeVar = type2 as TypeVarType;
 
-            if (type1.name !== type2TypeVar.name) {
+            if (type1.scopeId !== type2TypeVar.scopeId) {
                 return false;
             }
 
-            const boundType1 = type1.boundType;
-            const boundType2 = type2TypeVar.boundType;
+            if (type1.details.name !== type2TypeVar.details.name) {
+                return false;
+            }
+
+            const boundType1 = type1.details.boundType;
+            const boundType2 = type2TypeVar.details.boundType;
             if (boundType1) {
                 if (!boundType2 || !isTypeSame(boundType1, boundType2, recursionCount + 1)) {
                     return false;
@@ -1478,16 +1499,16 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 }
             }
 
-            if (type1.isContravariant !== type2TypeVar.isContravariant) {
+            if (type1.details.isContravariant !== type2TypeVar.details.isContravariant) {
                 return false;
             }
 
-            if (type1.isCovariant !== type2TypeVar.isCovariant) {
+            if (type1.details.isCovariant !== type2TypeVar.details.isCovariant) {
                 return false;
             }
 
-            const constraints1 = type1.constraints;
-            const constraints2 = type2TypeVar.constraints;
+            const constraints1 = type1.details.constraints;
+            const constraints2 = type2TypeVar.details.constraints;
             if (constraints1.length !== constraints2.length) {
                 return false;
             }

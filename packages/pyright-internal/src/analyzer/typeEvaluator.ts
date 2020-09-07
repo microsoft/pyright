@@ -198,6 +198,7 @@ import {
     stripLiteralTypeArgsValue,
     stripLiteralValue,
     transformTypeObjectToClass,
+    convertToInstantiable,
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 
@@ -298,6 +299,19 @@ export const enum EvaluatorFlags {
     // are cases where it is legitimate to leave off missing
     // type args, such as with the "bound" parameter in a TypeArg.
     AllowMissingTypeArgs = 1 << 12,
+
+    // TypeVars within this expression must not refer to type vars
+    // used in an outer scope that.
+    DisallowTypeVarsWithScopeId = 1 << 13,
+
+    // TypeVars within this expression must refer to type vars
+    // used in an outer scope that.
+    DisallowTypeVarsWithoutScopeId = 1 << 14,
+
+    // TypeVars within this expression that are otherwise not
+    // associated with an outer scope should be associated with
+    // the containing function's scope.
+    AssociateTypeVarsWithFunction = 1 << 15,
 }
 
 interface EvaluatorUsage {
@@ -431,7 +445,6 @@ export interface TypeEvaluator {
     getType: (node: ExpressionNode) => Type | undefined;
     getTypeOfClass: (node: ClassNode) => ClassTypeResult | undefined;
     getTypeOfFunction: (node: FunctionNode) => FunctionTypeResult | undefined;
-    getTypeOfAnnotation: (node: ExpressionNode, allowFinal?: boolean) => Type;
     evaluateTypesForStatement: (node: ParseNode) => void;
 
     getDeclaredTypeForExpression: (expression: ExpressionNode) => Type | undefined;
@@ -1002,7 +1015,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return fileInfo.futureImports.get('annotations') !== undefined || fileInfo.isStubFile;
     }
 
-    function getTypeOfAnnotation(node: ExpressionNode, allowFinal = false): Type {
+    function getTypeOfAnnotation(
+        node: ExpressionNode,
+        allowFinal = false,
+        associateTypeVarsWithFunction = false
+    ): Type {
         const fileInfo = getFileInfo(node);
 
         // Special-case the typing.pyi file, which contains some special
@@ -1023,6 +1040,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (isAnnotationEvaluationPostponed(fileInfo)) {
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+        }
+
+        if (associateTypeVarsWithFunction) {
+            evaluatorFlags |= EvaluatorFlags.AssociateTypeVarsWithFunction;
+        } else {
+            evaluatorFlags |= EvaluatorFlags.DisallowTypeVarsWithoutScopeId;
         }
 
         // If the annotation is part of a comment, allow forward references
@@ -2574,11 +2597,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     isClass(callType) &&
                     (ClassType.isBuiltIn(callType, 'TypeVar') || ClassType.isBuiltIn(callType, 'ParamSpec'))
                 ) {
-                    if (target.nodeType !== ParseNodeType.Name || target.value !== type.name) {
+                    if (target.nodeType !== ParseNodeType.Name || target.value !== type.details.name) {
                         addError(
-                            type.isParamSpec
-                                ? Localizer.Diagnostic.paramSpecAssignedName().format({ name: type.name })
-                                : Localizer.Diagnostic.typeVarAssignedName().format({ name: type.name }),
+                            type.details.isParamSpec
+                                ? Localizer.Diagnostic.paramSpecAssignedName().format({ name: type.details.name })
+                                : Localizer.Diagnostic.typeVarAssignedName().format({ name: type.details.name }),
                             target
                         );
                     }
@@ -3128,7 +3151,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             type = UnknownType.create();
         }
 
-        if (isTypeVar(type) && type.isParamSpec) {
+        if (isTypeVar(type) && type.details.isParamSpec) {
             if (flags & EvaluatorFlags.ParamSpecDisallowed) {
                 addError(Localizer.Diagnostic.paramSpecContext(), node);
             }
@@ -3147,7 +3170,90 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
+        // If this is a TypeVar, try to match it against a TypeVar
+        // defined by an enclosing scope (either a class or function).
+        if (isTypeVar(type) && TypeBase.isInstantiable(type)) {
+            type = findScopedTypeVar(node, type);
+            if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0) {
+                if (type.scopeId && !type.details.isSynthesized && !type.details.isParamSpec) {
+                    addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeVarUsedByOuterScope().format({ name: type.details.name }),
+                        node
+                    );
+                }
+            } else if ((flags & EvaluatorFlags.AssociateTypeVarsWithFunction) !== 0) {
+                if (!type.scopeId) {
+                    const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+                    if (enclosingFunction) {
+                        type = TypeVarType.cloneForScopeId(type, enclosingFunction.id);
+                    } else {
+                        fail('AssociateTypeVarsWithFunction flag was set but enclosing function not found');
+                    }
+                }
+            } else if ((flags & EvaluatorFlags.DisallowTypeVarsWithoutScopeId) !== 0) {
+                if (!type.scopeId && !type.details.isSynthesized && !type.details.isParamSpec) {
+                    addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeVarNotUsedByOuterScope().format({ name: type.details.name }),
+                        node
+                    );
+                }
+            }
+        }
+
         return { type, node, isResolutionCyclical };
+    }
+
+    // Walks up the parse tree to find a function or class that provides
+    // the context for a type variable.
+    function findScopedTypeVar(node: NameNode, type: TypeVarType): TypeVarType {
+        let curNode: ParseNode | undefined = node;
+
+        assert(TypeBase.isInstantiable(type));
+
+        while (curNode) {
+            curNode = ParseTreeUtils.getTypeVarScopeNode(curNode);
+            if (!curNode) {
+                break;
+            }
+
+            let typeVarsForScope: TypeVarType[] | undefined;
+
+            if (curNode.nodeType === ParseNodeType.Class) {
+                const classTypeInfo = getTypeOfClass(curNode);
+                if (classTypeInfo) {
+                    typeVarsForScope = classTypeInfo.classType.details.typeParameters;
+                }
+            } else if (curNode.nodeType === ParseNodeType.Function) {
+                const functionTypeInfo = getTypeOfFunction(curNode);
+                if (functionTypeInfo) {
+                    typeVarsForScope = [];
+                    functionTypeInfo.functionType.details.parameters.forEach((param) => {
+                        if (param.hasDeclaredType) {
+                            addTypeVarsToListIfUnique(typeVarsForScope!, getTypeVarArgumentsRecursive(param.type));
+                        }
+                    });
+                }
+            } else if (curNode.nodeType === ParseNodeType.Module) {
+                break;
+            }
+
+            if (typeVarsForScope) {
+                const match = typeVarsForScope.find((typeVar) => typeVar.details.name === type.details.name);
+
+                if (match) {
+                    return convertToInstantiable(match) as TypeVarType;
+                }
+            }
+
+            curNode = curNode.parent;
+        }
+
+        // Return the original type.
+        return type;
     }
 
     function getTypeFromMemberAccess(node: MemberAccessNode, flags: EvaluatorFlags): TypeResult {
@@ -3226,7 +3332,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case TypeCategory.TypeVar: {
-                if (baseType.isParamSpec) {
+                if (baseType.details.isParamSpec) {
                     if (memberName === 'args' || memberName === 'kwargs') {
                         return { type: AnyType.create(), node };
                     }
@@ -3824,7 +3930,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (baseType.typeAliasInfo && type !== baseType) {
                         const typeArgs: Type[] = [];
                         baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
-                            typeArgs.push(typeVarMap.getTypeVar(typeParam.name) || UnknownType.create());
+                            typeArgs.push(typeVarMap.getTypeVar(typeParam.details.name) || UnknownType.create());
                         });
 
                         type = TypeBase.cloneForTypeAlias(
@@ -5117,7 +5223,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // For each type param in the target type, create a placeholder type variable.
         const typeArgs = type.classType.details.typeParameters.map((_, index) => {
             const typeVar = TypeVarType.createInstance(`__${index}`, /* isParamSpec */ false, /* isSynthesized */ true);
-            typeVar.synthesizedIndex = index;
+            typeVar.details.synthesizedIndex = index;
             return typeVar;
         });
 
@@ -5129,19 +5235,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const syntheticTypeVarMap = new TypeVarMap();
         if (canAssignType(genericExpectedType, specializedType, new DiagnosticAddendum(), syntheticTypeVarMap)) {
             genericExpectedType.details.typeParameters.forEach((typeVar, index) => {
-                const synthTypeVar = syntheticTypeVarMap.getTypeVar(typeVar.name);
+                const synthTypeVar = syntheticTypeVarMap.getTypeVar(typeVar.details.name);
 
                 // Is this one of the synthesized type vars we allocated above? If so,
                 // the type arg that corresponds to this type var maps back to the target type.
                 if (
                     synthTypeVar &&
                     isTypeVar(synthTypeVar) &&
-                    synthTypeVar.isSynthesized &&
-                    synthTypeVar.synthesizedIndex !== undefined
+                    synthTypeVar.details.isSynthesized &&
+                    synthTypeVar.details.synthesizedIndex !== undefined
                 ) {
-                    const targetTypeVar = specializedType.details.typeParameters[synthTypeVar.synthesizedIndex];
+                    const targetTypeVar = specializedType.details.typeParameters[synthTypeVar.details.synthesizedIndex];
                     if (index < expectedTypeArgs.length) {
-                        typeVarMap.setTypeVar(targetTypeVar.name, expectedTypeArgs[index], /* isNarrowable */ false);
+                        typeVarMap.setTypeVar(
+                            targetTypeVar.details.name,
+                            expectedTypeArgs[index],
+                            /* isNarrowable */ false
+                        );
                     }
                 }
             });
@@ -5938,7 +6048,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 if (paramName === 'bound' && !isParamSpec) {
-                    if (typeVar.constraints.length > 0) {
+                    if (typeVar.details.constraints.length > 0) {
                         addError(
                             Localizer.Diagnostic.typeVarBoundAndConstrained(),
                             argList[i].valueExpression || errorNode
@@ -5952,22 +6062,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         if (requiresSpecialization(argType)) {
                             addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                         }
-                        typeVar.boundType = convertToInstance(argType);
+                        typeVar.details.boundType = convertToInstance(argType);
                     }
                 } else if (paramName === 'covariant' && !isParamSpec) {
                     if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
-                        if (typeVar.isContravariant) {
+                        if (typeVar.details.isContravariant) {
                             addError(Localizer.Diagnostic.typeVarVariance(), argList[i].valueExpression!);
                         } else {
-                            typeVar.isCovariant = true;
+                            typeVar.details.isCovariant = true;
                         }
                     }
                 } else if (paramName === 'contravariant' && !isParamSpec) {
                     if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
-                        if (typeVar.isContravariant) {
+                        if (typeVar.details.isContravariant) {
                             addError(Localizer.Diagnostic.typeVarVariance(), argList[i].valueExpression!);
                         } else {
-                            typeVar.isContravariant = true;
+                            typeVar.details.isContravariant = true;
                         }
                     }
                 } else {
@@ -5981,7 +6091,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 paramNameMap.set(paramName, paramName);
             } else if (!isParamSpec) {
-                if (typeVar.boundType) {
+                if (typeVar.details.boundType) {
                     addError(
                         Localizer.Diagnostic.typeVarBoundAndConstrained(),
                         argList[i].valueExpression || errorNode
@@ -6002,7 +6112,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        if (!isParamSpec && typeVar.constraints.length === 1 && firstConstraintArg) {
+        if (!isParamSpec && typeVar.details.constraints.length === 1 && firstConstraintArg) {
             addDiagnostic(
                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -8533,7 +8643,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         node.arguments.forEach((arg) => {
             // Ignore keyword parameters other than metaclass or total.
             if (!arg.name || arg.name.value === 'metaclass') {
-                let exprFlags = EvaluatorFlags.ExpectingType | EvaluatorFlags.GenericClassTypeAllowed;
+                let exprFlags =
+                    EvaluatorFlags.ExpectingType |
+                    EvaluatorFlags.GenericClassTypeAllowed |
+                    EvaluatorFlags.DisallowTypeVarsWithScopeId;
                 if (fileInfo.isStubFile) {
                     exprFlags |= EvaluatorFlags.AllowForwardReferences;
                 }
@@ -8692,11 +8805,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        // TODO - validate that we are not adding type parameters that
-        // are unique type vars but have conflicting names.
         // TODO - if genericTypeParameters are provided, make sure that
         // typeParameters is a proper subset.
-        classType.details.typeParameters = genericTypeParameters || typeParameters;
+        classType.details.typeParameters = (genericTypeParameters || typeParameters).map((typeVar) =>
+            TypeVarType.cloneForScopeId(typeVar, node.id)
+        );
 
         if (!computeMroLinearization(classType)) {
             addError(Localizer.Diagnostic.methodOrdering(), node.name);
@@ -8787,13 +8900,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                             // Create a type parameter for each simple, named parameter
                             // in the __init__ method.
-                            classType.details.typeParameters = genericParams.map((param) =>
-                                TypeVarType.createInstance(
+                            classType.details.typeParameters = genericParams.map((param) => {
+                                const typeVar = TypeVarType.createInstance(
                                     `__type_of_${param.name!.value}`,
                                     /* isParamSpec */ false,
                                     /* isSynthesized */ true
-                                )
-                            );
+                                );
+                                return TypeVarType.cloneForScopeId(typeVar, node.id);
+                            });
                         }
                     }
                 }
@@ -8989,36 +9103,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             ClassType.isPseudoGenericClass(containingClassType) &&
             node.name.value === '__init__';
 
-        // If there was a defined return type, analyze that first so when we
-        // walk the contents of the function, return statements can be
-        // validated against this type.
-        if (node.returnTypeAnnotation) {
-            // Temporarily set the return type to unknown in case of recursion.
-            functionType.details.declaredReturnType = UnknownType.create();
-
-            const returnType = getTypeOfAnnotation(node.returnTypeAnnotation);
-            functionType.details.declaredReturnType = returnType;
-        } else if (node.functionAnnotationComment) {
-            // Temporarily set the return type to unknown in case of recursion.
-            functionType.details.declaredReturnType = UnknownType.create();
-
-            const returnType = getTypeOfAnnotation(node.functionAnnotationComment.returnTypeAnnotation);
-            functionType.details.declaredReturnType = returnType;
-        } else {
-            // If there was no return type annotation and this is a type stub,
-            // we have no opportunity to infer the return type, so we'll indicate
-            // that it's unknown.
-            if (fileInfo.isStubFile) {
-                // Special-case the __init__ method, which is commonly left without
-                // an annotated return type, but we can assume it returns None.
-                if (node.name.value === '__init__') {
-                    functionType.details.declaredReturnType = NoneType.createInstance();
-                } else {
-                    functionType.details.declaredReturnType = UnknownType.create();
-                }
-            }
-        }
-
         const paramTypes: Type[] = [];
         let typeParamIndex = 0;
 
@@ -9050,6 +9134,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
+        const typeParameters: TypeVarType[] = [];
+
         node.parameters.forEach((param, index) => {
             let paramType: Type | undefined;
             let annotatedType: Type | undefined;
@@ -9067,7 +9153,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             if (paramTypeNode) {
-                annotatedType = getTypeOfAnnotation(paramTypeNode);
+                annotatedType = getTypeOfAnnotation(
+                    paramTypeNode,
+                    /* allowFinal */ false,
+                    /* associateTypeVarsWithFunction */ true
+                );
             }
 
             if (!annotatedType && addGenericParamTypes) {
@@ -9181,6 +9271,44 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         });
 
+        // If there was a defined return type, analyze that first so when we
+        // walk the contents of the function, return statements can be
+        // validated against this type.
+        if (node.returnTypeAnnotation) {
+            // Temporarily set the return type to unknown in case of recursion.
+            functionType.details.declaredReturnType = UnknownType.create();
+
+            const returnType = getTypeOfAnnotation(
+                node.returnTypeAnnotation,
+                /* allowFinal */ false,
+                /* associateTypeVarsWithFunction */ true
+            );
+            functionType.details.declaredReturnType = returnType;
+        } else if (node.functionAnnotationComment) {
+            // Temporarily set the return type to unknown in case of recursion.
+            functionType.details.declaredReturnType = UnknownType.create();
+
+            const returnType = getTypeOfAnnotation(
+                node.functionAnnotationComment.returnTypeAnnotation,
+                /* allowFinal */ false,
+                /* associateTypeVarsWithFunction */ true
+            );
+            functionType.details.declaredReturnType = returnType;
+        } else {
+            // If there was no return type annotation and this is a type stub,
+            // we have no opportunity to infer the return type, so we'll indicate
+            // that it's unknown.
+            if (fileInfo.isStubFile) {
+                // Special-case the __init__ method, which is commonly left without
+                // an annotated return type, but we can assume it returns None.
+                if (node.name.value === '__init__') {
+                    functionType.details.declaredReturnType = NoneType.createInstance();
+                } else {
+                    functionType.details.declaredReturnType = UnknownType.create();
+                }
+            }
+        }
+
         // If it's an async function, wrap the return type in an Awaitable or Generator.
         const preDecoratedType = node.isAsync ? createAsyncFunction(node, functionType) : functionType;
 
@@ -9240,7 +9368,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         /* isParamSpec */ false,
                         /* isSynthesized */ true
                     );
-                    clsType.boundType = selfSpecializeClassType(
+                    clsType.details.boundType = selfSpecializeClassType(
                         containingClassType,
                         /* setSkipAbstractClassTest */ true
                     );
@@ -9251,7 +9379,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         /* isParamSpec */ false,
                         /* isSynthesized */ true
                     );
-                    selfType.boundType = ObjectType.create(
+                    selfType.details.boundType = ObjectType.create(
                         selfSpecializeClassType(containingClassType, /* setSkipAbstractClassTest */ true)
                     );
                     return selfType;
@@ -10450,7 +10578,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (typeAnnotation) {
             writeTypeCache(
                 node.name!,
-                transformVariadicParamType(node, node.category, getTypeOfAnnotation(typeAnnotation))
+                transformVariadicParamType(
+                    node,
+                    node.category,
+                    getTypeOfAnnotation(
+                        typeAnnotation,
+                        /* allowFinal */ false,
+                        /* associateTypeVarsWithFunction */ true
+                    )
+                )
             );
             return;
         }
@@ -12005,7 +12141,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.typeVarAssignmentMismatch().format({
                             type: printType(typeArgType),
-                            name: typeParameters[index].name,
+                            name: typeParameters[index].details.name,
                         }) + diag.getString(),
                         typeArgs![index].node
                     );
@@ -12466,7 +12602,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 }
 
                 if (typeAnnotationNode) {
-                    const declaredType = getTypeOfAnnotation(typeAnnotationNode);
+                    const declaredType = getTypeOfAnnotation(
+                        typeAnnotationNode,
+                        /* allowFinal */ false,
+                        /* associateTypeVarsWithFunction */ true
+                    );
                     return transformVariadicParamType(declaration.node, declaration.node.category, declaredType);
                 }
 
@@ -13377,7 +13517,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
                 const typeArgType =
                     i < curSrcType.typeArguments.length ? curSrcType.typeArguments[i] : UnknownType.create();
-                typeVarMap.setTypeVar(destType.details.typeParameters[i].name, typeArgType, /* isNarrowable */ true);
+                typeVarMap.setTypeVar(
+                    destType.details.typeParameters[i].details.name,
+                    typeArgType,
+                    /* isNarrowable */ true
+                );
             }
         }
 
@@ -13430,7 +13574,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         destArgIndex < destTypeParams.length ? destTypeParams[destArgIndex] : undefined;
                     const assignmentDiag = new DiagnosticAddendum();
 
-                    if (!destTypeParam || destTypeParam.isCovariant) {
+                    if (!destTypeParam || destTypeParam.details.isCovariant) {
                         if (
                             !canAssignType(
                                 destTypeArg,
@@ -13445,14 +13589,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                 const childDiag = diag.createAddendum();
                                 childDiag.addMessage(
                                     Localizer.DiagnosticAddendum.typeVarIsCovariant().format({
-                                        name: destTypeParam.name,
+                                        name: destTypeParam.details.name,
                                     })
                                 );
                                 childDiag.addAddendum(assignmentDiag);
                             }
                             return false;
                         }
-                    } else if (destTypeParam.isContravariant) {
+                    } else if (destTypeParam.details.isContravariant) {
                         if (
                             !canAssignType(
                                 srcTypeArg,
@@ -13466,7 +13610,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             const childDiag = diag.createAddendum();
                             childDiag.addMessage(
                                 Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
-                                    name: destTypeParam.name,
+                                    name: destTypeParam.details.name,
                                 })
                             );
                             childDiag.addAddendum(assignmentDiag);
@@ -13486,7 +13630,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                             const childDiag = diag.createAddendum();
                             childDiag.addMessage(
                                 Localizer.DiagnosticAddendum.typeVarIsInvariant().format({
-                                    name: destTypeParam.name,
+                                    name: destTypeParam.details.name,
                                 })
                             );
                             childDiag.addAddendum(assignmentDiag);
@@ -13515,22 +13659,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         flags = CanAssignFlags.Default,
         recursionCount = 0
     ): boolean {
-        const curTypeVarMapping = typeVarMap.getTypeVar(destType.name);
+        const curTypeVarMapping = typeVarMap.getTypeVar(destType.details.name);
 
-        if (destType.isParamSpec) {
+        if (destType.details.isParamSpec) {
             diag.addMessage(
                 Localizer.DiagnosticAddendum.typeParamSpec().format({
                     type: printType(srcType),
-                    name: destType.name,
+                    name: destType.details.name,
                 })
             );
             return false;
         }
 
         // Handle the constrained case.
-        if (destType.constraints.length > 0) {
+        if (destType.details.constraints.length > 0) {
             // Find the first constrained type that is compatible.
-            const constrainedType = destType.constraints.find((constraintType) => {
+            const constrainedType = destType.details.constraints.find((constraintType) => {
                 return canAssignType(constraintType, srcType, new DiagnosticAddendum());
             });
 
@@ -13538,13 +13682,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 diag.addMessage(
                     Localizer.DiagnosticAddendum.typeConstraint().format({
                         type: printType(srcType),
-                        name: destType.name,
+                        name: destType.details.name,
                     })
                 );
                 return false;
             }
 
-            const isSrcTypeVar = isTypeVar(srcType) && !srcType.isSynthesized;
+            const isSrcTypeVar = isTypeVar(srcType) && !srcType.details.isSynthesized;
             if (curTypeVarMapping && !isAnyOrUnknown(curTypeVarMapping) && !isSrcTypeVar) {
                 if (!isTypeSame(curTypeVarMapping, constrainedType)) {
                     diag.addMessage(
@@ -13559,7 +13703,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Assign the type to the type var. If the source is a TypeVar, don't
                 // specialize it to one of the constrained types. Leave it generic.
                 if (!typeVarMap.isLocked()) {
-                    typeVarMap.setTypeVar(destType.name, isSrcTypeVar ? srcType : constrainedType, false);
+                    typeVarMap.setTypeVar(destType.details.name, isSrcTypeVar ? srcType : constrainedType, false);
                 }
             }
 
@@ -13568,7 +13712,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // Handle the unconstrained (but possibly bound) case.
         let updatedType = srcType;
-        const curTypeIsNarrowable = typeVarMap.isNarrowable(destType.name) && !typeVarMap.isLocked();
+        const curTypeIsNarrowable = typeVarMap.isNarrowable(destType.details.name) && !typeVarMap.isLocked();
         const updatedTypeIsNarrowable = canNarrowType && curTypeIsNarrowable;
 
         if (curTypeVarMapping) {
@@ -13645,10 +13789,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         // If there's a bound type, make sure the source is derived from it.
-        if (destType.boundType) {
+        if (destType.details.boundType) {
             if (
                 !canAssignType(
-                    destType.boundType,
+                    destType.details.boundType,
                     updatedType,
                     diag.createAddendum(),
                     undefined,
@@ -13658,12 +13802,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             ) {
                 // Avoid adding a message that will confuse users if the TypeVar was
                 // synthesized for internal purposes.
-                if (!destType.isSynthesized) {
+                if (!destType.details.isSynthesized) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeBound().format({
                             sourceType: printType(updatedType),
-                            destType: printType(destType.boundType),
-                            name: destType.name,
+                            destType: printType(destType.details.boundType),
+                            name: destType.details.name,
                         })
                     );
                 }
@@ -13672,7 +13816,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         if (!typeVarMap.isLocked()) {
-            typeVarMap.setTypeVar(destType.name, updatedType, updatedTypeIsNarrowable);
+            typeVarMap.setTypeVar(destType.details.name, updatedType, updatedTypeIsNarrowable);
         }
 
         return true;
@@ -13715,7 +13859,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // TypeVar that we are attempting to match.
         if (isTypeVar(destType)) {
             if (flags & CanAssignFlags.MatchTypeVarsExactly) {
-                if (isTypeVar(srcType) && destType.name === srcType.name) {
+                if (isTypeVar(srcType) && destType.details.name === srcType.details.name) {
                     return true;
                 }
             } else if (!reverseTypeVarMatching) {
@@ -13745,7 +13889,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         if (isTypeVar(srcType)) {
             if (flags & CanAssignFlags.MatchTypeVarsExactly) {
-                if (isTypeVar(destType) && destType.name === srcType.name) {
+                if (isTypeVar(destType) && destType.details.name === srcType.details.name) {
                     return true;
                 }
 
@@ -14615,7 +14759,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // Are we assigning to a function with a ParamSpec?
             if (destType.details.paramSpec && typeVarMap && !typeVarMap.isLocked()) {
                 typeVarMap.setParamSpec(
-                    destType.details.paramSpec.name,
+                    destType.details.paramSpec.details.name,
                     srcType.details.parameters
                         .map((p, index) => {
                             const paramSpecEntry: ParamSpecEntry = {
@@ -14739,8 +14883,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 const baseParamType = FunctionType.getEffectiveParameterType(baseMethod, i);
                 const overrideParamType = FunctionType.getEffectiveParameterType(overrideMethod, i);
 
-                const baseIsSynthesizedTypeVar = isTypeVar(baseParamType) && baseParamType.isSynthesized;
-                const overrideIsSynthesizedTypeVar = isTypeVar(overrideParamType) && overrideParamType.isSynthesized;
+                const baseIsSynthesizedTypeVar = isTypeVar(baseParamType) && baseParamType.details.isSynthesized;
+                const overrideIsSynthesizedTypeVar =
+                    isTypeVar(overrideParamType) && overrideParamType.details.isSynthesized;
                 if (!baseIsSynthesizedTypeVar && !overrideIsSynthesizedTypeVar) {
                     if (
                         baseParam.category !== overrideParam.category ||
@@ -14799,31 +14944,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return true;
             }
 
-            if (srcType.boundType) {
+            if (srcType.details.boundType) {
                 // If the source type is a type var itself and has a bound type,
                 // convert it to that bound type.
                 effectiveSrcType = getConcreteTypeFromTypeVar(srcType, recursionCount + 1);
-            } else if (srcType.constraints) {
-                effectiveSrcType = combineTypes(srcType.constraints);
+            } else if (srcType.details.constraints) {
+                effectiveSrcType = combineTypes(srcType.details.constraints);
             } else {
                 effectiveSrcType = AnyType.create();
             }
         }
 
         // If there's a bound type, make sure the source is derived from it.
-        const boundType = destType.boundType;
+        const boundType = destType.details.boundType;
         if (boundType) {
             if (
                 !canAssignType(boundType, effectiveSrcType, diag.createAddendum(), undefined, flags, recursionCount + 1)
             ) {
                 // Avoid adding a message that will confuse users if the TypeVar was
                 // synthesized for internal purposes.
-                if (!destType.isSynthesized) {
+                if (!destType.details.isSynthesized) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeBound().format({
                             sourceType: printType(effectiveSrcType),
                             destType: printType(boundType),
-                            name: destType.name,
+                            name: destType.details.name,
                         })
                     );
                 }
@@ -14832,7 +14977,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         // If there are no constraints, we're done.
-        const constraints = destType.constraints;
+        const constraints = destType.details.constraints;
         if (constraints.length === 0) {
             return true;
         }
@@ -14854,7 +14999,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         diag.addMessage(
             Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
                 type: printType(effectiveSrcType),
-                name: destType.name,
+                name: destType.details.name,
             })
         );
 
@@ -15362,11 +15507,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (type.details.parameters.length > 0) {
                         // Remove the args and kwargs parameters from the end.
                         const paramTypes = type.details.parameters.map((param) => printType(param.type));
-                        return `Callable[Concatenate[${paramTypes.join(', ')}, ${type.details.paramSpec.name}], ${
-                            parts[1]
-                        }]`;
+                        return `Callable[Concatenate[${paramTypes.join(', ')}, ${
+                            type.details.paramSpec.details.name
+                        }], ${parts[1]}]`;
                     }
-                    return `Callable[${type.details.paramSpec.name}, ${parts[1]}]`;
+                    return `Callable[${type.details.paramSpec.details.name}, ${parts[1]}]`;
                 }
                 return `(${parts[0].join(', ')}) -> ${parts[1]}`;
             }
@@ -15487,19 +15632,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // This will confuse users. The exception is if it's a bound synthesized
                 // type, in which case we'll print the bound type. This is used for
                 // "self" and "cls" parameters.
-                if (type.isSynthesized) {
-                    if (type.boundType) {
-                        return printType(type.boundType, /* expandTypeAlias */ false, recursionCount + 1);
+                if (type.details.isSynthesized) {
+                    if (type.details.boundType) {
+                        return printType(type.details.boundType, /* expandTypeAlias */ false, recursionCount + 1);
                     }
 
                     return (printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0 ? 'Any' : 'Unknown';
                 }
 
-                if (type.isParamSpec) {
-                    return `ParamSpec('${type.name}')`;
+                if (type.details.isParamSpec) {
+                    return `ParamSpec('${type.details.name}')`;
                 }
 
-                return `TypeVar('${type.name}')`;
+                return `TypeVar('${type.details.name}')`;
             }
 
             case TypeCategory.None: {
@@ -15564,7 +15709,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         getType,
         getTypeOfClass,
         getTypeOfFunction,
-        getTypeOfAnnotation,
         evaluateTypesForStatement,
         getDeclaredTypeForExpression,
         verifyRaiseExceptionType,

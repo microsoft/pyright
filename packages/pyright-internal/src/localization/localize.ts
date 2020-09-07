@@ -590,9 +590,13 @@ export namespace Localizer {
         export const typeVarBoundAndConstrained = () => getRawString('Diagnostic.typeVarBoundAndConstrained');
         export const typeVarFirstArg = () => getRawString('Diagnostic.typeVarFirstArg');
         export const typeVarGeneric = () => getRawString('Diagnostic.typeVarGeneric');
+        export const typeVarNotUsedByOuterScope = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarNotUsedByOuterScope'));
         export const typeVarSingleConstraint = () => getRawString('Diagnostic.typeVarSingleConstraint');
         export const typeVarUnknownParam = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarUnknownParam'));
+        export const typeVarUsedByOuterScope = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarUsedByOuterScope'));
         export const typeVarVariance = () => getRawString('Diagnostic.typeVarVariance');
         export const unaccessedClass = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.unaccessedClass'));
