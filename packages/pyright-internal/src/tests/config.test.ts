@@ -15,6 +15,7 @@ import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { NullConsole } from '../common/console';
 import { createFromRealFileSystem } from '../common/fileSystem';
 import { combinePaths, getBaseFileName, normalizePath, normalizeSlashes } from '../common/pathUtils';
+import { latestStablePythonVersion } from '../common/pythonVersion';
 
 test('FindFilesWithConfigFile', () => {
     const cwd = normalizePath(process.cwd());
@@ -199,7 +200,7 @@ test('AutoSearchPathsOn', () => {
     const expectedExecEnvs = [
         {
             pythonPlatform: undefined,
-            pythonVersion: 776,
+            pythonVersion: latestStablePythonVersion,
             root: cwd,
             extraPaths: [normalizePath(combinePaths(cwd, 'src'))],
         },
@@ -275,7 +276,7 @@ test('AutoSearchPathsOnAndExtraPaths', () => {
     const expectedExecEnvs = [
         {
             pythonPlatform: undefined,
-            pythonVersion: 776,
+            pythonVersion: latestStablePythonVersion,
             root: cwd,
             extraPaths: [normalizePath(combinePaths(cwd, 'src')), normalizePath(combinePaths(cwd, 'src', '_vendored'))],
         },
