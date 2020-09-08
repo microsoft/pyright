@@ -310,6 +310,13 @@ export interface ClassType extends TypeBase {
     // some or all of the type parameters.
     typeArguments?: Type[];
 
+    // For a few classes (e.g., Tuple and tuple), the class definition
+    // calls for a single type parameter but the spec allows the programmer
+    // to provide variadic type arguments. To make these compatible, we need
+    // to derive a single effective type argument from the provided type
+    // arguments.
+    effectiveTypeArguments?: Type[];
+
     // If type arguments are present, were they explicit (i.e.
     // provided explicitly in the code)?
     isTypeArgumentExplicit?: boolean;
@@ -359,7 +366,8 @@ export namespace ClassType {
         classType: ClassType,
         typeArguments: Type[] | undefined,
         isTypeArgumentExplicit: boolean,
-        skipAbstractClassTest = false
+        skipAbstractClassTest = false,
+        effectiveTypeArguments?: Type[]
     ): ClassType {
         const newClassType = create(
             classType.details.name,
@@ -372,8 +380,13 @@ export namespace ClassType {
         );
 
         newClassType.details = classType.details;
-        newClassType.typeArguments = typeArguments;
+        if (typeArguments) {
+            newClassType.typeArguments = typeArguments;
+        }
         newClassType.isTypeArgumentExplicit = isTypeArgumentExplicit;
+        if (effectiveTypeArguments) {
+            newClassType.effectiveTypeArguments = effectiveTypeArguments;
+        }
 
         if (classType.literalValue !== undefined) {
             newClassType.literalValue = classType.literalValue;

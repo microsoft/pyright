@@ -108,6 +108,7 @@ import {
     isNoReturnType,
     isPartlyUnknown,
     isProperty,
+    isTupleClass,
     lookUpClassMember,
     makeTypeVarsConcrete,
     partiallySpecializeType,
@@ -597,7 +598,7 @@ export class Checker extends ParseTreeWalker {
         //   assert (x > 3, "bad value x")
         const type = this._evaluator.getType(node.testExpression);
         if (type && isObject(type)) {
-            if (ClassType.isBuiltIn(type.classType, 'Tuple') && type.classType.typeArguments) {
+            if (isTupleClass(type.classType) && type.classType.typeArguments) {
                 if (type.classType.typeArguments.length > 0) {
                     const lastTypeArg = type.classType.typeArguments[type.classType.typeArguments.length - 1];
                     if (!isEllipsisType(lastTypeArg)) {
@@ -1460,11 +1461,7 @@ export class Checker extends ParseTreeWalker {
         };
 
         let isValidType = true;
-        if (
-            isObject(arg1Type) &&
-            ClassType.isBuiltIn(arg1Type.classType, 'Tuple') &&
-            arg1Type.classType.typeArguments
-        ) {
+        if (isObject(arg1Type) && isTupleClass(arg1Type.classType) && arg1Type.classType.typeArguments) {
             isValidType = !arg1Type.classType.typeArguments.some((typeArg) => !isSupportedTypeForIsInstance(typeArg));
         } else {
             isValidType = isSupportedTypeForIsInstance(arg1Type);
@@ -1513,7 +1510,7 @@ export class Checker extends ParseTreeWalker {
             // The isinstance and issubclass call supports a variation where the second
             // parameter is a tuple of classes.
             const objClass = arg1Type.classType;
-            if (ClassType.isBuiltIn(objClass, 'Tuple') && objClass.typeArguments) {
+            if (isTupleClass(objClass) && objClass.typeArguments) {
                 objClass.typeArguments.forEach((typeArg) => {
                     if (isClass(typeArg)) {
                         classTypeList.push(typeArg);

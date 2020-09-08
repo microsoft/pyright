@@ -1,12 +1,13 @@
-# This sample tests handling of tuples and tracking
-# of specific types within a tuple.
+# This sample verifies that the "tuple" type is treated
+# analogously to "Tuple" type.
 
-from typing import Tuple, TypeVar
+from typing import TypeVar
+
 
 _T = TypeVar("_T")
 
 
-class ClassA(Tuple[int, str, int, _T]):
+class ClassA(tuple[int, str, int, _T]):
     pass
 
 
@@ -35,7 +36,7 @@ for aaa in objA:
     print(aaa)
 
 
-class ClassB(Tuple[_T, ...]):
+class ClassB(tuple[_T, ...]):
     pass
 
 
