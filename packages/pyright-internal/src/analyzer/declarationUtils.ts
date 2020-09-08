@@ -78,7 +78,7 @@ export function isFinalVariableDeclaration(decl: Declaration) {
 }
 
 export function isExplicitTypeAliasDeclaration(decl: Declaration) {
-    return decl.type === DeclarationType.Variable && !!decl.isExplicitTypeAlias;
+    return decl.type === DeclarationType.Variable && !!decl.typeAliasAnnotation;
 }
 
 export function isPossibleTypeAliasDeclaration(decl: Declaration) {

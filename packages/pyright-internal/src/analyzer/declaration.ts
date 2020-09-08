@@ -112,8 +112,8 @@ export interface VariableDeclaration extends DeclarationBase {
     // constant in that reassignment is not permitted)?
     isFinal?: boolean;
 
-    // Is the declaration an explicit TypeAlias?
-    isExplicitTypeAlias?: boolean;
+    // Points to the "TypeAlias" annotation described in PEP 613.
+    typeAliasAnnotation?: ExpressionNode;
 
     // If the declaration is a type alias, points to the alias name.
     typeAliasName?: NameNode;

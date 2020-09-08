@@ -170,8 +170,8 @@ export class Symbol {
                             curDecl.isFinal = true;
                         }
 
-                        if (declaration.isExplicitTypeAlias) {
-                            curDecl.isExplicitTypeAlias = true;
+                        if (declaration.typeAliasAnnotation) {
+                            curDecl.typeAliasAnnotation = declaration.typeAliasAnnotation;
                         }
 
                         if (!curDecl.inferredTypeSource && declaration.inferredTypeSource) {

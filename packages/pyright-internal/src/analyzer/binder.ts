@@ -2309,7 +2309,7 @@ export class Binder extends ParseTreeWalker {
                         node: target,
                         isConstant: isConstantName(name.value),
                         isFinal: finalInfo.isFinal,
-                        isExplicitTypeAlias,
+                        typeAliasAnnotation: isExplicitTypeAlias ? typeAnnotation : undefined,
                         typeAliasName: isExplicitTypeAlias ? target : undefined,
                         path: this._fileInfo.filePath,
                         typeAnnotationNode,

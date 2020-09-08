@@ -12852,10 +12852,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (
                     isTypeAlias &&
                     decl.type === DeclarationType.Variable &&
-                    decl.typeAliasName &&
                     decl.inferredTypeSource?.parent?.nodeType === ParseNodeType.Assignment
                 ) {
                     evaluateTypesForAssignmentStatement(decl.inferredTypeSource.parent);
+
+                    if (decl.typeAliasAnnotation) {
+                        // Mark "TypeAlias" declaration as accessed.
+                        getTypeOfExpression(decl.typeAliasAnnotation);
+                    }
                 }
 
                 if (pushSymbolResolution(symbol, decl)) {
