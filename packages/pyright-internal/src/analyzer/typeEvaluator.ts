@@ -182,6 +182,7 @@ import {
     isParamSpecType,
     isPartlyUnknown,
     isProperty,
+    isTypeAliasRecursive,
     lookUpClassMember,
     lookUpObjectMember,
     makeTypeVarsConcrete,
@@ -198,6 +199,7 @@ import {
     stripFirstParameter,
     stripLiteralTypeArgsValue,
     stripLiteralValue,
+    transformPossibleRecursiveTypeAlias,
     transformTypeObjectToClass,
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
@@ -4296,11 +4298,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // in the tuple expression.
                 if (tupleClass.typeArguments.length === 2 && isEllipsisType(tupleClass.typeArguments[1])) {
                     for (let i = 0; i < node.expressions.length; i++) {
-                        expectedTypes.push(tupleClass.typeArguments[0]);
+                        expectedTypes.push(transformPossibleRecursiveTypeAlias(tupleClass.typeArguments[0]));
                     }
                 } else {
                     tupleClass.typeArguments.forEach((typeArg) => {
-                        expectedTypes.push(typeArg);
+                        expectedTypes.push(transformPossibleRecursiveTypeAlias(typeArg));
                     });
                 }
             }
@@ -7465,8 +7467,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 const classAlias = subtype.classType.details.aliasClass || subtype.classType;
                 if (ClassType.isBuiltIn(classAlias, 'dict') && subtype.classType.typeArguments) {
-                    const typeArg0 = subtype.classType.typeArguments[0];
-                    const typeArg1 = subtype.classType.typeArguments[1];
+                    const typeArg0 = transformPossibleRecursiveTypeAlias(subtype.classType.typeArguments[0]);
+                    const typeArg1 = transformPossibleRecursiveTypeAlias(subtype.classType.typeArguments[1]);
                     const typeVarMap = new TypeVarMap();
 
                     for (const keyType of keyTypes) {
@@ -7530,6 +7532,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // type is a list and returns the list element type if it is.
         const getListTypeArg = (potentialList: Type) => {
             return doForSubtypes(potentialList, (subtype) => {
+                subtype = transformPossibleRecursiveTypeAlias(subtype);
                 if (!isObject(subtype)) {
                     return undefined;
                 }
@@ -8306,9 +8309,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return type;
         }
 
+        // If this is a recursive type alias that hasn't yet been fully resolved
+        // (i.e. there is no boundType associated with it), don't apply the transform.
+        if (isTypeVar(type) && type.details.recursiveTypeAliasName && !type.details.boundType) {
+            return type;
+        }
+
         // Determine if there are any generic type parameters associated
         // with this type alias.
-        const typeParameters: TypeVarType[] = [];
+        let typeParameters: TypeVarType[] = [];
 
         // Skip this for a simple TypeVar (one that's not part of a union).
         if (!isTypeVar(type)) {
@@ -8317,6 +8326,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return undefined;
             });
         }
+
+        // Don't include any synthesized type variables.
+        typeParameters = typeParameters.filter((typeVar) => !typeVar.details.isSynthesized);
 
         return TypeBase.cloneForTypeAlias(type, name.value, typeParameters.length > 0 ? typeParameters : undefined);
     }
@@ -8502,6 +8514,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 }
 
+                // Synthesize a type variable that represents the type alias while we're
+                // evaluating it. This allows us to handle recursive definitions.
+                let typeAliasTypeVar: TypeVarType | undefined;
+                if (typeAliasNameNode) {
+                    typeAliasTypeVar = TypeVarType.createInstantiable(
+                        `__type_alias_${typeAliasNameNode.value}`,
+                        /* isParamSpec */ false,
+                        /* isSynthesized */ true
+                    );
+                    typeAliasTypeVar.details.recursiveTypeAliasName = typeAliasNameNode.value;
+
+                    // Write the type back to the type cache. It will be replaced below.
+                    writeTypeCache(node, typeAliasTypeVar);
+                    writeTypeCache(node.leftExpression, typeAliasTypeVar);
+                }
+
                 const srcTypeResult = getTypeOfExpression(node.rightExpression, declaredType, flags);
                 let srcType = srcTypeResult.type;
                 expectedTypeDiagAddendum = srcTypeResult.expectedTypeDiagAddendum;
@@ -8541,6 +8569,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (typeAliasNameNode) {
                     // If this is a type alias, record its name based on the assignment target.
                     rightHandType = transformTypeForTypeAlias(rightHandType, typeAliasNameNode);
+
+                    if (isTypeAliasRecursive(typeAliasTypeVar!, rightHandType)) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeAliasIsRecursive().format({ name: typeAliasNameNode.value }),
+                            node.rightExpression
+                        );
+                    }
+
+                    // Set the resulting type to the boundType of the original type alias
+                    // to support recursive type aliases.
+                    typeAliasTypeVar!.details.boundType = rightHandType;
                 }
             }
         }
@@ -12729,7 +12770,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             let inferredType = readTypeCache(resolvedDecl.node);
 
             if (!inferredType) {
-                evaluateTypesForStatement(resolvedDecl.inferredTypeSource);
+                // If this is a type alias, evaluate types for the entire assignment
+                // statement rather than just the RHS of the assignment.
+                const typeSource =
+                    resolvedDecl.typeAliasName && resolvedDecl.inferredTypeSource.parent
+                        ? resolvedDecl.inferredTypeSource.parent
+                        : resolvedDecl.inferredTypeSource;
+                evaluateTypesForStatement(typeSource);
                 inferredType = readTypeCache(resolvedDecl.node);
             }
 
@@ -12798,6 +12845,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             if (considerDecl) {
+                const isTypeAlias = isExplicitTypeAliasDeclaration(decl) || isPossibleTypeAliasDeclaration(decl);
+
+                // If this is a type alias, evaluate it outside of the recursive symbol
+                // resolution check so we can evaluate the full assignment statement.
+                if (
+                    isTypeAlias &&
+                    decl.type === DeclarationType.Variable &&
+                    decl.typeAliasName &&
+                    decl.inferredTypeSource?.parent?.nodeType === ParseNodeType.Assignment
+                ) {
+                    evaluateTypesForAssignmentStatement(decl.inferredTypeSource.parent);
+                }
+
                 if (pushSymbolResolution(symbol, decl)) {
                     try {
                         let type = getInferredTypeOfDeclaration(decl);
@@ -12808,9 +12868,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                         if (type) {
                             const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
-                            const isTypeAlias =
-                                isExplicitTypeAliasDeclaration(decl) || isPossibleTypeAliasDeclaration(decl);
-
                             type = stripLiteralTypeArgsValue(type);
 
                             if (decl.type === DeclarationType.Variable) {
@@ -13832,6 +13889,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         flags = CanAssignFlags.Default,
         recursionCount = 0
     ): boolean {
+        destType = transformPossibleRecursiveTypeAlias(destType);
+        srcType = transformPossibleRecursiveTypeAlias(srcType);
+
         if (recursionCount > maxTypeRecursionCount) {
             return true;
         }
@@ -15632,6 +15692,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // type, in which case we'll print the bound type. This is used for
                 // "self" and "cls" parameters.
                 if (type.details.isSynthesized) {
+                    // If it's a synthesized type var used to implement recursive type
+                    // aliases, return the type alias name.
+                    if (type.details.recursiveTypeAliasName) {
+                        return type.details.recursiveTypeAliasName;
+                    }
+
                     if (type.details.boundType) {
                         return printType(type.details.boundType, /* expandTypeAlias */ false, recursionCount + 1);
                     }

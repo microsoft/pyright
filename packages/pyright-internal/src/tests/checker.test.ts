@@ -1044,6 +1044,24 @@ test('TypeAlias5', () => {
     validateResults(analysisResults, 1);
 });
 
+test('TypeAlias6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['TypeAlias6.py']);
+
+    validateResults(analysisResults, 3);
+});
+
+test('TypeAlias7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['TypeAlias7.py']);
+
+    validateResults(analysisResults, 2);
+});
+
+test('TypeAlias8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['TypeAlias8.py']);
+
+    validateResults(analysisResults, 4);
+});
+
 test('Dictionary1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dictionary1.py']);
 

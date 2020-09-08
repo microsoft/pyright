@@ -329,6 +329,43 @@ export function transformTypeObjectToClass(type: Type): Type {
     return typeArg.classType;
 }
 
+// Determines whether the type alias placeholder is used directly
+// within the specified type. It's OK if it's used indirectly as
+// a type argument.
+export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Type) {
+    if (type.category !== TypeCategory.Union) {
+        // Handle the specific case where the type alias directly refers to itself.
+        // In this case, the type will be unbound because it could not be resolved.
+        return (
+            type.category === TypeCategory.Unbound &&
+            type.typeAliasInfo &&
+            type.typeAliasInfo.aliasName === typeAliasPlaceholder.details.recursiveTypeAliasName
+        );
+    }
+
+    for (const subtype of type.subtypes) {
+        if (isTypeSame(typeAliasPlaceholder, subtype)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+export function transformPossibleRecursiveTypeAlias(type: Type): Type;
+export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Type | undefined {
+    if (type) {
+        if (type.category === TypeCategory.TypeVar && type.details.recursiveTypeAliasName && type.details.boundType) {
+            if (TypeBase.isInstance(type)) {
+                return convertToInstance(type.details.boundType);
+            }
+            return type.details.boundType;
+        }
+    }
+
+    return type;
+}
+
 // None is always falsy. All other types are generally truthy
 // unless they are objects that support the __bool__ or __len__
 // methods.
@@ -537,6 +574,12 @@ export function makeTypeVarsConcrete(type: Type): Type {
         if (isTypeVar(subtype)) {
             if (subtype.details.boundType) {
                 return subtype.details.boundType;
+            }
+
+            // If this is a recursive type alias placeholder
+            // that hasn't yet been resolved, return it as is.
+            if (subtype.details.recursiveTypeAliasName) {
+                return subtype;
             }
 
             // Normally, we would use UnknownType here, but we need
@@ -825,6 +868,10 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
     };
 
     if (isTypeVar(type)) {
+        // Don't return any recursive type alias placeholders.
+        if (type.details.recursiveTypeAliasName) {
+            return [];
+        }
         return [type];
     } else if (isClass(type)) {
         return getTypeVarsFromClass(type);
@@ -1398,6 +1445,13 @@ function _specializeClassType(
 // that fits the specified constraints.
 export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel = 0): Type {
     if (type.details.boundType) {
+        // If this is a recursive type alias placeholder, don't continue
+        // to specialize it because it will expand it out until we hit the
+        // recursion limit.
+        if (type.details.recursiveTypeAliasName) {
+            return type.details.boundType;
+        }
+
         return specializeType(type.details.boundType, undefined, /* makeConcrete */ false, recursionLevel + 1);
     }
 

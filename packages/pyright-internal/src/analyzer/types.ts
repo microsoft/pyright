@@ -1225,6 +1225,9 @@ export interface TypeVarDetails {
     // Internally created (e.g. for pseudo-generic classes)
     isSynthesized: boolean;
     synthesizedIndex?: number;
+
+    // Used for recursive type aliases.
+    recursiveTypeAliasName?: string;
 }
 
 export interface TypeVarType extends TypeBase {

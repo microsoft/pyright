@@ -253,6 +253,7 @@
         "tupleInAnnotation": "Tuple expression not allowed in type annotation",
         "tupleSizeMismatch": "Tuple size mismatch: expected {expected} but received {received}",
         "typeAbstract": "Cannot instantiate abstract class \"{type}\"",
+        "typeAliasIsRecursive": "Type alias \"{name}\" cannot use itself in its definition",
         "typeAliasNotInModule": "A TypeAlias can be defined only within a module scope",
         "typeAliasRedeclared": "\"{name}\" is declared as a TypeAlias and can be assigned only once",
         "typeArgsExpectingNone": "Expected no type arguments",
