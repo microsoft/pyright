@@ -1039,25 +1039,25 @@ test('TypeAlias4', () => {
 });
 
 test('TypeAlias5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['TypeAlias5.py']);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias5.py']);
 
     validateResults(analysisResults, 1);
 });
 
 test('TypeAlias6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['TypeAlias6.py']);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias6.py']);
 
     validateResults(analysisResults, 3);
 });
 
 test('TypeAlias7', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['TypeAlias7.py']);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias7.py']);
 
     validateResults(analysisResults, 2);
 });
 
 test('TypeAlias8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['TypeAlias8.py']);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias8.py']);
 
     validateResults(analysisResults, 4);
 });
