@@ -13667,8 +13667,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // Populate the typeVar map with type arguments of the source.
             const srcTypeArgs = curSrcType.effectiveTypeArguments || curSrcType.typeArguments;
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
-                const typeArgType =
-                    i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
+                const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
                 typeVarMap.setTypeVar(destType.details.typeParameters[i], typeArgType, /* isNarrowable */ true);
             }
         }
