@@ -284,6 +284,7 @@ export const enum ClassTypeFlags {
 
 interface ClassDetails {
     name: string;
+    fullName: string;
     moduleName: string;
     flags: ClassTypeFlags;
     typeSourceId: TypeSourceId;
@@ -323,6 +324,7 @@ export interface ClassType extends TypeBase {
 export namespace ClassType {
     export function create(
         name: string,
+        fullName: string,
         moduleName: string,
         flags: ClassTypeFlags,
         typeSourceId: TypeSourceId,
@@ -334,6 +336,7 @@ export namespace ClassType {
             category: TypeCategory.Class,
             details: {
                 name,
+                fullName,
                 moduleName,
                 flags,
                 typeSourceId,
@@ -360,6 +363,7 @@ export namespace ClassType {
     ): ClassType {
         const newClassType = create(
             classType.details.name,
+            classType.details.fullName,
             classType.details.moduleName,
             classType.details.flags,
             classType.details.typeSourceId,
@@ -389,6 +393,7 @@ export namespace ClassType {
     export function cloneWithLiteral(classType: ClassType, value: LiteralValue | undefined): ClassType {
         const newClassType = create(
             classType.details.name,
+            classType.details.fullName,
             classType.details.moduleName,
             classType.details.flags,
             classType.details.typeSourceId,

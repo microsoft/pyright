@@ -186,11 +186,13 @@ export class SourceFile {
         if (this._isStubFile) {
             if (
                 this._filePath.endsWith(normalizeSlashes('/collections/__init__.pyi')) ||
+                this._filePath.endsWith(normalizeSlashes('/asyncio/futures.pyi')) ||
                 fileName === 'builtins.pyi' ||
                 fileName === '_importlib_modulespec.pyi' ||
                 fileName === 'dataclasses.pyi' ||
                 fileName === 'abc.pyi' ||
                 fileName === 'enum.pyi' ||
+                fileName === 'queue.pyi' ||
                 fileName === 'types.pyi'
             ) {
                 this._isBuiltInStubFile = true;

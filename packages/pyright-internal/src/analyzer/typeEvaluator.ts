@@ -415,6 +415,25 @@ const booleanOperatorMap: { [operator: number]: boolean } = {
     [OperatorType.NotIn]: true,
 };
 
+// This table contains the names of several built-in types that
+// are not subscriptable at runtime on older versions of Python.
+// It lists the first version of Python where subscripting is
+// allowed.
+const nonSubscriptableBuiltinTypes: { [builtinName: string]: PythonVersion } = {
+    'asyncio.futures.Future': PythonVersion.V3_9,
+    'builtins.dict': PythonVersion.V3_9,
+    'builtins.frozenset': PythonVersion.V3_9,
+    'builtins.list': PythonVersion.V3_9,
+    'builtins._PathLike': PythonVersion.V3_9,
+    'builtins.set': PythonVersion.V3_9,
+    'collections.ChainMap': PythonVersion.V3_9,
+    'collections.Counter': PythonVersion.V3_9,
+    'collections.DefaultDict': PythonVersion.V3_9,
+    'collections.deque': PythonVersion.V3_9,
+    'collections.OrderedDict': PythonVersion.V3_9,
+    'queue.Queue': PythonVersion.V3_9,
+};
+
 export interface ClassTypeResult {
     classType: ClassType;
     decoratedType: Type;
@@ -3866,6 +3885,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             flags | EvaluatorFlags.DoNotSpecialize
         );
 
+        // Check for builtin classes that will generate runtime exceptions if subscripted.
+        if ((flags & EvaluatorFlags.AllowForwardReferences) === 0) {
+            const fileInfo = getFileInfo(node);
+            if (isClass(baseTypeResult.type) && ClassType.isBuiltIn(baseTypeResult.type)) {
+                const minPythonVersion = nonSubscriptableBuiltinTypes[baseTypeResult.type.details.fullName];
+                if (minPythonVersion !== undefined && fileInfo.executionEnvironment.pythonVersion < minPythonVersion) {
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.classNotRuntimeSubscriptable().format({
+                            name: baseTypeResult.type.details.name,
+                        }),
+                        node.baseExpression
+                    );
+                }
+            }
+        }
+
         return getTypeFromIndexWithBaseType(node, baseTypeResult.type, { method: 'get' }, flags);
     }
 
@@ -6131,6 +6168,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         return false;
     }
 
+    function getClassFullName(classNode: ParseNode, moduleName: string, className: string): string {
+        const nameParts: string[] = [className];
+
+        let curNode: ParseNode | undefined = classNode;
+
+        // Walk the parse tree looking for classes.
+        while (curNode) {
+            curNode = ParseTreeUtils.getEnclosingClass(curNode);
+            if (curNode) {
+                nameParts.push(curNode.name.value);
+            }
+        }
+
+        nameParts.push(moduleName);
+
+        return nameParts.reverse().join('.');
+    }
+
     // Creates a new custom enum class with named values.
     function createEnumType(errorNode: ExpressionNode, enumClass: ClassType, argList: FunctionArgument[]): ClassType {
         const fileInfo = getFileInfo(errorNode);
@@ -6148,6 +6203,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         const classType = ClassType.create(
             className,
+            getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             ClassTypeFlags.EnumClass,
             errorNode.id,
@@ -6248,6 +6304,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
                 const classType = ClassType.create(
                     className,
+                    getClassFullName(errorNode, fileInfo.moduleName, className),
                     fileInfo.moduleName,
                     classFlags,
                     errorNode.id,
@@ -6313,6 +6370,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         const classType = ClassType.create(
             className,
+            getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             ClassTypeFlags.None,
             errorNode.id,
@@ -6363,6 +6421,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         const classType = ClassType.create(
             className,
+            getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             ClassTypeFlags.TypedDictClass,
             errorNode.id,
@@ -6531,6 +6590,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         const classType = ClassType.create(
             className,
+            getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             ClassTypeFlags.None,
             errorNode.id,
@@ -8337,6 +8397,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const fileInfo = getFileInfo(node);
         const specialClassType = ClassType.create(
             assignedName,
+            getClassFullName(node, fileInfo.moduleName, assignedName),
             fileInfo.moduleName,
             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
             node.id,
@@ -8639,6 +8700,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         classType = ClassType.create(
             node.name.value,
+            getClassFullName(node, fileInfo.moduleName, node.name.value),
             fileInfo.moduleName,
             classFlags,
             node.id,
@@ -9607,6 +9669,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const typeMetaclass = getBuiltInType(decoratorNode, 'type');
         const propertyClass = ClassType.create(
             className,
+            getClassFullName(decoratorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             ClassTypeFlags.PropertyClass,
             typeSourceId,
@@ -9668,6 +9731,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const classType = (prop as ObjectType).classType;
         const propertyClass = ClassType.create(
             classType.details.name,
+            classType.details.fullName,
             classType.details.moduleName,
             classType.details.flags,
             classType.details.typeSourceId,
@@ -9758,6 +9822,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const classType = (prop as ObjectType).classType;
         const propertyClass = ClassType.create(
             classType.details.name,
+            classType.details.fullName,
             classType.details.moduleName,
             classType.details.flags,
             classType.details.typeSourceId,
@@ -12639,10 +12704,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     }
                 }
 
-                if (typeAnnotationNode && typeAnnotationNode.nodeType === ParseNodeType.StringList) {
-                    typeAnnotationNode = typeAnnotationNode.typeAnnotation;
-                }
-
                 if (typeAnnotationNode) {
                     const declaredType = getTypeOfAnnotation(
                         typeAnnotationNode,
@@ -12656,10 +12717,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case DeclarationType.Variable: {
-                let typeAnnotationNode = declaration.typeAnnotationNode;
-                if (typeAnnotationNode && typeAnnotationNode.nodeType === ParseNodeType.StringList) {
-                    typeAnnotationNode = typeAnnotationNode.typeAnnotation;
-                }
+                const typeAnnotationNode = declaration.typeAnnotationNode;
 
                 if (typeAnnotationNode) {
                     const typeAliasNode = isDeclaredTypeAlias(typeAnnotationNode)

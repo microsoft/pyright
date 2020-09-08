@@ -2070,13 +2070,13 @@ test('ParamSpec1', () => {
 test('ParamSpec2', () => {
     const configOptions = new ConfigOptions('.');
 
-    configOptions.defaultPythonVersion = PythonVersion.V3_8;
-    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
-    validateResults(analysisResults38, 6);
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
+    validateResults(analysisResults39, 6);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
-    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
-    validateResults(analysisResults39, 0);
+    const analysisResults310 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
+    validateResults(analysisResults310, 0);
 });
 
 test('ParamSpec3', () => {
@@ -2189,4 +2189,18 @@ test('FunctionAnnotation3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionAnnotation3.py']);
 
     validateResults(analysisResults, 2);
+});
+
+test('Subscript1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Analyze with Python 3.8 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['subscript1.py'], configOptions);
+    validateResults(analysisResults38, 9);
+
+    // Analyze with Python 3.8 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['subscript1.py'], configOptions);
+    validateResults(analysisResults39, 0);
 });

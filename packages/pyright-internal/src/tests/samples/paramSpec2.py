@@ -11,7 +11,7 @@ def awaitable_wrapper(
     a: Callable[TParams, TReturn]
 ) -> Callable[TParams, Awaitable[TReturn]]:
     def foo_internal(args: TParams.args, kwargs: TParams.kwargs) -> Awaitable[TReturn]:
-        ft: Future[TReturn] = Future()
+        ft: "Future[TReturn]" = Future()
         ft.set_result(a(*args, **kwargs))
         return ft
 

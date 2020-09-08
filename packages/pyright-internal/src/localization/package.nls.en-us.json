@@ -38,6 +38,7 @@
         "classDecoratorTypeUnknown": "Untyped class decorator obscures type of class; ignoring decorator",
         "classGetItemClsParam": "__class_getitem__ override should take a \"cls\" parameter",
         "classMethodClsParam": "Class methods should take a \"cls\" parameter",
+        "classNotRuntimeSubscriptable": "Subscript for class \"{name}\" will generate runtime exception; enclose type annotation in quotes",
         "classVarFirstArgMissing": "Expected a type argument after \"ClassVar\"",
         "classVarTooManyArgs": "Expected only one type argument after \"ClassVar\"",
         "comprehensionInDict": "Comprehension cannot be used with other dictionary entries",
