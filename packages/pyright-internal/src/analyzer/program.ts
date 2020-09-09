@@ -133,6 +133,7 @@ export class Program {
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
     private _logTracker: LogTracker;
+    private _parsedFileCount = 0;
 
     constructor(
         initialImportResolver: ImportResolver,
@@ -637,6 +638,7 @@ export class Program {
         }
 
         if (fileToParse.sourceFile.parse(this._configOptions, this._importResolver)) {
+            this._parsedFileCount++;
             this._updateSourceFileImports(fileToParse, this._configOptions);
         }
 
@@ -1546,7 +1548,7 @@ export class Program {
         // If the type cache size has exceeded a high-water mark, query the heap usage.
         // Don't bother doing this until we hit this point because the heap usage may not
         // drop immediately after we empty the cache due to garbage collection timing.
-        if (typeCacheSize > 750000) {
+        if (typeCacheSize > 750000 || this._parsedFileCount > 1000) {
             const heapSizeInMb = Math.round(process.memoryUsage().heapUsed / (1024 * 1024));
 
             // Don't allow the heap to get close to the 2GB limit imposed by
@@ -1554,7 +1556,16 @@ export class Program {
             if (heapSizeInMb > 1536) {
                 this._console.info(`Emptying type cache to avoid heap overflow. Heap size used: ${heapSizeInMb}MB`);
                 this._createNewEvaluator();
+                this._discardCachedParseResults();
+                this._parsedFileCount = 0;
             }
+        }
+    }
+
+    // Discards all cached parse results and file contents to free up memory.
+    private _discardCachedParseResults() {
+        for (const sourceFileInfo of this._sourceFileList) {
+            sourceFileInfo.sourceFile.markDirtyAndDropEverything();
         }
     }
 
