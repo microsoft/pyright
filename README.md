@@ -56,7 +56,9 @@ For rich Python editing and debugging capabilities with Visual Studio Code, be s
 You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pyright`.
 
 ### Vim
-For vim/neovim users, you can install [coc-pyright](https://github.com/fannheyward/coc-pyright), Pyright extension for coc.nvim.
+For vim/neovim users, you can install [coc-pyright](https://github.com/fannheyward/coc-pyright), the Pyright extension for coc.nvim.
+
+Alternatively, [ALE](https://github.com/dense-analysis/ale) will automatically check your code with Pyright, without requiring any additional configuration.
 
 ### Sublime Text
 For sublime text users, you can install the [LSP-pyright](https://github.com/sublimelsp/LSP-pyright) plugin from [package control](https://packagecontrol.io/packages/LSP-pyright).
