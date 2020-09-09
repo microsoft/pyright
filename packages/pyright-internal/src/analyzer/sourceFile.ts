@@ -148,7 +148,7 @@ export class SourceFile {
     // Do we need to perform a binding step?
     private _isBindingNeeded = true;
 
-    // Do we need to perform an additional type analysis pass?
+    // Do we have valid diagnostic results from a checking pass?
     private _isCheckingNeeded = true;
 
     // Do we need to perform an indexing step?
@@ -355,6 +355,16 @@ export class SourceFile {
         return false;
     }
 
+    // Similar to markDirtyAndDropEverything except that this method
+    // does not drop the cached index or the diagnostics. It is used
+    // in cases where memory is low.
+    dropParseAndBindInfo(): void {
+        this._parseResults = undefined;
+        this._moduleSymbolTable = undefined;
+        this._isBindingNeeded = true;
+        this._binderResults = undefined;
+    }
+
     // This should be only called if none of information from this file
     // will be ever used again. otherwise, Same file will get parsed/bound again.
     markDirtyAndDropEverything(): void {
@@ -433,7 +443,7 @@ export class SourceFile {
     }
 
     isParseRequired() {
-        return this._analyzedFileContentsVersion !== this._fileContentsVersion;
+        return !this._parseResults || this._analyzedFileContentsVersion !== this._fileContentsVersion;
     }
 
     isBindingRequired() {
@@ -456,11 +466,8 @@ export class SourceFile {
         return this._indexingNeeded;
     }
 
+    // Do we have valid cached diagnostic results from a full checking pass?
     isCheckingRequired() {
-        if (this.isBindingRequired()) {
-            return true;
-        }
-
         return this._isCheckingNeeded;
     }
 

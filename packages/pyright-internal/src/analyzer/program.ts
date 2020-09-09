@@ -339,11 +339,7 @@ export class Program {
         let sourceFileCount = 0;
 
         this._sourceFileList.forEach((fileInfo) => {
-            if (
-                fileInfo.sourceFile.isParseRequired() ||
-                fileInfo.sourceFile.isBindingRequired() ||
-                fileInfo.sourceFile.isCheckingRequired()
-            ) {
+            if (fileInfo.sourceFile.isCheckingRequired()) {
                 if (this._shouldCheckFile(fileInfo)) {
                     sourceFileCount++;
                 }
@@ -753,11 +749,11 @@ export class Program {
 
             this._bindFile(fileToCheck);
 
+            fileToCheck.sourceFile.check(this._evaluator!);
+
             // For very large programs, we may need to discard the evaluator and
             // its cached types to avoid running out of heap space.
             this._handleMemoryHighUsage();
-
-            fileToCheck.sourceFile.check(this._evaluator!);
 
             // Detect import cycles that involve the file.
             if (this._configOptions.diagnosticRuleSet.reportImportCycles !== 'none') {
@@ -1563,9 +1559,10 @@ export class Program {
     }
 
     // Discards all cached parse results and file contents to free up memory.
+    // It does not discard cached index results or diagnostics for files.
     private _discardCachedParseResults() {
         for (const sourceFileInfo of this._sourceFileList) {
-            sourceFileInfo.sourceFile.markDirtyAndDropEverything();
+            sourceFileInfo.sourceFile.dropParseAndBindInfo();
         }
     }
 
