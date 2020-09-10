@@ -1180,7 +1180,8 @@ export namespace AnyType {
 export interface UnionType extends TypeBase {
     category: TypeCategory.Union;
     subtypes: Type[];
-    literalStringMap?: Map<string, Type>;
+    literalStrMap?: Map<string, Type>;
+    literalIntMap?: Map<number, Type>;
 }
 
 export namespace UnionType {
@@ -1206,10 +1207,19 @@ export namespace UnionType {
             ClassType.isBuiltIn(newType.classType, 'str') &&
             newType.classType.literalValue !== undefined
         ) {
-            if (unionType.literalStringMap === undefined) {
-                unionType.literalStringMap = new Map<string, Type>();
+            if (unionType.literalStrMap === undefined) {
+                unionType.literalStrMap = new Map<string, Type>();
             }
-            unionType.literalStringMap.set(newType.classType.literalValue as string, newType);
+            unionType.literalStrMap.set(newType.classType.literalValue as string, newType);
+        } else if (
+            isObject(newType) &&
+            ClassType.isBuiltIn(newType.classType, 'int') &&
+            newType.classType.literalValue !== undefined
+        ) {
+            if (unionType.literalIntMap === undefined) {
+                unionType.literalIntMap = new Map<number, Type>();
+            }
+            unionType.literalIntMap.set(newType.classType.literalValue as number, newType);
         }
 
         unionType.flags &= newType.flags;
@@ -1219,13 +1229,20 @@ export namespace UnionType {
     export function containsType(unionType: UnionType, subtype: Type, recursionCount = 0): boolean {
         // Handle string literals as a special case because unions can sometimes
         // contain hundreds of string literal types.
-        if (
-            isObject(subtype) &&
-            ClassType.isBuiltIn(subtype.classType, 'str') &&
-            subtype.classType.literalValue !== undefined &&
-            unionType.literalStringMap !== undefined
-        ) {
-            return unionType.literalStringMap.has(subtype.classType.literalValue as string);
+        if (isObject(subtype)) {
+            if (
+                ClassType.isBuiltIn(subtype.classType, 'str') &&
+                subtype.classType.literalValue !== undefined &&
+                unionType.literalStrMap !== undefined
+            ) {
+                return unionType.literalStrMap.has(subtype.classType.literalValue as string);
+            } else if (
+                ClassType.isBuiltIn(subtype.classType, 'int') &&
+                subtype.classType.literalValue !== undefined &&
+                unionType.literalIntMap !== undefined
+            ) {
+                return unionType.literalIntMap.has(subtype.classType.literalValue as number);
+            }
         }
 
         return unionType.subtypes.find((t) => isTypeSame(t, subtype, recursionCount + 1)) !== undefined;
@@ -1721,16 +1738,26 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: Type) {
     // Handle the addition of a string literal in a special manner to
     // avoid n^2 behavior in unions that contain hundreds of string
     // literal types.
-    if (
-        isObject(typeToAdd) &&
-        ClassType.isBuiltIn(typeToAdd.classType, 'str') &&
-        typeToAdd.classType.literalValue !== undefined &&
-        unionType.literalStringMap !== undefined
-    ) {
-        if (!unionType.literalStringMap.has(typeToAdd.classType.literalValue as string)) {
-            UnionType.addType(unionType, typeToAdd);
+    if (isObject(typeToAdd)) {
+        if (
+            ClassType.isBuiltIn(typeToAdd.classType, 'str') &&
+            typeToAdd.classType.literalValue !== undefined &&
+            unionType.literalStrMap !== undefined
+        ) {
+            if (!unionType.literalStrMap.has(typeToAdd.classType.literalValue as string)) {
+                UnionType.addType(unionType, typeToAdd);
+            }
+            return;
+        } else if (
+            ClassType.isBuiltIn(typeToAdd.classType, 'int') &&
+            typeToAdd.classType.literalValue !== undefined &&
+            unionType.literalIntMap !== undefined
+        ) {
+            if (!unionType.literalIntMap.has(typeToAdd.classType.literalValue as number)) {
+                UnionType.addType(unionType, typeToAdd);
+            }
+            return;
         }
-        return;
     }
 
     for (let i = 0; i < unionType.subtypes.length; i++) {
