@@ -73,6 +73,7 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     configOptions.diagnosticRuleSet = jsonObject.diagnosticRuleSet;
     configOptions.executionEnvironments = jsonObject.executionEnvironments;
     configOptions.autoImportCompletions = jsonObject.autoImportCompletions;
+    configOptions.indexing = jsonObject.indexing;
     configOptions.include = jsonObject.include.map((f: any) => getFileSpec(f));
     configOptions.exclude = jsonObject.exclude.map((f: any) => getFileSpec(f));
     configOptions.ignore = jsonObject.ignore.map((f: any) => getFileSpec(f));

@@ -100,6 +100,7 @@ export interface ServerSettings {
     diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap;
     logLevel?: LogLevel;
     autoImportCompletions?: boolean;
+    indexing?: boolean;
 }
 
 export interface WorkspaceServiceInstance {
@@ -502,12 +503,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._connection.onWorkspaceSymbol(async (params, token) => {
             const symbolList: SymbolInformation[] = [];
 
-            this._workspaceMap.forEach(async (workspace) => {
+            for (const workspace of this._workspaceMap.values()) {
                 await workspace.isInitialized.promise;
                 if (!workspace.disableLanguageServices) {
                     workspace.serviceInstance.addSymbolsForWorkspace(symbolList, params.query, token);
                 }
-            });
+            }
 
             return symbolList;
         });
@@ -836,7 +837,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 this._pendingCommandCancellationSource = source;
 
                 try {
-                    executeCommand(source.token);
+                    await executeCommand(source.token);
                 } finally {
                     progress.reporter.done();
                     source.dispose();

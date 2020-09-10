@@ -133,6 +133,7 @@ export class Program {
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
     private _logTracker: LogTracker;
+    private _parsedFileCount = 0;
 
     constructor(
         initialImportResolver: ImportResolver,
@@ -338,11 +339,7 @@ export class Program {
         let sourceFileCount = 0;
 
         this._sourceFileList.forEach((fileInfo) => {
-            if (
-                fileInfo.sourceFile.isParseRequired() ||
-                fileInfo.sourceFile.isBindingRequired() ||
-                fileInfo.sourceFile.isCheckingRequired()
-            ) {
+            if (fileInfo.sourceFile.isCheckingRequired()) {
                 if (this._shouldCheckFile(fileInfo)) {
                     sourceFileCount++;
                 }
@@ -431,6 +428,10 @@ export class Program {
     }
 
     indexWorkspace(callback: (path: string, results: IndexResults) => void, token: CancellationToken) {
+        if (!this._configOptions.indexing) {
+            return;
+        }
+
         return this._runEvaluatorWithCancellationToken(token, () => {
             // Go through all workspace files to create indexing data.
             // This will cause all files in the workspace to be parsed and bound. We might
@@ -446,6 +447,8 @@ export class Program {
                 if (results) {
                     callback(sourceFileInfo.sourceFile.getFilePath(), results);
                 }
+
+                this._handleMemoryHighUsage();
             }
         });
     }
@@ -637,6 +640,7 @@ export class Program {
         }
 
         if (fileToParse.sourceFile.parse(this._configOptions, this._importResolver)) {
+            this._parsedFileCount++;
             this._updateSourceFileImports(fileToParse, this._configOptions);
         }
 
@@ -751,11 +755,11 @@ export class Program {
 
             this._bindFile(fileToCheck);
 
+            fileToCheck.sourceFile.check(this._evaluator!);
+
             // For very large programs, we may need to discard the evaluator and
             // its cached types to avoid running out of heap space.
             this._handleMemoryHighUsage();
-
-            fileToCheck.sourceFile.check(this._evaluator!);
 
             // Detect import cycles that involve the file.
             if (this._configOptions.diagnosticRuleSet.reportImportCycles !== 'none') {
@@ -881,6 +885,32 @@ export class Program {
         }
     }
 
+    getTextOnRange(filePath: string, range: Range, token: CancellationToken): string | undefined {
+        const sourceFileInfo = this._sourceFileMap.get(filePath);
+        if (!sourceFileInfo) {
+            return undefined;
+        }
+
+        const sourceFile = sourceFileInfo.sourceFile;
+        const fileContents = sourceFile.getFileContents();
+        if (!fileContents) {
+            // this only works with opened file
+            return undefined;
+        }
+
+        return this._runEvaluatorWithCancellationToken(token, () => {
+            this._parseFile(sourceFileInfo);
+
+            const parseTree = sourceFile.getParseResults()!;
+            const textRange = convertRangeToTextRange(range, parseTree.tokenizerOutput.lines);
+            if (!textRange) {
+                return undefined;
+            }
+
+            return fileContents.substr(textRange.start, textRange.length);
+        });
+    }
+
     getAutoImports(
         filePath: string,
         range: Range,
@@ -919,9 +949,9 @@ export class Program {
             const map = this._buildModuleSymbolsMap(sourceFileInfo, token);
             const autoImporter = new AutoImporter(
                 this._configOptions,
-                sourceFile.getFilePath(),
                 this._importResolver,
                 parseTree,
+                range.start,
                 [],
                 map,
                 libraryMap
@@ -1133,6 +1163,8 @@ export class Program {
                 return undefined;
             }
         }
+
+        this._handleMemoryHighUsage();
 
         return this._runEvaluatorWithCancellationToken(token, () => {
             const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
@@ -1546,7 +1578,7 @@ export class Program {
         // If the type cache size has exceeded a high-water mark, query the heap usage.
         // Don't bother doing this until we hit this point because the heap usage may not
         // drop immediately after we empty the cache due to garbage collection timing.
-        if (typeCacheSize > 750000) {
+        if (typeCacheSize > 750000 || this._parsedFileCount > 1000) {
             const heapSizeInMb = Math.round(process.memoryUsage().heapUsed / (1024 * 1024));
 
             // Don't allow the heap to get close to the 2GB limit imposed by
@@ -1554,7 +1586,17 @@ export class Program {
             if (heapSizeInMb > 1536) {
                 this._console.info(`Emptying type cache to avoid heap overflow. Heap size used: ${heapSizeInMb}MB`);
                 this._createNewEvaluator();
+                this._discardCachedParseResults();
+                this._parsedFileCount = 0;
             }
+        }
+    }
+
+    // Discards all cached parse results and file contents to free up memory.
+    // It does not discard cached index results or diagnostics for files.
+    private _discardCachedParseResults() {
+        for (const sourceFileInfo of this._sourceFileList) {
+            sourceFileInfo.sourceFile.dropParseAndBindInfo();
         }
     }
 
