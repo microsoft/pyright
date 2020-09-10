@@ -45,6 +45,7 @@ function getEffectiveCommandLineOptions(
     commandLineOptions.useLibraryCodeForTypes = serverSettings.useLibraryCodeForTypes;
     commandLineOptions.typeCheckingMode = serverSettings.typeCheckingMode;
     commandLineOptions.autoImportCompletions = serverSettings.autoImportCompletions;
+    commandLineOptions.indexing = serverSettings.indexing;
 
     if (!trackFiles) {
         commandLineOptions.watchForSourceChanges = false;

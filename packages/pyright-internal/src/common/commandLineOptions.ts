@@ -103,4 +103,7 @@ export class CommandLineOptions {
 
     // Offer auto-import completions.
     autoImportCompletions?: boolean;
+
+    // Use indexing.
+    indexing?: boolean;
 }

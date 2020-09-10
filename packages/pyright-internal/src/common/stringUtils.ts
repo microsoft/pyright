@@ -125,3 +125,13 @@ export function equateStringsCaseInsensitive(a: string, b: string) {
 export function equateStringsCaseSensitive(a: string, b: string) {
     return compareStringsCaseSensitive(a, b) === Comparison.EqualTo;
 }
+
+export function getCharacterCount(value: string, ch: string) {
+    let result = 0;
+    for (let i = 0; i < value.length; i++) {
+        if (value[i] === ch) {
+            result++;
+        }
+    }
+    return result;
+}

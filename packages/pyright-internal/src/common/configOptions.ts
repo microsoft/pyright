@@ -505,6 +505,9 @@ export class ConfigOptions {
     // Offer auto-import completions.
     autoImportCompletions = true;
 
+    // Use indexing.
+    indexing = false;
+
     //---------------------------------------------------------------
     // Diagnostics Rule Set
 
@@ -1160,6 +1163,15 @@ export class ConfigOptions {
                 console.error(`Config "autoImportCompletions" field must be true or false.`);
             } else {
                 this.autoImportCompletions = configObj.autoImportCompletions;
+            }
+        }
+
+        // Read the "indexing" setting.
+        if (configObj.indexing !== undefined) {
+            if (typeof configObj.indexing !== 'boolean') {
+                console.error(`Config "indexing" field must be true or false.`);
+            } else {
+                this.indexing = configObj.indexing;
             }
         }
     }

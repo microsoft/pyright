@@ -12,7 +12,7 @@ import { CancellationToken } from 'vscode-languageserver';
 
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { TextEditAction } from '../common/editAction';
-import { convertOffsetToPosition } from '../common/positionUtils';
+import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import {
@@ -172,6 +172,7 @@ export function getTextEditsForAutoImportInsertion(
     moduleName: string,
     importGroup: ImportGroup,
     parseResults: ParseResults,
+    invocationPosition: Position,
     aliasName?: string
 ): TextEditAction[] {
     const textEditList: TextEditAction[] = [];
@@ -184,7 +185,8 @@ export function getTextEditsForAutoImportInsertion(
         : `import ${importTextWithAlias}`;
 
     let insertionPosition: Position;
-    if (importStatements.orderedImports.length > 0) {
+    const invocation = convertPositionToOffset(invocationPosition, parseResults.tokenizerOutput.lines)!;
+    if (importStatements.orderedImports.length > 0 && invocation >= importStatements.orderedImports[0].node.start) {
         let insertBefore = true;
         let insertionImport = importStatements.orderedImports[0];
 

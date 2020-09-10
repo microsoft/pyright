@@ -957,9 +957,9 @@ export class CompletionProvider {
         const moduleSymbolMap = this._moduleSymbolsCallback();
         const autoImporter = new AutoImporter(
             this._configOptions,
-            this._filePath,
             this._importResolver,
             this._parseResults,
+            this._position,
             completionList.items.filter((i) => !i.data?.autoImport).map((i) => i.label),
             moduleSymbolMap,
             this._libraryMap
@@ -989,9 +989,9 @@ export class CompletionProvider {
                     completionList,
                     undefined,
                     '',
-                    result.isImportFrom
+                    result.source
                         ? `Auto-import\n\n\`\`\`\nfrom ${result.source} import ${result.name}\n\`\`\``
-                        : `Auto-import\n\n\`\`\`\nimport ${result.source}\n\`\`\``,
+                        : `Auto-import\n\n\`\`\`\nimport ${result.name}\n\`\`\``,
                     undefined,
                     result.edits
                 );

@@ -276,7 +276,8 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
     }
 
     protected onMessage(msg: AnalysisRequest) {
-        this.log(LogLevel.Info, `Background analysis message: ${msg.requestType}`);
+        this.log(LogLevel.Log, `Background analysis message: ${msg.requestType}`);
+
         switch (msg.requestType) {
             case 'analyze': {
                 const port = msg.port!;

@@ -148,10 +148,18 @@ export class BackgroundAnalysisProgram {
     }
 
     startIndexing() {
+        if (!this._configOptions.indexing) {
+            return;
+        }
+
         this._backgroundAnalysis?.startIndexing(this._configOptions, this._getIndices());
     }
 
     refreshIndexing() {
+        if (!this._configOptions.indexing) {
+            return;
+        }
+
         this._backgroundAnalysis?.refreshIndexing(this._configOptions, this._indices);
     }
 
