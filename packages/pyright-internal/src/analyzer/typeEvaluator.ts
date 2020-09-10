@@ -763,6 +763,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // will be thrown at this point.
         checkForCancellation();
 
+        expectedType = transformPossibleRecursiveTypeAlias(expectedType);
+
         let typeResult: TypeResult | undefined;
         let reportExpectingTypeErrors = (flags & EvaluatorFlags.ExpectingType) !== 0;
 
@@ -7445,20 +7447,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         let expectedTypedDictEntries: Map<string, TypedDictEntry> | undefined;
         const diagAddendum = new DiagnosticAddendum();
 
-        if (expectedType && isObject(expectedType)) {
-            const expectedClass = expectedType.classType;
-            if (
-                ClassType.isBuiltIn(expectedClass, 'Mapping') ||
-                ClassType.isBuiltIn(expectedClass, 'Dict') ||
-                ClassType.isBuiltIn(expectedClass, 'dict')
-            ) {
-                if (expectedClass.typeArguments && expectedClass.typeArguments.length === 2) {
-                    expectedKeyType = specializeType(expectedClass.typeArguments[0], /* typeVarMap */ undefined);
-                    expectedValueType = specializeType(expectedClass.typeArguments[1], /* typeVarMap */ undefined);
+        if (expectedType) {
+            doForSubtypes(expectedType, (subtype) => {
+                if (isObject(subtype)) {
+                    const expectedClass = subtype.classType;
+                    if (
+                        ClassType.isBuiltIn(expectedClass, 'Mapping') ||
+                        ClassType.isBuiltIn(expectedClass, 'Dict') ||
+                        ClassType.isBuiltIn(expectedClass, 'dict')
+                    ) {
+                        if (expectedClass.typeArguments && expectedClass.typeArguments.length === 2) {
+                            expectedKeyType = specializeType(
+                                expectedClass.typeArguments[0],
+                                /* typeVarMap */ undefined
+                            );
+                            expectedValueType = specializeType(
+                                expectedClass.typeArguments[1],
+                                /* typeVarMap */ undefined
+                            );
+                        }
+                    } else if (ClassType.isTypedDictClass(expectedClass)) {
+                        expectedTypedDictEntries = getTypedDictMembersForClass(expectedClass);
+                    }
                 }
-            } else if (ClassType.isTypedDictClass(expectedClass)) {
-                expectedTypedDictEntries = getTypedDictMembersForClass(expectedClass);
-            }
+
+                return undefined;
+            });
         }
 
         // Infer the key and value types if possible.

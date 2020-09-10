@@ -356,6 +356,7 @@ export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Ty
 }
 
 export function transformPossibleRecursiveTypeAlias(type: Type): Type;
+export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Type | undefined;
 export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Type | undefined {
     if (type) {
         if (type.category === TypeCategory.TypeVar && type.details.recursiveTypeAliasName && type.details.boundType) {
@@ -1688,7 +1689,8 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
         }
 
         case TypeCategory.TypeVar: {
-            return true;
+            // If this is a recursive type alias, don't treat it like other TypeVars.
+            return type.details.recursiveTypeAliasName === undefined;
         }
     }
 
