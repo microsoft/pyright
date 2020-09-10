@@ -506,10 +506,10 @@ export class SourceFile {
     // (or at least cancel) prior to calling again. It returns true if a parse
     // was required and false if the parse information was up to date already.
     parse(configOptions: ConfigOptions, importResolver: ImportResolver): boolean {
-        return this._logTracker.log(`parsing: ${this._filePath}`, (ls) => {
+        return this._logTracker.log(`parsing: ${this._filePath}`, (logState) => {
             // If the file is already parsed, we can skip.
             if (!this.isParseRequired()) {
-                ls.add(`cache hit`);
+                logState.suppress();
                 return false;
             }
 

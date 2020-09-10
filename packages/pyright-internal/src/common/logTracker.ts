@@ -9,6 +9,9 @@
 import { ConsoleInterface, LogLevel } from './console';
 import { Duration } from './timing';
 
+// Consider an operation "long running" if it goes longer than this.
+const durationThresholdForInfoInMs = 2000;
+
 export class LogTracker {
     private _dummyState = new State();
     private _indentation = '';
@@ -24,12 +27,12 @@ export class LogTracker {
 
         // This is enabled only when level is LogLevel.Log or does not exist.
         const level = (this._console as any).level;
-        if (level === undefined || level !== LogLevel.Log) {
+        if (level === undefined || (level !== LogLevel.Log && level !== LogLevel.Info)) {
             return callback(this._dummyState);
         }
 
-        // Since this is only used when LogLevel.Log is set or BG, we don't care much
-        // on extra logging cost.
+        // Since this is only used when LogLevel.Log or LogLevel.Info is set or BG,
+        // we don't care much about extra logging cost.
         const duration = new Duration();
 
         const current = this._indentation;
@@ -44,11 +47,16 @@ export class LogTracker {
             this._printPreviousTitles();
 
             this._indentation = current;
-            this._console.log(
-                `[${this._prefix}] ${
-                    this._indentation
-                }${title}${state.get()} (${duration.getDurationInMilliseconds()}ms)`
-            );
+            const msDuration = duration.getDurationInMilliseconds();
+
+            if (!state.isSuppressed()) {
+                this._console.log(`[${this._prefix}] ${this._indentation}${title}${state.get()} (${msDuration}ms)`);
+
+                // If the operation took really long, log it as "info" so it is more visible.
+                if (msDuration >= durationThresholdForInfoInMs) {
+                    this._console.info(`[${this._prefix}] Long operation: ${title} (${msDuration}ms)`);
+                }
+            }
         }
     }
 
@@ -70,10 +78,12 @@ export class LogTracker {
 
 export interface LogState {
     add(_addendum: string): void;
+    suppress(): void;
 }
 
 class State {
     private _addendum: string | undefined;
+    private _suppress: boolean | undefined;
 
     add(_addendum: string) {
         this._addendum = _addendum;
@@ -85,5 +95,13 @@ class State {
         }
 
         return '';
+    }
+
+    suppress() {
+        this._suppress = true;
+    }
+
+    isSuppressed() {
+        return !!this._suppress;
     }
 }

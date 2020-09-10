@@ -730,22 +730,22 @@ export class Program {
     }
 
     private _checkTypes(fileToCheck: SourceFileInfo) {
-        return this._logTracker.log(`analyzing: ${fileToCheck.sourceFile.getFilePath()}`, (ls) => {
+        return this._logTracker.log(`analyzing: ${fileToCheck.sourceFile.getFilePath()}`, (logState) => {
             // If the file isn't needed because it was eliminated from the
             // transitive closure or deleted, skip the file rather than wasting
             // time on it.
             if (!this._isFileNeeded(fileToCheck)) {
-                ls.add(`analysis not needed`);
+                logState.suppress();
                 return false;
             }
 
             if (!fileToCheck.sourceFile.isCheckingRequired()) {
-                ls.add(`cache hit`);
+                logState.suppress();
                 return false;
             }
 
             if (!this._shouldCheckFile(fileToCheck)) {
-                ls.add(`analysis not needed`);
+                logState.suppress();
                 return false;
             }
 
