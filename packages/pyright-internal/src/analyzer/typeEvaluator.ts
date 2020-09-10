@@ -5136,7 +5136,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                         // If the constructor returned an object whose type matches the class of
                         // the original type being constructed, use the return type in case it was
-                        // specialized.If it doesn't match, we'll fall back on the assumption that
+                        // specialized. If it doesn't match, we'll fall back on the assumption that
                         // the constructed type is an instance of the class type. We need to do this
                         // in cases where we're inferring the return type based on a call to
                         // super().__new__().
@@ -14959,6 +14959,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (!canAssignType(subtype, assignedType, diagAddendum)) {
                     return undefined;
+                }
+
+                // We assume that assignedType is a narrower type than subtype,
+                // so return it rather than subtype.
+                if (!isAnyOrUnknown(assignedType)) {
+                    return assignedType;
                 }
 
                 return subtype;
