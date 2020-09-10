@@ -4420,34 +4420,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         // Handle the specialization of "Tuple" which inherits from "tuple".
         if (ClassType.isBuiltIn(tupleClass, 'Tuple')) {
-            assert(
+            if (
                 tupleClass.details.mro.length >= 2 &&
-                    isClass(tupleClass.details.mro[0]) &&
-                    ClassType.isBuiltIn(tupleClass.details.mro[0], 'Tuple') &&
-                    isClass(tupleClass.details.mro[1]) &&
-                    ClassType.isBuiltIn(tupleClass.details.mro[1], 'tuple')
-            );
+                isClass(tupleClass.details.mro[0]) &&
+                ClassType.isBuiltIn(tupleClass.details.mro[0], 'Tuple') &&
+                isClass(tupleClass.details.mro[1]) &&
+                ClassType.isBuiltIn(tupleClass.details.mro[1], 'tuple')
+            ) {
+                specializedTuple.details.mro[1] = ClassType.cloneForSpecialization(
+                    specializedTuple.details.mro[1] as ClassType,
+                    [combinedTupleType],
+                    isTypeArgumentExplicit,
+                    /* skipAbstractClassTest */ undefined,
+                    effectiveTypeArguments
+                );
 
-            specializedTuple.details.mro[1] = ClassType.cloneForSpecialization(
-                specializedTuple.details.mro[1] as ClassType,
-                [combinedTupleType],
-                isTypeArgumentExplicit,
-                /* skipAbstractClassTest */ undefined,
-                effectiveTypeArguments
-            );
-
-            return specializedTuple;
+                return specializedTuple;
+            }
         }
 
         // Handle the specialization of "tuple" directly.
         if (ClassType.isBuiltIn(tupleClass, 'tuple')) {
-            assert(
+            if (
                 tupleClass.details.mro.length >= 1 &&
-                    isClass(tupleClass.details.mro[0]) &&
-                    ClassType.isBuiltIn(tupleClass.details.mro[0], 'tuple')
-            );
-
-            return specializedTuple;
+                isClass(tupleClass.details.mro[0]) &&
+                ClassType.isBuiltIn(tupleClass.details.mro[0], 'tuple')
+            ) {
+                return specializedTuple;
+            }
         }
 
         return tupleClass;
