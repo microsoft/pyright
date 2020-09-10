@@ -93,7 +93,8 @@ function _addMissingOptionalToParam(
             importStatements,
             'typing',
             ImportGroup.BuiltIn,
-            parseResults
+            parseResults,
+            startPos
         );
         editActions.push(...additionalEditActions);
     }

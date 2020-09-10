@@ -148,7 +148,7 @@ export class SourceFile {
     // Do we need to perform a binding step?
     private _isBindingNeeded = true;
 
-    // Do we need to perform an additional type analysis pass?
+    // Do we have valid diagnostic results from a checking pass?
     private _isCheckingNeeded = true;
 
     // Do we need to perform an indexing step?
@@ -355,23 +355,14 @@ export class SourceFile {
         return false;
     }
 
-    // This should be only called if none of information from this file
-    // will be ever used again. otherwise, Same file will get parsed/bound again.
-    markDirtyAndDropEverything(): void {
-        // This doesn't currently drop info created implicitly
-        // by binding this file such as implicit imports.
-        //
-        // Future improvement could be adding a mode in the binder
-        // that only adds symbols (including aliases) from the given file to symbol table
-        // but prevents any symbol created from other file.
-        //
-        // Index generator or features that consume it such as
-        // document symbols, workspace symbols, auto-importer already drop symbols
-        // from other files, so no need to create those.
-        this.markDirty();
+    // Drop parse and binding info to save memory. It is used
+    // in cases where memory is low. When info is needed, the file
+    // will be re-parsed and rebound.
+    dropParseAndBindInfo(): void {
         this._parseResults = undefined;
-        this._parseDiagnostics = [];
-        this._bindDiagnostics = [];
+        this._moduleSymbolTable = undefined;
+        this._isBindingNeeded = true;
+        this._binderResults = undefined;
     }
 
     markDirty(): void {
@@ -433,7 +424,7 @@ export class SourceFile {
     }
 
     isParseRequired() {
-        return this._analyzedFileContentsVersion !== this._fileContentsVersion;
+        return !this._parseResults || this._analyzedFileContentsVersion !== this._fileContentsVersion;
     }
 
     isBindingRequired() {
@@ -449,18 +440,10 @@ export class SourceFile {
     }
 
     isIndexingRequired() {
-        if (this.isBindingRequired()) {
-            return true;
-        }
-
         return this._indexingNeeded;
     }
 
     isCheckingRequired() {
-        if (this.isBindingRequired()) {
-            return true;
-        }
-
         return this._isCheckingNeeded;
     }
 

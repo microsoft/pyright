@@ -169,6 +169,7 @@ export class TestState {
         const indexer = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexer]);
         const indexerWithoutStdLib = toBoolean(testData.globalOptions[GlobalMetadataOptionNames.indexerWithoutStdLib]);
         if (indexer || indexerWithoutStdLib) {
+            configOptions.indexing = true;
             this._hostSpecificFeatures.runIndexer(this.workspace, indexerWithoutStdLib);
         }
 

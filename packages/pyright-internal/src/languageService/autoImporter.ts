@@ -27,6 +27,7 @@ import { ConfigOptions } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
+import { Position } from '../common/textRange';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import {
@@ -124,21 +125,20 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
 }
 
 export interface AutoImportResult {
-    isImportFrom: boolean;
     name: string;
     symbol?: Symbol;
-    source: string;
+    source?: string;
     edits: TextEditAction[];
     alias?: string;
     kind?: CompletionItemKind;
 }
 
 interface ImportParts {
-    namePart?: string;
     importName: string;
-    importSource: string;
+    symbolName?: string;
+    importFrom?: string;
     filePath: string;
-    numberOfNameParts: number;
+    dotCount: number;
     moduleNameAndType: ModuleNameAndType;
 }
 
@@ -150,16 +150,18 @@ interface ImportAliasData {
 
 export class AutoImporter {
     private _importStatements: ImportStatements;
+    private _filePath: string;
 
     constructor(
         private _configOptions: ConfigOptions,
-        private _filePath: string,
         private _importResolver: ImportResolver,
         private _parseResults: ParseResults,
+        private _invocationPosition: Position,
         private _excludes: string[],
         private _moduleSymbolMap: ModuleSymbolMap,
         private _libraryMap?: Map<string, IndexResults>
     ) {
+        this._filePath = AnalyzerNodeInfo.getFileInfo(this._parseResults.parseTree)!.filePath;
         this._importStatements = getTopLevelImports(this._parseResults.parseTree);
     }
 
@@ -265,7 +267,7 @@ export class AutoImporter {
             return;
         }
 
-        const numberOfNameParts = importSource.split('.').length;
+        const dotCount = StringUtils.getCharacterCount(importSource, '.');
         topLevelSymbols.forEach((autoImportSymbol, name) => {
             throwIfCancellationRequested(token);
 
@@ -298,11 +300,11 @@ export class AutoImporter {
                     autoImportSymbol.importAlias,
                     {
                         importParts: {
-                            namePart: name,
+                            symbolName: name,
                             importName: name,
-                            importSource,
+                            importFrom: importSource,
                             filePath,
-                            numberOfNameParts,
+                            dotCount,
                             moduleNameAndType,
                         },
                         importGroup,
@@ -326,7 +328,6 @@ export class AutoImporter {
                 symbol: autoImportSymbol.symbol,
                 source: importSource,
                 edits: autoImportTextEdits,
-                isImportFrom: true,
                 alias: aliasName,
                 kind: autoImportSymbol.kind,
             });
@@ -349,7 +350,7 @@ export class AutoImporter {
             return;
         }
 
-        const alreadyIncluded = this._containsName(importParts.importName, importParts.importSource, results);
+        const alreadyIncluded = this._containsName(importParts.importName, importParts.importFrom, results);
         if (alreadyIncluded) {
             return;
         }
@@ -374,9 +375,9 @@ export class AutoImporter {
                 throwIfCancellationRequested(token);
 
                 const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
-                    importAliasData.importParts.namePart,
+                    importAliasData.importParts.symbolName,
                     importAliasData.importParts.filePath,
-                    importAliasData.importParts.importSource,
+                    importAliasData.importParts.importFrom ?? importAliasData.importParts.importName,
                     importAliasData.importGroup,
                     aliasName
                 );
@@ -385,9 +386,8 @@ export class AutoImporter {
                     name: importAliasData.importParts.importName,
                     alias: aliasName,
                     symbol: importAliasData.symbol,
-                    source: importAliasData.importParts.importSource,
+                    source: importAliasData.importParts.importFrom,
                     edits: autoImportTextEdits,
-                    isImportFrom: !!importAliasData.importParts.namePart,
                 });
             });
         });
@@ -431,7 +431,7 @@ export class AutoImporter {
             return groupComparison;
         }
 
-        const dotComparison = left.importParts.numberOfNameParts - right.importParts.numberOfNameParts;
+        const dotComparison = left.importParts.dotCount - right.importParts.dotCount;
         if (dotComparison !== 0) {
             return dotComparison;
         }
@@ -479,20 +479,21 @@ export class AutoImporter {
 
         return createImportParts(this._getModuleNameAndTypeFromFilePath(filePath));
 
-        function createImportParts(module: ModuleNameAndType) {
-            const importSource = module.moduleName;
-            if (!importSource) {
-                return;
+        function createImportParts(module: ModuleNameAndType): ImportParts | undefined {
+            const moduleName = module.moduleName;
+            if (!moduleName) {
+                return undefined;
             }
 
-            const index = importSource.lastIndexOf('.');
-            const importNamePart = index > 0 ? importSource.substring(index + 1) : undefined;
+            const index = moduleName.lastIndexOf('.');
+            const importNamePart = index > 0 ? moduleName.substring(index + 1) : undefined;
+            const importFrom = index > 0 ? moduleName.substring(0, index) : undefined;
             return {
-                namePart: importNamePart,
-                importName: index > 0 ? importNamePart! : importSource,
-                importSource: index > 0 ? importSource.substring(0, index) : importSource,
+                symbolName: importNamePart,
+                importName: importNamePart ?? moduleName,
+                importFrom,
                 filePath,
-                numberOfNameParts: importSource.split('.').length,
+                dotCount: StringUtils.getCharacterCount(moduleName, '.'),
                 moduleNameAndType: module,
             };
         }
@@ -565,6 +566,7 @@ export class AutoImporter {
             moduleName,
             importGroup,
             this._parseResults,
+            this._invocationPosition,
             aliasName
         );
     }
