@@ -58,3 +58,27 @@ xx3: int = x
 yy3: int = y
 zz3: int = z
 
+TupleTypeAlias1 = tuple[str, int, float]
+
+t1_1: TupleTypeAlias1 = ("hi", 2, 3.4)
+
+# This should generate an error.
+t1_2: TupleTypeAlias1 = ("hi", 2)
+
+# This should generate an error.
+t1_3: TupleTypeAlias1 = ("hi", 2.3, 4)
+
+TupleTypeAlias2 = tuple[str, ...]
+
+t2_1: TupleTypeAlias2 = ("hi", "", "")
+t2_2: TupleTypeAlias2 = ()
+
+# This should generate an error.
+t2_3: TupleTypeAlias2 = ("hi", 2)
+
+TupleTypeAlias3 = tuple[()]
+
+t3_1: TupleTypeAlias2 = ()
+
+# This should generate an error.
+t3_2: TupleTypeAlias2 = (3, 4)

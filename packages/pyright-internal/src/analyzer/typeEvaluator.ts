@@ -13588,7 +13588,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             // Do we need to do special-case processing for various built-in classes?
-            if (ancestorIndex === 0 && ClassType.isSpecialBuiltIn(destType)) {
+            if (ancestorIndex === 0 && ClassType.isBuiltIn(destType)) {
                 // Handle built-in types that support arbitrary numbers
                 // of type parameters like Tuple.
                 if (isTupleClass(destType)) {
