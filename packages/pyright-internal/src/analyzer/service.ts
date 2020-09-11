@@ -396,14 +396,7 @@ export class AnalyzerService {
         let projectRoot = commandLineOptions.executionRoot;
         let configFilePath: string | undefined;
 
-        if (commandLineOptions.fileSpecs && commandLineOptions.fileSpecs.length > 0) {
-            // If file specs were passed in to the command line, no config file
-            // will be used. In this case, all file specs are assumed to be
-            // relative to the current working directory.
-            if (commandLineOptions.configFilePath) {
-                this._console.info('Project cannot be mixed with source files on a command line.');
-            }
-        } else if (commandLineOptions.configFilePath) {
+        if (commandLineOptions.configFilePath) {
             // If the config file path was specified, determine whether it's
             // a directory (in which case the default config file name is assumed)
             // or a file.
@@ -468,7 +461,8 @@ export class AnalyzerService {
                     this._typeCheckingMode,
                     this._console,
                     commandLineOptions.diagnosticSeverityOverrides,
-                    commandLineOptions.pythonPath
+                    commandLineOptions.pythonPath,
+                    commandLineOptions.fileSpecs.length > 0
                 );
 
                 const configFileDir = getDirectoryPath(configFilePath);

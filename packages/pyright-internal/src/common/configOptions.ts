@@ -610,24 +610,27 @@ export class ConfigOptions {
         typeCheckingMode: string | undefined,
         console: ConsoleInterface,
         diagnosticOverrides?: DiagnosticSeverityOverridesMap,
-        pythonPath?: string
+        pythonPath?: string,
+        skipIncludeSection = false
     ) {
         // Read the "include" entry.
-        this.include = [];
-        if (configObj.include !== undefined) {
-            if (!Array.isArray(configObj.include)) {
-                console.error(`Config "include" entry must must contain an array.`);
-            } else {
-                const filesList = configObj.include as string[];
-                filesList.forEach((fileSpec, index) => {
-                    if (typeof fileSpec !== 'string') {
-                        console.error(`Index ${index} of "include" array should be a string.`);
-                    } else if (isAbsolute(fileSpec)) {
-                        console.error(`Ignoring path "${fileSpec}" in "include" array because it is not relative.`);
-                    } else {
-                        this.include.push(getFileSpec(this.projectRoot, fileSpec));
-                    }
-                });
+        if (!skipIncludeSection) {
+            this.include = [];
+            if (configObj.include !== undefined) {
+                if (!Array.isArray(configObj.include)) {
+                    console.error(`Config "include" entry must must contain an array.`);
+                } else {
+                    const filesList = configObj.include as string[];
+                    filesList.forEach((fileSpec, index) => {
+                        if (typeof fileSpec !== 'string') {
+                            console.error(`Index ${index} of "include" array should be a string.`);
+                        } else if (isAbsolute(fileSpec)) {
+                            console.error(`Ignoring path "${fileSpec}" in "include" array because it is not relative.`);
+                        } else {
+                            this.include.push(getFileSpec(this.projectRoot, fileSpec));
+                        }
+                    });
+                }
             }
         }
 
