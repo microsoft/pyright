@@ -20,6 +20,7 @@ import {
     TextEditor,
     TextEditorEdit,
     Uri,
+    window,
 } from 'vscode';
 import {
     CancellationToken,
@@ -45,6 +46,20 @@ let cancellationStrategy: FileBasedCancellationStrategy | undefined;
 const pythonPathChangedListenerMap = new Map<string, string>();
 
 export function activate(context: ExtensionContext) {
+    // See if Pylance is installed. If so, don't activate the Pyright extension.
+    // Doing so will generate "command already registered" errors and redundant
+    // hover text, etc.because the two extensions overlap in functionality.
+    const pylanceExtension = extensions.getExtension('ms-python.vscode-pylance');
+    if (pylanceExtension) {
+        window.showErrorMessage(
+            'Pyright has detected that the Pylance extension is installed. ' +
+                'Pylance includes the functionality of Pyright, and running both of ' +
+                'these extensions can lead to problems. Pyright will disable itself. ' +
+                'Uninstall or disable Pyright to avoid this message.'
+        );
+        return;
+    }
+
     cancellationStrategy = new FileBasedCancellationStrategy();
 
     const bundlePath = context.asAbsolutePath(path.join('dist', 'server.js'));
