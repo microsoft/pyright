@@ -2210,3 +2210,9 @@ test('Subscript1', () => {
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['subscript1.py'], configOptions);
     validateResults(analysisResults39, 0);
 });
+
+test('InitSubclass1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['initsubclass1.py']);
+
+    validateResults(analysisResults, 2);
+});

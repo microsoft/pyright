@@ -29,6 +29,7 @@ import { TextRangeCollection } from '../common/textRangeCollection';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
+    ArgumentNode,
     AssignmentNode,
     AugmentedAssignmentNode,
     BinaryOperationNode,
@@ -222,6 +223,7 @@ interface EffectiveTypeResult {
 
 interface FunctionArgument {
     argumentCategory: ArgumentCategory;
+    node?: ArgumentNode;
     name?: NameNode;
     type?: Type;
     valueExpression?: ExpressionNode;
@@ -8775,6 +8777,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
         let sawMetaclass = false;
         let nonMetaclassBaseClassCount = 0;
+        const initSubclassArgs: FunctionArgument[] = [];
+
         node.arguments.forEach((arg) => {
             // Ignore keyword parameters other than metaclass or total.
             if (!arg.name || arg.name.value === 'metaclass') {
@@ -8916,20 +8920,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 if (!isMetaclass) {
                     nonMetaclassBaseClassCount++;
                 }
-            } else if (arg.name.value === 'total') {
+            } else if (arg.name.value === 'total' && ClassType.isTypedDictClass(classType)) {
                 // The "total" parameter name applies only for TypedDict classes.
-                if (ClassType.isTypedDictClass(classType)) {
-                    // PEP 589 specifies that the parameter must be either True or False.
-                    const constArgValue = evaluateStaticBoolExpression(
-                        arg.valueExpression,
-                        fileInfo.executionEnvironment
-                    );
-                    if (constArgValue === undefined) {
-                        addError(Localizer.Diagnostic.typedDictTotalParam(), arg.valueExpression);
-                    } else if (!constArgValue) {
-                        classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
-                    }
+                // PEP 589 specifies that the parameter must be either True or False.
+                const constArgValue = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
+                if (constArgValue === undefined) {
+                    addError(Localizer.Diagnostic.typedDictTotalParam(), arg.valueExpression);
+                } else if (!constArgValue) {
+                    classType.details.flags |= ClassTypeFlags.CanOmitDictValues;
                 }
+            } else {
+                // Collect arguments that will be passed to the `__init_subclass__`
+                // method described in PEP 487.
+                initSubclassArgs.push({
+                    argumentCategory: ArgumentCategory.Simple,
+                    node: arg,
+                    name: arg.name,
+                    valueExpression: arg.valueExpression,
+                });
             }
         });
 
@@ -9111,6 +9119,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // Update the decorated class type.
         writeTypeCache(node, decoratedType);
 
+        // Validate __init_subclass__ call.
+        if (initSubclassArgs.length > 0) {
+            validateInitSubclassArgs(node, classType, initSubclassArgs);
+        }
+
         return { classType, decoratedType };
     }
 
@@ -9160,6 +9173,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         return getTypeFromDecorator(decoratorNode, inputClassType);
+    }
+
+    function validateInitSubclassArgs(node: ClassNode, classType: ClassType, argList: FunctionArgument[]) {
+        const errorNode = argList[0].node!.name!;
+        const initSubclassMethodInfo = getTypeFromClassMemberName(
+            errorNode,
+            classType,
+            '__init_subclass__',
+            { method: 'get' },
+            new DiagnosticAddendum(),
+            MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
+        );
+
+        if (initSubclassMethodInfo) {
+            const initSubclassMethodType = bindFunctionToClassOrObject(
+                classType,
+                initSubclassMethodInfo.type,
+                /* treatAsClassMember */ true,
+                errorNode
+            );
+            const typeVarMap = new TypeVarMap();
+
+            if (initSubclassMethodType)
+                validateCallArguments(
+                    errorNode,
+                    argList,
+                    initSubclassMethodType,
+                    typeVarMap,
+                    /* skipUnknownArgCheck */ false,
+                    /* inferReturnTypeIfNeeded */ true,
+                    NoneType.createInstance()
+                );
+        }
     }
 
     function getTypeOfFunction(node: FunctionNode): FunctionTypeResult | undefined {
@@ -9584,6 +9630,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // It acts as a static method instead.
         if (node.name.value === '__new__' && isInClass) {
             flags |= FunctionTypeFlags.ConstructorMethod;
+        }
+
+        // The "__init_subclass__" magic method is not an instance method.
+        // It acts an an implicit class method instead.
+        if (node.name.value === '__init_subclass__' && isInClass) {
+            flags |= FunctionTypeFlags.ClassMethod;
         }
 
         for (const decoratorNode of node.decorators) {
