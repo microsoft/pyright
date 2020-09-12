@@ -195,7 +195,6 @@ export namespace Localizer {
         export const awaitNotInAsync = () => getRawString('Diagnostic.awaitNotInAsync');
         export const backticksIllegal = () => getRawString('Diagnostic.backticksIllegal');
         export const baseClassCircular = () => getRawString('Diagnostic.baseClassCircular');
-        export const baseClassDoubleGeneric = () => getRawString('Diagnostic.baseClassDoubleGeneric');
         export const baseClassInvalid = () => getRawString('Diagnostic.baseClassInvalid');
         export const baseClassFinal = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.baseClassFinal'));
@@ -239,6 +238,7 @@ export namespace Localizer {
         export const dictExpandIllegalInComprehension = () =>
             getRawString('Diagnostic.dictExpandIllegalInComprehension');
         export const duplicateArgsParam = () => getRawString('Diagnostic.duplicateArgsParam');
+        export const duplicateBaseClass = () => getRawString('Diagnostic.duplicateBaseClass');
         export const duplicateCatchAll = () => getRawString('Diagnostic.duplicateCatchAll');
         export const duplicateImport = () =>
             new ParameterizedString<{ importName: string }>(getRawString('Diagnostic.duplicateImport'));

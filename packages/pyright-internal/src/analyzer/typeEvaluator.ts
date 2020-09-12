@@ -8883,6 +8883,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         }
                     }
                 } else {
+                    // Check for a duplicate class.
+                    if (
+                        classType.details.baseClasses.some((prevBaseClass) => {
+                            return (
+                                isClass(prevBaseClass) &&
+                                isClass(argType) &&
+                                ClassType.isSameGenericClass(argType, prevBaseClass)
+                            );
+                        })
+                    ) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.duplicateBaseClass(),
+                            arg.name || arg
+                        );
+                    }
+
                     classType.details.baseClasses.push(argType);
                     if (isClass(argType)) {
                         if (ClassType.isEnumClass(argType)) {
@@ -8909,9 +8927,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(argType));
                 if (isClass(argType) && ClassType.isBuiltIn(argType, 'Generic')) {
-                    if (genericTypeParameters) {
-                        addError(Localizer.Diagnostic.baseClassDoubleGeneric(), arg.valueExpression);
-                    } else {
+                    if (!genericTypeParameters) {
                         genericTypeParameters = [];
                         addTypeVarsToListIfUnique(genericTypeParameters, getTypeVarArgumentsRecursive(argType));
                     }
