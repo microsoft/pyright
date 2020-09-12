@@ -8957,12 +8957,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         });
 
-        if (nonMetaclassBaseClassCount === 0) {
-            // Make sure we don't have 'object' derive from itself. Infinite
-            // recursion will result.
-            if (!ClassType.isBuiltIn(classType, 'object')) {
-                classType.details.baseClasses.push(getBuiltInType(node, 'object'));
-            }
+        // Make sure we don't have 'object' derive from itself. Infinite
+        // recursion will result.
+        if (!ClassType.isBuiltIn(classType, 'object')) {
+            classType.details.baseClasses.push(getBuiltInType(node, 'object'));
         }
 
         // TODO - if genericTypeParameters are provided, make sure that
