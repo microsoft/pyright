@@ -914,7 +914,7 @@ export class AnalyzerService {
                 this._backgroundAnalysisProgram.setAllowedThirdPartyImports([this._typeStubTargetImportName]);
                 this._backgroundAnalysisProgram.setTrackedFiles(filesToImport);
             } else {
-                this._console.info(`Import '${this._typeStubTargetImportName}' not found`);
+                this._console.error(`Import '${this._typeStubTargetImportName}' not found`);
             }
         } else {
             let fileList: string[] = [];
