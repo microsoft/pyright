@@ -4860,6 +4860,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     type = validateConstructorArguments(errorNode, argList, callType, skipUnknownArgCheck, expectedType)
                         .returnType;
                 }
+
+                // If we instantiated a type, transform it into a class.
+                // This can happen if someone directly instantiates a metaclass
+                // deriving from type.
+                if (
+                    type &&
+                    isObject(type) &&
+                    type.classType.details.mro.some(
+                        (baseClass) => isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'type')
+                    )
+                ) {
+                    // We don't know the name of the new class in this case.
+                    const newClassName = '__class_' + type.classType.details.name;
+                    const newClassType = ClassType.create(
+                        newClassName,
+                        '',
+                        '',
+                        ClassTypeFlags.None,
+                        errorNode.id,
+                        type.classType,
+                        type.classType
+                    );
+                    type = newClassType;
+                }
                 break;
             }
 
