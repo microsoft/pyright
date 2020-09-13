@@ -110,6 +110,9 @@ export interface DiagnosticRuleSet {
     // Report symbol or module that is imported more than once?
     reportDuplicateImport: DiagnosticLevel;
 
+    // Report use of wildcard import for non-local imports?
+    reportWildcardImportFromLibrary: DiagnosticLevel;
+
     // Report attempts to subscript (index) an Optional type?
     reportOptionalSubscript: DiagnosticLevel;
 
@@ -239,6 +242,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnusedFunction,
         DiagnosticRule.reportUnusedVariable,
         DiagnosticRule.reportDuplicateImport,
+        DiagnosticRule.reportWildcardImportFromLibrary,
         DiagnosticRule.reportOptionalSubscript,
         DiagnosticRule.reportOptionalMemberAccess,
         DiagnosticRule.reportOptionalCall,
@@ -299,6 +303,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedFunction: 'none',
         reportUnusedVariable: 'none',
         reportDuplicateImport: 'none',
+        reportWildcardImportFromLibrary: 'none',
         reportOptionalSubscript: 'none',
         reportOptionalMemberAccess: 'none',
         reportOptionalCall: 'none',
@@ -355,6 +360,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedFunction: 'none',
         reportUnusedVariable: 'none',
         reportDuplicateImport: 'none',
+        reportWildcardImportFromLibrary: 'warning',
         reportOptionalSubscript: 'none',
         reportOptionalMemberAccess: 'none',
         reportOptionalCall: 'none',
@@ -411,6 +417,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnusedFunction: 'error',
         reportUnusedVariable: 'error',
         reportDuplicateImport: 'error',
+        reportWildcardImportFromLibrary: 'error',
         reportOptionalSubscript: 'error',
         reportOptionalMemberAccess: 'error',
         reportOptionalCall: 'error',
@@ -807,6 +814,13 @@ export class ConfigOptions {
                 configObj.reportDuplicateImport,
                 DiagnosticRule.reportDuplicateImport,
                 defaultSettings.reportDuplicateImport
+            ),
+
+            // Read the "reportWildcardImportFromLibrary" entry.
+            reportWildcardImportFromLibrary: this._convertDiagnosticLevel(
+                configObj.reportWildcardImportFromLibrary,
+                DiagnosticRule.reportWildcardImportFromLibrary,
+                defaultSettings.reportWildcardImportFromLibrary
             ),
 
             // Read the "reportMissingModuleSource" entry.

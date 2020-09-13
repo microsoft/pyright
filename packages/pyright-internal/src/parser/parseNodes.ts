@@ -1669,6 +1669,7 @@ export interface ImportFromNode extends ParseNodeBase {
     imports: ImportFromAsNode[];
     isWildcardImport: boolean;
     usesParens: boolean;
+    wildcardToken?: Token;
     missingImportKeyword?: boolean;
 }
 

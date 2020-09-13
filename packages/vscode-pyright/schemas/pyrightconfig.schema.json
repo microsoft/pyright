@@ -189,6 +189,12 @@
       "title": "Controls reporting of symbols or modules that are imported more than once",
       "default": "none"
     },
+    "reportWildcardImportFromLibrary": {
+      "$id": "#/properties/reportWildcardImportFromLibrary",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of wlidcard import from external library",
+      "default": "none"
+    },
     "reportOptionalSubscript": {
       "$id": "#/properties/reportOptionalSubscript",
       "$ref": "#/definitions/diagnostic",

@@ -1230,6 +1230,7 @@ export class Parser {
             if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
                 extendRange(importFromNode, possibleStarToken);
                 importFromNode.isWildcardImport = true;
+                importFromNode.wildcardToken = possibleStarToken;
                 this._containsWildcardImport = true;
             } else {
                 const inParen = this._consumeTokenIfType(TokenType.OpenParenthesis);

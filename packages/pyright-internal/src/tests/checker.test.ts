@@ -1828,6 +1828,24 @@ test('Import11', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Import12', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, optional diagnostics are ignored.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['import12.py'], configOptions);
+    validateResults(analysisResults, 0, 1);
+
+    // Turn on error.
+    configOptions.diagnosticRuleSet.reportWildcardImportFromLibrary = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['import12.py'], configOptions);
+    validateResults(analysisResults, 1, 0);
+
+    // Turn off diagnostic.
+    configOptions.diagnosticRuleSet.reportWildcardImportFromLibrary = 'none';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['import12.py'], configOptions);
+    validateResults(analysisResults, 0, 0);
+});
+
 test('Overload1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload1.py']);
     validateResults(analysisResults, 2);

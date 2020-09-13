@@ -27,6 +27,7 @@ export enum DiagnosticRule {
     reportUnusedFunction = 'reportUnusedFunction',
     reportUnusedVariable = 'reportUnusedVariable',
     reportDuplicateImport = 'reportDuplicateImport',
+    reportWildcardImportFromLibrary = 'reportWildcardImportFromLibrary',
     reportOptionalSubscript = 'reportOptionalSubscript',
     reportOptionalMemberAccess = 'reportOptionalMemberAccess',
     reportOptionalCall = 'reportOptionalCall',

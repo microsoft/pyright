@@ -323,6 +323,7 @@
         "walrusIllegal": "Operator \":=\" requires Python 3.8 or newer",
         "walrusNotAllowed": "Operator \":=\" not allowed in this context",
         "wildcardInFunction": "Wildcard import is not allowed within a class or function",
+        "wildcardLibraryImport": "Wildcard import from a library is not allowed",
         "yieldFromIllegal": "Use of \"yield from\" requires Python 3.3 or newer",
         "yieldFromOutsideAsync": "\"yield from\" not allowed in an async function",
         "yieldOutsideFunction": "\"yield\" not allowed outside of a function",

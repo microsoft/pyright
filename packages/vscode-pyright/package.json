@@ -226,6 +226,17 @@
                                 "error"
                             ]
                         },
+                        "reportWildcardImportFromLibrary": {
+                            "type": "string",
+                            "description": "Diagnostics for an wildcard import from an external library.",
+                            "default": "warning",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportOptionalSubscript": {
                             "type": "string",
                             "description": "Diagnostics for an attempt to subscript (index) a variable with an Optional type.",
