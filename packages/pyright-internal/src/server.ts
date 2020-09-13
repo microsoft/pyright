@@ -4,7 +4,6 @@
  * Implements pyright language server.
  */
 
-import { isArray } from 'util';
 import {
     CancellationToken,
     CodeAction,
@@ -81,7 +80,7 @@ class PyrightServer extends LanguageServerBase {
             const pythonAnalysisSection = await this.getConfiguration(workspace.rootUri, 'python.analysis');
             if (pythonAnalysisSection) {
                 const typeshedPaths = pythonAnalysisSection.typeshedPaths;
-                if (typeshedPaths && isArray(typeshedPaths) && typeshedPaths.length > 0) {
+                if (typeshedPaths && Array.isArray(typeshedPaths) && typeshedPaths.length > 0) {
                     serverSettings.typeshedPath = normalizeSlashes(typeshedPaths[0]);
                 }
 
@@ -115,7 +114,7 @@ class PyrightServer extends LanguageServerBase {
                 serverSettings.autoSearchPaths = !!pythonAnalysisSection.autoSearchPaths;
 
                 const extraPaths = pythonAnalysisSection.extraPaths;
-                if (extraPaths && isArray(extraPaths) && extraPaths.length > 0) {
+                if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
                     serverSettings.extraPaths = extraPaths.map((p) => normalizeSlashes(p));
                 }
 
