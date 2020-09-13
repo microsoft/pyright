@@ -154,6 +154,7 @@ import {
     TypeSourceId,
     TypeVarType,
     UnboundType,
+    UnionType,
     UnknownType,
 } from './types';
 import {
@@ -2052,19 +2053,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
 
         const strClass = getBuiltInType(node, 'str');
-        // Synthesize a "get" method for each named entry.
+
+        // Synthesize a "get", pop, and setdefault method for each named entry.
         if (isClass(strClass)) {
-            const createGetFunction = (keyType: Type, valueType: Type) => {
+            const selfParam: FunctionParameter = {
+                category: ParameterCategory.Simple,
+                name: 'self',
+                type: ObjectType.create(classType),
+            };
+            const defaultTypeVar = TypeVarType.createInstance(
+                `__${classType.details.name}_default`,
+                /* isParamSpec */ false
+            );
+
+            const createGetMethod = (keyType: Type, valueType: Type) => {
                 const getOverload = FunctionType.createInstance(
                     'get',
                     '',
                     FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
                 );
-                FunctionType.addParameter(getOverload, {
-                    category: ParameterCategory.Simple,
-                    name: 'self',
-                    type: ObjectType.create(classType),
-                });
+                FunctionType.addParameter(getOverload, selfParam);
                 FunctionType.addParameter(getOverload, {
                     category: ParameterCategory.Simple,
                     name: 'k',
@@ -2082,23 +2090,117 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 return getOverload;
             };
 
+            const createPopMethods = (keyType: Type, valueType: Type) => {
+                const keyParam: FunctionParameter = {
+                    category: ParameterCategory.Simple,
+                    name: 'k',
+                    hasDeclaredType: true,
+                    type: keyType,
+                };
+
+                const popOverload1 = FunctionType.createInstance(
+                    'pop',
+                    '',
+                    FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
+                );
+                FunctionType.addParameter(popOverload1, selfParam);
+                FunctionType.addParameter(popOverload1, keyParam);
+                popOverload1.details.declaredReturnType = valueType;
+
+                const popOverload2 = FunctionType.createInstance(
+                    'pop',
+                    '',
+                    FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
+                );
+                FunctionType.addParameter(popOverload2, selfParam);
+                FunctionType.addParameter(popOverload2, keyParam);
+                FunctionType.addParameter(popOverload2, {
+                    category: ParameterCategory.Simple,
+                    name: 'default',
+                    hasDeclaredType: true,
+                    type: defaultTypeVar,
+                    hasDefault: true,
+                });
+                popOverload2.details.declaredReturnType = combineTypes([valueType, defaultTypeVar]);
+                return [popOverload1, popOverload2];
+            };
+
+            const createSetDefaultMethod = (keyType: Type, valueType: Type) => {
+                const setDefaultOverload = FunctionType.createInstance(
+                    'setdefault',
+                    '',
+                    FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
+                );
+                FunctionType.addParameter(setDefaultOverload, selfParam);
+                FunctionType.addParameter(setDefaultOverload, {
+                    category: ParameterCategory.Simple,
+                    name: 'k',
+                    hasDeclaredType: true,
+                    type: keyType,
+                });
+                FunctionType.addParameter(setDefaultOverload, {
+                    category: ParameterCategory.Simple,
+                    name: 'default',
+                    hasDeclaredType: true,
+                    type: defaultTypeVar,
+                    hasDefault: true,
+                });
+                setDefaultOverload.details.declaredReturnType = combineTypes([valueType, defaultTypeVar]);
+                return setDefaultOverload;
+            };
+
+            const createDelItemMethod = (keyType: Type) => {
+                const delItemOverload = FunctionType.createInstance(
+                    'delitem',
+                    '',
+                    FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
+                );
+                FunctionType.addParameter(delItemOverload, selfParam);
+                FunctionType.addParameter(delItemOverload, {
+                    category: ParameterCategory.Simple,
+                    name: 'k',
+                    hasDeclaredType: true,
+                    type: keyType,
+                });
+                delItemOverload.details.declaredReturnType = NoneType.createInstance();
+                return delItemOverload;
+            };
+
             const getOverloads: FunctionType[] = [];
+            const popOverloads: FunctionType[] = [];
+            const setDefaultOverloads: FunctionType[] = [];
 
             entries.forEach((entry, name) => {
-                const getOverload = createGetFunction(
-                    ObjectType.create(ClassType.cloneWithLiteral(strClass, name)),
-                    entry.valueType
-                );
-                getOverloads.push(getOverload);
+                const nameLiteralType = ObjectType.create(ClassType.cloneWithLiteral(strClass, name));
+
+                getOverloads.push(createGetMethod(nameLiteralType, entry.valueType));
+                popOverloads.push(...createPopMethods(nameLiteralType, entry.valueType));
+                setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType));
             });
 
-            // Provide a final overload for 'get' that handles the general case
-            // where the key is a str but the literal value isn't known.
-            const getOverload = createGetFunction(ObjectType.create(strClass), UnknownType.create());
-            getOverloads.push(getOverload);
+            // Provide a final overload that handles the general case where the key is
+            // a str but the literal value isn't known.
+            const strType = ObjectType.create(strClass);
+            getOverloads.push(createGetMethod(strType, AnyType.create()));
+            popOverloads.push(...createPopMethods(strType, AnyType.create()));
+            setDefaultOverloads.push(createSetDefaultMethod(strType, AnyType.create()));
 
-            const getMethod = OverloadedFunctionType.create(getOverloads);
-            symbolTable.set('get', Symbol.createWithType(SymbolFlags.ClassMember, getMethod));
+            symbolTable.set(
+                'get',
+                Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(getOverloads))
+            );
+            symbolTable.set(
+                'pop',
+                Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(popOverloads))
+            );
+            symbolTable.set(
+                'setdefault',
+                Symbol.createWithType(SymbolFlags.ClassMember, OverloadedFunctionType.create(setDefaultOverloads))
+            );
+            symbolTable.set(
+                '__delitem__',
+                Symbol.createWithType(SymbolFlags.ClassMember, createDelItemMethod(strType))
+            );
         }
     }
 

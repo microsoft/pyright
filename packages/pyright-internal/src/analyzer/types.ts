@@ -1185,7 +1185,7 @@ export interface UnionType extends TypeBase {
 }
 
 export namespace UnionType {
-    export function create(subtypes: Type[] = []) {
+    export function create() {
         const newUnionType: UnionType = {
             category: TypeCategory.Union,
             subtypes: [],
