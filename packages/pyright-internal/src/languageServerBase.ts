@@ -1049,19 +1049,19 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return completions?.completionList;
     }
 
-    protected convertLogLevel(logLevel?: string): LogLevel {
-        if (!logLevel) {
+    protected convertLogLevel(logLevelValue?: string): LogLevel {
+        if (!logLevelValue) {
             return LogLevel.Info;
         }
 
-        switch (logLevel.toLowerCase()) {
+        switch (logLevelValue.toLowerCase()) {
             case 'error':
                 return LogLevel.Error;
 
             case 'warning':
                 return LogLevel.Warn;
 
-            case 'info':
+            case 'information':
                 return LogLevel.Info;
 
             case 'trace':

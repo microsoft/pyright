@@ -20,7 +20,7 @@ The Pyright VS Code extension honors the following settings.
 
 **python.analysis.extraPaths** [array of paths]: Paths to add to the default execution environment extra paths if there are no execution environments defined in the config file.
 
-**python.analysis.logLevel** ["Error", "Warning", "Info", or "Trace"]: Level of logging for Output panel. The default value for this option is "Info".
+**python.analysis.logLevel** ["Error", "Warning", "Information", or "Trace"]: Level of logging for Output panel. The default value for this option is "Information".
 
 **python.analysis.stubPath** [path]: Path to directory containing custom type stub files.
 

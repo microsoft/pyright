@@ -2672,14 +2672,18 @@ export class Binder extends ParseTreeWalker {
             case 'error':
                 diagnostic = this._addError(message, textRange);
                 break;
+
             case 'warning':
                 diagnostic = this._addWarning(message, textRange);
                 break;
+
             case 'information':
                 diagnostic = this._addInformation(message, textRange);
                 break;
+
             case 'none':
                 break;
+
             default:
                 return assertNever(diagLevel, `${diagLevel} is not expected`);
         }

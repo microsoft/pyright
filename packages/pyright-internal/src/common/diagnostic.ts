@@ -25,10 +25,13 @@ export function convertLevelToCategory(level: DiagnosticLevel) {
     switch (level) {
         case 'error':
             return DiagnosticCategory.Error;
+
         case 'warning':
             return DiagnosticCategory.Warning;
+
         case 'information':
             return DiagnosticCategory.Information;
+
         default:
             throw new Error(`${level} is not expected`);
     }

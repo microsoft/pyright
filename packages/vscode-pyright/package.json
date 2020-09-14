@@ -576,7 +576,7 @@
                     "enum": [
                         "Error",
                         "Warning",
-                        "Info",
+                        "Information",
                         "Trace"
                     ]
                 },
