@@ -57,14 +57,19 @@ function _addMissingOptionalToParam(
         node = node.parent;
     }
 
-    if (!node || !node.typeAnnotation) {
+    if (!node) {
+        return [];
+    }
+
+    const typeAnnotation = node.typeAnnotation || node.typeAnnotationComment;
+    if (!typeAnnotation) {
         return [];
     }
 
     const editActions: TextEditAction[] = [];
 
-    const startPos = convertOffsetToPosition(node.typeAnnotation.start, parseResults.tokenizerOutput.lines);
-    const endPos = convertOffsetToPosition(TextRange.getEnd(node.typeAnnotation), parseResults.tokenizerOutput.lines);
+    const startPos = convertOffsetToPosition(typeAnnotation.start, parseResults.tokenizerOutput.lines);
+    const endPos = convertOffsetToPosition(TextRange.getEnd(typeAnnotation), parseResults.tokenizerOutput.lines);
 
     editActions.push({
         range: { start: startPos, end: startPos },

@@ -1077,6 +1077,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // even if it's not enclosed in quotes.
         if (node?.parent?.nodeType === ParseNodeType.Assignment && node.parent.typeAnnotationComment === node) {
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+        } else if (node?.parent?.nodeType === ParseNodeType.FunctionAnnotation) {
+            if (node.parent.returnTypeAnnotation === node || node.parent.paramTypeAnnotations.some((n) => n === node)) {
+                evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+            }
+        } else if (node?.parent?.nodeType === ParseNodeType.Parameter) {
+            if (node.parent.typeAnnotationComment === node) {
+                evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
+            }
         }
 
         if (!allowFinal) {
@@ -1286,6 +1294,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const param = node.parameters[paramIndex];
         if (param.typeAnnotation) {
             return param.typeAnnotation;
+        } else if (param.typeAnnotationComment) {
+            return param.typeAnnotationComment;
         }
 
         if (!node.functionAnnotationComment || node.functionAnnotationComment.isParamListEllipsis) {
@@ -9474,6 +9484,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             if (param.typeAnnotation) {
                 paramTypeNode = param.typeAnnotation;
+            } else if (param.typeAnnotationComment) {
+                paramTypeNode = param.typeAnnotationComment;
             } else if (node.functionAnnotationComment && !node.functionAnnotationComment.isParamListEllipsis) {
                 const adjustedIndex = index - firstCommentAnnotationIndex;
                 if (adjustedIndex >= 0 && adjustedIndex < node.functionAnnotationComment.paramTypeAnnotations.length) {
@@ -9576,19 +9588,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         if (containingClassNode && containingClassType) {
             // If the first parameter doesn't have an explicit type annotation,
             // provide a type if it's an instance, class or constructor method.
-            if (functionType.details.parameters.length > 0 && !node.parameters[0].typeAnnotation) {
-                const inferredParamType = inferFirstParamType(
-                    functionType.details.flags,
-                    containingClassType,
-                    containingClassNode
-                );
-                if (inferredParamType) {
-                    functionType.details.parameters[0].type = inferredParamType;
-                    if (!isAnyOrUnknown(inferredParamType)) {
-                        functionType.details.parameters[0].isTypeInferred = true;
-                    }
+            if (functionType.details.parameters.length > 0) {
+                const typeAnnotation = getTypeAnnotationForParameter(node, 0);
+                if (!typeAnnotation) {
+                    const inferredParamType = inferFirstParamType(
+                        functionType.details.flags,
+                        containingClassType,
+                        containingClassNode
+                    );
+                    if (inferredParamType) {
+                        functionType.details.parameters[0].type = inferredParamType;
+                        if (!isAnyOrUnknown(inferredParamType)) {
+                            functionType.details.parameters[0].isTypeInferred = true;
+                        }
 
-                    paramTypes[0] = inferredParamType;
+                        paramTypes[0] = inferredParamType;
+                    }
                 }
             }
         }
@@ -9992,29 +10007,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         });
 
         // Verify parameters for fset.
-        if (errorNode.parameters.length >= 2 && errorNode.parameters[1].typeAnnotation) {
-            // Verify consistency of the type.
-            const fgetType = getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);
-            if (fgetType && !isAnyOrUnknown(fgetType)) {
-                const fsetType = getTypeOfAnnotation(errorNode.parameters[1].typeAnnotation);
+        if (errorNode.parameters.length >= 2) {
+            const typeAnnotation = getTypeAnnotationForParameter(errorNode, 1);
+            if (typeAnnotation) {
+                // Verify consistency of the type.
+                const fgetType = getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);
+                if (fgetType && !isAnyOrUnknown(fgetType)) {
+                    const fsetType = getTypeOfAnnotation(typeAnnotation);
 
-                // The setter type should be assignable to the getter type.
-                const diag = new DiagnosticAddendum();
-                if (
-                    !canAssignType(
-                        fgetType,
-                        fsetType,
-                        diag,
-                        /* typeVarMap */ undefined,
-                        CanAssignFlags.DoNotSpecializeTypeVars
-                    )
-                ) {
-                    addDiagnostic(
-                        getFileInfo(errorNode).diagnosticRuleSet.reportPropertyTypeMismatch,
-                        DiagnosticRule.reportPropertyTypeMismatch,
-                        Localizer.Diagnostic.setterGetterTypeMismatch() + diag.getString(),
-                        errorNode.parameters[1].typeAnnotation
-                    );
+                    // The setter type should be assignable to the getter type.
+                    const diag = new DiagnosticAddendum();
+                    if (
+                        !canAssignType(
+                            fgetType,
+                            fsetType,
+                            diag,
+                            /* typeVarMap */ undefined,
+                            CanAssignFlags.DoNotSpecializeTypeVars
+                        )
+                    ) {
+                        addDiagnostic(
+                            getFileInfo(errorNode).diagnosticRuleSet.reportPropertyTypeMismatch,
+                            DiagnosticRule.reportPropertyTypeMismatch,
+                            Localizer.Diagnostic.setterGetterTypeMismatch() + diag.getString(),
+                            typeAnnotation
+                        );
+                    }
                 }
             }
         }
@@ -12933,7 +12951,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case DeclarationType.Parameter: {
-                let typeAnnotationNode = declaration.node.typeAnnotation;
+                let typeAnnotationNode = declaration.node.typeAnnotation || declaration.node.typeAnnotationComment;
 
                 // If there wasn't an annotation, see if the parent function
                 // has a function-level annotation comment that provides

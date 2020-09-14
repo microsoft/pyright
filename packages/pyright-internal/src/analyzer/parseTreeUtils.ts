@@ -835,7 +835,10 @@ export function isWithinTypeAnnotation(node: ParseNode, requireQuotedAnnotation:
     let isQuoted = false;
 
     while (curNode) {
-        if (curNode.nodeType === ParseNodeType.Parameter && prevNode === curNode.typeAnnotation) {
+        if (
+            curNode.nodeType === ParseNodeType.Parameter &&
+            (prevNode === curNode.typeAnnotation || prevNode === curNode.typeAnnotationComment)
+        ) {
             return isQuoted || !requireQuotedAnnotation;
         }
 

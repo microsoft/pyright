@@ -19,7 +19,7 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
             return true;
 
         case DeclarationType.Parameter: {
-            if (declaration.node.typeAnnotation) {
+            if (declaration.node.typeAnnotation || declaration.node.typeAnnotationComment) {
                 return true;
             }
             const parameterParent = declaration.node.parent;

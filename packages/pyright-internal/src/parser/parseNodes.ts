@@ -423,6 +423,7 @@ export interface ParameterNode extends ParseNodeBase {
     category: ParameterCategory;
     name?: NameNode;
     typeAnnotation?: ExpressionNode;
+    typeAnnotationComment?: ExpressionNode;
     defaultValue?: ExpressionNode;
 }
 

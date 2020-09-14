@@ -376,7 +376,7 @@ export class ParseTreeWalker {
 
             case ParseNodeType.Parameter:
                 if (this.visitParameter(node)) {
-                    return [node.name, node.typeAnnotation, node.defaultValue];
+                    return [node.name, node.typeAnnotation, node.typeAnnotationComment, node.defaultValue];
                 }
                 break;
 

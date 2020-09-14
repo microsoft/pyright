@@ -877,9 +877,9 @@ export class Parser {
                 // Look for a type annotation comment at the end of the line.
                 const typeAnnotationComment = this._parseVariableTypeAnnotationComment();
                 if (typeAnnotationComment) {
-                    param.typeAnnotation = typeAnnotationComment;
-                    param.typeAnnotation.parent = param;
-                    extendRange(param, param.typeAnnotation);
+                    param.typeAnnotationComment = typeAnnotationComment;
+                    param.typeAnnotationComment.parent = param;
+                    extendRange(param, param.typeAnnotationComment);
                 }
             }
 

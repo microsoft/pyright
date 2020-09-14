@@ -6,13 +6,18 @@ from typing import TypeVar
 
 _T = TypeVar("_T", bound="ClassA")
 
+
 class ClassA:
     def method0(self, a, b):
-        # type: (_T, str, int) -> str
+        # type: (_T, str, ClassB) -> str
         return ""
 
+    def method1(self, a, b):
+        # type: (_T, str, int) -> ClassB
+        return ClassB()
+
     # Too many annotations
-    def method2(self, a, b): # type: (_T, str, int, int) -> str
+    def method2(self, a, b):  # type: (_T, str, int, int) -> str
         return ""
 
     # Too few annotations
@@ -22,3 +27,5 @@ class ClassA:
         return ""
 
 
+class ClassB:
+    ...

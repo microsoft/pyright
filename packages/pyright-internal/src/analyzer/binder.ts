@@ -395,6 +395,10 @@ export class Binder extends ParseTreeWalker {
             if (param.typeAnnotation) {
                 this.walk(param.typeAnnotation);
             }
+
+            if (param.typeAnnotationComment) {
+                this.walk(param.typeAnnotationComment);
+            }
         });
 
         if (node.returnTypeAnnotation) {
