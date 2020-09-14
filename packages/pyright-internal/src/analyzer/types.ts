@@ -1388,6 +1388,14 @@ export function isTypeVar(type: Type): type is TypeVarType {
     return type.category === TypeCategory.TypeVar;
 }
 
+export function isFunction(type: Type): type is FunctionType {
+    return type.category === TypeCategory.Function;
+}
+
+export function isOverloadedFunction(type: Type): type is OverloadedFunctionType {
+    return type.category === TypeCategory.OverloadedFunction;
+}
+
 export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolean {
     if (type1.category !== type2.category) {
         return false;

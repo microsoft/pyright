@@ -126,6 +126,7 @@ import {
     InheritanceChain,
     isAnyOrUnknown,
     isClass,
+    isFunction,
     isModule,
     isNever,
     isNone,
@@ -8837,11 +8838,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
     function getTypeOfClass(node: ClassNode): ClassTypeResult | undefined {
         // Is this type already cached?
-        let classType = readTypeCache(node.name) as ClassType;
-        let decoratedType = readTypeCache(node);
+        const cachedClassType = readTypeCache(node.name);
 
-        if (classType) {
-            return { classType, decoratedType: decoratedType || UnknownType.create() };
+        if (cachedClassType) {
+            if (!isClass(cachedClassType)) {
+                // This can happen in rare circumstances where the class declaration
+                // is located in an unreachable code block.
+                return undefined;
+            }
+            return { classType: cachedClassType, decoratedType: readTypeCache(node) || UnknownType.create() };
         }
 
         // The type wasn't cached, so we need to create a new one.
@@ -8866,7 +8871,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
         }
 
-        classType = ClassType.create(
+        const classType = ClassType.create(
             node.name.value,
             getClassFullName(node, fileInfo.moduleName, node.name.value),
             fileInfo.moduleName,
@@ -9204,7 +9209,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         }
 
         // Now determine the decorated type of the class.
-        decoratedType = classType;
+        let decoratedType: Type = classType;
         let foundUnknown = false;
 
         for (let i = node.decorators.length - 1; i >= 0; i--) {
@@ -9352,11 +9357,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const fileInfo = getFileInfo(node);
 
         // Is this type already cached?
-        let functionType = readTypeCache(node.name) as FunctionType;
-        let decoratedType = readTypeCache(node);
+        const cachedFunctionType = readTypeCache(node.name) as FunctionType;
 
-        if (functionType) {
-            return { functionType, decoratedType: decoratedType || UnknownType.create() };
+        if (cachedFunctionType) {
+            if (!isFunction(cachedFunctionType)) {
+                // This can happen in certain rare circumstances where the
+                // function declaration falls within an unreachable code block.
+                return undefined;
+            }
+            return { functionType: cachedFunctionType, decoratedType: readTypeCache(node) || UnknownType.create() };
         }
 
         let functionDecl: FunctionDeclaration | undefined;
@@ -9390,7 +9399,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             functionFlags |= FunctionTypeFlags.Async;
         }
 
-        functionType = FunctionType.createInstance(
+        const functionType = FunctionType.createInstance(
             node.name.value,
             fileInfo.moduleName,
             functionFlags,
@@ -9637,7 +9646,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         const preDecoratedType = node.isAsync ? createAsyncFunction(node, functionType) : functionType;
 
         // Apply all of the decorators in reverse order.
-        decoratedType = preDecoratedType;
+        let decoratedType: Type = preDecoratedType;
         let foundUnknown = false;
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
