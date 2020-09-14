@@ -12879,12 +12879,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         return intType;
                     }
 
-                    if (declaration.intrinsicType === 'Iterable[str]') {
-                        const iterableType = getBuiltInType(declaration.node, 'Iterable');
-                        if (isClass(iterableType)) {
+                    if (declaration.intrinsicType === 'List[str]') {
+                        const listType = getBuiltInType(declaration.node, 'List');
+                        if (isClass(listType)) {
                             return ObjectType.create(
                                 ClassType.cloneForSpecialization(
-                                    iterableType,
+                                    listType,
                                     [strType],
                                     /* isTypeArgumentExplicit */ false
                                 )
