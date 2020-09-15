@@ -464,7 +464,7 @@ export class ConfigOptions {
         // since there is little or no downside and possible upside of discovering
         // more type information in this case. If type checking is enabled, using
         // type inference in this case can result in false positive errors.
-        if (typeCheckingMode === 'off') {
+        if (typeCheckingMode !== 'off') {
             this.disableInferenceForPyTypedSources = true;
         }
     }
