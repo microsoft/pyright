@@ -4057,6 +4057,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (typeArgs.length > typeParameters.length) {
                         addError(
                             Localizer.Diagnostic.typeArgsTooMany().format({
+                                name: printType(baseType),
                                 expected: typeParameters.length,
                                 received: typeArgs.length,
                             }),
@@ -5394,6 +5395,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !type.isTypeArgumentExplicit &&
             expectedClass.typeArguments.length === type.typeArguments.length
         ) {
+            const typeVarMap = new TypeVarMap();
             let isAssignable = true;
             expectedClass.typeArguments.forEach((expectedTypeArg, index) => {
                 const typeTypeArg = type.typeArguments![index];
@@ -8456,6 +8458,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (typeArgs && typeArgTypes.length > paramLimit) {
                 addError(
                     Localizer.Diagnostic.typeArgsTooMany().format({
+                        name: classType.details.name,
                         expected: paramLimit,
                         received: typeArgTypes.length,
                     }),
@@ -12509,6 +12512,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.typeArgsTooMany().format({
+                            name: classType.details.name,
                             expected: typeParameters.length,
                             received: typeArgCount,
                         }),
@@ -12517,6 +12521,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
             typeArgCount = typeParameters.length;
+        } else if (typeArgs && typeArgCount < typeParameters.length) {
+            const fileInfo = getFileInfo(errorNode);
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
+                DiagnosticRule.reportMissingTypeArgument,
+                Localizer.Diagnostic.typeArgsTooFew().format({
+                    name: classType.details.name,
+                    expected: typeParameters.length,
+                    received: typeArgCount,
+                }),
+                typeArgs[0].node.parent!
+            );
         }
 
         if (typeArgs) {

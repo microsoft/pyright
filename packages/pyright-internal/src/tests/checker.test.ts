@@ -1573,7 +1573,7 @@ test('GenericTypes33', () => {
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportMissingTypeArgument = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes33.py'], configOptions);
-    validateResults(analysisResults, 3);
+    validateResults(analysisResults, 4);
 });
 
 test('GenericTypes34', () => {
