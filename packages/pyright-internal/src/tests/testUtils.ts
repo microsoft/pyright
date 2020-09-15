@@ -105,6 +105,7 @@ export function buildAnalyzerFileInfo(
         moduleName: '',
         isStubFile: filePath.endsWith('.pyi'),
         isTypingStubFile: false,
+        isInPyTypedPackage: false,
         isTypingExtensionsStubFile: false,
         isBuiltInStubFile: false,
         accessedSymbolMap: new Map<number, true>(),
