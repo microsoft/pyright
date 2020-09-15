@@ -459,6 +459,14 @@ export class ConfigOptions {
     constructor(projectRoot: string, typeCheckingMode?: string) {
         this.projectRoot = projectRoot;
         this.diagnosticRuleSet = ConfigOptions.getDiagnosticRuleSet(typeCheckingMode);
+
+        // If type checking mode is off, allow inference for py.typed sources
+        // since there is little or no downside and possible upside of discovering
+        // more type information in this case. If type checking is enabled, using
+        // type inference in this case can result in false positive errors.
+        if (typeCheckingMode === 'off') {
+            this.disableInferenceForPyTypedSources = true;
+        }
     }
 
     // Absolute directory of project. All relative paths in the config
@@ -514,6 +522,10 @@ export class ConfigOptions {
 
     // Use indexing.
     indexing = false;
+
+    // Avoid using type inferencing for files within packages that claim
+    // to contain type annotations?
+    disableInferenceForPyTypedSources = true;
 
     //---------------------------------------------------------------
     // Diagnostics Rule Set

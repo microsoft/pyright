@@ -634,7 +634,10 @@ export class Program {
     }
 
     private _createNewEvaluator() {
-        this._evaluator = createTypeEvaluator(this._lookUpImport, Program._getPrintTypeFlags(this._configOptions));
+        this._evaluator = createTypeEvaluator(this._lookUpImport, {
+            disableInferenceForPyTypedSources: this._configOptions.disableInferenceForPyTypedSources,
+            printTypeFlags: Program._getPrintTypeFlags(this._configOptions),
+        });
     }
 
     private _parseFile(fileToParse: SourceFileInfo) {

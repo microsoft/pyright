@@ -589,7 +589,12 @@ interface ReturnTypeInferenceContext {
 // performance.
 const maxReturnTypeInferenceStackSize = 3;
 
-export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: PrintTypeFlags): TypeEvaluator {
+export interface EvaluatorOptions {
+    disableInferenceForPyTypedSources: boolean;
+    printTypeFlags: PrintTypeFlags;
+}
+
+export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const isReachableRecursionMap = new Map<number, true>();
     const functionRecursionMap = new Map<number, true>();
@@ -9429,7 +9434,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             functionFlags |= FunctionTypeFlags.StubDefinition;
         }
 
-        if (fileInfo.isInPyTypedPackage) {
+        if (fileInfo.isInPyTypedPackage && evaluatorOptions.disableInferenceForPyTypedSources) {
             functionFlags |= FunctionTypeFlags.PyTypedDefinition;
         }
 
@@ -13111,7 +13116,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
         // unless it's marked Final, is a constant, or is a declared type alias.
         const fileInfo = getFileInfo(resolvedDecl.node);
         let isSpeculativeTypeAliasFromPyTypedFile = false;
-        if (fileInfo.isInPyTypedPackage) {
+        if (fileInfo.isInPyTypedPackage && evaluatorOptions.disableInferenceForPyTypedSources) {
             if (resolvedDecl.type !== DeclarationType.Variable) {
                 return UnknownType.create();
             }
@@ -15754,7 +15759,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 // Handle Tuple[()] as a special case.
                 if (type.typeArguments.length > 0) {
                     if (
-                        (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
+                        (evaluatorOptions.printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
                         type.typeArguments.some((typeArg) => !isAnyOrUnknown(typeArg))
                     ) {
                         objName +=
@@ -15776,7 +15781,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 if (typeParams.length > 0) {
                     if (
-                        (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
+                        (evaluatorOptions.printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
                         typeParams.some((typeParam) => !isAnyOrUnknown(typeParam))
                     ) {
                         objName +=
@@ -15822,7 +15827,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     // PEP8 indicates that the "=" for the default value should have surrounding
                     // spaces when used with a type annotation.
                     defaultValueAssignment = ' = ';
-                } else if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0) {
+                } else if ((evaluatorOptions.printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0) {
                     paramString += ': Unknown';
                     defaultValueAssignment = ' = ';
                 }
@@ -15848,7 +15853,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                 : '';
 
         if (
-            printTypeFlags & PrintTypeFlags.PEP604 &&
+            evaluatorOptions.printTypeFlags & PrintTypeFlags.PEP604 &&
             returnType.category === TypeCategory.Union &&
             recursionCount > 0
         ) {
@@ -15871,7 +15876,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             // If there is a type arguments array, it's a specialized type alias.
             if (type.typeAliasInfo.typeArguments) {
                 if (
-                    (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
+                    (evaluatorOptions.printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
                     type.typeAliasInfo.typeArguments.some((typeArg) => !isAnyOrUnknown(typeArg))
                 ) {
                     aliasName +=
@@ -15886,7 +15891,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             } else {
                 if (type.typeAliasInfo.typeParameters) {
                     if (
-                        (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
+                        (evaluatorOptions.printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
                         type.typeAliasInfo.typeParameters.some((typeParam) => !isAnyOrUnknown(typeParam))
                     ) {
                         aliasName +=
@@ -15910,7 +15915,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             }
 
             case TypeCategory.Unknown: {
-                return (printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0 ? 'Any' : 'Unknown';
+                return (evaluatorOptions.printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0 ? 'Any' : 'Unknown';
             }
 
             case TypeCategory.Module: {
@@ -15981,7 +15986,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         recursionCount + 1
                     );
 
-                    if (printTypeFlags & PrintTypeFlags.PEP604) {
+                    if (evaluatorOptions.printTypeFlags & PrintTypeFlags.PEP604) {
                         return optionalType + ' | None';
                     }
 
@@ -15994,7 +15999,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
                 // If we're printing "Unknown" as "Any", remove redundant
                 // unknowns so we don't see two Any's appear in the union.
-                if ((printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0) {
+                if ((evaluatorOptions.printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0) {
                     if (subtypes.some((t) => t.category === TypeCategory.Any)) {
                         subtypes = subtypes.filter((t) => !isUnknown(t));
                     }
@@ -16066,7 +16071,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     return subtypeStrings[0];
                 }
 
-                if (printTypeFlags & PrintTypeFlags.PEP604) {
+                if (evaluatorOptions.printTypeFlags & PrintTypeFlags.PEP604) {
                     return subtypeStrings.join(' | ');
                 }
 
@@ -16089,7 +16094,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         return printType(type.details.boundType, /* expandTypeAlias */ false, recursionCount + 1);
                     }
 
-                    return (printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0 ? 'Any' : 'Unknown';
+                    return (evaluatorOptions.printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0
+                        ? 'Any'
+                        : 'Unknown';
                 }
 
                 if (type.details.isParamSpec) {
