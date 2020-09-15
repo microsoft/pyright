@@ -2427,7 +2427,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             } else {
                 // Constrain the resulting type to match the declared type.
-                destType = narrowDeclaredTypeBasedOnAssignedType(declaredType, type);
+                destType = narrowTypeBasedOnAssignment(declaredType, type);
             }
         } else {
             // If this is a member name (within a class scope) and the member name
@@ -2841,7 +2841,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // is a enum because the annotated type in an enum doesn't reflect
                     // the type of the symbol.
                     if (!isObject(type) || !ClassType.isEnumClass(type.classType)) {
-                        type = narrowDeclaredTypeBasedOnAssignedType(typeHintType, type);
+                        type = narrowTypeBasedOnAssignment(typeHintType, type);
                     }
                 }
 
@@ -4688,28 +4688,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // Determine whether there is a further constraint.
-        let constrainedClassType: Type;
+        // Determine whether to further narrow the type.
+        let narrowedClassType: Type;
         if (node.arguments.length > 1) {
-            constrainedClassType = specializeType(
+            narrowedClassType = specializeType(
                 getTypeOfExpression(node.arguments[1].valueExpression).type,
                 /* typeVarMap */ undefined
             );
 
             let reportError = false;
 
-            if (isAnyOrUnknown(constrainedClassType)) {
+            if (isAnyOrUnknown(narrowedClassType)) {
                 // Ignore unknown or any types.
-            } else if (isObject(constrainedClassType)) {
-                const childClassType = constrainedClassType.classType;
+            } else if (isObject(narrowedClassType)) {
+                const childClassType = narrowedClassType.classType;
                 if (isClass(targetClassType)) {
                     if (!derivesFromClassRecursive(childClassType, targetClassType, /* ignoreUnknown */ true)) {
                         reportError = true;
                     }
                 }
-            } else if (isClass(constrainedClassType)) {
+            } else if (isClass(narrowedClassType)) {
                 if (isClass(targetClassType)) {
-                    if (!derivesFromClassRecursive(constrainedClassType, targetClassType, /* ignoreUnknown */ true)) {
+                    if (!derivesFromClassRecursive(narrowedClassType, targetClassType, /* ignoreUnknown */ true)) {
                         reportError = true;
                     }
                 }
@@ -8824,8 +8824,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const diagAddendum = new DiagnosticAddendum();
                     const typeVarMap = new TypeVarMap();
                     if (canAssignType(declaredType, srcType, diagAddendum, typeVarMap)) {
-                        // Constrain the resulting type to match the declared type.
-                        srcType = narrowDeclaredTypeBasedOnAssignedType(declaredType, srcType);
+                        // Narrow the resulting type to match the declared type.
+                        srcType = narrowTypeBasedOnAssignment(declaredType, srcType);
                     }
                 }
 
@@ -15221,9 +15221,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return canAssign;
     }
 
-    // When a variable with a declared type is assigned and the declared
-    // type is a union, we may be able to further narrow the type.
-    function narrowDeclaredTypeBasedOnAssignedType(declaredType: Type, assignedType: Type): Type {
+    // When a value is assigned to a variable with a declared type,
+    // we may be able to narrow the type based on the assignment.
+    function narrowTypeBasedOnAssignment(declaredType: Type, assignedType: Type): Type {
         const diagAddendum = new DiagnosticAddendum();
 
         if (declaredType.category === TypeCategory.Union) {
