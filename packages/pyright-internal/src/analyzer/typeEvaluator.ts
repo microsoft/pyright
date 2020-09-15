@@ -155,7 +155,6 @@ import {
     TypeSourceId,
     TypeVarType,
     UnboundType,
-    UnionType,
     UnknownType,
 } from './types';
 import {
@@ -9430,6 +9429,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             functionFlags |= FunctionTypeFlags.StubDefinition;
         }
 
+        if (fileInfo.isInPyTypedPackage) {
+            functionFlags |= FunctionTypeFlags.PyTypedDefinition;
+        }
+
         if (node.isAsync) {
             functionFlags |= FunctionTypeFlags.Async;
         }
@@ -11231,7 +11234,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                     if (
                         !functionType.details.declaration.yieldStatements &&
                         !FunctionType.isAbstractMethod(functionType) &&
-                        !FunctionType.isStubDefinition(functionType)
+                        !FunctionType.isStubDefinition(functionType) &&
+                        !FunctionType.isPyTypedDefinition(functionType)
                     ) {
                         callIsNoReturn = !isAfterNodeReachable(functionType.details.declaration.node);
                     }
@@ -13103,6 +13107,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             return declaredType;
         }
 
+        // If this is part of a "py.typed" package, don't fall back on type inference
+        // unless it's marked Final, is a constant, or is a declared type alias.
+        const fileInfo = getFileInfo(resolvedDecl.node);
+        let isSpeculativeTypeAliasFromPyTypedFile = false;
+        if (fileInfo.isInPyTypedPackage) {
+            if (resolvedDecl.type !== DeclarationType.Variable) {
+                return UnknownType.create();
+            }
+
+            if (!resolvedDecl.isFinal && !resolvedDecl.isConstant && !resolvedDecl.typeAliasName) {
+                return UnknownType.create();
+            }
+
+            if (resolvedDecl.typeAliasName && !resolvedDecl.typeAliasAnnotation) {
+                isSpeculativeTypeAliasFromPyTypedFile = true;
+            }
+        }
+
         // If the resolved declaration had no defined type, use the
         // inferred type for this node.
         if (resolvedDecl.type === DeclarationType.Parameter) {
@@ -13134,6 +13156,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
 
             if (inferredType && resolvedDecl.typeAliasName) {
                 inferredType = transformTypeForTypeAlias(inferredType, resolvedDecl.typeAliasName);
+
+                // If this was a speculative type alias (i.e. not declared as a TypeAlias) that
+                // came from a py.typed package and it turned out not to be a real type alias,
+                // return Unknown.
+                if (isSpeculativeTypeAliasFromPyTypedFile && !inferredType.typeAliasInfo) {
+                    return UnknownType.create();
+                }
             }
 
             return inferredType;
@@ -13344,8 +13373,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
 
-        // Don't attempt to infer the return type for a stub file.
-        if (FunctionType.isStubDefinition(type)) {
+        // Don't attempt to infer the return type for a stub file or a py.typed module.
+        if (FunctionType.isStubDefinition(type) || FunctionType.isPyTypedDefinition(type)) {
             return UnknownType.create();
         }
 
@@ -13384,6 +13413,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
             isPartlyUnknown(returnType) &&
             FunctionType.hasUnannotatedParams(type) &&
             !FunctionType.isStubDefinition(type) &&
+            !FunctionType.isPyTypedDefinition(type) &&
             args
         ) {
             const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, args);

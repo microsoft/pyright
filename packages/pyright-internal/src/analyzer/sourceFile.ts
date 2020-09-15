@@ -92,6 +92,10 @@ export class SourceFile {
     // "dataclasses.pyi", "abc.pyi", "asyncio/coroutines.pyi".
     private readonly _isBuiltInStubFile: boolean;
 
+    // True if the file is part of a package that contains a
+    // "py.typed" file.
+    private readonly _isThirdPartyPyTypedPresent: boolean;
+
     // True if the file appears to have been deleted.
     private _isFileDeleted = false;
 
@@ -168,6 +172,7 @@ export class SourceFile {
         filePath: string,
         moduleName: string,
         isThirdPartyImport: boolean,
+        isThirdPartyPyTypedPresent: boolean,
         console?: ConsoleInterface,
         logTracker?: LogTracker
     ) {
@@ -177,6 +182,7 @@ export class SourceFile {
         this._moduleName = moduleName;
         this._isStubFile = filePath.endsWith('.pyi');
         this._isThirdPartyImport = isThirdPartyImport;
+        this._isThirdPartyPyTypedPresent = isThirdPartyPyTypedPresent;
         const fileName = getFileName(filePath);
         this._isTypingStubFile =
             this._isStubFile && (fileName === 'typing.pyi' || fileName === 'typing_extensions.pyi');
@@ -990,6 +996,7 @@ export class SourceFile {
             isTypingStubFile: this._isTypingStubFile,
             isTypingExtensionsStubFile: this._isTypingExtensionsStubFile,
             isBuiltInStubFile: this._isBuiltInStubFile,
+            isInPyTypedPackage: this._isThirdPartyPyTypedPresent,
             accessedSymbolMap: new Map<number, true>(),
         };
         return fileInfo;

@@ -217,6 +217,7 @@ export class Program {
             filePath,
             importName,
             /* isThirdPartyImport */ false,
+            /* isInPyTypedPackage */ false,
             this._console,
             this._logTracker
         );
@@ -246,6 +247,7 @@ export class Program {
                 filePath,
                 importName,
                 /* isThirdPartyImport */ false,
+                /* isInPyTypedPackage */ false,
                 this._console,
                 this._logTracker
             );
@@ -600,6 +602,7 @@ export class Program {
                 shadowImplPath,
                 importName,
                 /* isThirdPartyImport */ false,
+                /* isInPyTypedPackage */ false,
                 this._console,
                 this._logTracker
             );
@@ -1919,6 +1922,7 @@ export class Program {
                         importInfo.path,
                         importName,
                         importInfo.isThirdPartyImport,
+                        importInfo.isPyTypedPresent,
                         this._console,
                         this._logTracker
                     );
