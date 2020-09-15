@@ -464,8 +464,8 @@ export class ConfigOptions {
         // since there is little or no downside and possible upside of discovering
         // more type information in this case. If type checking is enabled, using
         // type inference in this case can result in false positive errors.
-        if (typeCheckingMode !== 'off') {
-            this.disableInferenceForPyTypedSources = true;
+        if (typeCheckingMode === 'off') {
+            this.disableInferenceForPyTypedSources = false;
         }
     }
 
@@ -732,7 +732,11 @@ export class ConfigOptions {
             }
         }
 
-        const defaultSettings = ConfigOptions.getDiagnosticRuleSet(configTypeCheckingMode || typeCheckingMode);
+        const effectiveTypeCheckingMode = configTypeCheckingMode || typeCheckingMode;
+        const defaultSettings = ConfigOptions.getDiagnosticRuleSet(effectiveTypeCheckingMode);
+        if (effectiveTypeCheckingMode === 'off') {
+            this.disableInferenceForPyTypedSources = false;
+        }
 
         // Apply host provided overrides first and then overrides from the config file
         this.applyDiagnosticOverrides(diagnosticOverrides);
