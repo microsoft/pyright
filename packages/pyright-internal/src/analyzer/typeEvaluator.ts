@@ -4512,7 +4512,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
     // Classes of type Tuple and tuple require special handling because they
     // support variadic type parameters (including a form that represents homogenous
     // arbitrary-length tuples).
-    function cloneTupleForSpecialization(tupleClass: ClassType, typeArgs: Type[], isTypeArgumentExplicit: boolean) {
+    function cloneTupleForSpecialization(
+        tupleClass: ClassType,
+        typeArgs: Type[],
+        isTypeArgumentExplicit: boolean
+    ): ClassType {
         // Create a copy of the Tuple class that overrides the normal MRO
         // entries with a version of Tuple and/or tuple that are specialized
         // appropriately.
@@ -5268,10 +5272,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                         /* inferReturnTypeIfNeeded */ true,
                         expectedType
                     );
+
                     if (callResult.argumentErrors) {
                         reportedErrors = true;
                     } else {
-                        const newReturnType = callResult.returnType;
+                        let newReturnType = callResult.returnType;
 
                         // If the constructor returned an object whose type matches the class of
                         // the original type being constructed, use the return type in case it was
@@ -5292,6 +5297,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, printTypeFlags: 
                                     (!isPartlyUnknown(newReturnType) && !requiresSpecialization(newReturnType)) ||
                                     returnType === undefined
                                 ) {
+                                    // Special-case the 'tuple' type specialization to use
+                                    // the homogenous arbitrary-length form.
+                                    if (
+                                        isObject(newReturnType) &&
+                                        ClassType.isBuiltIn(newReturnType.classType, 'tuple') &&
+                                        newReturnType.classType.typeArguments &&
+                                        newReturnType.classType.typeArguments.length === 1
+                                    ) {
+                                        newReturnType = ObjectType.create(
+                                            cloneTupleForSpecialization(
+                                                newReturnType.classType,
+                                                [
+                                                    newReturnType.classType.typeArguments[0],
+                                                    AnyType.create(/* isEllipsis */ true),
+                                                ],
+                                                /* isTypeArgumentExplicit */ true
+                                            )
+                                        );
+                                    }
+
                                     returnType = newReturnType;
                                 }
                             }
