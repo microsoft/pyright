@@ -9443,9 +9443,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (fileInfo.isStubFile) {
             functionFlags |= FunctionTypeFlags.StubDefinition;
-        }
-
-        if (fileInfo.isInPyTypedPackage && evaluatorOptions.disableInferenceForPyTypedSources) {
+        } else if (fileInfo.isInPyTypedPackage && evaluatorOptions.disableInferenceForPyTypedSources) {
             functionFlags |= FunctionTypeFlags.PyTypedDefinition;
         }
 
@@ -13140,7 +13138,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // unless it's marked Final, is a constant, or is a declared type alias.
         const fileInfo = getFileInfo(resolvedDecl.node);
         let isSpeculativeTypeAliasFromPyTypedFile = false;
-        if (fileInfo.isInPyTypedPackage && evaluatorOptions.disableInferenceForPyTypedSources) {
+        if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile && evaluatorOptions.disableInferenceForPyTypedSources) {
             if (resolvedDecl.type !== DeclarationType.Variable) {
                 return UnknownType.create();
             }
