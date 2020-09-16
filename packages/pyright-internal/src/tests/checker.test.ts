@@ -248,104 +248,104 @@ test('Complex1', () => {
     validateResults(analysisResults, 0);
 });
 
-test('TypeConstraint1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint1.py']);
+test('TypeNarrowing1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing1.py']);
 
     validateResults(analysisResults, 6);
 });
 
-test('TypeConstraint2', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint2.py']);
+test('TypeNarrowing2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing2.py']);
 
     validateResults(analysisResults, 4);
 });
 
-test('TypeConstraint3', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint3.py']);
+test('TypeNarrowing3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing3.py']);
 
     validateResults(analysisResults, 1);
 });
 
-test('TypeConstraint4', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint4.py']);
+test('TypeNarrowing4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing4.py']);
 
     validateResults(analysisResults, 2);
 });
 
-test('TypeConstraint5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint5.py']);
+test('TypeNarrowing5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing5.py']);
 
     validateResults(analysisResults, 0);
 });
 
-test('TypeConstraint6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint6.py']);
+test('TypeNarrowing6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing6.py']);
 
     validateResults(analysisResults, 1);
 });
 
-test('TypeConstraint7', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint7.py']);
+test('TypeNarrowing7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing7.py']);
 
     validateResults(analysisResults, 0);
 });
 
-test('TypeConstraint8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint8.py']);
+test('TypeNarrowing8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing8.py']);
 
     validateResults(analysisResults, 0);
 });
 
-test('TypeConstraint9', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint9.py']);
+test('TypeNarrowing9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing9.py']);
 
     validateResults(analysisResults, 0);
 });
 
-test('TypeConstraint10', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint10.py']);
+test('TypeNarrowing10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing10.py']);
 
     validateResults(analysisResults, 0);
 });
 
-test('TypeConstraint11', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint11.py']);
+test('TypeNarrowing11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing11.py']);
 
     validateResults(analysisResults, 0);
 });
 
-test('TypeConstraint12', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint12.py']);
+test('TypeNarrowing12', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing12.py']);
 
     validateResults(analysisResults, 0);
 });
 
-test('TypeConstraint13', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint13.py']);
+test('TypeNarrowing13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing13.py']);
 
     validateResults(analysisResults, 0);
 });
 
-test('TypeConstraint14', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint14.py']);
+test('TypeNarrowing14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing14.py']);
 
     validateResults(analysisResults, 0);
 });
 
-test('TypeConstraint15', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint15.py']);
+test('TypeNarrowing15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing15.py']);
 
     validateResults(analysisResults, 2);
 });
 
-test('TypeConstraint16', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint16.py']);
+test('TypeNarrowing16', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing16.py']);
 
     validateResults(analysisResults, 2);
 });
 
-test('TypeConstraint17', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeConstraint17.py']);
+test('TypeNarrowing17', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing17.py']);
 
     validateResults(analysisResults, 8);
 });

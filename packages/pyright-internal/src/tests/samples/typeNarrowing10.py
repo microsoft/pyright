@@ -1,5 +1,5 @@
-# This sample tests the type constraint engine's handling
-# of literals.
+# This sample tests the type analyzer's type narrowing
+# logic for literals.
 
 from typing import Literal
 

@@ -1,4 +1,4 @@
-# This sample tests the type analyzer's handling of type constraints
+# This sample tests the type analyzer's type narrowing logic
 # relating to break and continue statements and while test expressions.
 
 from typing import List, Optional

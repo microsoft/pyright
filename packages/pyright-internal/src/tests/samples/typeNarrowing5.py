@@ -1,4 +1,4 @@
-# This sample tests the type constraint logic for "continue"
+# This sample tests the type narrowing logic for "continue"
 # statements within a loop.
 
 from typing import List, Optional

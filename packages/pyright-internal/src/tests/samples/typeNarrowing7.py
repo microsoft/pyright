@@ -1,5 +1,6 @@
-# This sample tests the type analyzer's handling of "X is None", "X is not None",
-# "X == None" and "X != None" conditions.
+# This sample tests the type analyzer's type narrowing logic for
+# conditions of the form "X is None", "X is not None",
+# "X == None" and "X != None".
 
 # pyright: strict
 

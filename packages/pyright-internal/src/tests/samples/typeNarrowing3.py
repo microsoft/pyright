@@ -1,4 +1,5 @@
-# This sample exercises the type analyzer's assert type constraint logic.
+# This sample exercises the type analyzer's type narrowing
+# logic for assert statements.
 
 from typing import Union
 

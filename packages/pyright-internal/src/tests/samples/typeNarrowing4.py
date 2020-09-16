@@ -1,6 +1,6 @@
-# This sample exercises the type analyzer's assert type
-# constraint logic for tests of the form "type(X) is Y"
-# or "type(X) is not Y".
+# This sample exercises the type analyzer's type narrowing
+# logic for assert statements, specifically for tests of the
+# form "type(X) is Y" or "type(X) is not Y".
 
 from typing import Any, Dict, Optional, Union
 

@@ -1,6 +1,6 @@
-# This sample tests the type constraint system when
-# conditional expression includes an assignment (walrus)
-# operator.
+# This sample tests the type narrowing logic for
+# conditional expression involving assignment expressions
+# (walrus operator).
 
 # pyright: strict
 

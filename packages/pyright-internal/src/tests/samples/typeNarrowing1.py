@@ -1,4 +1,4 @@
-# This file validates type constraints that involve
+# This file validates type narrowing that involve
 # conditional binary expressions.
 
 class Foo:

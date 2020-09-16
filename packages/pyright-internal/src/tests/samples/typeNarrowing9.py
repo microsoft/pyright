@@ -1,5 +1,5 @@
-# This sample tests the type constraint engine's handling
-# of "callable".
+# This sample tests the type engine's narrowing logic for
+# callable expressions.
 
 from typing import Callable, Type, Union
 
