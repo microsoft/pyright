@@ -45,7 +45,7 @@ interface PyrightJsonResults {
 
 interface PyrightJsonDiagnostic {
     file: string;
-    severity: 'error' | 'warning';
+    severity: 'error' | 'warning' | 'information';
     message: string;
     range: Range;
 }
@@ -54,12 +54,14 @@ interface PyrightJsonSummary {
     filesAnalyzed: number;
     errorCount: number;
     warningCount: number;
+    informationCount: number;
     timeInSec: number;
 }
 
 interface DiagnosticResult {
     errorCount: number;
     warningCount: number;
+    informationCount: number;
     diagnosticCount: number;
 }
 
@@ -289,27 +291,40 @@ function reportDiagnosticsAsJson(
             filesAnalyzed: filesInProgram,
             errorCount: 0,
             warningCount: 0,
+            informationCount: 0,
             timeInSec,
         },
     };
 
     let errorCount = 0;
     let warningCount = 0;
+    let informationCount = 0;
 
     fileDiagnostics.forEach((fileDiag) => {
         fileDiag.diagnostics.forEach((diag) => {
-            if (diag.category === DiagnosticCategory.Error || diag.category === DiagnosticCategory.Warning) {
+            if (
+                diag.category === DiagnosticCategory.Error ||
+                diag.category === DiagnosticCategory.Warning ||
+                diag.category === DiagnosticCategory.Information
+            ) {
                 report.diagnostics.push({
                     file: fileDiag.filePath,
-                    severity: diag.category === DiagnosticCategory.Error ? 'error' : 'warning',
+                    severity:
+                        diag.category === DiagnosticCategory.Error
+                            ? 'error'
+                            : DiagnosticCategory.Warning
+                            ? 'warning'
+                            : 'information',
                     message: diag.message,
                     range: diag.range,
                 });
 
                 if (diag.category === DiagnosticCategory.Error) {
                     errorCount++;
-                } else {
+                } else if (diag.category === DiagnosticCategory.Warning) {
                     warningCount++;
+                } else if (diag.category === DiagnosticCategory.Information) {
+                    informationCount++;
                 }
             }
         });
@@ -317,19 +332,22 @@ function reportDiagnosticsAsJson(
 
     report.summary.errorCount = errorCount;
     report.summary.warningCount = warningCount;
+    report.summary.informationCount = informationCount;
 
     console.log(JSON.stringify(report, undefined, 4));
 
     return {
         errorCount,
         warningCount,
-        diagnosticCount: errorCount + warningCount,
+        informationCount,
+        diagnosticCount: errorCount + warningCount + informationCount,
     };
 }
 
 function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): DiagnosticResult {
     let errorCount = 0;
     let warningCount = 0;
+    let informationCount = 0;
 
     fileDiagnostics.forEach((fileDiagnostics) => {
         // Don't report unused code diagnostics.
@@ -349,7 +367,12 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
                         ' - ';
                 }
 
-                message += diag.category === DiagnosticCategory.Error ? chalk.red('error') : chalk.green('warning');
+                message +=
+                    diag.category === DiagnosticCategory.Error
+                        ? chalk.red('error')
+                        : diag.category === DiagnosticCategory.Warning
+                        ? chalk.green('warning')
+                        : chalk.blue('info');
                 message += `: ${diag.message}`;
 
                 const rule = diag.getRule();
@@ -363,6 +386,8 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
                     errorCount++;
                 } else if (diag.category === DiagnosticCategory.Warning) {
                     warningCount++;
+                } else if (diag.category === DiagnosticCategory.Information) {
+                    informationCount++;
                 }
             });
         }
@@ -370,13 +395,15 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
 
     console.log(
         `${errorCount.toString()} ${errorCount === 1 ? 'error' : 'errors'}, ` +
-            `${warningCount.toString()} ${warningCount === 1 ? 'warning' : 'warnings'} `
+            `${warningCount.toString()} ${warningCount === 1 ? 'warning' : 'warnings'}, ` +
+            `${informationCount.toString()} ${informationCount === 1 ? 'info' : 'infos'} `
     );
 
     return {
         errorCount,
         warningCount,
-        diagnosticCount: errorCount + warningCount,
+        informationCount,
+        diagnosticCount: errorCount + warningCount + informationCount,
     };
 }
 

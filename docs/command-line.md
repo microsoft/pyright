@@ -50,6 +50,7 @@ If the “--outputjson” option is specified on the command line, diagnostics a
         filesAnalyzed: number,
         errorCount: number,
         warningCount: number,
+        informationCount: number,
         timeInSec: number
     }
 }
@@ -60,7 +61,7 @@ Each Diagnostic is formatted output in the following format:
 ```javascript
 {
     file: string,
-    severity: 'error' | 'warning',
+    severity: 'error' | 'warning' | 'information',
     message: string,
     range: {
         start: {

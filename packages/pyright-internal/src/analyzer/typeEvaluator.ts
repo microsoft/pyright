@@ -4640,7 +4640,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const type = getTypeOfExpression(node.arguments[0].valueExpression).type;
             const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
             const typeString = printType(type);
-            addWarning(`Type of "${exprString}" is "${typeString}"`, node.arguments[0]);
+            addInformation(`Type of "${exprString}" is "${typeString}"`, node.arguments[0]);
 
             // Return a literal string with the type. We can use this in unit tests
             // to validate the exact type.
