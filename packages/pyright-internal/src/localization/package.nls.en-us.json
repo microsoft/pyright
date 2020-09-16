@@ -327,7 +327,7 @@
         "wildcardLibraryImport": "Wildcard import from a library is not allowed",
         "yieldFromIllegal": "Use of \"yield from\" requires Python 3.3 or newer",
         "yieldFromOutsideAsync": "\"yield from\" not allowed in an async function",
-        "yieldOutsideFunction": "\"yield\" not allowed outside of a function",
+        "yieldOutsideFunction": "\"yield\" not allowed outside of a function or lambda",
         "yieldTypeMismatch": "Expression of type \"{exprType}\" cannot be assigned to yield type \"{yieldType}\""
     },
     "DiagnosticAddendum": {

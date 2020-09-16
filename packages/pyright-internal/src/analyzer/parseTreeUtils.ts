@@ -515,6 +515,23 @@ export function getEnclosingFunction(node: ParseNode): FunctionNode | undefined 
     return undefined;
 }
 
+export function getEnclosingLambda(node: ParseNode): LambdaNode | undefined {
+    let curNode = node.parent;
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Lambda) {
+            return curNode;
+        }
+
+        if (curNode.nodeType === ParseNodeType.Suite) {
+            return undefined;
+        }
+
+        curNode = curNode.parent;
+    }
+
+    return undefined;
+}
+
 export function getEnclosingClassOrFunction(node: ParseNode): FunctionNode | ClassNode | undefined {
     let curNode = node.parent;
     while (curNode) {

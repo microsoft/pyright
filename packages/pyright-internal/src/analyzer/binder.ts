@@ -2648,7 +2648,9 @@ export class Binder extends ParseTreeWalker {
         const functionNode = ParseTreeUtils.getEnclosingFunction(node);
 
         if (!functionNode) {
-            this._addError(Localizer.Diagnostic.yieldOutsideFunction(), node);
+            if (!ParseTreeUtils.getEnclosingLambda(node)) {
+                this._addError(Localizer.Diagnostic.yieldOutsideFunction(), node);
+            }
         } else if (functionNode.isAsync && node.nodeType === ParseNodeType.YieldFrom) {
             // PEP 525 indicates that 'yield from' is not allowed in an
             // async function.
