@@ -1362,7 +1362,7 @@ test('AssertAlwaysTrue', () => {
 test('RevealedType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['revealedType1.py']);
 
-    validateResults(analysisResults, 0, 3);
+    validateResults(analysisResults, 0, 0, 3);
 });
 
 test('NameBindings1', () => {
