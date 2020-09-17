@@ -1803,7 +1803,7 @@ export class Parser {
         return TernaryNode.create(ifExpr, testExpr, elseExpr);
     }
 
-    // assign_expr: (NAME := (or_test | lambdef)) | or_test
+    // assign_expr: NAME := test
     private _parseAssignmentExpression() {
         const leftExpr = this._parseOrTest();
         if (leftExpr.nodeType === ParseNodeType.Error) {
@@ -1827,12 +1827,7 @@ export class Parser {
             this._addError(Localizer.Diagnostic.walrusIllegal(), walrusToken);
         }
 
-        let rightExpr: ExpressionNode;
-        if (this._peekKeywordType() === KeywordType.Lambda) {
-            rightExpr = this._parseLambdaExpression();
-        } else {
-            rightExpr = this._parseOrTest();
-        }
+        const rightExpr = this._parseTestExpression(/* allowAssignmentExpression */ false);
 
         return AssignmentExpressionNode.create(leftExpr, rightExpr);
     }
