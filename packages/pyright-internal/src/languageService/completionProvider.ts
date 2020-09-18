@@ -43,13 +43,13 @@ import {
     isModule,
     isNone,
     isObject,
-    isTypeVar,
     isUnbound,
     isUnknown,
     ObjectType,
     Type,
     TypeBase,
     TypeCategory,
+    UnknownType,
 } from '../analyzer/types';
 import {
     doForSubtypes,
@@ -57,7 +57,7 @@ import {
     getMembersForClass,
     getMembersForModule,
     isProperty,
-    specializeType,
+    makeTypeVarsConcrete,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
@@ -562,10 +562,7 @@ export class CompletionProvider {
 
         if (leftType) {
             doForSubtypes(leftType, (subtype) => {
-                let specializedSubtype = subtype;
-                if (isTypeVar(subtype)) {
-                    specializedSubtype = specializeType(subtype, /* typeVarMap */ undefined, /* makeConcrete */ true);
-                }
+                const specializedSubtype = makeTypeVarsConcrete(subtype);
 
                 if (isObject(specializedSubtype)) {
                     getMembersForClass(specializedSubtype.classType, symbolTable, /* includeInstanceVars */ true);
@@ -591,7 +588,10 @@ export class CompletionProvider {
                 return undefined;
             });
 
-            const objectThrough: ObjectType | undefined = leftType && isObject(leftType) ? leftType : undefined;
+            const specializedLeftType = makeTypeVarsConcrete(leftType);
+            const objectThrough: ObjectType | undefined = isObject(specializedLeftType)
+                ? specializedLeftType
+                : undefined;
             this._addSymbolsForSymbolTable(symbolTable, (_) => true, priorWord, objectThrough, completionList);
 
             // If we dont know this type, look for a module we should stub
@@ -1228,7 +1228,18 @@ export class CompletionProvider {
                                         ? this._evaluator.bindFunctionToClassOrObject(objectThrough, type, false)
                                         : type;
                                     if (functionType) {
-                                        if (functionType.category === TypeCategory.OverloadedFunction) {
+                                        if (isProperty(functionType) && objectThrough) {
+                                            const propertyType =
+                                                this._evaluator.getGetterTypeFromProperty(
+                                                    functionType.classType,
+                                                    /* inferTypeIfNeeded */ true
+                                                ) || UnknownType.create();
+                                            typeDetail =
+                                                name +
+                                                ': ' +
+                                                this._evaluator.printType(propertyType, /* expandTypeAlias */ false) +
+                                                ' (property)';
+                                        } else if (functionType.category === TypeCategory.OverloadedFunction) {
                                             typeDetail = functionType.overloads
                                                 .map(
                                                     (overload) =>
