@@ -2001,11 +2001,6 @@ test('MemberAccess5', () => {
     validateResults(analysisResults, 0);
 });
 
-test('MemberAccess6', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess6.py']);
-    validateResults(analysisResults, 2);
-});
-
 test('ParamName1', () => {
     const configOptions = new ConfigOptions('.');
 
