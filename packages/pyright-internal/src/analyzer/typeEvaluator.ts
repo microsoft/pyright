@@ -13839,6 +13839,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Everything is assignable to an object.
+        if (ClassType.isBuiltIn(destType, 'object')) {
+            return true;
+        }
+
         const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
         const srcErrorType = reportErrorsUsingObjType ? ObjectType.create(srcType) : srcType;
         diag.addMessage(
