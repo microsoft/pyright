@@ -491,6 +491,7 @@ export interface TypeEvaluator {
         supportGetItem: boolean
     ) => Type;
     getTypedDictMembersForClass: (classType: ClassType) => Map<string, TypedDictEntry>;
+    getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
 
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
@@ -1207,7 +1208,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             memberName,
             usage,
             diag,
-            memberAccessFlags | MemberAccessFlags.SkipInstanceMembers
+            memberAccessFlags | MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipGetAttributeCheck
         );
         let isMetaclassMember = false;
 
@@ -3914,7 +3915,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             classType: printObjectTypeForClass(classType),
                         })
                     );
-                    isTypeValid = false;
                     return undefined;
                 }
             }
@@ -15965,11 +15965,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const getter = getTypeOfMember(getterInfo);
                         if (getter.category === TypeCategory.Function) {
                             const returnType = getFunctionEffectiveReturnType(getter);
-                            return `${printType(
-                                returnType,
-                                /* expandTypeAlias */ false,
-                                recursionCount + 1
-                            )} (property)`;
+                            return `() -> ${printType(returnType, /* expandTypeAlias */ false, recursionCount + 1)}`;
                         }
                     }
                 }
@@ -16207,6 +16203,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         resolveAliasDeclaration,
         getTypeFromIterable,
         getTypedDictMembersForClass,
+        getGetterTypeFromProperty,
         getEffectiveTypeOfSymbol,
         getFunctionDeclaredReturnType,
         getFunctionInferredReturnType,

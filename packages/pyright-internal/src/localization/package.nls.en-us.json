@@ -196,7 +196,7 @@
         "noReturnContainsReturn": "Function with declared return type \"NoReturn\" cannot include a return statement",
         "noReturnContainsYield": "Function with declared return type \"NoReturn\" cannot include a yield statement",
         "noReturnReturnsNone": "Function with declared type of \"NoReturn\" cannot return \"None\"",
-        "objectNotCallable": "object of \"{type}\" is not callable",
+        "objectNotCallable": "Object of type \"{type}\" is not callable",
         "obscuredClassDeclaration": "Class declaration \"{name}\" is obscured by a declaration of the same name",
         "obscuredFunctionDeclaration": "Function declaration \"{name}\" is obscured by a declaration of the same name",
         "obscuredParameterDeclaration": "Parameter declaration \"{name}\" is obscured by a declaration of the same name",

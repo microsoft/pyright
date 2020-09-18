@@ -22,14 +22,14 @@ await helper.verifyCompletion('included', {
                 label: 'method1',
                 documentation: {
                     kind: 'markdown',
-                    value: '```python\nmethod1: (self: Foo) -> None\n```\n---\nMethod 1.',
+                    value: '```python\nmethod1: () -> None\n```\n---\nMethod 1.',
                 },
             },
             {
                 label: 'new_method',
                 documentation: {
                     kind: 'markdown',
-                    value: '```python\nnew_method: (self: Foo) -> None\n```\n',
+                    value: '```python\nnew_method: () -> None\n```\n',
                 },
             },
             {
