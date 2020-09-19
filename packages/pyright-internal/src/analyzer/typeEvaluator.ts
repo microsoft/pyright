@@ -3773,8 +3773,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 errorNode,
                 memberName,
                 usage,
-                diag,
-                bindToClass
+                diag
             );
 
             if (!objectAccessType) {
@@ -3825,8 +3824,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         errorNode: ExpressionNode,
         memberName: string,
         usage: EvaluatorUsage,
-        diag: DiagnosticAddendum,
-        bindToClass?: ClassType
+        diag: DiagnosticAddendum
     ): Type | undefined {
         let isTypeValid = true;
 
@@ -3875,7 +3873,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const argList: FunctionArgument[] = [
                         {
                             argumentCategory: ArgumentCategory.Simple,
-                            type: ObjectType.create(memberClassType),
+                            type: subtype,
                         },
                         {
                             argumentCategory: ArgumentCategory.Simple,
@@ -3903,9 +3901,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (accessMethodType && accessMethodType.category === TypeCategory.Function) {
                         // Bind the accessor to the base object type.
                         const boundMethodType = bindFunctionToClassOrObject(
-                            ObjectType.create(bindToClass || classType),
+                            subtype,
                             accessMethodType,
-                            !bindToClass,
+                            /* treatAsClassMember */ false,
                             errorNode
                         );
 
