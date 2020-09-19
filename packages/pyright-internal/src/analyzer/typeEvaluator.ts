@@ -3682,12 +3682,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         flags: MemberAccessFlags,
         bindToClass?: ClassType
     ): ClassMemberLookup | undefined {
-        // If this is a special type (like "List") that has an alias
-        // class (like "list"), switch to the alias, which defines
-        // the members.
-        if (classType.details.aliasClass) {
-            classType = classType.details.aliasClass;
-        }
+        // If this is a special type (like "List") that has an alias class (like
+        // "list"), switch to the alias, which defines the members.
+        classType = classType.details.aliasClass || classType;
 
         let classLookupFlags = ClassMemberLookupFlags.Default;
         if (flags & MemberAccessFlags.SkipInstanceMembers) {
@@ -3718,9 +3715,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (usage.method === 'get') {
                 type = getTypeOfMember(memberInfo);
             } else {
-                // If the usage indicates a 'set' or 'delete', use
-                // only the declared type to avoid circular
-                // type evaluation.
+                // If the usage indicates a 'set' or 'delete', use only the declared
+                // type to avoid circular type evaluation.
                 type = getDeclaredTypeOfSymbol(memberInfo.symbol) || UnknownType.create();
             }
 
@@ -3747,171 +3743,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            // Apply special access methods "__get__", "__set__", or "__delete__".
-            let isTypeValid = true;
-            type = doForSubtypes(type, (subtype) => {
-                if (isObject(subtype)) {
-                    let accessMethodName: string;
+            const objectAccessType = applyObjectAccessMethod(
+                type,
+                memberInfo,
+                classType,
+                (flags & MemberAccessFlags.SkipInstanceMembers) === 0,
+                errorNode,
+                memberName,
+                usage,
+                diag,
+                bindToClass
+            );
 
-                    if (usage.method === 'get') {
-                        accessMethodName = '__get__';
-                    } else if (usage.method === 'set') {
-                        accessMethodName = '__set__';
-                    } else {
-                        accessMethodName = '__delete__';
-                    }
-
-                    const memberClassType = subtype.classType;
-                    const accessMethod = lookUpClassMember(
-                        memberClassType,
-                        accessMethodName,
-                        ClassMemberLookupFlags.SkipInstanceVariables
-                    );
-
-                    // Handle properties specially.
-                    if (ClassType.isPropertyClass(subtype.classType)) {
-                        if (usage.method === 'set') {
-                            if (!accessMethod) {
-                                diag.addMessage(
-                                    Localizer.DiagnosticAddendum.propertyMissingSetter().format({ name: memberName })
-                                );
-                                isTypeValid = false;
-                                return undefined;
-                            }
-                        } else if (usage.method === 'del') {
-                            if (!accessMethod) {
-                                diag.addMessage(
-                                    Localizer.DiagnosticAddendum.propertyMissingDeleter().format({ name: memberName })
-                                );
-                                isTypeValid = false;
-                                return undefined;
-                            }
-                        }
-                    }
-
-                    if (accessMethod) {
-                        let accessMethodType = getTypeOfMember(accessMethod);
-                        const argList: FunctionArgument[] = [
-                            {
-                                argumentCategory: ArgumentCategory.Simple,
-                                type: ObjectType.create(memberClassType),
-                            },
-                            {
-                                argumentCategory: ArgumentCategory.Simple,
-                                type:
-                                    flags & MemberAccessFlags.SkipInstanceMembers
-                                        ? NoneType.createInstance()
-                                        : ObjectType.create(classType),
-                            },
-                            {
-                                argumentCategory: ArgumentCategory.Simple,
-                                type: AnyType.create(),
-                            },
-                        ];
-
-                        // If it's an overloaded function, determine which overload to use.
-                        if (accessMethodType.category === TypeCategory.OverloadedFunction) {
-                            const overload = findOverloadedFunctionType(
-                                errorNode,
-                                argList,
-                                accessMethodType,
-                                /* expectedType */ undefined
-                            );
-                            if (overload) {
-                                accessMethodType = overload;
-                            }
-                        }
-
-                        if (accessMethodType && accessMethodType.category === TypeCategory.Function) {
-                            // Bind the accessor to the base object type.
-                            const boundMethodType = bindFunctionToClassOrObject(
-                                bindToClass || ObjectType.create(classType),
-                                accessMethodType,
-                                bindToClass !== undefined,
-                                errorNode
-                            ) as FunctionType;
-
-                            if (boundMethodType) {
-                                accessMethodType = boundMethodType as FunctionType;
-
-                                if (usage.method === 'get') {
-                                    const returnType =
-                                        validateFunctionArguments(
-                                            errorNode,
-                                            argList.slice(1),
-                                            boundMethodType,
-                                            new TypeVarMap(),
-                                            /* skipUnknownArgCheck */ true,
-                                            /* inferReturnTypeIfNeeded */ true,
-                                            /* expectedType */ undefined
-                                        ).returnType || UnknownType.create();
-                                    if (isClass(memberInfo!.classType)) {
-                                        return partiallySpecializeType(returnType, memberInfo!.classType);
-                                    }
-                                    return returnType;
-                                } else {
-                                    if (usage.method === 'set') {
-                                        // Verify that the setter's parameter type matches
-                                        // the type of the value being assigned.
-                                        if (accessMethodType.details.parameters.length >= 2) {
-                                            const setValueType = accessMethodType.details.parameters[1].type;
-                                            if (!canAssignType(setValueType, usage.setType!, diag)) {
-                                                isTypeValid = false;
-                                                return undefined;
-                                            }
-                                        }
-                                    }
-
-                                    // The type isn't important for set or delete usage.
-                                    // We just need to return some defined type.
-                                    return AnyType.create();
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (usage.method === 'set') {
-                    let enforceTargetType = false;
-
-                    if (memberInfo!.symbol.hasTypedDeclarations()) {
-                        // If the member has a declared type, we will enforce it.
-                        enforceTargetType = true;
-                    } else {
-                        // If the member has no declared type, we will enforce it
-                        // if this assignment isn't within the enclosing class. If
-                        // it is within the enclosing class, the assignment is used
-                        // to infer the type of the member.
-                        if (!memberInfo!.symbol.getDeclarations().some((decl) => decl.node === errorNode)) {
-                            enforceTargetType = true;
-                        }
-                    }
-
-                    if (enforceTargetType) {
-                        let effectiveType = subtype;
-
-                        // If the code is patching a method (defined on the class)
-                        // with an object-level function, strip the "self" parameter
-                        // off the original type. This is sometimes done for test
-                        // purposes to override standard behaviors of specific methods.
-                        if ((flags & MemberAccessFlags.SkipInstanceMembers) === 0) {
-                            if (!memberInfo!.isInstanceMember && subtype.category === TypeCategory.Function) {
-                                if (FunctionType.isClassMethod(subtype) || FunctionType.isInstanceMethod(subtype)) {
-                                    effectiveType = stripFirstParameter(subtype);
-                                }
-                            }
-                        }
-
-                        return effectiveType;
-                    }
-                }
-
-                return subtype;
-            });
-
-            if (!isTypeValid) {
+            if (!objectAccessType) {
                 return undefined;
             }
+            type = objectAccessType;
 
             if (usage.method === 'set') {
                 // Verify that the assigned type is compatible.
@@ -3934,78 +3781,257 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!(flags & MemberAccessFlags.SkipGetAttributeCheck)) {
-            if (usage.method === 'get') {
-                // See if the class has a "__getattribute__" or "__getattr__" method.
-                // If so, arbitrary members are supported.
-                const getAttribType = getTypeFromClassMember(
-                    errorNode,
-                    classType,
-                    '__getattribute__',
-                    { method: 'get' },
-                    new DiagnosticAddendum(),
-                    MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
-                );
-
-                if (getAttribType && getAttribType.category === TypeCategory.Function) {
-                    return {
-                        type: getFunctionEffectiveReturnType(getAttribType),
-                        isClassMember: false,
-                    };
-                }
-
-                const getAttrType = getTypeFromClassMember(
-                    errorNode,
-                    classType,
-                    '__getattr__',
-                    { method: 'get' },
-                    new DiagnosticAddendum(),
-                    MemberAccessFlags.SkipForMethodLookup
-                );
-                if (getAttrType && getAttrType.category === TypeCategory.Function) {
-                    return {
-                        type: getFunctionEffectiveReturnType(getAttrType),
-                        isClassMember: false,
-                    };
-                }
-            } else if (usage.method === 'set') {
-                const setAttrType = getTypeFromClassMember(
-                    errorNode,
-                    classType,
-                    '__setattr__',
-                    { method: 'get' },
-                    new DiagnosticAddendum(),
-                    MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
-                );
-                if (setAttrType) {
-                    // The type doesn't matter for a set usage. We just need
-                    // to return a defined type.
-                    return {
-                        type: AnyType.create(),
-                        isClassMember: false,
-                    };
-                }
-            } else {
-                assert(usage.method === 'del');
-                const delAttrType = getTypeFromClassMember(
-                    errorNode,
-                    classType,
-                    '__detattr__',
-                    { method: 'get' },
-                    new DiagnosticAddendum(),
-                    MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
-                );
-                if (delAttrType) {
-                    // The type doesn't matter for a delete usage. We just need
-                    // to return a defined type.
-                    return {
-                        type: AnyType.create(),
-                        isClassMember: false,
-                    };
-                }
+            const generalAttrType = applyGeneralAttributeAccess(classType, errorNode, usage);
+            if (generalAttrType) {
+                return {
+                    type: generalAttrType,
+                    isClassMember: false,
+                };
             }
         }
 
         diag.addMessage(Localizer.DiagnosticAddendum.memberUnknown().format({ name: memberName }));
+        return undefined;
+    }
+
+    // Applies special access methods "__get__", "__set__", or "__delete__".
+    function applyObjectAccessMethod(
+        type: Type,
+        memberInfo: ClassMember,
+        classType: ClassType,
+        isAccessedThroughObject: boolean,
+        errorNode: ExpressionNode,
+        memberName: string,
+        usage: EvaluatorUsage,
+        diag: DiagnosticAddendum,
+        bindToClass?: ClassType
+    ): Type | undefined {
+        let isTypeValid = true;
+
+        type = doForSubtypes(type, (subtype) => {
+            if (isObject(subtype)) {
+                let accessMethodName: string;
+
+                if (usage.method === 'get') {
+                    accessMethodName = '__get__';
+                } else if (usage.method === 'set') {
+                    accessMethodName = '__set__';
+                } else {
+                    accessMethodName = '__delete__';
+                }
+
+                const memberClassType = subtype.classType;
+                const accessMethod = lookUpClassMember(
+                    memberClassType,
+                    accessMethodName,
+                    ClassMemberLookupFlags.SkipInstanceVariables
+                );
+
+                // Handle properties specially.
+                if (ClassType.isPropertyClass(subtype.classType)) {
+                    if (usage.method === 'set') {
+                        if (!accessMethod) {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.propertyMissingSetter().format({ name: memberName })
+                            );
+                            isTypeValid = false;
+                            return undefined;
+                        }
+                    } else if (usage.method === 'del') {
+                        if (!accessMethod) {
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.propertyMissingDeleter().format({ name: memberName })
+                            );
+                            isTypeValid = false;
+                            return undefined;
+                        }
+                    }
+                }
+
+                if (accessMethod) {
+                    let accessMethodType = getTypeOfMember(accessMethod);
+                    const argList: FunctionArgument[] = [
+                        {
+                            argumentCategory: ArgumentCategory.Simple,
+                            type: ObjectType.create(memberClassType),
+                        },
+                        {
+                            argumentCategory: ArgumentCategory.Simple,
+                            type: isAccessedThroughObject ? ObjectType.create(classType) : NoneType.createInstance(),
+                        },
+                        {
+                            argumentCategory: ArgumentCategory.Simple,
+                            type: AnyType.create(),
+                        },
+                    ];
+
+                    // If it's an overloaded function, determine which overload to use.
+                    if (accessMethodType.category === TypeCategory.OverloadedFunction) {
+                        const overload = findOverloadedFunctionType(
+                            errorNode,
+                            argList,
+                            accessMethodType,
+                            /* expectedType */ undefined
+                        );
+                        if (overload) {
+                            accessMethodType = overload;
+                        }
+                    }
+
+                    if (accessMethodType && accessMethodType.category === TypeCategory.Function) {
+                        // Bind the accessor to the base object type.
+                        const boundMethodType = bindFunctionToClassOrObject(
+                            ObjectType.create(bindToClass || classType),
+                            accessMethodType,
+                            !bindToClass,
+                            errorNode
+                        );
+
+                        if (boundMethodType) {
+                            accessMethodType = boundMethodType as FunctionType;
+
+                            if (usage.method === 'get') {
+                                const returnType =
+                                    validateFunctionArguments(
+                                        errorNode,
+                                        argList.slice(1),
+                                        accessMethodType,
+                                        new TypeVarMap(),
+                                        /* skipUnknownArgCheck */ true,
+                                        /* inferReturnTypeIfNeeded */ true,
+                                        /* expectedType */ undefined
+                                    ).returnType || UnknownType.create();
+                                if (isClass(memberInfo!.classType)) {
+                                    return partiallySpecializeType(returnType, memberInfo!.classType);
+                                }
+                                return returnType;
+                            } else {
+                                if (usage.method === 'set') {
+                                    // Verify that the setter's parameter type matches
+                                    // the type of the value being assigned.
+                                    if (accessMethodType.details.parameters.length >= 2) {
+                                        const setValueType = accessMethodType.details.parameters[1].type;
+                                        if (!canAssignType(setValueType, usage.setType!, diag)) {
+                                            isTypeValid = false;
+                                            return undefined;
+                                        }
+                                    }
+                                }
+
+                                // The type isn't important for set or delete usage.
+                                // We just need to return some defined type.
+                                return AnyType.create();
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (usage.method === 'set') {
+                let enforceTargetType = false;
+
+                if (memberInfo!.symbol.hasTypedDeclarations()) {
+                    // If the member has a declared type, we will enforce it.
+                    enforceTargetType = true;
+                } else {
+                    // If the member has no declared type, we will enforce it
+                    // if this assignment isn't within the enclosing class. If
+                    // it is within the enclosing class, the assignment is used
+                    // to infer the type of the member.
+                    if (!memberInfo!.symbol.getDeclarations().some((decl) => decl.node === errorNode)) {
+                        enforceTargetType = true;
+                    }
+                }
+
+                if (enforceTargetType) {
+                    let effectiveType = subtype;
+
+                    // If the code is patching a method (defined on the class)
+                    // with an object-level function, strip the "self" parameter
+                    // off the original type. This is sometimes done for test
+                    // purposes to override standard behaviors of specific methods.
+                    if (isAccessedThroughObject) {
+                        if (!memberInfo!.isInstanceMember && subtype.category === TypeCategory.Function) {
+                            if (FunctionType.isClassMethod(subtype) || FunctionType.isInstanceMethod(subtype)) {
+                                effectiveType = stripFirstParameter(subtype);
+                            }
+                        }
+                    }
+
+                    return effectiveType;
+                }
+            }
+
+            return subtype;
+        });
+
+        return isTypeValid ? type : undefined;
+    }
+
+    // Applies the __getattr__, __setattr__ or __delattr__ method if present.
+    function applyGeneralAttributeAccess(
+        classType: ClassType,
+        errorNode: ExpressionNode,
+        usage: EvaluatorUsage
+    ): Type | undefined {
+        if (usage.method === 'get') {
+            // See if the class has a "__getattribute__" or "__getattr__" method.
+            // If so, arbitrary members are supported.
+            const getAttribType = getTypeFromClassMember(
+                errorNode,
+                classType,
+                '__getattribute__',
+                { method: 'get' },
+                new DiagnosticAddendum(),
+                MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
+            );
+
+            if (getAttribType && getAttribType.category === TypeCategory.Function) {
+                return getFunctionEffectiveReturnType(getAttribType);
+            }
+
+            const getAttrType = getTypeFromClassMember(
+                errorNode,
+                classType,
+                '__getattr__',
+                { method: 'get' },
+                new DiagnosticAddendum(),
+                MemberAccessFlags.SkipForMethodLookup
+            );
+            if (getAttrType && getAttrType.category === TypeCategory.Function) {
+                return getFunctionEffectiveReturnType(getAttrType);
+            }
+        } else if (usage.method === 'set') {
+            const setAttrType = getTypeFromClassMember(
+                errorNode,
+                classType,
+                '__setattr__',
+                { method: 'get' },
+                new DiagnosticAddendum(),
+                MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
+            );
+            if (setAttrType) {
+                // The type doesn't matter for a set usage. We just need
+                // to return a defined type.
+                return AnyType.create();
+            }
+        } else {
+            assert(usage.method === 'del');
+            const delAttrType = getTypeFromClassMember(
+                errorNode,
+                classType,
+                '__detattr__',
+                { method: 'get' },
+                new DiagnosticAddendum(),
+                MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
+            );
+            if (delAttrType) {
+                // The type doesn't matter for a delete usage. We just need
+                // to return a defined type.
+                return AnyType.create();
+            }
+        }
+
         return undefined;
     }
 
