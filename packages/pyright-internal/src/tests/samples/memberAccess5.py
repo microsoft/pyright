@@ -6,7 +6,7 @@ from typing import Any, Union
 
 
 class IntProvider:
-    def __get__(self, instance: "IntProvider", owner: Any) -> int:
+    def __get__(self, instance: object, owner: Any) -> int:
         return 0
 
 

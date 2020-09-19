@@ -1222,7 +1222,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberName,
                     usage,
                     new DiagnosticAddendum(),
-                    memberAccessFlags | MemberAccessFlags.SkipInstanceMembers,
+                    memberAccessFlags,
                     classType
                 );
                 isMetaclassMember = true;
@@ -3791,27 +3791,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (accessMethod) {
                         let accessMethodType = getTypeOfMember(accessMethod);
+                        const argList: FunctionArgument[] = [
+                            {
+                                argumentCategory: ArgumentCategory.Simple,
+                                type: ObjectType.create(memberClassType),
+                            },
+                            {
+                                argumentCategory: ArgumentCategory.Simple,
+                                type:
+                                    flags & MemberAccessFlags.SkipInstanceMembers
+                                        ? NoneType.createInstance()
+                                        : ObjectType.create(classType),
+                            },
+                            {
+                                argumentCategory: ArgumentCategory.Simple,
+                                type: AnyType.create(),
+                            },
+                        ];
 
                         // If it's an overloaded function, determine which overload to use.
                         if (accessMethodType.category === TypeCategory.OverloadedFunction) {
-                            const argList: FunctionArgument[] = [
-                                {
-                                    argumentCategory: ArgumentCategory.Simple,
-                                    type: ObjectType.create(memberClassType),
-                                },
-                                {
-                                    argumentCategory: ArgumentCategory.Simple,
-                                    type:
-                                        flags & MemberAccessFlags.SkipInstanceMembers
-                                            ? NoneType.createInstance()
-                                            : ObjectType.create(classType),
-                                },
-                                {
-                                    argumentCategory: ArgumentCategory.Simple,
-                                    type: AnyType.create(),
-                                },
-                            ];
-
                             const overload = findOverloadedFunctionType(
                                 errorNode,
                                 argList,
@@ -3830,13 +3829,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 accessMethodType,
                                 bindToClass !== undefined,
                                 errorNode
-                            );
+                            ) as FunctionType;
 
                             if (boundMethodType) {
                                 accessMethodType = boundMethodType as FunctionType;
 
                                 if (usage.method === 'get') {
-                                    const returnType = getFunctionEffectiveReturnType(accessMethodType);
+                                    const returnType =
+                                        validateFunctionArguments(
+                                            errorNode,
+                                            argList.slice(1),
+                                            boundMethodType,
+                                            new TypeVarMap(),
+                                            /* skipUnknownArgCheck */ true,
+                                            /* inferReturnTypeIfNeeded */ true,
+                                            /* expectedType */ undefined
+                                        ).returnType || UnknownType.create();
                                     if (isClass(memberInfo!.classType)) {
                                         return partiallySpecializeType(returnType, memberInfo!.classType);
                                     }
@@ -9983,21 +9991,59 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fgetSymbol = Symbol.createWithType(SymbolFlags.ClassMember, fget);
         fields.set('fget', fgetSymbol);
 
-        // Fill in the __get__ method.
-        const getFunction = FunctionType.createInstance('__get__', '', FunctionTypeFlags.SynthesizedMethod);
-        getFunction.details.parameters.push({
+        // Fill in the __get__ method with an overload.
+        const getFunction1 = FunctionType.createInstance(
+            '__get__',
+            '',
+            FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
+        );
+        getFunction1.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
-            type: fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create(),
-        });
-        getFunction.details.parameters.push({
-            category: ParameterCategory.Simple,
-            name: 'obj',
             type: propertyObject,
         });
-        getFunction.details.declaredReturnType = fget.details.declaredReturnType;
-        getFunction.details.declaration = fget.details.declaration;
-        const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunction);
+        getFunction1.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'obj',
+            type: NoneType.createInstance(),
+        });
+        getFunction1.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'type',
+            type: AnyType.create(),
+            hasDefault: true,
+            defaultType: AnyType.create(),
+        });
+        getFunction1.details.declaredReturnType = propertyObject;
+        getFunction1.details.declaration = fget.details.declaration;
+
+        const getFunction2 = FunctionType.createInstance(
+            '__get__',
+            '',
+            FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
+        );
+        getFunction2.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'self',
+            type: propertyObject,
+        });
+        getFunction2.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'obj',
+            type: fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create(),
+        });
+        getFunction2.details.parameters.push({
+            category: ParameterCategory.Simple,
+            name: 'type',
+            type: AnyType.create(),
+            hasDefault: true,
+            defaultType: AnyType.create(),
+        });
+        getFunction2.details.declaredReturnType = fget.details.declaredReturnType;
+        getFunction2.details.declaration = fget.details.declaration;
+
+        const getFunctionOverload = OverloadedFunctionType.create([getFunction1, getFunction2]);
+        const getSymbol = Symbol.createWithType(SymbolFlags.ClassMember, getFunctionOverload);
         fields.set('__get__', getSymbol);
 
         // Fill in the getter, setter and deleter methods.
@@ -15957,17 +16003,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const objType = type;
                 if (objType.classType.literalValue !== undefined) {
                     return printLiteralType(objType);
-                }
-
-                if (isProperty(type)) {
-                    const getterInfo = lookUpObjectMember(type, 'fget');
-                    if (getterInfo) {
-                        const getter = getTypeOfMember(getterInfo);
-                        if (getter.category === TypeCategory.Function) {
-                            const returnType = getFunctionEffectiveReturnType(getter);
-                            return `() -> ${printType(returnType, /* expandTypeAlias */ false, recursionCount + 1)}`;
-                        }
-                    }
                 }
 
                 return printObjectTypeForClass(objType.classType, recursionCount + 1);

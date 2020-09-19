@@ -22,11 +22,14 @@ aaa = len(Fruit)
 for i in Fruit:
     print(i)
 
+
 class Meta(type):
     def foo(cls, some_param: str):
         pass
 
+
 class MyClass(metaclass=Meta):
     pass
+
 
 MyClass.foo("some argument")
