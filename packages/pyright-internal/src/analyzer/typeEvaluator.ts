@@ -13215,12 +13215,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return UnknownType.create();
             }
 
-            if (!resolvedDecl.isFinal && !resolvedDecl.isConstant && !resolvedDecl.typeAliasName) {
-                return UnknownType.create();
-            }
-
-            if (resolvedDecl.typeAliasName && !resolvedDecl.typeAliasAnnotation) {
-                isSpeculativeTypeAliasFromPyTypedFile = true;
+            if (!resolvedDecl.isFinal && !resolvedDecl.isConstant) {
+                if (!resolvedDecl.typeAliasName) {
+                    return UnknownType.create();
+                } else if (!resolvedDecl.typeAliasAnnotation) {
+                    isSpeculativeTypeAliasFromPyTypedFile = true;
+                }
             }
         }
 
