@@ -14937,14 +14937,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        // NoneType and ModuleType derive from object.
-        if (isNone(srcType) || isModule(srcType)) {
-            if (isObject(destType)) {
-                const destClassType = destType.classType;
-                if (ClassType.isBuiltIn(destClassType, 'object')) {
-                    return true;
-                }
-            }
+        if (isObject(destType) && ClassType.isBuiltIn(destType.classType, 'object')) {
+            // All types (including None, Module, OverloadedFunction) derive from object.
+            return true;
         }
 
         if (isNone(destType)) {
