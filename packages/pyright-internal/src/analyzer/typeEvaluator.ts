@@ -1549,6 +1549,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getDeclaredTypeForExpression(expression: ExpressionNode): Type | undefined {
         let symbol: Symbol | undefined;
         let classOrObjectBase: ClassType | ObjectType | undefined;
+        let memberAccessClass: Type | undefined;
 
         switch (expression.nodeType) {
             case ParseNodeType.Name: {
@@ -1574,6 +1575,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ClassMemberLookupFlags.DeclaredTypesOnly
                     );
                     classOrObjectBase = baseType;
+                    memberAccessClass = classMemberInfo?.classType;
                 } else if (isClass(baseType)) {
                     classMemberInfo = lookUpClassMember(
                         baseType,
@@ -1581,6 +1583,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ClassMemberLookupFlags.SkipInstanceVariables | ClassMemberLookupFlags.DeclaredTypesOnly
                     );
                     classOrObjectBase = baseType;
+                    memberAccessClass = classMemberInfo?.classType;
                 }
 
                 if (classMemberInfo) {
@@ -1632,6 +1635,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (classOrObjectBase) {
+                    if (memberAccessClass && isClass(memberAccessClass)) {
+                        declaredType = partiallySpecializeType(declaredType, memberAccessClass);
+                    }
+
                     declaredType = bindFunctionToClassOrObject(
                         classOrObjectBase,
                         declaredType,
@@ -3711,13 +3718,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (memberInfo) {
-            let type: Type;
+            let type: Type | undefined;
             if (usage.method === 'get') {
                 type = getTypeOfMember(memberInfo);
             } else {
-                // If the usage indicates a 'set' or 'delete', use only the declared
-                // type to avoid circular type evaluation.
-                type = getDeclaredTypeOfSymbol(memberInfo.symbol) || UnknownType.create();
+                // If the usage indicates a 'set' or 'delete' and the access is within the
+                // class definition itself, use only the declared type to avoid circular
+                // type evaluation.
+                const containingClass = ParseTreeUtils.getEnclosingClass(errorNode);
+                if (containingClass) {
+                    const containingClassType = getTypeOfClass(containingClass)?.classType;
+                    if (
+                        containingClassType &&
+                        isClass(containingClassType) &&
+                        ClassType.isSameGenericClass(containingClassType, classType)
+                    ) {
+                        type = getDeclaredTypeOfSymbol(memberInfo.symbol) || UnknownType.create();
+                    }
+                }
+
+                if (!type) {
+                    type = getTypeOfMember(memberInfo);
+                }
             }
 
             if (usage.method === 'set' && memberInfo.symbol.isClassVar()) {
