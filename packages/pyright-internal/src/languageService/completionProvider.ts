@@ -174,7 +174,7 @@ export interface CompletionItemData {
     workspacePath: string;
     position: Position;
     autoImportText?: string;
-    symbolId?: number;
+    symbolLabel?: string;
 }
 
 // ModuleContext attempts to gather info for unknown types
@@ -393,7 +393,7 @@ export class CompletionProvider {
             CompletionProvider._mostRecentCompletions.pop();
         }
 
-        if (completionItemData.symbolId) {
+        if (completionItemData.symbolLabel) {
             this._itemToResolve = completionItem;
 
             // Rerun the completion lookup. It will fill in additional information
@@ -1205,9 +1205,9 @@ export class CompletionProvider {
                 // Are we resolving a completion item? If so, see if this symbol
                 // is the one that we're trying to match.
                 if (this._itemToResolve) {
-                    const completionItemData = this._itemToResolve.data;
+                    const completionItemData = this._itemToResolve.data as CompletionItemData;
 
-                    if (completionItemData.symbolId === symbol.id) {
+                    if (completionItemData.symbolLabel === name) {
                         // This call can be expensive to perform on every completion item
                         // that we return, so we do it lazily in the "resolve" callback.
                         const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
@@ -1328,8 +1328,7 @@ export class CompletionProvider {
                 undefined,
                 autoImportText,
                 textEdit,
-                additionalTextEdits,
-                symbol.id
+                additionalTextEdits
             );
         } else {
             // Does the symbol have no declaration but instead has a synthesized type?
@@ -1345,8 +1344,7 @@ export class CompletionProvider {
                     undefined,
                     undefined,
                     textEdit,
-                    additionalTextEdits,
-                    symbol.id
+                    additionalTextEdits
                 );
             }
         }
@@ -1361,8 +1359,7 @@ export class CompletionProvider {
         documentation?: string,
         autoImportText?: string,
         textEdit?: TextEdit,
-        additionalTextEdits?: TextEditAction[],
-        symbolId?: number
+        additionalTextEdits?: TextEditAction[]
     ) {
         const similarity = StringUtils.computeCompletionSimilarity(filter, name);
 
@@ -1393,9 +1390,7 @@ export class CompletionProvider {
                 completionItem.sortText = this._makeSortText(SortCategory.NormalSymbol, name);
             }
 
-            if (symbolId !== undefined) {
-                completionItemData.symbolId = symbolId;
-            }
+            completionItemData.symbolLabel = name;
 
             let markdownString = '';
 
