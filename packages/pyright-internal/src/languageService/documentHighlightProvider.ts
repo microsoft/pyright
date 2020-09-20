@@ -274,8 +274,11 @@ export class DocumentHighlightProvider {
             );
             walker.findHighlights();
         } else if (node.nodeType === ParseNodeType.String) {
-            const walker = new HighlightStringTreeWalker(node.value, parseResults, results, token);
-            walker.findHighlights();
+            // User feedback indicates that most users don't want string literals
+            // to be highlighted through the document highlight provider, so we
+            // will disable this.
+            // const walker = new HighlightStringTreeWalker(node.value, parseResults, results, token);
+            // walker.findHighlights();
         }
 
         return results.length > 0 ? results : undefined;
