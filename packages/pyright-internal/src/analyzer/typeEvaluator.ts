@@ -2471,6 +2471,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const isPrivate = isPrivateOrProtectedName(nameValue);
 
                 if (
+                    TypeBase.isInstance(destType) &&
                     !isConstant &&
                     (!isPrivate || getFileInfo(nameNode).diagnosticRuleSet.reportPrivateUsage === 'none')
                 ) {
