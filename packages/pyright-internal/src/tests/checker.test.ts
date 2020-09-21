@@ -1263,6 +1263,12 @@ test('Super1', () => {
     validateResults(analysisResults, 4);
 });
 
+test('Super2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['super2.py']);
+
+    validateResults(analysisResults, 0, 0, 3);
+});
+
 test('NewType1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType1.py']);
 

@@ -215,6 +215,13 @@ interface TypeResult {
     typeList?: TypeResult[];
     isResolutionCyclical?: boolean;
     expectedTypeDiagAddendum?: DiagnosticAddendum;
+
+    // Used for the output of "super" calls used on the LHS of
+    // a member access. Normally the type of the LHS is the same
+    // as the class or object used to bind the member, but the
+    // "super" call can specify a different class or object to
+    // bind.
+    bindToType?: ClassType | ObjectType;
 }
 
 interface EffectiveTypeResult {
@@ -354,6 +361,10 @@ export const enum MemberAccessFlags {
 
     // Consider writes to symbols flagged as ClassVars as an error.
     DisallowClassVarWrites = 1 << 4,
+
+    // Allow classes to be bound to instance methods. This is used for
+    // metaclass methods.
+    TreatAsClassMethod = 1 << 5,
 
     // This set of flags is appropriate for looking up methods.
     SkipForMethodLookup = SkipInstanceMembers | SkipGetAttributeCheck,
@@ -1161,7 +1172,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum,
         memberAccessFlags = MemberAccessFlags.None,
-        bindToClass?: ClassType
+        bindToType?: ClassType | ObjectType
     ): Type | undefined {
         const memberInfo = getTypeFromClassMemberName(
             errorNode,
@@ -1180,9 +1191,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 if (memberInfo!.isClassMember) {
                     resultType = bindFunctionToClassOrObject(
-                        bindToClass || objectType,
+                        bindToType || objectType,
                         resultType,
-                        !!bindToClass,
+                        (memberAccessFlags & MemberAccessFlags.TreatAsClassMethod) !== 0,
                         errorNode
                     );
                 }
@@ -3511,13 +3522,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // represents a class.
                     return getTypeFromMemberAccessWithBaseType(
                         node,
-                        { type: classFromTypeObject, node: baseTypeResult.node },
+                        { type: classFromTypeObject, node: baseTypeResult.node, bindToType: baseTypeResult.bindToType },
                         usage,
                         flags
                     );
                 }
 
-                type = getTypeFromObjectMember(node.memberName, baseType, memberName, usage, diag);
+                type = getTypeFromObjectMember(
+                    node.memberName,
+                    baseType,
+                    memberName,
+                    usage,
+                    diag,
+                    /* memberAccessFlags */ undefined,
+                    baseTypeResult.bindToType
+                );
                 break;
             }
 
@@ -4676,10 +4695,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Handle the built-in "super" call specially.
         if (node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === 'super') {
-            return {
-                type: getTypeFromSuperCall(node),
-                node,
-            };
+            return getTypeFromSuperCall(node);
         }
 
         // Handle the special-case "reveal_type" call.
@@ -4723,7 +4739,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
     }
 
-    function getTypeFromSuperCall(node: CallNode): Type {
+    function getTypeFromSuperCall(node: CallNode): TypeResult {
         if (node.arguments.length > 2) {
             addError(Localizer.Diagnostic.superCallArgCount(), node.arguments[2]);
         }
@@ -4752,30 +4768,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Determine whether to further narrow the type.
-        let narrowedClassType: Type;
+        let bindToType: ClassType | ObjectType | undefined;
         if (node.arguments.length > 1) {
-            narrowedClassType = specializeType(
+            const secondArgType = specializeType(
                 getTypeOfExpression(node.arguments[1].valueExpression).type,
                 /* typeVarMap */ undefined
             );
 
             let reportError = false;
 
-            if (isAnyOrUnknown(narrowedClassType)) {
+            if (isAnyOrUnknown(secondArgType)) {
                 // Ignore unknown or any types.
-            } else if (isObject(narrowedClassType)) {
-                const childClassType = narrowedClassType.classType;
+            } else if (isObject(secondArgType)) {
                 if (isClass(targetClassType)) {
-                    if (!derivesFromClassRecursive(childClassType, targetClassType, /* ignoreUnknown */ true)) {
+                    if (
+                        !derivesFromClassRecursive(secondArgType.classType, targetClassType, /* ignoreUnknown */ true)
+                    ) {
                         reportError = true;
                     }
                 }
-            } else if (isClass(narrowedClassType)) {
+                bindToType = secondArgType;
+            } else if (isClass(secondArgType)) {
                 if (isClass(targetClassType)) {
-                    if (!derivesFromClassRecursive(narrowedClassType, targetClassType, /* ignoreUnknown */ true)) {
+                    if (!derivesFromClassRecursive(secondArgType, targetClassType, /* ignoreUnknown */ true)) {
                         reportError = true;
                     }
                 }
+                bindToType = secondArgType;
             } else {
                 reportError = true;
             }
@@ -4802,7 +4821,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ClassMemberLookupFlags.SkipOriginalClass
             );
             if (lookupResults && isClass(lookupResults.classType)) {
-                return ObjectType.create(lookupResults.classType);
+                return {
+                    type: ObjectType.create(lookupResults.classType),
+                    node,
+                    bindToType,
+                };
             }
         }
 
@@ -4812,19 +4835,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If the class derives from one or more unknown classes,
             // return unknown here to prevent spurious errors.
             if (targetClassType.details.mro.some((mroBase) => isAnyOrUnknown(mroBase))) {
-                return UnknownType.create();
+                return {
+                    type: UnknownType.create(),
+                    node,
+                };
             }
 
             const baseClasses = targetClassType.details.baseClasses;
             if (baseClasses.length > 0) {
                 const baseClassType = baseClasses[0];
                 if (isClass(baseClassType)) {
-                    return ObjectType.create(baseClassType);
+                    return {
+                        type: ObjectType.create(baseClassType),
+                        node,
+                    };
                 }
             }
         }
 
-        return UnknownType.create();
+        return {
+            type: UnknownType.create(),
+            node,
+        };
     }
 
     function getTypeFromCallWithBaseType(
@@ -7542,13 +7574,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Create a helper lambda for object subtypes.
         const handleObjectSubtype = (subtype: ObjectType, bindToClassType?: ClassType) => {
+            let flags = MemberAccessFlags.SkipForMethodLookup;
+            if (bindToClassType) {
+                flags |= MemberAccessFlags.TreatAsClassMethod;
+            }
+
             const magicMethodType = getTypeFromObjectMember(
                 errorNode,
                 subtype,
                 magicMethodName,
                 { method: 'get' },
                 new DiagnosticAddendum(),
-                MemberAccessFlags.SkipForMethodLookup,
+                flags,
                 bindToClassType
             );
 
@@ -15748,14 +15785,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // If the memberType is an instance or class method, creates a new
     // version of the function that has the "self" or "cls" parameter bound
-    // to it. If treatAsClassMember is true, the function is treated like a
-    // class member even if it's not marked as such. That's needed to
+    // to it. If treatAsClassMethod is true, the function is treated like a
+    // class method even if it's not marked as such. That's needed to
     // special-case the __new__ magic method when it's invoked as a
     // constructor (as opposed to by name).
     function bindFunctionToClassOrObject(
         baseType: ClassType | ObjectType | undefined,
         memberType: Type,
-        treatAsClassMember: boolean,
+        treatAsClassMethod: boolean,
         errorNode: ParseNode | undefined = undefined
     ): Type | undefined {
         if (memberType.category === TypeCategory.Function) {
@@ -15763,11 +15800,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // first parameter. This is used in cases like constructors.
             if (!baseType) {
                 return stripFirstParameter(memberType);
-            } else if (FunctionType.isInstanceMethod(memberType) && !treatAsClassMember) {
+            } else if (FunctionType.isInstanceMethod(memberType) && !treatAsClassMethod) {
                 if (isObject(baseType)) {
                     return partiallySpecializeFunctionForBoundClassOrObject(baseType, memberType, errorNode);
                 }
-            } else if (FunctionType.isClassMethod(memberType) || treatAsClassMember) {
+            } else if (FunctionType.isClassMethod(memberType) || treatAsClassMethod) {
                 return partiallySpecializeFunctionForBoundClassOrObject(
                     isClass(baseType) ? baseType : baseType.classType,
                     memberType,
@@ -15780,7 +15817,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const boundMethod = bindFunctionToClassOrObject(
                     baseType,
                     overload,
-                    treatAsClassMember,
+                    treatAsClassMethod,
                     /* errorNode */ undefined
                 );
                 if (boundMethod) {
@@ -15794,7 +15831,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // No overloads matched, so rebind with the errorNode
                 // to report the error(s) to the user.
                 memberType.overloads.forEach((overload) => {
-                    bindFunctionToClassOrObject(baseType, overload, treatAsClassMember, errorNode);
+                    bindFunctionToClassOrObject(baseType, overload, treatAsClassMethod, errorNode);
                 });
                 return undefined;
             }
