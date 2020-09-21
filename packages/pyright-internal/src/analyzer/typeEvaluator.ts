@@ -601,6 +601,11 @@ interface ReturnTypeInferenceContext {
 // performance.
 const maxReturnTypeInferenceStackSize = 3;
 
+// How many entries in a list, set, or dict should we examine
+// when inferring the type? We need to cut it off at some point
+// to avoid excessive computation.
+const maxEntriesToUseForInference = 64;
+
 export interface EvaluatorOptions {
     disableInferenceForPyTypedSources: boolean;
     printTypeFlags: PrintTypeFlags;
@@ -7656,11 +7661,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeFromSet(node: SetNode, expectedType: Type | undefined): TypeResult {
-        const entryTypes = node.entries.map((entryNode) => {
-            if (entryNode.nodeType === ParseNodeType.ListComprehension) {
-                return getElementTypeFromListComprehension(entryNode);
+        const entryTypes: Type[] = [];
+        node.entries.forEach((entryNode, index) => {
+            if (index < maxEntriesToUseForInference || expectedType !== undefined) {
+                if (entryNode.nodeType === ParseNodeType.ListComprehension) {
+                    entryTypes.push(getElementTypeFromListComprehension(entryNode));
+                } else {
+                    entryTypes.push(getTypeOfExpression(entryNode).type);
+                }
             }
-            return getTypeOfExpression(entryNode).type;
         });
 
         // If there is an expected type, see if we can match it.
@@ -7745,7 +7754,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Infer the key and value types if possible.
-        node.entries.forEach((entryNode) => {
+        node.entries.forEach((entryNode, index) => {
+            if (index >= maxEntriesToUseForInference && !expectedType) {
+                return;
+            }
+
             let addUnknown = true;
 
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
@@ -7917,11 +7930,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const expectedEntryType = expectedType ? getListTypeArg(expectedType) : undefined;
 
-        let entryTypes = node.entries.map((entry) => {
-            if (entry.nodeType === ParseNodeType.ListComprehension) {
-                return getElementTypeFromListComprehension(entry, expectedEntryType);
+        let entryTypes: Type[] = [];
+        node.entries.forEach((entry, index) => {
+            if (index < maxEntriesToUseForInference || expectedType !== undefined) {
+                if (entry.nodeType === ParseNodeType.ListComprehension) {
+                    entryTypes.push(getElementTypeFromListComprehension(entry, expectedEntryType));
+                } else {
+                    entryTypes.push(getTypeOfExpression(entry, expectedEntryType).type);
+                }
             }
-            return getTypeOfExpression(entry, expectedEntryType).type;
         });
 
         // If there is an expected type, see if we can match it.
