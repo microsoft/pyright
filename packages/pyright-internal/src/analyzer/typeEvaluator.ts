@@ -190,7 +190,6 @@ import {
     lookUpObjectMember,
     makeTypeVarsConcrete,
     partiallySpecializeType,
-    printLiteralType,
     printLiteralValue,
     removeFalsinessFromType,
     removeTruthinessFromType,
@@ -14805,8 +14804,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ) {
                         diag.addMessage(
                             Localizer.DiagnosticAddendum.literalAssignmentMismatch().format({
-                                sourceType: srcLiteral !== undefined ? printLiteralType(srcType) : printType(srcType),
-                                destType: printLiteralType(destType),
+                                sourceType: printType(srcType),
+                                destType: printType(destType),
                             })
                         );
 
@@ -16099,16 +16098,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.Class: {
-                return 'Type[' + printObjectTypeForClass(type, recursionCount + 1) + ']';
+                if (type.literalValue !== undefined) {
+                    return `Type[Literal[${printLiteralValue(type)}]]`;
+                }
+
+                return `Type[${printObjectTypeForClass(type, recursionCount + 1)}]`;
             }
 
             case TypeCategory.Object: {
-                const objType = type;
-                if (objType.classType.literalValue !== undefined) {
-                    return printLiteralType(objType);
+                if (type.classType.literalValue !== undefined) {
+                    return `Literal[${printLiteralValue(type.classType)}]`;
                 }
 
-                return printObjectTypeForClass(objType.classType, recursionCount + 1);
+                return printObjectTypeForClass(type.classType, recursionCount + 1);
             }
 
             case TypeCategory.Function: {

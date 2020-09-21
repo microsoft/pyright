@@ -1835,15 +1835,6 @@ export function printLiteralValue(type: ClassType): string {
     return literalStr;
 }
 
-export function printLiteralType(type: ObjectType): string {
-    const literalStr = printLiteralValue(type.classType);
-    if (!literalStr) {
-        return '';
-    }
-
-    return `Literal[${literalStr}]`;
-}
-
 // Returns zero or more unique module names that point to the place(s)
 // where the type is declared. Unions, for example, can result in more
 // than one result. Type arguments are not included.
