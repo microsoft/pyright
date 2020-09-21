@@ -1803,6 +1803,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return subtype;
             }
 
+            if (isObject(subtype)) {
+                const classType = getClassFromPotentialTypeObject(subtype);
+                if (classType) {
+                    subtype = classType;
+                }
+            }
+
             const diag = new DiagnosticAddendum();
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
