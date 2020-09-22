@@ -34,6 +34,9 @@ export interface ImportResult {
     // folder without an __init__.py file).
     isNamespacePackage: boolean;
 
+    // Did it resolve to a stub within a stub package?
+    isStubPackage: boolean;
+
     // If isImportFound is false, may contain strings that help
     // diagnose the import resolution failure.
     importFailureInfo?: string[];

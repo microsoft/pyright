@@ -34,6 +34,7 @@ import * as StringUtils from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as PythonPathUtils from './pythonPathUtils';
+import { getPyTypedInfo, PyTypedInfo } from './pyTypedUtils';
 import { isDunderName } from './symbolNameUtils';
 
 export interface ImportedModuleDescriptor {
@@ -54,7 +55,6 @@ type CachedImportResults = Map<string, ImportResult>;
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
 const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExtensions];
 const stubsSuffix = '-stubs';
-const pyTypedFileName = 'py.typed';
 
 // Should we allow partial resolution for third-party packages? Some use tricks
 // to populate their package namespaces, so we might be able to partially resolve
@@ -62,11 +62,6 @@ const pyTypedFileName = 'py.typed';
 // false, we will have some false positives. If it is set to true, we won't report
 // errors when these partial-resolutions fail.
 const allowPartialResolutionForThirdPartyPackages = false;
-
-interface PyTypedInfo {
-    isPyTypedPresent: boolean;
-    isPartiallyTyped: boolean;
-}
 
 export class ImportResolver {
     private _configOptions: ConfigOptions;
@@ -102,6 +97,7 @@ export class ImportResolver {
             isRelative: false,
             isImportFound: false,
             isNamespacePackage: false,
+            isStubPackage: false,
             importFailureInfo,
             resolvedPaths: [],
             importType: ImportType.Local,
@@ -481,6 +477,7 @@ export class ImportResolver {
         const resolvedPaths: string[] = [];
         let dirPath = rootPath;
         let isNamespacePackage = false;
+        let isStubPackage = false;
         let isStubFile = false;
         let isNativeLib = false;
         let implicitImports: ImplicitImport[] = [];
@@ -514,6 +511,7 @@ export class ImportResolver {
 
                 if (useStubPackage && isFirstPart) {
                     dirPath += stubsSuffix;
+                    isStubPackage = true;
                 }
 
                 const foundDirectory = this.fileSystem.existsSync(dirPath) && isDirectory(this.fileSystem, dirPath);
@@ -634,6 +632,7 @@ export class ImportResolver {
             importName,
             isRelative: false,
             isNamespacePackage,
+            isStubPackage,
             isImportFound: importFound,
             importFailureInfo,
             importType: ImportType.Local,
@@ -664,40 +663,6 @@ export class ImportResolver {
         allowPyi = true
     ): ImportResult | undefined {
         return undefined;
-    }
-
-    private _getPyTypedInfo(dirPath: string): PyTypedInfo {
-        let isPyTypedPresent = false;
-        let isPartiallyTyped = false;
-
-        if (this.fileSystem.existsSync(dirPath) && isDirectory(this.fileSystem, dirPath)) {
-            const pyTypedPath = combinePaths(dirPath, pyTypedFileName);
-
-            if (this.fileSystem.existsSync(dirPath) && isFile(this.fileSystem, pyTypedPath)) {
-                isPyTypedPresent = true;
-
-                // Read the contents of the file as text.
-                const fileStats = this.fileSystem.statSync(pyTypedPath);
-
-                // Do a quick sanity check on the size before we attempt to read it. This
-                // file should always be really small - typically zero bytes in length.
-                if (fileStats.size > 0 && fileStats.size < 16 * 1024) {
-                    const pyTypedContents = this.fileSystem.readFileSync(pyTypedPath, 'utf8');
-
-                    // PEP 561 doesn't specify the format of "py.typed" in any detail other than
-                    // to say that "If a stub package is partial it MUST include partial\n in a top
-                    // level py.typed file."
-                    if (pyTypedContents.match(/partial\n/) || pyTypedContents.match(/partial\r\n/)) {
-                        isPartiallyTyped = true;
-                    }
-                }
-            }
-        }
-
-        return {
-            isPyTypedPresent,
-            isPartiallyTyped,
-        };
     }
 
     private _lookUpResultsInCache(
@@ -866,7 +831,7 @@ export class ImportResolver {
                 let thirdPartyImport: ImportResult | undefined;
 
                 if (allowPyi) {
-                    pyTypedInfo = this._getPyTypedInfo(dirPath + stubsSuffix);
+                    pyTypedInfo = getPyTypedInfo(this.fileSystem, dirPath + stubsSuffix);
 
                     // Look for packaged stubs first. PEP 561 indicates that package authors can ship
                     // their stubs separately from their package implementation by appending the string
@@ -888,7 +853,7 @@ export class ImportResolver {
                     // If there was a packaged stub directory, we can stop searching unless
                     // it happened to be marked as "partially typed".
                     if (!thirdPartyImport?.packageDirectory || pyTypedInfo?.isPartiallyTyped) {
-                        pyTypedInfo = this._getPyTypedInfo(dirPath);
+                        pyTypedInfo = getPyTypedInfo(this.fileSystem, dirPath);
 
                         thirdPartyImport = this.resolveAbsoluteImport(
                             searchPath,
