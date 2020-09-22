@@ -5668,6 +5668,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         Localizer.Diagnostic.noOverload().format({ expression: exprString }) + diagAddendum.getString(),
                         errorNode
                     );
+                    callResult.argumentErrors = true;
                 }
                 break;
             }
