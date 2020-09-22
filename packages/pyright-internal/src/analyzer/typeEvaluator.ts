@@ -12320,6 +12320,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isInstanceCheck: boolean,
         isPositiveTest: boolean
     ): Type {
+        if (isTypeVar(type)) {
+            // If it's a constrained TypeVar, treat it as a union for the
+            // purposes of narrowing.
+            type = getConcreteTypeFromTypeVar(type, /* convertConstraintsToUnion */ true);
+        }
+
         let effectiveType = doForSubtypes(type, (subtype) => {
             return transformTypeObjectToClass(subtype);
         });
@@ -15602,7 +15608,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (srcType.details.boundType) {
                 // If the source type is a type var itself and has a bound type,
                 // convert it to that bound type.
-                effectiveSrcType = getConcreteTypeFromTypeVar(srcType, recursionCount + 1);
+                effectiveSrcType = getConcreteTypeFromTypeVar(
+                    srcType,
+                    /* convertConstraintsToUnion */ false,
+                    recursionCount + 1
+                );
             } else if (srcType.details.constraints) {
                 effectiveSrcType = combineTypes(srcType.details.constraints);
             } else {

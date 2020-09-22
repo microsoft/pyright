@@ -43,6 +43,7 @@ import {
     isModule,
     isNone,
     isObject,
+    isTypeVar,
     isUnbound,
     isUnknown,
     ObjectType,
@@ -53,11 +54,13 @@ import {
 } from '../analyzer/types';
 import {
     doForSubtypes,
+    getConcreteTypeFromTypeVar,
     getDeclaringModulesForType,
     getMembersForClass,
     getMembersForModule,
     isProperty,
     makeTypeVarsConcrete,
+    specializeType,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
@@ -555,12 +558,18 @@ export class CompletionProvider {
         leftExprNode: ExpressionNode,
         priorWord: string
     ): CompletionResults | undefined {
-        const leftType = this._evaluator.getType(leftExprNode);
+        let leftType = this._evaluator.getType(leftExprNode);
         const symbolTable = new Map<string, Symbol>();
         const completionList = CompletionList.create();
         let lastKnownModule: ModuleContext | undefined;
 
         if (leftType) {
+            if (isTypeVar(leftType)) {
+                // If the left is a constrained TypeVar, treat it as a union for the
+                // purposes of providing completion suggestions.
+                leftType = getConcreteTypeFromTypeVar(leftType, /* convertConstraintsToUnion */ true);
+            }
+
             doForSubtypes(leftType, (subtype) => {
                 const specializedSubtype = makeTypeVarsConcrete(subtype);
 

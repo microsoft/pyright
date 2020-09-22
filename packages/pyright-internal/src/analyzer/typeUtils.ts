@@ -1445,7 +1445,13 @@ function _specializeClassType(
             } else {
                 // If the type var map wasn't provided or doesn't contain this
                 // type var, specialize the type var.
-                typeArgType = makeConcrete ? getConcreteTypeFromTypeVar(typeParam) : typeParam;
+                typeArgType = makeConcrete
+                    ? getConcreteTypeFromTypeVar(
+                          typeParam,
+                          /* convertConstraintsToUnion */ undefined,
+                          recursionLevel + 1
+                      )
+                    : typeParam;
                 if (typeArgType !== typeParam) {
                     specializationNeeded = true;
                 }
@@ -1471,7 +1477,11 @@ function _specializeClassType(
 
 // Converts a type var type into the most specific type
 // that fits the specified constraints.
-export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel = 0): Type {
+export function getConcreteTypeFromTypeVar(
+    type: TypeVarType,
+    convertConstraintsToUnion = false,
+    recursionLevel = 0
+): Type {
     if (type.details.boundType) {
         // If this is a recursive type alias placeholder, don't continue
         // to specialize it because it will expand it out until we hit the
@@ -1485,6 +1495,9 @@ export function getConcreteTypeFromTypeVar(type: TypeVarType, recursionLevel = 0
 
     // Note that we can't use constraints for specialization because
     // the union of constraints is not the same as individual constraints.
+    if (convertConstraintsToUnion && type.details.constraints.length > 0) {
+        return combineTypes(type.details.constraints);
+    }
 
     // In all other cases, treat as unknown.
     return UnknownType.create();
