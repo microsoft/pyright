@@ -5690,6 +5690,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         Localizer.Diagnostic.typeNotIntantiable().format({ type: callType.details.name }),
                         errorNode
                     );
+                    callResult.argumentErrors = true;
                 }
                 break;
             }
@@ -5723,6 +5724,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         Localizer.Diagnostic.objectNotCallable().format({ type: printType(callType) }),
                         errorNode
                     );
+                    callResult.argumentErrors = true;
                 }
                 break;
             }
@@ -5756,6 +5758,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (returnTypes.length > 0) {
                     callResult.returnType = combineTypes(returnTypes);
+                } else {
+                    callResult.argumentErrors = true;
                 }
                 break;
             }
