@@ -1811,12 +1811,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return subtype;
             }
 
-            if (isObject(subtype)) {
-                const classType = getClassFromPotentialTypeObject(subtype);
-                if (classType) {
-                    subtype = classType;
-                }
-            }
+            subtype = getClassFromPotentialTypeObject(subtype);
 
             const diag = new DiagnosticAddendum();
             if (isAnyOrUnknown(subtype)) {
@@ -3282,10 +3277,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if (isObject(type)) {
                     // If this is an object that contains a Type[X], transform it
                     // into class X.
-                    const typeType = getClassFromPotentialTypeObject(type);
-                    if (typeType) {
-                        type = typeType;
-                    }
+                    type = getClassFromPotentialTypeObject(type);
                 } else if (
                     (flags & EvaluatorFlags.ExpectingType) !== 0 &&
                     type.typeAliasInfo &&
@@ -3546,7 +3538,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case TypeCategory.Object: {
                 const classFromTypeObject = getClassFromPotentialTypeObject(baseType);
-                if (classFromTypeObject) {
+                if (isClass(classFromTypeObject)) {
                     // Handle the case where the object is a 'Type' object, which
                     // represents a class.
                     return getTypeFromMemberAccessWithBaseType(
@@ -3703,29 +3695,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // If the object type is a 'Type' object, converts it to the corresponding
-    // class that it represents and returns that class. Otherwise returns undefined.
-    function getClassFromPotentialTypeObject(potentialTypeObject: ObjectType): Type | undefined {
-        const objectClass = potentialTypeObject.classType;
-        if (ClassType.isBuiltIn(objectClass, 'Type')) {
-            const typeArgs = objectClass.typeArguments;
+    // class that it represents and returns that class. Otherwise returns the
+    // original type.
+    function getClassFromPotentialTypeObject(potentialTypeObject: Type): Type {
+        if (isObject(potentialTypeObject)) {
+            const objectClass = potentialTypeObject.classType;
+            if (ClassType.isBuiltIn(objectClass, 'Type')) {
+                const typeArgs = objectClass.typeArguments;
 
-            if (typeArgs && typeArgs.length > 0) {
-                let firstTypeArg = typeArgs[0];
+                if (typeArgs && typeArgs.length > 0) {
+                    let firstTypeArg = typeArgs[0];
 
-                // If the type arg is a type var itself, specialize it in case it's bound.
-                if (isTypeVar(firstTypeArg)) {
-                    firstTypeArg = getConcreteTypeFromTypeVar(firstTypeArg);
+                    // If the type arg is a type var itself, specialize it in case it's bound.
+                    if (isTypeVar(firstTypeArg)) {
+                        firstTypeArg = getConcreteTypeFromTypeVar(firstTypeArg);
+                    }
+
+                    if (isObject(firstTypeArg)) {
+                        return firstTypeArg.classType;
+                    }
                 }
 
-                if (isObject(firstTypeArg)) {
-                    return firstTypeArg.classType;
-                }
+                return AnyType.create();
             }
-
-            return AnyType.create();
         }
 
-        return undefined;
+        return potentialTypeObject;
     }
 
     function getTypeFromClassMemberName(
@@ -4209,6 +4204,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const type = doForSubtypes(baseType, (subtype) => {
             subtype = makeTypeVarsConcrete(subtype);
+            subtype = getClassFromPotentialTypeObject(subtype);
 
             if (isAnyOrUnknown(subtype)) {
                 return subtype;

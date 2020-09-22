@@ -1,4 +1,4 @@
-# This sample verifies that enums are iterable.
+# This sample verifies that enums are iterable and indexable.
 
 import enum
 from typing import Type
@@ -19,4 +19,7 @@ class Foo:
         for f in self._foo:
             print(f)
 
+
+def test_fn(color: Type[enum.Enum]):
+    print(color["RED"])
 
