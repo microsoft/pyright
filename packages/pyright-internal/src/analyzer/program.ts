@@ -61,6 +61,7 @@ import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
 import { SourceMapper } from './sourceMapper';
+import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
 import { createTypeEvaluator, PrintTypeFlags, TypeEvaluator } from './typeEvaluator';
 import { TypeStubWriter } from './typeStubWriter';
@@ -198,13 +199,13 @@ export class Program {
         this._allowedThirdPartyImports = importNames;
     }
 
-    addTrackedFiles(filePaths: string[]) {
+    addTrackedFiles(filePaths: string[], isThirdPartyImport = false, isInPyTypedPackage = false) {
         filePaths.forEach((filePath) => {
-            this.addTrackedFile(filePath);
+            this.addTrackedFile(filePath, isThirdPartyImport, isInPyTypedPackage);
         });
     }
 
-    addTrackedFile(filePath: string): SourceFile {
+    addTrackedFile(filePath: string, isThirdPartyImport = false, isInPyTypedPackage = false): SourceFile {
         let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (sourceFileInfo) {
             sourceFileInfo.isTracked = true;
@@ -216,8 +217,8 @@ export class Program {
             this._fs,
             filePath,
             importName,
-            /* isThirdPartyImport */ false,
-            /* isInPyTypedPackage */ false,
+            isThirdPartyImport,
+            isInPyTypedPackage,
             this._console,
             this._logTracker
         );
@@ -554,6 +555,13 @@ export class Program {
         }
     }
 
+    getTypeForSymbol(symbol: Symbol) {
+        this._handleMemoryHighUsage();
+
+        const evaluator = this._evaluator || this._createNewEvaluator();
+        return evaluator.getEffectiveTypeOfSymbol(symbol);
+    }
+
     private static _getPrintTypeFlags(configOptions: ConfigOptions): PrintTypeFlags {
         let flags = PrintTypeFlags.None;
 
@@ -638,6 +646,8 @@ export class Program {
             disableInferenceForPyTypedSources: this._configOptions.disableInferenceForPyTypedSources,
             printTypeFlags: Program._getPrintTypeFlags(this._configOptions),
         });
+
+        return this._evaluator;
     }
 
     private _parseFile(fileToParse: SourceFileInfo) {
@@ -1965,7 +1975,7 @@ export class Program {
         // analyzed before the file can be analyzed.
         sourceFileInfo.builtinsImport = undefined;
         const builtinsImport = sourceFileInfo.sourceFile.getBuiltinsImport();
-        if (builtinsImport) {
+        if (builtinsImport && builtinsImport.isImportFound) {
             const resolvedBuiltinsPath = builtinsImport.resolvedPaths[builtinsImport.resolvedPaths.length - 1];
             sourceFileInfo.builtinsImport = this._getSourceFileInfoFromPath(resolvedBuiltinsPath);
         }
