@@ -7407,6 +7407,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedType: Type | undefined
     ): Type {
         let type: Type | undefined;
+        const diag = new DiagnosticAddendum();
 
         if (arithmeticOperatorMap[operator]) {
             type = doForSubtypes(leftType, (leftSubtype) => {
@@ -7421,7 +7422,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     const magicMethodName = arithmeticOperatorMap[operator][0];
-                    const resultType = getTypeFromMagicMethodReturn(
+                    let resultType = getTypeFromMagicMethodReturn(
                         leftSubtype,
                         [rightSubtype],
                         magicMethodName,
@@ -7433,13 +7434,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     const altMagicMethodName = arithmeticOperatorMap[operator][1];
-                    return getTypeFromMagicMethodReturn(
+                    resultType = getTypeFromMagicMethodReturn(
                         rightSubtype,
                         [leftSubtype],
                         altMagicMethodName,
                         errorNode,
                         expectedType
                     );
+                    if (!resultType) {
+                        diag.addMessage(
+                            Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                                operator: ParseTreeUtils.printOperator(operator),
+                                leftType: printType(leftSubtype),
+                                rightType: printType(rightSubtype),
+                            })
+                        );
+                    }
+                    return resultType;
                 });
             });
         } else if (bitwiseOperatorMap[operator]) {
@@ -7456,13 +7467,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     // Handle the general case.
                     const magicMethodName = bitwiseOperatorMap[operator][0];
-                    return getTypeFromMagicMethodReturn(
+                    const result = getTypeFromMagicMethodReturn(
                         leftSubtype,
                         [rightSubtype],
                         magicMethodName,
                         errorNode,
                         expectedType
                     );
+                    if (!result) {
+                        diag.addMessage(
+                            Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                                operator: ParseTreeUtils.printOperator(operator),
+                                leftType: printType(leftSubtype),
+                                rightType: printType(rightSubtype),
+                            })
+                        );
+                    }
+
+                    return result;
                 });
             });
         } else if (comparisonOperatorMap[operator]) {
@@ -7478,7 +7500,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     const magicMethodName = comparisonOperatorMap[operator][0];
-                    const resultType = getTypeFromMagicMethodReturn(
+                    let resultType = getTypeFromMagicMethodReturn(
                         leftSubtype,
                         [rightSubtype],
                         magicMethodName,
@@ -7490,13 +7512,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     const altMagicMethodName = comparisonOperatorMap[operator][1];
-                    return getTypeFromMagicMethodReturn(
+                    resultType = getTypeFromMagicMethodReturn(
                         rightSubtype,
                         [leftSubtype],
                         altMagicMethodName,
                         errorNode,
                         expectedType
                     );
+
+                    if (!resultType) {
+                        diag.addMessage(
+                            Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                                operator: ParseTreeUtils.printOperator(operator),
+                                leftType: printType(leftSubtype),
+                                rightType: printType(rightSubtype),
+                            })
+                        );
+                    }
+                    return resultType;
                 });
             });
         } else if (booleanOperatorMap[operator]) {
@@ -7548,13 +7581,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const iteratorType = getTypeFromIterable(
                                 rightSubtype,
                                 /* isAsync */ false,
-                                errorNode,
+                                /* errorNode */ undefined,
                                 /* supportGetItem */ false
                             );
 
                             if (iteratorType && canAssignType(iteratorType, leftSubtype, new DiagnosticAddendum())) {
-                                returnType = iteratorType;
+                                returnType = getBuiltInObject(errorNode, 'bool');
                             }
+                        }
+
+                        if (!returnType) {
+                            diag.addMessage(
+                                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                                    operator: ParseTreeUtils.printOperator(operator),
+                                    leftType: printType(leftSubtype),
+                                    rightType: printType(rightSubtype),
+                                })
+                            );
                         }
 
                         return returnType;
@@ -7579,7 +7622,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (!type || isNever(type)) {
+        if (!diag.isEmpty() || !type || isNever(type)) {
             const fileInfo = getFileInfo(errorNode);
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -7588,7 +7631,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     operator: ParseTreeUtils.printOperator(operator),
                     leftType: printType(leftType),
                     rightType: printType(rightType),
-                }),
+                }) + diag.getString(),
                 errorNode
             );
             type = UnknownType.create();
