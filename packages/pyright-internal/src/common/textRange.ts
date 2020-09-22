@@ -148,3 +148,11 @@ export function getEmptyRange(): Range {
         end: getEmptyPosition(),
     };
 }
+
+export function isEmptyPosition(pos: Position) {
+    return pos.character === 0 && pos.line === 0;
+}
+
+export function isEmptyRange(range: Range) {
+    return isEmptyPosition(range.start) && isEmptyPosition(range.end);
+}
