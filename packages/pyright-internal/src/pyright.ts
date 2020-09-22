@@ -21,11 +21,11 @@ import * as process from 'process';
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
 import { NullConsole } from './common/console';
-import { DiagnosticCategory } from './common/diagnostic';
+import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
-import { Range } from './common/textRange';
 import { createFromRealFileSystem } from './common/fileSystem';
+import { isEmptyRange, Range } from './common/textRange';
 
 const toolName = 'pyright';
 
@@ -152,11 +152,6 @@ function processArgs() {
 
     if (args.createstub) {
         options.typeStubTargetImportName = args.createstub;
-
-        if (args.watch) {
-            console.error(`Option 'createstub' cannot be used with option 'watch'`);
-            return;
-        }
     }
 
     if (args.verbose) {
@@ -167,11 +162,13 @@ function processArgs() {
     }
     options.checkOnlyOpenFiles = false;
 
+    const output = args.outputjson ? new NullConsole() : undefined;
+    const realFileSystem = createFromRealFileSystem(output);
+
     const watch = args.watch !== undefined;
     options.watchForSourceChanges = watch;
 
-    const output = args.outputjson ? new NullConsole() : undefined;
-    const service = new AnalyzerService('<default>', createFromRealFileSystem(output), output);
+    const service = new AnalyzerService('<default>', realFileSystem, output);
 
     service.setCompletionCallback((results) => {
         if (results.fatalErrorOccurred) {
@@ -209,6 +206,7 @@ function processArgs() {
                 }
 
                 console.error(`Error occurred when creating type stub: ` + errMessage);
+                process.exit(ExitStatus.FatalError);
             }
             process.exit(ExitStatus.NoErrors);
         }
@@ -358,29 +356,7 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
         if (fileErrorsAndWarnings.length > 0) {
             console.log(`${fileDiagnostics.filePath}`);
             fileErrorsAndWarnings.forEach((diag) => {
-                let message = '  ';
-                if (diag.range) {
-                    message +=
-                        chalk.yellow(`${diag.range.start.line + 1}`) +
-                        ':' +
-                        chalk.yellow(`${diag.range.start.character + 1}`) +
-                        ' - ';
-                }
-
-                message +=
-                    diag.category === DiagnosticCategory.Error
-                        ? chalk.red('error')
-                        : diag.category === DiagnosticCategory.Warning
-                        ? chalk.green('warning')
-                        : chalk.blue('info');
-                message += `: ${diag.message}`;
-
-                const rule = diag.getRule();
-                if (rule) {
-                    message += chalk.gray(` (${rule})`);
-                }
-
-                console.log(message);
+                logDiagnosticToConsole(diag);
 
                 if (diag.category === DiagnosticCategory.Error) {
                     errorCount++;
@@ -405,6 +381,37 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
         informationCount,
         diagnosticCount: errorCount + warningCount + informationCount,
     };
+}
+
+function logDiagnosticToConsole(diag: Diagnostic, prefix = '  ') {
+    let message = prefix;
+    if (diag.range && !isEmptyRange(diag.range)) {
+        message +=
+            chalk.yellow(`${diag.range.start.line + 1}`) +
+            ':' +
+            chalk.yellow(`${diag.range.start.character + 1}`) +
+            ' - ';
+    }
+
+    const [firstLine, ...remainingLines] = diag.message.split('\n');
+
+    message +=
+        diag.category === DiagnosticCategory.Error
+            ? chalk.red('error')
+            : diag.category === DiagnosticCategory.Warning
+            ? chalk.green('warning')
+            : chalk.blue('info');
+    message += `: ${firstLine}`;
+    if (remainingLines.length > 0) {
+        message += '\n' + prefix + remainingLines.join('\n' + prefix);
+    }
+
+    const rule = diag.getRule();
+    if (rule) {
+        message += chalk.gray(` (${rule})`);
+    }
+
+    console.log(message);
 }
 
 export function main() {
