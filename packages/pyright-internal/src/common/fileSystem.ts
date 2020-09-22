@@ -14,9 +14,14 @@
 import * as chokidar from 'chokidar';
 import * as fs from 'fs';
 import * as os from 'os';
+import * as tmp from 'tmp';
+
+// Automatically remove files created by tmp at process exit.
+tmp.setGracefulCleanup();
 
 import { ConsoleInterface, NullConsole } from './console';
 import { createDeferred } from './deferred';
+import { resolvePaths } from './pathUtils';
 
 export type FileWatcherEventType = 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir';
 export type FileWatcherEventHandler = (eventName: FileWatcherEventType, path: string, stats?: Stats) => void;
@@ -43,6 +48,11 @@ export interface MkDirOptions {
     // mode: string | number;
 }
 
+export interface TmpfileOptions {
+    postfix?: string;
+    prefix?: string;
+}
+
 export interface FileSystem {
     existsSync(path: string): boolean;
     mkdirSync(path: string, options?: MkDirOptions | number): void;
@@ -65,6 +75,7 @@ export interface FileSystem {
     readFile(path: string): Promise<Buffer>;
     readFileText(path: string, encoding?: BufferEncoding): Promise<string>;
     tmpdir(): string;
+    tmpfile(options?: TmpfileOptions): string;
 }
 
 export interface FileWatcherProvider {
@@ -195,7 +206,12 @@ class RealFileSystem implements FileSystem {
     }
 
     tmpdir() {
-        return os.tmpdir();
+        return resolvePaths(os.tmpdir(), 'pyright');
+    }
+
+    tmpfile(options?: TmpfileOptions): string {
+        const f = tmp.fileSync({ dir: this.tmpdir(), discardDescriptor: true, ...options });
+        return f.name;
     }
 }
 

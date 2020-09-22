@@ -24,7 +24,8 @@ export class SourceMapper {
         private _importResolver: ImportResolver,
         private _execEnv: ExecutionEnvironment,
         private _evaluator: TypeEvaluator,
-        private _fileBinder: ShadowFileBinder
+        private _fileBinder: ShadowFileBinder,
+        private _mapCompiled: boolean
     ) {}
 
     public findModules(stubFilePath: string): ModuleNode[] {
@@ -189,7 +190,7 @@ export class SourceMapper {
     }
 
     private _getBoundSourceFiles(stubFilePath: string): SourceFile[] {
-        const paths = this._importResolver.getSourceFilesFromStub(stubFilePath, this._execEnv);
+        const paths = this._importResolver.getSourceFilesFromStub(stubFilePath, this._execEnv, this._mapCompiled);
         return paths.map((fp) => this._fileBinder(stubFilePath, fp)).filter(_isDefined);
     }
 }

@@ -232,7 +232,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
     abstract createBackgroundAnalysis(): BackgroundAnalysisBase | undefined;
 
-    protected abstract async executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
+    protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
     protected isLongRunningCommand(command: string): boolean {
         // By default, all commands are considered "long-running" and should
         // display a cancelable progress dialog. Servers can override this
@@ -241,12 +241,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         return true;
     }
 
-    protected abstract async executeCodeAction(
+    protected abstract executeCodeAction(
         params: CodeActionParams,
         token: CancellationToken
     ): Promise<(Command | CodeAction)[] | undefined | null>;
 
-    abstract async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
+    abstract getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings>;
 
     protected async getConfiguration(scopeUri: string | undefined, section: string) {
         if (this._hasConfigurationCapability) {

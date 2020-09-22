@@ -21,7 +21,7 @@ import { CommandController } from './commands/commandController';
 import { getCancellationFolderName } from './common/cancellationUtils';
 import { LogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
-import { convertUriToPath, normalizeSlashes } from './common/pathUtils';
+import { convertUriToPath, resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
 import {
     LanguageServerBase,
@@ -73,20 +73,20 @@ class PyrightServer extends LanguageServerBase {
         try {
             const pythonSection = await this.getConfiguration(workspace.rootUri, 'python');
             if (pythonSection) {
-                serverSettings.pythonPath = normalizeSlashes(pythonSection.pythonPath);
-                serverSettings.venvPath = normalizeSlashes(pythonSection.venvPath);
+                serverSettings.pythonPath = resolvePaths(workspace.rootPath, pythonSection.pythonPath);
+                serverSettings.venvPath = resolvePaths(workspace.rootPath, pythonSection.venvPath);
             }
 
             const pythonAnalysisSection = await this.getConfiguration(workspace.rootUri, 'python.analysis');
             if (pythonAnalysisSection) {
                 const typeshedPaths = pythonAnalysisSection.typeshedPaths;
                 if (typeshedPaths && Array.isArray(typeshedPaths) && typeshedPaths.length > 0) {
-                    serverSettings.typeshedPath = normalizeSlashes(typeshedPaths[0]);
+                    serverSettings.typeshedPath = resolvePaths(workspace.rootPath, typeshedPaths[0]);
                 }
 
                 const stubPath = pythonAnalysisSection.stubPath;
                 if (stubPath && isString(stubPath)) {
-                    serverSettings.stubPath = normalizeSlashes(stubPath);
+                    serverSettings.stubPath = resolvePaths(workspace.rootPath, stubPath);
                 }
 
                 const diagnosticSeverityOverrides = pythonAnalysisSection.diagnosticSeverityOverrides;
@@ -115,7 +115,7 @@ class PyrightServer extends LanguageServerBase {
 
                 const extraPaths = pythonAnalysisSection.extraPaths;
                 if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
-                    serverSettings.extraPaths = extraPaths.map((p) => normalizeSlashes(p));
+                    serverSettings.extraPaths = extraPaths.map((p) => resolvePaths(workspace.rootPath, p));
                 }
 
                 if (pythonAnalysisSection.typeCheckingMode !== undefined) {

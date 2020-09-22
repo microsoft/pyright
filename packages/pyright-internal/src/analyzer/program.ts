@@ -1246,7 +1246,7 @@ export class Program {
 
             const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getHoverForPosition(
-                this._createSourceMapper(execEnv),
+                this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 position,
                 this._evaluator!,
                 token
@@ -1322,7 +1322,7 @@ export class Program {
                 this._importResolver,
                 this._lookUpImport,
                 this._evaluator!,
-                this._createSourceMapper(execEnv),
+                this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 libraryMap,
                 () => this._buildModuleSymbolsMap(sourceFileInfo, token),
                 token
@@ -1372,7 +1372,7 @@ export class Program {
                 this._importResolver,
                 this._lookUpImport,
                 this._evaluator!,
-                this._createSourceMapper(execEnv),
+                this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 libraryMap,
                 () => this._buildModuleSymbolsMap(sourceFileInfo, token),
                 completionItem,
@@ -1757,7 +1757,7 @@ export class Program {
         return false;
     }
 
-    private _createSourceMapper(execEnv: ExecutionEnvironment) {
+    private _createSourceMapper(execEnv: ExecutionEnvironment, mapCompiled?: boolean) {
         const sourceMapper = new SourceMapper(
             this._importResolver,
             execEnv,
@@ -1769,7 +1769,8 @@ export class Program {
                 }
                 this._addShadowedFile(stubFileInfo, implFilePath);
                 return this.getBoundSourceFile(implFilePath);
-            }
+            },
+            mapCompiled ?? false
         );
         return sourceMapper;
     }

@@ -1492,7 +1492,7 @@ export class TestState {
 
     private async _waitForFile(filePath: string) {
         while (!this.fs.existsSync(filePath)) {
-            await new Promise((res) =>
+            await new Promise<void>((res) =>
                 setTimeout(() => {
                     res();
                 }, 200)

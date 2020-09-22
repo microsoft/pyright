@@ -15,7 +15,14 @@ import { DiagnosticSeverityOverridesMap } from './commandLineOptions';
 import { ConsoleInterface } from './console';
 import { DiagnosticRule } from './diagnosticRules';
 import { FileSystem } from './fileSystem';
-import { combinePaths, ensureTrailingDirectorySeparator, FileSpec, getFileSpec, normalizePath } from './pathUtils';
+import {
+    combinePaths,
+    ensureTrailingDirectorySeparator,
+    FileSpec,
+    getFileSpec,
+    normalizePath,
+    resolvePaths,
+} from './pathUtils';
 import {
     latestStablePythonVersion,
     PythonVersion,
@@ -598,15 +605,15 @@ export class ConfigOptions {
 
         if (autoSearchPaths) {
             // Auto-detect the common scenario where the sources are under the src folder
-            const srcPath = normalizePath(combinePaths(this.projectRoot, pathConsts.src));
-            if (fs.existsSync(srcPath) && !fs.existsSync(combinePaths(srcPath, '__init__.py'))) {
+            const srcPath = resolvePaths(this.projectRoot, pathConsts.src);
+            if (fs.existsSync(srcPath) && !fs.existsSync(resolvePaths(srcPath, '__init__.py'))) {
                 paths.push(srcPath);
             }
         }
 
         if (extraPaths.length > 0) {
             for (const p of extraPaths) {
-                paths.push(normalizePath(combinePaths(this.projectRoot, p)));
+                paths.push(resolvePaths(this.projectRoot, p));
             }
         }
 
