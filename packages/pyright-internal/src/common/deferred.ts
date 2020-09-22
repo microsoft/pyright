@@ -16,7 +16,7 @@ export interface Deferred<T> {
 }
 
 class DeferredImpl<T> implements Deferred<T> {
-    private _resolve!: (value?: T | PromiseLike<T>) => void;
+    private _resolve!: (value: T | PromiseLike<T>) => void;
     private _reject!: (reason?: any) => void;
     private _resolved = false;
     private _rejected = false;

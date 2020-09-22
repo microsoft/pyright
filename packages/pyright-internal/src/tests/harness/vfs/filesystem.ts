@@ -9,7 +9,7 @@
 /* eslint-disable no-dupe-class-members */
 import { Dirent, ReadStream, WriteStream } from 'fs';
 
-import { FileSystem, FileWatcher, FileWatcherEventHandler } from '../../../common/fileSystem';
+import { FileSystem, FileWatcher, FileWatcherEventHandler, TmpfileOptions } from '../../../common/fileSystem';
 import * as pathUtil from '../../../common/pathUtils';
 import { bufferFrom, createIOError } from '../utils';
 import { closeIterator, getIterator, Metadata, nextResult, SortedMap } from './../utils';
@@ -45,6 +45,7 @@ export class TestFileSystem implements FileSystem {
     private _time: number | Date | (() => number | Date);
     private _shadowRoot: TestFileSystem | undefined;
     private _dirStack: string[] | undefined;
+    private _tmpfileCounter = 0;
 
     constructor(ignoreCase: boolean, options: FileSystemOptions = {}) {
         const { time = -1, files, meta } = options;
@@ -321,6 +322,16 @@ export class TestFileSystem implements FileSystem {
 
     tmpdir(): string {
         return pathUtil.normalizeSlashes('/tmp');
+    }
+
+    tmpfile(options?: TmpfileOptions): string {
+        // Use an algorithm similar to tmp's.
+        const prefix = options?.prefix || 'tmp';
+        const postfix = options?.prefix ? '-' + options.prefix : '';
+        const name = `${prefix}-${this._tmpfileCounter++}${postfix}`;
+        const path = pathUtil.combinePaths(this.tmpdir(), name);
+        this.writeFileSync(path, '');
+        return path;
     }
 
     private _scan(path: string, stats: Stats, axis: Axis, traversal: Traversal, noFollow: boolean, results: string[]) {

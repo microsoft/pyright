@@ -899,6 +899,39 @@ export function isWithinTypeAnnotation(node: ParseNode, requireQuotedAnnotation:
     return false;
 }
 
+export function isWithinAnnotationComment(node: ParseNode) {
+    let curNode: ParseNode | undefined = node;
+    let prevNode: ParseNode | undefined;
+
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Function && prevNode === curNode.functionAnnotationComment) {
+            // Type comments are always considered forward declarations even though
+            // they're not "quoted".
+            return true;
+        }
+
+        if (curNode.nodeType === ParseNodeType.Assignment && prevNode === curNode.typeAnnotationComment) {
+            // Type comments are always considered forward declarations even though
+            // they're not "quoted".
+            return true;
+        }
+
+        if (
+            curNode.nodeType === ParseNodeType.Lambda ||
+            curNode.nodeType === ParseNodeType.Function ||
+            curNode.nodeType === ParseNodeType.Class ||
+            curNode.nodeType === ParseNodeType.Module
+        ) {
+            return false;
+        }
+
+        prevNode = curNode;
+        curNode = curNode.parent;
+    }
+
+    return false;
+}
+
 export function getDocString(statements: StatementNode[]): string | undefined {
     // See if the first statement in the suite is a triple-quote string.
     if (statements.length === 0) {
