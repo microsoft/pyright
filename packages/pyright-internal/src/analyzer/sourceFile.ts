@@ -62,6 +62,14 @@ import { TypeEvaluator } from './typeEvaluator';
 
 const _maxImportCyclesPerFile = 4;
 
+interface ResolveImportResult {
+    imports: ImportResult[];
+    builtinsImportResult?: ImportResult;
+    typingModulePath?: string;
+    typeshedModulePath?: string;
+    collectionsModulePath?: string;
+}
+
 export class SourceFile {
     // Console interface to use for debugging.
     private _console: ConsoleInterface;
@@ -162,6 +170,7 @@ export class SourceFile {
     private _imports?: ImportResult[];
     private _builtinsImport?: ImportResult;
     private _typingModulePath?: string;
+    private _typeshedModulePath?: string;
     private _collectionsModulePath?: string;
 
     private _logTracker: LogTracker;
@@ -543,12 +552,18 @@ export class SourceFile {
 
                 // Resolve imports.
                 timingStats.resolveImportsTime.timeOperation(() => {
-                    [
-                        this._imports,
-                        this._builtinsImport,
-                        this._typingModulePath,
-                        this._collectionsModulePath,
-                    ] = this._resolveImports(importResolver, parseResults.importedModules, execEnvironment);
+                    const importResult = this._resolveImports(
+                        importResolver,
+                        parseResults.importedModules,
+                        execEnvironment
+                    );
+
+                    this._imports = importResult.imports;
+                    this._builtinsImport = importResult.builtinsImportResult;
+                    this._typingModulePath = importResult.typingModulePath;
+                    this._typeshedModulePath = importResult.typeshedModulePath;
+                    this._collectionsModulePath = importResult.collectionsModulePath;
+
                     this._parseDiagnostics = diagSink.fetchAndClear();
                 });
 
@@ -984,6 +999,7 @@ export class SourceFile {
             futureImports: this._parseResults!.futureImports,
             builtinsScope,
             typingModulePath: this._typingModulePath,
+            typeshedModulePath: this._typeshedModulePath,
             collectionsModulePath: this._collectionsModulePath,
             diagnosticSink: analysisDiagnostics,
             executionEnvironment: configOptions.findExecEnvironment(this._filePath),
@@ -1016,7 +1032,7 @@ export class SourceFile {
         importResolver: ImportResolver,
         moduleImports: ModuleImport[],
         execEnv: ExecutionEnvironment
-    ): [ImportResult[], ImportResult?, string?, string?] {
+    ): ResolveImportResult {
         const imports: ImportResult[] = [];
 
         // Always include an implicit import of the builtins module.
@@ -1053,6 +1069,22 @@ export class SourceFile {
             typingModulePath = typingImportResult.resolvedPaths[0];
         }
 
+        // Always include an implicit import of the _typeshed module.
+        const typeshedImportResult: ImportResult | undefined = importResolver.resolveImport(this._filePath, execEnv, {
+            leadingDots: 0,
+            nameParts: ['_typeshed'],
+            importedSymbols: undefined,
+        });
+
+        let typeshedModulePath: string | undefined;
+        if (
+            typeshedImportResult.resolvedPaths.length === 0 ||
+            typeshedImportResult.resolvedPaths[0] !== this.getFilePath()
+        ) {
+            imports.push(typeshedImportResult);
+            typeshedModulePath = typeshedImportResult.resolvedPaths[0];
+        }
+
         let collectionsModulePath: string | undefined;
 
         for (const moduleImport of moduleImports) {
@@ -1079,6 +1111,12 @@ export class SourceFile {
             AnalyzerNodeInfo.setImportInfo(moduleImport.nameNode, importResult);
         }
 
-        return [imports, builtinsImportResult, typingModulePath, collectionsModulePath];
+        return {
+            imports,
+            builtinsImportResult,
+            typingModulePath,
+            typeshedModulePath,
+            collectionsModulePath,
+        };
     }
 }

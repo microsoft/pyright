@@ -622,6 +622,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let cancellationToken: CancellationToken | undefined;
     let isDiagnosticSuppressed = false;
     let flowIncompleteGeneration = 1;
+    let noneType: Type | undefined;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: TypeCache | undefined;
@@ -788,6 +789,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         checkForCancellation();
 
         expectedType = transformPossibleRecursiveTypeAlias(expectedType);
+
+        // If we haven't already fetched the "NoneType" definition from the
+        // _typeshed stub, do so here. It would be better to fetch this when it's
+        // needed in canAssignType, but we don't have access to the parse tree
+        // at that point.
+        if (!noneType) {
+            noneType = getTypeshedType(node, 'NoneType') || AnyType.create();
+        }
 
         let typeResult: TypeResult | undefined;
         let reportExpectingTypeErrors = (flags & EvaluatorFlags.ExpectingType) !== 0;
@@ -2251,12 +2260,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypingType(node: ParseNode, symbolName: string): Type | undefined {
         const fileInfo = getFileInfo(node);
-        const typingImportPath = fileInfo.typingModulePath;
-        if (!typingImportPath) {
+        return getTypeFromTypeshedModule(symbolName, fileInfo.typingModulePath);
+    }
+
+    function getTypeshedType(node: ParseNode, symbolName: string): Type | undefined {
+        const fileInfo = getFileInfo(node);
+        return getTypeFromTypeshedModule(symbolName, fileInfo.typeshedModulePath);
+    }
+
+    function getTypeFromTypeshedModule(symbolName: string, importPath: string | undefined) {
+        if (!importPath) {
             return undefined;
         }
 
-        const lookupResult = importLookup(typingImportPath);
+        const lookupResult = importLookup(importPath);
         if (!lookupResult) {
             return undefined;
         }
@@ -15004,6 +15021,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isObject(destType) && ClassType.isBuiltIn(destType.classType, 'object')) {
             // All types (including None, Module, OverloadedFunction) derive from object.
             return true;
+        }
+
+        // Are we trying to assign None to a protocol?
+        if (isNone(srcType) && isObject(destType) && ClassType.isProtocolClass(destType.classType)) {
+            if (noneType && isClass(noneType)) {
+                return canAssignClassToProtocol(destType.classType, noneType, diag, typeVarMap, flags, recursionCount);
+            }
         }
 
         if (isNone(destType)) {

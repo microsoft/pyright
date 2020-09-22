@@ -28,6 +28,7 @@ export interface AnalyzerFileInfo {
     futureImports: Map<string, boolean>;
     builtinsScope?: Scope;
     typingModulePath?: string;
+    typeshedModulePath?: string;
     collectionsModulePath?: string;
     diagnosticSink: TextRangeDiagnosticSink;
     executionEnvironment: ExecutionEnvironment;
