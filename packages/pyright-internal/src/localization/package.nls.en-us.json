@@ -387,6 +387,7 @@
         "typedDictFieldTypeMismatch": "Type \"{type}\" is not assignable to field \"{name}\"",
         "typedDictFieldUndefined": "\"{name}\" is an undefined field in type \"{type}\"",
         "typeIncompatible": "\"{sourceType}\" is incompatible with \"{destType}\"",
+        "typeNotCallable": "Type \"{type}\" is not callable",
         "typeNotClass": "\"{type}\" is not a class",
         "typeParamSpec": "Type \"{type}\" is not compatible with ParamSpec \"{name}\"",
         "typeNotStringLiteral": "\"{type}\" is not a string literal",

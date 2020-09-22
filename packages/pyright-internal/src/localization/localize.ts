@@ -808,6 +808,8 @@ export namespace Localizer {
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.typeIncompatible')
             );
+        export const typeNotCallable = () =>
+            new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typeNotCallable'));
         export const typeNotClass = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.typeNotClass'));
         export const typeParamSpec = () =>
