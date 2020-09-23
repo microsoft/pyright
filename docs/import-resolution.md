@@ -17,10 +17,11 @@ For absolute (non-relative) imports, Pyright employs the following resolution or
 
     * If no execution environment or extraPaths are configured, try to resolve using the **local directory `src`**. It is common for Python projects to place local source files within a directory of this name.
 
-4. Try to resolve using **stubs found within installed packages**. Pyright uses the configured Python environment to determine whether a package has been installed. For more details about how to configure your Python environment for Pyright, see below. If a Python environment is configured, Pyright looks in the `lib/site-packages`, `Lib/site-packages`, or `python*/site-packages` subdirectory. If no site-packages directory can be found Pyright attempts to run the configured Python interpreter and ask it for its search paths. If no Python environment is configured, Pyright will use the default Python interpreter by invoking `python`.
+4. Try to resolve using **stubs or inlined types found within installed packages**. Pyright uses the configured Python environment to determine whether a package has been installed. For more details about how to configure your Python environment for Pyright, see below. If a Python environment is configured, Pyright looks in the `lib/site-packages`, `Lib/site-packages`, or `python*/site-packages` subdirectory. If no site-packages directory can be found, Pyright attempts to run the configured Python interpreter and ask it for its search paths. If no Python environment is configured, Pyright will use the default Python interpreter by invoking `python`.
     
     * For a given package, try to resolve first using a **stub package**. Stub packages, as defined in [PEP 561](https://www.python.org/dev/peps/pep-0561/#type-checker-module-resolution-order), are named the same as the original package but with “-stubs” appended.
     * Try to resolve using an **inline stub**, a “.pyi” file that ships within the package.
+    * If the package contains a “py.typed” file as described in [PEP 561](https://www.python.org/dev/peps/pep-0561/), use inlined type annotations provided in “.py” files within the package.
 
 5. Try to resolve using a **third-party typeshed** stub. If the `typeshedPath` is configured, use this instead of the typeshed stubs that are packaged with Pyright. This allows for the use of a newer or a patched version of the typeshed third-party stubs.
 
