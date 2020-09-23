@@ -9127,7 +9127,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let genericTypeParameters: TypeVarType[] | undefined;
 
         let sawMetaclass = false;
-        let nonMetaclassBaseClassCount = 0;
         const initSubclassArgs: FunctionArgument[] = [];
 
         node.arguments.forEach((arg) => {
@@ -9282,10 +9281,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         genericTypeParameters = [];
                         addTypeVarsToListIfUnique(genericTypeParameters, getTypeVarArgumentsRecursive(argType));
                     }
-                }
-
-                if (!isMetaclass) {
-                    nonMetaclassBaseClassCount++;
                 }
             } else if (arg.name.value === 'total' && ClassType.isTypedDictClass(classType)) {
                 // The "total" parameter name applies only for TypedDict classes.
