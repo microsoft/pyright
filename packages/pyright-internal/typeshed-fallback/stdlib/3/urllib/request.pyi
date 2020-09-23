@@ -1,5 +1,3 @@
-# Stubs for urllib.request (Python 3.4)
-
 import os
 import ssl
 import sys

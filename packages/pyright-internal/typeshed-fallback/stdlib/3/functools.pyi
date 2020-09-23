@@ -9,6 +9,7 @@ from typing import (
     Mapping,
     NamedTuple,
     Optional,
+    Protocol,
     Sequence,
     Tuple,
     Type,
@@ -57,7 +58,11 @@ def wraps(
     wrapped: _AnyCallable, assigned: Sequence[str] = ..., updated: Sequence[str] = ...
 ) -> Callable[[_AnyCallable], _AnyCallable]: ...
 def total_ordering(cls: Type[_T]) -> Type[_T]: ...
-def cmp_to_key(mycmp: Callable[[_T, _T], int]) -> Callable[[_T], Any]: ...
+
+class _SupportsLessThan(Protocol):
+    def __lt__(self, __other: Any) -> bool: ...
+
+def cmp_to_key(mycmp: Callable[[_T, _T], int]) -> Callable[[_T], _SupportsLessThan]: ...
 
 class partial(Generic[_T]):
     func: Callable[..., _T]

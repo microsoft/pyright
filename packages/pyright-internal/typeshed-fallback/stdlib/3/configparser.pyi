@@ -48,6 +48,7 @@ class LegacyInterpolation(Interpolation): ...
 
 class RawConfigParser(_parser):
     BOOLEAN_STATES: ClassVar[Mapping[str, bool]] = ...  # Undocumented
+    default_section: str
     def __init__(
         self,
         defaults: Optional[_section] = ...,

@@ -1,9 +1,11 @@
 import sys
-from typing import IO, Any, Callable, Iterable, Iterator, Mapping, Optional, Tuple, Union
+from typing import IO, Any, Callable, Iterable, Iterator, Mapping, Optional, Tuple, Type, Union
 
 HIGHEST_PROTOCOL: int
 if sys.version_info >= (3, 0):
     DEFAULT_PROTOCOL: int
+
+bytes_types: Tuple[Type[Any], ...]  # undocumented
 
 if sys.version_info >= (3, 8):
     # TODO: holistic design for buffer interface (typing.Buffer?)
@@ -56,8 +58,8 @@ _reducedtype = Union[
     str,
     Tuple[Callable[..., Any], Tuple[Any, ...]],
     Tuple[Callable[..., Any], Tuple[Any, ...], Any],
-    Tuple[Callable[..., Any], Tuple[Any, ...], Any, Optional[Iterator]],
-    Tuple[Callable[..., Any], Tuple[Any, ...], Any, Optional[Iterator], Optional[Iterator]],
+    Tuple[Callable[..., Any], Tuple[Any, ...], Any, Optional[Iterator[Any]]],
+    Tuple[Callable[..., Any], Tuple[Any, ...], Any, Optional[Iterator[Any]], Optional[Iterator[Any]]],
 ]
 
 class Pickler:
@@ -179,3 +181,6 @@ if sys.version_info >= (3, 4):
     STACK_GLOBAL: bytes
     MEMOIZE: bytes
     FRAME: bytes
+
+def encode_long(x: int) -> bytes: ...  # undocumented
+def decode_long(data: bytes) -> int: ...  # undocumented

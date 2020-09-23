@@ -281,7 +281,7 @@ if sys.version_info >= (3, 6):
         # Implement Sized (but don't have it as a base class).
         @abstractmethod
         def __len__(self) -> int: ...
-    _Collection = Collection
+    _Collection = Collection[_T_co]
 else:
     @runtime_checkable
     class _Collection(Iterable[_T_co], Container[_T_co], Protocol[_T_co]):

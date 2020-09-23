@@ -1,10 +1,24 @@
+import sys
 from _typeshed import AnyPath
 from cProfile import Profile as _cProfile
+from enum import Enum
 from profile import Profile
 from typing import IO, Any, Dict, Iterable, List, Optional, Text, Tuple, TypeVar, Union, overload
 
 _Selector = Union[str, float, int]
 _T = TypeVar("_T", bound=Stats)
+
+if sys.version_info >= (3, 7):
+    class SortKey(str, Enum):
+        CALLS: str
+        CUMULATIVE: str
+        FILENAME: str
+        LINE: str
+        NAME: str
+        NFL: str
+        PCALLS: str
+        STDNAME: str
+        TIME: str
 
 class Stats:
     sort_arg_dict_default: Dict[str, Tuple[Any, str]]
