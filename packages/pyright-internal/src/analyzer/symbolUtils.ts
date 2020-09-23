@@ -63,10 +63,7 @@ export function getNamesInDunderAll(symbolTable: SymbolTable): string[] | undefi
                             listEntryNode.strings.length === 1 &&
                             listEntryNode.strings[0].nodeType === ParseNodeType.String
                         ) {
-                            const entryName = listEntryNode.strings[0].value;
-                            if (symbolTable.get(entryName)) {
-                                namesToImport.push(entryName);
-                            }
+                            namesToImport.push(listEntryNode.strings[0].value);
                         }
                     });
 
