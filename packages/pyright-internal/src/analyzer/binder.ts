@@ -1237,12 +1237,14 @@ export class Binder extends ParseTreeWalker {
                     }
 
                     wildcardNames.forEach((name) => {
-                        const symbol = lookupInfo.symbolTable.get(name)!;
+                        const localSymbol = this._bindNameToScope(this._currentScope!, name);
 
-                        // Don't include the ignored names in the symbol table.
-                        if (!symbol.isIgnoredForProtocolMatch()) {
-                            const symbol = this._bindNameToScope(this._currentScope!, name);
-                            if (symbol) {
+                        if (localSymbol) {
+                            const importedSymbol = lookupInfo.symbolTable.get(name)!;
+
+                            // Is the symbol in the target module's symbol table? If so,
+                            // alias it.
+                            if (importedSymbol) {
                                 const aliasDecl: AliasDeclaration = {
                                     type: DeclarationType.Alias,
                                     node,
@@ -1252,8 +1254,38 @@ export class Binder extends ParseTreeWalker {
                                     symbolName: name,
                                     moduleName: this._fileInfo.moduleName,
                                 };
-                                symbol.addDeclaration(aliasDecl);
+                                localSymbol.addDeclaration(aliasDecl);
                                 names.push(name);
+                            } else {
+                                // The symbol wasn't in the target module's symbol table. It's probably
+                                // an implicitly-imported submodule referenced by __all__.
+                                if (importInfo && importInfo.implicitImports) {
+                                    const implicitImport = importInfo.implicitImports.find((imp) => imp.name === name);
+
+                                    if (implicitImport) {
+                                        const submoduleFallback: AliasDeclaration = {
+                                            type: DeclarationType.Alias,
+                                            node,
+                                            path: implicitImport.path,
+                                            range: getEmptyRange(),
+                                            usesLocalName: false,
+                                            moduleName: this._fileInfo.moduleName,
+                                        };
+
+                                        const aliasDecl: AliasDeclaration = {
+                                            type: DeclarationType.Alias,
+                                            node,
+                                            path: resolvedPath,
+                                            usesLocalName: false,
+                                            symbolName: name,
+                                            submoduleFallback,
+                                            range: getEmptyRange(),
+                                            moduleName: this._fileInfo.moduleName,
+                                        };
+
+                                        localSymbol.addDeclaration(aliasDecl);
+                                    }
+                                }
                             }
                         }
                     });
@@ -1621,8 +1653,8 @@ export class Binder extends ParseTreeWalker {
 
         // Import all names that don't begin with an underscore.
         namesToImport = [];
-        lookupInfo.symbolTable.forEach((_, name) => {
-            if (!name.startsWith('_')) {
+        lookupInfo.symbolTable.forEach((symbol, name) => {
+            if (!name.startsWith('_') && !symbol.isIgnoredForProtocolMatch()) {
                 namesToImport!.push(name);
             }
         });
