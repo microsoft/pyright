@@ -8951,6 +8951,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 let typeAliasNameNode: NameNode | undefined;
+                let isSpeculativeTypeAlias = false;
+
                 if (isDeclaredTypeAlias(node.leftExpression)) {
                     flags |=
                         EvaluatorFlags.ExpectingType |
@@ -8961,6 +8963,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if (isPossibleImplicitTypeAlias(node.leftExpression)) {
                     if (node.leftExpression.nodeType === ParseNodeType.Name) {
                         typeAliasNameNode = node.leftExpression;
+                        isSpeculativeTypeAlias = true;
                     }
                 }
 
@@ -9017,21 +9020,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (typeAliasNameNode) {
-                    // If this is a type alias, record its name based on the assignment target.
-                    rightHandType = transformTypeForTypeAlias(rightHandType, typeAliasNameNode);
+                    // If this was a speculative type alias, it becomes a real type alias
+                    // only if the evaluated type is an instantiable type.
+                    if (
+                        !isSpeculativeTypeAlias ||
+                        (TypeBase.isInstantiable(rightHandType) && !isAnyOrUnknown(rightHandType))
+                    ) {
+                        // If this is a type alias, record its name based on the assignment target.
+                        rightHandType = transformTypeForTypeAlias(rightHandType, typeAliasNameNode);
 
-                    if (isTypeAliasRecursive(typeAliasTypeVar!, rightHandType)) {
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typeAliasIsRecursive().format({ name: typeAliasNameNode.value }),
-                            node.rightExpression
-                        );
+                        if (isTypeAliasRecursive(typeAliasTypeVar!, rightHandType)) {
+                            addDiagnostic(
+                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.typeAliasIsRecursive().format({ name: typeAliasNameNode.value }),
+                                node.rightExpression
+                            );
+                        }
+
+                        // Set the resulting type to the boundType of the original type alias
+                        // to support recursive type aliases.
+                        typeAliasTypeVar!.details.boundType = rightHandType;
                     }
-
-                    // Set the resulting type to the boundType of the original type alias
-                    // to support recursive type aliases.
-                    typeAliasTypeVar!.details.boundType = rightHandType;
                 }
             }
         }
@@ -13347,6 +13357,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // unless it's marked Final, is a constant, or is a declared type alias.
         const fileInfo = getFileInfo(resolvedDecl.node);
         let isSpeculativeTypeAliasFromPyTypedFile = false;
+
         if (fileInfo.isInPyTypedPackage && !fileInfo.isStubFile && evaluatorOptions.disableInferenceForPyTypedSources) {
             if (resolvedDecl.type !== DeclarationType.Variable) {
                 return UnknownType.create();
@@ -13402,12 +13413,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (inferredType && resolvedDecl.typeAliasName) {
-                inferredType = transformTypeForTypeAlias(inferredType, resolvedDecl.typeAliasName);
-
-                // If this was a speculative type alias (i.e. not declared as a TypeAlias) that
-                // came from a py.typed package and it turned out not to be a real type alias,
-                // return Unknown.
-                if (isSpeculativeTypeAliasFromPyTypedFile && !inferredType.typeAliasInfo) {
+                // If this was a speculative type alias, it becomes a real type alias only
+                // in the event that its inferred type is instantiable.
+                if (TypeBase.isInstantiable(inferredType) && !isAnyOrUnknown(inferredType)) {
+                    inferredType = transformTypeForTypeAlias(inferredType, resolvedDecl.typeAliasName);
+                } else if (isSpeculativeTypeAliasFromPyTypedFile) {
                     return UnknownType.create();
                 }
             }
