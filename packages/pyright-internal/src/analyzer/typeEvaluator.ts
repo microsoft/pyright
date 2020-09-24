@@ -13352,7 +13352,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return UnknownType.create();
             }
 
-            if (!resolvedDecl.isFinal && !resolvedDecl.isConstant) {
+            // Special-case variables within an enum class. These are effectively
+            // constants, so we'll treat them as such.
+            const enclosingClass = ParseTreeUtils.getEnclosingClass(resolvedDecl.node, /* stopAtFunction */ true);
+            let isEnumValue = false;
+            if (enclosingClass) {
+                const classTypeInfo = getTypeOfClass(enclosingClass);
+                if (classTypeInfo && ClassType.isEnumClass(classTypeInfo.classType)) {
+                    isEnumValue = true;
+                }
+            }
+
+            if (!resolvedDecl.isFinal && !resolvedDecl.isConstant && !isEnumValue) {
                 if (!resolvedDecl.typeAliasName) {
                     return UnknownType.create();
                 } else if (!resolvedDecl.typeAliasAnnotation) {
