@@ -6242,6 +6242,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let diag = new DiagnosticAddendum();
 
+        argType = makeTypeVarsConcrete(argType);
+
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
             if (!isDiagnosticSuppressedForNode(argParam.errorNode)) {
                 const fileInfo = getFileInfo(argParam.errorNode);
