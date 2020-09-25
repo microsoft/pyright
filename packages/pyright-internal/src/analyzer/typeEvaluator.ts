@@ -7975,7 +7975,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Define a local helper function that determines whether a
         // type is a list and returns the list element type if it is.
         const getListTypeArg = (potentialList: Type) => {
-            return doForSubtypes(potentialList, (subtype) => {
+            const expectedType = doForSubtypes(potentialList, (subtype) => {
                 subtype = transformPossibleRecursiveTypeAlias(subtype);
                 if (!isObject(subtype)) {
                     return undefined;
@@ -7988,6 +7988,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 return subtype.classType.typeArguments[0];
             });
+
+            return isNever(expectedType) ? undefined : expectedType;
         };
 
         const expectedEntryType = expectedType ? getListTypeArg(expectedType) : undefined;
