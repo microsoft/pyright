@@ -16142,7 +16142,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     paramString += ': Unknown';
                     defaultValueAssignment = ' = ';
                 }
-            } else {
+            } else if (param.category === ParameterCategory.Simple) {
                 paramString += '/';
             }
 
