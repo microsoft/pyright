@@ -31,6 +31,14 @@ export const enum ScopeType {
     Builtin,
 }
 
+export const enum NameBindingType {
+    // With "nonlocal" keyword
+    Nonlocal,
+
+    // With "global" keyword
+    Global,
+}
+
 // Provides information for recursive scope lookups.
 export interface SymbolWithScope {
     // Found symbol
@@ -63,6 +71,10 @@ export class Scope {
 
     // Association between names and symbols.
     readonly symbolTable: SymbolTable = new Map<string, Symbol>();
+
+    // Names within this scope that are bound to other scopes
+    // (either nonlocal or global).
+    readonly notLocalBindings = new Map<string, NameBindingType>();
 
     constructor(type: ScopeType, parent?: Scope) {
         this.type = type;
@@ -108,6 +120,14 @@ export class Scope {
         return symbol;
     }
 
+    getBindingType(name: string) {
+        return this.notLocalBindings.get(name);
+    }
+
+    setBindingType(name: string, bindingType: NameBindingType) {
+        return this.notLocalBindings.set(name, bindingType);
+    }
+
     private _lookUpSymbolRecursiveInternal(
         name: string,
         isOutsideCallerModule: boolean,
@@ -138,11 +158,18 @@ export class Scope {
             }
         }
 
-        if (this.parent) {
+        let parentScope: Scope | undefined;
+        if (this.notLocalBindings.get(name) === NameBindingType.Global) {
+            parentScope = this.getGlobalScope();
+        } else {
+            parentScope = this.parent;
+        }
+
+        if (parentScope) {
             // If our recursion is about to take us outside the scope of the current
             // module (i.e. into a built-in scope), indicate as such with the second
             // parameter.
-            return this.parent._lookUpSymbolRecursiveInternal(
+            return parentScope._lookUpSymbolRecursiveInternal(
                 name,
                 isOutsideCallerModule || this.type === ScopeType.Module,
                 isBeyondExecutionScope || this.isIndependentlyExecutable()
