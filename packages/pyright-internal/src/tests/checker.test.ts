@@ -350,6 +350,12 @@ test('TypeNarrowing17', () => {
     validateResults(analysisResults, 8);
 });
 
+test('TypeNarrowing18', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing18.py']);
+
+    validateResults(analysisResults, 0, 0, 10);
+});
+
 test('CircularBaseClass', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circularBaseClass.py']);
 

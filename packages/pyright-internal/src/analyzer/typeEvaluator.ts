@@ -12248,12 +12248,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            if (testExpression.operator === OperatorType.In && isPositiveTest) {
-                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
+            if (testExpression.operator === OperatorType.In) {
+                // Look for "x in y" where y is one of several built-in types.
+                if (isPositiveTest && ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression)) {
                     const rightType = getTypeOfExpression(testExpression.rightExpression).type;
                     return (type: Type) => {
                         return narrowTypeForContains(type, rightType);
                     };
+                }
+            }
+
+            if (testExpression.operator === OperatorType.In || testExpression.operator === OperatorType.NotIn) {
+                if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {
+                    // Look for <string literal> in y where y is a union that contains
+                    // one or more TypedDicts.
+                    const leftType = getTypeOfExpression(testExpression.leftExpression).type;
+                    if (
+                        isObject(leftType) &&
+                        ClassType.isBuiltIn(leftType.classType, 'str') &&
+                        leftType.classType.literalValue !== undefined
+                    ) {
+                        const adjIsPositiveTest =
+                            testExpression.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
+                        return (type: Type) => {
+                            return narrowTypeForTypedDictKey(type, leftType.classType, adjIsPositiveTest);
+                        };
+                    }
                 }
             }
         }
@@ -12512,9 +12532,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return canNarrow ? narrowedType : referenceType;
     }
 
-    // Attempts to narrow a type (make it more constrained) based on a comparison
-    // (equal or not equal) between a discriminating node that has a declared
-    // literal type to a literal value.
+    // Attempts to narrow a type based on whether it is a TypedDict with
+    // a literal key value.
+    function narrowTypeForTypedDictKey(referenceType: Type, literalKey: ClassType, isPositiveTest: boolean): Type {
+        const narrowedType = doForSubtypes(referenceType, (subtype) => {
+            if (isObject(subtype) && ClassType.isTypedDictClass(subtype.classType)) {
+                const entries = getTypedDictMembersForClass(subtype.classType);
+                const tdEntry = entries.get(literalKey.literalValue as string);
+
+                if (isPositiveTest) {
+                    return tdEntry === undefined ? undefined : subtype;
+                } else {
+                    return tdEntry !== undefined && tdEntry.isRequired ? undefined : subtype;
+                }
+            }
+
+            return subtype;
+        });
+
+        return narrowedType;
+    }
+
+    // Attempts to narrow a type based on a comparison (equal or not equal)
+    // between a discriminating node that has a declared literal type to a
+    // literal value.
     function narrowTypeForDiscriminatedFieldComparison(
         referenceType: Type,
         memberName: string,
