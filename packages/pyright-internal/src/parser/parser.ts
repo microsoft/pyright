@@ -823,6 +823,10 @@ export class Parser {
                 } else {
                     paramMap.set(name, name);
                 }
+            } else if (param.category === ParameterCategory.Simple) {
+                if (paramList.length === 0) {
+                    this._addError(Localizer.Diagnostic.positionOnlyFirstParam(), param);
+                }
             }
 
             if (param.category === ParameterCategory.Simple) {

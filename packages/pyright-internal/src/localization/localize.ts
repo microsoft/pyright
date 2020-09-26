@@ -472,6 +472,7 @@ export namespace Localizer {
         export const positionArgAfterNamedArg = () => getRawString('Diagnostic.positionArgAfterNamedArg');
         export const positionOnlyAfterNameOnly = () => getRawString('Diagnostic.positionOnlyAfterNameOnly');
         export const positionOnlyIncompatible = () => getRawString('Diagnostic.positionOnlyIncompatible');
+        export const positionOnlyFirstParam = () => getRawString('Diagnostic.positionOnlyFirstParam');
         export const privateUsedOutsideOfClass = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.privateUsedOutsideOfClass'));
         export const privateUsedOutsideOfModule = () =>

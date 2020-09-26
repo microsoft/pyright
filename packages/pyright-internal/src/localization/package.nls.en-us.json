@@ -222,6 +222,7 @@
         "positionArgAfterNamedArg": "Positional argument cannot appear after named arguments",
         "positionOnlyAfterNameOnly": "\"/\" parameter must appear before \"*\" parameter",
         "positionOnlyIncompatible": "Position-only argument separator requires Python 3.8 or greater",
+        "positionOnlyFirstParam": "Position-only argument separator is not allowed as first parameter",
         "privateUsedOutsideOfClass": "\"{name}\" is private and used outside of the class in which it is declared",
         "privateUsedOutsideOfModule": "\"{name}\" is private and used outside of the module in which it is declared",
         "protectedUsedOutsideOfClass": "\"{name}\" is protected and used outside of the class in which it is declared",
