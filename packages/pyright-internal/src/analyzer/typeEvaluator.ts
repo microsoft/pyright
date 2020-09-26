@@ -12382,13 +12382,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isInstanceCheck: boolean,
         isPositiveTest: boolean
     ): Type {
-        if (isTypeVar(type)) {
-            // If it's a constrained TypeVar, treat it as a union for the
-            // purposes of narrowing.
-            type = getConcreteTypeFromTypeVar(type, /* convertConstraintsToUnion */ true);
-        }
-
         let effectiveType = doForSubtypes(type, (subtype) => {
+            subtype = transformPossibleRecursiveTypeAlias(subtype);
+
+            if (isTypeVar(subtype)) {
+                // If it's a constrained TypeVar, treat it as a union for the
+                // purposes of narrowing.
+                subtype = getConcreteTypeFromTypeVar(subtype, /* convertConstraintsToUnion */ true);
+            }
+
             return transformTypeObjectToClass(subtype);
         });
 
@@ -12498,6 +12500,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!isObject(containerType) || !ClassType.isBuiltIn(containerType.classType)) {
             return referenceType;
         }
+
         const classType = containerType.classType;
         const builtInName = classType.details.aliasClass
             ? classType.details.aliasClass.details.name
@@ -16383,6 +16386,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // If it's a synthesized type var used to implement recursive type
                     // aliases, return the type alias name.
                     if (type.details.recursiveTypeAliasName) {
+                        if (expandTypeAlias && type.details.boundType) {
+                            return printType(type.details.boundType, expandTypeAlias, recursionCount + 1);
+                        }
                         return type.details.recursiveTypeAliasName;
                     }
 

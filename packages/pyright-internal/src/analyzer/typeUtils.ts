@@ -359,7 +359,7 @@ export function transformPossibleRecursiveTypeAlias(type: Type): Type;
 export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Type | undefined;
 export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Type | undefined {
     if (type) {
-        if (type.category === TypeCategory.TypeVar && type.details.recursiveTypeAliasName && type.details.boundType) {
+        if (isTypeVar(type) && type.details.recursiveTypeAliasName && type.details.boundType) {
             if (TypeBase.isInstance(type)) {
                 return convertToInstance(type.details.boundType);
             }

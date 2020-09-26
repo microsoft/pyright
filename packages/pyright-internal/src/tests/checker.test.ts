@@ -1098,6 +1098,12 @@ test('TypeAlias8', () => {
     validateResults(analysisResults, 4);
 });
 
+test('TypeAlias9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias9.py']);
+
+    validateResults(analysisResults, 0, 0, 4);
+});
+
 test('Dictionary1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dictionary1.py']);
 

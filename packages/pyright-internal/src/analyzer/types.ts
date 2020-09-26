@@ -1404,6 +1404,23 @@ export function isOverloadedFunction(type: Type): type is OverloadedFunctionType
     return type.category === TypeCategory.OverloadedFunction;
 }
 
+export function getTypeAliasInfo(type: Type) {
+    if (type.typeAliasInfo) {
+        return type.typeAliasInfo;
+    }
+
+    if (
+        isTypeVar(type) &&
+        type.details.recursiveTypeAliasName &&
+        type.details.boundType &&
+        type.details.boundType.typeAliasInfo
+    ) {
+        return type.details.boundType.typeAliasInfo;
+    }
+
+    return undefined;
+}
+
 export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolean {
     if (type1.category !== type2.category) {
         return false;

@@ -114,6 +114,7 @@ import {
     makeTypeVarsConcrete,
     partiallySpecializeType,
     specializeType,
+    transformPossibleRecursiveTypeAlias,
     transformTypeObjectToClass,
 } from './typeUtils';
 
@@ -1428,7 +1429,7 @@ export class Checker extends ParseTreeWalker {
             return;
         }
         arg0Type = doForSubtypes(arg0Type, (subtype) => {
-            return transformTypeObjectToClass(subtype);
+            return transformPossibleRecursiveTypeAlias(transformTypeObjectToClass(subtype));
         });
 
         if (derivesFromAnyOrUnknown(arg0Type)) {

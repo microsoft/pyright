@@ -23,7 +23,7 @@ import {
     getOverloadedFunctionDocStrings,
 } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { isClass, isModule, isObject, Type, TypeCategory, UnknownType } from '../analyzer/types';
+import { getTypeAliasInfo, isClass, isModule, isObject, Type, TypeCategory, UnknownType } from '../analyzer/types';
 import { ClassMemberLookupFlags, isProperty, lookUpClassMember } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
@@ -150,12 +150,15 @@ export class HoverProvider {
                 // the type alias when printing the type information.
                 const type = evaluator.getType(typeNode);
                 let expandTypeAlias = false;
-                if (type?.typeAliasInfo && node.value === type.typeAliasInfo.aliasName) {
-                    if (type.typeAliasInfo.aliasName === typeNode.value) {
-                        expandTypeAlias = true;
-                    }
+                if (type) {
+                    const typeAliasInfo = getTypeAliasInfo(type);
+                    if (typeAliasInfo) {
+                        if (typeAliasInfo.aliasName === typeNode.value) {
+                            expandTypeAlias = true;
+                        }
 
-                    label = 'type alias';
+                        label = 'type alias';
+                    }
                 }
 
                 this._addResultsPart(
