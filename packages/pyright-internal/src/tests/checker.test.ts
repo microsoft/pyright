@@ -477,7 +477,7 @@ test('Function3', () => {
     // Analyze with Python 3.8 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_8;
     const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['function3.py'], configOptions);
-    validateResults(analysisResults38, 11);
+    validateResults(analysisResults38, 12);
 });
 
 test('Function4', () => {

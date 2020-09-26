@@ -23,6 +23,8 @@ def f4(a: int, /, b: int, *, c: int):
 def f5(a: int, *, b: int, /, c: int):
     return 3
 
+# This should generate an error because a '/'
+# parameter cannot be the first in a param list.
 def f6(/, a: int, *, b: int):
     return 3
 
