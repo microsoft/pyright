@@ -12384,13 +12384,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): Type {
         let effectiveType = doForSubtypes(type, (subtype) => {
             subtype = transformPossibleRecursiveTypeAlias(subtype);
-
-            if (isTypeVar(subtype)) {
-                // If it's a constrained TypeVar, treat it as a union for the
-                // purposes of narrowing.
-                subtype = getConcreteTypeFromTypeVar(subtype, /* convertConstraintsToUnion */ true);
-            }
-
             return transformTypeObjectToClass(subtype);
         });
 
