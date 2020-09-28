@@ -2327,3 +2327,9 @@ test('None1', () => {
 
     validateResults(analysisResults, 1);
 });
+
+test('Constructor1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor1.py']);
+
+    validateResults(analysisResults, 0);
+});
