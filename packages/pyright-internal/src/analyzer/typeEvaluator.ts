@@ -8224,7 +8224,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (builtInIteratorType && isClass(builtInIteratorType)) {
             type = ObjectType.create(
-                ClassType.cloneForSpecialization(builtInIteratorType, [elementType], /* isTypeArgumentExplicit */ false)
+                ClassType.cloneForSpecialization(
+                    builtInIteratorType,
+                    isAsync
+                        ? [elementType, NoneType.createInstance()]
+                        : [elementType, NoneType.createInstance(), NoneType.createInstance()],
+                    /* isTypeArgumentExplicit */ false
+                )
             );
         }
 
@@ -10598,61 +10604,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     functionDecl = decl as FunctionDeclaration;
                 }
 
-                // Is it a generator?
-                if (functionDecl?.yieldStatements) {
-                    const inferredYieldTypes: Type[] = [];
-                    functionDecl.yieldStatements.forEach((yieldNode) => {
-                        if (isNodeReachable(yieldNode)) {
-                            if (yieldNode.nodeType === ParseNodeType.YieldFrom) {
-                                const iteratorType = getTypeOfExpression(yieldNode.expression).type;
-                                const yieldType = getTypeFromIterable(
-                                    iteratorType,
-                                    /* isAsync */ false,
-                                    yieldNode,
-                                    /* supportGetItem */ false
-                                );
-                                inferredYieldTypes.push(yieldType || UnknownType.create());
-                            } else {
-                                if (yieldNode.expression) {
-                                    const yieldType = getTypeOfExpression(yieldNode.expression).type;
-                                    inferredYieldTypes.push(yieldType || UnknownType.create());
-                                } else {
-                                    inferredYieldTypes.push(NoneType.createInstance());
-                                }
-                            }
-                        }
-                    });
+                const functionNeverReturns = !isAfterNodeReachable(node);
+                const implicitlyReturnsNone = isAfterNodeReachable(node.suite);
 
-                    if (inferredYieldTypes.length === 0) {
-                        inferredYieldTypes.push(NoneType.createInstance());
-                    }
-                    inferredReturnType = combineTypes(inferredYieldTypes);
-
-                    // Inferred yield types need to be wrapped in a Generator to
-                    // produce the final result.
-                    const generatorType = getTypingType(node, 'Generator');
-                    if (generatorType && isClass(generatorType)) {
-                        inferredReturnType = ObjectType.create(
-                            ClassType.cloneForSpecialization(
-                                generatorType,
-                                [inferredReturnType],
-                                /* isTypeArgumentExplicit */ false
-                            )
-                        );
-                    } else {
-                        inferredReturnType = UnknownType.create();
-                    }
+                // Infer the return type based on all of the return statements in the function's body.
+                if (getFileInfo(node).isStubFile) {
+                    // If a return type annotation is missing in a stub file, assume
+                    // it's an "unknown" type. In normal source files, we can infer the
+                    // type from the implementation.
+                    inferredReturnType = UnknownType.create();
                 } else {
-                    const functionNeverReturns = !isAfterNodeReachable(node);
-                    const implicitlyReturnsNone = isAfterNodeReachable(node.suite);
-
-                    // Infer the return type based on all of the return statements in the function's body.
-                    if (getFileInfo(node).isStubFile) {
-                        // If a return type annotation is missing in a stub file, assume
-                        // it's an "unknown" type. In normal source files, we can infer the
-                        // type from the implementation.
-                        inferredReturnType = UnknownType.create();
-                    } else if (functionNeverReturns) {
+                    if (functionNeverReturns) {
                         // If the function always raises and never returns, assume a "NoReturn" type.
                         // Skip this for abstract methods which often are implemented with "raise
                         // NotImplementedError()".
@@ -10686,12 +10648,64 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         inferredReturnType = combineTypes(inferredReturnTypes);
+
+                        // Remove any unbound values since those would generate an exception
+                        // before being returned.
+                        inferredReturnType = removeUnboundFromUnion(inferredReturnType);
+                    }
+
+                    // Is it a generator?
+                    if (functionDecl?.yieldStatements) {
+                        const inferredYieldTypes: Type[] = [];
+                        functionDecl.yieldStatements.forEach((yieldNode) => {
+                            if (isNodeReachable(yieldNode)) {
+                                if (yieldNode.nodeType === ParseNodeType.YieldFrom) {
+                                    const iteratorType = getTypeOfExpression(yieldNode.expression).type;
+                                    const yieldType = getTypeFromIterable(
+                                        iteratorType,
+                                        /* isAsync */ false,
+                                        yieldNode,
+                                        /* supportGetItem */ false
+                                    );
+                                    inferredYieldTypes.push(yieldType || UnknownType.create());
+                                } else {
+                                    if (yieldNode.expression) {
+                                        const yieldType = getTypeOfExpression(yieldNode.expression).type;
+                                        inferredYieldTypes.push(yieldType || UnknownType.create());
+                                    } else {
+                                        inferredYieldTypes.push(NoneType.createInstance());
+                                    }
+                                }
+                            }
+                        });
+
+                        if (inferredYieldTypes.length === 0) {
+                            inferredYieldTypes.push(NoneType.createInstance());
+                        }
+                        const inferredYieldType = combineTypes(inferredYieldTypes);
+
+                        // Inferred yield types need to be wrapped in a Generator to
+                        // produce the final result.
+                        const generatorType = getTypingType(node, 'Generator');
+                        if (generatorType && isClass(generatorType)) {
+                            inferredReturnType = ObjectType.create(
+                                ClassType.cloneForSpecialization(
+                                    generatorType,
+                                    [
+                                        inferredYieldType,
+                                        NoneType.createInstance(),
+                                        isNoReturnType(inferredReturnType)
+                                            ? NoneType.createInstance()
+                                            : inferredReturnType,
+                                    ],
+                                    /* isTypeArgumentExplicit */ false
+                                )
+                            );
+                        } else {
+                            inferredReturnType = UnknownType.create();
+                        }
                     }
                 }
-
-                // Remove any unbound values since those would generate an exception
-                // before being returned.
-                inferredReturnType = removeUnboundFromUnion(inferredReturnType);
 
                 writeTypeCache(node.suite, inferredReturnType);
             } finally {
