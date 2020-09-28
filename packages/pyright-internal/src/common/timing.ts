@@ -90,6 +90,10 @@ export class TimingStats {
         console.info('Check:                ' + this.typeCheckerTime.printTime());
         console.info('Detect Cycles:        ' + this.cycleDetectionTime.printTime());
     }
+
+    getTotalDuration() {
+        return this.totalDuration.getDurationInSeconds();
+    }
 }
 
 export const timingStats = new TimingStats();
