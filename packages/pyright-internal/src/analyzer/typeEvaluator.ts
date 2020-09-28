@@ -12660,6 +12660,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return isPositiveTest ? subtype : undefined;
                 }
 
+                case TypeCategory.None:
                 case TypeCategory.Module: {
                     return isPositiveTest ? undefined : subtype;
                 }
