@@ -5,14 +5,12 @@
             "name": "Pyright CLI",
             "type": "node",
             "request": "launch",
-            "program": "${workspaceRoot}/packages/pyright/dist/pyright.js",
+            "program": "${workspaceRoot}/packages/pyright/index.js",
             "protocol": "inspector",
-            "cwd": "${workspaceRoot}",
             "preLaunchTask": "npm: build:cli:dev",
             "args": [
-                "-p",
-                "${workspaceRoot}/../brain",
-                "--stats"
+                "--verifytypes",
+                "aiohttp",
             ],
             "internalConsoleOptions": "openOnSessionStart",
             "outFiles": [
