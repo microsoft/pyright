@@ -63,6 +63,7 @@ Each Diagnostic is formatted output in the following format:
     file: string,
     severity: 'error' | 'warning' | 'information',
     message: string,
+    rule?: string,
     range: {
         start: {
             line: number,
