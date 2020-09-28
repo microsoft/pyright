@@ -68,6 +68,18 @@ export function getNamesInDunderAll(symbolTable: SymbolTable): string[] | undefi
                     });
 
                     return namesToImport;
+                } else if (expr.nodeType === ParseNodeType.Tuple) {
+                    expr.expressions.forEach((tupleEntryNode) => {
+                        if (
+                            tupleEntryNode.nodeType === ParseNodeType.StringList &&
+                            tupleEntryNode.strings.length === 1 &&
+                            tupleEntryNode.strings[0].nodeType === ParseNodeType.String
+                        ) {
+                            namesToImport.push(tupleEntryNode.strings[0].value);
+                        }
+                    });
+
+                    return namesToImport;
                 }
             }
         }
