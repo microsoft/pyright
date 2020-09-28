@@ -394,15 +394,20 @@ export class SourceFile {
         // Keep the parse info, but reset the analysis to the beginning.
         this._isCheckingNeeded = true;
 
-        // If the file contains a wildcard import, we need to rebind
-        // also because the dependent import may have changed.
-        if (this._parseResults && this._parseResults.containsWildcardImport) {
-            this._parseTreeNeedsCleaning = true;
-            this._isBindingNeeded = true;
-            this._indexingNeeded = true;
-            this._moduleSymbolTable = undefined;
-            this._binderResults = undefined;
-            this._cachedIndexResults = undefined;
+        // If the file contains a wildcard import or __all__ symbols,
+        // we need to rebind because a dependent import may have changed.
+        if (this._parseResults) {
+            if (
+                this._parseResults.containsWildcardImport ||
+                AnalyzerNodeInfo.getDunderAllNames(this._parseResults.parseTree)
+            ) {
+                this._parseTreeNeedsCleaning = true;
+                this._isBindingNeeded = true;
+                this._indexingNeeded = true;
+                this._moduleSymbolTable = undefined;
+                this._binderResults = undefined;
+                this._cachedIndexResults = undefined;
+            }
         }
     }
 

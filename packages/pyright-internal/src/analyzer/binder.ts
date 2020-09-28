@@ -107,7 +107,6 @@ import { NameBindingType, Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { getNamesInDunderAll } from './symbolUtils';
 
 interface MemberAccessInfo {
     classNode: ClassNode;
@@ -184,6 +183,9 @@ export class Binder extends ParseTreeWalker {
     // and the names they alias to.
     private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
 
+    // List of names statically assigned to __all__ symbol.
+    private _dunderAllNames: string[] | undefined;
+
     // Flow node that is used for unreachable code.
     private static _unreachableFlowNode: FlowNode = {
         flags: FlowFlags.Unreachable,
@@ -201,7 +203,7 @@ export class Binder extends ParseTreeWalker {
         // binding the builtins module itself.
         const isBuiltInModule = this._fileInfo.builtinsScope === undefined;
 
-        this._createNewScope(
+        const moduleScope = this._createNewScope(
             isBuiltInModule ? ScopeType.Builtin : ScopeType.Module,
             this._fileInfo.builtinsScope,
             () => {
@@ -234,6 +236,8 @@ export class Binder extends ParseTreeWalker {
 
         // Perform all analysis that was deferred during the first pass.
         this._bindDeferred();
+
+        AnalyzerNodeInfo.setDunderAllNames(node, this._dunderAllNames);
 
         return {
             moduleDocString: ParseTreeUtils.getDocString(node.statements),
@@ -538,6 +542,56 @@ export class Binder extends ParseTreeWalker {
         this.walk(node.leftExpression);
         this.walkMultiple(node.arguments);
         this._createCallFlowNode(node);
+
+        // Is this an manipulation of dunder all?
+        if (
+            this._currentScope.type === ScopeType.Module &&
+            node.leftExpression.nodeType === ParseNodeType.MemberAccess &&
+            node.leftExpression.leftExpression.nodeType === ParseNodeType.Name &&
+            node.leftExpression.leftExpression.value === '__all__'
+        ) {
+            // Is this a call to "__all__.extend()"?
+            if (node.leftExpression.memberName.value === 'extend' && node.arguments.length === 1) {
+                const argExpr = node.arguments[0].valueExpression;
+
+                // Is this a call to "__all__.extend([<list>])"?
+                if (argExpr.nodeType === ParseNodeType.List) {
+                    argExpr.entries.forEach((listEntryNode) => {
+                        if (
+                            listEntryNode.nodeType === ParseNodeType.StringList &&
+                            listEntryNode.strings.length === 1 &&
+                            listEntryNode.strings[0].nodeType === ParseNodeType.String
+                        ) {
+                            this._dunderAllNames?.push(listEntryNode.strings[0].value);
+                        }
+                    });
+                } else if (
+                    argExpr.nodeType === ParseNodeType.MemberAccess &&
+                    argExpr.leftExpression.nodeType === ParseNodeType.Name &&
+                    argExpr.memberName.value === '__all__'
+                ) {
+                    // Is this a call to "__all__.extend(<mod>.__all__)"?
+                    const namesToAdd = this._getDunderAllNamesFromImport(argExpr.leftExpression.value);
+                    if (namesToAdd) {
+                        namesToAdd.forEach((name) => {
+                            this._dunderAllNames?.push(name);
+                        });
+                    }
+                }
+            } else if (node.leftExpression.memberName.value === 'remove' && node.arguments.length === 1) {
+                // Is this a call to "__all__.remove()"?
+                const argExpr = node.arguments[0].valueExpression;
+                if (
+                    argExpr.nodeType === ParseNodeType.StringList &&
+                    argExpr.strings.length === 1 &&
+                    argExpr.strings[0].nodeType === ParseNodeType.String &&
+                    this._dunderAllNames
+                ) {
+                    this._dunderAllNames = this._dunderAllNames.filter((name) => name !== argExpr.strings[0].value);
+                }
+            }
+        }
+
         return false;
     }
 
@@ -569,6 +623,38 @@ export class Binder extends ParseTreeWalker {
         this._addInferredTypeAssignmentForVariable(node.leftExpression, node.rightExpression, isPossibleTypeAlias);
 
         this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
+
+        // Is this an assignment to dunder all?
+        if (
+            this._currentScope.type === ScopeType.Module &&
+            node.leftExpression.nodeType === ParseNodeType.Name &&
+            node.leftExpression.value === '__all__'
+        ) {
+            const expr = node.rightExpression;
+            this._dunderAllNames = [];
+
+            if (expr.nodeType === ParseNodeType.List) {
+                expr.entries.forEach((listEntryNode) => {
+                    if (
+                        listEntryNode.nodeType === ParseNodeType.StringList &&
+                        listEntryNode.strings.length === 1 &&
+                        listEntryNode.strings[0].nodeType === ParseNodeType.String
+                    ) {
+                        this._dunderAllNames!.push(listEntryNode.strings[0].value);
+                    }
+                });
+            } else if (expr.nodeType === ParseNodeType.Tuple) {
+                expr.expressions.forEach((tupleEntryNode) => {
+                    if (
+                        tupleEntryNode.nodeType === ParseNodeType.StringList &&
+                        tupleEntryNode.strings.length === 1 &&
+                        tupleEntryNode.strings[0].nodeType === ParseNodeType.String
+                    ) {
+                        this._dunderAllNames!.push(tupleEntryNode.strings[0].value);
+                    }
+                });
+            }
+        }
 
         return false;
     }
@@ -620,6 +706,27 @@ export class Binder extends ParseTreeWalker {
 
         this._bindPossibleTupleNamedTarget(node.destExpression);
         this._createAssignmentTargetFlowNodes(node.destExpression, /* walkTargets */ false, /* unbound */ false);
+
+        // Is this an assignment to dunder all?
+        if (
+            this._currentScope.type === ScopeType.Module &&
+            node.leftExpression.nodeType === ParseNodeType.Name &&
+            node.leftExpression.value === '__all__'
+        ) {
+            const expr = node.rightExpression;
+
+            if (expr.nodeType === ParseNodeType.List) {
+                expr.entries.forEach((listEntryNode) => {
+                    if (
+                        listEntryNode.nodeType === ParseNodeType.StringList &&
+                        listEntryNode.strings.length === 1 &&
+                        listEntryNode.strings[0].nodeType === ParseNodeType.String
+                    ) {
+                        this._dunderAllNames?.push(listEntryNode.strings[0].value);
+                    }
+                });
+            }
+        }
 
         return false;
     }
@@ -1147,11 +1254,13 @@ export class Binder extends ParseTreeWalker {
             }
 
             const symbol = this._bindNameToScope(this._currentScope, symbolName);
-            if (symbol && this._fileInfo.isStubFile && !node.alias) {
-                // PEP 484 indicates that imported symbols should not be
-                // considered "reexported" from a type stub file unless
-                // they are imported using the "as" form.
-                symbol.setIsExternallyHidden();
+            if (symbol && !node.alias) {
+                if (this._fileInfo.isStubFile) {
+                    // PEP 484 indicates that imported symbols should not be
+                    // considered "reexported" from a type stub file unless
+                    // they are imported using the "as" form.
+                    symbol.setIsExternallyHidden();
+                }
             }
 
             const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
@@ -1307,11 +1416,13 @@ export class Binder extends ParseTreeWalker {
                 const symbol = this._bindNameToScope(this._currentScope, nameNode.value);
 
                 if (symbol) {
-                    if (this._fileInfo.isStubFile && !importSymbolNode.alias) {
-                        // PEP 484 indicates that imported symbols should not be
-                        // considered "reexported" from a type stub file unless
-                        // they are imported using the "as" form.
-                        symbol.setIsExternallyHidden();
+                    if (!importSymbolNode.alias) {
+                        if (this._fileInfo.isStubFile) {
+                            // PEP 484 indicates that imported symbols should not be
+                            // considered "reexported" from a type stub file unless
+                            // they are imported using the "as" form.
+                            symbol.setIsExternallyHidden();
+                        }
                     }
 
                     // Is the import referring to an implicitly-imported module?
@@ -1526,6 +1637,31 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
+    // Attempts to resolve the module name, import it, and return
+    // its __all__ symbols.
+    private _getDunderAllNamesFromImport(varName: string): string[] | undefined {
+        const varSymbol = this._currentScope.lookUpSymbol(varName);
+        if (!varSymbol) {
+            return undefined;
+        }
+
+        // There should be only one declaration for the variable.
+        const aliasDecl = varSymbol.getDeclarations().find((decl) => decl.type === DeclarationType.Alias) as
+            | AliasDeclaration
+            | undefined;
+        const resolvedPath = aliasDecl?.path || aliasDecl?.submoduleFallback?.path;
+        if (!resolvedPath) {
+            return undefined;
+        }
+
+        const lookupInfo = this._fileInfo.importLookup(resolvedPath);
+        if (!lookupInfo) {
+            return undefined;
+        }
+
+        return lookupInfo.dunderAllNames;
+    }
+
     private _addImplicitFromImport(node: ImportFromNode, importInfo?: ImportResult) {
         const symbolName = node.module.nameParts[0].value;
         const symbol = this._bindNameToScope(this._currentScope, symbolName);
@@ -1634,13 +1770,13 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _getWildcardImportNames(lookupInfo: ImportLookupResult): string[] {
-        let namesToImport = getNamesInDunderAll(lookupInfo.symbolTable);
-        if (namesToImport) {
-            return namesToImport;
+        // If a dunder all symbol is defined, it takes precedence.
+        if (lookupInfo.dunderAllNames) {
+            return lookupInfo.dunderAllNames;
         }
 
         // Import all names that don't begin with an underscore.
-        namesToImport = [];
+        const namesToImport: string[] = [];
         lookupInfo.symbolTable.forEach((symbol, name) => {
             if (!name.startsWith('_') && !symbol.isIgnoredForProtocolMatch()) {
                 namesToImport!.push(name);
@@ -2094,8 +2230,10 @@ export class Binder extends ParseTreeWalker {
                     }
                 }
 
-                if (this._fileInfo.isStubFile && isPrivateOrProtectedName(name)) {
-                    symbol.setIsExternallyHidden();
+                if (isPrivateOrProtectedName(name)) {
+                    if (this._fileInfo.isStubFile) {
+                        symbol.setIsExternallyHidden();
+                    }
                 }
 
                 if (addedSymbols) {
@@ -2190,7 +2328,8 @@ export class Binder extends ParseTreeWalker {
 
     private _createNewScope(scopeType: ScopeType, parentScope: Scope | undefined, callback: () => void) {
         const prevScope = this._currentScope;
-        this._currentScope = new Scope(scopeType, parentScope);
+        const newScope = new Scope(scopeType, parentScope);
+        this._currentScope = newScope;
 
         // If this scope is an execution scope, allocate a new reference map.
         const isExecutionScope =
@@ -2205,6 +2344,8 @@ export class Binder extends ParseTreeWalker {
 
         this._currentExecutionScopeReferenceMap = prevReferenceMap;
         this._currentScope = prevScope;
+
+        return newScope;
     }
 
     private _addInferredTypeAssignmentForVariable(

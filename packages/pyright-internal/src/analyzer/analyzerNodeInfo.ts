@@ -55,6 +55,9 @@ interface AnalyzerNodeInfo {
     // Map of expressions used within an execution scope (module,
     // function or lambda) that requires code flow analysis.
     codeFlowExpressions?: Map<string, string>;
+
+    // List of __all__ symbols in the module.
+    dunderAllNames?: string[];
 }
 
 export type ScopedNode = ModuleNode | ClassNode | FunctionNode | LambdaNode | ListComprehensionNode;
@@ -138,6 +141,16 @@ export function getCodeFlowExpressions(node: ExecutionScopeNode): Map<string, st
 export function setCodeFlowExpressions(node: ExecutionScopeNode, map: Map<string, string>) {
     const analyzerNode = node as AnalyzerNodeInfo;
     analyzerNode.codeFlowExpressions = map;
+}
+
+export function getDunderAllNames(node: ModuleNode): string[] | undefined {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    return analyzerNode.dunderAllNames;
+}
+
+export function setDunderAllNames(node: ModuleNode, names: string[] | undefined) {
+    const analyzerNode = node as AnalyzerNodeInfo;
+    analyzerNode.dunderAllNames = names;
 }
 
 export function isCodeUnreachable(node: ParseNode): boolean {

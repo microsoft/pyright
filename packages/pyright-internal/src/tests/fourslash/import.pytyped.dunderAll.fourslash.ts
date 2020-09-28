@@ -1,0 +1,56 @@
+/// <reference path="fourslash.ts" />
+
+// @filename: testpkg/py.typed
+// @library: true
+////
+
+// @filename: testpkg/__init__.py
+// @library: true
+//// from . import submod
+//// from submod import foofoofoo5, foofoofoo6, foofoofoo7, foofoofoo8
+//// foofoofoo1: int = 1
+//// foofoofoo2: int = 2
+//// foofoofoo3: int = 3
+//// foofoofoo4: int = 4
+//// __all__ = ["foofoofoo1"]
+//// __all__ += ["foofoofoo2"]
+//// __all__.extend(["foofoofoo3"])
+//// __all__.extend(submod.__all__)
+//// __all__.remove("foofoofoo1")
+//// __all__.remove("foofoofoo6")
+
+// @filename: testpkg/submod.py
+// @library: true
+//// foofoofoo5: int = 5
+//// foofoofoo6: int = 6
+//// foofoofoo7: int = 7
+//// foofoofoo8: int = 8
+//// __all__ = ["foofoofoo5"]
+//// __all__ += ["foofoofoo6"]
+//// __all__.extend(["foofoofoo7"])
+
+// @filename: .src/test.py
+//// from testpkg import *
+//// foofoofoo[|/*marker1*/|]
+
+// Ensure that only the __all__ items appear in the list.
+
+// @ts-ignore
+await helper.verifyCompletion('exact', {
+    marker1: {
+        completions: [
+            {
+                label: 'foofoofoo2',
+            },
+            {
+                label: 'foofoofoo3',
+            },
+            {
+                label: 'foofoofoo5',
+            },
+            {
+                label: 'foofoofoo7',
+            },
+        ],
+    },
+});

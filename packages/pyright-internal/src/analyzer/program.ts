@@ -718,9 +718,11 @@ export class Program {
         }
 
         const docString = sourceFileInfo.sourceFile.getModuleDocString();
+        const parseResults = sourceFileInfo.sourceFile.getParseResults();
 
         return {
             symbolTable,
+            dunderAllNames: AnalyzerNodeInfo.getDunderAllNames(parseResults!.parseTree),
             docString,
         };
     };
