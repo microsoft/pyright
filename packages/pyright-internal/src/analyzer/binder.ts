@@ -246,7 +246,7 @@ export class Binder extends ParseTreeWalker {
         this._potentialPrivateSymbols.forEach((symbol, name) => {
             // If this symbol was found in the dunder all, don't mark it
             // as externally hidden.
-            if (this._dunderAllNames?.some((sym) => sym === name)) {
+            if (!this._dunderAllNames?.some((sym) => sym === name)) {
                 symbol.setIsExternallyHidden();
             }
         });
