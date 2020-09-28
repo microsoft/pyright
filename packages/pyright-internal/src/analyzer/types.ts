@@ -1002,11 +1002,13 @@ export namespace FunctionType {
             category: ParameterCategory.VarArgList,
             name: 'args',
             type: useUnknown ? UnknownType.create() : AnyType.create(),
+            hasDeclaredType: !useUnknown,
         });
         FunctionType.addParameter(functionType, {
             category: ParameterCategory.VarArgDictionary,
             name: 'kwargs',
             type: useUnknown ? UnknownType.create() : AnyType.create(),
+            hasDeclaredType: !useUnknown,
         });
     }
 
