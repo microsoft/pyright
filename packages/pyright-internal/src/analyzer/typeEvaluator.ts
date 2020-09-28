@@ -10323,13 +10323,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         setFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
-            type: fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create(),
+            type: prop,
             hasDeclaredType: true,
         });
         setFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'obj',
-            type: propertyObject,
+            type: fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create(),
             hasDeclaredType: true,
         });
         setFunction.details.declaredReturnType = NoneType.createInstance();
@@ -10389,13 +10389,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         delFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
-            type: fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create(),
+            type: prop,
             hasDeclaredType: true,
         });
         delFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'obj',
-            type: propertyObject,
+            type: fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create(),
             hasDeclaredType: true,
         });
         delFunction.details.declaredReturnType = NoneType.createInstance();
