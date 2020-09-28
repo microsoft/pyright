@@ -13,6 +13,7 @@ import { Range } from './textRange';
 
 const defaultMaxDepth = 5;
 const defaultMaxLineCount = 8;
+const maxRecursionCount = 8;
 
 export const enum DiagnosticCategory {
     Error,
@@ -116,7 +117,7 @@ export class DiagnosticAddendum {
 
         if (lines.length > maxLineCount) {
             lines = lines.slice(0, maxLineCount);
-            lines.push('...');
+            lines.push('  ...');
         }
 
         const text = lines.join('\n');
@@ -135,26 +136,34 @@ export class DiagnosticAddendum {
         this._childAddenda.push(addendum);
     }
 
-    private _getMessageCount() {
+    getChildren() {
+        return this._childAddenda;
+    }
+
+    private _getMessageCount(recursionCount = 0) {
+        if (recursionCount > maxRecursionCount) {
+            return 0;
+        }
+
         // Get the nested message count.
         let messageCount = this._messages.length;
 
         for (const diag of this._childAddenda) {
-            messageCount += diag._getMessageCount();
+            messageCount += diag._getMessageCount(recursionCount + 1);
         }
 
         return messageCount;
     }
 
-    private _getLinesRecursive(maxDepth: number): string[] {
-        if (maxDepth <= 0) {
+    private _getLinesRecursive(maxDepth: number, recursionCount = 0): string[] {
+        if (maxDepth <= 0 || recursionCount > maxRecursionCount) {
             return [];
         }
 
         const childLines: string[] = [];
         for (const addendum of this._childAddenda) {
             const maxDepthRemaining = this._messages.length > 0 ? maxDepth - 1 : maxDepth;
-            childLines.push(...addendum._getLinesRecursive(maxDepthRemaining));
+            childLines.push(...addendum._getLinesRecursive(maxDepthRemaining, recursionCount + 1));
         }
 
         // Prepend indentation for readability. Skip if there are no
