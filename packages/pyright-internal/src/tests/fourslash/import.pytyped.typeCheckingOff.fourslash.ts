@@ -22,7 +22,7 @@
 
 // @filename: .src/test.py
 //// from testLib import foo
-//// foo(1).me|/*marker1*/|
+//// foo(1).me[|/*marker1*/|]
 
 // @ts-ignore
 await helper.verifyCompletion('included', {
