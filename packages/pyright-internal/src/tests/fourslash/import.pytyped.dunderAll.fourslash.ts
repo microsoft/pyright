@@ -8,6 +8,7 @@
 // @library: true
 //// from . import submod
 //// from submod import foofoofoo5, foofoofoo6, foofoofoo7, foofoofoo8
+//// foofoofoo0: int = 0
 //// foofoofoo1: int = 1
 //// foofoofoo2: int = 2
 //// foofoofoo3: int = 3
@@ -18,6 +19,7 @@
 //// __all__.extend(submod.__all__)
 //// __all__.remove("foofoofoo1")
 //// __all__.remove("foofoofoo6")
+//// __all__.append("foofoofoo0")
 
 // @filename: testpkg/submod.py
 // @library: true
@@ -39,6 +41,9 @@
 await helper.verifyCompletion('exact', {
     marker1: {
         completions: [
+            {
+                label: 'foofoofoo0',
+            },
             {
                 label: 'foofoofoo2',
             },

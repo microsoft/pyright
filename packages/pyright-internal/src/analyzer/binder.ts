@@ -603,6 +603,16 @@ export class Binder extends ParseTreeWalker {
                 ) {
                     this._dunderAllNames = this._dunderAllNames.filter((name) => name !== argExpr.strings[0].value);
                 }
+            } else if (node.leftExpression.memberName.value === 'append' && node.arguments.length === 1) {
+                // Is this a call to "__all__.append()"?
+                const argExpr = node.arguments[0].valueExpression;
+                if (
+                    argExpr.nodeType === ParseNodeType.StringList &&
+                    argExpr.strings.length === 1 &&
+                    argExpr.strings[0].nodeType === ParseNodeType.String
+                ) {
+                    this._dunderAllNames?.push(argExpr.strings[0].value);
+                }
             }
         }
 
