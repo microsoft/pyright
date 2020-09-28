@@ -605,6 +605,10 @@ const maxReturnTypeInferenceStackSize = 3;
 // to avoid excessive computation.
 const maxEntriesToUseForInference = 64;
 
+// Maximum number of unioned subtypes for an inferred type (e.g.
+// a list) before the type is considered an "Any".
+const maxSubtypesForInferredType = 64;
+
 export interface EvaluatorOptions {
     disableInferenceForPyTypedSources: boolean;
     printTypeFlags: PrintTypeFlags;
@@ -8087,7 +8091,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If there was an expected type or we're using strict list inference,
             // combine the types into a union.
             if (expectedType || getFileInfo(node).diagnosticRuleSet.strictListInference) {
-                inferredEntryType = combineTypes(entryTypes);
+                inferredEntryType = combineTypes(entryTypes, maxSubtypesForInferredType);
             } else {
                 // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
                 inferredEntryType = areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
