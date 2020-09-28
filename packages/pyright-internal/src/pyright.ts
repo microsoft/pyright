@@ -47,7 +47,8 @@ interface PyrightJsonDiagnostic {
     file: string;
     severity: 'error' | 'warning' | 'information';
     message: string;
-    range: Range;
+    range?: Range;
+    rule?: string;
 }
 
 interface PyrightJsonSummary {
@@ -123,6 +124,16 @@ function processArgs() {
         for (const arg of incompatibleArgs) {
             if (args[arg] !== undefined) {
                 console.error(`'outputjson' option cannot be used with '${arg}' option`);
+                return;
+            }
+        }
+    }
+
+    if (args.createstub) {
+        const incompatibleArgs = ['watch', 'stats', 'verifytypes', 'dependencies'];
+        for (const arg of incompatibleArgs) {
+            if (args[arg] !== undefined) {
+                console.error(`'createstub' option cannot be used with '${arg}' option`);
                 return;
             }
         }
@@ -305,17 +316,7 @@ function reportDiagnosticsAsJson(
                 diag.category === DiagnosticCategory.Warning ||
                 diag.category === DiagnosticCategory.Information
             ) {
-                report.diagnostics.push({
-                    file: fileDiag.filePath,
-                    severity:
-                        diag.category === DiagnosticCategory.Error
-                            ? 'error'
-                            : DiagnosticCategory.Warning
-                            ? 'warning'
-                            : 'information',
-                    message: diag.message,
-                    range: diag.range,
-                });
+                report.diagnostics.push(convertDiagnosticToJson(fileDiag.filePath, diag));
 
                 if (diag.category === DiagnosticCategory.Error) {
                     errorCount++;
@@ -342,6 +343,21 @@ function reportDiagnosticsAsJson(
     };
 }
 
+function convertDiagnosticToJson(filePath: string, diag: Diagnostic): PyrightJsonDiagnostic {
+    return {
+        file: filePath,
+        severity:
+            diag.category === DiagnosticCategory.Error
+                ? 'error'
+                : DiagnosticCategory.Warning
+                ? 'warning'
+                : 'information',
+        message: diag.message,
+        range: isEmptyRange(diag.range) ? undefined : diag.range,
+        rule: diag.getRule(),
+    };
+}
+
 function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): DiagnosticResult {
     let errorCount = 0;
     let warningCount = 0;
@@ -356,7 +372,7 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
         if (fileErrorsAndWarnings.length > 0) {
             console.log(`${fileDiagnostics.filePath}`);
             fileErrorsAndWarnings.forEach((diag) => {
-                logDiagnosticToConsole(diag);
+                logDiagnosticToConsole(convertDiagnosticToJson(fileDiagnostics.filePath, diag));
 
                 if (diag.category === DiagnosticCategory.Error) {
                     errorCount++;
@@ -383,7 +399,7 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
     };
 }
 
-function logDiagnosticToConsole(diag: Diagnostic, prefix = '  ') {
+function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
     let message = prefix;
     if (diag.range && !isEmptyRange(diag.range)) {
         message +=
@@ -396,19 +412,18 @@ function logDiagnosticToConsole(diag: Diagnostic, prefix = '  ') {
     const [firstLine, ...remainingLines] = diag.message.split('\n');
 
     message +=
-        diag.category === DiagnosticCategory.Error
+        diag.severity === 'error'
             ? chalk.red('error')
-            : diag.category === DiagnosticCategory.Warning
-            ? chalk.green('warning')
+            : diag.severity === 'warning'
+            ? chalk.cyan('warning')
             : chalk.blue('info');
     message += `: ${firstLine}`;
     if (remainingLines.length > 0) {
         message += '\n' + prefix + remainingLines.join('\n' + prefix);
     }
 
-    const rule = diag.getRule();
-    if (rule) {
-        message += chalk.gray(` (${rule})`);
+    if (diag.rule) {
+        message += chalk.gray(` (${diag.rule})`);
     }
 
     console.log(message);
