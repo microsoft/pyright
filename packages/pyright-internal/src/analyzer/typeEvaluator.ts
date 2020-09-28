@@ -1863,6 +1863,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             category: ParameterCategory.Simple,
             name: 'cls',
             type: classType,
+            hasDeclaredType: true,
         });
         FunctionType.addDefaultParameters(newType);
         newType.details.declaredReturnType = ObjectType.create(classType);
@@ -1871,6 +1872,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             category: ParameterCategory.Simple,
             name: 'self',
             type: ObjectType.create(classType),
+            hasDeclaredType: true,
         });
         initType.details.declaredReturnType = NoneType.createInstance();
 
@@ -2022,8 +2024,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         category: ParameterCategory.Simple,
                         name: entry.name,
                         hasDefault: entry.hasDefault,
-                        hasDeclaredType: true,
                         type: entry.type,
+                        hasDeclaredType: true,
                     };
 
                     FunctionType.addParameter(initType, functionParam);
@@ -2068,6 +2070,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             category: ParameterCategory.Simple,
             name: 'cls',
             type: classType,
+            hasDeclaredType: true,
         });
         FunctionType.addDefaultParameters(newType);
         newType.details.declaredReturnType = ObjectType.create(classType);
@@ -2078,6 +2081,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             category: ParameterCategory.Simple,
             name: 'self',
             type: ObjectType.create(classType),
+            hasDeclaredType: true,
         });
         initType.details.declaredReturnType = NoneType.createInstance();
 
@@ -2085,6 +2089,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         FunctionType.addParameter(initType, {
             category: ParameterCategory.VarArgList,
             type: AnyType.create(),
+            hasDeclaredType: true,
         });
 
         const entries = getTypedDictMembersForClass(classType);
@@ -2094,6 +2099,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 name,
                 hasDefault: !entry.isRequired,
                 type: entry.valueType,
+                hasDeclaredType: true,
             });
         });
 
@@ -2109,6 +2115,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 category: ParameterCategory.Simple,
                 name: 'self',
                 type: ObjectType.create(classType),
+                hasDeclaredType: true,
             };
             const defaultTypeVar = TypeVarType.createInstance(
                 `__${classType.details.name}_default`,
@@ -2125,14 +2132,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 FunctionType.addParameter(getOverload, {
                     category: ParameterCategory.Simple,
                     name: 'k',
-                    hasDeclaredType: true,
                     type: keyType,
+                    hasDeclaredType: true,
                 });
                 FunctionType.addParameter(getOverload, {
                     category: ParameterCategory.Simple,
                     name: 'default',
-                    hasDeclaredType: true,
                     type: valueType,
+                    hasDeclaredType: true,
                     hasDefault: true,
                 });
                 getOverload.details.declaredReturnType = valueType;
@@ -2143,8 +2150,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const keyParam: FunctionParameter = {
                     category: ParameterCategory.Simple,
                     name: 'k',
-                    hasDeclaredType: true,
                     type: keyType,
+                    hasDeclaredType: true,
                 };
 
                 const popOverload1 = FunctionType.createInstance(
@@ -6638,11 +6645,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     category: ParameterCategory.Simple,
                     name: 'self',
                     type: ObjectType.create(classType),
+                    hasDeclaredType: true,
                 });
                 FunctionType.addParameter(initType, {
                     category: ParameterCategory.Simple,
                     name: '_x',
                     type: ObjectType.create(baseClass),
+                    hasDeclaredType: true,
                 });
                 initType.details.declaredReturnType = NoneType.createInstance();
                 classType.details.fields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
@@ -6657,6 +6666,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     category: ParameterCategory.Simple,
                     name: 'cls',
                     type: classType,
+                    hasDeclaredType: true,
                 });
                 FunctionType.addDefaultParameters(newType);
                 newType.details.declaredReturnType = ObjectType.create(classType);
@@ -6936,12 +6946,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             category: ParameterCategory.Simple,
             name: 'cls',
             type: classType,
+            hasDeclaredType: true,
         });
 
         const selfParameter: FunctionParameter = {
             category: ParameterCategory.Simple,
             name: 'self',
             type: ObjectType.create(classType),
+            hasDeclaredType: true,
         };
 
         let addGenericGetAttribute = false;
@@ -6971,8 +6983,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const paramInfo: FunctionParameter = {
                                 category: ParameterCategory.Simple,
                                 name: entryName,
-                                hasDeclaredType: includesTypes,
                                 type: entryType,
+                                hasDeclaredType: includesTypes,
                             };
 
                             FunctionType.addParameter(constructorType, paramInfo);
@@ -7059,8 +7071,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const paramInfo: FunctionParameter = {
                             category: ParameterCategory.Simple,
                             name: entryName,
-                            hasDeclaredType: includesTypes,
                             type: entryType,
+                            hasDeclaredType: includesTypes,
                         };
 
                         FunctionType.addParameter(constructorType, paramInfo);
@@ -9792,8 +9804,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 name: param.name ? param.name.value : undefined,
                 hasDefault: !!param.defaultValue,
                 defaultType: defaultValueType,
-                hasDeclaredType: !!paramTypeNode,
                 type: paramType || UnknownType.create(),
+                hasDeclaredType: !!paramTypeNode,
             };
 
             FunctionType.addParameter(functionType, functionParam);
@@ -9924,14 +9936,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): Type | undefined {
         if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
             if (containingClassType) {
-                if (ClassType.isProtocolClass(containingClassType)) {
-                    // Don't specialize the "self" for protocol classes because type
-                    // comparisons will fail during structural typing analysis. We'll
-                    // use an "Any" type here to avoid triggering errors about Unknown
-                    // types.
-                    return AnyType.create();
-                }
-
                 if (flags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod)) {
                     // For class methods, the cls parameter is allowed to skip the
                     // abstract class test because the caller is possibly passing
@@ -9942,10 +9946,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* isSynthesized */ true
                     );
                     clsType.scopeId = TypeVarType.makeScopeId(clsType.details.name, containingClassNode.id);
-                    clsType.details.boundType = selfSpecializeClassType(
-                        containingClassType,
-                        /* setSkipAbstractClassTest */ true
-                    );
+
+                    if (!ClassType.isProtocolClass(containingClassType)) {
+                        clsType.details.boundType = selfSpecializeClassType(
+                            containingClassType,
+                            /* setSkipAbstractClassTest */ true
+                        );
+                    }
                     return clsType;
                 } else if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
                     const selfType = TypeVarType.createInstance(
@@ -9954,9 +9961,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* isSynthesized */ true
                     );
                     selfType.scopeId = TypeVarType.makeScopeId(selfType.details.name, containingClassNode.id);
-                    selfType.details.boundType = ObjectType.create(
-                        selfSpecializeClassType(containingClassType, /* setSkipAbstractClassTest */ true)
-                    );
+
+                    if (!ClassType.isProtocolClass(containingClassType)) {
+                        selfType.details.boundType = ObjectType.create(
+                            selfSpecializeClassType(containingClassType, /* setSkipAbstractClassTest */ true)
+                        );
+                    }
                     return selfType;
                 }
             }
@@ -10172,16 +10182,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             category: ParameterCategory.Simple,
             name: 'self',
             type: propertyObject,
+            hasDeclaredType: true,
         });
         getFunction1.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'obj',
             type: NoneType.createInstance(),
+            hasDeclaredType: true,
         });
         getFunction1.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'type',
             type: AnyType.create(),
+            hasDeclaredType: true,
             hasDefault: true,
             defaultType: AnyType.create(),
         });
@@ -10197,16 +10210,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             category: ParameterCategory.Simple,
             name: 'self',
             type: propertyObject,
+            hasDeclaredType: true,
         });
         getFunction2.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'obj',
             type: fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create(),
+            hasDeclaredType: true,
         });
         getFunction2.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'type',
             type: AnyType.create(),
+            hasDeclaredType: true,
             hasDefault: true,
             defaultType: AnyType.create(),
         });
@@ -10224,11 +10240,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 category: ParameterCategory.Simple,
                 name: 'self',
                 type: propertyObject,
+                hasDeclaredType: true,
             });
             accessorFunction.details.parameters.push({
                 category: ParameterCategory.Simple,
                 name: 'accessor',
                 type: AnyType.create(),
+                hasDeclaredType: true,
             });
             accessorFunction.details.declaredReturnType = propertyObject;
             const accessorSymbol = Symbol.createWithType(SymbolFlags.ClassMember, accessorFunction);
@@ -10306,11 +10324,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             category: ParameterCategory.Simple,
             name: 'self',
             type: fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create(),
+            hasDeclaredType: true,
         });
         setFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'obj',
             type: propertyObject,
+            hasDeclaredType: true,
         });
         setFunction.details.declaredReturnType = NoneType.createInstance();
         let setParamType: Type = UnknownType.create();
@@ -10325,6 +10345,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             category: ParameterCategory.Simple,
             name: 'value',
             type: setParamType,
+            hasDeclaredType: true,
         });
         const setSymbol = Symbol.createWithType(SymbolFlags.ClassMember, setFunction);
         fields.set('__set__', setSymbol);
@@ -10369,11 +10390,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             category: ParameterCategory.Simple,
             name: 'self',
             type: fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create(),
+            hasDeclaredType: true,
         });
         delFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'obj',
             type: propertyObject,
+            hasDeclaredType: true,
         });
         delFunction.details.declaredReturnType = NoneType.createInstance();
         const delSymbol = Symbol.createWithType(SymbolFlags.ClassMember, delFunction);
