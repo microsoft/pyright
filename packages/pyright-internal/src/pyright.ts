@@ -18,13 +18,14 @@ import commandLineArgs from 'command-line-args';
 import { CommandLineOptions, OptionDefinition } from 'command-line-args';
 import * as process from 'process';
 
+import { PackageTypeVerifier, PackageTypeReport, PackageSymbolType } from './analyzer/packageTypeVerifier';
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
 import { NullConsole } from './common/console';
 import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
-import { createFromRealFileSystem } from './common/fileSystem';
+import { createFromRealFileSystem, FileSystem } from './common/fileSystem';
 import { isEmptyRange, Range } from './common/textRange';
 
 const toolName = 'pyright';
@@ -41,6 +42,31 @@ interface PyrightJsonResults {
     time: string;
     diagnostics: PyrightJsonDiagnostic[];
     summary: PyrightJsonSummary;
+    typeCompleteness?: PyrightTypeCompletenessReport;
+}
+
+interface PyrightTypeCompletenessReport {
+    packageName: string;
+    packageRootDirectory?: string;
+    pyTypedPath?: string;
+    symbolCount: number;
+    unknownTypeCount: number;
+    missingDocStringCount: number;
+    missingDefaultParamCount: number;
+    completnessScore: number;
+    modules: PyrightPublicModuleReport[];
+}
+
+interface PyrightPublicModuleReport {
+    name: string;
+    symbols: PyrightPublicSymbolReport[];
+}
+
+interface PyrightPublicSymbolReport {
+    name: string;
+    fullName: string;
+    symbolType: string;
+    diagnostics: PyrightJsonDiagnostic[];
 }
 
 interface PyrightJsonDiagnostic {
@@ -89,6 +115,7 @@ function processArgs() {
         { name: 'stats' },
         { name: 'typeshed-path', alias: 't', type: String },
         { name: 'venv-path', alias: 'v', type: String },
+        { name: 'verifytypes', type: String },
         { name: 'verbose', type: Boolean },
         { name: 'version', type: Boolean },
         { name: 'watch', alias: 'w', type: Boolean },
@@ -124,6 +151,16 @@ function processArgs() {
         for (const arg of incompatibleArgs) {
             if (args[arg] !== undefined) {
                 console.error(`'outputjson' option cannot be used with '${arg}' option`);
+                return;
+            }
+        }
+    }
+
+    if (args['verifytypes'] !== undefined) {
+        const incompatibleArgs = ['watch', 'stats', 'createstub', 'dependencies'];
+        for (const arg of incompatibleArgs) {
+            if (args[arg] !== undefined) {
+                console.error(`'verifytypes' option cannot be used with '${arg}' option`);
                 return;
             }
         }
@@ -176,6 +213,11 @@ function processArgs() {
     const output = args.outputjson ? new NullConsole() : undefined;
     const realFileSystem = createFromRealFileSystem(output);
 
+    // The package type verification uses a different path.
+    if (args['verifytypes'] !== undefined) {
+        verifyPackageTypes(realFileSystem, args['verifytypes'] || '', !!args.verbose, !!args.outputjson);
+    }
+
     const watch = args.watch !== undefined;
     options.watchForSourceChanges = watch;
 
@@ -191,7 +233,7 @@ function processArgs() {
         }
 
         let errorCount = 0;
-        if (results.diagnostics.length > 0 && !args.createstub) {
+        if (results.diagnostics.length > 0 && !args.createstub && !args['verifytypes']) {
             if (args.outputjson) {
                 const report = reportDiagnosticsAsJson(
                     results.diagnostics,
@@ -254,6 +296,170 @@ function processArgs() {
         // Do nothing.
     });
     brokenPromise.then().catch();
+}
+
+function verifyPackageTypes(
+    realFileSystem: FileSystem,
+    packageName: string,
+    verboseOutput: boolean,
+    outputJson: boolean
+): never {
+    try {
+        const verifier = new PackageTypeVerifier(realFileSystem);
+        const report = verifier.verify(packageName);
+        const jsonReport = buildTypeCompletenessReport(packageName, report);
+
+        if (outputJson) {
+            console.log(JSON.stringify(jsonReport, undefined, 4));
+        } else {
+            printTypeCompletenessReportText(jsonReport, verboseOutput);
+        }
+
+        process.exit(
+            jsonReport.typeCompleteness!.completnessScore < 1 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors
+        );
+    } catch (err) {
+        let errMessage = '';
+        if (err instanceof Error) {
+            errMessage = ': ' + err.message;
+        }
+
+        console.error(`Error occurred when verifying types: ` + errMessage);
+        process.exit(ExitStatus.FatalError);
+    }
+}
+
+function buildTypeCompletenessReport(packageName: string, completenessReport: PackageTypeReport): PyrightJsonResults {
+    const report: PyrightJsonResults = {
+        version: getVersionString(),
+        time: Date.now().toString(),
+        diagnostics: [],
+        summary: {
+            filesAnalyzed: completenessReport.modules.length,
+            errorCount: 0,
+            warningCount: 0,
+            informationCount: 0,
+            timeInSec: timingStats.getTotalDuration(),
+        },
+    };
+
+    // Add the general diagnostics.
+    completenessReport.diagnostics.forEach((diag) => {
+        const jsonDiag = convertDiagnosticToJson('', diag);
+        report.diagnostics.push(jsonDiag);
+
+        if (jsonDiag.severity === 'error') {
+            report.summary.errorCount++;
+        } else if (jsonDiag.severity === 'warning') {
+            report.summary.warningCount++;
+        } else if (jsonDiag.severity === 'information') {
+            report.summary.informationCount++;
+        }
+    });
+
+    report.typeCompleteness = {
+        packageName,
+        packageRootDirectory: completenessReport.rootDirectory,
+        pyTypedPath: completenessReport.pyTypedPath,
+        symbolCount: completenessReport.symbolCount,
+        unknownTypeCount: completenessReport.unknownTypeCount,
+        missingDocStringCount: completenessReport.missingDocStringCount,
+        missingDefaultParamCount: completenessReport.missingDefaultParamCount,
+        completnessScore: 0,
+        modules: [],
+    };
+
+    // Add the modules.
+    completenessReport.modules.forEach((module) => {
+        const jsonModule: PyrightPublicModuleReport = {
+            name: module.name,
+            symbols: [],
+        };
+
+        module.symbols.forEach((symbol) => {
+            const jsonSymbol: PyrightPublicSymbolReport = {
+                name: symbol.name,
+                fullName: symbol.fullName,
+                symbolType: PackageTypeVerifier.getSymbolTypeString(symbol.symbolType),
+                diagnostics: [],
+            };
+
+            jsonModule.symbols.push(jsonSymbol);
+        });
+
+        report.typeCompleteness!.modules.push(jsonModule);
+    });
+
+    if (completenessReport.symbolCount > 0) {
+        report.typeCompleteness!.completnessScore =
+            (completenessReport.symbolCount - completenessReport.unknownTypeCount) / completenessReport.symbolCount;
+    }
+
+    return report;
+}
+
+function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOutput: boolean) {
+    const completenessReport = results.typeCompleteness!;
+
+    console.log(`Package name: "${completenessReport.packageName}"`);
+    if (completenessReport.packageRootDirectory !== undefined) {
+        console.log(`Package directory: "${completenessReport.packageRootDirectory}"`);
+    }
+
+    if (completenessReport.pyTypedPath !== undefined) {
+        console.log(`Path of py.typed file: "${completenessReport.pyTypedPath}"`);
+    }
+
+    // Print all the diagnostics.
+    results.diagnostics.forEach((diag) => {
+        logDiagnosticToConsole(diag);
+    });
+
+    // Print diagnostics for each symbol.
+    completenessReport.modules.forEach((module) => {
+        for (const symbol of module.symbols) {
+            if (symbol.diagnostics.length > 0 || verboseOutput) {
+                symbol.diagnostics.forEach((diag) => {
+                    logDiagnosticToConsole(diag, '');
+                });
+            }
+        }
+    });
+
+    // Print other stats.
+    if (completenessReport.modules.length > 0) {
+        console.log('');
+        console.log(`Public modules: ${completenessReport.modules.length}`);
+        completenessReport.modules.forEach((module) => {
+            console.log(
+                `   ${module.name} (${module.symbols.length} ${module.symbols.length === 1 ? 'symbol' : 'symbols'})`
+            );
+
+            if (verboseOutput) {
+                for (const symbol of module.symbols) {
+                    let message = '      ';
+                    if (symbol.diagnostics.find((diag) => diag.severity === 'error')) {
+                        message += chalk.red(symbol.fullName);
+                    } else if (symbol.diagnostics.find((diag) => diag.severity === 'warning')) {
+                        message += chalk.cyan(symbol.fullName);
+                    } else {
+                        message += symbol.fullName;
+                    }
+                    message += ` (${symbol.symbolType})`;
+                    console.log(message);
+                }
+            }
+        });
+    }
+
+    console.log('');
+    console.log(`Public symbols: ${completenessReport.symbolCount}`);
+    console.log(`  Symbols with unknown type: ${completenessReport.unknownTypeCount}`);
+    console.log(`  Symbols with missing docstring: ${completenessReport.missingDocStringCount}`);
+    console.log(`  Symbols with missing default param: ${completenessReport.missingDefaultParamCount}`);
+    console.log(`Type completeness score: ${Math.round(completenessReport.completnessScore * 1000) / 10}%`);
+    console.log('');
+    console.info(`Completed in ${results.summary.timeInSec}sec`);
 }
 
 function printUsage() {

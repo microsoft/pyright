@@ -64,6 +64,7 @@ import { SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
 import { createTypeEvaluator, PrintTypeFlags, TypeEvaluator } from './typeEvaluator';
+import { Type } from './types';
 import { TypeStubWriter } from './typeStubWriter';
 
 const _maxImportDepth = 256;
@@ -560,6 +561,13 @@ export class Program {
 
         const evaluator = this._evaluator || this._createNewEvaluator();
         return evaluator.getEffectiveTypeOfSymbol(symbol);
+    }
+
+    printType(type: Type, expandTypeAlias: boolean): string {
+        this._handleMemoryHighUsage();
+
+        const evaluator = this._evaluator || this._createNewEvaluator();
+        return evaluator.printType(type, expandTypeAlias);
     }
 
     private static _getPrintTypeFlags(configOptions: ConfigOptions): PrintTypeFlags {
