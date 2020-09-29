@@ -776,6 +776,13 @@ export class PackageTypeVerifier {
                 const cachedTypeInfo = this._typeCache.get(type.details.fullName);
                 if (cachedTypeInfo) {
                     typeInfo = cachedTypeInfo;
+                } else if (ClassType.isBuiltIn(type)) {
+                    // Don't bother type-checking built-in types.
+                    typeInfo = {
+                        isFullyKnown: true,
+                        diag: diag,
+                        classFields: undefined,
+                    };
                 } else {
                     // Create a dummy entry in the cache to handle recursion. We'll replace
                     // this once we fully analyze this class type.
@@ -841,6 +848,7 @@ export class PackageTypeVerifier {
                                 currentSymbol,
                                 typeStack
                             );
+
                             if (mroClassInfo.classFields) {
                                 // Determine which base class contributed this ancestor class to the MRO.
                                 // We want to determine whether that base class is a public class within
@@ -885,18 +893,20 @@ export class PackageTypeVerifier {
                         }
                     });
 
+                    // Add information for base classes.
                     type.details.baseClasses.forEach((baseClass, index) => {
                         const baseClassDiag = new DiagnosticAddendum();
                         if (!isClass(baseClass)) {
                             baseClassDiag.addMessage(`Type unknown for base class ${index + 1}`);
                             isKnown = false;
-                        } else {
+                        } else if (!ClassType.isBuiltIn(baseClass)) {
                             const classInfo = this._validateClassTypeIsCompletelyKnown(
                                 baseClass,
                                 publicSymbolMap,
                                 currentSymbol,
                                 typeStack
                             );
+
                             if (!classInfo.isFullyKnown) {
                                 baseClassDiag.addMessage(
                                     `Type partially unknown for base class "${this._program.printType(
