@@ -4232,7 +4232,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (ClassType.isSpecialBuiltIn(subtype, 'Literal')) {
                     // Special-case Literal types.
-                    return createLiteralType(node);
+                    return createLiteralType(node, flags);
                 }
 
                 if (ClassType.isBuiltIn(subtype, 'InitVar')) {
@@ -8468,7 +8468,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Creates a type that represents a Literal. This is not an officially-supported
     // feature of Python but is instead a mypy extension described here:
     // https://mypy.readthedocs.io/en/latest/literal_types.html
-    function createLiteralType(node: IndexNode): Type {
+    function createLiteralType(node: IndexNode, flags: EvaluatorFlags): Type {
         if (node.items.items.length === 0) {
             addError(Localizer.Diagnostic.literalEmptyArgs(), node.baseExpression);
             return UnknownType.create();
@@ -8537,8 +8537,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (!type) {
-                addError(Localizer.Diagnostic.literalUnsupportedType(), item);
-                type = UnknownType.create();
+                if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
+                    addError(Localizer.Diagnostic.literalUnsupportedType(), item);
+                    type = UnknownType.create();
+                } else {
+                    // This is a Literal[x] used in a context where we were not
+                    // expecting a type. Treat it as an "Any" type.
+                    type = AnyType.create();
+                }
             }
 
             literalTypes.push(type);

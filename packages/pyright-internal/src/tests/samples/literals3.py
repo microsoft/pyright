@@ -3,23 +3,27 @@
 from enum import Enum
 from typing import Literal
 
+
 class SomeEnum(Enum):
-    SOME_ENUM_VALUE1 = '1'
-    SOME_ENUM_VALUE2 = '2'
-    SOME_ENUM_VALUE3 = '3'
+    SOME_ENUM_VALUE1 = "1"
+    SOME_ENUM_VALUE2 = "2"
+    SOME_ENUM_VALUE3 = "3"
+
 
 class Foo:
     pass
 
+
 # This should generate an error because Foo is not an
 # allowed literal value.
-L0 = Literal["hi", Foo()]
+a: Literal["hi", Foo()]
 
 # This should generate an error because SomeEnum is not an
 # allowed literal value.
-L1 = Literal["hi", SomeEnum]
+b: Literal["hi", SomeEnum]
 
 L2 = Literal["hi", SomeEnum.SOME_ENUM_VALUE1]
+
 
 def foo(a: int) -> L2:
     if a > 3:
@@ -34,4 +38,3 @@ def foo(a: int) -> L2:
         # This should generate an error because it's
         # not part of the L1 literal.
         return "bye"
-
