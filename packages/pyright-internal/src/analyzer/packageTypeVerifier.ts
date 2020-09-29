@@ -893,6 +893,43 @@ export class PackageTypeVerifier {
                         }
                     });
 
+                    // Add information for the metaclass.
+                    if (type.details.effectiveMetaclass) {
+                        if (!isClass(type.details.effectiveMetaclass)) {
+                            diag.addMessage(`Type for metaclass is unknown`);
+                            isKnown = false;
+                        } else if (!ClassType.isBuiltIn(type.details.effectiveMetaclass)) {
+                            const metaclassInfo = this._validateClassTypeIsCompletelyKnown(
+                                type.details.effectiveMetaclass,
+                                publicSymbolMap,
+                                currentSymbol,
+                                typeStack
+                            );
+
+                            const metaclassDiag = new DiagnosticAddendum();
+                            let isMetaclassKnown = true;
+                            if (!metaclassInfo.isFullyKnown) {
+                                metaclassDiag.addAddendum(metaclassInfo.diag);
+                                isMetaclassKnown = false;
+                            }
+
+                            metaclassInfo.classFields?.forEach((info) => {
+                                if (!info.isFullyKnown) {
+                                    metaclassDiag.addAddendum(info.diag);
+                                    isMetaclassKnown = false;
+                                }
+                            });
+
+                            if (!isMetaclassKnown) {
+                                metaclassDiag.addMessage(
+                                    `Type of metaclass "${type.details.effectiveMetaclass.details.fullName}" is partially unknown`
+                                );
+                                diag.addAddendum(metaclassDiag);
+                                isKnown = false;
+                            }
+                        }
+                    }
+
                     // Add information for base classes.
                     type.details.baseClasses.forEach((baseClass, index) => {
                         const baseClassDiag = new DiagnosticAddendum();
