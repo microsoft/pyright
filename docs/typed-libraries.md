@@ -36,7 +36,6 @@ Each module exposes a set of symbols. Some of these symbols are considered “pr
 * A module can expose an `__all__` symbol at the module level that provides a list of names that are considered part of the interface. This overrides all other rules above, allowing imported symbols or symbols whose names begin with an underscore to be included in the interface.
 * Local variables within a function (including nested functions) are always considered private.
 
-### __all__
 The following idioms are supported for defining the values contained within `__all__`. These restrictions allow type checkers to statically determine the value of `__all__`.
 
 * `__all__ = ['a', b']`
