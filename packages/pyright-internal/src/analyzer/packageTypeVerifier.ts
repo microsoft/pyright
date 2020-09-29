@@ -12,7 +12,7 @@ import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Diagnostic, DiagnosticAddendum, DiagnosticCategory } from '../common/diagnostic';
 import { FileSystem } from '../common/fileSystem';
 import { combinePaths, getDirectoryPath, getFileExtension, stripFileExtension } from '../common/pathUtils';
-import { getEmptyRange } from '../common/textRange';
+import { getEmptyRange, Range } from '../common/textRange';
 import { DeclarationType, FunctionDeclaration, VariableDeclaration } from './declaration';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { Program } from './program';
@@ -63,7 +63,8 @@ export interface PackageTypeReport {
     pyTypedPath: string | undefined;
     symbolCount: number;
     unknownTypeCount: number;
-    missingDocStringCount: number;
+    missingFunctionDocStringCount: number;
+    missingClassDocStringCount: number;
     missingDefaultParamCount: number;
     modules: PackageModule[];
     diagnostics: Diagnostic[];
@@ -111,7 +112,8 @@ export class PackageTypeVerifier {
             pyTypedPath: undefined,
             symbolCount: 0,
             unknownTypeCount: 0,
-            missingDocStringCount: 0,
+            missingFunctionDocStringCount: 0,
+            missingClassDocStringCount: 0,
             missingDefaultParamCount: 0,
             modules: [],
             diagnostics: [],
@@ -244,18 +246,6 @@ export class PackageTypeVerifier {
         }
     }
 
-    private _isSymbolTypeImplied(scopeType: ScopeType, name: string) {
-        if (scopeType === ScopeType.Class) {
-            const knownClassSymbols = ['__slots__', '__dict__', '__doc__', '__module__', '__class__'];
-            return knownClassSymbols.some((sym) => sym === name);
-        } else if (scopeType === ScopeType.Module) {
-            const knownModuleSymbols = ['__all__'];
-            return knownModuleSymbols.some((sym) => sym === name);
-        }
-
-        return false;
-    }
-
     private _getPublicSymbolsInSymbolTable(
         symbolMap: PublicSymbolMap,
         module: PackageModule,
@@ -267,31 +257,28 @@ export class PackageTypeVerifier {
             if (
                 !isPrivateOrProtectedName(name) &&
                 !symbol.isExternallyHidden() &&
-                !symbol.isIgnoredForProtocolMatch()
+                !symbol.isIgnoredForProtocolMatch() &&
+                !this._isSymbolTypeImplied(scopeType, name)
             ) {
-                const isModuleDunder = scopeType === ScopeType.Module && isDunderName(name);
+                const fullName = `${scopeName}.${name}`;
+                const symbolType = this._program.getTypeForSymbol(symbol);
+                symbolMap.set(fullName, fullName);
 
-                if (!isModuleDunder) {
-                    const fullName = `${scopeName}.${name}`;
-                    const symbolType = this._program.getTypeForSymbol(symbol);
-                    symbolMap.set(fullName, fullName);
+                const typedDecls = symbol.getTypedDeclarations();
 
-                    const typedDecls = symbol.getTypedDeclarations();
-
-                    // Is this a class declared within this module or class? If so, verify
-                    // the symbols defined within it.
-                    if (typedDecls.length > 0) {
-                        const classDecl = typedDecls.find((decl) => decl.type === DeclarationType.Class);
-                        if (classDecl) {
-                            if (isClass(symbolType)) {
-                                this._getPublicSymbolsInSymbolTable(
-                                    symbolMap,
-                                    module,
-                                    fullName,
-                                    symbolType.details.fields,
-                                    ScopeType.Class
-                                );
-                            }
+                // Is this a class declared within this module or class? If so, verify
+                // the symbols defined within it.
+                if (typedDecls.length > 0) {
+                    const classDecl = typedDecls.find((decl) => decl.type === DeclarationType.Class);
+                    if (classDecl) {
+                        if (isClass(symbolType)) {
+                            this._getPublicSymbolsInSymbolTable(
+                                symbolMap,
+                                module,
+                                fullName,
+                                symbolType.details.fields,
+                                ScopeType.Class
+                            );
                         }
                     }
                 }
@@ -413,7 +400,7 @@ export class PackageTypeVerifier {
         symbolTable: SymbolTable,
         scopeType: ScopeType,
         publicSymbolMap: PublicSymbolMap,
-        excludeSymbol: string
+        currentSymbol: string
     ) {
         symbolTable.forEach((symbol, name) => {
             if (
@@ -441,15 +428,15 @@ export class PackageTypeVerifier {
                 if (!this._isSymbolTypeImplied(scopeType, name)) {
                     if (isUnknown(symbolType)) {
                         if (typedDecls.length === 0) {
-                            errorMessage = `Type is not declared for ${packageSymbolTypeText} "${fullName}"`;
+                            errorMessage = `Type not declared for ${packageSymbolTypeText} "${fullName}"`;
                         } else {
-                            errorMessage = `Type is unknown for ${packageSymbolTypeText} "${fullName}"`;
+                            errorMessage = `Type unknown for ${packageSymbolTypeText} "${fullName}"`;
                         }
                     } else {
                         const diag = new DiagnosticAddendum();
-                        if (!this._validateTypeIsCompletelyKnown(symbolType, diag, publicSymbolMap, fullName)) {
+                        if (!this._validateTypeIsCompletelyKnown(symbolType, diag, publicSymbolMap, fullName, [])) {
                             errorMessage =
-                                `Type is partially unknown for ${packageSymbolTypeText} "${fullName}"` +
+                                `Type partially unknown for ${packageSymbolTypeText} "${fullName}"` +
                                 diag.getString(diagnosticMaxDepth, diagnosticMaxLineCount);
                         }
                     }
@@ -466,21 +453,6 @@ export class PackageTypeVerifier {
                     const classDecl = typedDecls.find((decl) => decl.type === DeclarationType.Class);
                     if (classDecl) {
                         if (isClass(symbolType)) {
-                            const typeInfo = this._validateClassTypeIsCompletelyKnown(
-                                symbolType,
-                                publicSymbolMap,
-                                excludeSymbol
-                            );
-                            if (!typeInfo.isFullyKnown) {
-                                report.diagnostics.push(
-                                    new Diagnostic(
-                                        DiagnosticCategory.Error,
-                                        `Type is partially unknown for class "${fullName}"` + typeInfo.diag.getString(),
-                                        getEmptyRange()
-                                    )
-                                );
-                            }
-
                             // Determine whether the class has a proper doc string.
                             if (!symbolType.details.docString) {
                                 report.diagnostics.push(
@@ -491,7 +463,7 @@ export class PackageTypeVerifier {
                                     )
                                 );
 
-                                report.missingDocStringCount++;
+                                report.missingClassDocStringCount++;
                             }
 
                             this._verifySymbolsInSymbolTable(
@@ -501,7 +473,7 @@ export class PackageTypeVerifier {
                                 symbolType.details.fields,
                                 ScopeType.Class,
                                 publicSymbolMap,
-                                excludeSymbol
+                                currentSymbol
                             );
                         }
                     }
@@ -551,7 +523,7 @@ export class PackageTypeVerifier {
                                     )
                                 );
 
-                                report.missingDocStringCount++;
+                                report.missingFunctionDocStringCount++;
                             }
                         }
 
@@ -572,16 +544,23 @@ export class PackageTypeVerifier {
         });
     }
 
+    private _pushType<T>(typeStack: string[], typeToPush: string, callback: () => T) {
+        typeStack.push(typeToPush);
+        const result = callback();
+        typeStack.pop();
+        return result;
+    }
+
     // If the type contains a reference to a module or a class, determines
     // whether all of the types used by that module or class are known.
     private _validateTypeIsCompletelyKnown(
         type: Type,
         diag: DiagnosticAddendum,
         publicSymbolMap: PublicSymbolMap,
-        excludeSymbol: string,
-        recursionCount = 0
+        currentSymbol: string,
+        typeStack: string[]
     ): boolean {
-        if (recursionCount > maxTypeRecursionCount) {
+        if (typeStack.length > maxTypeRecursionCount) {
             return true;
         }
 
@@ -604,8 +583,8 @@ export class PackageTypeVerifier {
                     type.classType,
                     diag,
                     publicSymbolMap,
-                    excludeSymbol,
-                    recursionCount + 1
+                    currentSymbol,
+                    typeStack
                 );
             }
 
@@ -617,8 +596,8 @@ export class PackageTypeVerifier {
                             overload,
                             diag.createAddendum(),
                             publicSymbolMap,
-                            excludeSymbol,
-                            recursionCount + 1
+                            currentSymbol,
+                            typeStack
                         )
                     ) {
                         isKnown = false;
@@ -636,8 +615,8 @@ export class PackageTypeVerifier {
                             subtype,
                             diag.createAddendum(),
                             publicSymbolMap,
-                            excludeSymbol,
-                            recursionCount + 1
+                            currentSymbol,
+                            typeStack
                         )
                     ) {
                         isKnown = false;
@@ -664,18 +643,18 @@ export class PackageTypeVerifier {
                                 isKnown = false;
                             }
                         } else if (isUnknown(param.type)) {
-                            subDiag.addMessage(`Type is unknown for parameter "${param.name}"`);
+                            subDiag.addMessage(`Type unknown for parameter "${param.name}"`);
                             isKnown = false;
                         } else if (
                             !this._validateTypeIsCompletelyKnown(
                                 param.type,
                                 subDiag.createAddendum(),
                                 publicSymbolMap,
-                                excludeSymbol,
-                                recursionCount + 1
+                                currentSymbol,
+                                typeStack
                             )
                         ) {
-                            subDiag.addMessage(`Type is partially unknown for parameter "${param.name}"`);
+                            subDiag.addMessage(`Type partially unknown for parameter "${param.name}"`);
                             isKnown = false;
                         }
                     }
@@ -684,18 +663,18 @@ export class PackageTypeVerifier {
                 if (type.details.declaredReturnType) {
                     const subDiag = diag.createAddendum();
                     if (isUnknown(type.details.declaredReturnType)) {
-                        subDiag.addMessage(`Return type is unknown`);
+                        subDiag.addMessage(`Return type unknown`);
                         isKnown = false;
                     } else if (
                         !this._validateTypeIsCompletelyKnown(
                             type.details.declaredReturnType,
                             subDiag.createAddendum(),
                             publicSymbolMap,
-                            excludeSymbol,
-                            recursionCount + 1
+                            currentSymbol,
+                            typeStack
                         )
                     ) {
-                        subDiag.addMessage(`Return type is partially unknown`);
+                        subDiag.addMessage(`Return type partially unknown`);
                         isKnown = false;
                     }
                 } else {
@@ -714,42 +693,45 @@ export class PackageTypeVerifier {
                 const typeInfo = this._validateClassTypeIsCompletelyKnown(
                     type,
                     publicSymbolMap,
-                    excludeSymbol,
-                    recursionCount + 1
+                    currentSymbol,
+                    typeStack
                 );
 
-                const classDiag = diag.createAddendum();
-
-                // Add any errors for the base classes, type arguments, etc.
                 let isKnown = typeInfo.isFullyKnown;
-                if (!isKnown) {
-                    classDiag.addAddendum(typeInfo.diag);
-                }
 
-                // Add any errors for the fields.
-                if (typeInfo.classFields) {
-                    typeInfo.classFields.forEach((info) => {
-                        if (!info.isFullyKnown) {
-                            classDiag.addAddendum(info.diag);
-                            isKnown = false;
-                        }
-                    });
-                }
+                if (currentSymbol === type.details.fullName || !publicSymbolMap.has(type.details.fullName)) {
+                    const classDiag = diag.createAddendum();
 
-                if (!isKnown) {
-                    classDiag.addMessage(
-                        `Type is partially unknown for class "${this._program.printType(
-                            convertToInstance(type),
-                            /* expandTypeAlias */ false
-                        )}"`
-                    );
+                    // Add any errors for the base classes, type arguments, etc.
+                    if (!isKnown) {
+                        classDiag.addAddendum(typeInfo.diag);
+                    }
+
+                    // Add any errors for the fields.
+                    if (typeInfo.classFields) {
+                        typeInfo.classFields.forEach((info) => {
+                            if (!info.isFullyKnown) {
+                                classDiag.addAddendum(info.diag);
+                                isKnown = false;
+                            }
+                        });
+                    }
+
+                    if (!isKnown) {
+                        classDiag.addMessage(
+                            `Type partially unknown for class "${this._program.printType(
+                                convertToInstance(type),
+                                /* expandTypeAlias */ false
+                            )}"`
+                        );
+                    }
                 }
 
                 return isKnown;
             }
 
             case TypeCategory.Module: {
-                const typeInfo = this._validateModuleTypeIsCompletelyKnown(type, publicSymbolMap, recursionCount + 1);
+                const typeInfo = this._validateModuleTypeIsCompletelyKnown(type, publicSymbolMap, typeStack);
 
                 if (!typeInfo.isFullyKnown) {
                     diag.addAddendum(typeInfo.diag);
@@ -763,24 +745,25 @@ export class PackageTypeVerifier {
     private _validateClassTypeIsCompletelyKnown(
         type: ClassType,
         publicSymbolMap: PublicSymbolMap,
-        excludeSymbol: string,
-        recursionCount = 0
+        currentSymbol: string,
+        typeStack: string[]
     ): TypeVerificationInfo {
-        let typeInfo: TypeVerificationInfo;
+        let typeInfo: TypeVerificationInfo | undefined;
         const diag = new DiagnosticAddendum();
 
         // Is this class is in the public symbol list and is not the class
         // that we're explicitly excluding from the public symbol list? If
-        // so, indicate that it is fully known. If there are portions that
-        // are unknown, those will be reported separately.
-        if (excludeSymbol !== type.details.fullName && publicSymbolMap.has(type.details.fullName)) {
+        // so, indicate that it is fully known. Any parts of the type that
+        // are unknown will be repoted when that public symbol is analyzed.
+        if (currentSymbol !== type.details.fullName && publicSymbolMap.has(type.details.fullName)) {
             typeInfo = {
                 isFullyKnown: true,
                 diag,
                 classFields: undefined,
             };
         } else {
-            if (recursionCount > maxTypeRecursionCount) {
+            // Prevent type recursion.
+            if (typeStack.some((entry) => entry === type.details.fullName)) {
                 return {
                     isFullyKnown: true,
                     diag,
@@ -788,199 +771,208 @@ export class PackageTypeVerifier {
                 };
             }
 
-            // See if this class has already been analyzed.
-            const cachedTypeInfo = this._typeCache.get(type.details.fullName);
-            if (cachedTypeInfo) {
-                typeInfo = cachedTypeInfo;
-            } else {
-                // Create a dummy entry in the cache to handle recursion. We'll replace
-                // this once we fully analyze this class type.
-                this._typeCache.set(type.details.fullName, {
-                    isFullyKnown: true,
-                    diag: diag,
-                    classFields: undefined,
-                });
+            this._pushType(typeStack, type.details.fullName, () => {
+                // See if this class has already been analyzed.
+                const cachedTypeInfo = this._typeCache.get(type.details.fullName);
+                if (cachedTypeInfo) {
+                    typeInfo = cachedTypeInfo;
+                } else {
+                    // Create a dummy entry in the cache to handle recursion. We'll replace
+                    // this once we fully analyze this class type.
+                    this._typeCache.set(type.details.fullName, {
+                        isFullyKnown: true,
+                        diag: diag,
+                        classFields: undefined,
+                    });
 
-                const classFieldMap = new Map<string, TypeVerificationInfo>();
-                let isKnown = true;
+                    const classFieldMap = new Map<string, TypeVerificationInfo>();
+                    let isKnown = true;
 
-                type.details.fields.forEach((symbol, name) => {
-                    if (
-                        !isPrivateOrProtectedName(name) &&
-                        !symbol.isExternallyHidden() &&
-                        !symbol.isIgnoredForProtocolMatch()
-                    ) {
-                        const symbolType = this._program.getTypeForSymbol(symbol);
-                        const packageSymbolType = this._getPackageSymbolType(symbol, symbolType);
-                        const symbolTypeText = PackageTypeVerifier.getSymbolTypeString(packageSymbolType);
-                        const symbolDiag = new DiagnosticAddendum();
+                    type.details.fields.forEach((symbol, name) => {
+                        if (
+                            !isPrivateOrProtectedName(name) &&
+                            !symbol.isExternallyHidden() &&
+                            !symbol.isIgnoredForProtocolMatch()
+                        ) {
+                            const symbolType = this._program.getTypeForSymbol(symbol);
+                            const packageSymbolType = this._getPackageSymbolType(symbol, symbolType);
+                            const symbolTypeText = PackageTypeVerifier.getSymbolTypeString(packageSymbolType);
+                            const symbolDiag = new DiagnosticAddendum();
 
-                        if (!this._isSymbolTypeImplied(ScopeType.Class, name)) {
-                            if (isUnknown(symbolType)) {
-                                symbolDiag.addMessage(`Type is unknown for ${symbolTypeText} "${name}"`);
-                                diag.addAddendum(symbolDiag);
-                            } else if (
-                                !this._validateTypeIsCompletelyKnown(
-                                    symbolType,
-                                    symbolDiag.createAddendum(),
-                                    publicSymbolMap,
-                                    excludeSymbol,
-                                    recursionCount + 1
-                                )
-                            ) {
-                                symbolDiag.addMessage(`Type is partially unknown for ${symbolTypeText} "${name}"`);
-                                diag.addAddendum(symbolDiag);
-                            }
-                        }
-
-                        classFieldMap.set(name, {
-                            isFullyKnown: symbolDiag.isEmpty(),
-                            diag: symbolDiag,
-                            classFields: undefined,
-                        });
-                    }
-                });
-
-                // Add field information for base classes if it is not overridden by
-                // earlier classes in the MRO.
-                type.details.mro.forEach((mroType, index) => {
-                    // Ignore the first entry in the MRO list, which is the current class,
-                    // and we've already handled its fields above.
-                    if (index === 0) {
-                        return;
-                    }
-
-                    if (isClass(mroType)) {
-                        const mroClassInfo = this._validateClassTypeIsCompletelyKnown(
-                            mroType,
-                            publicSymbolMap,
-                            excludeSymbol,
-                            recursionCount + 1
-                        );
-                        if (mroClassInfo.classFields) {
-                            // Determine which base class contributed this ancestor class to the MRO.
-                            // We want to determine whether that base class is a public class within
-                            // this package. If so, we'll suppress reporting of errors here because
-                            // those errors would be redundant.
-                            const baseClass = mroType.details.baseClasses.find((baseClass) => {
-                                return (
-                                    isClass(baseClass) &&
-                                    baseClass.details.mro.some(
-                                        (baseClassMro) =>
-                                            isClass(baseClassMro) && ClassType.isSameGenericClass(baseClassMro, mroType)
+                            if (!this._isSymbolTypeImplied(ScopeType.Class, name)) {
+                                if (isUnknown(symbolType)) {
+                                    symbolDiag.addMessage(`Type unknown for ${symbolTypeText} "${name}"`);
+                                    diag.addAddendum(symbolDiag);
+                                } else if (
+                                    !this._validateTypeIsCompletelyKnown(
+                                        symbolType,
+                                        symbolDiag.createAddendum(),
+                                        publicSymbolMap,
+                                        currentSymbol,
+                                        typeStack
                                     )
-                                );
-                            }) as ClassType | undefined;
-                            const isBaseClassPublicSymbol =
-                                baseClass && publicSymbolMap.has(baseClass.details.fullName);
-
-                            mroClassInfo.classFields.forEach((info, name) => {
-                                if (!classFieldMap.has(name)) {
-                                    const reportError = !info.isFullyKnown && !isBaseClassPublicSymbol;
-
-                                    const diag = new DiagnosticAddendum();
-                                    if (reportError) {
-                                        diag.addAddendum(info.diag);
-                                        diag.addMessage(
-                                            `Type is partially unknown for symbol "${name}" defined in base class "${this._program.printType(
-                                                convertToInstance(mroType),
-                                                /* expandTypeAlias */ false
-                                            )}"`
-                                        );
-                                    }
-
-                                    classFieldMap.set(name, {
-                                        isFullyKnown: !reportError,
-                                        diag,
-                                        classFields: undefined,
-                                    });
+                                ) {
+                                    symbolDiag.addMessage(`Type partially unknown for ${symbolTypeText} "${name}"`);
+                                    diag.addAddendum(symbolDiag);
                                 }
+                            }
+
+                            classFieldMap.set(name, {
+                                isFullyKnown: symbolDiag.isEmpty(),
+                                diag: symbolDiag,
+                                classFields: undefined,
                             });
                         }
-                    }
-                });
+                    });
 
-                type.details.baseClasses.forEach((baseClass, index) => {
-                    const baseClassDiag = new DiagnosticAddendum();
-                    if (!isClass(baseClass)) {
-                        baseClassDiag.addMessage(`Type is unknown for base class ${index + 1}`);
-                        isKnown = false;
-                    } else {
-                        const classInfo = this._validateClassTypeIsCompletelyKnown(
-                            baseClass,
-                            publicSymbolMap,
-                            excludeSymbol,
-                            recursionCount + 1
-                        );
-                        if (!classInfo.isFullyKnown) {
-                            baseClassDiag.addMessage(
-                                `Type is partially unknown for base class "${this._program.printType(
-                                    convertToInstance(baseClass),
-                                    /* expandTypeAlias */ false
-                                )}"`
-                            );
-
-                            diag.addAddendum(classInfo.diag);
-                            isKnown = false;
+                    // Add field information for base classes if it is not overridden by
+                    // earlier classes in the MRO.
+                    type.details.mro.forEach((mroType, index) => {
+                        // Ignore the first entry in the MRO list, which is the current class,
+                        // and we've already handled its fields above.
+                        if (index === 0) {
+                            return;
                         }
-                    }
-                });
 
-                typeInfo = {
-                    isFullyKnown: isKnown,
-                    diag,
-                    classFields: classFieldMap,
-                };
+                        if (isClass(mroType)) {
+                            const mroClassInfo = this._validateClassTypeIsCompletelyKnown(
+                                mroType,
+                                publicSymbolMap,
+                                currentSymbol,
+                                typeStack
+                            );
+                            if (mroClassInfo.classFields) {
+                                // Determine which base class contributed this ancestor class to the MRO.
+                                // We want to determine whether that base class is a public class within
+                                // this package. If so, we'll suppress reporting of errors here because
+                                // those errors would be redundant.
+                                const baseClass = mroType.details.baseClasses.find((baseClass) => {
+                                    return (
+                                        isClass(baseClass) &&
+                                        baseClass.details.mro.some(
+                                            (baseClassMro) =>
+                                                isClass(baseClassMro) &&
+                                                ClassType.isSameGenericClass(baseClassMro, mroType)
+                                        )
+                                    );
+                                }) as ClassType | undefined;
+                                const isBaseClassPublicSymbol =
+                                    baseClass && publicSymbolMap.has(baseClass.details.fullName);
 
-                // Cache the information so we don't need to evaluate it multiple times.
-                this._typeCache.set(type.details.fullName, typeInfo);
-            }
-        }
+                                mroClassInfo.classFields.forEach((info, name) => {
+                                    if (!classFieldMap.has(name)) {
+                                        const reportError = !info.isFullyKnown && !isBaseClassPublicSymbol;
 
-        // Analyze type arguments if present to make sure they are known.
-        if (type.typeArguments) {
-            // Make a shallow copy of the typeInfo to avoid modifying the cached version.
-            const diag = new DiagnosticAddendum();
-            typeInfo.diag.getChildren().forEach((childDiag) => {
-                diag.addAddendum(childDiag);
-            });
+                                        const diag = new DiagnosticAddendum();
+                                        if (reportError) {
+                                            diag.addAddendum(info.diag);
+                                            diag.addMessage(
+                                                `Type partially unknown for symbol "${name}" defined in base class "${this._program.printType(
+                                                    convertToInstance(mroType),
+                                                    /* expandTypeAlias */ false
+                                                )}"`
+                                            );
+                                        }
 
-            typeInfo = {
-                isFullyKnown: typeInfo.isFullyKnown,
-                diag,
-                classFields: typeInfo.classFields,
-            };
+                                        classFieldMap.set(name, {
+                                            isFullyKnown: !reportError,
+                                            diag,
+                                            classFields: undefined,
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    });
 
-            type.typeArguments.forEach((typeArg, index) => {
-                const typeArgDiag = new DiagnosticAddendum();
+                    type.details.baseClasses.forEach((baseClass, index) => {
+                        const baseClassDiag = new DiagnosticAddendum();
+                        if (!isClass(baseClass)) {
+                            baseClassDiag.addMessage(`Type unknown for base class ${index + 1}`);
+                            isKnown = false;
+                        } else {
+                            const classInfo = this._validateClassTypeIsCompletelyKnown(
+                                baseClass,
+                                publicSymbolMap,
+                                currentSymbol,
+                                typeStack
+                            );
+                            if (!classInfo.isFullyKnown) {
+                                baseClassDiag.addMessage(
+                                    `Type partially unknown for base class "${this._program.printType(
+                                        convertToInstance(baseClass),
+                                        /* expandTypeAlias */ false
+                                    )}"`
+                                );
 
-                if (isUnknown(typeArg)) {
-                    typeArgDiag.addMessage(`Type is unknown for type argument ${index + 1}`);
-                    diag.addAddendum(typeArgDiag);
-                    typeInfo.isFullyKnown = false;
-                } else if (
-                    !this._validateTypeIsCompletelyKnown(
-                        typeArg,
-                        typeArgDiag,
-                        publicSymbolMap,
-                        excludeSymbol,
-                        recursionCount + 1
-                    )
-                ) {
-                    typeArgDiag.addMessage(`Type argument ${index + 1} is partially unknown`);
-                    diag.addAddendum(typeArgDiag);
-                    typeInfo.isFullyKnown = false;
+                                diag.addAddendum(classInfo.diag);
+                                isKnown = false;
+                            }
+                        }
+                    });
+
+                    typeInfo = {
+                        isFullyKnown: isKnown,
+                        diag,
+                        classFields: classFieldMap,
+                    };
+
+                    // Cache the information so we don't need to evaluate it multiple times.
+                    this._typeCache.set(type.details.fullName, typeInfo);
                 }
             });
         }
 
-        return typeInfo;
+        // Analyze type arguments if present to make sure they are known.
+        if (type.typeArguments) {
+            this._pushType(typeStack, type.details.fullName, () => {
+                // Make a shallow copy of the typeInfo to avoid modifying the cached version.
+                const diag = new DiagnosticAddendum();
+                typeInfo!.diag.getChildren().forEach((childDiag) => {
+                    diag.addAddendum(childDiag);
+                });
+
+                typeInfo = {
+                    isFullyKnown: typeInfo!.isFullyKnown,
+                    diag,
+                    classFields: typeInfo!.classFields,
+                };
+
+                type.typeArguments!.forEach((typeArg, index) => {
+                    const typeArgDiag = new DiagnosticAddendum();
+                    const typeVarText =
+                        index < type.details.typeParameters.length
+                            ? ` which corresponds to TypeVar ${type.details.typeParameters[index].details.name}`
+                            : '';
+
+                    if (isUnknown(typeArg)) {
+                        typeArgDiag.addMessage(`Type unknown for type argument ${index + 1}${typeVarText}`);
+                        diag.addAddendum(typeArgDiag);
+                        typeInfo!.isFullyKnown = false;
+                    } else if (
+                        !this._validateTypeIsCompletelyKnown(
+                            typeArg,
+                            typeArgDiag,
+                            publicSymbolMap,
+                            currentSymbol,
+                            typeStack
+                        )
+                    ) {
+                        typeArgDiag.addMessage(`Type partially unknown for type argument ${index + 1}${typeVarText}`);
+                        diag.addAddendum(typeArgDiag);
+                        typeInfo!.isFullyKnown = false;
+                    }
+                });
+            });
+        }
+
+        return typeInfo!;
     }
 
     private _validateModuleTypeIsCompletelyKnown(
         type: ModuleType,
         publicSymbolMap: PublicSymbolMap,
-        recursionCount: number
+        typeStack: string[]
     ): TypeVerificationInfo {
         // See if this module has already been analyzed.
         let typeInfo = this._typeCache.get(type.moduleName);
@@ -990,7 +982,7 @@ export class PackageTypeVerifier {
 
         const diag = new DiagnosticAddendum();
 
-        if (recursionCount > maxTypeRecursionCount) {
+        if (typeStack.length > maxTypeRecursionCount) {
             return {
                 isFullyKnown: true,
                 diag,
@@ -1005,7 +997,7 @@ export class PackageTypeVerifier {
                 !isPrivateOrProtectedName(name) &&
                 !symbol.isExternallyHidden() &&
                 !symbol.isIgnoredForProtocolMatch() &&
-                name !== '__all__'
+                !this._isSymbolTypeImplied(ScopeType.Module, name)
             ) {
                 const symbolType = this._program.getTypeForSymbol(symbol);
                 const packageSymbolType = this._getPackageSymbolType(symbol, symbolType);
@@ -1013,7 +1005,7 @@ export class PackageTypeVerifier {
                 const symbolDiag = new DiagnosticAddendum();
 
                 if (isUnknown(symbolType)) {
-                    symbolDiag.addMessage(`Type is unknown for ${symbolTypeText} "${name}"`);
+                    symbolDiag.addMessage(`Type unknown for ${symbolTypeText} "${name}"`);
                     diag.addAddendum(symbolDiag);
                     isKnown = false;
                 } else if (
@@ -1022,10 +1014,10 @@ export class PackageTypeVerifier {
                         symbolDiag.createAddendum(),
                         publicSymbolMap,
                         '',
-                        recursionCount + 1
+                        typeStack
                     )
                 ) {
-                    symbolDiag.addMessage(`Type is partially unknown for ${symbolTypeText} "${name}"`);
+                    symbolDiag.addMessage(`Type partially unknown for ${symbolTypeText} "${name}"`);
                     diag.addAddendum(symbolDiag);
                     isKnown = false;
                 }
@@ -1116,5 +1108,26 @@ export class PackageTypeVerifier {
         }
 
         return undefined;
+    }
+
+    private _isSymbolTypeImplied(scopeType: ScopeType, name: string) {
+        if (scopeType === ScopeType.Class) {
+            const knownClassSymbols = ['__class__', '__dict__', '__doc__', '__module__', '__slots__'];
+            return knownClassSymbols.some((sym) => sym === name);
+        } else if (scopeType === ScopeType.Module) {
+            const knownModuleSymbols = [
+                '__all__',
+                '__author__',
+                '__copyright__',
+                '__email__',
+                '__license__',
+                '__title__',
+                '__uri__',
+                '__version__',
+            ];
+            return knownModuleSymbols.some((sym) => sym === name);
+        }
+
+        return false;
     }
 }

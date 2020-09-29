@@ -51,7 +51,8 @@ interface PyrightTypeCompletenessReport {
     pyTypedPath?: string;
     symbolCount: number;
     unknownTypeCount: number;
-    missingDocStringCount: number;
+    missingFunctionDocStringCount: number;
+    missingClassDocStringCount: number;
     missingDefaultParamCount: number;
     completnessScore: number;
     modules: PyrightPublicModuleReport[];
@@ -66,7 +67,6 @@ interface PyrightPublicSymbolReport {
     name: string;
     fullName: string;
     symbolType: string;
-    diagnostics: PyrightJsonDiagnostic[];
 }
 
 interface PyrightJsonDiagnostic {
@@ -363,7 +363,8 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
         pyTypedPath: completenessReport.pyTypedPath,
         symbolCount: completenessReport.symbolCount,
         unknownTypeCount: completenessReport.unknownTypeCount,
-        missingDocStringCount: completenessReport.missingDocStringCount,
+        missingFunctionDocStringCount: completenessReport.missingFunctionDocStringCount,
+        missingClassDocStringCount: completenessReport.missingClassDocStringCount,
         missingDefaultParamCount: completenessReport.missingDefaultParamCount,
         completnessScore: 0,
         modules: [],
@@ -381,7 +382,6 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
                 name: symbol.name,
                 fullName: symbol.fullName,
                 symbolType: PackageTypeVerifier.getSymbolTypeString(symbol.symbolType),
-                diagnostics: [],
             };
 
             jsonModule.symbols.push(jsonSymbol);
@@ -410,19 +410,17 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
         console.log(`Path of py.typed file: "${completenessReport.pyTypedPath}"`);
     }
 
-    // Print all the diagnostics.
+    // Print all the errors.
     results.diagnostics.forEach((diag) => {
-        logDiagnosticToConsole(diag);
+        if (diag.severity === 'error') {
+            logDiagnosticToConsole(diag);
+        }
     });
 
-    // Print diagnostics for each symbol.
-    completenessReport.modules.forEach((module) => {
-        for (const symbol of module.symbols) {
-            if (symbol.diagnostics.length > 0 || verboseOutput) {
-                symbol.diagnostics.forEach((diag) => {
-                    logDiagnosticToConsole(diag, '');
-                });
-            }
+    // Print all the non-errors.
+    results.diagnostics.forEach((diag) => {
+        if (diag.severity !== 'error') {
+            logDiagnosticToConsole(diag);
         }
     });
 
@@ -437,16 +435,7 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
 
             if (verboseOutput) {
                 for (const symbol of module.symbols) {
-                    let message = '      ';
-                    if (symbol.diagnostics.find((diag) => diag.severity === 'error')) {
-                        message += chalk.red(symbol.fullName);
-                    } else if (symbol.diagnostics.find((diag) => diag.severity === 'warning')) {
-                        message += chalk.cyan(symbol.fullName);
-                    } else {
-                        message += symbol.fullName;
-                    }
-                    message += ` (${symbol.symbolType})`;
-                    console.log(message);
+                    console.log(`      ${symbol.fullName} (${symbol.symbolType})`);
                 }
             }
         });
@@ -455,8 +444,9 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
     console.log('');
     console.log(`Public symbols: ${completenessReport.symbolCount}`);
     console.log(`  Symbols with unknown type: ${completenessReport.unknownTypeCount}`);
-    console.log(`  Symbols with missing docstring: ${completenessReport.missingDocStringCount}`);
-    console.log(`  Symbols with missing default param: ${completenessReport.missingDefaultParamCount}`);
+    console.log(`  Functions with missing docstring: ${completenessReport.missingFunctionDocStringCount}`);
+    console.log(`  Functions with missing default param: ${completenessReport.missingDefaultParamCount}`);
+    console.log(`  Classes with missing docstring: ${completenessReport.missingClassDocStringCount}`);
     console.log(`Type completeness score: ${Math.round(completenessReport.completnessScore * 1000) / 10}%`);
     console.log('');
     console.info(`Completed in ${results.summary.timeInSec}sec`);

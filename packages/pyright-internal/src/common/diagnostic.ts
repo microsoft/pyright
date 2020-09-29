@@ -13,7 +13,7 @@ import { Range } from './textRange';
 
 const defaultMaxDepth = 5;
 const defaultMaxLineCount = 8;
-const maxRecursionCount = 8;
+const maxRecursionCount = 64;
 
 export const enum DiagnosticCategory {
     Error,
