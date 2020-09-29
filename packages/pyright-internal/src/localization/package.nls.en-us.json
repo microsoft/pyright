@@ -69,8 +69,6 @@
         "duplicateUnpack": "Only one unpack operation allowed in list",
         "ellipsisContext": "\"...\" not allowed in this context",
         "ellipsisSecondArg": "\"...\" allowed only as the second of two arguments",
-        "enumFirstArg": "Expected enum class name as first argument",
-        "enumSecondArg": "Expected enum item string as second parameter",
         "exceptionTypeIncorrect": "\"{type}\" does not derive from BaseException",
         "exceptionTypeNotClass": "\"{type}\" is not valid exception class",
         "exceptionTypeNotInstantiable": "Constructor for exception type \"{type}\" requires one or more arguments",

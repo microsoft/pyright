@@ -6530,17 +6530,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Creates a new custom enum class with named values.
-    function createEnumType(errorNode: ExpressionNode, enumClass: ClassType, argList: FunctionArgument[]): ClassType {
+    function createEnumType(
+        errorNode: ExpressionNode,
+        enumClass: ClassType,
+        argList: FunctionArgument[]
+    ): ClassType | undefined {
         const fileInfo = getFileInfo(errorNode);
         let className = 'enum';
         if (argList.length === 0) {
-            addError(Localizer.Diagnostic.enumFirstArg(), errorNode);
+            return undefined;
         } else {
             const nameArg = argList[0];
-            if (nameArg.argumentCategory !== ArgumentCategory.Simple) {
-                addError(Localizer.Diagnostic.enumFirstArg(), argList[0].valueExpression || errorNode);
-            } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
+            if (
+                nameArg.argumentCategory === ArgumentCategory.Simple &&
+                nameArg.valueExpression &&
+                nameArg.valueExpression.nodeType === ParseNodeType.StringList
+            ) {
                 className = nameArg.valueExpression.strings.map((s) => s.value).join('');
+            } else {
+                return undefined;
             }
         }
 
@@ -6563,7 +6571,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         if (argList.length < 2) {
-            addError(Localizer.Diagnostic.enumSecondArg(), errorNode);
+            return undefined;
         } else {
             const entriesArg = argList[1];
             if (
@@ -6577,14 +6585,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // of name/value pairs. We support only the simple space-delimited
                 // string here. For users who are interested in type checking, we
                 // recommend using the more standard class declaration syntax.
-                // This diagnostic is part of the reportGeneralTypeIssues since
-                // it is of interest only to those who care about types.
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.enumSecondArg(),
-                    argList[1].valueExpression || errorNode
-                );
+                return undefined;
             } else {
                 const entries = entriesArg.valueExpression.strings
                     .map((s) => s.value)
