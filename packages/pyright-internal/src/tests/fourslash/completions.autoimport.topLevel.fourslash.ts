@@ -22,8 +22,9 @@ await helper.verifyCompletion('included', {
                 label: 'os',
                 documentation: {
                     kind: 'markdown',
-                    value: 'Auto-import\n\n```\nimport os\n```',
+                    value: '```\nimport os\n```',
                 },
+                detail: 'Auto-import',
             },
         ],
     },
@@ -39,8 +40,9 @@ await helper.verifyCompletion('included', {
                 label: 'sys',
                 documentation: {
                     kind: 'markdown',
-                    value: 'Auto-import\n\n```\nimport sys\n```',
+                    value: '```\nimport sys\n```',
                 },
+                detail: 'Auto-import',
             },
         ],
     },

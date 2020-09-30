@@ -74,6 +74,7 @@ export interface FileSystem {
     // Async I/O
     readFile(path: string): Promise<Buffer>;
     readFileText(path: string, encoding?: BufferEncoding): Promise<string>;
+    // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
     tmpdir(): string;
     tmpfile(options?: TmpfileOptions): string;
 }
@@ -111,6 +112,7 @@ const _isLinux = process.platform === 'linux';
 
 class RealFileSystem implements FileSystem {
     private _fileWatcherProvider: FileWatcherProvider;
+    private _tmpdir?: string;
 
     constructor(fileWatcherProvider: FileWatcherProvider) {
         this._fileWatcherProvider = fileWatcherProvider;
@@ -206,7 +208,11 @@ class RealFileSystem implements FileSystem {
     }
 
     tmpdir() {
-        return resolvePaths(os.tmpdir(), 'pyright');
+        if (!this._tmpdir) {
+            const dir = tmp.dirSync({ prefix: 'pyright' });
+            this._tmpdir = dir.name;
+        }
+        return this._tmpdir;
     }
 
     tmpfile(options?: TmpfileOptions): string {

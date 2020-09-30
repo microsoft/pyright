@@ -2295,7 +2295,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function isNodeReachable(node: ParseNode): boolean {
         const flowNode = AnalyzerNodeInfo.getFlowNode(node);
         if (!flowNode) {
-            return true;
+            return false;
         }
 
         return isFlowNodeReachable(flowNode);

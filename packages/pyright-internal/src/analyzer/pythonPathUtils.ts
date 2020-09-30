@@ -235,3 +235,8 @@ export function getPythonPathFromPythonInterpreter(
 
     return result;
 }
+
+export function isPythonBinary(p: string): boolean {
+    p = p.trim();
+    return p === 'python' || p === 'python3';
+}
