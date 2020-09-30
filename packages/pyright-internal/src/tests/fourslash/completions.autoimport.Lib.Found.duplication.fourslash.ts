@@ -33,8 +33,9 @@ await helper.verifyCompletion('included', {
                 label: 'test1',
                 documentation: {
                     kind: 'markdown',
-                    value: 'Auto-import\n\n```\nfrom testLib import test1\n```',
+                    value: '```\nfrom testLib import test1\n```',
                 },
+                detail: 'Auto-import',
             },
         ],
     },

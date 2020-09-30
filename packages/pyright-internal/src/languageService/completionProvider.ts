@@ -999,8 +999,8 @@ export class CompletionProvider {
                     undefined,
                     '',
                     result.source
-                        ? `Auto-import\n\n\`\`\`\nfrom ${result.source} import ${result.name}\n\`\`\``
-                        : `Auto-import\n\n\`\`\`\nimport ${result.name}\n\`\`\``,
+                        ? `\`\`\`\nfrom ${result.source} import ${result.name}\n\`\`\``
+                        : `\`\`\`\nimport ${result.name}\n\`\`\``,
                     undefined,
                     result.edits
                 );
@@ -1325,7 +1325,7 @@ export class CompletionProvider {
 
             let autoImportText: string | undefined;
             if (autoImportSource) {
-                autoImportText = `Auto-import\n\n\`\`\`\nfrom ${autoImportSource} import ${name}\n\`\`\``;
+                autoImportText = `\`\`\`\nfrom ${autoImportSource} import ${name}\n\`\`\``;
             }
 
             this._addNameToCompletionList(
@@ -1387,6 +1387,7 @@ export class CompletionProvider {
                 // Force auto-import entries to the end.
                 completionItem.sortText = this._makeSortText(SortCategory.AutoImport, name, autoImportText);
                 completionItemData.autoImportText = autoImportText;
+                completionItem.detail = 'Auto-import';
             } else if (SymbolNameUtils.isDunderName(name)) {
                 // Force dunder-named symbols to appear after all other symbols.
                 completionItem.sortText = this._makeSortText(SortCategory.DunderSymbol, name);

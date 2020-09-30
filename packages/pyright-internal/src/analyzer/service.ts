@@ -26,7 +26,7 @@ import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { createBackgroundThreadCancellationTokenSource } from '../common/cancellationUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { ConfigOptions } from '../common/configOptions';
-import { ConsoleInterface, StandardConsole } from '../common/console';
+import { ConsoleInterface, log, LogLevel, StandardConsole } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
@@ -614,16 +614,14 @@ export class AnalyzerService {
                 importFailureInfo
             ).paths;
             if (pythonPaths.length === 0) {
-                if (configOptions.verboseOutput) {
-                    this._console.error(`No search paths found for configured python interpreter.`);
-                }
+                const logLevel = configOptions.verboseOutput ? LogLevel.Error : LogLevel.Log;
+                log(this._console, logLevel, `No search paths found for configured python interpreter.`);
             } else {
-                if (configOptions.verboseOutput) {
-                    this._console.info(`Search paths found for configured python interpreter:`);
-                    pythonPaths.forEach((path) => {
-                        this._console.info(`  ${path}`);
-                    });
-                }
+                const logLevel = configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
+                log(this._console, logLevel, `Search paths found for configured python interpreter:`);
+                pythonPaths.forEach((path) => {
+                    log(this._console, logLevel, `  ${path}`);
+                });
             }
 
             if (configOptions.verboseOutput) {

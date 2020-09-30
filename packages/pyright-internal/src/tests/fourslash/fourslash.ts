@@ -28,6 +28,7 @@ declare namespace _ {
         label: string;
         insertionText?: string;
         documentation?: { kind: string; value: string };
+        detail?: string;
     }
 
     interface TextRange {

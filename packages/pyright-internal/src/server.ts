@@ -15,6 +15,7 @@ import {
 import { isMainThread } from 'worker_threads';
 
 import { AnalysisResults } from './analyzer/analysis';
+import { isPythonBinary } from './analyzer/pythonPathUtils';
 import { BackgroundAnalysis, BackgroundAnalysisRunner } from './backgroundAnalysis';
 import { BackgroundAnalysisBase } from './backgroundAnalysisBase';
 import { CommandController } from './commands/commandController';
@@ -73,15 +74,25 @@ class PyrightServer extends LanguageServerBase {
         try {
             const pythonSection = await this.getConfiguration(workspace.rootUri, 'python');
             if (pythonSection) {
-                serverSettings.pythonPath = resolvePaths(workspace.rootPath, pythonSection.pythonPath);
-                serverSettings.venvPath = resolvePaths(workspace.rootPath, pythonSection.venvPath);
+                const pythonPath = pythonSection.pythonPath;
+                if (pythonPath && isString(pythonPath) && !isPythonBinary(pythonPath)) {
+                    serverSettings.pythonPath = resolvePaths(workspace.rootPath, pythonPath);
+                }
+
+                const venvPath = pythonSection.venvPath;
+                if (venvPath && isString(venvPath)) {
+                    serverSettings.venvPath = resolvePaths(workspace.rootPath, venvPath);
+                }
             }
 
             const pythonAnalysisSection = await this.getConfiguration(workspace.rootUri, 'python.analysis');
             if (pythonAnalysisSection) {
                 const typeshedPaths = pythonAnalysisSection.typeshedPaths;
                 if (typeshedPaths && Array.isArray(typeshedPaths) && typeshedPaths.length > 0) {
-                    serverSettings.typeshedPath = resolvePaths(workspace.rootPath, typeshedPaths[0]);
+                    const typeshedPath = typeshedPaths[0];
+                    if (typeshedPath && isString(typeshedPath)) {
+                        serverSettings.typeshedPath = resolvePaths(workspace.rootPath, typeshedPath);
+                    }
                 }
 
                 const stubPath = pythonAnalysisSection.stubPath;
@@ -115,7 +126,9 @@ class PyrightServer extends LanguageServerBase {
 
                 const extraPaths = pythonAnalysisSection.extraPaths;
                 if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
-                    serverSettings.extraPaths = extraPaths.map((p) => resolvePaths(workspace.rootPath, p));
+                    serverSettings.extraPaths = extraPaths
+                        .filter((p) => p && isString(p))
+                        .map((p) => resolvePaths(workspace.rootPath, p));
                 }
 
                 if (pythonAnalysisSection.typeCheckingMode !== undefined) {
@@ -141,8 +154,10 @@ class PyrightServer extends LanguageServerBase {
 
                 serverSettings.disableLanguageServices = !!pyrightSection.disableLanguageServices;
                 serverSettings.disableOrganizeImports = !!pyrightSection.disableOrganizeImports;
-                if (pyrightSection.typeCheckingMode !== undefined) {
-                    serverSettings.typeCheckingMode = pyrightSection.typeCheckingMode;
+
+                const typeCheckingMode = pyrightSection.typeCheckingMode;
+                if (typeCheckingMode && isString(typeCheckingMode)) {
+                    serverSettings.typeCheckingMode = typeCheckingMode;
                 }
             }
         } catch (error) {

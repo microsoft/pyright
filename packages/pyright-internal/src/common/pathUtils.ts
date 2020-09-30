@@ -892,11 +892,6 @@ export function isFileSystemCaseSensitive(fs: FileSystem) {
 export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
     let filePath: string | undefined = undefined;
     try {
-        // Make sure tmp dir exists.
-        if (!fs.existsSync(fs.tmpdir())) {
-            fs.mkdirSync(fs.tmpdir(), { recursive: true });
-        }
-
         // Make unique file name.
         let name: string;
         let mangledFilePath: string;

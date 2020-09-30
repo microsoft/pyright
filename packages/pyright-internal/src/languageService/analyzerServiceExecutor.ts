@@ -7,7 +7,7 @@
  * Runs the analyzer service of a given workspace service instance
  * with a specified set of options.
  */
-
+import { isPythonBinary } from '../analyzer/pythonPathUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
 import { combinePaths, normalizePath } from '../common/pathUtils';
 import { ServerSettings, WorkspaceServiceInstance } from '../languageServerBase';
@@ -66,7 +66,7 @@ function getEffectiveCommandLineOptions(
         // The Python VS Code extension treats the value "python" specially. This means
         // the local python interpreter should be used rather than interpreting the
         // setting value as a path to the interpreter. We'll simply ignore it in this case.
-        if (serverSettings.pythonPath.trim() !== 'python') {
+        if (!isPythonBinary(serverSettings.pythonPath)) {
             commandLineOptions.pythonPath = combinePaths(
                 workspaceRootPath || languageServiceRootPath,
                 normalizePath(_expandPathVariables(languageServiceRootPath, serverSettings.pythonPath))

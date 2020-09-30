@@ -321,6 +321,7 @@ export class TestFileSystem implements FileSystem {
     }
 
     tmpdir(): string {
+        this.mkdirpSync('/tmp');
         return pathUtil.normalizeSlashes('/tmp');
     }
 
