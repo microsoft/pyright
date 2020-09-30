@@ -2,11 +2,12 @@
 
 from typing import cast, Union
 
-a: int = 3
-# This should generate an error if
-# reportUnnecessaryCast is enabled.
-b = cast(int, a)
+
+def foo(a: int):
+    # This should generate an error if
+    # reportUnnecessaryCast is enabled.
+    b = cast(int, a)
+
 
 c: Union[int, str] = "hello"
 d = cast(int, c)
-

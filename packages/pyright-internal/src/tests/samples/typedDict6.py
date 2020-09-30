@@ -72,5 +72,6 @@ MovieNotTotal = TypedDict("MovieNotTotal", {"name": str, "year": int}, total=Fal
 
 movie5: MovieNotTotal = {"name": "Blade Runner"}
 
-unknown_str_value: str = "blah"
-a = movie5[unknown_str_value]
+
+def foo(unknown_str_value: str):
+    a = movie5[unknown_str_value]

@@ -2890,6 +2890,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.valueExpression)
                 );
                 const diagAddendum = new DiagnosticAddendum();
+
                 if (canAssignType(typeHintType, type, diagAddendum)) {
                     // Don't attempt to narrow based on the annotated type if the type
                     // is a enum because the annotated type in an enum doesn't reflect
@@ -5344,7 +5345,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const typeVarMap = new TypeVarMap();
 
             if (expectedType) {
-                populateTypeVarMapBasedOnExpectedType(ObjectType.create(type), expectedType, typeVarMap);
+                populateTypeVarMapBasedOnExpectedType(type, expectedType, typeVarMap);
             }
 
             const callResult = validateCallArguments(
@@ -5357,11 +5358,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 NoneType.createInstance()
             );
             if (!callResult.argumentErrors) {
-                const specializedClassType = applyExpectedTypeForConstructor(
+                returnType = applyExpectedTypeForConstructor(
                     specializeType(type, typeVarMap, /* makeConcrete */ true) as ClassType,
                     expectedType
                 );
-                returnType = ObjectType.create(specializedClassType);
             } else {
                 reportedErrors = true;
             }
@@ -5453,11 +5453,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (!returnType) {
-                        const specializedClassType = applyExpectedTypeForConstructor(
+                        returnType = applyExpectedTypeForConstructor(
                             specializeType(type, typeVarMap, /* makeConcrete */ true) as ClassType,
                             expectedType
                         );
-                        returnType = ObjectType.create(specializedClassType);
                     }
                     validatedTypes = true;
                 }
@@ -5483,18 +5482,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 errorNode
             );
         } else if (!returnType) {
-            // There was no __new__ or __init__, so fall back on the
-            // object.__new__ which takes no parameters.
-            const specializedClassType = applyExpectedTypeForConstructor(type, expectedType);
-            returnType = ObjectType.create(specializedClassType);
+            returnType = applyExpectedTypeForConstructor(type, expectedType);
         }
 
         return { argumentErrors: reportedErrors, returnType };
     }
 
-    function applyExpectedTypeForConstructor(type: ClassType, expectedType: Type | undefined): ClassType {
+    // Handles the case where a constructor is a generic type and the type
+    // arguments are not specified but can be provided by the expected type.
+    function applyExpectedTypeForConstructor(type: ClassType, expectedType: Type | undefined): ObjectType {
+        const objType = ObjectType.create(type);
+
         if (!expectedType) {
-            return type;
+            return objType;
         }
 
         // Try to apply for each subtype in the expectedType. The foundMatch
@@ -5538,7 +5538,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
-        return isClass(specializedType) ? specializedType : type;
+        return isClass(specializedType) ? ObjectType.create(specializedType) : objType;
     }
 
     // In cases where the expected type is a specialized base class of the
@@ -5546,7 +5546,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // class will make it compatible with the specialized base class. This method
     // performs this reverse mapping of type arguments and populates the type var
     // map for the target type.
-    function populateTypeVarMapBasedOnExpectedType(type: ObjectType, expectedType: Type, typeVarMap: TypeVarMap) {
+    function populateTypeVarMapBasedOnExpectedType(type: ClassType, expectedType: Type, typeVarMap: TypeVarMap) {
         // If the target type isn't generic, there's nothing for us to do.
         if (!requiresSpecialization(type)) {
             return;
@@ -5565,8 +5565,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // If the expected type is the same as the target type (commonly the case),
                 // we can use a faster method.
-                if (ClassType.isSameGenericClass(subtype.classType, type.classType)) {
-                    canAssignType(type, subtype, new DiagnosticAddendum(), typeVarMap);
+                if (ClassType.isSameGenericClass(subtype.classType, type)) {
+                    canAssignType(type, subtype.classType, new DiagnosticAddendum(), typeVarMap);
                     foundMatch = true;
                     return undefined;
                 }
@@ -5579,7 +5579,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
 
                 // For each type param in the target type, create a placeholder type variable.
-                const typeArgs = type.classType.details.typeParameters.map((_, index) => {
+                const classType = type.details.aliasClass || type;
+                const typeArgs = classType.details.typeParameters.map((_, index) => {
                     const typeVar = TypeVarType.createInstance(
                         `__${index}`,
                         /* isParamSpec */ false,
@@ -5590,7 +5591,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
 
                 const specializedType = ClassType.cloneForSpecialization(
-                    type.classType,
+                    type,
                     typeArgs,
                     /* isTypeArgumentExplicit */ true
                 );
@@ -8097,6 +8098,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
                 inferredEntryType = areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
             }
+        } else if (expectedEntryType) {
+            inferredEntryType = expectedEntryType;
         }
 
         // If we weren't provided an expected type, strip away any
@@ -9054,8 +9057,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (declaredType) {
                     const diagAddendum = new DiagnosticAddendum();
                     const typeVarMap = new TypeVarMap();
+
                     if (canAssignType(declaredType, srcType, diagAddendum, typeVarMap)) {
-                        // Narrow the resulting type to match the declared type.
+                        // Narrow the resulting type if possible.
                         srcType = narrowTypeBasedOnAssignment(declaredType, srcType);
                     }
                 }
@@ -13368,6 +13372,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ? ParseTreeUtils.getTypeAnnotationNode(typeAnnotationNode)
                         : undefined;
                     let declaredType = getTypeOfAnnotation(typeAnnotationNode);
+
                     if (declaredType) {
                         // Apply enum transform if appropriate.
                         if (declaration.node.nodeType === ParseNodeType.Name) {
@@ -14008,7 +14013,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         // If the dest protocol has type parameters, make sure the source type arguments match.
-        if (typesAreConsistent && destType.details.typeParameters.length > 0 && destType.typeArguments !== undefined) {
+        if (typesAreConsistent && destType.details.typeParameters.length > 0) {
             // Create a specialized version of the protocol defined by the dest and
             // make sure the resulting type args can be assigned.
             const specializedSrcProtocol = specializeType(
@@ -14017,17 +14022,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* makeConcrete */ false
             ) as ClassType;
 
-            if (
-                !verifyTypeArgumentsAssignable(
-                    destType,
-                    specializedSrcProtocol,
-                    diag,
-                    typeVarMap,
-                    flags,
-                    recursionCount
-                )
-            ) {
-                typesAreConsistent = false;
+            if (destType.typeArguments !== undefined) {
+                if (
+                    !verifyTypeArgumentsAssignable(
+                        destType,
+                        specializedSrcProtocol,
+                        diag,
+                        typeVarMap,
+                        flags,
+                        recursionCount
+                    )
+                ) {
+                    typesAreConsistent = false;
+                }
+            } else if (typeVarMap) {
+                destType.details.typeParameters.forEach((typeParam) => {
+                    const typeVarType = genericDestTypeVarMap.getTypeVar(typeParam);
+                    if (typeVarType) {
+                        typeVarMap.setTypeVar(typeParam, typeVarType, genericDestTypeVarMap.isNarrowable(typeParam));
+                    }
+                });
             }
         }
 

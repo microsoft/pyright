@@ -1389,7 +1389,7 @@ test('UnnecessaryCast', () => {
     validateResults(analysisResults, 1);
 });
 
-test('AssertAlwaysTrue', () => {
+test('Assert1', () => {
     const configOptions = new ConfigOptions('.');
 
     // By default, this is reported as a warning.
@@ -2181,7 +2181,7 @@ test('ParamSpec1', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec1.py'], configOptions);
-    validateResults(results, 8);
+    validateResults(results, 7);
 });
 
 test('ParamSpec2', () => {
