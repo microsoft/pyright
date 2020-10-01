@@ -2,3 +2,5 @@
 **/out/**
 **/node_modules/**
 **/tests/fourslash/**
+print("Only comments are added")
+
