@@ -502,6 +502,7 @@ export interface TypeEvaluator {
     ) => Type;
     getTypedDictMembersForClass: (classType: ClassType) => Map<string, TypedDictEntry>;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
+    markNamesAccessed: (node: ParseNode, names: string[]) => void;
 
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
@@ -2777,6 +2778,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         writeTypeCache(target, type);
     }
 
+    function markNamesAccessed(node: ParseNode, names: string[]) {
+        const fileInfo = getFileInfo(node);
+        const scope = ScopeUtils.getScopeForNode(node);
+
+        if (scope) {
+            names.forEach((symbolName) => {
+                const symbolInScope = scope.lookUpSymbolRecursive(symbolName);
+                if (symbolInScope) {
+                    setSymbolAccessed(fileInfo, symbolInScope.symbol, node);
+                }
+            });
+        }
+    }
+
     function assignTypeToExpression(
         target: ExpressionNode,
         type: Type,
@@ -2810,35 +2825,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         switch (target.nodeType) {
             case ParseNodeType.Name: {
-                const name = target;
-                // Handle '__all__' as a special case in the module scope.
-                if (name.value === '__all__' && srcExpr) {
-                    const scope = ScopeUtils.getScopeForNode(target);
-                    if (scope?.type === ScopeType.Module) {
-                        // It's common for modules to include the expression
-                        // __all__ = ['a', 'b', 'c']
-                        // We will mark the symbols referenced by these strings as accessed.
-                        if (srcExpr.nodeType === ParseNodeType.List) {
-                            const fileInfo = getFileInfo(target);
-                            srcExpr.entries.forEach((entryExpr) => {
-                                if (
-                                    entryExpr.nodeType === ParseNodeType.StringList ||
-                                    entryExpr.nodeType === ParseNodeType.String
-                                ) {
-                                    const symbolName =
-                                        entryExpr.nodeType === ParseNodeType.String
-                                            ? entryExpr.value
-                                            : entryExpr.strings.map((s) => s.value).join('');
-                                    const symbolInScope = scope.lookUpSymbolRecursive(symbolName);
-                                    if (symbolInScope) {
-                                        setSymbolAccessed(fileInfo, symbolInScope.symbol, target);
-                                    }
-                                }
-                            });
-                        }
-                    }
-                }
-
                 reportPossibleUnknownAssignment(
                     getFileInfo(target).diagnosticRuleSet.reportUnknownVariableType,
                     DiagnosticRule.reportUnknownVariableType,
@@ -16553,6 +16539,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTypeFromIterable,
         getTypedDictMembersForClass,
         getGetterTypeFromProperty,
+        markNamesAccessed,
         getEffectiveTypeOfSymbol,
         getFunctionDeclaredReturnType,
         getFunctionInferredReturnType,

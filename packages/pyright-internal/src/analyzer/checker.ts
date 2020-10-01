@@ -140,6 +140,12 @@ export class Checker extends ParseTreeWalker {
 
         this._walkStatementsAndReportUnreachable(this._moduleNode.statements);
 
+        // Mark symbols accessed by __all__ as accessed.
+        const dunderAllNames = AnalyzerNodeInfo.getDunderAllNames(this._moduleNode);
+        if (dunderAllNames) {
+            this._evaluator.markNamesAccessed(this._moduleNode, dunderAllNames);
+        }
+
         // Perform a one-time validation of symbols in all scopes
         // defined in this module for things like unaccessed variables.
         this._validateSymbolTables();
