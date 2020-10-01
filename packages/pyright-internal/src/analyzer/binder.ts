@@ -649,34 +649,37 @@ export class Binder extends ParseTreeWalker {
         this._createAssignmentTargetFlowNodes(node.leftExpression, /* walkTargets */ true, /* unbound */ false);
 
         // Is this an assignment to dunder all?
-        if (
-            this._currentScope.type === ScopeType.Module &&
-            node.leftExpression.nodeType === ParseNodeType.Name &&
-            node.leftExpression.value === '__all__'
-        ) {
-            const expr = node.rightExpression;
-            this._dunderAllNames = [];
+        if (this._currentScope.type === ScopeType.Module) {
+            if (
+                (node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === '__all__') ||
+                (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation &&
+                    node.leftExpression.valueExpression.nodeType === ParseNodeType.Name &&
+                    node.leftExpression.valueExpression.value === '__all__')
+            ) {
+                const expr = node.rightExpression;
+                this._dunderAllNames = [];
 
-            if (expr.nodeType === ParseNodeType.List) {
-                expr.entries.forEach((listEntryNode) => {
-                    if (
-                        listEntryNode.nodeType === ParseNodeType.StringList &&
-                        listEntryNode.strings.length === 1 &&
-                        listEntryNode.strings[0].nodeType === ParseNodeType.String
-                    ) {
-                        this._dunderAllNames!.push(listEntryNode.strings[0].value);
-                    }
-                });
-            } else if (expr.nodeType === ParseNodeType.Tuple) {
-                expr.expressions.forEach((tupleEntryNode) => {
-                    if (
-                        tupleEntryNode.nodeType === ParseNodeType.StringList &&
-                        tupleEntryNode.strings.length === 1 &&
-                        tupleEntryNode.strings[0].nodeType === ParseNodeType.String
-                    ) {
-                        this._dunderAllNames!.push(tupleEntryNode.strings[0].value);
-                    }
-                });
+                if (expr.nodeType === ParseNodeType.List) {
+                    expr.entries.forEach((listEntryNode) => {
+                        if (
+                            listEntryNode.nodeType === ParseNodeType.StringList &&
+                            listEntryNode.strings.length === 1 &&
+                            listEntryNode.strings[0].nodeType === ParseNodeType.String
+                        ) {
+                            this._dunderAllNames!.push(listEntryNode.strings[0].value);
+                        }
+                    });
+                } else if (expr.nodeType === ParseNodeType.Tuple) {
+                    expr.expressions.forEach((tupleEntryNode) => {
+                        if (
+                            tupleEntryNode.nodeType === ParseNodeType.StringList &&
+                            tupleEntryNode.strings.length === 1 &&
+                            tupleEntryNode.strings[0].nodeType === ParseNodeType.String
+                        ) {
+                            this._dunderAllNames!.push(tupleEntryNode.strings[0].value);
+                        }
+                    });
+                }
             }
         }
 
