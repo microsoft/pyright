@@ -7,6 +7,7 @@
 // @filename: testpkg/__init__.py
 // @library: true
 //// from . import submod
+//// from .submod2 import *
 //// from submod import foofoofoo5, foofoofoo6, foofoofoo7, foofoofoo8
 //// foofoofoo0: int = 0
 //// foofoofoo1: int = 1
@@ -20,6 +21,7 @@
 //// __all__.remove("foofoofoo1")
 //// __all__.remove("foofoofoo6")
 //// __all__.append("foofoofoo0")
+//// __all__ += submod2.__all__
 
 // @filename: testpkg/submod.py
 // @library: true
@@ -30,6 +32,11 @@
 //// __all__ = ["foofoofoo5"]
 //// __all__ += ["foofoofoo6"]
 //// __all__.extend(["foofoofoo7"])
+
+// @filename: testpkg/submod2.py
+// @library: true
+//// foofoofoo9: int = 9
+//// __all__ = ["foofoofoo9"]
 
 // @filename: .src/test.py
 //// from testpkg import *
@@ -55,6 +62,9 @@ await helper.verifyCompletion('exact', {
             },
             {
                 label: 'foofoofoo7',
+            },
+            {
+                label: 'foofoofoo9',
             },
         ],
     },

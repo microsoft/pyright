@@ -40,6 +40,7 @@ The following idioms are supported for defining the values contained within `__a
 
 * `__all__ = ['a', b']`
 * `__all__ += ['a', b']`
+* `__all__ += submodule.__all__`
 * `__all__.extend(['a', b'])`
 * `__all__.append('a')`
 * `__all__.remove('a')`

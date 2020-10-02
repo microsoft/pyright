@@ -734,8 +734,10 @@ export class Binder extends ParseTreeWalker {
         this._bindPossibleTupleNamedTarget(node.destExpression);
         this._createAssignmentTargetFlowNodes(node.destExpression, /* walkTargets */ false, /* unbound */ false);
 
-        // Is this an assignment to dunder all?
+        // Is this an assignment to dunder all of the form
+        // __all__ += <expression>?
         if (
+            node.operator === OperatorType.AddEqual &&
             this._currentScope.type === ScopeType.Module &&
             node.leftExpression.nodeType === ParseNodeType.Name &&
             node.leftExpression.value === '__all__'
@@ -743,6 +745,7 @@ export class Binder extends ParseTreeWalker {
             const expr = node.rightExpression;
 
             if (expr.nodeType === ParseNodeType.List) {
+                // Is this the form __all__ += ["a", "b"]?
                 expr.entries.forEach((listEntryNode) => {
                     if (
                         listEntryNode.nodeType === ParseNodeType.StringList &&
@@ -752,6 +755,18 @@ export class Binder extends ParseTreeWalker {
                         this._dunderAllNames?.push(listEntryNode.strings[0].value);
                     }
                 });
+            } else if (
+                expr.nodeType === ParseNodeType.MemberAccess &&
+                expr.leftExpression.nodeType === ParseNodeType.Name &&
+                expr.memberName.value === '__all__'
+            ) {
+                // Is this using the form "__all__ += <mod>.__all__"?
+                const namesToAdd = this._getDunderAllNamesFromImport(expr.leftExpression.value);
+                if (namesToAdd) {
+                    namesToAdd.forEach((name) => {
+                        this._dunderAllNames?.push(name);
+                    });
+                }
             }
         }
 
