@@ -13,7 +13,7 @@ To install the dependencies for all packages in the repo:
 
 Once built, you can run the command-line tool by executing the following:
 
-`node ./dist/pyright.js`
+`node index.js`
 
 ## Building the VS Code extension
 
