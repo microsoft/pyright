@@ -1,6 +1,6 @@
 # Typing Guidance for Python Libraries
 
-Python has become popular over the past several years, and much of this popularity can be attributed to the rich collection of Python libraries available to developers. Authors of these libraries play an important role in improving the experience for Python developers. This document provides some recommendations and guidance for Python library authors.
+Much of Python’s popularity can be attributed to the rich collection of Python libraries available to developers. Authors of these libraries play an important role in improving the experience for Python developers. This document provides some recommendations and guidance for Python library authors.
 
 These recommendations are intended to provide the following benefits:
 
@@ -13,15 +13,15 @@ These recommendations are intended to provide the following benefits:
 ## Inlined Type Annotations and Type Stubs
 [PEP 561](https://www.python.org/dev/peps/pep-0561/) documents several ways type information can be delivered for a library: inlined type annotations, type stub files included in the package, a separate companion type stub package, and type stubs in the typeshed repository. Some of these options fall short on delivering the benefits above. We therefore provide the following more specific guidance to library authors.
 
-_All libraries should include inlined type annotations for their interface — the functions, classes, methods, and constants that are meant to comprise the interface contract for the library._
+>All libraries should include inlined type annotations for the functions, classes, methods, and constants that comprise the public interface for the library.
 
 Inlined type annotations should be included directly within the source code that ships with the package. Of the options listed in PEP 561, inlined type annotations offer the most benefits. They typically require the least effort to add and maintain, they are always consistent with the implementation, and docstrings and default parameter values are readily available, allowing language servers to enhance the development experience.
 
-There are cases where inlined type annotations are not possible — most notably when a library’s exposed functionality is implemented in a language other than Python. 
+There are cases where inlined type annotations are not possible — most notably when a library’s exposed functionality is implemented in a language other than Python.
 
-_Libraries that expose symbols whose implementation is not in Python should include stub (“.pyi”) files that describe the types for those symbols._
+>Libraries that expose symbols implemented in languages other than Python should include stub (“.pyi”) files that describe the types for those symbols. These stubs should also contain docstrings and default parameter values.
 
-These stubs should contain docstrings and default parameter values. It is common practice within type stub files to replace all default parameter with “...” and to remove all docstrings. Stubs used for non-Python implementations and shipped within a package should include docstrings and default parameter values, contrary to past guidance.
+In many existing type stubs (such as those found in typeshed), default parameter values are replaced with with “...” and all docstrings are removed. We recommend that default values and docstrings remain within the type stub file so language servers can display this information to developers.
 
 
 ## Library Interface
@@ -38,13 +38,14 @@ Each module exposes a set of symbols. Some of these symbols are considered “pr
 
 The following idioms are supported for defining the values contained within `__all__`. These restrictions allow type checkers to statically determine the value of `__all__`.
 
+* `__all__ = ('a', b')`
 * `__all__ = ['a', b']`
 * `__all__ += ['a', b']`
 * `__all__ += submodule.__all__`
 * `__all__.extend(['a', b'])`
+* `__all__.extend(submodule.__all__)`
 * `__all__.append('a')`
 * `__all__.remove('a')`
-* `__all__.extend(submodule.__all__)`
 
 
 ## Type Completeness
@@ -53,8 +54,8 @@ A “py.typed” library is said to be “type complete” if all of the symbols
 A “known type” is defined as follows:
 
 Classes:
-    - All class variables, instance variables, and methods that are “visible” (not obscured by an override) are annotated and refer to known types
-    - If a type refers to a generic class, type arguments are provided for each generic type parameter, and these type arguments are known types
+    - All class variables, instance variables, and methods that are “visible” (not overriden) are annotated and refer to known types
+    - If a class is a subclass of a generic class, type arguments are provided for each generic type parameter, and these type arguments are known types
 
 Functions and Methods:
     - All input parameters have type annotations that refer to known types
@@ -69,7 +70,7 @@ Variables:
 
 Type annotations can be omitted in a few specific cases where the type is obvious from the context:
 
-* Constants that are assigned simple literal values (e.g. `RED = '#F00'` or `MAX_TIMEOUT = 50` or `room_temperature: Final = 20`). A constant is a symbol that is assigned only once and is either annotated with a `Final` annotation or is named in all-caps. A constant that is not assigned a simple literal value requires explicit annotations, preferably with a `Final` annotation (e.g. `WOODWINDS: Final[List[str]] = ['Oboe', 'Bassoon']`).
+* Constants that are assigned simple literal values (e.g. `RED = '#F00'` or `MAX_TIMEOUT = 50` or `room_temperature: Final = 20`). A constant is a symbol that is assigned only once and is either annotated with `Final` or is named in all-caps. A constant that is not assigned a simple literal value requires explicit annotations, preferably with a `Final` annotation (e.g. `WOODWINDS: Final[List[str]] = ['Oboe', 'Bassoon']`).
 * Enum values within an Enum class do not require annotations because they take on the type of the Enum class.
 * Type aliases do not require annotations. A type alias is a symbol that is defined at a module level with a single assignment where the assigned value is an instantiable type, as opposed to a class instance (e.g. `Foo = Callable[[Literal["a", "b"]], Union[int, str]]` or `Bar = Optional[MyGenericClass[int]]`).
 * The “self” parameter in an instance method and the “cls” parameter in a class method do not require an explicit annotation.
@@ -171,6 +172,11 @@ class DerivedClass(BaseClass):
     def get_stuff(self) -> str:
         ...
 
+# Class with partially unknown type because base class
+# (dict) is generic, and type arguments are not specified.
+class DictSubclass(dict):
+    pass
+
 ```
 
 ## Verifying Type Completeness
@@ -246,7 +252,7 @@ Decorators that mutate the signature of the decorated function present challenge
 Classes and functions that can operate in a generic manner on various types should declare themselves as generic using the mechanisms described in [PEP 484](https://www.python.org/dev/peps/pep-0484/). This includes the use of `TypeVar` symbols. Typically, a `TypeVar` should be private to the file that declares it, and should therefore begin with an underscore.
 
 ### Type Aliases
-Type aliases are symbols that refer to other types. Generic type aliases (those that involve unspecialized generic classes) are supported by most type checkers. Support for recursive type aliases is less common.
+Type aliases are symbols that refer to other types. Generic type aliases (those that refer to unspecialized generic classes) are supported by most type checkers. Pyright also provides support for recursive type aliases.
 
 [PEP 613](https://www.python.org/dev/peps/pep-0613/) provides a way to explicitly designate a symbol as a type alias using the new TypeAlias annotation.
 
@@ -294,7 +300,7 @@ Constant values (those that are read-only) can be specified using the Final anno
 
 Type checkers will also typically treat variables that are named using all upper-case characters as constants.
 
-In both cases, it is OK to omit the declared type of a constant if it is assigned a literal str, int, or bool value. In such cases, the type inference rules are clear and unambiguous, and adding a literal type annotation would be redundant.
+In both cases, it is OK to omit the declared type of a constant if it is assigned a literal str, int, float, bool or None value. In such cases, the type inference rules are clear and unambiguous, and adding a literal type annotation would be redundant.
 
 ```python
 # All-caps constant with inferred type
@@ -365,10 +371,10 @@ class Foo:
 ```
 
 ### typing_extensions
-New type features that require runtime support are typically included in the stdlib typing module. Where possible, these new features are back-ported to a runtime library called `typing_extensions` that works with older Python runtimes.
+New type features that require runtime support are typically included in the stdlib `typing` module. Where possible, these new features are back-ported to a runtime library called `typing_extensions` that works with older Python runtimes.
 
 ### TYPE_CHECKING
-The typing module exposes a variable called `TYPE_CHECKING` which has a value of False within the Python runtime but a value of True when the type checker is performing its analysis. This allows type checking statements to be conditionalized.
+The `typing` module exposes a variable called `TYPE_CHECKING` which has a value of False within the Python runtime but a value of True when the type checker is performing its analysis. This allows type checking statements to be conditionalized.
 
 Care should be taken when using `TYPE_CHECKING` because behavioral changes between type checking and runtime could mask problems that the type checker would otherwise catch.
 
