@@ -5560,17 +5560,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 // Create a generic (not specialized) version of the expected type.
+                const synthExpectedTypeArgs = subtype.classType.details.typeParameters.map((_, index) => {
+                    return TypeVarType.createInstance(
+                        `__dest${index}`,
+                        /* isParamSpec */ false,
+                        /* isSynthesized */ true
+                    );
+                });
                 const genericExpectedType = ClassType.cloneForSpecialization(
                     subtype.classType,
-                    undefined,
-                    /* isTypeArgumentExplicit */ false
+                    synthExpectedTypeArgs,
+                    /* isTypeArgumentExplicit */ true
                 );
 
                 // For each type param in the target type, create a placeholder type variable.
                 const classType = type.details.aliasClass || type;
                 const typeArgs = classType.details.typeParameters.map((_, index) => {
                     const typeVar = TypeVarType.createInstance(
-                        `__${index}`,
+                        `__source${index}`,
                         /* isParamSpec */ false,
                         /* isSynthesized */ true
                     );
@@ -5587,7 +5594,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (
                     canAssignType(genericExpectedType, specializedType, new DiagnosticAddendum(), syntheticTypeVarMap)
                 ) {
-                    genericExpectedType.details.typeParameters.forEach((typeVar, index) => {
+                    synthExpectedTypeArgs.forEach((typeVar, index) => {
                         const synthTypeVar = syntheticTypeVarMap.getTypeVar(typeVar);
 
                         // Is this one of the synthesized type vars we allocated above? If so,
@@ -14030,7 +14037,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         // If the dest protocol has type parameters, make sure the source type arguments match.
-        if (typesAreConsistent && destType.details.typeParameters.length > 0) {
+        if (typesAreConsistent && destType.details.typeParameters.length > 0 && destType.typeArguments) {
             // Create a specialized version of the protocol defined by the dest and
             // make sure the resulting type args can be assigned.
             const specializedSrcProtocol = specializeType(
@@ -14039,26 +14046,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* makeConcrete */ false
             ) as ClassType;
 
-            if (destType.typeArguments !== undefined) {
-                if (
-                    !verifyTypeArgumentsAssignable(
-                        destType,
-                        specializedSrcProtocol,
-                        diag,
-                        typeVarMap,
-                        flags,
-                        recursionCount
-                    )
-                ) {
-                    typesAreConsistent = false;
-                }
-            } else if (typeVarMap) {
-                destType.details.typeParameters.forEach((typeParam) => {
-                    const typeVarType = genericDestTypeVarMap.getTypeVar(typeParam);
-                    if (typeVarType) {
-                        typeVarMap.setTypeVar(typeParam, typeVarType, genericDestTypeVarMap.isNarrowable(typeParam));
-                    }
-                });
+            if (
+                !verifyTypeArgumentsAssignable(
+                    destType,
+                    specializedSrcProtocol,
+                    diag,
+                    typeVarMap,
+                    flags,
+                    recursionCount
+                )
+            ) {
+                typesAreConsistent = false;
             }
         }
 
