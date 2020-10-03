@@ -3296,8 +3296,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If there is a resolution cycle, don't report it as an unbound symbol
             // at this time. It will be re-evaluated as the call stack unwinds, and
-            // its actual type will be known then.
-            if (!isResolutionCyclical) {
+            // its actual type will be known then. Also, if the node is unreachable
+            // but within a reachable statement (e.g. if False and <name>) then avoid
+            // reporting an unbound error.
+            if (!isResolutionCyclical && !AnalyzerNodeInfo.isCodeUnreachable(node)) {
                 if (isUnbound(type)) {
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUnboundVariable,
@@ -13008,7 +13010,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const declScope = ParseTreeUtils.getExecutionScopeNode(declNode);
                     if (usageScope === declScope) {
                         if (!isFlowPathBetweenNodes(declNode, node)) {
-                            return false;
+                            // If there was no control flow path from the usage back
+                            // to the source, see if the usage node is reachable by
+                            // any path.
+                            const flowNode = AnalyzerNodeInfo.getFlowNode(node);
+                            const isReachable = flowNode && isFlowNodeReachable(flowNode);
+                            return !isReachable;
                         }
                     }
                 }
