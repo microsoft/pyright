@@ -185,6 +185,7 @@ import {
     isPartlyUnknown,
     isProperty,
     isTupleClass,
+    isTypeAliasPlaceholder,
     isTypeAliasRecursive,
     lookUpClassMember,
     lookUpObjectMember,
@@ -691,6 +692,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         incompleteTypeTracker.trackEntry(typeCacheToUse, node.id);
     }
 
+    function deleteTypeCacheEntry(node: ParseNode) {
+        const typeCacheToUse =
+            returnTypeInferenceTypeCache && isNodeInReturnTypeInferenceContext(node)
+                ? returnTypeInferenceTypeCache
+                : typeCache;
+
+        typeCacheToUse.delete(node.id);
+    }
+
     // Determines whether the specified node is contained within
     // the function node corresponding to the function that we
     // are currently analyzing in the context of parameter types
@@ -1067,7 +1077,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Don't update the type cache with an unbound type that results from
         // a resolution cycle. The cache will be updated when the stack unwinds
         // and the type is fully evaluated.
-        if (!typeResult.isResolutionCyclical) {
+        if (!typeResult.isResolutionCyclical && !isTypeAliasPlaceholder(typeResult.type)) {
             writeTypeCache(node, typeResult.type);
         }
 
@@ -3441,6 +3451,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             EvaluatorFlags.DoNotSpecialize |
             (flags & (EvaluatorFlags.ExpectingType | EvaluatorFlags.AllowForwardReferences));
         const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, baseTypeFlags);
+
+        if (baseTypeResult.isResolutionCyclical || isTypeAliasPlaceholder(baseTypeResult.type)) {
+            return {
+                node,
+                type: UnknownType.create(),
+                isResolutionCyclical: true,
+            };
+        }
+
         const memberTypeResult = getTypeFromMemberAccessWithBaseType(node, baseTypeResult, { method: 'get' }, flags);
 
         if (isCodeFlowSupportedForReference(node)) {
@@ -3523,6 +3542,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         node.memberName
                     );
                     return { type: UnknownType.create(), node };
+                }
+
+                if (baseType.details.recursiveTypeAliasName) {
+                    return { type: UnknownType.create(), node, isResolutionCyclical: true };
                 }
 
                 return getTypeFromMemberAccessWithBaseType(
@@ -4104,6 +4127,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             undefined,
             flags | EvaluatorFlags.DoNotSpecialize
         );
+
+        if (baseTypeResult.isResolutionCyclical || isTypeAliasPlaceholder(baseTypeResult.type)) {
+            return {
+                node,
+                type: UnknownType.create(),
+                isResolutionCyclical: true,
+            };
+        }
 
         // Check for builtin classes that will generate runtime exceptions if subscripted.
         if ((flags & EvaluatorFlags.AllowForwardReferences) === 0) {
@@ -4718,6 +4749,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromCall(node: CallNode, expectedType: Type | undefined, flags: EvaluatorFlags): TypeResult {
         const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
 
+        if (baseTypeResult.isResolutionCyclical || isTypeAliasPlaceholder(baseTypeResult.type)) {
+            return {
+                node,
+                type: UnknownType.create(),
+                isResolutionCyclical: true,
+            };
+        }
+
         // Handle the built-in "super" call specially.
         if (node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === 'super') {
             return getTypeFromSuperCall(node);
@@ -4755,13 +4794,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return functionArg;
         });
 
-        return getTypeFromCallWithBaseType(
+        const typeResult = getTypeFromCallWithBaseType(
             node,
             argList,
             baseTypeResult,
             expectedType,
             flags & ~EvaluatorFlags.DoNotSpecialize
         );
+
+        return typeResult;
     }
 
     function getTypeFromSuperCall(node: CallNode): TypeResult {
@@ -9068,6 +9109,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (typeAliasNameNode) {
+                    // Clear out the temporary types we wrote above.
+                    deleteTypeCacheEntry(node);
+                    deleteTypeCacheEntry(node.leftExpression);
+
                     // If this was a speculative type alias, it becomes a real type alias
                     // only if the evaluated type is an instantiable type.
                     if (
@@ -11840,7 +11885,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Set the cache entry to undefined before evaluating the
                             // expression in case it depends on itself.
                             setCacheEntry(curFlowNode, undefined, /* isIncomplete */ true);
-                            const flowType = evaluateAssignmentFlowNode(assignmentFlowNode);
+                            let flowType = evaluateAssignmentFlowNode(assignmentFlowNode);
+                            if (flowType && isTypeAliasPlaceholder(flowType)) {
+                                flowType = undefined;
+                            }
                             return setCacheEntry(curFlowNode, flowType, /* isIncomplete */ false);
                         }
 

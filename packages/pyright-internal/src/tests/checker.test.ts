@@ -960,6 +960,12 @@ test('Loops4', () => {
     validateResults(analysisResults, 0);
 });
 
+test('Loops5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['loops5.py']);
+
+    validateResults(analysisResults, 0, 0, 2);
+});
+
 test('Constants1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constants1.py']);
 

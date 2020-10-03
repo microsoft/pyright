@@ -332,6 +332,16 @@ export function transformTypeObjectToClass(type: Type): Type {
     return typeArg.classType;
 }
 
+// Indicates whether the specified type is a recursive type alias
+// placeholder that has not yet been resolved.
+export function isTypeAliasPlaceholder(type: Type) {
+    if (!isTypeVar(type)) {
+        return false;
+    }
+
+    return type.details.recursiveTypeAliasName && !type.details.boundType;
+}
+
 // Determines whether the type alias placeholder is used directly
 // within the specified type. It's OK if it's used indirectly as
 // a type argument.
