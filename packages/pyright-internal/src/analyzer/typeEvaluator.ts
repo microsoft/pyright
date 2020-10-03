@@ -5346,10 +5346,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 NoneType.createInstance()
             );
             if (!callResult.argumentErrors) {
-                returnType = applyExpectedTypeForConstructor(
-                    specializeType(type, typeVarMap, /* makeConcrete */ true) as ClassType,
-                    expectedType
-                );
+                // Note that we're specializing the type twice here with the same
+                // typeVarMap. This handles the case where the expectedType contains
+                // a type variable that is computed and filled in to the typeVarMap.
+                let specializedType = specializeType(type, typeVarMap, /* makeConcrete */ true) as ClassType;
+                specializedType = specializeType(specializedType, typeVarMap, /* makeConcrete */ true) as ClassType;
+                returnType = applyExpectedTypeForConstructor(specializedType, expectedType);
             } else {
                 reportedErrors = true;
             }

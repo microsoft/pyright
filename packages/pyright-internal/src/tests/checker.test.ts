@@ -2351,3 +2351,9 @@ test('Constructor1', () => {
 
     validateResults(analysisResults, 0);
 });
+
+test('Constructor3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor3.py']);
+
+    validateResults(analysisResults, 0, 0, 2);
+});
