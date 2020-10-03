@@ -223,6 +223,7 @@
         "positionOnlyFirstParam": "Position-only argument separator is not allowed as first parameter",
         "privateUsedOutsideOfClass": "\"{name}\" is private and used outside of the class in which it is declared",
         "privateUsedOutsideOfModule": "\"{name}\" is private and used outside of the module in which it is declared",
+        "propertyStaticOrClassMethod": "Static and class methods not allowed for property getter, setter or deleter",
         "protectedUsedOutsideOfClass": "\"{name}\" is protected and used outside of the class in which it is declared",
         "protocolUsedInCall": "Protocol class cannot be used in \"{name}\" call",
         "protocolIllegal": "Use of \"Protocol\" requires Python 3.7 or newer",

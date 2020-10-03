@@ -10128,9 +10128,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isProperty(baseType)) {
                     const memberName = decoratorNode.leftExpression.memberName.value;
                     if (memberName === 'setter') {
-                        return clonePropertyWithSetter(baseType, originalFunctionType, functionNode);
+                        if (isFunction(inputFunctionType)) {
+                            validatePropertyMethod(inputFunctionType, decoratorNode);
+                            return clonePropertyWithSetter(baseType, inputFunctionType, functionNode);
+                        } else {
+                            return inputFunctionType;
+                        }
                     } else if (memberName === 'deleter') {
-                        return clonePropertyWithDeleter(baseType, originalFunctionType);
+                        if (isFunction(inputFunctionType)) {
+                            validatePropertyMethod(inputFunctionType, decoratorNode);
+                            return clonePropertyWithDeleter(baseType, inputFunctionType);
+                        } else {
+                            return inputFunctionType;
+                        }
                     }
                 }
             }
@@ -10147,12 +10157,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Handle properties and subclasses of properties specially.
             if (ClassType.isPropertyClass(decoratorType)) {
                 if (inputFunctionType.category === TypeCategory.Function) {
+                    validatePropertyMethod(inputFunctionType, decoratorNode);
                     return createProperty(
                         decoratorNode,
                         decoratorType.details.name,
                         inputFunctionType,
                         decoratorNode.id
                     );
+                } else {
+                    return UnknownType.create();
                 }
             }
         }
@@ -10165,6 +10178,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return returnType;
+    }
+
+    function validatePropertyMethod(method: FunctionType, errorNode: ParseNode) {
+        if (FunctionType.isStaticMethod(method) || FunctionType.isClassMethod(method)) {
+            addDiagnostic(
+                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.propertyStaticOrClassMethod(),
+                errorNode
+            );
+        }
     }
 
     function createProperty(

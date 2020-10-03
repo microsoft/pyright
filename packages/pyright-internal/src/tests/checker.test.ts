@@ -654,6 +654,12 @@ test('Properties7', () => {
     validateResults(analysisResults, 2);
 });
 
+test('Properties8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties8.py']);
+
+    validateResults(analysisResults, 7);
+});
+
 test('Operators1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['operators1.py']);
 
