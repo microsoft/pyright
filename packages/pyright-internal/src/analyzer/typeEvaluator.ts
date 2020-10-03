@@ -909,13 +909,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Number: {
-                let builtInType = 'float';
                 if (node.isImaginary) {
-                    builtInType = 'complex';
+                    typeResult = { node, type: getBuiltInObject(node, 'complex') };
                 } else if (node.isInteger) {
-                    builtInType = 'int';
+                    typeResult = { node, type: cloneBuiltinObjectWithLiteral(node, 'int', node.value) };
+                } else {
+                    typeResult = { node, type: getBuiltInObject(node, 'float') };
                 }
-                typeResult = { node, type: cloneBuiltinObjectWithLiteral(node, builtInType, node.value) };
                 break;
             }
 
