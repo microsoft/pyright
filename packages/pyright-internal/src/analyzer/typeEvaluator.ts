@@ -4939,7 +4939,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let type: Type | undefined;
 
             subtype = makeTypeVarsConcrete(subtype);
-            subtype = getClassFromPotentialTypeObject(subtype);
+            let isTypeObject = false;
+            if (isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'Type')) {
+                subtype = getClassFromPotentialTypeObject(subtype);
+                isTypeObject = true;
+            }
 
             switch (subtype.category) {
                 case TypeCategory.Class: {
@@ -5009,7 +5013,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         } else if (className === 'auto' && argList.length === 0) {
                             type = getBuiltInObject(errorNode, 'int');
                         }
-                    } else if (isClass(baseTypeResult.type) && ClassType.hasAbstractMethods(subtype)) {
+                    } else if (isClass(subtype) && !isTypeObject && ClassType.hasAbstractMethods(subtype)) {
                         // If the class is abstract, it can't be instantiated.
                         const abstractMethods = getAbstractMethods(subtype);
 
