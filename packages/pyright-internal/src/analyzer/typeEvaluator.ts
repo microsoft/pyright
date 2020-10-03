@@ -14553,9 +14553,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Handle the constrained case.
         if (destType.details.constraints.length > 0) {
-            // Find the first constrained type that is compatible.
-            const constrainedType = destType.details.constraints.find((constraintType) => {
-                return canAssignType(constraintType, srcType, new DiagnosticAddendum());
+            // Find the narrowest constrained type that is compatible.
+            let constrainedType: Type | undefined;
+            destType.details.constraints.forEach((t) => {
+                if (canAssignType(t, srcType, new DiagnosticAddendum())) {
+                    if (!constrainedType || canAssignType(constrainedType, t, new DiagnosticAddendum())) {
+                        constrainedType = t;
+                    }
+                }
             });
 
             if (!constrainedType) {
@@ -14570,20 +14575,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const isSrcTypeVar = isTypeVar(srcType) && !srcType.details.isSynthesized;
             if (curTypeVarMapping && !isAnyOrUnknown(curTypeVarMapping) && !isSrcTypeVar) {
-                if (!isTypeSame(curTypeVarMapping, constrainedType)) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeConstraint().format({
-                            type: printType(constrainedType),
-                            name: printType(curTypeVarMapping),
-                        })
-                    );
-                    return false;
+                if (!canAssignType(curTypeVarMapping, constrainedType, new DiagnosticAddendum())) {
+                    // Handle the case where one of the constrained types is a wider
+                    // version of another constrained type that was previously assigned
+                    // to the type variable.
+                    if (canAssignType(constrainedType, curTypeVarMapping, new DiagnosticAddendum())) {
+                        if (!typeVarMap.isLocked()) {
+                            typeVarMap.setTypeVar(destType, constrainedType, /* isNarrowable */ false);
+                        }
+                    } else {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.typeConstraint().format({
+                                type: printType(constrainedType),
+                                name: printType(curTypeVarMapping),
+                            })
+                        );
+                        return false;
+                    }
                 }
             } else {
                 // Assign the type to the type var. If the source is a TypeVar, don't
                 // specialize it to one of the constrained types. Leave it generic.
                 if (!typeVarMap.isLocked()) {
-                    typeVarMap.setTypeVar(destType, isSrcTypeVar ? srcType : constrainedType, false);
+                    typeVarMap.setTypeVar(destType, isSrcTypeVar ? srcType : constrainedType, /* isNarrowable */ false);
                 }
             }
 
