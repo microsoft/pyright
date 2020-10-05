@@ -18,10 +18,10 @@ import * as TestUtils from './testUtils';
 test('Builtins1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['builtins1.py']);
 
-    assert.equal(analysisResults.length, 1);
-    assert.notEqual(analysisResults[0].parseResults, undefined);
-    assert.equal(analysisResults[0].errors.length, 0);
-    assert.equal(analysisResults[0].warnings.length, 0);
+    assert.strictEqual(analysisResults.length, 1);
+    assert.notStrictEqual(analysisResults[0].parseResults, undefined);
+    assert.strictEqual(analysisResults[0].errors.length, 0);
+    assert.strictEqual(analysisResults[0].warnings.length, 0);
 
     // This list comes from python directly.
     // `python`
@@ -182,11 +182,11 @@ test('Builtins1', () => {
     ];
 
     const moduleScope = AnalyzerNodeInfo.getScope(analysisResults[0].parseResults!.parseTree)!;
-    assert.notEqual(moduleScope, undefined);
+    assert.notStrictEqual(moduleScope, undefined);
 
     const builtinsScope = moduleScope.parent!;
-    assert.notEqual(builtinsScope, undefined);
-    assert.equal(builtinsScope.type, ScopeType.Builtin);
+    assert.notStrictEqual(builtinsScope, undefined);
+    assert.strictEqual(builtinsScope.type, ScopeType.Builtin);
 
     // Make sure all the expected symbols are present.
     const builtinsSymbolTable = builtinsScope.symbolTable;
@@ -221,16 +221,16 @@ function validateResults(
     infoCount?: number,
     unusedCode?: number
 ) {
-    assert.equal(results.length, 1);
-    assert.equal(results[0].errors.length, errorCount);
-    assert.equal(results[0].warnings.length, warningCount);
+    assert.strictEqual(results.length, 1);
+    assert.strictEqual(results[0].errors.length, errorCount);
+    assert.strictEqual(results[0].warnings.length, warningCount);
 
     if (infoCount !== undefined) {
-        assert.equal(results[0].infos.length, infoCount);
+        assert.strictEqual(results[0].infos.length, infoCount);
     }
 
     if (unusedCode !== undefined) {
-        assert.equal(results[0].unusedCodes.length, unusedCode);
+        assert.strictEqual(results[0].unusedCodes.length, unusedCode);
     }
 }
 
@@ -2379,5 +2379,5 @@ test('Constructor1', () => {
 test('Constructor3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor3.py']);
 
-    validateResults(analysisResults, 0, 0, 2);
+    validateResults(analysisResults, 0);
 });
