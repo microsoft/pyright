@@ -28,7 +28,7 @@ export function decodeDocString(rawString: string): string {
         }
     });
 
-    // If there was only
+    // Handle the case where there were only empty lines.
     if (leftSpacesToRemove >= Number.MAX_VALUE) {
         leftSpacesToRemove = 0;
     }

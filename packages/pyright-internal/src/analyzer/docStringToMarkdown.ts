@@ -20,41 +20,46 @@ export function convertDocStringToMarkdown(docString: string): string {
     return new DocStringConverter(docString).convert();
 }
 
-interface RegexReplacement {
+interface RegExpReplacement {
     exp: RegExp;
     replacement: string;
 }
 
-// Regexes for one match
-const LeadingSpaceCountRegEx = /\S|$/;
-const CrLfRegEx = /\r?\n/;
-const NonWhitespaceRegEx = /\S/;
-const TildaHeaderRegex = /^\s*~~~+$/;
-const PlusHeaderRegex = /^\s*\+\+\++$/;
-const LeadingAsteriskRegex = /^(\s+\* )(.*)$/;
-const SpaceDotDotRegex = /^\s*\.\. /;
-const DirectiveLikeRegex = /^\s*\.\.\s+(\w+)::\s*(.*)$/;
-const DoctestRegex = / *>>> /;
-const DirectivesExtraNewlineRegex = /^\s*:(param|arg|type|return|rtype|raise|except|var|ivar|cvar|copyright|license)/;
+// Regular expressions for one match
+const LeadingSpaceCountRegExp = /\S|$/;
+const CrLfRegExp = /\r?\n/;
+const NonWhitespaceRegExp = /\S/;
+const TildaHeaderRegExp = /^\s*~~~+$/;
+const PlusHeaderRegExp = /^\s*\+\+\++$/;
+const LeadingAsteriskRegExp = /^(\s+\* )(.*)$/;
+const SpaceDotDotRegExp = /^\s*\.\. /;
+const DirectiveLikeRegExp = /^\s*\.\.\s+(\w+)::\s*(.*)$/;
+const DoctestRegExp = / *>>> /;
+const DirectivesExtraNewlineRegExp = /^\s*:(param|arg|type|return|rtype|raise|except|var|ivar|cvar|copyright|license)/;
 
-const PotentialHeaders: RegexReplacement[] = [
+const PotentialHeaders: RegExpReplacement[] = [
     { exp: /^\s*=+(\s+=+)+$/, replacement: '=' },
     { exp: /^\s*-+(\s+-+)+$/, replacement: '-' },
     { exp: /^\s*~+(\s+-+)+$/, replacement: '~' },
     { exp: /^\s*\++(\s+\++)+$/, replacement: '+' },
 ];
 
-// Regexes for replace all
-const WhitespaceRegex = /\s/g;
-const DoubleTickRegEx = /``/g;
-const TabRegEx = /\t/g;
-const TildeRegEx = /~/g;
-const PlusRegEx = /\+/g;
-const UnescapedMarkdownCharsRegex = /(?<!\\)([_*~[\]])/g;
+// Regular expressions for replace all
+const WhitespaceRegExp = /\s/g;
+const DoubleTickRegExp = /``/g;
+const TabRegExp = /\t/g;
+const TildeRegExp = /~/g;
+const PlusRegExp = /\+/g;
+const UnescapedMarkdownCharsRegExp = /(?<!\\)([_*~[\]])/g;
+
+const HtmlEscapes: RegExpReplacement[] = [
+    { exp: /</g, replacement: '&lt;' },
+    { exp: />/g, replacement: '&gt;' },
+];
 
 // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#literal-blocks
-const LiteralBlockEmptyRegex = /^\s*::$/;
-const LiteralBlockReplacements: RegexReplacement[] = [
+const LiteralBlockEmptyRegExp = /^\s*::$/;
+const LiteralBlockReplacements: RegExpReplacement[] = [
     { exp: /\s+::$/g, replacement: '' },
     { exp: /(\S)\s*::$/g, replacement: '$1:' },
     // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#interpreted-text
@@ -188,8 +193,16 @@ class DocStringConverter {
 
         // TODO: Push into Google/Numpy style list parser.
 
-        this._appendTextLine(this._currentLine());
+        this._appendTextLine(this._escapeHtml(this._currentLine()));
         this._eatLine();
+    }
+
+    private _escapeHtml(line: string): string {
+        HtmlEscapes.forEach((escape) => {
+            line = line.replace(escape.exp, escape.replacement);
+        });
+
+        return line;
     }
 
     private _appendTextLine(line: string): void {
@@ -197,7 +210,7 @@ class DocStringConverter {
 
         // Attempt to put directives lines into their own paragraphs.
         // This should be removed once proper list-like parsing is written.
-        if (!this._insideInlineCode && DirectivesExtraNewlineRegex.test(line)) {
+        if (!this._insideInlineCode && DirectivesExtraNewlineRegExp.test(line)) {
             this._appendLine();
         }
 
@@ -222,15 +235,15 @@ class DocStringConverter {
                     // Handle weird separator lines which contain random spaces.
                     for (const expReplacement of PotentialHeaders) {
                         if (expReplacement.exp.test(part)) {
-                            part = part.replace(WhitespaceRegex, expReplacement.replacement);
+                            part = part.replace(WhitespaceRegExp, expReplacement.replacement);
                             break;
                         }
                     }
 
                     // Replace ReST style ~~~ header to prevent it being interpreted as a code block
                     // (an alternative in Markdown to triple backtick blocks).
-                    if (TildaHeaderRegex.test(part)) {
-                        this._append(part.replace(TildeRegEx, '-'));
+                    if (TildaHeaderRegExp.test(part)) {
+                        this._append(part.replace(TildeRegExp, '-'));
                         continue;
                     }
 
@@ -238,8 +251,8 @@ class DocStringConverter {
                     // TODO: Handle the rest of these, and the precedence order (which depends on the
                     // order heading lines are seen, not what the line contains).
                     // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#sections
-                    if (PlusHeaderRegex.test(part)) {
-                        this._append(part.replace(PlusRegEx, '-'));
+                    if (PlusHeaderRegExp.test(part)) {
+                        this._append(part.replace(PlusRegExp, '-'));
                         continue;
                     }
                 }
@@ -249,7 +262,7 @@ class DocStringConverter {
                 // TODO: Replace this with real list parsing. This may have
                 // false positives and cause random italics when the ReST list
                 // doesn't match Markdown's specification.
-                const match = LeadingAsteriskRegex.exec(part);
+                const match = LeadingAsteriskRegExp.exec(part);
                 if (match !== null && match.length === 3) {
                     this._append(match[1]);
                     part = match[2];
@@ -261,14 +274,14 @@ class DocStringConverter {
             // Applying this only when i == 0 or i == parts.Length-1 may work.
 
             // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#hyperlink-references
-            // part = Regex.Replace(part, @"^_+", "");
+            // part = RegExp.Replace(part, @"^_+", "");
             // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#inline-internal-targets
-            // part = Regex.Replace(part, @"_+$", "");
+            // part = RegExp.Replace(part, @"_+$", "");
 
             // TODO: Strip footnote/citation references.
 
             // Escape _, *, and ~, but ignore things like ":param \*\*kwargs:".
-            part = part.replace(UnescapedMarkdownCharsRegex, '\\$1');
+            part = part.replace(UnescapedMarkdownCharsRegExp, '\\$1');
 
             this._append(part);
         }
@@ -282,13 +295,13 @@ class DocStringConverter {
 
     private _preprocessTextLine(line: string): string {
         // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#literal-blocks
-        if (LiteralBlockEmptyRegex.test(line)) {
+        if (LiteralBlockEmptyRegExp.test(line)) {
             return '';
         }
 
         LiteralBlockReplacements.forEach((item) => (line = line.replace(item.exp, item.replacement)));
 
-        line = line.replace(DoubleTickRegEx, '`');
+        line = line.replace(DoubleTickRegExp, '`');
         return line;
     }
 
@@ -331,7 +344,7 @@ class DocStringConverter {
     }
 
     private _beginDocTest(): boolean {
-        if (!DoctestRegex.test(this._currentLine())) {
+        if (!DoctestRegExp.test(this._currentLine())) {
             return false;
         }
 
@@ -421,7 +434,7 @@ class DocStringConverter {
     }
 
     private _beginDirective(): boolean {
-        if (!SpaceDotDotRegex.test(this._currentLine())) {
+        if (!SpaceDotDotRegExp.test(this._currentLine())) {
             return false;
         }
 
@@ -434,7 +447,7 @@ class DocStringConverter {
     private _parseDirective(): void {
         // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#directives
 
-        const match = DirectiveLikeRegex.exec(this._currentLine());
+        const match = DirectiveLikeRegExp.exec(this._currentLine());
         if (match !== null && match.length === 3) {
             const directiveType = match[1];
             const directive = match[2];
@@ -503,9 +516,9 @@ class DocStringConverter {
 
 function _splitDocString(docstring: string): string[] {
     // As done by inspect.cleandoc.
-    docstring = docstring.replace(TabRegEx, ' '.repeat(8));
+    docstring = docstring.replace(TabRegExp, ' '.repeat(8));
 
-    let lines = docstring.split(CrLfRegEx).map((v) => v.trimRight());
+    let lines = docstring.split(CrLfRegExp).map((v) => v.trimRight());
     if (lines.length > 0) {
         let first: string | undefined = lines[0].trimLeft();
         if (first === '') {
@@ -537,9 +550,9 @@ function _largestTrim(lines: string[]): number {
 }
 
 function _countLeadingSpaces(s: string): number {
-    return s.search(LeadingSpaceCountRegEx);
+    return s.search(LeadingSpaceCountRegExp);
 }
 
 function _isUndefinedOrWhitespace(s: string | undefined): boolean {
-    return s === undefined || !NonWhitespaceRegEx.test(s);
+    return s === undefined || !NonWhitespaceRegExp.test(s);
 }

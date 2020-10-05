@@ -7,7 +7,7 @@
 // @filename: requests/api.py
 // @library: true
 //// def head(url, **kwargs):
-////     r"""Sends a HEAD request."""
+////     r"""Sends a <HEAD> request."""
 ////     pass
 
 // @filename: test.py
@@ -18,7 +18,7 @@
 helper.verifyHover({
     marker: {
         value:
-            '```python\n(function) head: (url: str | bytes, **kwargs: Unknown) -> Response\n```\nSends a HEAD request.',
+            '```python\n(function) head: (url: str | bytes, **kwargs: Unknown) -> Response\n```\nSends a &lt;HEAD&gt; request.',
         kind: 'markdown',
     },
 });
