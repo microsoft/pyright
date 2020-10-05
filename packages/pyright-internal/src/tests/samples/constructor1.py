@@ -28,4 +28,3 @@ def return_ok_none() -> Result[Optional[int], Exception]:
 
 def return_ok_one() -> Result[Optional[int], Exception]:
     return Ok(1)
-

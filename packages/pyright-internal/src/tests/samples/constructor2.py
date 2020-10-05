@@ -8,6 +8,7 @@ from typing import (
     Iterable,
     List,
     Literal,
+    Mapping,
     Optional,
     Protocol,
     TypeVar,
@@ -124,5 +125,55 @@ def s14(p: Bat):
 
 def s15():
     a = Bear(1)
-    t: Literal["Bear[int]"] = reveal_type(a)
+    t1: Literal["Bear[Literal[1]]"] = reveal_type(a)
+    b = Bear[int](1)
+    t2: Literal["Bear[int]"] = reveal_type(b)
+    c = Bear[float](1)
+    t3: Literal["Bear[float]"] = reveal_type(c)
+    d = Bear[Union[str, int]](1)
+    t4: Literal["Bear[str | int]"] = reveal_type(d)
 
+
+def s16():
+    a: Any = Bear(1)
+    t: Literal["Any"] = reveal_type(a)
+
+
+def s17():
+    a1: Iterable[object] = [2, 3, 4]
+    ta1: Literal["List[int]"] = reveal_type(a1)
+
+    a2: List[object] = [2, 3, 4]
+    ta2: Literal["List[object]"] = reveal_type(a2)
+
+    b1: Iterable[float] = [2, 3, 4]
+    tb1: Literal["List[int]"] = reveal_type(b1)
+
+    b2: List[float] = [2, 3, 4]
+    tb2: Literal["List[float]"] = reveal_type(b2)
+
+    c1: Iterable[Literal["A", "B", "C"]] = ["A", "B"]
+    tc1: Literal["List[Literal['A', 'B']]"] = reveal_type(c1)
+
+    c2: List[Literal["A", "B", "C"]] = ["A", "B"]
+    tc2: Literal["List[Literal['A', 'B', 'C']]"] = reveal_type(c2)
+
+
+def s18():
+    a1: Mapping[object, object] = {"a": 3, "b": 5.6}
+    ta1: Literal["Dict[object, float]"] = reveal_type(a1)
+
+    a2: Dict[object, object] = {"a": 3, "b": 5.6}
+    ta2: Literal["Dict[object, object]"] = reveal_type(a2)
+
+    b1: Mapping[str, float] = {"a": 3, "b": 5}
+    tb1: Literal["Dict[str, int]"] = reveal_type(b1)
+
+    b2: Dict[str, float] = {"a": 3, "b": 5}
+    tb2: Literal["Dict[str, float]"] = reveal_type(b2)
+
+    c1: Mapping[Literal["A", "B"], Literal[3, 4]] = {"A": 3}
+    tc1: Literal["Dict[Literal['A', 'B'], Literal[3]]"] = reveal_type(c1)
+
+    c2: Dict[Literal["A", "B"], Literal[3, 4]] = {"A": 3}
+    tc2: Literal["Dict[Literal['A', 'B'], Literal[3, 4]]"] = reveal_type(c2)

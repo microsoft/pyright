@@ -3,8 +3,8 @@
 
 # pyright: strict
 
-X1 = type("X1", (object,), dict())
-X2 = type("X2", (object,), dict())
+X1 = type("X1", (object,), {})
+X2 = type("X2", (object,), {})
 
 
 class A(X1):
@@ -23,4 +23,3 @@ X4 = type("X4", 34)
 
 # This should generate an error because the second arg is not a tuple of class types.
 X5 = type("X5", (3,))
-

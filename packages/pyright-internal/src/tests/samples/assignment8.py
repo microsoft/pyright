@@ -19,6 +19,8 @@ class Foo:
         return 3
 
 
+_T = TypeVar("_T")
+
 my_obj: object
 
 my_obj = None
@@ -29,7 +31,7 @@ my_obj = Foo.bar
 my_obj = Foo.baz
 my_obj = ()
 my_obj = lambda x: x
-my_obj = TypeVar("_T")
+my_obj = _T
 
 # This should generate an error because a is unbound.
 my_obj = a
