@@ -10143,12 +10143,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     clsType.scopeId = TypeVarType.makeScopeId(clsType.details.name, containingClassNode.id);
 
-                    if (!ClassType.isProtocolClass(containingClassType)) {
-                        clsType.details.boundType = selfSpecializeClassType(
-                            containingClassType,
-                            /* setSkipAbstractClassTest */ true
-                        );
-                    }
+                    clsType.details.boundType = selfSpecializeClassType(
+                        containingClassType,
+                        /* setSkipAbstractClassTest */ true
+                    );
                     return clsType;
                 } else if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
                     const selfType = TypeVarType.createInstance(
@@ -10158,11 +10156,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     selfType.scopeId = TypeVarType.makeScopeId(selfType.details.name, containingClassNode.id);
 
-                    if (!ClassType.isProtocolClass(containingClassType)) {
-                        selfType.details.boundType = ObjectType.create(
-                            selfSpecializeClassType(containingClassType, /* setSkipAbstractClassTest */ true)
-                        );
-                    }
+                    selfType.details.boundType = ObjectType.create(
+                        selfSpecializeClassType(containingClassType, /* setSkipAbstractClassTest */ true)
+                    );
                     return selfType;
                 }
             }
@@ -15181,6 +15177,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             srcType.category === TypeCategory.OverloadedFunction
                         ) {
                             return canAssignType(destTypeArgs[0], srcType, diag, typeVarMap, flags, recursionCount + 1);
+                        } else if (isObject(srcType) && ClassType.isProtocolClass(srcType.classType)) {
+                            // This case is used for protocol matching when the dest is a metaclass.
+                            // For example, when matching an Enum class against Iterable.
+                            return true;
                         }
                     }
                 }
