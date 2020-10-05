@@ -5627,6 +5627,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return canAssignType(type, expectedType.classType, new DiagnosticAddendum(), typeVarMap);
         }
 
+        // If the expected type is the same as the target type (commonly the case),
+        // we can use a faster method.
+        if (ClassType.isSameGenericClass(expectedType.classType, type)) {
+            const sameClassTypeVarMap = buildTypeVarMapFromSpecializedClass(expectedType.classType);
+            sameClassTypeVarMap.getTypeVars().forEach((entry) => {
+                typeVarMap.setTypeVar(entry.typeVar, entry.type, sameClassTypeVarMap.isNarrowable(entry.typeVar));
+            });
+            return true;
+        }
+
         // Create a generic version of the expected type.
         const synthExpectedTypeArgs = ClassType.getTypeParameters(expectedType.classType).map((_, index) => {
             return TypeVarType.createInstance(`__dest${index}`, /* isParamSpec */ false, /* isSynthesized */ true);
