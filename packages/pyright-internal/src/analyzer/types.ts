@@ -536,13 +536,12 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.PartiallyConstructed);
     }
 
+    export function getAliasClass(classType: ClassType): ClassType {
+        return classType.details.aliasClass || classType;
+    }
+
     export function getTypeParameters(classType: ClassType) {
-        // If this is a special class, use the alias class' type
-        // parameters instead.
-        if (classType.details.aliasClass) {
-            return classType.details.aliasClass.details.typeParameters;
-        }
-        return classType.details.typeParameters;
+        return getAliasClass(classType).details.typeParameters;
     }
 
     export function hasUnknownBaseClass(classType: ClassType) {
