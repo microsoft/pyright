@@ -7,6 +7,7 @@
  * Utility functions that are common to a bunch of the tests.
  */
 
+import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -197,5 +198,25 @@ export function printDiagnostics(fileResults: FileAnalysisResult) {
         for (const diag of fileResults.warnings) {
             console.error(`  ${diag.message}`);
         }
+    }
+}
+
+export function validateResults(
+    results: FileAnalysisResult[],
+    errorCount: number,
+    warningCount = 0,
+    infoCount?: number,
+    unusedCode?: number
+) {
+    assert.strictEqual(results.length, 1);
+    assert.strictEqual(results[0].errors.length, errorCount);
+    assert.strictEqual(results[0].warnings.length, warningCount);
+
+    if (infoCount !== undefined) {
+        assert.strictEqual(results[0].infos.length, infoCount);
+    }
+
+    if (unusedCode !== undefined) {
+        assert.strictEqual(results[0].unusedCodes.length, unusedCode);
     }
 }
