@@ -1559,6 +1559,10 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 return false;
             }
 
+            if (type1.details === type2TypeVar.details) {
+                return true;
+            }
+
             if (type1.details.name !== type2TypeVar.details.name) {
                 return false;
             }
