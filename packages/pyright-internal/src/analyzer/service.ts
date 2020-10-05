@@ -615,13 +615,17 @@ export class AnalyzerService {
             ).paths;
             if (pythonPaths.length === 0) {
                 const logLevel = configOptions.verboseOutput ? LogLevel.Error : LogLevel.Log;
-                log(this._console, logLevel, `No search paths found for configured python interpreter.`);
+                if (commandLineOptions.fromVsCodeExtension || configOptions.verboseOutput) {
+                    log(this._console, logLevel, `No search paths found for configured python interpreter.`);
+                }
             } else {
-                const logLevel = configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
-                log(this._console, logLevel, `Search paths found for configured python interpreter:`);
-                pythonPaths.forEach((path) => {
-                    log(this._console, logLevel, `  ${path}`);
-                });
+                if (commandLineOptions.fromVsCodeExtension || configOptions.verboseOutput) {
+                    const logLevel = configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
+                    log(this._console, logLevel, `Search paths found for configured python interpreter:`);
+                    pythonPaths.forEach((path) => {
+                        log(this._console, logLevel, `  ${path}`);
+                    });
+                }
             }
 
             if (configOptions.verboseOutput) {
