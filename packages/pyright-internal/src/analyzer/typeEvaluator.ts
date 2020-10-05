@@ -7357,8 +7357,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        let leftType = makeTypeVarsConcrete(getTypeOfExpression(leftExpression).type);
-        let rightType = makeTypeVarsConcrete(getTypeOfExpression(node.rightExpression).type);
+        // For most binary operations, the "expected type" is applied to the output
+        // of the magic method for that operation. However, the "or" and "and" operators
+        // have no magic method, so we apply the expected type directly to both operands.
+        const expectedOperandType =
+            node.operator === OperatorType.Or || node.operator === OperatorType.And ? expectedType : undefined;
+        let leftType = makeTypeVarsConcrete(getTypeOfExpression(leftExpression, expectedOperandType).type);
+        let rightType = makeTypeVarsConcrete(getTypeOfExpression(node.rightExpression, expectedOperandType).type);
 
         // Is this a "|" operator used in a context where it is supposed to be
         // interpreted as a union operator?
