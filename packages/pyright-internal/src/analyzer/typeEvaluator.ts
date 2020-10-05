@@ -16388,7 +16388,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.Module: {
-                return 'Module';
+                return `Module("${type.moduleName}")`;
             }
 
             case TypeCategory.Class: {
