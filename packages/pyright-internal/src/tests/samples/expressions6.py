@@ -11,4 +11,4 @@ def func_or(a: Optional[Dict[str, Any]]):
 
 def func_and():
     a: Optional[Dict[str, Any]] = True and dict()
-    t1: Literal["Dict[str, Any]"] = reveal_type(a)
+    t1: Literal["dict[str, Any]"] = reveal_type(a)

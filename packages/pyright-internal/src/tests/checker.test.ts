@@ -353,7 +353,13 @@ test('TypeNarrowing17', () => {
 test('TypeNarrowing18', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing18.py']);
 
-    validateResults(analysisResults, 0, 0, 10);
+    validateResults(analysisResults, 0);
+});
+
+test('TypeNarrowing19', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing19.py']);
+
+    validateResults(analysisResults, 0);
 });
 
 test('CircularBaseClass', () => {
@@ -1125,7 +1131,7 @@ test('TypeAlias6', () => {
 test('TypeAlias7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias7.py']);
 
-    validateResults(analysisResults, 2);
+    validateResults(analysisResults, 3);
 });
 
 test('TypeAlias8', () => {
@@ -2372,6 +2378,12 @@ test('None1', () => {
 
 test('Constructor1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor1.py']);
+
+    validateResults(analysisResults, 0);
+});
+
+test('Constructor2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor2.py']);
 
     validateResults(analysisResults, 0);
 });

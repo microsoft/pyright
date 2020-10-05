@@ -370,10 +370,16 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
 export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Type | undefined {
     if (type) {
         if (isTypeVar(type) && type.details.recursiveTypeAliasName && type.details.boundType) {
-            if (TypeBase.isInstance(type)) {
-                return convertToInstance(type.details.boundType);
+            const unspecializedType = TypeBase.isInstance(type)
+                ? convertToInstance(type.details.boundType)
+                : type.details.boundType;
+
+            if (!type.typeAliasInfo?.typeArguments || !type.details.recursiveTypeParameters) {
+                return unspecializedType;
             }
-            return type.details.boundType;
+
+            const typeVarMap = buildTypeVarMap(type.details.recursiveTypeParameters, type.typeAliasInfo.typeArguments);
+            return specializeType(unspecializedType, typeVarMap);
         }
     }
 
@@ -643,6 +649,26 @@ export function specializeType(
     }
 
     if (isTypeVar(type)) {
+        // Handle recursive type aliases specially. In particular,
+        // we need to specialize type arguments for generic recursive
+        // type aliases.
+        if (type.details.recursiveTypeAliasName) {
+            if (!type.typeAliasInfo?.typeArguments) {
+                return type;
+            }
+
+            const typeArgs = type.typeAliasInfo.typeArguments.map((typeArg) =>
+                specializeType(typeArg, typeVarMap, /* makeConcrete */ false, recursionLevel + 1)
+            );
+
+            return TypeBase.cloneForTypeAlias(
+                type,
+                type.typeAliasInfo.aliasName,
+                type.typeAliasInfo.typeParameters,
+                typeArgs
+            );
+        }
+
         if (typeVarMap) {
             const replacementType = typeVarMap.getTypeVar(type);
             if (replacementType) {
@@ -1712,8 +1738,18 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
         }
 
         case TypeCategory.TypeVar: {
-            // If this is a recursive type alias, don't treat it like other TypeVars.
-            return type.details.recursiveTypeAliasName === undefined;
+            // Most TypeVar types need to be specialized.
+            if (!type.details.recursiveTypeAliasName) {
+                return true;
+            }
+
+            // If this is a recursive type alias, it may need to be specialized
+            // if it has generic type arguments.
+            if (type.typeAliasInfo?.typeArguments) {
+                return type.typeAliasInfo.typeArguments.some((typeArg) =>
+                    requiresSpecialization(typeArg, recursionCount + 1)
+                );
+            }
         }
     }
 
