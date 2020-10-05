@@ -5390,17 +5390,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 returnType = doForSubtypes(expectedType, (expectedSubType) => {
                     const typeVarMap = new TypeVarMap();
                     if (populateTypeVarMapBasedOnExpectedType(type, expectedSubType, typeVarMap)) {
-                        const callResult = suppressDiagnostics(() => {
-                            return validateCallArguments(
-                                errorNode,
-                                argList,
-                                initMethodType,
-                                typeVarMap,
-                                skipUnknownArgCheck,
-                                /* inferReturnTypeIfNeeded */ true,
-                                NoneType.createInstance()
-                            );
-                        });
+                        const callResult = validateCallArguments(
+                            errorNode,
+                            argList,
+                            initMethodType,
+                            typeVarMap,
+                            skipUnknownArgCheck,
+                            /* inferReturnTypeIfNeeded */ true,
+                            NoneType.createInstance()
+                        );
 
                         if (!callResult.argumentErrors) {
                             // Note that we're specializing the type twice here with the same
