@@ -463,11 +463,7 @@ export class TypeStubWriter extends ParseTreeWalker {
 
     private _emitDecorators(decorators: DecoratorNode[]) {
         decorators.forEach((decorator) => {
-            let line = '@' + this._printExpression(decorator.leftExpression);
-            if (decorator.arguments) {
-                line += `(${decorator.arguments.map((arg) => this._printArgument(arg)).join(', ')})`;
-            }
-            this._emitLine(line);
+            this._emitLine('@' + this._printExpression(decorator.expression));
         });
     }
 

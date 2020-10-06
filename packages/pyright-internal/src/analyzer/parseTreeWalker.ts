@@ -183,7 +183,7 @@ export class ParseTreeWalker {
 
             case ParseNodeType.Decorator:
                 if (this.visitDecorator(node)) {
-                    return [node.leftExpression, ...(node.arguments || [])];
+                    return [node.expression];
                 }
                 break;
 

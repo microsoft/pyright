@@ -566,24 +566,22 @@ export namespace WithItemNode {
 
 export interface DecoratorNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Decorator;
-    leftExpression: ExpressionNode;
-    arguments: ArgumentNode[] | undefined;
+    expression: ExpressionNode;
 }
 
 export namespace DecoratorNode {
-    export function create(atToken: Token, leftExpression: ExpressionNode) {
+    export function create(atToken: Token, expression: ExpressionNode) {
         const node: DecoratorNode = {
             start: atToken.start,
             length: atToken.length,
             nodeType: ParseNodeType.Decorator,
             id: _nextNodeId++,
-            leftExpression,
-            arguments: undefined,
+            expression,
         };
 
-        leftExpression.parent = node;
+        expression.parent = node;
 
-        extendRange(node, leftExpression);
+        extendRange(node, expression);
 
         return node;
     }

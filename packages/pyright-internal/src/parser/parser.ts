@@ -1056,55 +1056,27 @@ export class Parser {
         const atOperator = this._getNextToken() as OperatorToken;
         assert(atOperator.operatorType === OperatorType.MatrixMultiply);
 
-        let callNameExpr: ExpressionNode | undefined;
-        while (true) {
-            const namePart = this._getTokenIfIdentifier();
-            if (!namePart) {
-                this._addError(Localizer.Diagnostic.expectedDecoratorName(), this._peekToken());
-                if (callNameExpr) {
-                    callNameExpr = ErrorNode.create(
-                        this._peekToken(),
-                        ErrorExpressionCategory.MissingMemberAccessName,
-                        callNameExpr
-                    );
-                } else {
-                    callNameExpr = ErrorNode.create(
-                        this._peekToken(),
-                        ErrorExpressionCategory.MissingDecoratorCallName
-                    );
-                }
-                break;
+        const expression = this._parseTestExpression(true);
+
+        // Versions of Python prior to 3.9 support a limited set of
+        // expression forms.
+        if (this._getLanguageVersion() < PythonVersion.V3_9) {
+            let isSupportedExpressionForm = false;
+            if (this._isNameOrMemberAccessExpression(expression)) {
+                isSupportedExpressionForm = true;
+            } else if (
+                expression.nodeType === ParseNodeType.Call &&
+                this._isNameOrMemberAccessExpression(expression.leftExpression)
+            ) {
+                isSupportedExpressionForm = true;
             }
 
-            const namePartNode = NameNode.create(namePart);
-
-            if (!callNameExpr) {
-                callNameExpr = namePartNode;
-            } else {
-                callNameExpr = MemberAccessNode.create(callNameExpr, namePartNode);
-            }
-
-            if (!this._consumeTokenIfType(TokenType.Dot)) {
-                break;
+            if (!isSupportedExpressionForm) {
+                this._addError(Localizer.Diagnostic.expectedDecoratorExpr(), expression);
             }
         }
 
-        const decoratorNode = DecoratorNode.create(atOperator, callNameExpr);
-
-        if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
-            decoratorNode.arguments = this._parseArgList();
-            decoratorNode.arguments.forEach((arg) => {
-                arg.parent = decoratorNode;
-                extendRange(decoratorNode, arg);
-            });
-
-            const nextToken = this._peekToken();
-            if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
-                this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
-            } else {
-                extendRange(decoratorNode, nextToken);
-            }
-        }
+        const decoratorNode = DecoratorNode.create(atOperator, expression);
 
         if (!this._consumeTokenIfType(TokenType.NewLine)) {
             this._addError(Localizer.Diagnostic.expectedDecoratorNewline(), this._peekToken());
@@ -1112,6 +1084,16 @@ export class Parser {
         }
 
         return decoratorNode;
+    }
+
+    private _isNameOrMemberAccessExpression(expression: ExpressionNode): boolean {
+        if (expression.nodeType === ParseNodeType.Name) {
+            return true;
+        } else if (expression.nodeType === ParseNodeType.MemberAccess) {
+            return this._isNameOrMemberAccessExpression(expression.leftExpression);
+        }
+
+        return false;
     }
 
     // classdef: 'class' NAME ['(' [arglist] ')'] suite

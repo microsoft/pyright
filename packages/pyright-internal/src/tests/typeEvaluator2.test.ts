@@ -969,6 +969,20 @@ test('Decorator2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Decorator3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Analyze with Python 3.8 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    const analysisResults38 = TestUtils.typeAnalyzeSampleFiles(['decorator3.py'], configOptions);
+    TestUtils.validateResults(analysisResults38, 3);
+
+    // Analyze with Python 3.8 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['decorator3.py'], configOptions);
+    TestUtils.validateResults(analysisResults39, 0);
+});
+
 test('FunctionAnnotation1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionAnnotation1.py']);
 

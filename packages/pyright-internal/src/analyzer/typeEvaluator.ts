@@ -467,7 +467,7 @@ export interface CallSignature {
 
 export interface CallSignatureInfo {
     signatures: CallSignature[];
-    callNode: CallNode | DecoratorNode;
+    callNode: CallNode;
 }
 
 export interface CallResult {
@@ -1141,36 +1141,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeFromDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
-        const baseTypeResult = getTypeOfExpression(
-            node.leftExpression,
-            /* expectedType */ undefined,
-            EvaluatorFlags.DoNotSpecialize
-        );
-
-        let decoratorCall = baseTypeResult;
-
-        // If the decorator has arguments, evaluate that call first.
-        if (node.arguments) {
-            const argList = node.arguments.map((arg) => {
-                const functionArg: FunctionArgument = {
-                    valueExpression: arg.valueExpression,
-                    argumentCategory: arg.argumentCategory,
-                    name: arg.name,
-                };
-                return functionArg;
-            });
-
-            // Evaluate the decorator. Don't check for unknown arguments
-            // because these errors will already be reported as unknown
-            // parameters.
-            decoratorCall = getTypeFromCallWithBaseType(
-                node,
-                argList,
-                decoratorCall,
-                undefined,
-                EvaluatorFlags.DoNotCheckForUnknownArgs
-            );
-        }
+        const decoratorTypeResult = getTypeOfExpression(node.expression);
 
         const argList = [
             {
@@ -1182,7 +1153,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return getTypeFromCallWithBaseType(
             node,
             argList,
-            decoratorCall,
+            decoratorTypeResult,
             undefined,
             EvaluatorFlags.DoNotCheckForUnknownArgs | EvaluatorFlags.DoNotSpecialize
         ).type;
@@ -1371,9 +1342,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): CallSignatureInfo | undefined {
         // Find the call node that contains the specified node.
         let curNode: ParseNode | undefined = node;
-        let callNode: CallNode | DecoratorNode | undefined;
+        let callNode: CallNode | undefined;
         while (curNode !== undefined) {
-            if (curNode.nodeType === ParseNodeType.Call || curNode.nodeType === ParseNodeType.Decorator) {
+            if (curNode.nodeType === ParseNodeType.Call) {
                 callNode = curNode;
                 break;
             }
@@ -5281,14 +5252,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (!diag.isEmpty() || isNever(resultType)) {
             const fileInfo = getFileInfo(errorNode);
+            const callNode = errorNode.nodeType === ParseNodeType.Decorator ? errorNode : errorNode.leftExpression;
             addDiagnostic(
                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.typeNotCallable().format({
-                    expression: ParseTreeUtils.printExpression(errorNode.leftExpression),
+                    expression: ParseTreeUtils.printExpression(callNode),
                     type: printType(baseTypeResult.type),
                 }) + diag.getString(),
-                errorNode.leftExpression
+                callNode
             );
 
             resultType = UnknownType.create();
@@ -9670,7 +9642,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         fileInfo.diagnosticRuleSet.reportUntypedClassDecorator,
                         DiagnosticRule.reportUntypedClassDecorator,
                         Localizer.Diagnostic.classDecoratorTypeUnknown(),
-                        node.decorators[i].leftExpression
+                        node.decorators[i].expression
                     );
 
                     foundUnknown = true;
@@ -9724,39 +9696,49 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         originalClassType: ClassType,
         decoratorNode: DecoratorNode
     ): Type {
-        const decoratorType = getTypeOfExpression(decoratorNode.leftExpression).type;
+        const decoratorType = getTypeOfExpression(decoratorNode.expression).type;
 
-        // Is this a @dataclass?
         if (decoratorType.category === TypeCategory.OverloadedFunction) {
-            const overloads = decoratorType.overloads;
-            if (overloads.length > 0 && overloads[0].details.builtInName === 'dataclass') {
-                // Determine whether we should skip synthesizing the init method.
-                let skipSynthesizeInit = false;
-
-                if (decoratorNode.arguments) {
-                    decoratorNode.arguments.forEach((arg) => {
-                        if (arg.name && arg.name.value === 'init') {
-                            if (arg.valueExpression) {
-                                const fileInfo = getFileInfo(decoratorNode);
-                                const value = evaluateStaticBoolExpression(
-                                    arg.valueExpression,
-                                    fileInfo.executionEnvironment
-                                );
-                                if (!value) {
-                                    skipSynthesizeInit = true;
-                                }
-                            }
-                        }
-                    });
-                }
-
+            if (decoratorType.overloads[0].details.builtInName === 'dataclass') {
                 originalClassType.details.flags |= ClassTypeFlags.DataClass;
-                if (skipSynthesizeInit) {
-                    originalClassType.details.flags |= ClassTypeFlags.SkipSynthesizedInit;
-                }
-                return inputClassType;
             }
         } else if (decoratorType.category === TypeCategory.Function) {
+            // Is this a @dataclass call?
+            if (decoratorNode.expression.nodeType === ParseNodeType.Call) {
+                const decoratorCallType = getTypeOfExpression(decoratorNode.expression.leftExpression).type;
+
+                if (
+                    decoratorCallType.category === TypeCategory.OverloadedFunction &&
+                    decoratorCallType.overloads[0].details.builtInName === 'dataclass'
+                ) {
+                    // Determine whether we should skip synthesizing the init method.
+                    let skipSynthesizeInit = false;
+
+                    if (decoratorNode.expression.arguments) {
+                        decoratorNode.expression.arguments.forEach((arg) => {
+                            if (arg.name && arg.name.value === 'init') {
+                                if (arg.valueExpression) {
+                                    const fileInfo = getFileInfo(decoratorNode);
+                                    const value = evaluateStaticBoolExpression(
+                                        arg.valueExpression,
+                                        fileInfo.executionEnvironment
+                                    );
+                                    if (!value) {
+                                        skipSynthesizeInit = true;
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    originalClassType.details.flags |= ClassTypeFlags.DataClass;
+                    if (skipSynthesizeInit) {
+                        originalClassType.details.flags |= ClassTypeFlags.SkipSynthesizedInit;
+                    }
+                    return inputClassType;
+                }
+            }
+
             if (decoratorType.details.builtInName === 'final') {
                 originalClassType.details.flags |= ClassTypeFlags.Final;
             } else if (decoratorType.details.builtInName === 'runtime_checkable') {
@@ -10113,7 +10095,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         fileInfo.diagnosticRuleSet.reportUntypedFunctionDecorator,
                         DiagnosticRule.reportUntypedFunctionDecorator,
                         Localizer.Diagnostic.functionDecoratorTypeUnknown(),
-                        node.decorators[i].leftExpression
+                        node.decorators[i].expression
                     );
 
                     foundUnknown = true;
@@ -10243,7 +10225,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
             }
 
-            const decoratorType = getTypeOfExpression(decoratorNode.leftExpression, undefined, evaluatorFlags).type;
+            const decoratorType = getTypeOfExpression(decoratorNode.expression, undefined, evaluatorFlags).type;
             if (decoratorType.category === TypeCategory.Function) {
                 if (decoratorType.details.builtInName === 'abstractmethod') {
                     if (isInClass) {
@@ -10285,7 +10267,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
         }
 
-        const decoratorType = getTypeOfExpression(decoratorNode.leftExpression, undefined, evaluatorFlags).type;
+        const decoratorType = getTypeOfExpression(decoratorNode.expression, undefined, evaluatorFlags).type;
 
         // Special-case the "overload" because it has no definition.
         if (isClass(decoratorType) && ClassType.isSpecialBuiltIn(decoratorType, 'overload')) {
@@ -10304,10 +10286,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // Handle property setters and deleters.
-            if (decoratorNode.leftExpression.nodeType === ParseNodeType.MemberAccess) {
-                const baseType = getTypeOfExpression(decoratorNode.leftExpression.leftExpression).type;
+            if (decoratorNode.expression.nodeType === ParseNodeType.MemberAccess) {
+                const baseType = getTypeOfExpression(decoratorNode.expression.leftExpression).type;
                 if (isProperty(baseType)) {
-                    const memberName = decoratorNode.leftExpression.memberName.value;
+                    const memberName = decoratorNode.expression.memberName.value;
                     if (memberName === 'setter') {
                         if (isFunction(inputFunctionType)) {
                             validatePropertyMethod(inputFunctionType, decoratorNode);

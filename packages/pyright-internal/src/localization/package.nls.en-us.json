@@ -83,6 +83,7 @@
         "expectedCloseBracket": "Expected \"]\"",
         "expectedCloseParen": "Expected \")\"",
         "expectedColon": "Expected \":\"",
+        "expectedDecoratorExpr": "Expression form not supported for decorator prior to Python 3.9",
         "expectedDecoratorName": "Expected decorator name",
         "expectedDecoratorNewline": "Expected new line at end of decorator",
         "expectedDelExpr": "Expected expression after \"del\"",

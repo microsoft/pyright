@@ -267,6 +267,7 @@ export namespace Localizer {
         export const expectedCloseBrace = () => getRawString('Diagnostic.expectedCloseBrace');
         export const expectedCloseParen = () => getRawString('Diagnostic.expectedCloseParen');
         export const expectedColon = () => getRawString('Diagnostic.expectedColon');
+        export const expectedDecoratorExpr = () => getRawString('Diagnostic.expectedDecoratorExpr');
         export const expectedDecoratorName = () => getRawString('Diagnostic.expectedDecoratorName');
         export const expectedDecoratorNewline = () => getRawString('Diagnostic.expectedDecoratorNewline');
         export const expectedDelExpr = () => getRawString('Diagnostic.expectedDelExpr');
