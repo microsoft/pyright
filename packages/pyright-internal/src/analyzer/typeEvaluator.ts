@@ -8714,6 +8714,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return type;
     }
 
+    // Creates a "TypeGuard" type.
+    function createTypeGuardType(errorNode: ParseNode, classType: ClassType, typeArgs: TypeResult[] | undefined): Type {
+        // The first time that we use the TypeGuard special type, it won't have
+        // a type parameter. We'll synthesize one here.
+        if (classType.details.typeParameters.length === 0) {
+            classType.details.typeParameters.push(
+                TypeVarType.createInstance('_T', /* isParamSpec */ false, /* isSynthesized */ true)
+            );
+        }
+
+        if (!typeArgs || typeArgs.length !== 1) {
+            addError(Localizer.Diagnostic.typeGuardArgCount(), errorNode);
+        }
+
+        let typeArg: Type;
+        if (typeArgs && typeArgs.length > 0) {
+            typeArg = typeArgs[0].type;
+
+            if (isEllipsisType(typeArg)) {
+                addError(Localizer.Diagnostic.ellipsisContext(), typeArgs[0].node);
+            } else if (isModule(typeArg)) {
+                addError(Localizer.Diagnostic.moduleContext(), typeArgs[0].node);
+            } else if (isParamSpecType(typeArg)) {
+                addError(Localizer.Diagnostic.paramSpecContext(), typeArgs[0].node);
+            }
+        } else {
+            typeArg = UnknownType.create();
+        }
+
+        return ClassType.cloneForSpecialization(classType, [convertToInstance(typeArg)], !!typeArgs);
+    }
+
     // Creates a "Final" type.
     function createFinalType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined, flags: EvaluatorFlags): Type {
         if (flags & EvaluatorFlags.FinalDisallowed) {
@@ -9052,6 +9084,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             Annotated: { alias: '', module: 'builtins' },
             TypeAlias: { alias: '', module: 'builtins' },
             Concatenate: { alias: '', module: 'builtins' },
+            TypeGuard: { alias: 'bool', module: 'builtins' },
         };
 
         const aliasMapEntry = specialTypes[assignedName];
@@ -12559,6 +12592,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
             }
+
+            if (testExpression.arguments.length >= 1) {
+                const functionType = getTypeOfExpression(testExpression.leftExpression).type;
+
+                // Does this look like it's a custom type guard function?
+                if (
+                    isFunction(functionType) &&
+                    functionType.details.declaredReturnType &&
+                    isObject(functionType.details.declaredReturnType) &&
+                    ClassType.isBuiltIn(functionType.details.declaredReturnType.classType, 'TypeGuard')
+                ) {
+                    const arg0Expr = testExpression.arguments[0].valueExpression;
+                    if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
+                        // Evaluate the type guard call expression.
+                        const functionReturnType = getTypeOfExpression(testExpression).type;
+                        if (
+                            isObject(functionReturnType) &&
+                            ClassType.isBuiltIn(functionReturnType.classType, 'TypeGuard')
+                        ) {
+                            const typeGuardTypeArgs = functionReturnType.classType.typeArguments;
+                            const typeGuardTypeArg =
+                                typeGuardTypeArgs && typeGuardTypeArgs.length > 0
+                                    ? typeGuardTypeArgs[0]
+                                    : UnknownType.create();
+
+                            return (type: Type) => {
+                                return isPositiveTest ? typeGuardTypeArg : type;
+                            };
+                        }
+                    }
+                }
+            }
         }
 
         if (ParseTreeUtils.isMatchingExpression(reference, testExpression)) {
@@ -12983,6 +13048,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 case 'Concatenate': {
                     return createConcatenateType(errorNode, classType, typeArgs);
+                }
+
+                case 'TypeGuard': {
+                    return createTypeGuardType(errorNode, classType, typeArgs);
                 }
             }
         }

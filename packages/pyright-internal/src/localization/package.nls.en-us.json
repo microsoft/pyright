@@ -280,6 +280,7 @@
         "typedDictSet": "Could not assign item in TypedDict",
         "typedDictTotalParam": "Expected \"total\" parameter to have a value of True or False",
         "typeExpectedClass": "Expected class type but received \"{type}\"",
+        "typeGuardArgCount": "Expected a single type argument after \"TypeGuard\"",
         "typeNotAwaitable": "\"{type}\" is not awaitable",
         "typeNotCallable": "\"{expression}\" has type \"{type}\" and is not callable",
         "typeNotIntantiable": "\"{type}\" cannot be instantiated",

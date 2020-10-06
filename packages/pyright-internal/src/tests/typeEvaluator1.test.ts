@@ -1111,3 +1111,9 @@ test('Enums3', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('TypeGuard1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard1.py']);
+
+    TestUtils.validateResults(analysisResults, 5);
+});

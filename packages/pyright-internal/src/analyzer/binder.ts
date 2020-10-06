@@ -2084,6 +2084,11 @@ export class Binder extends ParseTreeWalker {
                 ) {
                     return this._isNarrowingExpression(expression.arguments[0].valueExpression, expressionList);
                 }
+
+                // Is this potentially a call to a user-defined type guard function?
+                if (expression.arguments.length >= 1) {
+                    return this._isNarrowingExpression(expression.arguments[0].valueExpression, expressionList);
+                }
             }
         }
 
@@ -2808,6 +2813,7 @@ export class Binder extends ParseTreeWalker {
             TypeAlias: true,
             OrderedDict: true,
             Concatenate: true,
+            TypeGuard: true,
         };
 
         const assignedName = assignedNameNode.value;

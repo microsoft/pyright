@@ -1442,7 +1442,7 @@ function _specializeClassType(
     recursionLevel: number
 ): ClassType {
     // Handle the common case where the class has no type parameters.
-    if (ClassType.getTypeParameters(classType).length === 0) {
+    if (ClassType.getTypeParameters(classType).length === 0 && !ClassType.isSpecialBuiltIn(classType)) {
         return classType;
     }
 
@@ -1663,6 +1663,7 @@ export function requiresTypeArguments(classType: ClassType) {
             'Final',
             'Literal',
             'Annotated',
+            'TypeGuard',
         ];
         if (specialClasses.some((t) => t === classType.details.name)) {
             return true;
