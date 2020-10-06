@@ -7,9 +7,7 @@
  * Collection of functions that operate on Type objects.
  */
 
-import { isClassOrTypeElement } from 'typescript';
-
-import { PythonVersion } from '../common/pythonVersion';
+import { DiagnosticAddendum } from '../common/diagnostic';
 import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';

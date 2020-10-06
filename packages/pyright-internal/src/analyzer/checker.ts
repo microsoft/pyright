@@ -95,6 +95,7 @@ import {
     Type,
     TypeBase,
     TypeCategory,
+    TypeVarType,
     UnknownType,
 } from './types';
 import {
@@ -273,7 +274,7 @@ export class Checker extends ParseTreeWalker {
             }
         }
 
-        node.parameters.forEach((param) => {
+        node.parameters.forEach((param, index) => {
             if (param.defaultValue) {
                 this.walk(param.defaultValue);
             }
@@ -284,6 +285,22 @@ export class Checker extends ParseTreeWalker {
 
             if (param.typeAnnotationComment) {
                 this.walk(param.typeAnnotationComment);
+            }
+
+            if (functionTypeResult) {
+                const annotationNode = param.typeAnnotation || param.typeAnnotationComment;
+                if (annotationNode) {
+                    const paramType = functionTypeResult.functionType.details.parameters[index].type;
+                    const diag = new DiagnosticAddendum();
+                    if (this._containsCovariantTypeVar(paramType, node.id, diag)) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.paramTypeCovariant() + diag.getString(),
+                            annotationNode
+                        );
+                    }
+                }
             }
         });
 
@@ -1860,6 +1877,16 @@ export class Checker extends ParseTreeWalker {
                         returnAnnotation
                     );
                 }
+
+                const diag = new DiagnosticAddendum();
+                if (this._containsContravariantTypeVar(declaredReturnType, node.id, diag)) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.returnTypeContravariant() + diag.getString(),
+                        returnAnnotation
+                    );
+                }
             }
 
             // Wrap the declared type in a generator type if the function is a generator.
@@ -1929,6 +1956,44 @@ export class Checker extends ParseTreeWalker {
                 );
             }
         }
+    }
+
+    private _containsContravariantTypeVar(type: Type, nodeId: number, diag: DiagnosticAddendum): boolean {
+        let isValid = true;
+
+        doForSubtypes(type, (subtype) => {
+            if (isTypeVar(subtype) && subtype.details.isContravariant) {
+                const scopeId = TypeVarType.makeScopeId(subtype.details.name, nodeId);
+                if (subtype.scopeId !== scopeId) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeVarIsContravariant().format({ name: subtype.details.name })
+                    );
+                    isValid = false;
+                }
+            }
+            return undefined;
+        });
+
+        return !isValid;
+    }
+
+    private _containsCovariantTypeVar(type: Type, nodeId: number, diag: DiagnosticAddendum): boolean {
+        let isValid = true;
+
+        doForSubtypes(type, (subtype) => {
+            if (isTypeVar(subtype) && subtype.details.isCovariant) {
+                const scopeId = TypeVarType.makeScopeId(subtype.details.name, nodeId);
+                if (subtype.scopeId !== scopeId) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeVarIsCovariant().format({ name: subtype.details.name })
+                    );
+                    isValid = false;
+                }
+            }
+            return undefined;
+        });
+
+        return !isValid;
     }
 
     // Validates that any overridden member variables are not marked

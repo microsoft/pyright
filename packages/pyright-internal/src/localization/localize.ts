@@ -460,6 +460,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecUnknownMember'));
         export const paramSpecUnknownParam = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecUnknownParam'));
+        export const paramTypeCovariant = () => getRawString('Diagnostic.paramTypeCovariant');
         export const paramTypeUnknown = () =>
             new ParameterizedString<{ paramName: string }>(getRawString('Diagnostic.paramTypeUnknown'));
         export const paramAssignmentMismatch = () =>
@@ -487,6 +488,7 @@ export namespace Localizer {
         export const returnMissing = () =>
             new ParameterizedString<{ returnType: string }>(getRawString('Diagnostic.returnMissing'));
         export const returnOutsideFunction = () => getRawString('Diagnostic.returnOutsideFunction');
+        export const returnTypeContravariant = () => getRawString('Diagnostic.returnTypeContravariant');
         export const returnTypeMismatch = () =>
             new ParameterizedString<{ exprType: string; returnType: string }>(
                 getRawString('Diagnostic.returnTypeMismatch')
