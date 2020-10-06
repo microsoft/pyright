@@ -2,6 +2,8 @@
 # that allows user-defined functions to perform
 # conditional type narrowing.
 
+# pyright: reportMissingModuleSource=false
+
 import os
 from typing import Any, List, Literal, Tuple, TypeVar, Union
 from typing_extensions import TypeGuard
