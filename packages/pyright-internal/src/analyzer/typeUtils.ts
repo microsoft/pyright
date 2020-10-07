@@ -194,9 +194,16 @@ export function stripLiteralValue(type: Type): Type {
     }
 
     if (type.category === TypeCategory.Union) {
-        return doForSubtypes(type, (subtype) => {
-            return stripLiteralValue(subtype);
+        let typeChanged = false;
+        const strippedValue = doForSubtypes(type, (subtype) => {
+            const strippedValue = stripLiteralValue(subtype);
+            if (strippedValue !== subtype) {
+                typeChanged = true;
+            }
+            return strippedValue;
         });
+
+        return typeChanged ? strippedValue : type;
     }
 
     return type;
@@ -238,15 +245,29 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
 
     if (isClass(type)) {
         if (type.typeArguments) {
-            const strippedTypeArgs = type.typeArguments.map((t) =>
-                stripLiteralTypeArgsValue(stripLiteralValue(t), recursionCount + 1)
-            );
-            return ClassType.cloneForSpecialization(
-                type,
-                strippedTypeArgs,
-                !!type.isTypeArgumentExplicit,
-                type.skipAbstractClassTest
-            );
+            let typeChanged = false;
+            const strippedTypeArgs = type.typeArguments.map((t) => {
+                const stripped = stripLiteralTypeArgsValue(stripLiteralValue(t), recursionCount + 1);
+                if (stripped !== t) {
+                    typeChanged = true;
+                }
+
+                return stripped;
+            });
+
+            // Don't clone the class if something didn't change. Doing so
+            // will cause type alias information to be lost and will result
+            // in more memory usage.
+            if (typeChanged) {
+                return ClassType.cloneForSpecialization(
+                    type,
+                    strippedTypeArgs,
+                    !!type.isTypeArgumentExplicit,
+                    type.skipAbstractClassTest
+                );
+            } else {
+                return type;
+            }
         }
 
         return type;
@@ -254,7 +275,10 @@ export function stripLiteralTypeArgsValue(type: Type, recursionCount = 0): Type 
 
     if (isObject(type)) {
         if (type.classType.typeArguments) {
-            type = ObjectType.create(stripLiteralTypeArgsValue(type.classType, recursionCount + 1) as ClassType);
+            const strippedClass = stripLiteralTypeArgsValue(type.classType, recursionCount + 1) as ClassType;
+            if (strippedClass !== type.classType) {
+                type = ObjectType.create(strippedClass);
+            }
         }
 
         return type;
