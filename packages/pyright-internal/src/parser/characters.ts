@@ -57,6 +57,12 @@ export function isIdentifierChar(ch: number) {
         );
     }
 
+    // Lazy initialize the char map. We'll rarely get here.
+    if (!_identifierCharMapInitialized) {
+        _buildIdentifierLookupTable(false);
+        _identifierCharMapInitialized = true;
+    }
+
     return (
         _identifierCharMap[ch] === CharCategory.StartIdentifierChar ||
         _identifierCharMap[ch] === CharCategory.IdentifierChar
