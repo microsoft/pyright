@@ -1851,12 +1851,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         FunctionType.addDefaultParameters(newType);
         newType.details.declaredReturnType = ObjectType.create(classType);
 
-        FunctionType.addParameter(initType, {
+        const selfParam: FunctionParameter = {
             category: ParameterCategory.Simple,
             name: 'self',
             type: ObjectType.create(classType),
             hasDeclaredType: true,
-        });
+        };
+        FunctionType.addParameter(initType, selfParam);
         initType.details.declaredReturnType = NoneType.createInstance();
 
         // Maintain a list of all dataclass entries (including
@@ -2018,6 +2019,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
             symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
         }
+
+        // Synthesize comparison operators.
+        ['__eq__', '__ne__', '__lt__', '__le__', '__gt__', '__ge__'].forEach((operator) => {
+            const operatorMethod = FunctionType.createInstance(operator, '', FunctionTypeFlags.SynthesizedMethod);
+            FunctionType.addParameter(operatorMethod, selfParam);
+            FunctionType.addParameter(operatorMethod, {
+                category: ParameterCategory.Simple,
+                name: 'x',
+                type:
+                    operator === '__eq__' || operator === '__ne__'
+                        ? getBuiltInObject(node, 'object')
+                        : ObjectType.create(classType),
+                hasDeclaredType: true,
+            });
+            operatorMethod.details.declaredReturnType = getBuiltInObject(node, 'bool');
+            symbolTable.set(operator, Symbol.createWithType(SymbolFlags.ClassMember, operatorMethod));
+        });
 
         let dictType = getBuiltInType(node, 'Dict');
         if (isClass(dictType)) {

@@ -820,6 +820,12 @@ test('DataClass10', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('DataClass11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass11.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Callable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callable1.py']);
 
