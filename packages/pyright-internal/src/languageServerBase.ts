@@ -76,10 +76,12 @@ import {
 import { containsPath, convertPathToUri, convertUriToPath } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { convertWorkspaceEdits } from './common/textEditUtils';
-import { Position } from './common/textRange';
+import { DocumentRange, Position } from './common/textRange';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CompletionItemData, CompletionResults } from './languageService/completionProvider';
+import { WorkspaceSymbolCallback } from './languageService/documentSymbolProvider';
 import { convertHoverResults } from './languageService/hoverProvider';
+import { ReferenceCallback } from './languageService/referencesProvider';
 import { Localizer } from './localization/localize';
 import { WorkspaceMap } from './workspaceMap';
 
@@ -438,7 +440,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return locations.map((loc) => Location.create(convertPathToUri(loc.path), loc.range));
         });
 
-        this._connection.onReferences(async (params, token, reporter) => {
+        this._connection.onReferences(async (params, token, workDoneReporter, resultReporter) => {
             if (this._pendingFindAllRefsCancellationSource) {
                 this._pendingFindAllRefsCancellationSource.cancel();
                 this._pendingFindAllRefsCancellationSource = undefined;
@@ -449,9 +451,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             // any long-running actions.
             const progress = await this._getProgressReporter(
                 params.workDoneToken,
-                reporter,
+                workDoneReporter,
                 Localizer.CodeAction.findingReferences()
             );
+
             const source = CancelAfter(token, progress.token);
             this._pendingFindAllRefsCancellationSource = source;
 
@@ -467,18 +470,24 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     return;
                 }
 
-                const locations = workspace.serviceInstance.getReferencesForPosition(
+                const convert = (locs: DocumentRange[]): Location[] => {
+                    return locs.map((loc) => Location.create(convertPathToUri(loc.path), loc.range));
+                };
+
+                const locations: Location[] = [];
+                const reporter: ReferenceCallback = resultReporter
+                    ? (locs) => resultReporter.report(convert(locs))
+                    : (locs) => locations.push(...convert(locs));
+
+                workspace.serviceInstance.reportReferencesForPosition(
                     filePath,
                     position,
                     params.context.includeDeclaration,
+                    reporter,
                     source.token
                 );
 
-                if (!locations) {
-                    return undefined;
-                }
-
-                return locations.map((loc) => Location.create(convertPathToUri(loc.path), loc.range));
+                return locations;
             } finally {
                 progress.reporter.done();
                 source.dispose();
@@ -500,13 +509,17 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             return symbolList;
         });
 
-        this._connection.onWorkspaceSymbol(async (params, token) => {
+        this._connection.onWorkspaceSymbol(async (params, token, _, resultReporter) => {
             const symbolList: SymbolInformation[] = [];
+
+            const reporter: WorkspaceSymbolCallback = resultReporter
+                ? (symbols) => resultReporter.report(symbols)
+                : (symbols) => symbolList.push(...symbols);
 
             for (const workspace of this._workspaceMap.values()) {
                 await workspace.isInitialized.promise;
                 if (!workspace.disableLanguageServices) {
-                    workspace.serviceInstance.addSymbolsForWorkspace(symbolList, params.query, token);
+                    workspace.serviceInstance.reportSymbolsForWorkspace(params.query, reporter, token);
                 }
             }
 

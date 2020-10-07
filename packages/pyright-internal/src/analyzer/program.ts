@@ -47,9 +47,9 @@ import {
 } from '../languageService/autoImporter';
 import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
 import { CompletionResults } from '../languageService/completionProvider';
-import { IndexResults } from '../languageService/documentSymbolProvider';
+import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
-import { ReferencesResult } from '../languageService/referencesProvider';
+import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -142,10 +142,10 @@ export class Program {
         initialConfigOptions: ConfigOptions,
         console?: ConsoleInterface,
         private _extension?: LanguageServiceExtension,
-        logPrefix = 'FG'
+        logTracker?: LogTracker
     ) {
         this._console = console || new StandardConsole();
-        this._logTracker = new LogTracker(console, logPrefix);
+        this._logTracker = logTracker ?? new LogTracker(console, 'FG');
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
         this._createNewEvaluator();
@@ -436,19 +436,24 @@ export class Program {
             return;
         }
 
+        let count = 0;
         return this._runEvaluatorWithCancellationToken(token, () => {
             // Go through all workspace files to create indexing data.
-            // This will cause all files in the workspace to be parsed and bound. We might
-            // need to drop some of those parse tree and binding info once indexing is done
-            // if it didn't exist before.
+            // This will cause all files in the workspace to be parsed and bound. But
+            // _handleMemoryHighUsage will make sure we don't OOM
             for (const sourceFileInfo of this._sourceFileList) {
                 if (!this._isUserCode(sourceFileInfo)) {
                     continue;
                 }
 
                 this._bindFile(sourceFileInfo);
-                const results = sourceFileInfo.sourceFile.index(false, token);
+                const results = sourceFileInfo.sourceFile.index({ indexingForAutoImportMode: false }, token);
                 if (results) {
+                    if (++count > 2000) {
+                        this._console.warn(`Workspace indexing has hit its upper limit: 2000 files`);
+                        return;
+                    }
+
                     callback(sourceFileInfo.sourceFile.getFilePath(), results);
                 }
 
@@ -658,12 +663,12 @@ export class Program {
         return this._evaluator;
     }
 
-    private _parseFile(fileToParse: SourceFileInfo) {
+    private _parseFile(fileToParse: SourceFileInfo, content?: string) {
         if (!this._isFileNeeded(fileToParse) || !fileToParse.sourceFile.isParseRequired()) {
             return;
         }
 
-        if (fileToParse.sourceFile.parse(this._configOptions, this._importResolver)) {
+        if (fileToParse.sourceFile.parse(this._configOptions, this._importResolver, content)) {
             this._parsedFileCount++;
             this._updateSourceFileImports(fileToParse, this._configOptions);
         }
@@ -683,12 +688,12 @@ export class Program {
 
     // Binds the specified file and all of its dependencies, recursively. If
     // it runs out of time, it returns true. If it completes, it returns false.
-    private _bindFile(fileToAnalyze: SourceFileInfo): void {
+    private _bindFile(fileToAnalyze: SourceFileInfo, content?: string): void {
         if (!this._isFileNeeded(fileToAnalyze) || !fileToAnalyze.sourceFile.isBindingRequired()) {
             return;
         }
 
-        this._parseFile(fileToAnalyze);
+        this._parseFile(fileToAnalyze, content);
 
         // We need to parse and bind the builtins import first.
         let builtinsScope: Scope | undefined;
@@ -737,9 +742,16 @@ export class Program {
 
     // Build a map of all modules within this program and the module-
     // level scope that contains the symbol table for the module.
-    private _buildModuleSymbolsMap(sourceFileToExclude: SourceFileInfo, token: CancellationToken): ModuleSymbolMap {
+    private _buildModuleSymbolsMap(
+        sourceFileToExclude: SourceFileInfo,
+        userFileOnly: boolean,
+        token: CancellationToken
+    ): ModuleSymbolMap {
+        // If we have library map, always use the map for library symbols.
         return buildModuleSymbolsMap(
-            this._sourceFileList.filter((s) => s !== sourceFileToExclude),
+            this._sourceFileList.filter(
+                (s) => s !== sourceFileToExclude && (userFileOnly ? this._isUserCode(s) : true)
+            ),
             token
         );
     }
@@ -972,9 +984,9 @@ export class Program {
             }
 
             const writtenWord = fileContents.substr(textRange.start, textRange.length);
-            const map = this._buildModuleSymbolsMap(sourceFileInfo, token);
+            const map = this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token);
             const autoImporter = new AutoImporter(
-                this._configOptions,
+                this._configOptions.findExecEnvironment(filePath),
                 this._importResolver,
                 parseTree,
                 range.start,
@@ -1084,16 +1096,17 @@ export class Program {
         });
     }
 
-    getReferencesForPosition(
+    reportReferencesForPosition(
         filePath: string,
         position: Position,
         includeDeclaration: boolean,
+        reporter: ReferenceCallback,
         token: CancellationToken
-    ): DocumentRange[] | undefined {
-        return this._runEvaluatorWithCancellationToken(token, () => {
+    ) {
+        this._runEvaluatorWithCancellationToken(token, () => {
             const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
             if (!sourceFileInfo) {
-                return undefined;
+                return;
             }
 
             const invokedFromUserFile = this._isUserCode(sourceFileInfo);
@@ -1104,11 +1117,12 @@ export class Program {
                 this._createSourceMapper(execEnv),
                 position,
                 this._evaluator!,
+                reporter,
                 token
             );
 
             if (!referencesResult) {
-                return undefined;
+                return;
             }
 
             // Do we need to do a global search as well?
@@ -1155,19 +1169,18 @@ export class Program {
                             continue;
                         }
 
-                        const tempResult: ReferencesResult = {
-                            requiresGlobalSearch: referencesResult.requiresGlobalSearch,
-                            nodeAtOffset: referencesResult.nodeAtOffset,
-                            symbolName: referencesResult.symbolName,
-                            declarations: referencesResult.declarations,
-                            locations: [],
-                        };
+                        const tempResult = new ReferencesResult(
+                            referencesResult.requiresGlobalSearch,
+                            referencesResult.nodeAtOffset,
+                            referencesResult.symbolName,
+                            referencesResult.declarations
+                        );
 
                         declFileInfo.sourceFile.addReferences(tempResult, includeDeclaration, this._evaluator!, token);
                         for (const loc of tempResult.locations) {
                             // Include declarations only. And throw away any references
                             if (loc.path === decl.path && doesRangeContain(decl.range, loc.range)) {
-                                referencesResult.locations.push(loc);
+                                referencesResult.addLocations(loc);
                             }
                         }
                     }
@@ -1175,13 +1188,11 @@ export class Program {
             } else {
                 sourceFileInfo.sourceFile.addReferences(referencesResult, includeDeclaration, this._evaluator!, token);
             }
-
-            return referencesResult.locations;
         });
     }
 
-    getFileIndex(filePath: string, importSymbolsOnly: boolean, token: CancellationToken): IndexResults | undefined {
-        if (importSymbolsOnly) {
+    getFileIndex(filePath: string, options: IndexOptions, token: CancellationToken): IndexResults | undefined {
+        if (options.indexingForAutoImportMode) {
             // Memory optimization. We only want to hold onto symbols
             // usable outside when importSymbolsOnly is on.
             const name = stripFileExtension(getFileName(filePath));
@@ -1198,8 +1209,26 @@ export class Program {
                 return undefined;
             }
 
-            this._bindFile(sourceFileInfo);
-            return sourceFileInfo.sourceFile.index(importSymbolsOnly, token);
+            let content: string | undefined = undefined;
+            if (
+                options.indexingForAutoImportMode &&
+                !sourceFileInfo.sourceFile.isStubFile() &&
+                sourceFileInfo.sourceFile.getClientVersion() === null
+            ) {
+                try {
+                    // Perf optimization. if py file doesn't contain __all__
+                    // No need to parse and bind.
+                    content = this._fs.readFileSync(filePath, 'utf8');
+                    if (content.indexOf('__all__') < 0) {
+                        return undefined;
+                    }
+                } catch (error) {
+                    content = undefined;
+                }
+            }
+
+            this._bindFile(sourceFileInfo, content);
+            return sourceFileInfo.sourceFile.index(options, token);
         });
     }
 
@@ -1217,8 +1246,8 @@ export class Program {
         });
     }
 
-    addSymbolsForWorkspace(symbolList: SymbolInformation[], query: string, token: CancellationToken) {
-        return this._runEvaluatorWithCancellationToken(token, () => {
+    reportSymbolsForWorkspace(query: string, reporter: WorkspaceSymbolCallback, token: CancellationToken) {
+        this._runEvaluatorWithCancellationToken(token, () => {
             // Don't do a search if the query is empty. We'll return
             // too many results in this case.
             if (!query) {
@@ -1236,7 +1265,10 @@ export class Program {
                     this._bindFile(sourceFileInfo);
                 }
 
-                sourceFileInfo.sourceFile.addSymbolsForDocument(symbolList, query, token);
+                const symbolList = sourceFileInfo.sourceFile.getSymbolsForDocument(query, token);
+                if (symbolList.length > 0) {
+                    reporter(symbolList);
+                }
 
                 // This operation can consume significant memory, so check
                 // for situations where we need to discard the type cache.
@@ -1334,7 +1366,7 @@ export class Program {
                 this._evaluator!,
                 this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 libraryMap,
-                () => this._buildModuleSymbolsMap(sourceFileInfo, token),
+                () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),
                 token
             );
         });
@@ -1384,7 +1416,7 @@ export class Program {
                 this._evaluator!,
                 this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 libraryMap,
-                () => this._buildModuleSymbolsMap(sourceFileInfo, token),
+                () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),
                 completionItem,
                 token
             );
@@ -1410,6 +1442,7 @@ export class Program {
                 this._createSourceMapper(execEnv),
                 position,
                 this._evaluator!,
+                undefined,
                 token
             );
 
@@ -1472,6 +1505,7 @@ export class Program {
             this._createSourceMapper(execEnv),
             position,
             this._evaluator!,
+            undefined,
             token
         );
 
@@ -1508,6 +1542,7 @@ export class Program {
             this._createSourceMapper(execEnv),
             position,
             this._evaluator!,
+            undefined,
             token
         );
 
@@ -1563,6 +1598,7 @@ export class Program {
             this._createSourceMapper(execEnv),
             position,
             this._evaluator!,
+            undefined,
             token
         );
 

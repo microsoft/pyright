@@ -19,7 +19,7 @@
     "scripts": {
         "build": "webpack --mode production --progress",
         "clean": "shx rm -rf ./dist ./out README.md",
-        "prepublishOnly": "npm run clean && shx cp ../../README.md . && npm run build",
+        "prepack": "npm run clean && shx cp ../../README.md . && npm run build",
         "webpack": "webpack --mode development --progress"
     },
     "devDependencies": {

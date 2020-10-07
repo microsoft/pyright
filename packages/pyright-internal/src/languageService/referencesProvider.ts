@@ -24,15 +24,39 @@ import { TextRange } from '../common/textRange';
 import { ModuleNameNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
-export interface ReferencesResult {
-    requiresGlobalSearch: boolean;
-    nodeAtOffset: ParseNode;
-    symbolName: string;
-    declarations: Declaration[];
-    locations: DocumentRange[];
+export type ReferenceCallback = (locations: DocumentRange[]) => void;
+
+export class ReferencesResult {
+    private readonly _locations: DocumentRange[] = [];
+
+    constructor(
+        readonly requiresGlobalSearch: boolean,
+        readonly nodeAtOffset: ParseNode,
+        readonly symbolName: string,
+        readonly declarations: Declaration[],
+        private readonly _reporter?: ReferenceCallback
+    ) {}
+
+    get locations(): readonly DocumentRange[] {
+        return this._locations;
+    }
+
+    addLocations(...locs: DocumentRange[]) {
+        if (locs.length === 0) {
+            return;
+        }
+
+        if (this._reporter) {
+            this._reporter(locs);
+        }
+
+        this._locations.push(...locs);
+    }
 }
 
 class FindReferencesTreeWalker extends ParseTreeWalker {
+    private readonly _locationsFound: DocumentRange[] = [];
+
     constructor(
         private _parseResults: ParseResults,
         private _filePath: string,
@@ -46,6 +70,8 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
 
     findReferences() {
         this.walk(this._parseResults.parseTree);
+
+        return this._locationsFound;
     }
 
     walk(node: ParseNode) {
@@ -74,7 +100,7 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
             if (declarations.some((decl) => this._resultsContainsDeclaration(decl))) {
                 // Is it the same symbol?
                 if (this._includeDeclaration || node !== this._referencesResult.nodeAtOffset) {
-                    this._referencesResult.locations.push({
+                    this._locationsFound.push({
                         path: this._filePath,
                         range: {
                             start: convertOffsetToPosition(node.start, this._parseResults.tokenizerOutput.lines),
@@ -129,6 +155,7 @@ export class ReferencesProvider {
         filePath: string,
         position: Position,
         evaluator: TypeEvaluator,
+        reporter: ReferenceCallback | undefined,
         token: CancellationToken
     ): ReferencesResult | undefined {
         throwIfCancellationRequested(token);
@@ -207,13 +234,7 @@ export class ReferencesProvider {
             return false;
         });
 
-        return {
-            requiresGlobalSearch,
-            nodeAtOffset: node,
-            symbolName: node.value,
-            declarations: resolvedDeclarations,
-            locations: [],
-        };
+        return new ReferencesResult(requiresGlobalSearch, node, node.value, resolvedDeclarations, reporter);
     }
 
     private static _addIfUnique(declarations: Declaration[], itemToAdd: Declaration) {
@@ -242,6 +263,7 @@ export class ReferencesProvider {
             evaluator,
             token
         );
-        refTreeWalker.findReferences();
+
+        referencesResult.addLocations(...refTreeWalker.findReferences());
     }
 }

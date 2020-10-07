@@ -31,6 +31,12 @@ import {
     versionToString,
 } from './pythonVersion';
 
+export enum PythonPlatform {
+    Darwin = 'Darwin',
+    Windows = 'Windows',
+    Linux = 'Linux',
+}
+
 export class ExecutionEnvironment {
     // Default to "." which indicates every file in the project.
     constructor(root: string, defaultPythonVersion?: PythonVersion, defaultPythonPlatform?: string) {
@@ -1224,11 +1230,11 @@ export class ConfigOptions {
         }
 
         if (process.platform === 'darwin') {
-            this.defaultPythonPlatform = 'Darwin';
+            this.defaultPythonPlatform = PythonPlatform.Darwin;
         } else if (process.platform === 'linux') {
-            this.defaultPythonPlatform = 'Linux';
+            this.defaultPythonPlatform = PythonPlatform.Linux;
         } else if (process.platform === 'win32') {
-            this.defaultPythonPlatform = 'Windows';
+            this.defaultPythonPlatform = PythonPlatform.Windows;
         }
 
         if (this.defaultPythonPlatform !== undefined) {

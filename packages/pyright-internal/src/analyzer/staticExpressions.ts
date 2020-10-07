@@ -8,7 +8,7 @@
  * (parse node trees).
  */
 
-import { ExecutionEnvironment } from '../common/configOptions';
+import { ExecutionEnvironment, PythonPlatform } from '../common/configOptions';
 import { ExpressionNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
@@ -220,11 +220,11 @@ function _isOsNameInfoExpression(node: ExpressionNode): boolean {
 }
 
 function _getExpectedPlatformNameFromPlatform(execEnv: ExecutionEnvironment): string | undefined {
-    if (execEnv.pythonPlatform === 'Darwin') {
+    if (execEnv.pythonPlatform === PythonPlatform.Darwin) {
         return 'darwin';
-    } else if (execEnv.pythonPlatform === 'Windows') {
+    } else if (execEnv.pythonPlatform === PythonPlatform.Windows) {
         return 'win32';
-    } else if (execEnv.pythonPlatform === 'Linux') {
+    } else if (execEnv.pythonPlatform === PythonPlatform.Linux) {
         return 'linux';
     }
 
@@ -232,11 +232,11 @@ function _getExpectedPlatformNameFromPlatform(execEnv: ExecutionEnvironment): st
 }
 
 function _getExpectedOsNameFromPlatform(execEnv: ExecutionEnvironment): string | undefined {
-    if (execEnv.pythonPlatform === 'Darwin') {
+    if (execEnv.pythonPlatform === PythonPlatform.Darwin) {
         return 'posix';
-    } else if (execEnv.pythonPlatform === 'Windows') {
+    } else if (execEnv.pythonPlatform === PythonPlatform.Windows) {
         return 'nt';
-    } else if (execEnv.pythonPlatform === 'Linux') {
+    } else if (execEnv.pythonPlatform === PythonPlatform.Linux) {
         return 'posix';
     }
 

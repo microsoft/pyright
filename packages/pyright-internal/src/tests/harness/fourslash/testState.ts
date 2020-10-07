@@ -1006,7 +1006,15 @@ export class TestState {
             const expected = map[name].references;
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            const actual = this.program.getReferencesForPosition(fileName, position, true, CancellationToken.None);
+
+            const actual: DocumentRange[] = [];
+            this.program.reportReferencesForPosition(
+                fileName,
+                position,
+                true,
+                (locs) => actual.push(...locs),
+                CancellationToken.None
+            );
 
             assert.equal(actual?.length ?? 0, expected.length);
 

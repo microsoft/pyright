@@ -7,7 +7,7 @@
  */
 
 import { stableSort } from './collectionUtils';
-import { AnyFunction, compareValues, hasProperty } from './core';
+import { AnyFunction, compareValues, hasProperty, isString } from './core';
 
 export function assert(
     expression: boolean,
@@ -104,6 +104,25 @@ export function getErrorString(error: any): string {
         (typeof error.message === 'string' ? error.message : undefined) ||
         JSON.stringify(error)
     );
+}
+
+export function getSerializableError(error: any): Error | undefined {
+    if (!error) {
+        return undefined;
+    }
+
+    const exception = JSON.stringify(error);
+    if (exception.length > 2) {
+        // Given error object is JSON.stringify serializable. Use it as it is
+        // to preserve properties.
+        return error;
+    }
+
+    // Convert error to JSON.stringify serializable Error shape.
+    const name = error.name ? (isString(error.name) ? error.name : 'noname') : 'noname';
+    const message = error.message ? (isString(error.message) ? error.message : 'nomessage') : 'nomessage';
+    const stack = error.stack ? (isString(error.stack) ? error.stack : undefined) : undefined;
+    return { name, message, stack };
 }
 
 function getEnumMembers(enumObject: any) {

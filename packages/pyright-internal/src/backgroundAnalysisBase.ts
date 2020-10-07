@@ -32,6 +32,7 @@ import { Diagnostic } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { LanguageServiceExtension } from './common/extensibility';
 import { FileSystem } from './common/fileSystem';
+import { LogTracker } from './common/logTracker';
 import { Range } from './common/textRange';
 import { IndexResults } from './languageService/documentSymbolProvider';
 
@@ -252,12 +253,13 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
 
         this._configOptions = new ConfigOptions(data.rootDirectory);
         this._importResolver = this.createImportResolver(this.fs, this._configOptions);
+        const console = this.getConsole();
         this._program = new Program(
             this._importResolver,
             this._configOptions,
-            this.getConsole(),
+            console,
             this._extension,
-            `BG(${threadId})`
+            new LogTracker(console, `BG(${threadId})`)
         );
     }
 

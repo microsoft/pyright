@@ -46,8 +46,9 @@ import {
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { CompletionResults } from '../languageService/completionProvider';
-import { IndexResults } from '../languageService/documentSymbolProvider';
+import { IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
+import { ReferenceCallback } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
@@ -244,21 +245,22 @@ export class AnalyzerService {
         return this._program.getDefinitionsForPosition(filePath, position, token);
     }
 
-    getReferencesForPosition(
+    reportReferencesForPosition(
         filePath: string,
         position: Position,
         includeDeclaration: boolean,
+        reporter: ReferenceCallback,
         token: CancellationToken
-    ): DocumentRange[] | undefined {
-        return this._program.getReferencesForPosition(filePath, position, includeDeclaration, token);
+    ) {
+        this._program.reportReferencesForPosition(filePath, position, includeDeclaration, reporter, token);
     }
 
     addSymbolsForDocument(filePath: string, symbolList: DocumentSymbol[], token: CancellationToken) {
         this._program.addSymbolsForDocument(filePath, symbolList, token);
     }
 
-    addSymbolsForWorkspace(symbolList: SymbolInformation[], query: string, token: CancellationToken) {
-        this._program.addSymbolsForWorkspace(symbolList, query, token);
+    reportSymbolsForWorkspace(query: string, reporter: WorkspaceSymbolCallback, token: CancellationToken) {
+        this._program.reportSymbolsForWorkspace(query, reporter, token);
     }
 
     getHoverForPosition(filePath: string, position: Position, token: CancellationToken): HoverResults | undefined {
