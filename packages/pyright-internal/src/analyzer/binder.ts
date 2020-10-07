@@ -687,7 +687,12 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitAssignmentExpression(node: AssignmentExpressionNode) {
-        this.walk(node.rightExpression);
+        // Temporarily disable true/false targets in case this assignment
+        // expression is located within an if/else conditional.
+        this._disableTrueFalseTargets(() => {
+            // Evaluate the operand expression.
+            this.walk(node.rightExpression);
+        });
 
         const evaluationNode = ParseTreeUtils.getEvaluationNodeForAssignmentExpression(node);
         if (!evaluationNode) {
@@ -1565,20 +1570,13 @@ export class Binder extends ParseTreeWalker {
             // Swap the existing true/false targets.
             this._bindConditional(node.expression, this._currentFalseTarget, this._currentTrueTarget);
         } else {
-            const savedTrueTarget = this._currentTrueTarget;
-            const savedFalseTarget = this._currentFalseTarget;
-
             // Temporarily set the true/false targets to undefined because
             // this unary operation is not part of a chain of logical expressions
             // (AND/OR/NOT subexpressions).
-            this._currentTrueTarget = undefined;
-            this._currentFalseTarget = undefined;
-
-            // Evaluate the operand expression.
-            this.walk(node.expression);
-
-            this._currentFalseTarget = savedFalseTarget;
-            this._currentTrueTarget = savedTrueTarget;
+            this._disableTrueFalseTargets(() => {
+                // Evaluate the operand expression.
+                this.walk(node.expression);
+            });
         }
 
         return false;
@@ -1607,20 +1605,13 @@ export class Binder extends ParseTreeWalker {
                 this._currentFlowNode = this._finishFlowLabel(postRightLabel);
             }
         } else {
-            const savedTrueTarget = this._currentTrueTarget;
-            const savedFalseTarget = this._currentFalseTarget;
-
             // Temporarily set the true/false targets to undefined because
             // this binary operation is not part of a chain of logical expressions
             // (AND/OR/NOT subexpressions).
-            this._currentTrueTarget = undefined;
-            this._currentFalseTarget = undefined;
-
-            this.walk(node.leftExpression);
-            this.walk(node.rightExpression);
-
-            this._currentFalseTarget = savedFalseTarget;
-            this._currentTrueTarget = savedTrueTarget;
+            this._disableTrueFalseTargets(() => {
+                this.walk(node.leftExpression);
+                this.walk(node.rightExpression);
+            });
         }
 
         return false;
@@ -1681,6 +1672,19 @@ export class Binder extends ParseTreeWalker {
         });
 
         return false;
+    }
+
+    private _disableTrueFalseTargets(callback: () => void): void {
+        const savedTrueTarget = this._currentTrueTarget;
+        const savedFalseTarget = this._currentFalseTarget;
+
+        this._currentTrueTarget = undefined;
+        this._currentFalseTarget = undefined;
+
+        callback();
+
+        this._currentFalseTarget = savedFalseTarget;
+        this._currentTrueTarget = savedTrueTarget;
     }
 
     // Attempts to resolve the module name, import it, and return
