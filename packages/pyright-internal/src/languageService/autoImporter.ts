@@ -7,7 +7,6 @@
 
 import { CancellationToken, CompletionItemKind, SymbolKind } from 'vscode-languageserver';
 
-import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { DeclarationType } from '../analyzer/declaration';
 import { ImportResolver, ModuleNameAndType } from '../analyzer/importResolver';
 import { ImportType } from '../analyzer/importResult';
@@ -23,19 +22,14 @@ import { SourceFileInfo } from '../analyzer/program';
 import { Symbol } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { ConfigOptions } from '../common/configOptions';
+import { ExecutionEnvironment } from '../common/configOptions';
 import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Position } from '../common/textRange';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import {
-    getIndexAliasData,
-    includeAliasDeclarationInIndex,
-    IndexAliasData,
-    IndexResults,
-} from './documentSymbolProvider';
+import { IndexAliasData, IndexResults } from './documentSymbolProvider';
 
 export interface AutoImportSymbol {
     readonly importAlias?: IndexAliasData;
@@ -74,7 +68,6 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
                 return;
             }
 
-            const fileInfo = AnalyzerNodeInfo.getFileInfo(file.sourceFile.getParseResults()!.parseTree);
             moduleSymbolMap.set(filePath, {
                 forEach(callbackfn: (value: AutoImportSymbol, key: string) => void): void {
                     symbolTable.forEach((symbol, name) => {
@@ -92,13 +85,10 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
                             return;
                         }
 
-                        let importAlias: IndexAliasData | undefined;
                         if (declaration.type === DeclarationType.Alias) {
-                            if (!includeAliasDeclarationInIndex(declaration)) {
-                                return;
-                            }
-
-                            importAlias = getIndexAliasData(fileInfo?.importLookup, declaration);
+                            // We don't include import alias in auto import
+                            // for workspace files.
+                            return;
                         }
 
                         const variableKind =
@@ -107,7 +97,7 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
                             !declaration.isFinal
                                 ? CompletionItemKind.Variable
                                 : undefined;
-                        callbackfn({ importAlias, symbol, kind: variableKind }, name);
+                        callbackfn({ symbol, kind: variableKind }, name);
                     });
                 },
             });
@@ -146,14 +136,14 @@ interface ImportAliasData {
     importParts: ImportParts;
     importGroup: ImportGroup;
     symbol?: Symbol;
+    kind?: CompletionItemKind;
 }
 
 export class AutoImporter {
     private _importStatements: ImportStatements;
-    private _filePath: string;
 
     constructor(
-        private _configOptions: ConfigOptions,
+        private _execEnvironment: ExecutionEnvironment,
         private _importResolver: ImportResolver,
         private _parseResults: ParseResults,
         private _invocationPosition: Position,
@@ -161,7 +151,6 @@ export class AutoImporter {
         private _moduleSymbolMap: ModuleSymbolMap,
         private _libraryMap?: Map<string, IndexResults>
     ) {
-        this._filePath = AnalyzerNodeInfo.getFileInfo(this._parseResults.parseTree)!.filePath;
         this._importStatements = getTopLevelImports(this._parseResults.parseTree);
     }
 
@@ -309,6 +298,7 @@ export class AutoImporter {
                         },
                         importGroup,
                         symbol: autoImportSymbol.symbol,
+                        kind: convertSymbolKindToCompletionItemKind(autoImportSymbol.importAlias.kind),
                     },
                     importAliasMap
                 );
@@ -356,7 +346,7 @@ export class AutoImporter {
         }
 
         this._addToImportAliasMap(
-            { modulePath: filePath, originalName: importParts.importName },
+            { modulePath: filePath, originalName: importParts.importName, kind: SymbolKind.Module },
             { importParts, importGroup },
             importAliasMap
         );
@@ -386,6 +376,7 @@ export class AutoImporter {
                     name: importAliasData.importParts.importName,
                     alias: aliasName,
                     symbol: importAliasData.symbol,
+                    kind: importAliasData.kind,
                     source: importAliasData.importParts.importFrom,
                     edits: autoImportTextEdits,
                 });
@@ -525,8 +516,7 @@ export class AutoImporter {
     // convert to a module name that can be used in an
     // 'import from' statement.
     private _getModuleNameAndTypeFromFilePath(filePath: string): ModuleNameAndType {
-        const execEnvironment = this._configOptions.findExecEnvironment(this._filePath);
-        return this._importResolver.getModuleNameForImport(filePath, execEnvironment);
+        return this._importResolver.getModuleNameForImport(filePath, this._execEnvironment);
     }
 
     private _getImportGroupFromModuleNameAndType(moduleNameAndType: ModuleNameAndType): ImportGroup {

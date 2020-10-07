@@ -39,8 +39,11 @@ export class TimingStat {
             this.isTiming = true;
             const duration = new Duration();
             callback();
-            this.totalTime += duration.getDurationInMilliseconds();
+            const elapsedTime = duration.getDurationInMilliseconds();
+            this.totalTime += elapsedTime;
             this.isTiming = false;
+
+            return elapsedTime;
         }
     }
 

@@ -36,10 +36,10 @@ import { CompletionResults } from '../languageService/completionProvider';
 import { CompletionItemData, CompletionProvider } from '../languageService/completionProvider';
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
-import { DocumentSymbolProvider, IndexResults } from '../languageService/documentSymbolProvider';
+import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
 import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
 import { performQuickAction } from '../languageService/quickActions';
-import { ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
+import { ReferenceCallback, ReferencesProvider, ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpProvider, SignatureHelpResults } from '../languageService/signatureHelpProvider';
 import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
@@ -508,7 +508,7 @@ export class SourceFile {
     // Parse the file and update the state. Callers should wait for completion
     // (or at least cancel) prior to calling again. It returns true if a parse
     // was required and false if the parse information was up to date already.
-    parse(configOptions: ConfigOptions, importResolver: ImportResolver): boolean {
+    parse(configOptions: ConfigOptions, importResolver: ImportResolver, content?: string): boolean {
         return this._logTracker.log(`parsing: ${this._filePath}`, (logState) => {
             // If the file is already parsed, we can skip.
             if (!this.isParseRequired()) {
@@ -520,14 +520,15 @@ export class SourceFile {
             let fileContents = this._fileContents;
             if (this._clientVersion === null) {
                 try {
-                    timingStats.readFileTime.timeOperation(() => {
+                    const elapsedTime = timingStats.readFileTime.timeOperation(() => {
                         // Read the file's contents.
-                        fileContents = this.fileSystem.readFileSync(this._filePath, 'utf8');
+                        fileContents = content ?? this.fileSystem.readFileSync(this._filePath, 'utf8');
 
                         // Remember the length and hash for comparison purposes.
                         this._lastFileContentLength = fileContents.length;
                         this._lastFileContentHash = StringUtils.hashString(fileContents);
                     });
+                    logState.add(`fs read ${elapsedTime}ms`);
                 } catch (error) {
                     diagSink.addError(`Source file could not be read`, getEmptyRange());
                     fileContents = '';
@@ -634,18 +635,22 @@ export class SourceFile {
         });
     }
 
-    index(importSymbolsOnly: boolean, token: CancellationToken): IndexResults | undefined {
-        // If we have no completed analysis job, there's nothing to do.
-        if (!this._parseResults || !this.isIndexingRequired()) {
-            return undefined;
-        }
+    index(options: IndexOptions, token: CancellationToken): IndexResults | undefined {
+        return this._logTracker.log(`indexing: ${this._filePath}`, (ls) => {
+            // If we have no completed analysis job, there's nothing to do.
+            if (!this._parseResults || !this.isIndexingRequired()) {
+                ls.suppress();
+                return undefined;
+            }
 
-        this._indexingNeeded = false;
-        const symbols = DocumentSymbolProvider.indexSymbols(this._parseResults, importSymbolsOnly, token);
+            this._indexingNeeded = false;
+            const symbols = DocumentSymbolProvider.indexSymbols(this._parseResults, options, token);
+            ls.add(`found ${symbols.length}`);
 
-        const name = stripFileExtension(getFileName(this._filePath));
-        const privateOrProtected = SymbolNameUtils.isPrivateOrProtectedName(name);
-        return { privateOrProtected, symbols };
+            const name = stripFileExtension(getFileName(this._filePath));
+            const privateOrProtected = SymbolNameUtils.isPrivateOrProtectedName(name);
+            return { privateOrProtected, symbols };
+        });
     }
 
     getDefinitionsForPosition(
@@ -672,6 +677,7 @@ export class SourceFile {
         sourceMapper: SourceMapper,
         position: Position,
         evaluator: TypeEvaluator,
+        reporter: ReferenceCallback | undefined,
         token: CancellationToken
     ): ReferencesResult | undefined {
         // If we have no completed analysis job, there's nothing to do.
@@ -685,6 +691,7 @@ export class SourceFile {
             this._filePath,
             position,
             evaluator,
+            reporter,
             token
         );
     }
@@ -724,18 +731,17 @@ export class SourceFile {
         );
     }
 
-    addSymbolsForDocument(symbolList: SymbolInformation[], query: string, token: CancellationToken) {
+    getSymbolsForDocument(query: string, token: CancellationToken) {
         // If we have no completed analysis job, there's nothing to do.
         if (!this._parseResults && !this._cachedIndexResults) {
-            return;
+            return [];
         }
 
-        DocumentSymbolProvider.addSymbolsForDocument(
+        return DocumentSymbolProvider.getSymbolsForDocument(
             this.getCachedIndexResults(),
             this._parseResults,
             this._filePath,
             query,
-            symbolList,
             token
         );
     }

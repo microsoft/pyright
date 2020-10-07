@@ -965,7 +965,7 @@ export class CompletionProvider {
     private _getAutoImportCompletions(priorWord: string, completionList: CompletionList) {
         const moduleSymbolMap = this._moduleSymbolsCallback();
         const autoImporter = new AutoImporter(
-            this._configOptions,
+            this._configOptions.findExecEnvironment(this._filePath),
             this._importResolver,
             this._parseResults,
             this._position,

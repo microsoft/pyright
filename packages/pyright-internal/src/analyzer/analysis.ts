@@ -28,6 +28,7 @@ export interface AnalysisResults {
     fatalErrorOccurred: boolean;
     configParseErrorOccurred: boolean;
     elapsedTime: number;
+    error?: Error;
 }
 
 export type AnalysisCompleteCallback = (results: AnalysisResults) => void;
@@ -85,6 +86,7 @@ export function analyzeProgram(
             fatalErrorOccurred: true,
             configParseErrorOccurred: false,
             elapsedTime: 0,
+            error: debug.getSerializableError(e),
         });
     }
 

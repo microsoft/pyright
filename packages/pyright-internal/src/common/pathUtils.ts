@@ -914,3 +914,14 @@ export function isFileSystemCaseSensitiveInternal(fs: FileSystem) {
         }
     }
 }
+
+export function getLibraryPathWithoutExtension(libraryFilePath: string) {
+    let filePathWithoutExtension = stripFileExtension(libraryFilePath);
+
+    // Strip off the '/__init__' if it's present.
+    if (filePathWithoutExtension.endsWith('__init__')) {
+        filePathWithoutExtension = filePathWithoutExtension.substr(0, filePathWithoutExtension.length - 9);
+    }
+
+    return filePathWithoutExtension;
+}

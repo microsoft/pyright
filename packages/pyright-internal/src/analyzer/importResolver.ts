@@ -28,7 +28,7 @@ import {
     stripFileExtension,
     stripTrailingDirectorySeparator,
 } from '../common/pathUtils';
-import { versionToString } from '../common/pythonVersion';
+import { getPythonVersionStrings } from '../common/pythonVersion';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import * as StringUtils from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
@@ -396,17 +396,16 @@ export class ImportResolver {
         const importFailureInfo: string[] = [];
         const roots = [];
 
-        const pythonVersion = execEnv.pythonVersion;
-        const minorVersion = pythonVersion & 0xff;
-        const versionFolders = ['2and3', '3'];
-        if (minorVersion > 0) {
-            versionFolders.push(versionToString(0x300 + minorVersion));
-        }
-
+        const versionFolders = getPythonVersionStrings(execEnv.pythonVersion);
         const stdTypeshed = this._getTypeshedPath(true, execEnv, importFailureInfo);
         if (stdTypeshed) {
             if (useTypeshedVersionedFolders) {
-                roots.push(...versionFolders.map((vf) => combinePaths(stdTypeshed, vf)));
+                for (const version of versionFolders) {
+                    const path = combinePaths(stdTypeshed, version);
+                    if (this.fileSystem.existsSync(path)) {
+                        roots.push(path);
+                    }
+                }
             } else {
                 roots.push(stdTypeshed);
             }
@@ -422,7 +421,12 @@ export class ImportResolver {
         const typeshedPath = this._getTypeshedPath(false, execEnv, importFailureInfo);
         if (typeshedPath) {
             if (useTypeshedVersionedFolders) {
-                roots.push(...versionFolders.map((vf) => combinePaths(typeshedPath, vf)));
+                for (const version of versionFolders) {
+                    const path = combinePaths(typeshedPath, version);
+                    if (this.fileSystem.existsSync(path)) {
+                        roots.push(path);
+                    }
+                }
             } else {
                 roots.push(typeshedPath);
             }
@@ -976,13 +980,7 @@ export class ImportResolver {
             return undefined;
         }
 
-        const pythonVersion = execEnv.pythonVersion;
-        let minorVersion = pythonVersion & 0xff;
-
-        // Search for module starting at "3.x" down to "3.1", then "3", then "2and3".
-        while (true) {
-            const pythonVersionString =
-                minorVersion > 0 ? versionToString(0x300 + minorVersion) : minorVersion === 0 ? '3' : '2and3';
+        for (const pythonVersionString of getPythonVersionStrings(execEnv.pythonVersion)) {
             const testPath = combinePaths(typeshedPath, pythonVersionString);
             if (this.fileSystem.existsSync(testPath)) {
                 const importInfo = this.resolveAbsoluteImport(
@@ -996,12 +994,6 @@ export class ImportResolver {
                     return importInfo;
                 }
             }
-
-            // We use -1 to indicate "2and3", which is searched after "3.0".
-            if (minorVersion === -1) {
-                break;
-            }
-            minorVersion--;
         }
 
         importFailureInfo.push(`Typeshed path not found`);
@@ -1021,23 +1013,11 @@ export class ImportResolver {
             return;
         }
 
-        const pythonVersion = execEnv.pythonVersion;
-        let minorVersion = pythonVersion & 0xff;
-
-        // Search for module starting at "3.x" down to "3.1", then "3", then "2and3".
-        while (true) {
-            const pythonVersionString =
-                minorVersion > 0 ? versionToString(0x300 + minorVersion) : minorVersion === 0 ? '3' : '2and3';
+        for (const pythonVersionString of getPythonVersionStrings(execEnv.pythonVersion)) {
             const testPath = combinePaths(typeshedPath, pythonVersionString);
             if (this.fileSystem.existsSync(testPath)) {
                 this._getCompletionSuggestionsAbsolute(testPath, moduleDescriptor, suggestions, similarityLimit);
             }
-
-            // We use -1 to indicate "2and3", which is searched after "3.0".
-            if (minorVersion === -1) {
-                break;
-            }
-            minorVersion--;
         }
     }
 
