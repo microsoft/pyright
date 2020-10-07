@@ -160,6 +160,12 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
 
             // Move past the escape (backslash) character.
             strOffset++;
+
+            if (isRaw) {
+                appendOutputChar(curChar);
+                continue;
+            }
+
             curChar = getEscapedCharacter();
             let localValue = '';
 
