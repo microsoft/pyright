@@ -36,32 +36,28 @@
             label: '(x: int, y: int) -> str',
             parameters: ['x: int', 'y: int'],
         },
-        {
-            label: '(*args: Unknown) -> None',
-            parameters: ['*args: Unknown'],
-        },
     ];
 
     helper.verifySignature({
         o1: {
             signatures: overloadedSignatures,
-            activeParameters: [undefined, 0, 0, 0],
+            activeParameters: [undefined, 0, 0],
         },
         o2: {
             signatures: overloadedSignatures,
-            activeParameters: [undefined, undefined, 1, 0],
+            activeParameters: [undefined, undefined, 1],
         },
         o3: {
             signatures: overloadedSignatures,
-            activeParameters: [undefined, undefined, undefined, 0],
+            activeParameters: [undefined, undefined, undefined],
         },
         o4: {
             signatures: overloadedSignatures,
-            activeParameters: [undefined, undefined, undefined, 0],
+            activeParameters: [undefined, undefined, undefined],
         },
         o5: {
             signatures: overloadedSignatures,
-            activeParameters: [undefined, 0, 0, 0],
+            activeParameters: [undefined, 0, 0],
             callHasParameters: false,
         },
     });

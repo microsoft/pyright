@@ -10665,7 +10665,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Given a function node and the function type associated with it, this
-    // method search for prior function nodes that are marked as @overload
+    // method searches for prior function nodes that are marked as @overload
     // and creates an OverloadedFunctionType that includes this function and
     // all previous ones.
     function addOverloadsToFunctionType(node: FunctionNode, type: FunctionType): Type {
@@ -10679,48 +10679,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const decls = symbolWithScope.symbol.getDeclarations();
 
             // Find this function's declaration.
-            let declIndex = decls.findIndex((decl) => decl === functionDecl);
+            const declIndex = decls.findIndex((decl) => decl === functionDecl);
             if (declIndex > 0) {
-                const overloadedTypes: FunctionType[] = [type];
-                while (declIndex > 0) {
-                    const decl = decls[declIndex - 1];
-                    if (decl.type !== DeclarationType.Function) {
-                        break;
-                    }
+                const overloadedTypes: FunctionType[] = [];
 
-                    const declTypeInfo = getTypeOfFunction(decl.node);
-                    if (!declTypeInfo) {
-                        break;
-                    }
-
-                    if (declTypeInfo.decoratedType.category === TypeCategory.Function) {
-                        if (FunctionType.isOverloaded(declTypeInfo.decoratedType)) {
-                            overloadedTypes.unshift(declTypeInfo.decoratedType);
-                        } else {
-                            break;
+                // Look at the previous declaration's type.
+                const prevDecl = decls[declIndex - 1];
+                if (prevDecl.type === DeclarationType.Function) {
+                    const prevDeclDeclTypeInfo = getTypeOfFunction(prevDecl.node);
+                    if (prevDeclDeclTypeInfo) {
+                        if (prevDeclDeclTypeInfo.decoratedType.category === TypeCategory.Function) {
+                            if (FunctionType.isOverloaded(prevDeclDeclTypeInfo.decoratedType)) {
+                                overloadedTypes.push(prevDeclDeclTypeInfo.decoratedType);
+                            }
+                        } else if (prevDeclDeclTypeInfo.decoratedType.category === TypeCategory.OverloadedFunction) {
+                            // If the previous declaration was itself an overloaded function,
+                            // copy the entries from it.
+                            overloadedTypes.push(...prevDeclDeclTypeInfo.decoratedType.overloads);
                         }
-                    } else if (declTypeInfo.decoratedType.category === TypeCategory.OverloadedFunction) {
-                        // If the previous declaration was itself an overloaded function,
-                        // copy the last entry out of it.
-                        const lastOverload =
-                            declTypeInfo.decoratedType.overloads[declTypeInfo.decoratedType.overloads.length - 1];
-                        if (FunctionType.isOverloaded(lastOverload)) {
-                            overloadedTypes.unshift(lastOverload);
-                        } else {
-                            break;
-                        }
-                    } else {
-                        break;
                     }
+                }
 
-                    declIndex--;
+                if (FunctionType.isOverloaded(type)) {
+                    overloadedTypes.push(type);
+                }
+
+                if (overloadedTypes.length === 1) {
+                    return overloadedTypes[0];
                 }
 
                 if (overloadedTypes.length > 1) {
                     // Create a new overloaded type that copies the contents of the previous
                     // one and adds a new function.
-                    const newOverload = OverloadedFunctionType.create();
-                    newOverload.overloads = overloadedTypes;
+                    const newOverload = OverloadedFunctionType.create(overloadedTypes);
 
                     const prevOverload = overloadedTypes[overloadedTypes.length - 2];
                     const isPrevOverloadAbstract = FunctionType.isAbstractMethod(prevOverload);
