@@ -124,7 +124,19 @@ export class ImportResolver {
             // Is it already cached?
             const cachedResults = this._lookUpResultsInCache(execEnv, importName, moduleDescriptor.importedSymbols);
             if (cachedResults) {
-                return cachedResults;
+                // In most cases, we can simply return a cached entry. However, there are cases
+                // where the cached entry refers to a previously-resolved namespace package
+                // that does not resolve the symbols specified in the module descriptor.
+                // In this case, we will ignore the cached value and run the full import
+                // resolution again to try to find a package that resolves the import.
+                const isUnresolvedNamespace =
+                    cachedResults.isImportFound &&
+                    cachedResults.isNamespacePackage &&
+                    !this._isNamespacePackageResolved(moduleDescriptor, cachedResults.implicitImports);
+
+                if (!isUnresolvedNamespace) {
+                    return cachedResults;
+                }
             }
 
             const bestImport = this._resolveBestAbsoluteImport(sourceFilePath, execEnv, moduleDescriptor, true);
@@ -626,9 +638,8 @@ export class ImportResolver {
         } else {
             importFound = resolvedPaths.length >= moduleDescriptor.nameParts.length;
 
-            // Empty namespace packages are not allowed.
-            if (isNamespacePackage && implicitImports.length === 0) {
-                importFound = false;
+            if (importFound && isNamespacePackage) {
+                importFound = this._isNamespacePackageResolved(moduleDescriptor, implicitImports);
             }
         }
 
@@ -685,6 +696,28 @@ export class ImportResolver {
         }
 
         return this._filterImplicitImports(cachedEntry, importedSymbols);
+    }
+
+    // Determines whether a namespace package resolves all of the symbols
+    // requested in the module descriptor. Namespace packages have no "__init__.py"
+    // file, so the only way that symbols can be resolved is if submodules
+    // are present. If specific symbols were requested, make sure they
+    // are all satisfied by submodules (as listed in the implicit imports).
+    private _isNamespacePackageResolved(moduleDescriptor: ImportedModuleDescriptor, implicitImports: ImplicitImport[]) {
+        if (moduleDescriptor.importedSymbols) {
+            if (
+                !moduleDescriptor.importedSymbols.some((symbol) => {
+                    return implicitImports.some((implicitImport) => {
+                        return implicitImport.name === symbol;
+                    });
+                })
+            ) {
+                return false;
+            }
+        } else if (implicitImports.length === 0) {
+            return false;
+        }
+        return true;
     }
 
     private _getModuleNameFromPath(
@@ -791,9 +824,6 @@ export class ImportResolver {
             /* useStubPackage */ undefined,
             allowPyi
         );
-        if (localImport.isImportFound && !localImport.isNamespacePackage) {
-            return localImport;
-        }
         bestResultSoFar = localImport;
 
         for (const extraPath of execEnv.extraPaths) {
@@ -808,19 +838,11 @@ export class ImportResolver {
                 /* useStubPackage */ undefined,
                 allowPyi
             );
-            if (localImport.isImportFound) {
-                return localImport;
-            }
+            bestResultSoFar = this._pickBestImport(bestResultSoFar, localImport);
+        }
 
-            if (
-                localImport &&
-                (bestResultSoFar === undefined ||
-                    (!bestResultSoFar.isImportFound && localImport.isImportFound) ||
-                    (bestResultSoFar.isNamespacePackage && !localImport.isNamespacePackage) ||
-                    localImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length)
-            ) {
-                bestResultSoFar = localImport;
-            }
+        if (bestResultSoFar?.isImportFound) {
+            return bestResultSoFar;
         }
 
         // Look for the import in the list of third-party packages.
@@ -880,20 +902,7 @@ export class ImportResolver {
                         return thirdPartyImport;
                     }
 
-                    // We did not find it, or we did and it's not from a
-                    // stub, so give chance for resolveImportEx to find
-                    // one from a stub.
-                    if (
-                        bestResultSoFar === undefined ||
-                        (!bestResultSoFar.isImportFound && thirdPartyImport.isImportFound) ||
-                        (bestResultSoFar.isNamespacePackage &&
-                            thirdPartyImport.isImportFound &&
-                            !thirdPartyImport.isNamespacePackage) ||
-                        (thirdPartyImport.isImportFound &&
-                            thirdPartyImport.resolvedPaths.length > bestResultSoFar.resolvedPaths.length)
-                    ) {
-                        bestResultSoFar = thirdPartyImport;
-                    }
+                    bestResultSoFar = this._pickBestImport(bestResultSoFar, thirdPartyImport);
                 }
             }
         } else {
@@ -931,6 +940,30 @@ export class ImportResolver {
         // We weren't able to find an exact match, so return the best
         // partial match.
         return bestResultSoFar;
+    }
+
+    private _pickBestImport(bestImportSoFar: ImportResult | undefined, newImport: ImportResult | undefined) {
+        if (!bestImportSoFar) {
+            return newImport;
+        }
+
+        if (!newImport) {
+            return bestImportSoFar;
+        }
+
+        if (newImport.isImportFound) {
+            // Prefer found over not found.
+            if (!bestImportSoFar.isImportFound) {
+                return newImport;
+            }
+
+            // All else equal, prefer shorter resolution paths.
+            if (bestImportSoFar.resolvedPaths.length > newImport.resolvedPaths.length) {
+                return newImport;
+            }
+        }
+
+        return bestImportSoFar;
     }
 
     private _isIdentifier(value: string) {
