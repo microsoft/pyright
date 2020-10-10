@@ -80,6 +80,15 @@
                     "description": "Automatically add common search paths like 'src'?",
                     "scope": "resource"
                 },
+                "python.analysis.extraPaths": {
+                    "type": "array",
+                    "default": [],
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "Additional import search resolution paths",
+                    "scope": "resource"
+                },
                 "python.analysis.stubPath": {
                     "type": "string",
                     "default": "typings",
