@@ -2,7 +2,9 @@ import datetime
 import uuid
 from typing import IO, Any, Callable, Generic, Iterable, List, Optional, Tuple as _PyTuple, Type, TypeVar, Union
 
-from click.core import Context, Parameter, _ConvertibleType, _ParamType as ParamType
+from click.core import Context, Parameter, _ConvertibleType, _ParamType
+
+ParamType = _ParamType
 
 class BoolParamType(ParamType):
     def __call__(self, value: Optional[str], param: Optional[Parameter] = ..., ctx: Optional[Context] = ...) -> bool: ...

@@ -1,7 +1,7 @@
 import sys
 import typing
 from typing import (
-    AbstractSet as Set,
+    AbstractSet,
     Any,
     AsyncIterable as AsyncIterable,
     AsyncIterator as AsyncIterator,
@@ -35,6 +35,8 @@ from typing import (
     ValuesView as ValuesView,
     overload,
 )
+
+Set = AbstractSet
 
 if sys.version_info >= (3, 6):
     from typing import AsyncGenerator as AsyncGenerator, Collection as Collection

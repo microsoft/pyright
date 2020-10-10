@@ -4,7 +4,9 @@ from typing import Any
 if sys.version_info >= (3,):
     from base64 import encodebytes as encodebytes
 else:
-    from base64 import encodestring as encodebytes
+    from base64 import encodestring
+
+    encodebytes = encodestring
 
 expanduser: Any
 

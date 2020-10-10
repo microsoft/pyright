@@ -8,7 +8,7 @@ from _typeshed import (
     OpenBinaryModeWriting,
     OpenTextMode,
 )
-from builtins import OSError as error
+from builtins import OSError
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper as _TextIOWrapper
 from posix import listdir as listdir, times_result
 from typing import (
@@ -25,7 +25,6 @@ from typing import (
     List,
     Mapping,
     MutableMapping,
-    NamedTuple,
     NoReturn,
     Optional,
     Sequence,
@@ -45,6 +44,8 @@ _supports_unicode_filenames = path.supports_unicode_filenames
 _T = TypeVar("_T")
 
 # ----- os variables -----
+
+error = OSError
 
 supports_bytes_environ: bool
 
@@ -268,7 +269,9 @@ class stat_result:
     st_type: int
 
 if sys.version_info >= (3, 6):
-    from builtins import _PathLike as PathLike  # See comment in builtins
+    from builtins import _PathLike
+
+    PathLike = _PathLike  # See comment in builtins
 
 _FdOrAnyPath = Union[int, AnyPath]
 
@@ -300,9 +303,16 @@ else:
         def stat(self, *, follow_symlinks: bool = ...) -> stat_result: ...
 
 if sys.platform != "win32":
+    _Tuple10Int = Tuple[int, int, int, int, int, int, int, int, int, int]
+    _Tuple11Int = Tuple[int, int, int, int, int, int, int, int, int, int, int]
     if sys.version_info >= (3, 7):
         # f_fsid was added in https://github.com/python/cpython/pull/4571
-        class statvfs_result(NamedTuple):  # Unix only
+        class statvfs_result(_Tuple10Int):  # Unix only
+            def __new__(cls, seq: Union[_Tuple10Int, _Tuple11Int], dict: Dict[str, int] = ...) -> statvfs_result: ...
+            n_fields: int
+            n_sequence_fields: int
+            n_unnamed_fields: int
+
             f_bsize: int
             f_frsize: int
             f_blocks: int
@@ -313,9 +323,13 @@ if sys.platform != "win32":
             f_favail: int
             f_flag: int
             f_namemax: int
-            f_fsid: int
+            f_fsid: int = ...
     else:
-        class statvfs_result(NamedTuple):  # Unix only
+        class statvfs_result(_Tuple10Int):  # Unix only
+            n_fields: int
+            n_sequence_fields: int
+            n_unnamed_fields: int
+
             f_bsize: int
             f_frsize: int
             f_blocks: int

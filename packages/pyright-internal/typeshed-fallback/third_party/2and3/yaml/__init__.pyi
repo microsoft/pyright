@@ -8,9 +8,8 @@ from yaml.loader import *  # noqa: F403
 from yaml.nodes import *  # noqa: F403
 from yaml.tokens import *  # noqa: F403
 
-from .cyaml import *
-
 from . import resolver as resolver  # Help mypy a bit; this is implied by loader and dumper
+from .cyaml import *
 
 if sys.version_info < (3,):
     _Str = Union[Text, str]
