@@ -155,11 +155,7 @@ class Event:
     def wait(self, timeout: Optional[float] = ...) -> bool: ...
 
 if sys.version_info >= (3, 8):
-    import _thread
-
-    # don't ask...
-    _ExceptHookArgs = _thread.ExceptHookArgs
-    ExceptHookArgs = _thread._ExceptHookArgs
+    from _thread import ExceptHookArgs as _ExceptHookArgs, _ExceptHookArgs as ExceptHookArgs  # don't ask
 
     excepthook: Callable[[_ExceptHookArgs], Any]
 

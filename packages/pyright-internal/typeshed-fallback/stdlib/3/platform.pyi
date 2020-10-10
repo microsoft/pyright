@@ -3,9 +3,7 @@
 import sys
 
 if sys.version_info < (3, 9):
-    import os
-
-    DEV_NULL = os.devnull
+    from os import devnull as DEV_NULL
 from typing import NamedTuple, Optional, Tuple
 
 if sys.version_info >= (3, 8):

@@ -1,14 +1,27 @@
+# ContextManager aliased here for backwards compatibility; TODO eventually remove this
 import sys
 from types import TracebackType
-from typing import IO, Any, Callable, ContextManager, Generic, Iterable, Iterator, Optional, Type, TypeVar, overload
+from typing import (
+    IO,
+    Any,
+    Callable,
+    ContextManager as ContextManager,
+    Generic,
+    Iterable,
+    Iterator,
+    Optional,
+    Type,
+    TypeVar,
+    overload,
+)
 
 if sys.version_info >= (3, 5):
     from typing import AsyncContextManager, AsyncIterator
 
 if sys.version_info >= (3, 6):
-    AbstractContextManager = ContextManager
+    from typing import ContextManager as AbstractContextManager
 if sys.version_info >= (3, 7):
-    AbstractAsyncContextManager = AsyncContextManager
+    from typing import AsyncContextManager as AbstractAsyncContextManager
 
 _T = TypeVar("_T")
 _T_io = TypeVar("_T_io", bound=Optional[IO[str]])
