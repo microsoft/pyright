@@ -8361,6 +8361,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 category: param.category,
                 name: param.name ? param.name.value : undefined,
                 hasDefault: !!param.defaultValue,
+                hasDeclaredType: true,
                 type: paramType,
             };
             FunctionType.addParameter(functionType, functionParam);
