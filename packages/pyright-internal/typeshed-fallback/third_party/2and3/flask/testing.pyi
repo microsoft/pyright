@@ -6,17 +6,7 @@ from typing import IO, Any, Iterable, Mapping, Optional, Text, TypeVar, Union
 
 from click import BaseCommand
 from click.testing import CliRunner, Result
-from werkzeug.test import Client
-
-def make_test_environ_builder(
-    app: Any,
-    path: str = ...,
-    base_url: Optional[Any] = ...,
-    subdomain: Optional[Any] = ...,
-    url_scheme: Optional[Any] = ...,
-    *args: Any,
-    **kwargs: Any,
-): ...
+from werkzeug.test import Client, EnvironBuilder as WerkzeugEnvironBuilder
 
 # Response type for the client below.
 # By default _R is Tuple[Iterable[Any], Union[Text, int], werkzeug.datastructures.Headers], however
@@ -44,3 +34,27 @@ class FlaskCliRunner(CliRunner):
         color: bool = ...,
         **extra: Any,
     ) -> Result: ...
+
+class EnvironBuilder(WerkzeugEnvironBuilder):
+    app: Any
+    def __init__(
+        self,
+        app: Any,
+        path: str = ...,
+        base_url: Optional[Any] = ...,
+        subdomain: Optional[Any] = ...,
+        url_scheme: Optional[Any] = ...,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None: ...
+    def json_dumps(self, obj: Any, **kwargs: Any) -> str: ...
+
+def make_test_environ_builder(
+    app: Any,
+    path: str = ...,
+    base_url: Optional[Any] = ...,
+    subdomain: Optional[Any] = ...,
+    url_scheme: Optional[Any] = ...,
+    *args: Any,
+    **kwargs: Any,
+): ...

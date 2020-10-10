@@ -1,15 +1,12 @@
 import sys
 from typing import Any, ByteString, Sequence, Tuple, Type, TypeVar, Union
 
-from .descriptor import Descriptor, DescriptorBase, FieldDescriptor
+from .descriptor import Descriptor, FieldDescriptor
+from .internal.extension_dict import _ExtensionDict
 
 class Error(Exception): ...
 class DecodeError(Error): ...
 class EncodeError(Error): ...
-
-class _ExtensionDict:
-    def __getitem__(self, extension_handle: DescriptorBase) -> Any: ...
-    def __setitem__(self, extension_handle: DescriptorBase, value: Any) -> None: ...
 
 _M = TypeVar("_M", bound=Message)  # message type (of self)
 
@@ -39,7 +36,7 @@ class Message:
     @classmethod
     def FromString(cls: Type[_M], s: _Serialized) -> _M: ...
     @property
-    def Extensions(self) -> _ExtensionDict: ...
+    def Extensions(self: _M) -> _ExtensionDict[_M]: ...
     # Intentionally left out typing on these three methods, because they are
     # stringly typed and it is not useful to call them on a Message directly.
     # We prefer more specific typing on individual subclasses of Message

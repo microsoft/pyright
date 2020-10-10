@@ -2,9 +2,13 @@ import sys
 from typing import Any, Optional
 
 if sys.version_info[0] >= 3:
-    from urllib.parse import quote_from_bytes as url_quote
+    from urllib.parse import quote_from_bytes
+
+    url_quote = quote_from_bytes
 else:
-    from urllib import quote as url_quote
+    import urllib
+
+    url_quote = urllib.quote
 
 PY2: Any
 PYPY: Any
