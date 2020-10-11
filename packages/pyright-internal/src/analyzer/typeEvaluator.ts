@@ -2052,7 +2052,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 ClassType.cloneForSpecialization(
                     dictType,
                     [getBuiltInObject(node, 'str'), AnyType.create()],
-                    /* isTypeArgumentExplicit */ false
+                    /* isTypeArgumentExplicit */ true
                 )
             );
         }
@@ -2772,7 +2772,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const listType = getBuiltInType(expr, 'List');
                 if (isClass(listType)) {
                     targetType = ObjectType.create(
-                        ClassType.cloneForSpecialization(listType, [targetType], /* isTypeArgumentExplicit */ false)
+                        ClassType.cloneForSpecialization(listType, [targetType], /* isTypeArgumentExplicit */ true)
                     );
                 }
             }
@@ -4497,7 +4497,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const builtInTupleType = getBuiltInType(node, 'Tuple');
             if (isClass(builtInTupleType)) {
                 indexType = convertToInstance(
-                    cloneTupleForSpecialization(builtInTupleType, indexTypeList, /* isTypeArgumentExplicit */ false)
+                    cloneTupleForSpecialization(builtInTupleType, indexTypeList, /* isTypeArgumentExplicit */ true)
                 );
             } else {
                 indexType = UnknownType.create();
@@ -5404,9 +5404,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // typeVarMap. This handles the case where the expectedType contains
                             // a type variable that is computed and filled in to the typeVarMap.
                             const specializedType = specializeType(
-                                specializeType(type, typeVarMap, /* makeConcrete */ true),
+                                specializeType(type, typeVarMap, /* makeConcrete */ false),
                                 typeVarMap,
-                                /* makeConcrete */ true
+                                /* makeConcrete */ false
                             ) as ClassType;
                             return applyExpectedSubtypeForConstructor(specializedType, expectedSubType);
                         }
@@ -8400,7 +8400,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     isAsync
                         ? [elementType, NoneType.createInstance()]
                         : [elementType, NoneType.createInstance(), NoneType.createInstance()],
-                    /* isTypeArgumentExplicit */ false
+                    /* isTypeArgumentExplicit */ true
                 )
             );
         }
@@ -10251,7 +10251,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (isClass(dictType) && isObject(strType)) {
                     return ObjectType.create(
-                        ClassType.cloneForSpecialization(dictType, [strType, type], /* isTypeArgumentExplicit */ false)
+                        ClassType.cloneForSpecialization(dictType, [strType, type], /* isTypeArgumentExplicit */ true)
                     );
                 }
 
@@ -10785,7 +10785,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             ClassType.cloneForSpecialization(
                                 asyncGeneratorType,
                                 typeArgs,
-                                /* isTypeArgumentExplicit */ false
+                                /* isTypeArgumentExplicit */ true
                             )
                         );
                     }
@@ -10938,7 +10938,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                             ? NoneType.createInstance()
                                             : inferredReturnType,
                                     ],
-                                    /* isTypeArgumentExplicit */ false
+                                    /* isTypeArgumentExplicit */ true
                                 )
                             );
                         } else {
@@ -13233,7 +13233,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 classType = ClassType.cloneForSpecialization(
                     classType,
                     typeArguments,
-                    /* isTypeArgumentExplicit */ false
+                    /* isTypeArgumentExplicit */ typeArguments !== undefined
                 );
             }
 
@@ -13560,11 +13560,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const listType = getBuiltInType(declaration.node, 'List');
                         if (isClass(listType)) {
                             return ObjectType.create(
-                                ClassType.cloneForSpecialization(
-                                    listType,
-                                    [strType],
-                                    /* isTypeArgumentExplicit */ false
-                                )
+                                ClassType.cloneForSpecialization(listType, [strType], /* isTypeArgumentExplicit */ true)
                             );
                         }
                     }
@@ -13576,7 +13572,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 ClassType.cloneForSpecialization(
                                     dictType,
                                     [strType, AnyType.create()],
-                                    /* isTypeArgumentExplicit */ false
+                                    /* isTypeArgumentExplicit */ true
                                 )
                             );
                         }
@@ -14633,7 +14629,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         assert(destTypeArgs !== undefined);
         const srcTypeArgs = srcType.effectiveTypeArguments || srcType.typeArguments;
 
-        if (srcTypeArgs) {
+        if (srcTypeArgs && srcType.isTypeArgumentExplicit) {
             if (ClassType.isSpecialBuiltIn(srcType) || srcTypeArgs.length === destTypeParams.length) {
                 for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
                     const srcTypeArg = srcTypeArgs[srcArgIndex];

@@ -533,7 +533,7 @@ export class Checker extends ParseTreeWalker {
         const iteratorType = this._evaluator.getBuiltInType(node, 'Iterator');
         if (yieldType && isClass(iteratorType)) {
             adjYieldType = ObjectType.create(
-                ClassType.cloneForSpecialization(iteratorType, [yieldType], /* isTypeArgumentExplicit */ false)
+                ClassType.cloneForSpecialization(iteratorType, [yieldType], /* isTypeArgumentExplicit */ true)
             );
         } else {
             adjYieldType = UnknownType.create();

@@ -978,7 +978,7 @@ export function selfSpecializeClassType(type: ClassType, setSkipAbstractClassTes
     return ClassType.cloneForSpecialization(
         type,
         typeArgs,
-        /* isTypeArgumentExplicit */ false,
+        /* isTypeArgumentExplicit */ true,
         setSkipAbstractClassTest
     );
 }
@@ -1200,7 +1200,7 @@ export function getDeclaredGeneratorYieldType(functionType: FunctionType, iterat
                 ClassType.cloneForSpecialization(
                     iteratorType,
                     [generatorTypeArgs[0]],
-                    /* isTypeArgumentExplicit */ false
+                    /* isTypeArgumentExplicit */ true
                 )
             );
         }
@@ -1526,7 +1526,7 @@ function _specializeClassType(
     return ClassType.cloneForSpecialization(
         classType,
         newTypeArgs,
-        /* isTypeArgumentExplicit */ false,
+        /* isTypeArgumentExplicit */ true,
         /* skipAbstractClassTest */ undefined,
         newEffectiveTypeArgs
     );
