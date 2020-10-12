@@ -43,22 +43,10 @@
 //// r = obj.[|/*marker4*/read_write_prop|]
 //// obj.[|/*marker5*/read_write_prop|] = r
 
-helper.verifyHover({
-    marker1: { value: '```python\n(class) Validator\n```\nThe validator class', kind: 'markdown' },
-    marker2: {
-        value: '```python\n(method) is_valid: (text: str) -> bool\n```\nChecks if the input string is valid.',
-        kind: 'markdown',
-    },
-    marker3: {
-        value: '```python\n(property) read_only_prop: bool\n```\nThe read-only property.',
-        kind: 'markdown',
-    },
-    marker4: {
-        value: '```python\n(property) read_write_prop: bool\n```\nThe read-write property.',
-        kind: 'markdown',
-    },
-    marker5: {
-        value: '```python\n(property) read_write_prop: bool\n```\nThe read-write property.',
-        kind: 'markdown',
-    },
+helper.verifyHover('markdown', {
+    marker1: '```python\n(class) Validator\n```\nThe validator class',
+    marker2: '```python\n(method) is_valid: (text: str) -> bool\n```\nChecks if the input string is valid.',
+    marker3: '```python\n(property) read_only_prop: bool\n```\nThe read-only property.',
+    marker4: '```python\n(property) read_write_prop: bool\n```\nThe read-write property.',
+    marker5: '```python\n(property) read_write_prop: bool\n```\nThe read-write property.',
 });

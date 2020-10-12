@@ -9,4 +9,4 @@
 ////     pass
 
 // @ts-ignore
-await helper.verifyCompletion('included', { marker: { completions: [] } });
+await helper.verifyCompletion('included', 'markdown', { marker: { completions: [] } });

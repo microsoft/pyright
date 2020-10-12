@@ -1,5 +1,5 @@
 /*
- * docStringToMarkdown.test.ts
+ * docStringConversion.test.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
@@ -7,7 +7,7 @@
  */
 
 import assert = require('assert');
-import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
+import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 
 // For substitution in the test data strings
 // Produces more readable test data than escaping the back ticks
@@ -28,6 +28,7 @@ test('PlaintextIndention', () => {
     ];
 
     all.forEach((v) => _testConvertToMarkdown(v[0], v[1]));
+    all.forEach((v) => _testConvertToPlainText(v[0], v[1]));
 });
 
 test('NormalText', () => {
@@ -466,6 +467,12 @@ function _testConvertToMarkdown(docstring: string, expectedMarkdown: string) {
     const actualMarkdown = convertDocStringToMarkdown(docstring);
 
     assert.equal(_normalizeLineEndings(actualMarkdown).trim(), _normalizeLineEndings(expectedMarkdown).trim());
+}
+
+function _testConvertToPlainText(docstring: string, expectedPlainText: string) {
+    const actualMarkdown = convertDocStringToPlainText(docstring);
+
+    assert.equal(_normalizeLineEndings(actualMarkdown).trim(), _normalizeLineEndings(expectedPlainText).trim());
 }
 
 function _normalizeLineEndings(text: string): string {

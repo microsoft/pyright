@@ -6,6 +6,6 @@
 // @filename: library/__init__.py
 //// '''documentation for library'''
 
-helper.verifyHover({
-    marker: { value: '```python\n(module) library\n```\ndocumentation for library', kind: 'markdown' },
+helper.verifyHover('markdown', {
+    marker: '```python\n(module) library\n```\ndocumentation for library',
 });

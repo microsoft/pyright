@@ -12,6 +12,7 @@ import {
     CompletionItem,
     DocumentHighlight,
     DocumentSymbol,
+    MarkupKind,
     SymbolInformation,
 } from 'vscode-languageserver';
 import { isMainThread } from 'worker_threads';
@@ -749,6 +750,7 @@ export class SourceFile {
     getHoverForPosition(
         sourceMapper: SourceMapper,
         position: Position,
+        format: MarkupKind,
         evaluator: TypeEvaluator,
         token: CancellationToken
     ): HoverResults | undefined {
@@ -757,7 +759,7 @@ export class SourceFile {
             return undefined;
         }
 
-        return HoverProvider.getHoverForPosition(sourceMapper, this._parseResults, position, evaluator, token);
+        return HoverProvider.getHoverForPosition(sourceMapper, this._parseResults, position, format, evaluator, token);
     }
 
     getDocumentHighlight(
@@ -795,6 +797,7 @@ export class SourceFile {
         importResolver: ImportResolver,
         importLookup: ImportLookup,
         evaluator: TypeEvaluator,
+        format: MarkupKind,
         sourceMapper: SourceMapper,
         libraryMap: Map<string, IndexResults> | undefined,
         moduleSymbolsCallback: () => ModuleSymbolMap,
@@ -821,6 +824,7 @@ export class SourceFile {
             configOptions,
             importLookup,
             evaluator,
+            format,
             sourceMapper,
             libraryMap,
             moduleSymbolsCallback,
@@ -835,6 +839,7 @@ export class SourceFile {
         importResolver: ImportResolver,
         importLookup: ImportLookup,
         evaluator: TypeEvaluator,
+        format: MarkupKind,
         sourceMapper: SourceMapper,
         libraryMap: Map<string, IndexResults> | undefined,
         moduleSymbolsCallback: () => ModuleSymbolMap,
@@ -856,6 +861,7 @@ export class SourceFile {
             configOptions,
             importLookup,
             evaluator,
+            format,
             sourceMapper,
             libraryMap,
             moduleSymbolsCallback,

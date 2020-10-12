@@ -5,7 +5,7 @@
 //// a.n[|/*marker1*/|]
 
 // @ts-ignore
-await helper.verifyCompletion('excluded', {
+await helper.verifyCompletion('excluded', 'markdown', {
     marker1: {
         completions: [{ label: 'capitalize' }],
     },

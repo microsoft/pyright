@@ -14,6 +14,7 @@ import {
     CallHierarchyItem,
     CallHierarchyOutgoingCall,
     DocumentHighlight,
+    MarkupKind,
 } from 'vscode-languageserver-types';
 
 import { OperationCanceledException, throwIfCancellationRequested } from '../common/cancellationUtils';
@@ -1277,7 +1278,12 @@ export class Program {
         });
     }
 
-    getHoverForPosition(filePath: string, position: Position, token: CancellationToken): HoverResults | undefined {
+    getHoverForPosition(
+        filePath: string,
+        position: Position,
+        format: MarkupKind,
+        token: CancellationToken
+    ): HoverResults | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
             const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
             if (!sourceFileInfo) {
@@ -1290,6 +1296,7 @@ export class Program {
             return sourceFileInfo.sourceFile.getHoverForPosition(
                 this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 position,
+                format,
                 this._evaluator!,
                 token
             );
@@ -1345,6 +1352,7 @@ export class Program {
         filePath: string,
         position: Position,
         workspacePath: string,
+        format: MarkupKind,
         libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
     ): Promise<CompletionResults | undefined> {
@@ -1364,6 +1372,7 @@ export class Program {
                 this._importResolver,
                 this._lookUpImport,
                 this._evaluator!,
+                format,
                 this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 libraryMap,
                 () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),
@@ -1397,6 +1406,7 @@ export class Program {
     resolveCompletionItem(
         filePath: string,
         completionItem: CompletionItem,
+        format: MarkupKind,
         libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
     ) {
@@ -1414,6 +1424,7 @@ export class Program {
                 this._importResolver,
                 this._lookUpImport,
                 this._evaluator!,
+                format,
                 this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 libraryMap,
                 () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),

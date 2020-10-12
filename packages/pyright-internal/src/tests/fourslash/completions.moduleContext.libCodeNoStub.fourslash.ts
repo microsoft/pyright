@@ -18,7 +18,7 @@
 //// __all__ = ['randint']
 
 // @ts-ignore
-await helper.verifyCompletion('included', {
+await helper.verifyCompletion('included', 'markdown', {
     marker1: {
         completions: [],
         moduleContext: {
