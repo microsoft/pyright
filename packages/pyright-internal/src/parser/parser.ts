@@ -1287,7 +1287,7 @@ export class Parser {
         }
 
         if (isTypingImport) {
-            const typingSymbolsOfInterest = ['Literal', 'TypeAlias'];
+            const typingSymbolsOfInterest = ['Literal', 'TypeAlias', 'Annotated'];
 
             if (importFromNode.isWildcardImport) {
                 typingSymbolsOfInterest.forEach((s) => {
@@ -2170,16 +2170,18 @@ export class Parser {
                 // Is it an index operator?
 
                 // This is an unfortunate hack that's necessary to accommodate 'Literal'
-                // type annotations properly. We need to suspend treating strings as
-                // type annotations within a Literal subscript. Note that the code previously
-                // looked for "typing.Literal", but someone submitted a bug report because
-                // they were using an aliased version of 'typing'.
-                const isLiteralSubscript = this._isTypingAnnotation(atomExpression, 'Literal');
+                // and 'Annotated' type annotations properly. We need to suspend treating
+                // strings as type annotations within a Literal or Annotated subscript.
                 const wasParsingIndexTrailer = this._isParsingIndexTrailer;
                 const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
-                if (isLiteralSubscript) {
+
+                if (
+                    this._isTypingAnnotation(atomExpression, 'Literal') ||
+                    this._isTypingAnnotation(atomExpression, 'Annotated')
+                ) {
                     this._isParsingTypeAnnotation = false;
                 }
+
                 this._isParsingIndexTrailer = true;
                 const indexExpressions = this._parseSubscriptList();
                 this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
