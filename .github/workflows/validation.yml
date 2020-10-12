@@ -26,15 +26,11 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      # Don't cache on Windows; the cache ends up being very large and
-      # the Windows implementation of the cache task uses a much slower archiver.
       - name: Get npm cache directory
-        if: runner.os != 'Windows'
         id: npm-cache
         run: |
           echo "::set-output name=dir::$(npm config get cache)"
       - uses: actions/cache@v2
-        if: runner.os != 'Windows'
         with:
           path: ${{ steps.npm-cache.outputs.dir }}
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
@@ -92,11 +88,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      # Don't cache on Windows; the cache ends up being very large and
+      # the Windows implementation of the cache task uses a much slower archiver.
       - name: Get npm cache directory
+        if: runner.os != 'Windows'
         id: npm-cache
         run: |
           echo "::set-output name=dir::$(npm config get cache)"
       - uses: actions/cache@v2
+        if: runner.os != 'Windows'
         with:
           path: ${{ steps.npm-cache.outputs.dir }}
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
