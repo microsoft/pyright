@@ -22,23 +22,17 @@
 
 // This will cause shadow file to be injected.
 helper.openFile(helper.getMarkerByName('hover').fileName);
-helper.verifyHover({
-    hover: {
-        value: '```python\n(method) method: () -> Unknown\n```\ndoc string',
-        kind: 'markdown',
-    },
+helper.verifyHover('markdown', {
+    hover: '```python\n(method) method: () -> Unknown\n```\ndoc string',
 });
 
 // @ts-ignore
-await helper.verifyCompletion('exact', {
+await helper.verifyCompletion('exact', 'markdown', {
     marker: {
         completions: [
             {
                 label: 'MyShadow',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```\nfrom testLib import MyShadow\n```',
-                },
+                documentation: '```\nfrom testLib import MyShadow\n```',
                 detail: 'Auto-import',
             },
         ],

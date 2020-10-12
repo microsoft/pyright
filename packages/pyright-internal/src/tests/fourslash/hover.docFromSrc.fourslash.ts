@@ -70,41 +70,14 @@
 //// inner = module1.A.[|/*a_inner_docs*/Inner|]()
 //// print(inner.[|/*inner_method1_docs*/method1|]())
 
-helper.verifyHover({
-    a_docs: {
-        value: '```python\n(class) A\n```\nA docs',
-        kind: 'markdown',
-    },
-    b_docs: {
-        value: '```python\n(class) B()\n```\nB init docs',
-        kind: 'markdown',
-    },
-    a_inner_docs: {
-        value: '```python\n(class) Inner\n```\nA.Inner docs',
-        kind: 'markdown',
-    },
-    func1_docs: {
-        value: '```python\n(function) func1: () -> bool\n```\nfunc1 docs',
-        kind: 'markdown',
-    },
-    func2_docs: {
-        value: '```python\n(function) func2: () -> bool\n```\nfunc2 docs',
-        kind: 'markdown',
-    },
-    inner_method1_docs: {
-        value: '```python\n(method) method1: () -> bool\n```\nA.Inner.method1 docs',
-        kind: 'markdown',
-    },
-    method1_docs: {
-        value: '```python\n(method) method1: () -> bool\n```\nA.method1 docs',
-        kind: 'markdown',
-    },
-    module1_docs: {
-        value: '```python\n(module) module1\n```\nmodule1 docs',
-        kind: 'markdown',
-    },
-    module2_docs: {
-        value: '```python\n(module) module2\n```\nmodule2 docs',
-        kind: 'markdown',
-    },
+helper.verifyHover('markdown', {
+    a_docs: '```python\n(class) A\n```\nA docs',
+    b_docs: '```python\n(class) B()\n```\nB init docs',
+    a_inner_docs: '```python\n(class) Inner\n```\nA.Inner docs',
+    func1_docs: '```python\n(function) func1: () -> bool\n```\nfunc1 docs',
+    func2_docs: '```python\n(function) func2: () -> bool\n```\nfunc2 docs',
+    inner_method1_docs: '```python\n(method) method1: () -> bool\n```\nA.Inner.method1 docs',
+    method1_docs: '```python\n(method) method1: () -> bool\n```\nA.method1 docs',
+    module1_docs: '```python\n(module) module1\n```\nmodule1 docs',
+    module2_docs: '```python\n(module) module2\n```\nmodule2 docs',
 });

@@ -9,6 +9,6 @@
 ////
 //// [|/*marker1*/Something|]()
 
-helper.verifyHover({
-    marker1: { value: '```python\n(class) Something(text: str)\n```\nThis is a test.', kind: 'markdown' },
+helper.verifyHover('markdown', {
+    marker1: '```python\n(class) Something(text: str)\n```\nThis is a test.',
 });

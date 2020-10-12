@@ -1,23 +1,43 @@
 /*
- * docStringToMarkdown.ts
+ * docStringConversion.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Python doc string to markdown converter.
- *
- * This does various things, including removing common indention, escaping
- * characters, handling code blocks, and more.
- *
- * This is a straight port of
- * https://github.com/microsoft/python-language-server/blob/master/src/LanguageServer/Impl/Documentation/DocstringConverter.cs
- *
- * The restructured npm library was evaluated, and while it worked well for
- * parsing valid input, it was going to be more difficult to handle invalid
- * RST input.
+ * Python doc string to markdown/plain text format conversion.
  */
 
+// Converts a docstring to markdown format.
+//
+// This does various things, including removing common indention, escaping
+// characters, handling code blocks, and more.
+//
+// This is a straight port of
+// https://github.com/microsoft/python-language-server/blob/master/src/LanguageServer/Impl/Documentation/DocstringConverter.cs
+//
+// The restructured npm library was evaluated, and while it worked well for
+// parsing valid input, it was going to be more difficult to handle invalid
+// RST input.
 export function convertDocStringToMarkdown(docString: string): string {
     return new DocStringConverter(docString).convert();
+}
+
+//  Converts a docstring to a plaintext, human readable form. This will
+//  first strip any common leading indention (like inspect.cleandoc),
+//  then remove duplicate empty/whitespace lines.
+export function convertDocStringToPlainText(docString: string): string {
+    const lines = _splitDocString(docString);
+    const output: string[] = [];
+
+    for (const line of lines) {
+        const last = output.length > 0 ? output[output.length - 1] : undefined;
+        if (_isUndefinedOrWhitespace(line) && _isUndefinedOrWhitespace(last)) {
+            continue;
+        }
+
+        output.push(line);
+    }
+
+    return output.join('\n').trimEnd();
 }
 
 interface RegExpReplacement {

@@ -41,9 +41,6 @@
 //// p = Person()
 //// p.[|/*marker*/clean_fields|]()
 
-helper.verifyHover({
-    marker: {
-        value: '```python\n(method) clean_fields: () -> None\n```\nclean\\_fields docs',
-        kind: 'markdown',
-    },
+helper.verifyHover('markdown', {
+    marker: '```python\n(method) clean_fields: () -> None\n```\nclean\\_fields docs',
 });

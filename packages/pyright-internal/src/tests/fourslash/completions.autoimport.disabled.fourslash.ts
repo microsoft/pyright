@@ -13,7 +13,7 @@
 ////     pass
 
 // @ts-ignore
-await helper.verifyCompletion('excluded', {
+await helper.verifyCompletion('excluded', 'markdown', {
     marker: {
         completions: [
             {

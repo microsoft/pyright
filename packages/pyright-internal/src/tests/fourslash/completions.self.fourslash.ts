@@ -15,36 +15,24 @@
 ////         self.[|/*marker1*/|]
 
 // @ts-ignore
-await helper.verifyCompletion('included', {
+await helper.verifyCompletion('included', 'markdown', {
     marker1: {
         completions: [
             {
                 label: 'method1',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```python\nmethod1: () -> None\n```\n---\nMethod 1.',
-                },
+                documentation: '```python\nmethod1: () -> None\n```\n---\nMethod 1.',
             },
             {
                 label: 'new_method',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```python\nnew_method: () -> None\n```\n',
-                },
+                documentation: '```python\nnew_method: () -> None\n```\n',
             },
             {
                 label: 'prop1',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```python\nprop1: Literal[2] (property)\n```\n---\nProperty 1.',
-                },
+                documentation: '```python\nprop1: Literal[2] (property)\n```\n---\nProperty 1.',
             },
             {
                 label: 'var1',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```python\nvar1: int\n```\n',
-                },
+                documentation: '```python\nvar1: int\n```\n',
             },
         ],
     },

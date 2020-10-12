@@ -106,6 +106,16 @@ export function getIndexAliasData(
     };
 }
 
+export function convertToFlatSymbols(documentUri: string, symbolList: DocumentSymbol[]): SymbolInformation[] {
+    const flatSymbols: SymbolInformation[] = [];
+
+    for (const symbol of symbolList) {
+        appendToFlatSymbolsRecursive(flatSymbols, documentUri, symbol);
+    }
+
+    return flatSymbols;
+}
+
 // We'll use a somewhat-arbitrary cutoff value here to determine
 // whether it's sufficiently similar.
 const similarityLimit = 0.5;
@@ -437,4 +447,27 @@ function collectSymbolIndexDataForName(
     };
 
     indexSymbolData.push(data);
+}
+
+function appendToFlatSymbolsRecursive(
+    flatSymbols: SymbolInformation[],
+    documentUri: string,
+    symbol: DocumentSymbol,
+    parent?: DocumentSymbol
+) {
+    const flatSymbol: SymbolInformation = {
+        name: symbol.name,
+        kind: symbol.kind,
+        location: Location.create(documentUri, symbol.range),
+        tags: symbol.tags,
+        containerName: parent?.name,
+    };
+
+    flatSymbols.push(flatSymbol);
+
+    if (symbol.children) {
+        for (const child of symbol.children) {
+            appendToFlatSymbolsRecursive(flatSymbols, documentUri, child, symbol);
+        }
+    }
 }

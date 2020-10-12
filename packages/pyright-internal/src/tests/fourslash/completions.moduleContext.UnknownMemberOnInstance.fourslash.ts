@@ -9,7 +9,7 @@
 ////     pass
 
 // @ts-ignore
-await helper.verifyCompletion('included', {
+await helper.verifyCompletion('included', 'markdown', {
     marker1: {
         completions: [],
         moduleContext: { lastKnownModule: 'test', lastKnownMemberName: 'Model', unknownMemberName: 'unknownName' },

@@ -26,15 +26,12 @@
 ////     pass
 
 // @ts-ignore
-await helper.verifyCompletion('included', {
+await helper.verifyCompletion('included', 'markdown', {
     marker: {
         completions: [
             {
                 label: 'test1',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```\nfrom testLib import test1\n```',
-                },
+                documentation: '```\nfrom testLib import test1\n```',
                 detail: 'Auto-import',
             },
         ],

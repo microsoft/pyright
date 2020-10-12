@@ -1355,6 +1355,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
+        const index = tokens.getItemAtPosition(callNode.leftExpression.start);
+        if (index >= 0 && index + 1 < tokens.count) {
+            const token = tokens.getItemAt(index + 1);
+            if (token.type === TokenType.OpenParenthesis && insertionOffset < TextRange.getEnd(token)) {
+                // position must be after '('
+                return undefined;
+            }
+        }
+
         if (insertionOffset >= TextRange.getEnd(callNode)) {
             return undefined;
         }

@@ -14,18 +14,18 @@
 //// some_fun[|/*marker3*/|]
 
 // @ts-ignore
-await helper.verifyCompletion('exact', 'markdown', {
+await helper.verifyCompletion('exact', 'plaintext', {
     marker1: { completions: [{ label: 'localtime' }] },
     marker2: { completions: [{ label: 'aaaaaa' }] },
     marker3: {
         completions: [
             {
                 label: 'some_func1',
-                documentation: '```python\nsome_func1: (a: Unknown) -> None\n```\n---\nsome function docs',
+                documentation: 'some_func1: (a: Unknown) -> None\n\nsome function docs',
             },
             {
                 label: 'some_func2',
-                documentation: '```python\nsome_func2: (a: Unknown) -> None\n```\n---\nanother function docs',
+                documentation: 'some_func2: (a: Unknown) -> None\n\nanother function docs',
             },
         ],
     },

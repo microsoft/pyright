@@ -23,13 +23,7 @@
 ////
 //// print(package1.[|/*marker*/func1|]())
 
-helper.verifyHover({
-    marker: {
-        value: '```python\n(function) func1: () -> bool\n```\nfunc1 docs',
-        kind: 'markdown',
-    },
-    marker2: {
-        value: '```python\n(function) func2: () -> bool\n```\nfunc2 docs',
-        kind: 'markdown',
-    },
+helper.verifyHover('markdown', {
+    marker: '```python\n(function) func1: () -> bool\n```\nfunc1 docs',
+    marker2: '```python\n(function) func2: () -> bool\n```\nfunc2 docs',
 });

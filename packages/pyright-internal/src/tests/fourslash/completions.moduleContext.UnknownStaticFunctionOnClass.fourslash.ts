@@ -22,7 +22,7 @@
 //// UnkownModel.unknownValue.[|/*marker5*/|]
 
 // @ts-ignore
-await helper.verifyCompletion('included', {
+await helper.verifyCompletion('included', 'markdown', {
     // tests: _getLastKnownModule():  if (curNode.nodeType === ParseNodeType.MemberAccess && curNode.memberName)
     marker1: {
         completions: [],

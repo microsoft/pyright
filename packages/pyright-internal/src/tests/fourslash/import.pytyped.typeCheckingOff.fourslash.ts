@@ -25,15 +25,12 @@
 //// foo(1).me[|/*marker1*/|]
 
 // @ts-ignore
-await helper.verifyCompletion('included', {
+await helper.verifyCompletion('included', 'markdown', {
     marker1: {
         completions: [
             {
                 label: 'method1',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```python\nmethod1: () -> None\n```\n---\nMethod docs',
-                },
+                documentation: '```python\nmethod1: () -> None\n```\n---\nMethod docs',
             },
         ],
     },

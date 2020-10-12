@@ -42,15 +42,12 @@
 ////     def read_write_prop(self, val: bool): ...
 
 // @ts-ignore
-await helper.verifyCompletion('included', {
+await helper.verifyCompletion('included', 'markdown', {
     marker1: {
         completions: [
             {
                 label: 'Validator',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```python\nclass Validator()\n```\n---\nThe validator class',
-                },
+                documentation: '```python\nclass Validator()\n```\n---\nThe validator class',
             },
         ],
     },
@@ -58,10 +55,8 @@ await helper.verifyCompletion('included', {
         completions: [
             {
                 label: 'is_valid',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```python\nis_valid: (text: str) -> bool\n```\n---\nChecks if the input string is valid.',
-                },
+                documentation:
+                    '```python\nis_valid: (text: str) -> bool\n```\n---\nChecks if the input string is valid.',
             },
         ],
     },
@@ -69,17 +64,11 @@ await helper.verifyCompletion('included', {
         completions: [
             {
                 label: 'read_only_prop',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```python\nread_only_prop: bool (property)\n```\n---\nThe read-only property.',
-                },
+                documentation: '```python\nread_only_prop: bool (property)\n```\n---\nThe read-only property.',
             },
             {
                 label: 'read_write_prop',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```python\nread_write_prop: bool (property)\n```\n---\nThe read-write property.',
-                },
+                documentation: '```python\nread_write_prop: bool (property)\n```\n---\nThe read-write property.',
             },
         ],
     },

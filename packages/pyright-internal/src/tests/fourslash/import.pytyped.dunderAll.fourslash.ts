@@ -45,7 +45,7 @@
 // Ensure that only the __all__ items appear in the list.
 
 // @ts-ignore
-await helper.verifyCompletion('exact', {
+await helper.verifyCompletion('exact', 'markdown', {
     marker1: {
         completions: [
             {

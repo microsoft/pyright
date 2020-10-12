@@ -15,15 +15,12 @@
 helper.openFile('/test1.py');
 
 // @ts-ignore
-await helper.verifyCompletion('included', {
+await helper.verifyCompletion('included', 'markdown', {
     marker1: {
         completions: [
             {
                 label: 'os',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```\nimport os\n```',
-                },
+                documentation: '```\nimport os\n```',
                 detail: 'Auto-import',
             },
         ],
@@ -33,15 +30,12 @@ await helper.verifyCompletion('included', {
 helper.openFile('/test2.py');
 
 // @ts-ignore
-await helper.verifyCompletion('included', {
+await helper.verifyCompletion('included', 'markdown', {
     marker2: {
         completions: [
             {
                 label: 'sys',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```\nimport sys\n```',
-                },
+                documentation: '```\nimport sys\n```',
                 detail: 'Auto-import',
             },
         ],

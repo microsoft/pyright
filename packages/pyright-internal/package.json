@@ -17,7 +17,7 @@
     "dependencies": {
         "assert": "^2.0.0",
         "chalk": "^4.1.0",
-        "chokidar": "^3.4.0",
+        "chokidar": "^3.4.2",
         "command-line-args": "^5.1.1",
         "leven": "^3.1.0",
         "tmp": "^0.2.1",
@@ -29,13 +29,11 @@
     },
     "devDependencies": {
         "@types/command-line-args": "^5.0.0",
-        "@types/fs-extra": "^9.0.1",
         "@types/jest": "^26.0.14",
         "@types/node": "^12.12.67",
         "@types/tmp": "^0.2.0",
-        "fs-extra": "^9.0.1",
-        "jest": "^26.5.2",
-        "jest-junit": "^11.0.0",
+        "jest": "^26.5.3",
+        "jest-junit": "^12.0.0",
         "shx": "^0.3.2",
         "ts-jest": "^26.4.1",
         "typescript": "^4.0.3"

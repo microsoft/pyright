@@ -5,7 +5,7 @@
 ////     '''The validator class
 ////
 ////     .. versionadded:: 2.0
-////         This directive does not show in hover.
+////         This directive shows in plaintext.
 ////     '''
 ////     def is_valid(self, text: str) -> bool:
 ////         '''Checks if the input string is valid.'''
@@ -14,7 +14,8 @@
 //// validator = Validator()
 //// validator.[|/*marker2*/is_valid|]('hello')
 
-helper.verifyHover('markdown', {
-    marker1: '```python\n(class) Validator\n```\nThe validator class',
-    marker2: '```python\n(method) is_valid: (text: str) -> bool\n```\nChecks if the input string is valid.',
+helper.verifyHover('plaintext', {
+    marker1:
+        '(class) Validator\n\nThe validator class\n\n.. versionadded:: 2.0\n    This directive shows in plaintext.',
+    marker2: '(method) is_valid: (text: str) -> bool\n\nChecks if the input string is valid.',
 });

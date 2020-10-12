@@ -12,7 +12,7 @@
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
 import { Declaration, DeclarationBase, DeclarationType, FunctionDeclaration } from '../analyzer/declaration';
-import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
+import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import {
@@ -35,6 +35,7 @@ import {
 } from '../analyzer/types';
 import { ClassMemberLookupFlags, isProperty, lookUpClassMember } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { fail } from '../common/debug';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
@@ -56,6 +57,7 @@ export class HoverProvider {
         sourceMapper: SourceMapper,
         parseResults: ParseResults,
         position: Position,
+        format: MarkupKind,
         evaluator: TypeEvaluator,
         token: CancellationToken
     ): HoverResults | undefined {
@@ -82,7 +84,7 @@ export class HoverProvider {
         if (node.nodeType === ParseNodeType.Name) {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             if (declarations && declarations.length > 0) {
-                this._addResultsForDeclaration(sourceMapper, results.parts, declarations[0], node, evaluator);
+                this._addResultsForDeclaration(format, sourceMapper, results.parts, declarations[0], node, evaluator);
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
@@ -102,7 +104,7 @@ export class HoverProvider {
                     }
 
                     this._addResultsPart(results.parts, typeText, true);
-                    this._addDocumentationPart(sourceMapper, results.parts, node, evaluator, undefined);
+                    this._addDocumentationPart(format, sourceMapper, results.parts, node, evaluator, undefined);
                 }
             }
         }
@@ -111,6 +113,7 @@ export class HoverProvider {
     }
 
     private static _addResultsForDeclaration(
+        format: MarkupKind,
         sourceMapper: SourceMapper,
         parts: HoverTextPart[],
         declaration: Declaration,
@@ -126,7 +129,7 @@ export class HoverProvider {
         switch (resolvedDecl.type) {
             case DeclarationType.Intrinsic: {
                 this._addResultsPart(parts, node.value + this._getTypeText(node, evaluator), true);
-                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
+                this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
 
@@ -175,24 +178,24 @@ export class HoverProvider {
                     `(${label}) ` + node.value + this._getTypeText(typeNode, evaluator, expandTypeAlias),
                     true
                 );
-                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
+                this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
 
             case DeclarationType.Parameter: {
                 this._addResultsPart(parts, '(parameter) ' + node.value + this._getTypeText(node, evaluator), true);
-                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
+                this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
 
             case DeclarationType.Class:
             case DeclarationType.SpecialBuiltInClass: {
-                if (this._addInitMethodInsteadIfCallNode(node, evaluator, parts, sourceMapper, resolvedDecl)) {
+                if (this._addInitMethodInsteadIfCallNode(format, node, evaluator, parts, sourceMapper, resolvedDecl)) {
                     return;
                 }
 
                 this._addResultsPart(parts, '(class) ' + node.value, true);
-                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
+                this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
 
@@ -204,19 +207,20 @@ export class HoverProvider {
                 }
 
                 this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(node, evaluator), true);
-                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
+                this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
 
             case DeclarationType.Alias: {
                 this._addResultsPart(parts, '(module) ' + node.value, true);
-                this._addDocumentationPart(sourceMapper, parts, node, evaluator, resolvedDecl);
+                this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
         }
     }
 
     private static _addInitMethodInsteadIfCallNode(
+        format: MarkupKind,
         node: NameNode,
         evaluator: TypeEvaluator,
         parts: HoverTextPart[],
@@ -280,9 +284,9 @@ export class HoverProvider {
         const classText = `${node.value}(${functionParts[0].join(', ')})`;
 
         this._addResultsPart(parts, '(class) ' + classText, true);
-        const addedDoc = this._addDocumentationPartForType(sourceMapper, parts, initMethodType, declaration);
+        const addedDoc = this._addDocumentationPartForType(format, sourceMapper, parts, initMethodType, declaration);
         if (!addedDoc) {
-            this._addDocumentationPartForType(sourceMapper, parts, classType, declaration);
+            this._addDocumentationPartForType(format, sourceMapper, parts, classType, declaration);
         }
         return true;
     }
@@ -293,6 +297,7 @@ export class HoverProvider {
     }
 
     private static _addDocumentationPart(
+        format: MarkupKind,
         sourceMapper: SourceMapper,
         parts: HoverTextPart[],
         node: NameNode,
@@ -301,11 +306,12 @@ export class HoverProvider {
     ) {
         const type = evaluator.getType(node);
         if (type) {
-            this._addDocumentationPartForType(sourceMapper, parts, type, resolvedDecl);
+            this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl);
         }
     }
 
     private static _addDocumentationPartForType(
+        format: MarkupKind,
         sourceMapper: SourceMapper,
         parts: HoverTextPart[],
         type: Type,
@@ -330,16 +336,22 @@ export class HoverProvider {
         for (const docString of docStrings) {
             if (docString) {
                 addedDoc = true;
-                this._addDocumentationResultsPart(parts, docString);
+                this._addDocumentationResultsPart(format, parts, docString);
             }
         }
 
         return addedDoc;
     }
 
-    private static _addDocumentationResultsPart(parts: HoverTextPart[], docString?: string) {
+    private static _addDocumentationResultsPart(format: MarkupKind, parts: HoverTextPart[], docString?: string) {
         if (docString) {
-            this._addResultsPart(parts, convertDocStringToMarkdown(docString));
+            if (format === MarkupKind.Markdown) {
+                this._addResultsPart(parts, convertDocStringToMarkdown(docString));
+            } else if (format === MarkupKind.PlainText) {
+                this._addResultsPart(parts, convertDocStringToPlainText(docString));
+            } else {
+                fail(`Unsupported markup type: ${format}`);
+            }
         }
     }
 
@@ -351,7 +363,7 @@ export class HoverProvider {
     }
 }
 
-export function convertHoverResults(hoverResults: HoverResults | undefined): Hover | undefined {
+export function convertHoverResults(format: MarkupKind, hoverResults: HoverResults | undefined): Hover | undefined {
     if (!hoverResults) {
         return undefined;
     }
@@ -359,7 +371,13 @@ export function convertHoverResults(hoverResults: HoverResults | undefined): Hov
     const markupString = hoverResults.parts
         .map((part) => {
             if (part.python) {
-                return '```python\n' + part.text + '\n```\n';
+                if (format === MarkupKind.Markdown) {
+                    return '```python\n' + part.text + '\n```\n';
+                } else if (format === MarkupKind.PlainText) {
+                    return part.text + '\n\n';
+                } else {
+                    fail(`Unsupported markup type: ${format}`);
+                }
             }
             return part.text;
         })
@@ -367,7 +385,7 @@ export function convertHoverResults(hoverResults: HoverResults | undefined): Hov
 
     return {
         contents: {
-            kind: MarkupKind.Markdown,
+            kind: format,
             value: markupString,
         },
         range: hoverResults.range,

@@ -659,13 +659,12 @@
         "postpackage": "node ./build/renamePackage.js vscode-pyright",
         "vscode:prepublish": "node ./build/checkPackage.js && npm run clean && webpack --mode production --progress",
         "webpack": "webpack --mode development --progress",
-        "webpack-dev": "npm run clean && webpack --mode development --watch --info-verbosity verbose --progress"
+        "webpack-dev": "npm run clean && webpack --mode development --watch --progress"
     },
     "dependencies": {
         "vscode-jsonrpc": "6.0.0-next.5",
         "vscode-languageclient": "7.0.0-next.9",
-        "vscode-languageserver": "7.0.0-next.7",
-        "vscode-uri": "^2.1.2"
+        "vscode-languageserver": "7.0.0-next.7"
     },
     "devDependencies": {
         "@types/node": "^12.12.67",
@@ -680,7 +679,7 @@
         "tsconfig-paths-webpack-plugin": "^3.3.0",
         "typescript": "^4.0.3",
         "vsce": "^1.81.1",
-        "webpack": "^5.0.0-rc.5",
-        "webpack-cli": "^3.3.12"
+        "webpack": "^5.0.0",
+        "webpack-cli": "^4.0.0"
     }
 }

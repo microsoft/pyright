@@ -16,15 +16,12 @@
 ////     pass
 
 // @ts-ignore
-await helper.verifyCompletion('included', {
+await helper.verifyCompletion('included', 'markdown', {
     marker1: {
         completions: [
             {
                 label: 'func',
-                documentation: {
-                    kind: 'markdown',
-                    value: '```python\nfunc(x: str) -> str\nfunc(x: int) -> int\n```\n---\nfunc docs',
-                },
+                documentation: '```python\nfunc(x: str) -> str\nfunc(x: int) -> int\n```\n---\nfunc docs',
             },
         ],
     },

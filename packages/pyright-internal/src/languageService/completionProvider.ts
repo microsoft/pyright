@@ -21,7 +21,7 @@ import {
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { Declaration, DeclarationType } from '../analyzer/declaration';
-import { convertDocStringToMarkdown } from '../analyzer/docStringToMarkdown';
+import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
@@ -64,6 +64,7 @@ import {
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
+import { fail } from '../common/debug';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
@@ -221,6 +222,7 @@ export class CompletionProvider {
         private _configOptions: ConfigOptions,
         private _importLookup: ImportLookup,
         private _evaluator: TypeEvaluator,
+        private _format: MarkupKind,
         private _sourceMapper: SourceMapper,
         private _libraryMap: Map<string, IndexResults> | undefined,
         private _moduleSymbolsCallback: () => ModuleSymbolMap,
@@ -1305,18 +1307,32 @@ export class CompletionProvider {
                                 documentation = getFunctionDocStringFromDeclaration(primaryDecl, this._sourceMapper);
                             }
 
-                            let markdownString = '```python\n' + typeDetail + '\n```\n';
+                            if (this._format === MarkupKind.Markdown) {
+                                let markdownString = '```python\n' + typeDetail + '\n```\n';
 
-                            if (documentation) {
-                                markdownString += '---\n';
-                                markdownString += convertDocStringToMarkdown(documentation);
-                            }
+                                if (documentation) {
+                                    markdownString += '---\n';
+                                    markdownString += convertDocStringToMarkdown(documentation);
+                                }
 
-                            if (markdownString) {
                                 this._itemToResolve.documentation = {
                                     kind: MarkupKind.Markdown,
                                     value: markdownString,
                                 };
+                            } else if (this._format === MarkupKind.PlainText) {
+                                let plainTextString = typeDetail + '\n';
+
+                                if (documentation) {
+                                    plainTextString += '\n';
+                                    plainTextString += convertDocStringToPlainText(documentation);
+                                }
+
+                                this._itemToResolve.documentation = {
+                                    kind: MarkupKind.PlainText,
+                                    value: plainTextString,
+                                };
+                            } else {
+                                fail(`Unsupported markup type: ${this._format}`);
                             }
                         }
                     }
@@ -1325,7 +1341,13 @@ export class CompletionProvider {
 
             let autoImportText: string | undefined;
             if (autoImportSource) {
-                autoImportText = `\`\`\`\nfrom ${autoImportSource} import ${name}\n\`\`\``;
+                if (this._format === MarkupKind.Markdown) {
+                    autoImportText = `\`\`\`\nfrom ${autoImportSource} import ${name}\n\`\`\``;
+                } else if (this._format === MarkupKind.PlainText) {
+                    autoImportText = `from ${autoImportSource} import ${name}`;
+                } else {
+                    fail(`Unsupported markup type: ${this._format}`);
+                }
             }
 
             this._addNameToCompletionList(
@@ -1402,29 +1424,55 @@ export class CompletionProvider {
 
             completionItemData.symbolLabel = name;
 
-            let markdownString = '';
+            if (this._format === MarkupKind.Markdown) {
+                let markdownString = '';
 
-            if (autoImportText) {
-                markdownString += autoImportText;
-                markdownString += '\n\n';
-            }
+                if (autoImportText) {
+                    markdownString += autoImportText + '\n\n';
+                }
 
-            if (typeDetail) {
-                markdownString += '```python\n' + typeDetail + '\n```\n';
-            }
+                if (typeDetail) {
+                    markdownString += '```python\n' + typeDetail + '\n```\n';
+                }
 
-            if (documentation) {
-                markdownString += '---\n';
-                markdownString += convertDocStringToMarkdown(documentation);
-            }
+                if (documentation) {
+                    markdownString += '---\n';
+                    markdownString += convertDocStringToMarkdown(documentation);
+                }
 
-            markdownString = markdownString.trimEnd();
+                markdownString = markdownString.trimEnd();
 
-            if (markdownString) {
-                completionItem.documentation = {
-                    kind: MarkupKind.Markdown,
-                    value: markdownString,
-                };
+                if (markdownString) {
+                    completionItem.documentation = {
+                        kind: MarkupKind.Markdown,
+                        value: markdownString,
+                    };
+                }
+            } else if (this._format === MarkupKind.PlainText) {
+                let plainTextString = '';
+
+                if (autoImportText) {
+                    plainTextString += autoImportText + '\n\n';
+                }
+
+                if (typeDetail) {
+                    plainTextString += typeDetail + '\n';
+                }
+
+                if (documentation) {
+                    plainTextString += '\n' + convertDocStringToPlainText(documentation);
+                }
+
+                plainTextString = plainTextString.trimEnd();
+
+                if (plainTextString) {
+                    completionItem.documentation = {
+                        kind: MarkupKind.PlainText,
+                        value: plainTextString,
+                    };
+                }
+            } else {
+                fail(`Unsupported markup type: ${this._format}`);
             }
 
             if (textEdit) {
