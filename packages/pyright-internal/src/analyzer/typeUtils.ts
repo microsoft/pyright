@@ -978,7 +978,7 @@ export function selfSpecializeClassType(type: ClassType, setSkipAbstractClassTes
     return ClassType.cloneForSpecialization(
         type,
         typeArgs,
-        /* isTypeArgumentExplicit */ true,
+        /* isTypeArgumentExplicit */ false,
         setSkipAbstractClassTest
     );
 }
