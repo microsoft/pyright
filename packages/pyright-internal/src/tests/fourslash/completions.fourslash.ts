@@ -15,16 +15,18 @@
 
 // @ts-ignore
 await helper.verifyCompletion('exact', 'markdown', {
-    marker1: { completions: [{ label: 'localtime' }] },
-    marker2: { completions: [{ label: 'aaaaaa' }] },
+    marker1: { completions: [{ label: 'localtime', kind: Consts.CompletionItemKind.Function }] },
+    marker2: { completions: [{ label: 'aaaaaa', kind: Consts.CompletionItemKind.Variable }] },
     marker3: {
         completions: [
             {
                 label: 'some_func1',
+                kind: Consts.CompletionItemKind.Function,
                 documentation: '```python\nsome_func1: (a: Unknown) -> None\n```\n---\nsome function docs',
             },
             {
                 label: 'some_func2',
+                kind: Consts.CompletionItemKind.Function,
                 documentation: '```python\nsome_func2: (a: Unknown) -> None\n```\n---\nanother function docs',
             },
         ],

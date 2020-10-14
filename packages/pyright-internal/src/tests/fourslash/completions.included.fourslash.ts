@@ -7,6 +7,6 @@
 // @ts-ignore
 await helper.verifyCompletion('included', 'markdown', {
     marker1: {
-        completions: [{ label: 'numerator' }],
+        completions: [{ label: 'numerator', kind: Consts.CompletionItemKind.Property }],
     },
 });

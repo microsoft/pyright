@@ -17,6 +17,7 @@ await helper.verifyCompletion('included', 'markdown', {
         completions: [
             {
                 label: 'Test',
+                kind: Consts.CompletionItemKind.Class,
                 documentation: '```\nfrom testLib import Test\n```',
                 detail: 'Auto-import',
             },

@@ -50,21 +50,27 @@ await helper.verifyCompletion('exact', 'markdown', {
         completions: [
             {
                 label: 'foofoofoo0',
+                kind: Consts.CompletionItemKind.Variable,
             },
             {
                 label: 'foofoofoo2',
+                kind: Consts.CompletionItemKind.Variable,
             },
             {
                 label: 'foofoofoo3',
+                kind: Consts.CompletionItemKind.Variable,
             },
             {
                 label: 'foofoofoo5',
+                kind: Consts.CompletionItemKind.Variable,
             },
             {
                 label: 'foofoofoo7',
+                kind: Consts.CompletionItemKind.Variable,
             },
             {
                 label: 'foofoofoo9',
+                kind: Consts.CompletionItemKind.Variable,
             },
         ],
     },

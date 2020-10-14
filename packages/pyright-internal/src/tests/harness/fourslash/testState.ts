@@ -868,6 +868,7 @@ export class TestState {
                         const actual: CompletionItem = result.completionList.items[actualIndex];
                         assert.equal(actual.label, expected.label);
                         assert.equal(actual.detail, expected.detail);
+                        assert.equal(actual.kind, expected.kind);
                         if (expectedCompletions[i].documentation !== undefined) {
                             if (actual.documentation === undefined) {
                                 this.program.resolveCompletionItem(

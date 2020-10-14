@@ -7,6 +7,6 @@
 // @ts-ignore
 await helper.verifyCompletion('excluded', 'markdown', {
     marker1: {
-        completions: [{ label: 'capitalize' }],
+        completions: [{ label: 'capitalize', kind: undefined }],
     },
 });

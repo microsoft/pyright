@@ -37,6 +37,7 @@ await helper.verifyCompletion('included', 'markdown', {
         completions: [
             {
                 label: 'Validator',
+                kind: Consts.CompletionItemKind.Class,
                 documentation: '```python\nclass Validator()\n```\n---\nThe validator class',
             },
         ],
@@ -45,6 +46,7 @@ await helper.verifyCompletion('included', 'markdown', {
         completions: [
             {
                 label: 'is_valid',
+                kind: Consts.CompletionItemKind.Method,
                 documentation:
                     '```python\nis_valid: (text: str) -> bool\n```\n---\nChecks if the input string is valid.',
             },
@@ -54,10 +56,12 @@ await helper.verifyCompletion('included', 'markdown', {
         completions: [
             {
                 label: 'read_only_prop',
+                kind: Consts.CompletionItemKind.Property,
                 documentation: '```python\nread_only_prop: bool (property)\n```\n---\nThe read-only property.',
             },
             {
                 label: 'read_write_prop',
+                kind: Consts.CompletionItemKind.Property,
                 documentation: '```python\nread_write_prop: bool (property)\n```\n---\nThe read-write property.',
             },
         ],
