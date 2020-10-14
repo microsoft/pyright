@@ -1641,8 +1641,16 @@ export function removeUnknownFromUnion(type: Type): Type {
 
 // If the type is a union, remove an "unbound" type from the union,
 // returning only the known types.
-export function removeUnboundFromUnion(type: Type): Type {
-    return removeFromUnion(type, (t: Type) => isUnbound(t));
+export function removeUnbound(type: Type): Type {
+    if (type.category === TypeCategory.Union) {
+        return removeFromUnion(type, (t: Type) => isUnbound(t));
+    }
+
+    if (isUnbound(type)) {
+        return UnknownType.create();
+    }
+
+    return type;
 }
 
 // If the type is a union, remove an "None" type from the union,

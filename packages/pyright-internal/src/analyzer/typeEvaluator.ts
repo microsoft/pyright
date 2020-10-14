@@ -147,7 +147,7 @@ import {
     OverloadedFunctionType,
     ParamSpecEntry,
     removeNoneFromUnion,
-    removeUnboundFromUnion,
+    removeUnbound,
     Type,
     TypeBase,
     TypeCategory,
@@ -2826,7 +2826,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the type was partially unbound, an error will have already been logged.
         // Remove the unbound before assigning to the target expression so the unbound
         // error doesn't propagate.
-        type = removeUnboundFromUnion(type);
+        type = removeUnbound(type);
 
         switch (target.nodeType) {
             case ParseNodeType.Name: {
@@ -6383,7 +6383,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
             return false;
         } else if (!skipUnknownCheck) {
-            const simplifiedType = removeUnboundFromUnion(argType);
+            const simplifiedType = removeUnbound(argType);
             const fileInfo = getFileInfo(argParam.errorNode);
 
             const diagAddendum = new DiagnosticAddendum();
@@ -8425,7 +8425,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Sometimes variables contain an "unbound" type if they're
         // assigned only within conditional statements. Remove this
         // to avoid confusion.
-        const simplifiedType = removeUnboundFromUnion(type);
+        const simplifiedType = removeUnbound(type);
 
         if (isUnknown(simplifiedType)) {
             addDiagnostic(diagLevel, rule, Localizer.Diagnostic.typeUnknown().format({ name: nameValue }), errorNode);
@@ -9420,7 +9420,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // on platform type). We'll assume that the conditional logic is correct
                 // and strip off the "unbound" union.
                 if (argType.category === TypeCategory.Union) {
-                    argType = removeUnboundFromUnion(argType);
+                    argType = removeUnbound(argType);
                 }
 
                 if (!isAnyOrUnknown(argType) && !isUnbound(argType)) {
@@ -10891,7 +10891,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         // Remove any unbound values since those would generate an exception
                         // before being returned.
-                        inferredReturnType = removeUnboundFromUnion(inferredReturnType);
+                        inferredReturnType = removeUnbound(inferredReturnType);
                     }
 
                     // Is it a generator?
@@ -14149,6 +14149,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         if (contextualReturnType) {
+            contextualReturnType = removeUnbound(contextualReturnType);
+
             // Do we need to wrap this in an awaitable?
             if (FunctionType.isWrapReturnTypeInAwait(type) && !isNoReturnType(contextualReturnType)) {
                 contextualReturnType = createAwaitableReturnType(functionNode, contextualReturnType);
