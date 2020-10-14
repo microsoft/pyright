@@ -23,4 +23,6 @@ export namespace Consts {
         orderImports = 'pyright.organizeimports',
         addMissingOptionalToParam = 'pyright.addoptionalforparam',
     }
+
+    export import CompletionItemKind = lsp.CompletionItemKind;
 }

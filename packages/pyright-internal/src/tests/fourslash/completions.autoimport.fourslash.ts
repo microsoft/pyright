@@ -13,6 +13,7 @@ await helper.verifyCompletion('included', 'markdown', {
         completions: [
             {
                 label: 'Test',
+                kind: Consts.CompletionItemKind.Class,
                 documentation: '```\nfrom test2 import Test\n```',
                 detail: 'Auto-import',
             },

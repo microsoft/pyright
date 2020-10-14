@@ -3,7 +3,7 @@
     "private": true,
     "scripts": {
         "postinstall": "npm run bootstrap",
-        "bootstrap": "node ./build/skipBootstrap.js || lerna bootstrap",
+        "bootstrap": "node ./build/skipBootstrap.js || lerna bootstrap --no-ci",
         "clean": "lerna run --no-bail --stream clean",
         "install:all": "npm install && lerna exec --no-bail npm install",
         "update:all": "node ./build/updateDeps.js",

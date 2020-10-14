@@ -9,16 +9,16 @@
 // @ts-ignore
 await helper.verifyCompletion('excluded', 'markdown', {
     marker1: {
-        completions: [{ label: 'param1' }],
+        completions: [{ label: 'param1', kind: undefined }],
     },
     marker2: {
-        completions: [{ label: 'param1' }],
+        completions: [{ label: 'param1', kind: undefined }],
     },
 });
 
 // @ts-ignore
 await helper.verifyCompletion('included', 'markdown', {
     marker3: {
-        completions: [{ label: 'param1=' }],
+        completions: [{ label: 'param1=', kind: Consts.CompletionItemKind.Variable }],
     },
 });

@@ -20,7 +20,7 @@ import {
 
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { Declaration, DeclarationType } from '../analyzer/declaration';
+import { Declaration, DeclarationType, FunctionDeclaration } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -1567,9 +1567,11 @@ export class CompletionProvider {
                     : CompletionItemKind.Variable;
 
             case DeclarationType.Function: {
-                const functionType = this._evaluator.getTypeOfFunction(resolvedDeclaration.node);
-                if (functionType && isProperty(functionType.decoratedType)) {
-                    return CompletionItemKind.Property;
+                if (this._isPossiblePropertyDeclaration(resolvedDeclaration)) {
+                    const functionType = this._evaluator.getTypeOfFunction(resolvedDeclaration.node);
+                    if (functionType && isProperty(functionType.decoratedType)) {
+                        return CompletionItemKind.Property;
+                    }
                 }
                 return resolvedDeclaration.isMethod ? CompletionItemKind.Method : CompletionItemKind.Function;
             }
@@ -1624,5 +1626,11 @@ export class CompletionProvider {
         });
 
         return { completionList };
+    }
+
+    private _isPossiblePropertyDeclaration(decl: FunctionDeclaration) {
+        // Do cheap check using only nodes that will cover 99.9% cases
+        // before doing more expensive type evaluation.
+        return decl.isMethod && decl.node.decorators.length > 0;
     }
 }

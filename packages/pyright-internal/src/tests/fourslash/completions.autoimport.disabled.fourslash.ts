@@ -18,6 +18,7 @@ await helper.verifyCompletion('excluded', 'markdown', {
         completions: [
             {
                 label: 'Test',
+                kind: Consts.CompletionItemKind.Class,
             },
         ],
     },

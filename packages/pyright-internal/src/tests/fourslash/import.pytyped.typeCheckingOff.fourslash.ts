@@ -30,6 +30,7 @@ await helper.verifyCompletion('included', 'markdown', {
         completions: [
             {
                 label: 'method1',
+                kind: Consts.CompletionItemKind.Method,
                 documentation: '```python\nmethod1: () -> None\n```\n---\nMethod docs',
             },
         ],
