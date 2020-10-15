@@ -224,12 +224,12 @@ def create_user(age: int, *, dob: Optional[date] = None):
 ```
 
 ### Annotating Decorators
-Decorators modify the behavior of a class or a function. Annotating decorators that leave the signature of the decorated function unchanged is straightforward with the help of generics.
+Decorators modify the behavior of a class or a function. Providing annotations for decorators is straightforward if the decorator retrains the original signature of the decorated function.
 
 ```python
-_TCallable = TypeVar("_TCallable", bound=Callable[..., Any])
+_F = TypeVar("_F", bound=Callable[..., Any])
 
-def simple_decorator(_func: _TCallable) -> TCallable:
+def simple_decorator(_func: _F) -> _F:
 	"""
      Simple decorators are invoked without parens like this:
        @simple_decorator
@@ -237,7 +237,7 @@ def simple_decorator(_func: _TCallable) -> TCallable:
      """
    ...
 
-def complex_decorator(*, mode: str) -> Callable[[_TCallable], _TCallable]:
+def complex_decorator(*, mode: str) -> Callable[[_F], _F]:
 	"""
      Complex decorators are invoked with arguments like this:
        @complex_decorator(mode="easy")
