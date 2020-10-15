@@ -925,7 +925,7 @@ export class AnalyzerService {
                 }
 
                 // Add the implicit import paths.
-                importResult.implicitImports.forEach((implicitImport) => {
+                importResult.filteredImplicitImports.forEach((implicitImport) => {
                     filesToImport.push(implicitImport.path);
                 });
 

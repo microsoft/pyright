@@ -104,6 +104,7 @@ export class ImportResolver {
             isStubFile: false,
             isNativeLib: false,
             implicitImports: [],
+            filteredImplicitImports: [],
             nonStubImportResult: undefined,
         };
 
@@ -215,7 +216,7 @@ export class ImportResolver {
         // ignoring stub files, which gives us an approximation of where the implementation
         // for that stub is located.
         this._cachedImportResults.forEach((map, env) => {
-            map.forEach((result, importName) => {
+            map.forEach((result) => {
                 if (result.isStubFile && result.isImportFound && result.nonStubImportResult) {
                     if (result.resolvedPaths.some((f) => f === stubFilePath)) {
                         if (result.nonStubImportResult.isImportFound) {
@@ -656,6 +657,7 @@ export class ImportResolver {
             isStubFile,
             isNativeLib,
             implicitImports,
+            filteredImplicitImports: implicitImports,
             packageDirectory,
         };
     }
@@ -1250,7 +1252,7 @@ export class ImportResolver {
     private _filterImplicitImports(importResult: ImportResult, importedSymbols: string[] | undefined): ImportResult {
         if (importedSymbols === undefined) {
             const newImportResult = Object.assign({}, importResult);
-            newImportResult.implicitImports = [];
+            newImportResult.filteredImplicitImports = [];
             return newImportResult;
         }
 
@@ -1271,7 +1273,7 @@ export class ImportResolver {
         }
 
         const newImportResult = Object.assign({}, importResult);
-        newImportResult.implicitImports = filteredImplicitImports;
+        newImportResult.filteredImplicitImports = filteredImplicitImports;
         return newImportResult;
     }
 

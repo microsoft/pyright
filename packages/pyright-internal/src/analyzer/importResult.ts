@@ -73,6 +73,11 @@ export interface ImportResult {
     // namespace packages.
     implicitImports: ImplicitImport[];
 
+    // Implicit imports that have been filtered to include only
+    // those symbols that are explicitly imported in a "from x import y"
+    // statement.
+    filteredImplicitImports: ImplicitImport[];
+
     // If resolved from a type hint (.pyi), then store the import result
     // from .py here.
     nonStubImportResult?: ImportResult;

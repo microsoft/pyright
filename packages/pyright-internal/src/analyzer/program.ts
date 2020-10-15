@@ -1938,7 +1938,7 @@ export class Program {
                     }
                 }
 
-                importResult.implicitImports.forEach((implicitImport) => {
+                importResult.filteredImplicitImports.forEach((implicitImport) => {
                     if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
                         const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
                         newImportPathMap.set(normalizePathCase(this._fs, implicitImport.path), {

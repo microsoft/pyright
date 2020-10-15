@@ -1405,8 +1405,10 @@ export class Binder extends ParseTreeWalker {
                             } else {
                                 // The symbol wasn't in the target module's symbol table. It's probably
                                 // an implicitly-imported submodule referenced by __all__.
-                                if (importInfo && importInfo.implicitImports) {
-                                    const implicitImport = importInfo.implicitImports.find((imp) => imp.name === name);
+                                if (importInfo && importInfo.filteredImplicitImports) {
+                                    const implicitImport = importInfo.filteredImplicitImports.find(
+                                        (imp) => imp.name === name
+                                    );
 
                                     if (implicitImport) {
                                         const submoduleFallback: AliasDeclaration = {
@@ -1478,8 +1480,8 @@ export class Binder extends ParseTreeWalker {
 
                     // Is the import referring to an implicitly-imported module?
                     let implicitImport: ImplicitImport | undefined;
-                    if (importInfo && importInfo.implicitImports) {
-                        implicitImport = importInfo.implicitImports.find((imp) => imp.name === importedName);
+                    if (importInfo && importInfo.filteredImplicitImports) {
+                        implicitImport = importInfo.filteredImplicitImports.find((imp) => imp.name === importedName);
                     }
 
                     let submoduleFallback: AliasDeclaration | undefined;
@@ -2759,7 +2761,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _addImplicitImportsToLoaderActions(importResult: ImportResult, loaderActions: ModuleLoaderActions) {
-        importResult.implicitImports.forEach((implicitImport) => {
+        importResult.filteredImplicitImports.forEach((implicitImport) => {
             const existingLoaderAction = loaderActions.implicitImports
                 ? loaderActions.implicitImports.get(implicitImport.name)
                 : undefined;
