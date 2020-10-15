@@ -638,10 +638,6 @@ export class ImportResolver {
             importFound = resolvedPaths.length > 0;
         } else {
             importFound = resolvedPaths.length >= moduleDescriptor.nameParts.length;
-
-            if (importFound && isNamespacePackage) {
-                importFound = this._isNamespacePackageResolved(moduleDescriptor, implicitImports);
-            }
         }
 
         return {
