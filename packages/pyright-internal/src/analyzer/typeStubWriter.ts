@@ -200,9 +200,12 @@ export class TypeStubWriter extends ParseTreeWalker {
 
             let returnAnnotation: string | undefined;
             if (node.returnTypeAnnotation) {
-                returnAnnotation = this._printExpression(node.returnTypeAnnotation, true);
+                returnAnnotation = this._printExpression(node.returnTypeAnnotation, /* treatStringsAsSymbols */ true);
             } else if (node.functionAnnotationComment) {
-                returnAnnotation = this._printExpression(node.functionAnnotationComment.returnTypeAnnotation, true);
+                returnAnnotation = this._printExpression(
+                    node.functionAnnotationComment.returnTypeAnnotation,
+                    /* treatStringsAsSymbols */ true
+                );
             } else {
                 // Handle a few common cases where we always know the answer.
                 if (node.name.value === '__init__') {
@@ -306,16 +309,26 @@ export class TypeStubWriter extends ParseTreeWalker {
 
             if (this._functionNestCount === 0) {
                 line = this._printExpression(node.leftExpression);
+                if (node.typeAnnotationComment) {
+                    line += ': ' + this._printExpression(node.typeAnnotationComment, /* treatStringsAsSymbols */ true);
+                }
+            }
+        } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
+            const valueExpr = node.leftExpression.valueExpression;
+
+            if (valueExpr.nodeType === ParseNodeType.Name) {
+                if (this._functionNestCount === 0) {
+                    line = `${this._printExpression(valueExpr)}: ${this._printExpression(
+                        node.leftExpression.typeAnnotation,
+                        /* treatStringsAsSymbols */ true
+                    )}`;
+                }
             }
         }
 
         if (line) {
             const emitValue = this._functionNestCount === 0 && this._classNestCount === 0;
             this._emittedSuite = true;
-
-            // Add the inferred type if it's known.
-            // TODO - need to implement
-            // line += ': ' + type.asString();
 
             line += ' = ';
 
@@ -352,7 +365,7 @@ export class TypeStubWriter extends ParseTreeWalker {
             }
 
             if (line) {
-                line += ': ' + this._printExpression(node.typeAnnotation, true);
+                line += ': ' + this._printExpression(node.typeAnnotation, /* treatStringsAsSymbols */ true);
                 this._emitLine(line);
             }
         }
@@ -511,7 +524,7 @@ export class TypeStubWriter extends ParseTreeWalker {
         const paramTypeAnnotation = this._evaluator.getTypeAnnotationForParameter(functionNode, paramIndex);
         let paramType = '';
         if (paramTypeAnnotation) {
-            paramType = this._printExpression(paramTypeAnnotation, true);
+            paramType = this._printExpression(paramTypeAnnotation, /* treatStringsAsSymbols */ true);
         }
 
         if (paramType) {
@@ -529,21 +542,6 @@ export class TypeStubWriter extends ParseTreeWalker {
         }
 
         return line;
-    }
-
-    private _printArgument(node: ArgumentNode): string {
-        let line = '';
-        if (node.argumentCategory === ArgumentCategory.UnpackedList) {
-            line += '*';
-        } else if (node.argumentCategory === ArgumentCategory.UnpackedDictionary) {
-            line += '**';
-        }
-
-        if (node.name) {
-            line += node.name.value + '=';
-        }
-
-        return line + this._printExpression(node.valueExpression);
     }
 
     private _printExpression(node: ExpressionNode, isType = false, treatStringsAsSymbols = false): string {
