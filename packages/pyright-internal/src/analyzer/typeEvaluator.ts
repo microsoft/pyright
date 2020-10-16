@@ -11384,6 +11384,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
         }
 
+        // Check for a couple of special cases where the node is a NameNode but
+        // is technically not part of an expression. We'll handle these here so
+        // callers don't need to include special-case logic.
+        if (node.nodeType === ParseNodeType.Name && node.parent) {
+            if (node.parent.nodeType === ParseNodeType.Function && node.parent.name === node) {
+                getTypeOfFunction(node.parent);
+                return;
+            } else if (node.parent.nodeType === ParseNodeType.Class && node.parent.name === node) {
+                getTypeOfClass(node.parent);
+                return;
+            }
+        }
+
         // Scan up the parse tree until we find a non-expression (while
         // looking for contextual expressions in the process).
         while (curNode) {
