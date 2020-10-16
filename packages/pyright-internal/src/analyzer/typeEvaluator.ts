@@ -3429,7 +3429,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (typeVarsForScope) {
                 const match = typeVarsForScope.find((typeVar) => typeVar.details.name === type.details.name);
 
-                if (match) {
+                if (match && match.scopeId) {
                     return convertToInstantiable(match) as TypeVarType;
                 }
             }
