@@ -4583,24 +4583,82 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeFromTuple(node: TupleNode, expectedType: Type | undefined): TypeResult {
+        // If the expected type is a union, recursively call for each of the subtypes
+        // to find one that matches.
+        let effectiveExpectedType = expectedType;
+
+        if (expectedType && expectedType.category === TypeCategory.Union) {
+            let matchingSubtype: Type | undefined;
+
+            for (const subtype of expectedType.subtypes) {
+                const subtypeResult = useSpeculativeMode(node, () => {
+                    return getTypeFromTupleExpected(node, subtype);
+                });
+
+                if (subtypeResult) {
+                    matchingSubtype = subtype;
+                    break;
+                }
+            }
+
+            effectiveExpectedType = matchingSubtype;
+        }
+
+        if (effectiveExpectedType) {
+            const result = getTypeFromTupleExpected(node, effectiveExpectedType);
+            if (result) {
+                return result;
+            }
+        }
+
+        return getTypeFromTupleInferred(node);
+    }
+
+    function getTypeFromTupleExpected(node: TupleNode, expectedType: Type): TypeResult | undefined {
+        expectedType = transformPossibleRecursiveTypeAlias(expectedType);
+        if (!isObject(expectedType)) {
+            return undefined;
+        }
+
+        const builtInTuple = getBuiltInObject(node, 'Tuple');
+        if (!isObject(builtInTuple)) {
+            return undefined;
+        }
+
         // Build an array of expected types.
         const expectedTypes: Type[] = [];
-        if (expectedType && isObject(expectedType)) {
-            const tupleClass = expectedType.classType;
 
-            if (isTupleClass(tupleClass) && tupleClass.typeArguments) {
-                // Is this a homogeneous tuple of indeterminate length? If so,
-                // match the number of expected types to the number of entries
-                // in the tuple expression.
-                if (tupleClass.typeArguments.length === 2 && isEllipsisType(tupleClass.typeArguments[1])) {
-                    for (let i = 0; i < node.expressions.length; i++) {
-                        expectedTypes.push(transformPossibleRecursiveTypeAlias(tupleClass.typeArguments[0]));
-                    }
-                } else {
-                    tupleClass.typeArguments.forEach((typeArg) => {
-                        expectedTypes.push(transformPossibleRecursiveTypeAlias(typeArg));
-                    });
+        if (isTupleClass(expectedType.classType) && expectedType.classType.typeArguments) {
+            // Is this a homogeneous tuple of indeterminate length? If so,
+            // match the number of expected types to the number of entries
+            // in the tuple expression.
+            if (
+                expectedType.classType.typeArguments.length === 2 &&
+                isEllipsisType(expectedType.classType.typeArguments[1])
+            ) {
+                const homogenousType = transformPossibleRecursiveTypeAlias(expectedType.classType.typeArguments[0]);
+                for (let i = 0; i < node.expressions.length; i++) {
+                    expectedTypes.push(homogenousType);
                 }
+            } else {
+                expectedType.classType.typeArguments.forEach((typeArg) => {
+                    expectedTypes.push(transformPossibleRecursiveTypeAlias(typeArg));
+                });
+            }
+        } else {
+            const tupleTypeVarMap = new TypeVarMap();
+            if (!populateTypeVarMapBasedOnExpectedType(builtInTuple.classType, expectedType, tupleTypeVarMap)) {
+                return undefined;
+            }
+
+            const specializedTuple = specializeType(builtInTuple.classType, tupleTypeVarMap) as ClassType;
+            if (!specializedTuple.typeArguments || specializedTuple.typeArguments.length !== 1) {
+                return undefined;
+            }
+
+            const homogenousType = transformPossibleRecursiveTypeAlias(specializedTuple.typeArguments[0]);
+            for (let i = 0; i < node.expressions.length; i++) {
+                expectedTypes.push(homogenousType);
             }
         }
 
@@ -4608,54 +4666,82 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getTypeOfExpression(expr, index < expectedTypes.length ? expectedTypes[index] : undefined)
         );
 
-        let type: Type = UnknownType.create();
-        const builtInTupleType = getBuiltInType(node, 'Tuple');
+        const expectedTypesContainLiterals = expectedTypes.some((type) => isLiteralType(type));
 
-        if (isClass(builtInTupleType)) {
-            let tupleTypes: Type[] = [];
-            for (const typeResult of entryTypeResults) {
-                if (typeResult.unpackedType) {
-                    // Is this an unpacked tuple? If so, we can append the individual
-                    // unpacked entries onto the new tuple. If it's not an upacked tuple
-                    // but some other iterator (e.g. a List), we won't know the number of
-                    // items, so we'll need to leave the Tuple open-ended.
-                    if (isObject(typeResult.unpackedType) && isTupleClass(typeResult.unpackedType.classType)) {
-                        const typeArgs = typeResult.unpackedType.classType.typeArguments;
-
-                        // If the Tuple wasn't specialized or has a "..." type parameter, we can't
-                        // make any determination about its contents.
-                        if (!typeArgs || typeArgs.some((t) => isEllipsisType(t))) {
-                            tupleTypes = [AnyType.create(false), AnyType.create(true)];
-                            break;
-                        }
-
-                        for (const typeArg of typeArgs) {
-                            tupleTypes.push(typeArg);
-                        }
-                    } else {
-                        tupleTypes = [AnyType.create(false), AnyType.create(true)];
-                        break;
-                    }
-                } else {
-                    tupleTypes.push(typeResult.type);
-                }
-            }
-
-            type = convertToInstance(
-                cloneTupleForSpecialization(builtInTupleType, tupleTypes, /* isTypeArgumentExplicit */ true)
-            );
-        }
+        const type = convertToInstance(
+            cloneTupleForSpecialization(
+                builtInTuple.classType,
+                buildTupleTypesList(entryTypeResults),
+                /* isTypeArgumentExplicit */ true,
+                /* stripLiterals */ !expectedTypesContainLiterals
+            )
+        );
 
         return { type, node };
     }
 
+    function getTypeFromTupleInferred(node: TupleNode): TypeResult {
+        const entryTypeResults = node.expressions.map((expr) => getTypeOfExpression(expr));
+
+        const builtInTupleType = getBuiltInType(node, 'Tuple');
+        if (!isClass(builtInTupleType)) {
+            return { type: UnknownType.create(), node };
+        }
+
+        const type = convertToInstance(
+            cloneTupleForSpecialization(
+                builtInTupleType,
+                buildTupleTypesList(entryTypeResults),
+                /* isTypeArgumentExplicit */ true
+            )
+        );
+
+        return { type, node };
+    }
+
+    function buildTupleTypesList(entryTypeResults: TypeResult[]): Type[] {
+        let tupleTypes: Type[] = [];
+        for (const typeResult of entryTypeResults) {
+            if (typeResult.unpackedType) {
+                // Is this an unpacked tuple? If so, we can append the individual
+                // unpacked entries onto the new tuple. If it's not an upacked tuple
+                // but some other iterator (e.g. a List), we won't know the number of
+                // items, so we'll need to leave the Tuple open-ended.
+                if (isObject(typeResult.unpackedType) && isTupleClass(typeResult.unpackedType.classType)) {
+                    const typeArgs = typeResult.unpackedType.classType.typeArguments;
+
+                    // If the Tuple wasn't specialized or has a "..." type parameter, we can't
+                    // make any determination about its contents.
+                    if (!typeArgs || typeArgs.some((t) => isEllipsisType(t))) {
+                        tupleTypes = [AnyType.create(false), AnyType.create(true)];
+                        break;
+                    }
+
+                    for (const typeArg of typeArgs) {
+                        tupleTypes.push(typeArg);
+                    }
+                } else {
+                    tupleTypes = [AnyType.create(false), AnyType.create(true)];
+                    break;
+                }
+            } else {
+                tupleTypes.push(typeResult.type);
+            }
+        }
+
+        return tupleTypes;
+    }
+
     // Classes of type Tuple and tuple require special handling because they
     // support variadic type parameters (including a form that represents homogenous
-    // arbitrary-length tuples).
+    // arbitrary-length tuples). It computes the "effective type args" field, which
+    // is a union of the individual type args. If stripLiterals is true, literal
+    // values are stripped when computing the effective type args.
     function cloneTupleForSpecialization(
         tupleClass: ClassType,
         typeArgs: Type[],
-        isTypeArgumentExplicit: boolean
+        isTypeArgumentExplicit: boolean,
+        stripLiterals = false
     ): ClassType {
         // Create a copy of the Tuple class that overrides the normal MRO
         // entries with a version of Tuple and/or tuple that are specialized
@@ -4665,6 +4751,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             combinedTupleType = typeArgs[0];
         } else {
             combinedTupleType = combineTypes(typeArgs);
+        }
+
+        if (stripLiterals) {
+            combinedTupleType = stripLiteralValue(combinedTupleType);
         }
 
         const effectiveTypeArguments = [combinedTupleType];
@@ -5308,7 +5398,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         callType: OverloadedFunctionType,
-        expectedType: Type | undefined
+        expectedType: Type | undefined,
+        typeVarMap?: TypeVarMap
     ): FunctionType | undefined {
         let validOverload: FunctionType | undefined;
 
@@ -5317,13 +5408,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // decorator, not the final function that omits the overload.
             // This is the intended behavior according to PEP 484.
             if (FunctionType.isOverloaded(overload)) {
+                // Clone the typeVarMap so we don't modify the original.
+                const effectiveTypeVarMap = typeVarMap ? typeVarMap.clone() : new TypeVarMap();
+
                 // Temporarily disable diagnostic output.
                 useSpeculativeMode(errorNode, () => {
                     const callResult = validateCallArguments(
                         errorNode,
                         argList,
                         overload,
-                        new TypeVarMap(),
+                        effectiveTypeVarMap,
                         /* skipUnknownArgCheck */ true,
                         /* inferReturnTypeIfNeeded */ false,
                         expectedType
@@ -5724,7 +5818,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.OverloadedFunction: {
-                const overloadedFunctionType = findOverloadedFunctionType(errorNode, argList, callType, expectedType);
+                const overloadedFunctionType = findOverloadedFunctionType(
+                    errorNode,
+                    argList,
+                    callType,
+                    expectedType,
+                    typeVarMap
+                );
                 if (overloadedFunctionType) {
                     callResult = validateFunctionArguments(
                         errorNode,
@@ -8150,7 +8250,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return getTypeFromListInferred(node, /* forceStrict */ !!expectedType)!;
+        return getTypeFromListInferred(node, /* forceStrict */ !!expectedType);
     }
 
     // Attempts to determine the type of a list statement based on an expected type.
