@@ -614,7 +614,7 @@ export function partiallySpecializeType(type: Type, contextClassType: ClassType)
 // used as type arguments in other types) with their concrete form.
 export function makeTypeVarsConcrete(type: Type): Type {
     return doForSubtypes(type, (subtype) => {
-        if (isTypeVar(subtype)) {
+        if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
             if (subtype.details.boundType) {
                 return subtype.details.boundType;
             }

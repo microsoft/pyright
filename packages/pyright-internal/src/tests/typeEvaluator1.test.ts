@@ -1023,7 +1023,13 @@ test('TypeAlias8', () => {
 test('TypeAlias9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias9.py']);
 
-    TestUtils.validateResults(analysisResults, 0, 0, 4);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('TypeAlias10', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias10.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('Dictionary1', () => {
