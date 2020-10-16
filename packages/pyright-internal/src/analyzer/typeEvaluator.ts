@@ -11380,7 +11380,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node.nodeType === ParseNodeType.Unpack ||
                 node.nodeType === ParseNodeType.DictionaryKeyEntry ||
                 node.nodeType === ParseNodeType.DictionaryExpandEntry ||
-                node.nodeType === ParseNodeType.ListComprehension
+                node.nodeType === ParseNodeType.ListComprehension ||
+                node.nodeType === ParseNodeType.ListComprehensionFor ||
+                node.nodeType === ParseNodeType.ListComprehensionIf
             );
         }
 
