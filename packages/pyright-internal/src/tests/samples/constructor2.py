@@ -108,7 +108,7 @@ def s11():
     t: Literal["Donkey[int]"] = reveal_type(a)
 
 
-def s12(p: Bear[_T1]):
+def s12(p: Bear[_T1]) -> _T1:
     a: Animal[Any, int] = p
     t: Literal["Bear[Any]"] = reveal_type(a)
 

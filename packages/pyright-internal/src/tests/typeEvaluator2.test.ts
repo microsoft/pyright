@@ -878,7 +878,7 @@ test('ParamSpec1', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec1.py'], configOptions);
-    TestUtils.validateResults(results, 7);
+    TestUtils.validateResults(results, 8);
 });
 
 test('ParamSpec2', () => {
@@ -906,7 +906,7 @@ test('ParamSpec4', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec4.py'], configOptions);
-    TestUtils.validateResults(results, 5);
+    TestUtils.validateResults(results, 7);
 });
 
 test('ClassVar1', () => {
@@ -941,6 +941,12 @@ test('TypeVar3', () => {
 
 test('TypeVar4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar4.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('TypeVar5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar5.py']);
 
     TestUtils.validateResults(analysisResults, 4);
 });

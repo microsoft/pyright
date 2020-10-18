@@ -32,4 +32,3 @@ f: Callable[[TParams], int]
 
 # This should generate an error.
 g: Tuple[TParams]
-

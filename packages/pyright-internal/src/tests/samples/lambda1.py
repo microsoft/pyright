@@ -64,7 +64,7 @@ lambda4(1, 3, 4)
 
 _T1 = TypeVar('_T1')
 
-def may_need_function_generic(callback: Optional[Callable[[_T1], Any]]):
+def may_need_function_generic(callback: Optional[Callable[[_T1], _T1]]):
     pass
 
 may_need_function_generic(lambda x: x)

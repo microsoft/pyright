@@ -5,7 +5,7 @@
 # includes an overloaded method.
 
 from fractions import Fraction
-from typing import Protocol, TypeVar, overload
+from typing import Any, Protocol, TypeVar, overload
 
 v1 = round(Fraction(1))
 
@@ -29,7 +29,7 @@ class Proto1:
         ...
 
 
-def round1(number: SupportsRound1[_T]) -> int:
+def round1(number: SupportsRound1[Any]) -> int:
     ...
 
 
@@ -49,10 +49,9 @@ class Proto2:
         ...
 
 
-def round2(number: SupportsRound1[_T]) -> int:
+def round2(number: SupportsRound1[Any]) -> int:
     ...
 
 
 v_proto2 = Proto2()
 v_round2 = round2(v_proto2)
-

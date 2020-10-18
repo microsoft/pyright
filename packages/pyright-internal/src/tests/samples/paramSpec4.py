@@ -36,17 +36,17 @@ takes_int_str(1, "A", 2)
 
 # This should generate an error because a ParamSpec can appear
 # only within the last type arg for Concatenate
-def decorator1(f: Callable[Concatenate[P, P]]) -> Callable[P, R]:
+def decorator1(f: Callable[Concatenate[P, P]]) -> Callable[P, int]:
     ...
 
 
 # This should generate an error because the last type arg
 # for Concatenate should be a ParamSpec.
-def decorator2(f: Callable[Concatenate[int, int]]) -> Callable[P, R]:
+def decorator2(f: Callable[Concatenate[int, int]]) -> Callable[P, int]:
     ...
 
 
 # This should generate an error because Concatenate is missing
 # its type arguments.
-def decorator3(f: Callable[Concatenate]) -> Callable[P, R]:
+def decorator3(f: Callable[Concatenate]) -> Callable[P, int]:
     ...

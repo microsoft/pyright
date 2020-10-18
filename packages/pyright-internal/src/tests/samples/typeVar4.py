@@ -47,27 +47,3 @@ class Foo(Generic[_T, _T_co, _T_contra]):
 
     def func10(self) -> List[_T_contra]:
         return []
-
-
-def func1(a: _T):
-    pass
-
-
-def func2(a: _T_co):
-    pass
-
-
-def func3(a: _T_contra):
-    pass
-
-
-def func4() -> _T:
-    pass
-
-
-def func5() -> _T_co:
-    pass
-
-
-def func6() -> _T_contra:
-    pass

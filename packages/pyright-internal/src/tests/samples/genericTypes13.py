@@ -3,20 +3,24 @@
 
 from typing import Dict, TypeVar
 
+
 class A:
-  pass
+    pass
+
+
 class B(A):
-  pass
+    pass
+
+
 class C(A):
-  pass
+    pass
 
-_T_A = TypeVar('_T_A', bound=A)
 
-def testFunc(value: Dict[str, _T_A]):
-  pass
+_T_A = TypeVar("_T_A", bound=A)
 
-testFunc({
-  "b": B(),
-  "c": C()
-})
 
+def testFunc(value: Dict[str, _T_A]) -> _T_A:
+    return value["a"]
+
+
+testFunc({"b": B(), "c": C()})
