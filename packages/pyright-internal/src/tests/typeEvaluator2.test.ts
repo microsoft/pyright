@@ -945,6 +945,12 @@ test('TypeVar4', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('TypeVar5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar5.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
 test('Annotated1', () => {
     const configOptions = new ConfigOptions('.');
 
