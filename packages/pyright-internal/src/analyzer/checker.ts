@@ -801,8 +801,7 @@ export class Checker extends ParseTreeWalker {
         const nameWalker = new ParseTreeUtils.NameNodeWalker((nameNode) => {
             const nameType = this._evaluator.getType(nameNode);
             if (nameType && isTypeVar(nameType)) {
-                const localScopeId = TypeVarType.makeScopeId(nameType.details.name, node.id);
-                if (nameType.scopeId === localScopeId) {
+                if (nameType.scopeId === node.id) {
                     if (!localTypeVarUsage.has(nameType.details.name)) {
                         localTypeVarUsage.set(nameType.details.name, [nameNode]);
                     } else {
@@ -2010,8 +2009,7 @@ export class Checker extends ParseTreeWalker {
 
         doForSubtypes(type, (subtype) => {
             if (isTypeVar(subtype) && subtype.details.isContravariant) {
-                const scopeId = TypeVarType.makeScopeId(subtype.details.name, nodeId);
-                if (subtype.scopeId !== scopeId) {
+                if (subtype.scopeId !== nodeId) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeVarIsContravariant().format({ name: subtype.details.name })
                     );
@@ -2029,8 +2027,7 @@ export class Checker extends ParseTreeWalker {
 
         doForSubtypes(type, (subtype) => {
             if (isTypeVar(subtype) && subtype.details.isCovariant) {
-                const scopeId = TypeVarType.makeScopeId(subtype.details.name, nodeId);
-                if (subtype.scopeId !== scopeId) {
+                if (subtype.scopeId !== nodeId) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeVarIsCovariant().format({ name: subtype.details.name })
                     );

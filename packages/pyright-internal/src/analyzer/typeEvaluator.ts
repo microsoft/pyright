@@ -3358,7 +3358,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // defined by an enclosing scope (either a class or function).
         if (isTypeVar(type) && TypeBase.isInstantiable(type)) {
             type = findScopedTypeVar(node, type);
-            if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0 && type.scopeId) {
+            if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0 && type.scopeId !== undefined) {
                 if (!type.details.isSynthesized && !type.details.isParamSpec) {
                     addDiagnostic(
                         getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -3368,7 +3368,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 }
             } else if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
-                if (!type.scopeId) {
+                if (type.scopeId === undefined) {
                     const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
                     if (enclosingScope) {
                         type = TypeVarType.cloneForScopeId(type, enclosingScope.id);
@@ -3377,7 +3377,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
             } else if ((flags & EvaluatorFlags.DisallowTypeVarsWithoutScopeId) !== 0) {
-                if (!type.scopeId && !type.details.isSynthesized && !type.details.isParamSpec) {
+                if (type.scopeId === undefined && !type.details.isSynthesized && !type.details.isParamSpec) {
                     addDiagnostic(
                         getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -10293,7 +10293,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* isParamSpec */ false,
                         /* isSynthesized */ true
                     );
-                    clsType.scopeId = TypeVarType.makeScopeId(clsType.details.name, containingClassNode.id);
+                    clsType.scopeName = TypeVarType.makeScopeName(clsType.details.name, containingClassNode.id);
+                    clsType.scopeId = containingClassNode.id;
 
                     clsType.details.boundType = selfSpecializeClassType(
                         containingClassType,
@@ -10306,7 +10307,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* isParamSpec */ false,
                         /* isSynthesized */ true
                     );
-                    selfType.scopeId = TypeVarType.makeScopeId(selfType.details.name, containingClassNode.id);
+                    selfType.scopeName = TypeVarType.makeScopeName(selfType.details.name, containingClassNode.id);
+                    selfType.scopeId = containingClassNode.id;
 
                     selfType.details.boundType = ObjectType.create(
                         selfSpecializeClassType(containingClassType, /* setSkipAbstractClassTest */ true)
