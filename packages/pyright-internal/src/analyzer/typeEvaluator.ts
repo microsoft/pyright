@@ -200,7 +200,6 @@ import {
     setTypeArgumentsRecursive,
     specializeType,
     stripFirstParameter,
-    stripLiteralTypeArgsValue,
     stripLiteralValue,
     transformPossibleRecursiveTypeAlias,
     transformTypeObjectToClass,
@@ -13993,7 +13992,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         if (type) {
                             const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
-                            type = stripLiteralTypeArgsValue(type);
 
                             if (decl.type === DeclarationType.Variable) {
                                 const isEnum = isObject(type) && ClassType.isEnumClass(type.classType);
