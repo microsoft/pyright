@@ -23,7 +23,6 @@ import {
     isExpressionNode,
     LambdaNode,
     ModuleNode,
-    NameNode,
     ParameterCategory,
     ParseNode,
     ParseNodeType,
@@ -1033,17 +1032,4 @@ export function isAssignmentToDefaultsFollowingNamedTuple(callNode: ParseNode): 
     }
 
     return false;
-}
-
-// This simple parse tree walker calls a callback function
-// for each NameNode it encounters.
-export class NameNodeWalker extends ParseTreeWalker {
-    constructor(private _callback: (node: NameNode) => void) {
-        super();
-    }
-
-    visitName(node: NameNode) {
-        this._callback(node);
-        return true;
-    }
 }
