@@ -160,6 +160,7 @@ import {
 } from './types';
 import {
     addTypeVarsToListIfUnique,
+    applySolvedTypeVars,
     areTypesSame,
     buildTypeVarMapFromSpecializedClass,
     CanAssignFlags,
@@ -192,6 +193,7 @@ import {
     lookUpClassMember,
     lookUpObjectMember,
     makeTopLevelTypeVarsConcrete,
+    makeTypeVarsConcrete,
     partiallySpecializeType,
     printLiteralValue,
     removeFalsinessFromType,
@@ -200,7 +202,6 @@ import {
     requiresTypeArguments,
     selfSpecializeClassType,
     setTypeArgumentsRecursive,
-    specializeType,
     stripFirstParameter,
     stripLiteralValue,
     transformPossibleRecursiveTypeAlias,
@@ -3532,7 +3533,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return getTypeFromMemberAccessWithBaseType(
                     node,
                     {
-                        type: specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true),
+                        type: makeTypeVarsConcrete(baseType),
                         node,
                     },
                     usage,
@@ -4222,7 +4223,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             }
 
-            let type = specializeType(baseType, typeVarMap);
+            let type = applySolvedTypeVars(baseType, typeVarMap);
             if (baseType.typeAliasInfo && type !== baseType) {
                 const typeArgs: Type[] = [];
                 baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
@@ -4679,7 +4680,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return undefined;
             }
 
-            const specializedTuple = specializeType(builtInTuple.classType, tupleTypeVarMap) as ClassType;
+            const specializedTuple = applySolvedTypeVars(builtInTuple.classType, tupleTypeVarMap) as ClassType;
             if (!specializedTuple.typeArguments || specializedTuple.typeArguments.length !== 1) {
                 return undefined;
             }
@@ -4976,10 +4977,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Determine whether to further narrow the type.
         let bindToType: ClassType | ObjectType | undefined;
         if (node.arguments.length > 1) {
-            const secondArgType = specializeType(
-                getTypeOfExpression(node.arguments[1].valueExpression).type,
-                /* typeVarMap */ undefined
-            );
+            const secondArgType = makeTypeVarsConcrete(getTypeOfExpression(node.arguments[1].valueExpression).type);
 
             let reportError = false;
 
@@ -5547,14 +5545,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
 
                         if (!callResult.argumentErrors) {
-                            // Note that we're specializing the type twice here with the same
-                            // typeVarMap. This handles the case where the expectedType contains
-                            // a type variable that is computed and filled in to the typeVarMap.
-                            const specializedType = specializeType(
-                                specializeType(type, typeVarMap, /* makeConcrete */ false),
-                                typeVarMap,
-                                /* makeConcrete */ false
-                            ) as ClassType;
+                            const specializedType = applySolvedTypeVars(type, typeVarMap) as ClassType;
                             return applyExpectedSubtypeForConstructor(specializedType, expectedSubType);
                         }
                     }
@@ -5583,14 +5574,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     NoneType.createInstance()
                 );
                 if (!callResult.argumentErrors) {
-                    // Note that we're specializing the type twice here with the same
-                    // typeVarMap. This handles the case where the expectedType contains
-                    // a type variable that is computed and filled in to the typeVarMap.
-                    const specializedType = specializeType(
-                        specializeType(type, typeVarMap, /* makeConcrete */ true),
-                        typeVarMap,
-                        /* makeConcrete */ true
-                    ) as ClassType;
+                    const specializedType = applySolvedTypeVars(type, typeVarMap) as ClassType;
                     returnType = applyExpectedTypeForConstructor(specializedType, expectedType);
                 } else {
                     reportedErrors = true;
@@ -5682,7 +5666,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     if (!returnType) {
                         returnType = applyExpectedTypeForConstructor(
-                            specializeType(type, typeVarMap, /* makeConcrete */ true) as ClassType,
+                            applySolvedTypeVars(type, typeVarMap) as ClassType,
                             expectedType
                         );
                     }
@@ -5721,7 +5705,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!returnType) {
-            returnType = applyExpectedTypeForConstructor(type, expectedType);
+            if (expectedType) {
+                returnType = applyExpectedTypeForConstructor(type, expectedType);
+            } else {
+                returnType = makeTypeVarsConcrete(ObjectType.create(type));
+            }
         }
 
         return { argumentErrors: reportedErrors, returnType };
@@ -5738,7 +5726,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
             if (populateTypeVarMapBasedOnExpectedType(type, expectedSubtype, typeVarMap)) {
-                return specializeType(objType, typeVarMap) as ClassType;
+                return applySolvedTypeVars(objType, typeVarMap) as ClassType;
             }
         }
 
@@ -6476,7 +6464,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             validateArgTypeParams,
             inferReturnTypeIfNeeded && !reportedArgError
         );
-        const specializedReturnType = specializeType(returnType, typeVarMap);
+        const specializedReturnType = applySolvedTypeVars(returnType, typeVarMap);
 
         return { argumentErrors: reportedArgError, returnType: specializedReturnType, activeParam };
     }
@@ -6491,7 +6479,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let expectedTypeDiag: DiagnosticAddendum | undefined;
 
         if (argParam.argument.valueExpression) {
-            let expectedType: Type | undefined = specializeType(argParam.paramType, typeVarMap);
+            let expectedType: Type | undefined = applySolvedTypeVars(argParam.paramType, typeVarMap);
 
             // If the expected type is unknown, don't use an expected type. Instead,
             // use default rules for evaluating the expression type.
@@ -8091,7 +8079,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         }
 
-                        return specializeType(subtype, typeVarMap);
+                        return applySolvedTypeVars(subtype, typeVarMap);
                     }
                 }
 
@@ -8201,13 +8189,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const specializedDict = specializeType(builtInDict.classType, dictTypeVarMap) as ClassType;
+        const specializedDict = applySolvedTypeVars(builtInDict.classType, dictTypeVarMap) as ClassType;
         if (!specializedDict.typeArguments || specializedDict.typeArguments.length !== 2) {
             return undefined;
         }
 
-        const expectedKeyType = specializeType(specializedDict.typeArguments[0], /* typeVarMap */ undefined);
-        const expectedValueType = specializeType(specializedDict.typeArguments[1], /* typeVarMap */ undefined);
+        const expectedKeyType = makeTypeVarsConcrete(specializedDict.typeArguments[0]);
+        const expectedValueType = makeTypeVarsConcrete(specializedDict.typeArguments[1]);
 
         // Infer the key and value types if possible.
         getKeyAndValueTypesFromDictionary(
@@ -8335,7 +8323,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 mappingTypeVarMap
                             )
                         ) {
-                            const specializedMapping = specializeType(mappingType, mappingTypeVarMap) as ClassType;
+                            const specializedMapping = applySolvedTypeVars(mappingType, mappingTypeVarMap) as ClassType;
                             const typeArgs = specializedMapping.typeArguments;
                             if (typeArgs && typeArgs.length >= 2) {
                                 if (!limitEntryCount || index < maxEntriesToUseForInference) {
@@ -8433,12 +8421,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const specializedList = specializeType(builtInList.classType, listTypeVarMap) as ClassType;
+        const specializedList = applySolvedTypeVars(builtInList.classType, listTypeVarMap) as ClassType;
         if (!specializedList.typeArguments || specializedList.typeArguments.length !== 1) {
             return undefined;
         }
 
-        const expectedEntryType = specializeType(specializedList.typeArguments[0], /* typeVarMap */ undefined);
+        const expectedEntryType = makeTypeVarsConcrete(specializedList.typeArguments[0]);
 
         const entryTypes: Type[] = [];
         node.entries.forEach((entry, index) => {
@@ -8539,10 +8527,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // We need to call specializeType twice here. The first time specializes the
-        // temporary "__typeArg" type variable. The second time specializes any type
-        // variables that it referred to.
-        return specializeType(specializeType(targetTypeVar, typeVarMap), typeVarMap);
+        return applySolvedTypeVars(targetTypeVar, typeVarMap);
     }
 
     function getTypeFromTernary(node: TernaryNode, flags: EvaluatorFlags, expectedType: Type | undefined): TypeResult {
@@ -8622,7 +8607,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let paramType: Type = UnknownType.create();
             if (expectedFunctionType && index < expectedFunctionType.details.parameters.length) {
                 paramType = FunctionType.getEffectiveParameterType(expectedFunctionType, index);
-                paramType = specializeType(paramType, /* typeVarMap */ undefined, /* makeConcrete */ true);
+                paramType = makeTypeVarsConcrete(paramType);
             }
 
             if (param.name) {
@@ -9019,7 +9004,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // A ClassVar should not allow generic types, but the typeshed
             // stubs use this in a few cases. For now, just specialize
             // it in a general way.
-            type = specializeType(type, /* typeVarMap */ undefined);
+            type = makeTypeVarsConcrete(type);
         }
 
         return type;
@@ -10323,7 +10308,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                concreteAnnotatedType = specializeType(annotatedType, /* typeVarMap */ undefined);
+                concreteAnnotatedType = makeTypeVarsConcrete(annotatedType);
             }
 
             let defaultValueType: Type | undefined;
@@ -13793,7 +13778,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             let baseType = getType(node.parent.leftExpression);
             if (baseType) {
-                baseType = specializeType(baseType, /* typeVarMap */ undefined);
+                baseType = makeTypeVarsConcrete(baseType);
                 const memberName = node.parent.memberName.value;
                 doForSubtypes(baseType, (subtype) => {
                     let symbol: Symbol | undefined;
@@ -14636,11 +14621,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     const declaredType = getDeclaredTypeOfSymbol(symbol);
                     if (declaredType) {
-                        const srcMemberType = specializeType(
-                            getTypeOfMember(memberInfo),
-                            srcClassTypeVarMap,
-                            /* makeConcrete */ false
-                        );
+                        const srcMemberType = applySolvedTypeVars(getTypeOfMember(memberInfo), srcClassTypeVarMap);
 
                         if (
                             !canAssignType(
@@ -14692,11 +14673,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (typesAreConsistent && destType.details.typeParameters.length > 0 && destType.typeArguments) {
             // Create a specialized version of the protocol defined by the dest and
             // make sure the resulting type args can be assigned.
-            const specializedSrcProtocol = specializeType(
-                genericDestType,
-                genericDestTypeVarMap,
-                /* makeConcrete */ false
-            ) as ClassType;
+            const specializedSrcProtocol = applySolvedTypeVars(genericDestType, genericDestTypeVarMap) as ClassType;
 
             if (
                 !verifyTypeArgumentsAssignable(
@@ -14869,7 +14846,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const typeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
-        const specializedType = specializeType(baseClass, typeVarMap, /* makeConcrete */ false, recursionCount + 1);
+        const specializedType = applySolvedTypeVars(baseClass, typeVarMap);
         assert(isClass(specializedType));
         return specializedType as ClassType;
     }
@@ -15141,7 +15118,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         flags = CanAssignFlags.Default,
         recursionCount = 0
     ): boolean {
-        const curTypeVarMapping = typeVarMap.getTypeVar(destType);
+        let isTypeVarInScope = true;
+
+        if (!destType.scopeId || !typeVarMap.hasSolveForScope(destType.scopeId)) {
+            isTypeVarInScope = false;
+            if ((flags & CanAssignFlags.AllowOutOfScopeTypeVars) === 0) {
+                if (!destType.details.isSynthesized) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(destType),
+                        })
+                    );
+                    return false;
+                }
+            }
+        }
 
         if (destType.details.isParamSpec) {
             diag.addMessage(
@@ -15152,6 +15144,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
             return false;
         }
+
+        const curTypeVarMapping = typeVarMap.getTypeVar(destType);
 
         // Handle the constrained case.
         if (destType.details.constraints.length > 0) {
@@ -15182,7 +15176,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // version of another constrained type that was previously assigned
                     // to the type variable.
                     if (canAssignType(constrainedType, curTypeVarMapping, new DiagnosticAddendum())) {
-                        if (!typeVarMap.isLocked()) {
+                        if (!typeVarMap.isLocked() && isTypeVarInScope) {
                             typeVarMap.setTypeVar(destType, constrainedType, /* isNarrowable */ false);
                         }
                     } else {
@@ -15198,7 +15192,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else {
                 // Assign the type to the type var. If the source is a TypeVar, don't
                 // specialize it to one of the constrained types. Leave it generic.
-                if (!typeVarMap.isLocked()) {
+                if (!typeVarMap.isLocked() && isTypeVarInScope) {
                     typeVarMap.setTypeVar(destType, isSrcTypeVar ? srcType : constrainedType, /* isNarrowable */ false);
                 }
             }
@@ -15311,7 +15305,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (!typeVarMap.isLocked()) {
+        if (!typeVarMap.isLocked() && isTypeVarInScope) {
             typeVarMap.setTypeVar(destType, updatedType, updatedTypeIsNarrowable);
         }
 
@@ -15978,7 +15972,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         );
 
         // Make sure we can assign the specialized dest type to the source type.
-        const specializedDestType = specializeType(destType, typeVarMap, /* makeConcrete */ false, recursionCount + 1);
+        const specializedDestType = applySolvedTypeVars(destType, typeVarMap);
 
         if (
             !canAssignType(
@@ -16218,12 +16212,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         canAssign = false;
                                     }
                                 } else {
-                                    const specializedDestParamType = specializeType(
-                                        destParam.type,
-                                        typeVarMap,
-                                        /* makeConcrete */ false,
-                                        recursionCount + 1
-                                    );
+                                    const specializedDestParamType = typeVarMap
+                                        ? applySolvedTypeVars(destParam.type, typeVarMap)
+                                        : destParam.type;
                                     if (
                                         !canAssignType(
                                             param.type,
@@ -16265,7 +16256,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // "higher-order" type variables.
         if (typeVarMap && !typeVarMap.isLocked()) {
             typeVarMap.getTypeVars().forEach((entry) => {
-                const specializedType = specializeType(entry.type, typeVarMap, /* makeConcrete */ false);
+                const specializedType = applySolvedTypeVars(entry.type, typeVarMap);
                 if (specializedType !== entry.type) {
                     typeVarMap.setTypeVar(entry.typeVar, specializedType, typeVarMap.isNarrowable(entry.typeVar));
                 }
@@ -16295,7 +16286,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!isAnyOrUnknown(destReturnType)) {
                 let srcReturnType = getFunctionEffectiveReturnType(srcType);
                 if (typeVarMap) {
-                    srcReturnType = specializeType(srcReturnType, typeVarMap, /* makeConcrete */ false);
+                    srcReturnType = applySolvedTypeVars(srcReturnType, typeVarMap);
                 }
                 const returnDiag = diag.createAddendum();
 
@@ -16906,7 +16897,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // evaluating (and caching) the inferred return type if there is no defined return type.
         getFunctionEffectiveReturnType(memberType);
 
-        const specializedFunction = specializeType(memberType, typeVarMap) as FunctionType;
+        const specializedFunction = applySolvedTypeVars(memberType, typeVarMap) as FunctionType;
 
         return stripFirstParameter(specializedFunction);
     }

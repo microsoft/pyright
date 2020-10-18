@@ -37,6 +37,6 @@ generic_adder = Adder()
 generic_adder.add(1, 2)
 generic_adder.add("a", "b")
 
-# This should generate an error because 1 and "b"
-# don't match.
+# Since the type has an Unknown type argument,
+# the following should not generate an error.
 generic_adder.add(1, "b")

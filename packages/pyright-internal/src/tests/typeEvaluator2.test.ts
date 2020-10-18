@@ -225,7 +225,7 @@ test('GenericTypes4', () => {
 test('GenericTypes5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes5.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('GenericTypes6', () => {
@@ -915,7 +915,7 @@ test('ParamSpec1', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec1.py'], configOptions);
-    TestUtils.validateResults(results, 6);
+    TestUtils.validateResults(results, 7);
 });
 
 test('ParamSpec2', () => {
@@ -981,7 +981,7 @@ test('TypeVar2', () => {
 test('TypeVar3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar3.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('TypeVar4', () => {
