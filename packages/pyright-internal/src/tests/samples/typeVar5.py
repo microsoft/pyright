@@ -2,6 +2,8 @@
 # a generic function. A TypeVar must appear at least twice to be
 # considered legitimate.
 
+# pyright: reportInvalidTypeVarUse=true
+
 from typing import Dict, Generic, List, TypeVar
 
 

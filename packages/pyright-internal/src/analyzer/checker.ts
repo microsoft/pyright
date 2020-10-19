@@ -796,6 +796,11 @@ export class Checker extends ParseTreeWalker {
 
     // Verifies that each local type variable is used more than once.
     private _validateFunctionTypeVarUsage(node: FunctionNode) {
+        // Skip this check entirely if it's disabled.
+        if (this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse === 'none') {
+            return;
+        }
+
         const localTypeVarUsage = new Map<string, NameNode[]>();
 
         const nameWalker = new ParseTreeUtils.NameNodeWalker((nameNode) => {
@@ -827,8 +832,8 @@ export class Checker extends ParseTreeWalker {
         localTypeVarUsage.forEach((nameNodes) => {
             if (nameNodes.length === 1) {
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
+                    this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse,
+                    DiagnosticRule.reportInvalidTypeVarUse,
                     Localizer.Diagnostic.typeVarUsedOnlyOnce().format({
                         name: nameNodes[0].value,
                     }),
