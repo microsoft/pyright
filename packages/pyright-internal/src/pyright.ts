@@ -468,6 +468,7 @@ function printUsage() {
             '  -t,--typeshed-path DIRECTORY     Use typeshed type stubs at this location\n' +
             '  -v,--venv-path DIRECTORY         Directory that contains virtual environments\n' +
             '  --verbose                        Emit verbose diagnostics\n' +
+            '  --verifytypes PACKAGE            Verify type completeness of a py.typed package' +
             '  --version                        Print Pyright version\n' +
             '  -w,--watch                       Continue to run and watch for changes\n'
     );
