@@ -8185,17 +8185,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isAnyOrUnknown(unexpandedType)) {
                     addUnknown = false;
                 } else {
-                    if (isObject(unexpandedType)) {
-                        const classType = unexpandedType.classType;
-                        const aliasType = ClassType.getAliasClass(classType);
-
-                        if (ClassType.isBuiltIn(aliasType, 'dict')) {
-                            const typeArgs = classType.typeArguments;
+                    const mappingType = getTypingType(node, 'Mapping');
+                    if (mappingType && isClass(mappingType)) {
+                        const mappingTypeVarMap = new TypeVarMap();
+                        if (
+                            canAssignType(
+                                ObjectType.create(mappingType),
+                                unexpandedType,
+                                new DiagnosticAddendum(),
+                                mappingTypeVarMap
+                            )
+                        ) {
+                            const specializedMapping = specializeType(mappingType, mappingTypeVarMap) as ClassType;
+                            const typeArgs = specializedMapping.typeArguments;
                             if (typeArgs && typeArgs.length >= 2) {
                                 keyTypes.push(typeArgs[0]);
                                 valueTypes.push(typeArgs[1]);
                                 addUnknown = false;
                             }
+                        } else {
+                            const fileInfo = getFileInfo(node);
+                            addDiagnostic(
+                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.dictUnpackIsNotMapping(),
+                                entryNode
+                            );
                         }
                     }
                 }

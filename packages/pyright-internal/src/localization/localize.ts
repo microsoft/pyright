@@ -234,6 +234,7 @@ export namespace Localizer {
         export const defaultValueNotEllipsis = () => getRawString('Diagnostic.defaultValueNotEllipsis');
         export const dictInAnnotation = () => getRawString('Diagnostic.dictInAnnotation');
         export const dictKeyValuePairs = () => getRawString('Diagnostic.dictKeyValuePairs');
+        export const dictUnpackIsNotMapping = () => getRawString('Diagnostic.dictUnpackIsNotMapping');
         export const delTargetExpr = () => getRawString('Diagnostic.delTargetExpr');
         export const dictExpandIllegalInComprehension = () =>
             getRawString('Diagnostic.dictExpandIllegalInComprehension');

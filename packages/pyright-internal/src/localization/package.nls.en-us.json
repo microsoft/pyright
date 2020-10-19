@@ -58,6 +58,7 @@
         "dictExpandIllegalInComprehension": "Dictionary expansion not allowed in comprehension",
         "dictInAnnotation": "Dictionary expression not allowed in type annotation",
         "dictKeyValuePairs": "Dictionary entries must contain key/value pairs",
+        "dictUnpackIsNotMapping": "Expected mapping for dictionary unpack operator",
         "duplicateArgsParam": "Only one \"*\" parameter is allowed",
         "duplicateBaseClass": "Duplicate base class is not allowed",
         "duplicateCatchAll": "Only one catch-all except clause is allowed",
