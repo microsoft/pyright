@@ -6,6 +6,7 @@
  * run analyzer from background thread
  */
 
+import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { CancellationToken } from 'vscode-languageserver/node';
 import { MessageChannel, MessagePort, parentPort, threadId, Worker, workerData } from 'worker_threads';
 
@@ -91,7 +92,7 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType: 'setAllowedThirdPartyImports', data: importNames });
     }
 
-    setFileOpened(filePath: string, version: number | null, contents: string) {
+    setFileOpened(filePath: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
         this.enqueueRequest({ requestType: 'setFileOpened', data: { filePath, version, contents } });
     }
 

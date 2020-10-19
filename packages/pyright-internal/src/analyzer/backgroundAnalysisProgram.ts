@@ -8,6 +8,7 @@
  */
 
 import { CancellationToken } from 'vscode-languageserver';
+import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
 import { ConfigOptions } from '../common/configOptions';
@@ -85,12 +86,13 @@ export class BackgroundAnalysisProgram {
     }
 
     setFileOpened(filePath: string, version: number | null, contents: string) {
-        this._backgroundAnalysis?.setFileOpened(filePath, version, contents);
-        this._program.setFileOpened(filePath, version, contents);
+        this._backgroundAnalysis?.setFileOpened(filePath, version, [{ text: contents }]);
+        this._program.setFileOpened(filePath, version, [{ text: contents }]);
     }
 
-    updateOpenFileContents(path: string, version: number | null, contents: string) {
-        this.setFileOpened(path, version, contents);
+    updateOpenFileContents(path: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
+        this._backgroundAnalysis?.setFileOpened(path, version, contents);
+        this._program.setFileOpened(path, version, contents);
         this.markFilesDirty([path], true);
     }
 

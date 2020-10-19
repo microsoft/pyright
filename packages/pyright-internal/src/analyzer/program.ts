@@ -9,6 +9,7 @@
  */
 
 import { CancellationToken, CompletionItem, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
+import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import {
     CallHierarchyIncomingCall,
     CallHierarchyItem,
@@ -241,7 +242,7 @@ export class Program {
         return sourceFile;
     }
 
-    setFileOpened(filePath: string, version: number | null, contents: string) {
+    setFileOpened(filePath: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
         let sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (!sourceFileInfo) {
             const importName = this._getImportNameForFile(filePath);
@@ -284,7 +285,7 @@ export class Program {
         const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
         if (sourceFileInfo) {
             sourceFileInfo.isOpenByClient = false;
-            sourceFileInfo.sourceFile.setClientVersion(null, '');
+            sourceFileInfo.sourceFile.setClientVersion(null, []);
         }
 
         return this._removeUnneededFiles();
@@ -932,7 +933,7 @@ export class Program {
 
         const sourceFile = sourceFileInfo.sourceFile;
         const fileContents = sourceFile.getFileContents();
-        if (!fileContents) {
+        if (fileContents === undefined) {
             // this only works with opened file
             return undefined;
         }
@@ -965,7 +966,7 @@ export class Program {
 
         const sourceFile = sourceFileInfo.sourceFile;
         const fileContents = sourceFile.getFileContents();
-        if (!fileContents) {
+        if (fileContents === undefined) {
             // this only works with opened file
             return [];
         }
@@ -1214,7 +1215,7 @@ export class Program {
             if (
                 options.indexingForAutoImportMode &&
                 !sourceFileInfo.sourceFile.isStubFile() &&
-                sourceFileInfo.sourceFile.getClientVersion() === null
+                sourceFileInfo.sourceFile.getClientVersion() === undefined
             ) {
                 try {
                     // Perf optimization. if py file doesn't contain __all__
@@ -1361,24 +1362,32 @@ export class Program {
             return undefined;
         }
 
-        const completionResult = this._runEvaluatorWithCancellationToken(token, () => {
-            this._bindFile(sourceFileInfo);
+        const completionResult = this._logTracker.log(
+            `completion at ${filePath}:${position.line}:${position.character}`,
+            (ls) => {
+                const result = this._runEvaluatorWithCancellationToken(token, () => {
+                    this._bindFile(sourceFileInfo);
 
-            const execEnv = this._configOptions.findExecEnvironment(filePath);
-            return sourceFileInfo.sourceFile.getCompletionsForPosition(
-                position,
-                workspacePath,
-                this._configOptions,
-                this._importResolver,
-                this._lookUpImport,
-                this._evaluator!,
-                format,
-                this._createSourceMapper(execEnv, /* mapCompiled */ true),
-                libraryMap,
-                () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),
-                token
-            );
-        });
+                    const execEnv = this._configOptions.findExecEnvironment(filePath);
+                    return sourceFileInfo.sourceFile.getCompletionsForPosition(
+                        position,
+                        workspacePath,
+                        this._configOptions,
+                        this._importResolver,
+                        this._lookUpImport,
+                        this._evaluator!,
+                        format,
+                        this._createSourceMapper(execEnv, /* mapCompiled */ true),
+                        libraryMap,
+                        () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),
+                        token
+                    );
+                });
+
+                ls.add(`found ${result?.completionList?.items.length ?? 'null'} items`);
+                return result;
+            }
+        );
 
         if (!completionResult?.completionList || !this._extension?.completionListExtension) {
             return completionResult;
@@ -1386,7 +1395,7 @@ export class Program {
 
         const pr = sourceFileInfo.sourceFile.getParseResults();
         const content = sourceFileInfo.sourceFile.getFileContents();
-        if (pr?.parseTree && content) {
+        if (pr?.parseTree && content !== undefined) {
             const offset = convertPositionToOffset(position, pr.tokenizerOutput.lines);
             if (offset !== undefined) {
                 completionResult.completionList = await this._extension.completionListExtension.updateCompletionList(

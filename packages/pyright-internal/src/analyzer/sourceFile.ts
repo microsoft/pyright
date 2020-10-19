@@ -13,8 +13,8 @@ import {
     DocumentHighlight,
     DocumentSymbol,
     MarkupKind,
-    SymbolInformation,
 } from 'vscode-languageserver';
+import { TextDocument, TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { isMainThread } from 'worker_threads';
 
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
@@ -120,14 +120,9 @@ export class SourceFile {
     private _lastFileContentLength: number | undefined = undefined;
     private _lastFileContentHash: number | undefined = undefined;
 
-    // Client's version of the file. Null implies that contents
+    // Client's version of the file. Undefined implies that contents
     // need to be read from disk.
-    private _clientVersion: number | null = null;
-
-    // In-memory contents if sent from the language client. If
-    // clientVersion is null, we'll ignore this and read the
-    // contents from disk.
-    private _fileContents: string | undefined;
+    private _clientDocument?: TextDocument;
 
     // Version of file contents that have been analyzed.
     private _analyzedFileContentsVersion = -1;
@@ -342,7 +337,7 @@ export class SourceFile {
         // If this is an open file any content changes will be
         // provided through the editor. We can assume contents
         // didn't change without us knowing about them.
-        if (this._clientVersion !== null) {
+        if (this._clientDocument) {
             return false;
         }
 
@@ -413,26 +408,22 @@ export class SourceFile {
     }
 
     getClientVersion() {
-        return this._clientVersion;
+        return this._clientDocument?.version;
     }
 
     getFileContents() {
-        return this._fileContents;
+        return this._clientDocument?.getText();
     }
 
-    setClientVersion(version: number | null, contents: string): void {
-        this._clientVersion = version;
-
+    setClientVersion(version: number | null, contents: TextDocumentContentChangeEvent[]): void {
         if (version === null) {
-            this._fileContents = undefined;
+            this._clientDocument = undefined;
         } else {
-            if (this._fileContents !== undefined) {
-                if (this._fileContents !== contents) {
-                    this.markDirty();
-                }
+            if (!this._clientDocument) {
+                this._clientDocument = TextDocument.create(this._filePath, 'python', version, '');
             }
-
-            this._fileContents = contents;
+            this._clientDocument = TextDocument.update(this._clientDocument, contents, version);
+            this.markDirty();
         }
     }
 
@@ -518,8 +509,8 @@ export class SourceFile {
             }
 
             const diagSink = new DiagnosticSink();
-            let fileContents = this._fileContents;
-            if (this._clientVersion === null) {
+            let fileContents = this.getFileContents();
+            if (fileContents === undefined) {
                 try {
                     const elapsedTime = timingStats.readFileTime.timeOperation(() => {
                         // Read the file's contents.
@@ -810,14 +801,15 @@ export class SourceFile {
 
         // This command should be called only for open files, in which
         // case we should have the file contents already loaded.
-        if (this._fileContents === undefined) {
+        const fileContents = this.getFileContents();
+        if (fileContents === undefined) {
             return undefined;
         }
 
         const completionProvider = new CompletionProvider(
             workspacePath,
             this._parseResults,
-            this._fileContents,
+            fileContents,
             importResolver,
             position,
             this._filePath,
@@ -846,7 +838,8 @@ export class SourceFile {
         completionItem: CompletionItem,
         token: CancellationToken
     ) {
-        if (!this._parseResults || this._fileContents === undefined) {
+        const fileContents = this.getFileContents();
+        if (!this._parseResults || fileContents === undefined) {
             return;
         }
 
@@ -854,7 +847,7 @@ export class SourceFile {
         const completionProvider = new CompletionProvider(
             completionData.workspacePath,
             this._parseResults,
-            this._fileContents,
+            fileContents,
             importResolver,
             completionData.position,
             this._filePath,
@@ -879,7 +872,7 @@ export class SourceFile {
 
         // This command should be called only for open files, in which
         // case we should have the file contents already loaded.
-        if (this._fileContents === undefined) {
+        if (this.getClientVersion() === undefined) {
             return undefined;
         }
 

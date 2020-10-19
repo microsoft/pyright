@@ -784,7 +784,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             workspace.serviceInstance.updateOpenFileContents(
                 filePath,
                 params.textDocument.version,
-                params.contentChanges[0].text
+                params.contentChanges
             );
         });
 
@@ -940,9 +940,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         const result: InitializeResult = {
             capabilities: {
-                // Tell the client that the server works in FULL text document
-                // sync mode (as opposed to incremental).
-                textDocumentSync: TextDocumentSyncKind.Full,
+                textDocumentSync: TextDocumentSyncKind.Incremental,
                 definitionProvider: { workDoneProgress: true },
                 referencesProvider: { workDoneProgress: true },
                 documentSymbolProvider: { workDoneProgress: true },

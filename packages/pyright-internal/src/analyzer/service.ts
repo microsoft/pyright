@@ -15,6 +15,7 @@ import {
     DocumentSymbol,
     SymbolInformation,
 } from 'vscode-languageserver';
+import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import {
     CallHierarchyIncomingCall,
     CallHierarchyItem,
@@ -192,7 +193,7 @@ export class AnalyzerService {
         this._scheduleReanalysis(false);
     }
 
-    updateOpenFileContents(path: string, version: number | null, contents: string) {
+    updateOpenFileContents(path: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
         this._backgroundAnalysisProgram.updateOpenFileContents(path, version, contents);
         this._scheduleReanalysis(false);
     }
