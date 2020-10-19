@@ -4,10 +4,7 @@
 from typing import Union, AnyStr, Sequence
 
 
-MyTypeHint = Union[Sequence[AnyStr], AnyStr]
-
-
-def do_the_thing(param: MyTypeHint) -> None:
+def do_the_thing(param: Union[Sequence[AnyStr], AnyStr]) -> None:
     if isinstance(param, str):
         print(f"str: {param}")
         return
@@ -24,4 +21,3 @@ def do_the_thing(param: MyTypeHint) -> None:
 do_the_thing("a")
 do_the_thing(b"b")
 do_the_thing(["a", "b"])
-

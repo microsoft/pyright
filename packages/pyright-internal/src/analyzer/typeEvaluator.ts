@@ -1458,7 +1458,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     new TypeVarMap(),
                     /* skipUnknownArgCheck */ true,
                     /* inferReturnTypeIfNeeded */ true,
-                    undefined
+                    /* expectedType */ undefined
                 );
             });
 
@@ -5514,7 +5514,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (!returnType) {
-                const typeVarMap = new TypeVarMap();
+                const typeVarMap = type.typeArguments
+                    ? buildTypeVarMapFromSpecializedClass(type, /* makeConcrete */ false)
+                    : new TypeVarMap();
+
                 const callResult = validateCallArguments(
                     errorNode,
                     argList,
@@ -9351,9 +9354,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If there was a declared type, make sure the RHS value is compatible.
                 if (declaredType) {
                     const diagAddendum = new DiagnosticAddendum();
-                    const typeVarMap = new TypeVarMap();
 
-                    if (canAssignType(declaredType, srcType, diagAddendum, typeVarMap)) {
+                    if (canAssignType(declaredType, srcType, diagAddendum)) {
                         // Narrow the resulting type if possible.
                         srcType = narrowTypeBasedOnAssignment(declaredType, srcType);
                     }
@@ -9927,14 +9929,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* treatAsClassMember */ true,
                 errorNode
             );
-            const typeVarMap = new TypeVarMap();
 
             if (initSubclassMethodType)
                 validateCallArguments(
                     errorNode,
                     argList,
                     initSubclassMethodType,
-                    typeVarMap,
+                    new TypeVarMap(),
                     /* skipUnknownArgCheck */ false,
                     /* inferReturnTypeIfNeeded */ true,
                     NoneType.createInstance()
@@ -15061,32 +15062,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
         if (isTypeVar(destType)) {
+            // If it's an exact match, no need to do any more work.
+            if (isTypeVar(srcType) && srcType.scopeId !== undefined && srcType.scopeId === destType.scopeId) {
+                return true;
+            }
+
             if (flags & CanAssignFlags.MatchTypeVarsExactly) {
                 if (isTypeVar(srcType) && destType.details.name === srcType.details.name) {
                     return true;
                 }
             } else if (!reverseTypeVarMatching) {
-                if (
-                    assignTypeToTypeVar(
-                        destType,
-                        srcType,
-                        /* canNarrowType */ false,
-                        diag,
-                        typeVarMap || new TypeVarMap(),
-                        flags,
-                        recursionCount + 1
-                    )
-                ) {
-                    return true;
-                }
-
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(srcType),
-                        destType: printType(destType),
-                    })
+                return assignTypeToTypeVar(
+                    destType,
+                    srcType,
+                    /* canNarrowType */ false,
+                    diag,
+                    typeVarMap || new TypeVarMap(),
+                    flags,
+                    recursionCount + 1
                 );
-                return false;
             }
         }
 

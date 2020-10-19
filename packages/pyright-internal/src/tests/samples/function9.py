@@ -9,5 +9,6 @@ class TestClass:
         pass
 
 
+# This should generate an error.
 func1: Callable[[float], None] = TestClass.method
 

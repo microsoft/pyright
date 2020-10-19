@@ -884,22 +884,13 @@ export namespace FunctionType {
             type.flags,
             type.details.docString
         );
-        const startParam = deleteFirstParam ? 1 : 0;
 
-        newFunction.details = {
-            name: type.details.name,
-            moduleName: type.details.moduleName,
-            flags: type.details.flags,
-            parameters: type.details.parameters.slice(startParam),
-            declaredReturnType: type.details.declaredReturnType,
-            declaration: type.details.declaration,
-            builtInName: type.details.builtInName,
-            docString: type.details.docString,
-        };
+        newFunction.details = { ...type.details };
 
         // If we strip off the first parameter, this is no longer an
         // instance method or class method.
         if (deleteFirstParam) {
+            newFunction.details.parameters = type.details.parameters.slice(1);
             newFunction.details.flags &= ~(FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.ClassMethod);
             newFunction.details.flags |= FunctionTypeFlags.StaticMethod;
             newFunction.ignoreFirstParamOfDeclaration = true;
@@ -911,7 +902,9 @@ export namespace FunctionType {
 
         if (type.specializedTypes) {
             newFunction.specializedTypes = {
-                parameterTypes: type.specializedTypes.parameterTypes.slice(startParam),
+                parameterTypes: deleteFirstParam
+                    ? type.specializedTypes.parameterTypes.slice(1)
+                    : type.specializedTypes.parameterTypes,
                 returnType: type.specializedTypes.returnType,
             };
         }

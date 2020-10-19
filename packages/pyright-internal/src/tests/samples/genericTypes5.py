@@ -5,7 +5,7 @@
 
 from typing import Generic, TypeVar
 
-T = TypeVar('T', int, str)
+T = TypeVar("T", int, str)
 
 
 class Adder(Generic[T]):
@@ -24,6 +24,7 @@ int_adder.add("1", 2)
 def requires_str_adder(str_adder: Adder[str]):
     return str_adder
 
+
 a = requires_str_adder(Adder())
 print(a.add("1", "2"))
 
@@ -39,5 +40,3 @@ generic_adder.add("a", "b")
 # This should generate an error because 1 and "b"
 # don't match.
 generic_adder.add(1, "b")
-
-
