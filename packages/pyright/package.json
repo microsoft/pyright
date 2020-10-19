@@ -27,10 +27,10 @@
         "clean-webpack-plugin": "^3.0.0",
         "copy-webpack-plugin": "^6.2.1",
         "shx": "^0.3.2",
-        "ts-loader": "^8.0.4",
+        "ts-loader": "^8.0.5",
         "tsconfig-paths-webpack-plugin": "^3.3.0",
         "typescript": "^4.0.3",
-        "webpack": "^5.0.0",
+        "webpack": "^5.1.2",
         "webpack-cli": "^4.0.0"
     },
     "files": [

@@ -359,7 +359,7 @@ export class TestState {
         fileToOpen.fileName = normalizeSlashes(fileToOpen.fileName);
         this.activeFile = fileToOpen;
 
-        this.program.setFileOpened(this.activeFile.fileName, 1, fileToOpen.content);
+        this.program.setFileOpened(this.activeFile.fileName, 1, [{ text: fileToOpen.content }]);
     }
 
     printCurrentFileState(showWhitespace: boolean, makeCaretVisible: boolean) {
