@@ -1231,8 +1231,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberName,
                     usage,
                     new DiagnosticAddendum(),
-                    memberAccessFlags,
-                    classType
+                    memberAccessFlags
                 );
                 isMetaclassMember = true;
             }
@@ -3746,8 +3745,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberName: string,
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum,
-        flags: MemberAccessFlags,
-        bindToClass?: ClassType
+        flags: MemberAccessFlags
     ): ClassMemberLookup | undefined {
         // If this is a special type (like "List") that has an alias class (like
         // "list"), switch to the alias, which defines the members.
@@ -14010,20 +14008,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         if (type) {
-                            const isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
-
                             if (decl.type === DeclarationType.Variable) {
-                                const isEnum = isObject(type) && ClassType.isEnumClass(type.classType);
+                                let isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
+
+                                // Treat enum values declared within an enum class as though they are const even
+                                // though they may not be named as such.
+                                if (
+                                    isObject(type) &&
+                                    ClassType.isEnumClass(type.classType) &&
+                                    isDeclInEnumClass(decl)
+                                ) {
+                                    isConstant = true;
+                                }
 
                                 // If the symbol is private or constant, we can retain the literal
-                                // value. Otherwise, strip them off to make the type less specific,
-                                // allowing other values to be assigned to it in subclasses.
+                                // value. Otherwise, strip literal values to widen the type.
                                 if (
                                     TypeBase.isInstance(type) &&
                                     !isTypeAlias &&
                                     !isPrivate &&
                                     !isConstant &&
-                                    !isEnum &&
                                     !isFinalVar
                                 ) {
                                     type = stripLiteralValue(type);
@@ -14108,6 +14112,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return undefined;
+    }
+
+    function isDeclInEnumClass(decl: VariableDeclaration): boolean {
+        const classNode = ParseTreeUtils.getEnclosingClass(decl.node, /* stopAtFunction */ true);
+        if (!classNode) {
+            return false;
+        }
+
+        const classInfo = getTypeOfClass(classNode);
+        if (!classInfo) {
+            return false;
+        }
+
+        return ClassType.isEnumClass(classInfo.classType);
     }
 
     // Returns the return type of the function. If the type is explicitly provided in
