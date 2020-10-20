@@ -9,12 +9,16 @@
  */
 
 import { ExecutionEnvironment, PythonPlatform } from '../common/configOptions';
-import { ExpressionNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
+import { ExpressionNode, NameNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
 // Returns undefined if the expression cannot be evaluated
 // statically as a bool value or true/false if it can.
-export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: ExecutionEnvironment): boolean | undefined {
+export function evaluateStaticBoolExpression(
+    node: ExpressionNode,
+    execEnv: ExecutionEnvironment,
+    typingImportAliases?: string[]
+): boolean | undefined {
     if (node.nodeType === ParseNodeType.UnaryOperation) {
         if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
             const value = evaluateStaticBoolLikeExpression(node.expression, execEnv);
@@ -88,10 +92,11 @@ export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: Exec
             return true;
         }
     } else if (
+        typingImportAliases &&
         node.nodeType === ParseNodeType.MemberAccess &&
         node.memberName.value === 'TYPE_CHECKING' &&
         node.leftExpression.nodeType === ParseNodeType.Name &&
-        node.leftExpression.value === 'typing'
+        typingImportAliases.some((alias) => alias === (node.leftExpression as NameNode).value)
     ) {
         return true;
     }
@@ -104,7 +109,8 @@ export function evaluateStaticBoolExpression(node: ExpressionNode, execEnv: Exec
 // (like "None").
 export function evaluateStaticBoolLikeExpression(
     node: ExpressionNode,
-    execEnv: ExecutionEnvironment
+    execEnv: ExecutionEnvironment,
+    typingImportAliases?: string[]
 ): boolean | undefined {
     if (node.nodeType === ParseNodeType.Constant) {
         if (node.constType === KeywordType.None) {
@@ -112,7 +118,7 @@ export function evaluateStaticBoolLikeExpression(
         }
     }
 
-    return evaluateStaticBoolExpression(node, execEnv);
+    return evaluateStaticBoolExpression(node, execEnv, typingImportAliases);
 }
 
 function _convertTupleToVersion(node: TupleNode): number | undefined {

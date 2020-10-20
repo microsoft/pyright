@@ -915,7 +915,8 @@ export class Binder extends ParseTreeWalker {
         // we can treat either the then or the else clause as unconditional.
         const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             node.testExpression,
-            this._fileInfo.executionEnvironment
+            this._fileInfo.executionEnvironment,
+            this._typingImportAliases
         );
 
         this._bindConditional(node.testExpression, thenLabel, elseLabel);
@@ -949,7 +950,8 @@ export class Binder extends ParseTreeWalker {
         // we can treat either the while or the else clause as unconditional.
         const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             node.testExpression,
-            this._fileInfo.executionEnvironment
+            this._fileInfo.executionEnvironment,
+            this._typingImportAliases
         );
 
         const preLoopLabel = this._createLoopLabel();
@@ -1936,7 +1938,8 @@ export class Binder extends ParseTreeWalker {
         }
         const staticValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             expression,
-            this._fileInfo.executionEnvironment
+            this._fileInfo.executionEnvironment,
+            this._typingImportAliases
         );
         if (
             (staticValue === true && flags & FlowFlags.FalseCondition) ||
