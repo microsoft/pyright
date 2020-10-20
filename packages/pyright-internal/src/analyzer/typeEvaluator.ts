@@ -5175,6 +5175,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             type.classType,
                             type.classType
                         );
+                        newClassType.details.baseClasses.push(getBuiltInType(errorNode, 'object'));
+                        computeMroLinearization(newClassType);
                         type = newClassType;
                     }
                     break;
@@ -5649,14 +5651,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!validatedTypes && argList.length > 0) {
-            const fileInfo = getFileInfo(errorNode);
-            addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.constructorNoArgs().format({ type: type.details.name }),
-                errorNode
-            );
-        } else if (!returnType) {
+            // Suppress this error if the class was instantiated from a custom
+            // metaclass because it's likely that it's a false positive.
+            const isCustomMetaclass =
+                !!type.details.effectiveMetaclass &&
+                isClass(type.details.effectiveMetaclass) &&
+                !ClassType.isBuiltIn(type.details.effectiveMetaclass);
+
+            if (!isCustomMetaclass) {
+                const fileInfo = getFileInfo(errorNode);
+                addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.constructorNoArgs().format({ type: type.details.name }),
+                    errorNode
+                );
+            }
+        }
+
+        if (!returnType) {
             returnType = applyExpectedTypeForConstructor(type, expectedType);
         }
 
