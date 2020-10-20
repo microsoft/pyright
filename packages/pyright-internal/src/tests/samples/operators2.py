@@ -3,8 +3,10 @@
 
 from datetime import datetime
 
+
 def requires_bool(val: bool):
     pass
+
 
 date1 = datetime.now()
 date2 = datetime.now()
@@ -22,3 +24,6 @@ requires_bool(foo2)
 foo3 = date1 < date2 < 3
 
 foo4 = (date1 < date2) < 3
+
+foo5 = "1" == "1" in "1"
+foo6 = "1" in "1" == "1"

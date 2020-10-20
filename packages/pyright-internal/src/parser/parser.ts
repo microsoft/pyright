@@ -1910,7 +1910,7 @@ export class Parser {
                 break;
             }
 
-            const rightExpr = this._parseBitwiseOrExpression();
+            const rightExpr = this._parseComparison();
             leftExpr = BinaryOperationNode.create(leftExpr, rightExpr, peekToken, comparisonOperator);
         }
 

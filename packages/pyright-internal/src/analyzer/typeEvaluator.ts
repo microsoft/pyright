@@ -7458,22 +7458,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedType: Type | undefined,
         flags: EvaluatorFlags
     ): TypeResult {
-        let leftExpression = node.leftExpression;
+        const leftExpression = node.leftExpression;
+        let rightExpression = node.rightExpression;
 
         // If this is a comparison and the left expression is also a comparison,
         // we need to change the behavior to accommodate python's "chained
         // comparisons" feature.
         if (comparisonOperatorMap[node.operator]) {
             if (
-                node.leftExpression.nodeType === ParseNodeType.BinaryOperation &&
-                !node.leftExpression.parenthesized &&
-                comparisonOperatorMap[node.leftExpression.operator]
+                rightExpression.nodeType === ParseNodeType.BinaryOperation &&
+                !rightExpression.parenthesized &&
+                comparisonOperatorMap[rightExpression.operator]
             ) {
-                // Evaluate the left expression so it is type checked.
-                getTypeFromBinaryOperation(node.leftExpression, expectedType, flags);
+                // Evaluate the right expression so it is type checked.
+                getTypeFromBinaryOperation(rightExpression, expectedType, flags);
 
-                // Use the right side of the left expression for comparison purposes.
-                leftExpression = node.leftExpression.rightExpression;
+                // Use the left side of the right expression for comparison purposes.
+                rightExpression = rightExpression.leftExpression;
             }
         }
 
@@ -7483,7 +7484,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expectedOperandType =
             node.operator === OperatorType.Or || node.operator === OperatorType.And ? expectedType : undefined;
         let leftType = makeTypeVarsConcrete(getTypeOfExpression(leftExpression, expectedOperandType).type);
-        let rightType = makeTypeVarsConcrete(getTypeOfExpression(node.rightExpression, expectedOperandType).type);
+        let rightType = makeTypeVarsConcrete(getTypeOfExpression(rightExpression, expectedOperandType).type);
 
         // Is this a "|" operator used in a context where it is supposed to be
         // interpreted as a union operator?
