@@ -86,7 +86,7 @@ export class EnumLiteral {
 
 export type LiteralValue = number | boolean | string | EnumLiteral;
 
-export type TypeSourceId = number;
+export type TypeSourceId = string | undefined;
 export const maxTypeRecursionCount = 16;
 
 export type InheritanceChain = (ClassType | UnknownType)[];

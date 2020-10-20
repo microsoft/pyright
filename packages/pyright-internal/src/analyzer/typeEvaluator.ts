@@ -5171,7 +5171,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             '',
                             '',
                             ClassTypeFlags.None,
-                            errorNode.id,
+                            getTypeSourceId(errorNode),
                             type.classType,
                             type.classType
                         );
@@ -6731,7 +6731,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             ClassTypeFlags.EnumClass,
-            errorNode.id,
+            getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
             enumClass.details.effectiveMetaclass
         );
@@ -6825,7 +6825,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     getClassFullName(errorNode, fileInfo.moduleName, className),
                     fileInfo.moduleName,
                     classFlags,
-                    errorNode.id,
+                    getTypeSourceId(errorNode),
                     /* declaredMetaclass */ undefined,
                     baseClass.details.effectiveMetaclass
                 );
@@ -6894,7 +6894,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             ClassTypeFlags.None,
-            errorNode.id,
+            getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
             arg1Type.classType.details.effectiveMetaclass
         );
@@ -6945,7 +6945,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             ClassTypeFlags.TypedDictClass,
-            errorNode.id,
+            getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
             typedDictClass.details.effectiveMetaclass
         );
@@ -7114,7 +7114,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
             ClassTypeFlags.None,
-            errorNode.id,
+            getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
             isClass(namedTupleType) ? namedTupleType.details.effectiveMetaclass : UnknownType.create()
         );
@@ -9163,7 +9163,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getClassFullName(node, fileInfo.moduleName, assignedName),
             fileInfo.moduleName,
             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
-            node.id,
+            /* typeSourceId */ undefined,
             /* declaredMetaclass */ undefined,
             /* effectiveMetaclass */ undefined
         );
@@ -9489,7 +9489,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getClassFullName(node, fileInfo.moduleName, node.name.value),
             fileInfo.moduleName,
             classFlags,
-            node.id,
+            /* typeSourceId */ undefined,
             /* declaredMetaclass */ undefined,
             /* effectiveMetaclass */ undefined,
             ParseTreeUtils.getDocString(node.suite.statements)
@@ -10515,7 +10515,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         decoratorNode,
                         decoratorType.details.name,
                         inputFunctionType,
-                        decoratorNode.id
+                        getTypeSourceId(decoratorNode)
                     );
                 } else {
                     return UnknownType.create();
@@ -17024,6 +17024,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return undefined;
+    }
+
+    // Create an ID that is based on the file and the location
+    // within the file. This allows us to disambiguate between
+    // different types that don't have unique names (those that
+    // are not created with class declarations).
+    function getTypeSourceId(node: ParseNode): TypeSourceId {
+        const fileInfo = getFileInfo(node);
+
+        return `${fileInfo.moduleName}-${node.start.toString()}`;
     }
 
     return {
