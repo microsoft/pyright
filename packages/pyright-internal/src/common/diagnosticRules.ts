@@ -49,7 +49,6 @@ export enum DiagnosticRule {
     reportUnknownVariableType = 'reportUnknownVariableType',
     reportUnknownMemberType = 'reportUnknownMemberType',
     reportMissingTypeArgument = 'reportMissingTypeArgument',
-    reportInvalidTypeVarUse = 'reportInvalidTypeVarUse',
     reportCallInDefaultInitializer = 'reportCallInDefaultInitializer',
     reportUnnecessaryIsInstance = 'reportUnnecessaryIsInstance',
     reportUnnecessaryCast = 'reportUnnecessaryCast',
