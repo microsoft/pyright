@@ -15690,6 +15690,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         flags: CanAssignFlags,
         recursionCount: number
     ) {
+        // Handle the special case where the dest type is a synthesized
+        // "self" for a protocol class.
+        if (
+            isTypeVar(destType) &&
+            destType.details.isSynthesized &&
+            destType.details.boundType &&
+            isObject(destType.details.boundType) &&
+            ClassType.isProtocolClass(destType.details.boundType.classType)
+        ) {
+            return true;
+        }
+
         // Call canAssignType once to perform any typeVarMap population.
         canAssignType(
             srcType,
