@@ -10682,31 +10682,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         // Verify parameters for fset.
-        if (errorNode.parameters.length >= 2) {
-            const typeAnnotation = getTypeAnnotationForParameter(errorNode, 1);
-            if (typeAnnotation) {
-                // Verify consistency of the type.
-                const fgetType = getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);
-                if (fgetType && !isAnyOrUnknown(fgetType)) {
-                    const fsetType = getTypeOfAnnotation(typeAnnotation);
+        // We'll skip this test if the diagnostic rule is disabled because it
+        // can be somewhat expensive, especially in code that is not annotated.
+        const fileInfo = getFileInfo(errorNode);
+        if (fileInfo.diagnosticRuleSet.reportPropertyTypeMismatch !== 'none') {
+            if (errorNode.parameters.length >= 2) {
+                const typeAnnotation = getTypeAnnotationForParameter(errorNode, 1);
+                if (typeAnnotation) {
+                    // Verify consistency of the type.
+                    const fgetType = getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);
+                    if (fgetType && !isAnyOrUnknown(fgetType)) {
+                        const fsetType = getTypeOfAnnotation(typeAnnotation);
 
-                    // The setter type should be assignable to the getter type.
-                    const diag = new DiagnosticAddendum();
-                    if (
-                        !canAssignType(
-                            fgetType,
-                            fsetType,
-                            diag,
-                            /* typeVarMap */ undefined,
-                            CanAssignFlags.DoNotSpecializeTypeVars
-                        )
-                    ) {
-                        addDiagnostic(
-                            getFileInfo(errorNode).diagnosticRuleSet.reportPropertyTypeMismatch,
-                            DiagnosticRule.reportPropertyTypeMismatch,
-                            Localizer.Diagnostic.setterGetterTypeMismatch() + diag.getString(),
-                            typeAnnotation
-                        );
+                        // The setter type should be assignable to the getter type.
+                        const diag = new DiagnosticAddendum();
+                        if (
+                            !canAssignType(
+                                fgetType,
+                                fsetType,
+                                diag,
+                                /* typeVarMap */ undefined,
+                                CanAssignFlags.DoNotSpecializeTypeVars
+                            )
+                        ) {
+                            addDiagnostic(
+                                fileInfo.diagnosticRuleSet.reportPropertyTypeMismatch,
+                                DiagnosticRule.reportPropertyTypeMismatch,
+                                Localizer.Diagnostic.setterGetterTypeMismatch() + diag.getString(),
+                                typeAnnotation
+                            );
+                        }
                     }
                 }
             }
