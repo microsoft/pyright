@@ -10953,9 +10953,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function inferFunctionReturnType(node: FunctionNode, isAbstract: boolean): Type | undefined {
-        // This shouldn't be called if there is a declared return type.
         const returnAnnotation = node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
-        assert(!returnAnnotation);
+
+        // This shouldn't be called if there is a declared return type, but it
+        // can happen if there are unexpected cycles between decorators and
+        // classes that they decorate. We'll just return an undefined type 
+        // in this case.
+        if (returnAnnotation) {
+            return undefined;
+        }
 
         // Is this type already cached?
         let inferredReturnType = readTypeCache(node.suite);
