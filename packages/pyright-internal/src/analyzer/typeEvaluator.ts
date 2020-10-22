@@ -10957,7 +10957,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // This shouldn't be called if there is a declared return type, but it
         // can happen if there are unexpected cycles between decorators and
-        // classes that they decorate. We'll just return an undefined type 
+        // classes that they decorate. We'll just return an undefined type
         // in this case.
         if (returnAnnotation) {
             return undefined;
