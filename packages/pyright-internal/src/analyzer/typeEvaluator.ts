@@ -12768,17 +12768,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (testExpression.arguments.length >= 1) {
-                const functionType = getTypeOfExpression(testExpression.leftExpression).type;
+                const arg0Expr = testExpression.arguments[0].valueExpression;
+                if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
+                    const functionType = getTypeOfExpression(testExpression.leftExpression).type;
 
-                // Does this look like it's a custom type guard function?
-                if (
-                    isFunction(functionType) &&
-                    functionType.details.declaredReturnType &&
-                    isObject(functionType.details.declaredReturnType) &&
-                    ClassType.isBuiltIn(functionType.details.declaredReturnType.classType, 'TypeGuard')
-                ) {
-                    const arg0Expr = testExpression.arguments[0].valueExpression;
-                    if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
+                    // Does this look like it's a custom type guard function?
+                    if (
+                        isFunction(functionType) &&
+                        functionType.details.declaredReturnType &&
+                        isObject(functionType.details.declaredReturnType) &&
+                        ClassType.isBuiltIn(functionType.details.declaredReturnType.classType, 'TypeGuard')
+                    ) {
                         // Evaluate the type guard call expression.
                         const functionReturnType = getTypeOfExpression(testExpression).type;
                         if (
