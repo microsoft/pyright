@@ -7670,14 +7670,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     // Handle the general case.
                     const magicMethodName = bitwiseOperatorMap[operator][0];
-                    const result = getTypeFromMagicMethodReturn(
+                    let resultType = getTypeFromMagicMethodReturn(
                         leftSubtype,
                         [rightSubtype],
                         magicMethodName,
                         errorNode,
                         expectedType
                     );
-                    if (!result) {
+                    if (resultType) {
+                        return resultType;
+                    }
+
+                    const altMagicMethodName = bitwiseOperatorMap[operator][1];
+                    resultType = getTypeFromMagicMethodReturn(
+                        rightSubtype,
+                        [leftSubtype],
+                        altMagicMethodName,
+                        errorNode,
+                        expectedType
+                    );
+                    if (!resultType) {
                         diag.addMessage(
                             Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
                                 operator: ParseTreeUtils.printOperator(operator),
@@ -7686,8 +7698,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             })
                         );
                     }
-
-                    return result;
+                    return resultType;
                 });
             });
         } else if (comparisonOperatorMap[operator]) {
