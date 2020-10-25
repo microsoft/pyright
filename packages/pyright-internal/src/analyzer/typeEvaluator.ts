@@ -7499,7 +7499,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Is this a "|" operator used in a context where it is supposed to be
         // interpreted as a union operator?
-        if (node.operator === OperatorType.BitwiseOr) {
+        if (
+            node.operator === OperatorType.BitwiseOr &&
+            !customMetaclassSupportsMethod(leftType, '__or__') &&
+            !customMetaclassSupportsMethod(rightType, '__ror__')
+        ) {
             let adjustedRightType = rightType;
             if (!isNone(leftType) && isNone(rightType) && TypeBase.isInstance(rightType)) {
                 // Handle the special case where "None" is being added to the union
@@ -7552,6 +7556,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             type: validateBinaryOperation(node.operator, leftType, rightType, node, expectedType),
             node,
         };
+    }
+
+    function customMetaclassSupportsMethod(type: Type, methodName: string): boolean {
+        if (!isClass(type)) {
+            return false;
+        }
+
+        const metaclass = type.details.effectiveMetaclass;
+        if (!metaclass || !isClass(metaclass)) {
+            return false;
+        }
+
+        if (ClassType.isBuiltIn(metaclass, 'type')) {
+            return false;
+        }
+
+        const memberInfo = lookUpClassMember(metaclass, methodName);
+        return !!memberInfo;
     }
 
     function getTypeFromAugmentedAssignment(node: AugmentedAssignmentNode, expectedType: Type | undefined): Type {
