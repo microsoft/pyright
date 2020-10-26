@@ -634,7 +634,7 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
                             return curNode;
                         }
                     }
-                } else if (prevNode === curNode.expression) {
+                } else if (!prevNode || prevNode === curNode.expression) {
                     if (getScope(curNode) !== undefined) {
                         return curNode;
                     }
