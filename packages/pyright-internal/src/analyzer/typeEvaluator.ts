@@ -11569,6 +11569,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (node.parent.nodeType === ParseNodeType.Class && node.parent.name === node) {
                 getTypeOfClass(node.parent);
                 return;
+            } else if (
+                node.parent.nodeType === ParseNodeType.Global ||
+                node.parent.nodeType === ParseNodeType.Nonlocal
+            ) {
+                // For global and nonlocal statements, allow forward references so
+                // we don't use code flow during symbol lookups.
+                getTypeOfExpression(node, /* expectedType */ undefined, EvaluatorFlags.AllowForwardReferences);
+                return;
             }
         }
 
