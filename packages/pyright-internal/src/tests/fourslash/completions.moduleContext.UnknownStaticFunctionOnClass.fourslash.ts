@@ -26,12 +26,12 @@ await helper.verifyCompletion('included', 'markdown', {
     // tests: _getLastKnownModule():  if (curNode.nodeType === ParseNodeType.MemberAccess && curNode.memberName)
     marker1: {
         completions: [],
-        moduleContext: { lastKnownModule: 'test', lastKnownMemberName: 'foo', unknownMemberName: 'foo' },
+        memberAccessInfo: { lastKnownModule: 'test', lastKnownMemberName: 'foo', unknownMemberName: 'foo' },
     },
     // tests: _getLastKnownModule():  else if (curNode.nodeType === ParseNodeType.Name && isClass(curType))
     marker2: {
         completions: [],
-        moduleContext: {
+        memberAccessInfo: {
             lastKnownModule: 'test',
             lastKnownMemberName: 'Model',
             unknownMemberName: 'unknownMember',
@@ -40,7 +40,7 @@ await helper.verifyCompletion('included', 'markdown', {
     // tests: _getLastKnownModule(): else if (curNode.nodeType === ParseNodeType.Name && isObject(curType))
     marker3: {
         completions: [],
-        moduleContext: {
+        memberAccessInfo: {
             lastKnownModule: 'test',
             lastKnownMemberName: 'Model',
             unknownMemberName: 'unknownMember',
@@ -48,10 +48,10 @@ await helper.verifyCompletion('included', 'markdown', {
     },
     marker4: {
         completions: [],
-        moduleContext: { lastKnownModule: 'test', lastKnownMemberName: 'Model', unknownMemberName: 'unknownValue' },
+        memberAccessInfo: { lastKnownModule: 'test', lastKnownMemberName: 'Model', unknownMemberName: 'unknownValue' },
     },
     marker5: {
         completions: [],
-        moduleContext: {},
+        memberAccessInfo: {},
     },
 });
