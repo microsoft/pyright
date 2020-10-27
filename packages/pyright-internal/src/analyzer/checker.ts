@@ -1478,6 +1478,12 @@ export class Checker extends ParseTreeWalker {
                     case TypeCategory.Unbound:
                         break;
 
+                    case TypeCategory.Object:
+                        isSupported =
+                            ClassType.isBuiltIn(subtype.classType, 'type') ||
+                            ClassType.isBuiltIn(subtype.classType, 'Type');
+                        break;
+
                     case TypeCategory.Class:
                         // If it's a class, make sure that it has not been given explicit
                         // type arguments. This will result in a TypeError exception.
@@ -1538,7 +1544,14 @@ export class Checker extends ParseTreeWalker {
         // Several built-in classes don't follow the normal class hierarchy
         // rules, so we'll avoid emitting false-positive diagnostics if these
         // are used.
-        const nonstandardClassTypes = ['FunctionType', 'LambdaType', 'BuiltinFunctionType', 'BuiltinMethodType'];
+        const nonstandardClassTypes = [
+            'FunctionType',
+            'LambdaType',
+            'BuiltinFunctionType',
+            'BuiltinMethodType',
+            'type',
+            'Type',
+        ];
 
         const classTypeList: ClassType[] = [];
         if (isClass(arg1Type)) {

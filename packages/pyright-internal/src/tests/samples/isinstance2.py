@@ -10,14 +10,19 @@ from typing import Union
 # The symbol Document should have an unknown type.
 from dummy import Document
 
+
 class DbModel(Document):
     pass
+
 
 def foo() -> Union[int, DbModel]:
     return DbModel()
 
-# This should not generate an error even though DbModel is 
+
+# This should not generate an error even though DbModel is
 # derived from an unknown base class.
 isinstance(foo(), int)
 
 
+def bar(obj: object, typ: type):
+    return isinstance(obj, typ)
