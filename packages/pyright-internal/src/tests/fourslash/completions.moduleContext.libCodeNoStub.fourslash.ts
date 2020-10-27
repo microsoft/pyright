@@ -21,7 +21,7 @@
 await helper.verifyCompletion('included', 'markdown', {
     marker1: {
         completions: [],
-        moduleContext: {
+        memberAccessInfo: {
             lastKnownModule: 'testnumpy',
             lastKnownMemberName: 'random',
             unknownMemberName: 'randint',

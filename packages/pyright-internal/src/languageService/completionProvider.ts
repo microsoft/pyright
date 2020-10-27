@@ -181,8 +181,8 @@ export interface CompletionItemData {
     symbolLabel?: string;
 }
 
-// ModuleContext attempts to gather info for unknown types
-export interface ModuleContext {
+// MemberAccessInfo attempts to gather info for unknown types
+export interface MemberAccessInfo {
     lastKnownModule?: string;
     lastKnownMemberName?: string;
     unknownMemberName?: string;
@@ -190,7 +190,7 @@ export interface ModuleContext {
 
 export interface CompletionResults {
     completionList: CompletionList | undefined;
-    moduleContext?: ModuleContext;
+    memberAccessInfo?: MemberAccessInfo;
 }
 
 interface RecentCompletionInfo {
@@ -563,7 +563,7 @@ export class CompletionProvider {
         let leftType = this._evaluator.getType(leftExprNode);
         const symbolTable = new Map<string, Symbol>();
         const completionList = CompletionList.create();
-        let lastKnownModule: ModuleContext | undefined;
+        let memberAccessInfo: MemberAccessInfo = {};
 
         if (leftType) {
             if (isTypeVar(leftType)) {
@@ -605,16 +605,16 @@ export class CompletionProvider {
                 : undefined;
             this._addSymbolsForSymbolTable(symbolTable, (_) => true, priorWord, objectThrough, completionList);
 
-            // If we dont know this type, look for a module we should stub
+            // If we don't know this type, look for a module we should stub
             if (!leftType || isUnknown(leftType) || isUnbound(leftType)) {
-                lastKnownModule = this._getLastKnownModule(leftExprNode, leftType);
+                memberAccessInfo = this._getLastKnownModule(leftExprNode, leftType);
             }
         }
 
-        return { completionList, moduleContext: lastKnownModule };
+        return { completionList, memberAccessInfo };
     }
 
-    private _getLastKnownModule(leftExprNode: ExpressionNode, leftType: Type | undefined): ModuleContext | undefined {
+    private _getLastKnownModule(leftExprNode: ExpressionNode, leftType: Type | undefined): MemberAccessInfo {
         let curNode: ExpressionNode | undefined = leftExprNode;
         let curType: Type | undefined = leftType;
         let unknownMemberName: string | undefined =
@@ -645,25 +645,25 @@ export class CompletionProvider {
             }
         }
 
-        const context: ModuleContext = {};
+        const memberAccessInfo: MemberAccessInfo = {};
         if (curType && !isUnknown(curType) && !isUnbound(curType) && curNode) {
             const moduleNamesForType = getDeclaringModulesForType(curType);
 
             // For union types we only care about non 'typing' modules.
-            context.lastKnownModule = moduleNamesForType.find((n) => n !== 'typing');
+            memberAccessInfo.lastKnownModule = moduleNamesForType.find((n) => n !== 'typing');
 
             if (curNode.nodeType === ParseNodeType.MemberAccess) {
-                context.lastKnownMemberName = curNode.memberName.value;
+                memberAccessInfo.lastKnownMemberName = curNode.memberName.value;
             } else if (curNode.nodeType === ParseNodeType.Name && isClass(curType)) {
-                context.lastKnownMemberName = curType.details.name;
+                memberAccessInfo.lastKnownMemberName = curType.details.name;
             } else if (curNode.nodeType === ParseNodeType.Name && isObject(curType)) {
-                context.lastKnownMemberName = curType.classType.details.name;
+                memberAccessInfo.lastKnownMemberName = curType.classType.details.name;
             }
 
-            context.unknownMemberName = unknownMemberName;
+            memberAccessInfo.unknownMemberName = unknownMemberName;
         }
 
-        return context;
+        return memberAccessInfo;
     }
 
     private _getStatementCompletions(

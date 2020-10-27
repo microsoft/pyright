@@ -12,6 +12,6 @@
 await helper.verifyCompletion('included', 'markdown', {
     marker1: {
         completions: [],
-        moduleContext: { lastKnownModule: 'test', lastKnownMemberName: 'Model', unknownMemberName: 'unknownName' },
+        memberAccessInfo: { lastKnownModule: 'test', lastKnownMemberName: 'Model', unknownMemberName: 'unknownName' },
     },
 });

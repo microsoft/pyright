@@ -811,7 +811,7 @@ export class TestState {
         map: {
             [marker: string]: {
                 completions: _.FourSlashCompletionItem[];
-                moduleContext?: {
+                memberAccessInfo?: {
                     lastKnownModule?: string;
                     lastKnownMemberName?: string;
                     unknownMemberName?: string;
@@ -917,21 +917,21 @@ export class TestState {
                 assert.fail('Failed to get completions');
             }
 
-            if (map[markerName].moduleContext !== undefined && result?.moduleContext !== undefined) {
-                const expectedModule = map[markerName].moduleContext?.lastKnownModule;
-                const expectedType = map[markerName].moduleContext?.lastKnownMemberName;
-                const expectedName = map[markerName].moduleContext?.unknownMemberName;
+            if (map[markerName].memberAccessInfo !== undefined && result?.memberAccessInfo !== undefined) {
+                const expectedModule = map[markerName].memberAccessInfo?.lastKnownModule;
+                const expectedType = map[markerName].memberAccessInfo?.lastKnownMemberName;
+                const expectedName = map[markerName].memberAccessInfo?.unknownMemberName;
                 if (
-                    result?.moduleContext?.lastKnownModule !== expectedModule ||
-                    result?.moduleContext?.lastKnownMemberName !== expectedType ||
-                    result?.moduleContext?.unknownMemberName !== expectedName
+                    result?.memberAccessInfo?.lastKnownModule !== expectedModule ||
+                    result?.memberAccessInfo?.lastKnownMemberName !== expectedType ||
+                    result?.memberAccessInfo?.unknownMemberName !== expectedName
                 ) {
                     assert.fail(
-                        `Expected completion results moduleContext with \n    lastKnownModule: "${expectedModule}"\n    lastKnownMemberName: "${expectedType}"\n    unknownMemberName: "${expectedName}"\n  Actual moduleContext:\n    lastKnownModule: "${
-                            result.moduleContext?.lastKnownModule ?? ''
+                        `Expected completion results memberAccessInfo with \n    lastKnownModule: "${expectedModule}"\n    lastKnownMemberName: "${expectedType}"\n    unknownMemberName: "${expectedName}"\n  Actual memberAccessInfo:\n    lastKnownModule: "${
+                            result.memberAccessInfo?.lastKnownModule ?? ''
                         }"\n    lastKnownMemberName: "${
-                            result.moduleContext?.lastKnownMemberName ?? ''
-                        }\n    unknownMemberName: "${result.moduleContext?.unknownMemberName ?? ''}" `
+                            result.memberAccessInfo?.lastKnownMemberName ?? ''
+                        }\n    unknownMemberName: "${result.memberAccessInfo?.unknownMemberName ?? ''}" `
                     );
                 }
             }

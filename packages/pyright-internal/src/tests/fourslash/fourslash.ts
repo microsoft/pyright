@@ -184,7 +184,7 @@ declare namespace _ {
             map: {
                 [marker: string]: {
                     completions: FourSlashCompletionItem[];
-                    moduleContext?: {
+                    memberAccessInfo?: {
                         lastKnownModule?: string;
                         lastKnownMemberName?: string;
                         unknownMemberName?: string;

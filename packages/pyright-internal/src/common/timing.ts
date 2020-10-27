@@ -29,9 +29,12 @@ export class Duration {
 
 export class TimingStat {
     totalTime = 0;
+    callCount = 0;
     isTiming = false;
 
     timeOperation(callback: () => void) {
+        this.callCount++;
+
         // Handle reentrancy.
         if (this.isTiming) {
             callback();
