@@ -26,3 +26,6 @@ def foo3(a: A) -> B:
     elif not isinstance(a, (int, str, bytes)):
         a()
 
+
+def foo3(A: "int | str"):
+    return 1

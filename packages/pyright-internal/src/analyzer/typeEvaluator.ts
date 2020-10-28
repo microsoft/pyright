@@ -7516,7 +7516,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isUnionableType([leftType, adjustedRightType])) {
                 const fileInfo = getFileInfo(node);
                 const unionNotationSupported =
-                    fileInfo.isStubFile || fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_10;
+                    fileInfo.isStubFile ||
+                    (flags & EvaluatorFlags.AllowForwardReferences) !== 0 ||
+                    fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_10;
                 if (!unionNotationSupported) {
                     addError(Localizer.Diagnostic.unionSyntaxIllegal(), node, node.operatorToken);
                 }
