@@ -7970,13 +7970,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeFromSet(node: SetNode, expectedType: Type | undefined): TypeResult {
         const entryTypes: Type[] = [];
+
         node.entries.forEach((entryNode, index) => {
+            let elementType: Type;
+            if (entryNode.nodeType === ParseNodeType.ListComprehension) {
+                elementType = getElementTypeFromListComprehension(entryNode);
+            } else {
+                elementType = getTypeOfExpression(entryNode).type;
+            }
+
             if (index < maxEntriesToUseForInference || expectedType !== undefined) {
-                if (entryNode.nodeType === ParseNodeType.ListComprehension) {
-                    entryTypes.push(getElementTypeFromListComprehension(entryNode));
-                } else {
-                    entryTypes.push(getTypeOfExpression(entryNode).type);
-                }
+                entryTypes.push(elementType);
             }
         });
 
@@ -8189,10 +8193,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ) {
         // Infer the key and value types if possible.
         node.entries.forEach((entryNode, index) => {
-            if (limitEntryCount && index >= maxEntriesToUseForInference) {
-                return;
-            }
-
             let addUnknown = true;
 
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
@@ -8222,8 +8222,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     valueType = getTypeOfExpression(entryNode.valueExpression, expectedValueType).type;
                 }
 
-                keyTypes.push(keyType);
-                valueTypes.push(valueType);
+                if (!limitEntryCount || index < maxEntriesToUseForInference) {
+                    keyTypes.push(keyType);
+                    valueTypes.push(valueType);
+                }
                 addUnknown = false;
             } else if (entryNode.nodeType === ParseNodeType.DictionaryExpandEntry) {
                 const unexpandedType = getTypeOfExpression(entryNode.expandExpression).type;
@@ -8244,8 +8246,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const specializedMapping = specializeType(mappingType, mappingTypeVarMap) as ClassType;
                             const typeArgs = specializedMapping.typeArguments;
                             if (typeArgs && typeArgs.length >= 2) {
-                                keyTypes.push(typeArgs[0]);
-                                valueTypes.push(typeArgs[1]);
+                                if (!limitEntryCount || index < maxEntriesToUseForInference) {
+                                    keyTypes.push(typeArgs[0]);
+                                    valueTypes.push(typeArgs[1]);
+                                }
                                 addUnknown = false;
                             }
                         } else {
@@ -8268,8 +8272,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (isTupleClass(classType)) {
                         const typeArgs = classType.typeArguments;
                         if (typeArgs && typeArgs.length === 2) {
-                            keyTypes.push(typeArgs[0]);
-                            valueTypes.push(typeArgs[1]);
+                            if (!limitEntryCount || index < maxEntriesToUseForInference) {
+                                keyTypes.push(typeArgs[0]);
+                                valueTypes.push(typeArgs[1]);
+                            }
                             addUnknown = false;
                         }
                     }
@@ -8277,8 +8283,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (addUnknown) {
-                keyTypes.push(UnknownType.create());
-                valueTypes.push(UnknownType.create());
+                if (!limitEntryCount || index < maxEntriesToUseForInference) {
+                    keyTypes.push(UnknownType.create());
+                    valueTypes.push(UnknownType.create());
+                }
             }
         });
     }
@@ -8342,12 +8350,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const entryTypes: Type[] = [];
         node.entries.forEach((entry, index) => {
-            if (index < maxEntriesToUseForInference || expectedType !== undefined) {
-                if (entry.nodeType === ParseNodeType.ListComprehension) {
-                    entryTypes.push(getElementTypeFromListComprehension(entry, expectedEntryType));
-                } else {
-                    entryTypes.push(getTypeOfExpression(entry, expectedEntryType).type);
-                }
+            if (entry.nodeType === ParseNodeType.ListComprehension) {
+                entryTypes.push(getElementTypeFromListComprehension(entry, expectedEntryType));
+            } else {
+                entryTypes.push(getTypeOfExpression(entry, expectedEntryType).type);
             }
         });
 
@@ -8371,12 +8377,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromListInferred(node: ListNode, forceStrict: boolean): TypeResult {
         let entryTypes: Type[] = [];
         node.entries.forEach((entry, index) => {
+            let entryType: Type;
+
+            if (entry.nodeType === ParseNodeType.ListComprehension) {
+                entryType = getElementTypeFromListComprehension(entry);
+            } else {
+                entryType = getTypeOfExpression(entry).type;
+            }
+
             if (index < maxEntriesToUseForInference) {
-                if (entry.nodeType === ParseNodeType.ListComprehension) {
-                    entryTypes.push(getElementTypeFromListComprehension(entry));
-                } else {
-                    entryTypes.push(getTypeOfExpression(entry).type);
-                }
+                entryTypes.push(entryType);
             }
         });
 
