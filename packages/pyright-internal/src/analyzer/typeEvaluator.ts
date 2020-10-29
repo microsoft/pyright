@@ -11537,8 +11537,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Parameters are contextual only for lambdas.
             if (
                 node.nodeType === ParseNodeType.Parameter &&
-                node.parent &&
-                node.parent.nodeType === ParseNodeType.Lambda
+                node.parent?.nodeType === ParseNodeType.Lambda
             ) {
                 return true;
             }
@@ -11546,9 +11545,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Arguments are contextual only for call nodes.
             if (
                 node.nodeType === ParseNodeType.Argument &&
-                node.parent &&
-                node.parent.nodeType === ParseNodeType.Call
+                node.parent?.nodeType === ParseNodeType.Call
             ) {
+                return true;
+            }
+
+            // All nodes within a type annotation need to be evaluated
+            // contextually so we pass the "type expected" flag to
+            // the evaluator.
+            if (node.parent?.nodeType === ParseNodeType.TypeAnnotation) {
                 return true;
             }
 
