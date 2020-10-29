@@ -11535,18 +11535,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         function isContextual(node: ParseNode) {
             // Parameters are contextual only for lambdas.
-            if (
-                node.nodeType === ParseNodeType.Parameter &&
-                node.parent?.nodeType === ParseNodeType.Lambda
-            ) {
+            if (node.nodeType === ParseNodeType.Parameter && node.parent?.nodeType === ParseNodeType.Lambda) {
                 return true;
             }
 
             // Arguments are contextual only for call nodes.
-            if (
-                node.nodeType === ParseNodeType.Argument &&
-                node.parent?.nodeType === ParseNodeType.Call
-            ) {
+            if (node.nodeType === ParseNodeType.Argument && node.parent?.nodeType === ParseNodeType.Call) {
                 return true;
             }
 
