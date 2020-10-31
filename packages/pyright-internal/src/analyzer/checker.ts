@@ -292,7 +292,8 @@ export class Checker extends ParseTreeWalker {
                 if (annotationNode) {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;
                     const diag = new DiagnosticAddendum();
-                    if (this._containsCovariantTypeVar(paramType, node.id, diag)) {
+                    const scopeId = this._evaluator.getScopeIdForNode(node);
+                    if (this._containsCovariantTypeVar(paramType, scopeId, diag)) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -1892,7 +1893,8 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 const diag = new DiagnosticAddendum();
-                if (this._containsContravariantTypeVar(declaredReturnType, node.id, diag)) {
+                const scopeId = this._evaluator.getScopeIdForNode(node);
+                if (this._containsContravariantTypeVar(declaredReturnType, scopeId, diag)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -1971,12 +1973,12 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    private _containsContravariantTypeVar(type: Type, nodeId: number, diag: DiagnosticAddendum): boolean {
+    private _containsContravariantTypeVar(type: Type, scopeId: string, diag: DiagnosticAddendum): boolean {
         let isValid = true;
 
         doForSubtypes(type, (subtype) => {
             if (isTypeVar(subtype) && subtype.details.isContravariant) {
-                if (subtype.scopeId !== nodeId) {
+                if (subtype.scopeId !== scopeId) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeVarIsContravariant().format({ name: subtype.details.name })
                     );
@@ -1989,12 +1991,12 @@ export class Checker extends ParseTreeWalker {
         return !isValid;
     }
 
-    private _containsCovariantTypeVar(type: Type, nodeId: number, diag: DiagnosticAddendum): boolean {
+    private _containsCovariantTypeVar(type: Type, scopeId: string, diag: DiagnosticAddendum): boolean {
         let isValid = true;
 
         doForSubtypes(type, (subtype) => {
             if (isTypeVar(subtype) && subtype.details.isCovariant) {
-                if (subtype.scopeId !== nodeId) {
+                if (subtype.scopeId !== scopeId) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeVarIsCovariant().format({ name: subtype.details.name })
                     );

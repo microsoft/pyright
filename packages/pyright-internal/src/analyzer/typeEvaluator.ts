@@ -503,6 +503,7 @@ export interface TypeEvaluator {
     getTypedDictMembersForClass: (classType: ClassType) => Map<string, TypedDictEntry>;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
+    getScopeIdForNode: (node: ParseNode) => string;
 
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
@@ -3370,7 +3371,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (type.scopeId === undefined) {
                     const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
                     if (enclosingScope) {
-                        type = TypeVarType.cloneForScopeId(type, enclosingScope.id);
+                        type = TypeVarType.cloneForScopeId(type, getScopeIdForNode(enclosingScope));
                     } else {
                         fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
                     }
@@ -3388,6 +3389,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return { type, node, isResolutionCyclical };
+    }
+
+    // Creates an ID that identifies this parse node in a way that will
+    // not change each time the file is parsed (unless, of course, the
+    // file contents change).
+    function getScopeIdForNode(node: ParseNode): string {
+        const fileInfo = getFileInfo(node);
+        return `${fileInfo.filePath}.${node.start.toString()}`;
     }
 
     // Walks up the parse tree to find a function or class that provides
@@ -9846,7 +9855,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     /* isParamSpec */ false,
                                     /* isSynthesized */ true
                                 );
-                                return TypeVarType.cloneForScopeId(typeVar, node.id);
+                                return TypeVarType.cloneForScopeId(typeVar, getScopeIdForNode(node));
                             });
                         }
                     }
@@ -10366,8 +10375,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* isParamSpec */ false,
                         /* isSynthesized */ true
                     );
-                    clsType.scopeName = TypeVarType.makeScopeName(clsType.details.name, containingClassNode.id);
-                    clsType.scopeId = containingClassNode.id;
+                    const scopeId = getScopeIdForNode(containingClassNode);
+                    clsType.scopeName = TypeVarType.makeScopeName(clsType.details.name, scopeId);
+                    clsType.scopeId = scopeId;
 
                     clsType.details.boundType = selfSpecializeClassType(
                         containingClassType,
@@ -10380,8 +10390,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* isParamSpec */ false,
                         /* isSynthesized */ true
                     );
-                    selfType.scopeName = TypeVarType.makeScopeName(selfType.details.name, containingClassNode.id);
-                    selfType.scopeId = containingClassNode.id;
+                    const scopeId = getScopeIdForNode(containingClassNode);
+                    selfType.scopeName = TypeVarType.makeScopeName(selfType.details.name, scopeId);
+                    selfType.scopeId = scopeId;
 
                     selfType.details.boundType = ObjectType.create(
                         selfSpecializeClassType(containingClassType, /* setSkipAbstractClassTest */ true)
@@ -17130,6 +17141,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getTypedDictMembersForClass,
         getGetterTypeFromProperty,
         markNamesAccessed,
+        getScopeIdForNode,
         getEffectiveTypeOfSymbol,
         getFunctionDeclaredReturnType,
         getFunctionInferredReturnType,

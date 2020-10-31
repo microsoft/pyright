@@ -1275,9 +1275,8 @@ export interface TypeVarType extends TypeBase {
     details: TypeVarDetails;
 
     // An ID that uniquely identifies the scope in which this TypeVar is
-    // defined. It corresponds to the parse node ID of the class or
-    // function.
-    scopeId?: number;
+    // defined.
+    scopeId?: string;
 
     // String formatted as <name>.<scopeId>.
     scopeName?: string;
@@ -1308,15 +1307,15 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneForScopeId(type: TypeVarType, scopeId: number) {
+    export function cloneForScopeId(type: TypeVarType, scopeId: string) {
         const newInstance: TypeVarType = { ...type };
         newInstance.scopeName = makeScopeName(type.details.name, scopeId);
         newInstance.scopeId = scopeId;
         return newInstance;
     }
 
-    export function makeScopeName(name: string, scopeId: number) {
-        return `${name}.${scopeId.toString()}`;
+    export function makeScopeName(name: string, scopeId: string) {
+        return `${name}.${scopeId}`;
     }
 
     function create(name: string, isParamSpec: boolean, isSynthesized: boolean, typeFlags: TypeFlags) {
