@@ -19,3 +19,7 @@ def foo1(base_cls: Type[Base]):
 def foo2():
     # This should generate an error.
     Base()
+
+
+def foo3(base_cls: type[Base]):
+    base_cls()

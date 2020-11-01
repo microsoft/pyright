@@ -3725,7 +3725,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getClassFromPotentialTypeObject(potentialTypeObject: Type): Type {
         if (isObject(potentialTypeObject)) {
             const objectClass = potentialTypeObject.classType;
-            if (ClassType.isBuiltIn(objectClass, 'Type')) {
+            if (ClassType.isBuiltIn(objectClass, 'Type') || ClassType.isBuiltIn(objectClass, 'type')) {
                 const typeArgs = objectClass.typeArguments;
 
                 if (typeArgs && typeArgs.length > 0) {
@@ -5042,7 +5042,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             subtype = makeTypeVarsConcrete(subtype);
             let isTypeObject = false;
-            if (isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'Type')) {
+            if (
+                isObject(subtype) &&
+                (ClassType.isBuiltIn(subtype.classType, 'Type') || ClassType.isBuiltIn(subtype.classType, 'type'))
+            ) {
                 subtype = getClassFromPotentialTypeObject(subtype);
                 isTypeObject = true;
             }
@@ -13293,10 +13296,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // Handle "tuple" specially, since it needs to act like "Tuple"
-        // in Python 3.9 and newer.
-        if (ClassType.isBuiltIn(classType, 'tuple')) {
-            return createSpecialType(classType, typeArgs, undefined);
+        const fileInfo = getFileInfo(errorNode);
+        if (fileInfo.isStubFile || fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_9) {
+            // Handle "type" specially, since it needs to act like "Type"
+            // in Python 3.9 and newer.
+            if (ClassType.isBuiltIn(classType, 'type')) {
+                return createSpecialType(classType, typeArgs, 1);
+            }
+
+            // Handle "tuple" specially, since it needs to act like "Tuple"
+            // in Python 3.9 and newer.
+            if (ClassType.isBuiltIn(classType, 'tuple')) {
+                return createSpecialType(classType, typeArgs, undefined);
+            }
         }
 
         let typeArgCount = typeArgs ? typeArgs.length : 0;
@@ -15385,7 +15397,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Is the src a specialized "Type" object?
-        if (isObject(srcType) && ClassType.isBuiltIn(srcType.classType, 'Type')) {
+        if (
+            isObject(srcType) &&
+            (ClassType.isBuiltIn(srcType.classType, 'Type') || ClassType.isBuiltIn(srcType.classType, 'type'))
+        ) {
             const srcTypeArgs = srcType.classType.typeArguments;
             if (srcTypeArgs && srcTypeArgs.length >= 1) {
                 if (isAnyOrUnknown(srcTypeArgs[0])) {
@@ -15445,7 +15460,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const destClassType = destType.classType;
 
             // Is the dest a generic "type" object?
-            if (ClassType.isBuiltIn(destClassType, 'type')) {
+            if (ClassType.isBuiltIn(destClassType, 'type') && !destClassType.isTypeArgumentExplicit) {
                 if (
                     isClass(srcType) ||
                     srcType.category === TypeCategory.Function ||
@@ -15456,7 +15471,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             // Is the dest a specialized "Type" object?
-            if (ClassType.isBuiltIn(destClassType, 'Type')) {
+            if (
+                ClassType.isBuiltIn(destClassType, 'Type') ||
+                (ClassType.isBuiltIn(destClassType, 'type') && destClassType.isTypeArgumentExplicit)
+            ) {
                 const destTypeArgs = destClassType.typeArguments;
                 if (destTypeArgs && destTypeArgs.length >= 1) {
                     if (isAnyOrUnknown(destTypeArgs[0])) {
