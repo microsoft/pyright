@@ -32,7 +32,7 @@ If a “py.typed” module is present, a type checker will treat all modules wit
 Each module exposes a set of symbols. Some of these symbols are considered “private” — implementation details that are not part of the library’s interface. Type checkers like pyright use the following rules to determine which symbols are visible outside of the package.
 
 * Symbols whose names begin with an underscore (but are not dunder names) are considered private.
-* Imported symbols are considered private by default. If they use the “import ... as ...”, “from ... import ... as ...” or “from ... import *” forms, they are not private (unless their names begin with an underscore).
+* Imported symbols are considered private by default. If they use the “import A as A” (a redundant module alias), “from A import X as X” (a redundant symbol alias) or “from A import *” forms, they are not private (unless their names begin with an underscore).
 * A module can expose an `__all__` symbol at the module level that provides a list of names that are considered part of the interface. This overrides all other rules above, allowing imported symbols or symbols whose names begin with an underscore to be included in the interface.
 * Local variables within a function (including nested functions) are always considered private.
 
