@@ -12996,42 +12996,48 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return filteredTypes.map((t) => ObjectType.create(t));
         };
 
-        if (isInstanceCheck && isObject(effectiveType)) {
-            const filteredType = filterType(effectiveType.classType);
-            return combineTypes(filteredType);
-        } else if (!isInstanceCheck && isClass(effectiveType)) {
-            const filteredType = filterType(effectiveType);
-            return combineTypes(filteredType);
-        } else if (effectiveType.category === TypeCategory.Union) {
-            let remainingTypes: Type[] = [];
+        const anyOrUnknownSubstitutions: Type[] = [];
+        const anyOrUnknown: Type[] = [];
 
-            effectiveType.subtypes.forEach((t) => {
-                if (isAnyOrUnknown(t)) {
-                    // Any types always remain for both positive and negative
-                    // checks because we can't say anything about them.
-                    remainingTypes.push(t);
-                } else if (isInstanceCheck && isObject(t)) {
-                    remainingTypes = remainingTypes.concat(filterType(t.classType));
-                } else if (!isInstanceCheck && isClass(t)) {
-                    remainingTypes = remainingTypes.concat(filterType(t));
+        const filteredType = doForSubtypes(effectiveType, (subtype) => {
+            if (isInstanceCheck && isObject(subtype)) {
+                return combineTypes(filterType(subtype.classType));
+            } else if (!isInstanceCheck && isClass(subtype)) {
+                return combineTypes(filterType(subtype));
+            } else if (isPositiveTest && isAnyOrUnknown(subtype)) {
+                // If this is a positive test and the effective type is Any or
+                // Unknown, we can assume that the type matches one of the
+                // specified types.
+                if (isInstanceCheck) {
+                    anyOrUnknownSubstitutions.push(
+                        combineTypes(classTypeList.map((classType) => ObjectType.create(classType)))
+                    );
                 } else {
-                    // All other types are never instances of a class.
-                    if (!isPositiveTest) {
-                        remainingTypes.push(t);
-                    }
+                    anyOrUnknownSubstitutions.push(combineTypes(classTypeList));
                 }
-            });
 
-            return combineTypes(remainingTypes);
-        } else if (isInstanceCheck && isPositiveTest && isAnyOrUnknown(effectiveType)) {
-            // If this is a positive test for isinstance and the effective
-            // type is Any or Unknown, we can assume that the type matches
-            // one of the specified types.
-            type = combineTypes(classTypeList.map((classType) => ObjectType.create(classType)));
+                anyOrUnknown.push(subtype);
+                return undefined;
+            }
+
+            return isPositiveTest ? undefined : subtype;
+        });
+
+        // If the result is Any/Unknown and contains no other subtypes and
+        // we have substitutions for Any/Unknown, use those instead. We don't
+        // want to apply this if the filtering produced something other than
+        // Any/Unknown. For example, if the statement is "isinstance(x, list)"
+        // and the type of x is "List[str] | int | Any", the result should be
+        // "List[str]", not "List[str] | List[Unknown]".
+        if (isNever(filteredType) && anyOrUnknownSubstitutions.length > 0) {
+            return combineTypes(anyOrUnknownSubstitutions);
         }
 
-        // Return the original type.
-        return type;
+        if (anyOrUnknown.length > 0) {
+            return combineTypes([filteredType, ...anyOrUnknown]);
+        }
+
+        return filteredType;
     }
 
     // Attempts to narrow a type (make it more constrained) based on an "in" or
