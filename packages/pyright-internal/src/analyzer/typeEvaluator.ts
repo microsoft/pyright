@@ -3593,7 +3593,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         setSymbolAccessed(getFileInfo(node), symbol, node.memberName);
                     }
 
-                    type = getEffectiveTypeOfSymbol(symbol);
+                    type = getEffectiveTypeOfSymbolForUsage(symbol, /* usageNode */ undefined, /* useLastDecl */ true)
+                        .type;
 
                     // If the type resolved to "unbound", treat it as "unknown" in
                     // the case of a module reference because if it's truly unbound,
@@ -14049,7 +14050,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return getEffectiveTypeOfSymbolForUsage(symbol).type;
     }
 
-    function getEffectiveTypeOfSymbolForUsage(symbol: Symbol, usageNode?: NameNode): EffectiveTypeResult {
+    function getEffectiveTypeOfSymbolForUsage(
+        symbol: Symbol,
+        usageNode?: NameNode,
+        useLastDecl = false
+    ): EffectiveTypeResult {
         // If there's a declared type, it takes precedence over inferred types.
         if (symbol.hasTypedDeclarations()) {
             return {
@@ -14065,8 +14070,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const isFinalVar = isFinalVariable(symbol);
         let isResolutionCyclical = false;
 
-        decls.forEach((decl) => {
-            let considerDecl = true;
+        decls.forEach((decl, index) => {
+            // If useLastDecl is true, consider only the last declaration.
+            let considerDecl = !useLastDecl || index === decls.length - 1;
+
             if (usageNode !== undefined) {
                 if (decl.type !== DeclarationType.Alias) {
                     // Is the declaration in the same execution scope as the "usageNode" node?
