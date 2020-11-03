@@ -245,7 +245,8 @@ export class Parser {
         } else if (parseTextMode === ParseTextMode.FunctionAnnotation) {
             parseTree = this._parseFunctionTypeAnnotation();
         } else {
-            parseTree = this._parseTestExpression(false);
+            const exprListResult = this._parseTestExpressionList();
+            parseTree = this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ false);
         }
 
         if (this._peekTokenType() === TokenType.NewLine) {

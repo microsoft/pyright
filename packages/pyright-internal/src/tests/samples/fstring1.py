@@ -51,3 +51,6 @@ h = f"hello\{4}"
 
 # Test f-string with raw string and backslash.
 j = rf"aaa\{4}"
+
+# Test f-string with comma-separated expressions.
+h = f"List: { 2 + 3, 'hi' + ' there'}"
