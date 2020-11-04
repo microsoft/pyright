@@ -41,6 +41,10 @@ export namespace TextRange {
         return position >= range.start && position < getEnd(range);
     }
 
+    export function overlaps(range: TextRange, position: number): boolean {
+        return position >= range.start && position <= getEnd(range);
+    }
+
     export function extend(range: TextRange, extension: TextRange | TextRange[] | undefined) {
         if (extension) {
             if (Array.isArray(extension)) {

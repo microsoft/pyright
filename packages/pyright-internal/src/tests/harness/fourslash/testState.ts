@@ -910,7 +910,9 @@ export class TestState {
                     }
                 }
             } else {
-                assert.fail('Failed to get completions');
+                if (verifyMode !== 'exact' || expectedCompletions.length > 0) {
+                    assert.fail('Failed to get completions');
+                }
             }
 
             if (map[markerName].memberAccessInfo !== undefined && result?.memberAccessInfo !== undefined) {

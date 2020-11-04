@@ -3426,7 +3426,7 @@ export class Parser {
 
     private _peekToken(count = 0): Token {
         if (this._tokenIndex + count < 0) {
-            this._tokenizerOutput!.tokens.getItemAt(0);
+            return this._tokenizerOutput!.tokens.getItemAt(0);
         }
 
         if (this._tokenIndex + count >= this._tokenizerOutput!.tokens.count) {
