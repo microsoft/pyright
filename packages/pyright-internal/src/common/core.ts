@@ -127,3 +127,18 @@ export function isDebugMode() {
     const argv = process.execArgv.join();
     return argv.includes('inspect') || argv.includes('debug');
 }
+
+interface Thenable<T> {
+    then<TResult>(
+        onfulfilled?: (value: T) => TResult | Thenable<TResult>,
+        onrejected?: (reason: any) => TResult | Thenable<TResult>
+    ): Thenable<TResult>;
+    then<TResult>(
+        onfulfilled?: (value: T) => TResult | Thenable<TResult>,
+        onrejected?: (reason: any) => void
+    ): Thenable<TResult>;
+}
+
+export function isThenable<T>(v: any): v is Thenable<T> {
+    return typeof v?.then === 'function';
+}

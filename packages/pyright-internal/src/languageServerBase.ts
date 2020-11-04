@@ -891,6 +891,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             position,
             workspacePath,
             this._completionDocFormat,
+            undefined,
             token
         );
     }

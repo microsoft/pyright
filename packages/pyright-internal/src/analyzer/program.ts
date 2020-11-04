@@ -45,10 +45,11 @@ import {
     AutoImporter,
     AutoImportResult,
     buildModuleSymbolsMap,
+    getAutoImportCandidatesForAbbr,
     ModuleSymbolMap,
 } from '../languageService/autoImporter';
 import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
-import { CompletionResults } from '../languageService/completionProvider';
+import { AbbreviationMap, CompletionResults } from '../languageService/completionProvider';
 import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
@@ -433,16 +434,16 @@ export class Program {
         });
     }
 
-    indexWorkspace(callback: (path: string, results: IndexResults) => void, token: CancellationToken) {
+    indexWorkspace(callback: (path: string, results: IndexResults) => void, token: CancellationToken): number {
         if (!this._configOptions.indexing) {
-            return;
+            return 0;
         }
 
-        let count = 0;
         return this._runEvaluatorWithCancellationToken(token, () => {
             // Go through all workspace files to create indexing data.
             // This will cause all files in the workspace to be parsed and bound. But
             // _handleMemoryHighUsage will make sure we don't OOM
+            let count = 0;
             for (const sourceFileInfo of this._sourceFileList) {
                 if (!this._isUserCode(sourceFileInfo)) {
                     continue;
@@ -453,7 +454,7 @@ export class Program {
                 if (results) {
                     if (++count > 2000) {
                         this._console.warn(`Workspace indexing has hit its upper limit: 2000 files`);
-                        return;
+                        return count;
                     }
 
                     callback(sourceFileInfo.sourceFile.getFilePath(), results);
@@ -461,6 +462,8 @@ export class Program {
 
                 this._handleMemoryHighUsage();
             }
+
+            return count;
         });
     }
 
@@ -955,7 +958,7 @@ export class Program {
         filePath: string,
         range: Range,
         similarityLimit: number,
-        nameMap: Map<string, string> | undefined,
+        nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
     ): AutoImportResult[] {
@@ -1002,13 +1005,10 @@ export class Program {
 
             const currentScope = getScopeForNode(currentNode);
             if (currentScope) {
-                const translatedWord = nameMap?.get(writtenWord);
-                if (translatedWord) {
-                    // No filter is needed since we only do exact match.
-                    const exactMatch = 1;
-                    results.push(
-                        ...autoImporter.getAutoImportCandidates(translatedWord, exactMatch, writtenWord, token)
-                    );
+                const info = nameMap?.get(writtenWord);
+                if (info) {
+                    // No scope filter is needed since we only do exact match.
+                    results.push(...getAutoImportCandidatesForAbbr(autoImporter, writtenWord, info, token));
                 }
 
                 results.push(
@@ -1354,6 +1354,7 @@ export class Program {
         position: Position,
         workspacePath: string,
         format: MarkupKind,
+        nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
     ): Promise<CompletionResults | undefined> {
@@ -1378,6 +1379,7 @@ export class Program {
                         this._evaluator!,
                         format,
                         this._createSourceMapper(execEnv, /* mapCompiled */ true),
+                        nameMap,
                         libraryMap,
                         () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),
                         token
@@ -1416,7 +1418,6 @@ export class Program {
         filePath: string,
         completionItem: CompletionItem,
         format: MarkupKind,
-        libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
     ) {
         return this._runEvaluatorWithCancellationToken(token, () => {
@@ -1435,8 +1436,6 @@ export class Program {
                 this._evaluator!,
                 format,
                 this._createSourceMapper(execEnv, /* mapCompiled */ true),
-                libraryMap,
-                () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),
                 completionItem,
                 token
             );

@@ -131,6 +131,11 @@ declare namespace _ {
         kind?: DocumentHighlightKind;
     }
 
+    interface AbbreviationInfo {
+        importFrom?: string;
+        importName: string;
+    }
+
     interface Fourslash {
         getDocumentHighlightKind(m?: Marker): DocumentHighlightKind | undefined;
 
@@ -190,7 +195,8 @@ declare namespace _ {
                         unknownMemberName?: string;
                     };
                 };
-            }
+            },
+            abbrMap?: { [abbr: string]: AbbreviationInfo }
         ): Promise<void>;
         verifySignature(map: {
             [marker: string]: {

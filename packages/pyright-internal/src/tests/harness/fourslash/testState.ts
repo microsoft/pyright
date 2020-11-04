@@ -47,6 +47,7 @@ import { getStringComparer } from '../../../common/stringUtils';
 import { DocumentRange, Position, Range as PositionRange, rangesAreEqual, TextRange } from '../../../common/textRange';
 import { TextRangeCollection } from '../../../common/textRangeCollection';
 import { LanguageServerInterface, WorkspaceServiceInstance } from '../../../languageServerBase';
+import { AbbreviationInfo } from '../../../languageService/autoImporter';
 import { convertHoverResults } from '../../../languageService/hoverProvider';
 import { ParseResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
@@ -94,6 +95,7 @@ export class TestState {
     readonly fs: vfs.TestFileSystem;
     readonly workspace: WorkspaceServiceInstance;
     readonly console: ConsoleInterface;
+    readonly rawConfigJson: any | undefined;
 
     // The current caret position in the active file
     currentCaretPosition = 0;
@@ -124,14 +126,13 @@ export class TestState {
         for (const file of testData.files) {
             // if one of file is configuration file, set config options from the given json
             if (this._isConfig(file, ignoreCase)) {
-                let configJson: any;
                 try {
-                    configJson = JSON.parse(file.content);
+                    this.rawConfigJson = JSON.parse(file.content);
                 } catch (e) {
                     throw new Error(`Failed to parse test ${file.fileName}: ${e.message}`);
                 }
 
-                configOptions.initializeFromJson(configJson, 'basic', nullConsole);
+                configOptions.initializeFromJson(this.rawConfigJson, 'basic', nullConsole);
                 this._applyTestConfigOptions(configOptions);
             } else {
                 files[file.fileName] = new vfs.File(file.content, { meta: file.fileOptions, encoding: 'utf8' });
@@ -817,7 +818,8 @@ export class TestState {
                     unknownMemberName?: string;
                 };
             };
-        }
+        },
+        abbrMap?: { [abbr: string]: AbbreviationInfo }
     ): Promise<void> {
         this._analyze();
 
@@ -836,6 +838,7 @@ export class TestState {
                 completionPosition,
                 this.workspace.rootPath,
                 docFormat,
+                abbrMap ? new Map<string, AbbreviationInfo>(Object.entries(abbrMap)) : undefined,
                 CancellationToken.None
             );
 
@@ -866,23 +869,16 @@ export class TestState {
                         }
 
                         const actual: CompletionItem = result.completionList.items[actualIndex];
-                        assert.equal(actual.label, expected.label);
-                        assert.equal(actual.detail, expected.detail);
-                        assert.equal(actual.kind, expected.kind);
-                        if (expectedCompletions[i].documentation !== undefined) {
+                        this.verifyCompletionItem(expected, actual);
+
+                        if (expected.documentation !== undefined) {
                             if (actual.documentation === undefined) {
-                                this.program.resolveCompletionItem(
-                                    filePath,
-                                    actual,
-                                    docFormat,
-                                    undefined,
-                                    CancellationToken.None
-                                );
+                                this.program.resolveCompletionItem(filePath, actual, docFormat, CancellationToken.None);
                             }
 
                             if (MarkupContent.is(actual.documentation)) {
-                                assert.equal(actual.documentation.value, expected.documentation);
-                                assert.equal(actual.documentation.kind, docFormat);
+                                assert.strictEqual(actual.documentation.value, expected.documentation);
+                                assert.strictEqual(actual.documentation.kind, docFormat);
                             } else {
                                 assert.fail(
                                     `Unexpected type of contents object "${actual.documentation}", should be MarkupContent.`
@@ -1550,5 +1546,11 @@ export class TestState {
                 );
             }
         }
+    }
+
+    protected verifyCompletionItem(expected: _.FourSlashCompletionItem, actual: CompletionItem) {
+        assert.strictEqual(actual.label, expected.label);
+        assert.strictEqual(actual.detail, expected.detail);
+        assert.strictEqual(actual.kind, expected.kind);
     }
 }
