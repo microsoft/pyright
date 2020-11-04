@@ -63,12 +63,14 @@ import {
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
+import * as debug from '../common/debug';
 import { fail } from '../common/debug';
 import { TextEditAction } from '../common/editAction';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
+import { TextRangeCollection } from '../common/textRangeCollection';
 import {
     ErrorExpressionCategory,
     ErrorNode,
@@ -84,6 +86,7 @@ import {
     StringNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { Token } from '../parser/tokenizerTypes';
 import {
     AbbreviationInfo,
     AutoImporter,
@@ -311,7 +314,7 @@ export class CompletionProvider {
         const priorWord = priorWordIndex >= 0 ? priorText.substr(priorWordIndex) : '';
 
         // Don't offer completions if we're within a comment.
-        if (this._isWithinComment(offset, priorText)) {
+        if (this._isWithinComment(offset)) {
             return undefined;
         }
 
@@ -443,22 +446,47 @@ export class CompletionProvider {
         }
     }
 
-    private _isWithinComment(offset: number, priorText: string): boolean {
-        const tokenIndex = this._parseResults.tokenizerOutput.tokens.getItemAtPosition(offset);
-        if (tokenIndex < 0) {
+    private _isWithinComment(offset: number): boolean {
+        const token = getTokenAfter(offset, this._parseResults.tokenizerOutput.tokens);
+        if (!token) {
+            // If we're in the middle of a token, we're not in a comment.
             return false;
         }
 
-        const token = this._parseResults.tokenizerOutput.tokens.getItemAt(tokenIndex);
+        return token.comments?.some((c) => TextRange.overlaps(c, offset)) ?? false;
 
-        // If we're in the middle of a token, we're not in a comment.
-        if (offset > token.start && offset < TextRange.getEnd(token)) {
-            return false;
+        function getTokenAfter(offset: number, tokens: TextRangeCollection<Token>) {
+            const tokenIndex = tokens.getItemAtPosition(offset);
+            if (tokenIndex < 0) {
+                return undefined;
+            }
+
+            let token = tokens.getItemAt(tokenIndex);
+            if (TextRange.contains(token, offset)) {
+                return undefined;
+            }
+
+            // Multiple zero length tokens can occupy same position.
+            // But comment is associated with the first one. loop
+            // backward to find the first token if position is same.
+            for (let i = tokenIndex - 1; i >= 0; i--) {
+                const prevToken = tokens.getItemAt(i);
+                if (token.start !== prevToken.start) {
+                    break;
+                }
+
+                token = prevToken;
+            }
+
+            if (offset <= token.start) {
+                return token;
+            }
+
+            // If offset > token.start, tokenIndex + 1 < tokens.length
+            // should be always true.
+            debug.assert(tokenIndex + 1 < tokens.length);
+            return tokens.getItemAt(tokenIndex + 1);
         }
-
-        // See if the text that precedes the current position contains
-        // a '#' character.
-        return !!priorText.match(/#/);
     }
 
     private _getExpressionErrorCompletions(

@@ -9,4 +9,6 @@
 ////     pass
 
 // @ts-ignore
-await helper.verifyCompletion('included', 'markdown', { marker: { completions: [] } });
+await helper.verifyCompletion('excluded', 'markdown', {
+    marker: { completions: [{ label: 'Test', kind: undefined }] },
+});

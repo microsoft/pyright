@@ -28,3 +28,10 @@ test('Sample1', () => {
     assert.equal(diagSink.fetchAndClear().length, 0);
     assert.equal(parseInfo.parseResults.parseTree.statements.length, 4);
 });
+
+test('FStringEmptyTuple', () => {
+    assert.doesNotThrow(() => {
+        const diagSink = new DiagnosticSink();
+        TestUtils.parseSampleFile('fstring6.py', diagSink);
+    });
+});
