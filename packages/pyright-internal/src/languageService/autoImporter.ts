@@ -114,6 +114,23 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
     return moduleSymbolMap;
 }
 
+export interface AbbreviationInfo {
+    importFrom?: string;
+    importName: string;
+}
+
+export function getAutoImportCandidatesForAbbr(
+    autoImporter: AutoImporter,
+    abbr: string | undefined,
+    abbrInfo: AbbreviationInfo,
+    token: CancellationToken
+) {
+    const exactMatch = 1;
+    return autoImporter
+        .getAutoImportCandidates(abbrInfo.importName, exactMatch, abbr, token)
+        .filter((r) => r.source === abbrInfo.importFrom && r.name === abbrInfo.importName);
+}
+
 export interface AutoImportResult {
     name: string;
     symbol?: Symbol;

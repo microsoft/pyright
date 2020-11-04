@@ -49,31 +49,33 @@ export class BackgroundAnalysisBase {
         this._worker = worker;
 
         // global channel to communicate from BG channel to main thread.
-        worker.on('message', (msg: AnalysisResponse) => {
-            switch (msg.requestType) {
-                case 'log': {
-                    const logData = msg.data as LogData;
-                    this.log(logData.level, logData.message);
-                    break;
-                }
-
-                case 'analysisResult': {
-                    // Change in diagnostics due to host such as file closed rather than
-                    // analyzing files.
-                    this._onAnalysisCompletion(convertAnalysisResults(msg.data));
-                    break;
-                }
-
-                default:
-                    debug.fail(`${msg.requestType} is not expected`);
-            }
-        });
+        worker.on('message', (msg: AnalysisResponse) => this.onMessage(msg));
 
         // this will catch any exception thrown from background thread,
         // print log and ignore exception
         worker.on('error', (msg) => {
             this.log(LogLevel.Error, `Error occurred on background thread: ${JSON.stringify(msg)}`);
         });
+    }
+
+    protected onMessage(msg: AnalysisResponse) {
+        switch (msg.requestType) {
+            case 'log': {
+                const logData = msg.data as LogData;
+                this.log(logData.level, logData.message);
+                break;
+            }
+
+            case 'analysisResult': {
+                // Change in diagnostics due to host such as file closed rather than
+                // analyzing files.
+                this._onAnalysisCompletion(convertAnalysisResults(msg.data));
+                break;
+            }
+
+            default:
+                debug.fail(`${msg.requestType} is not expected`);
+        }
     }
 
     setCompletionCallback(callback?: AnalysisCompleteCallback) {
@@ -530,7 +532,7 @@ export interface AnalysisRequest {
     port?: MessagePort;
 }
 
-interface AnalysisResponse {
-    requestType: 'log' | 'analysisResult' | 'analysisPaused' | 'indexResult' | 'analysisDone';
+export interface AnalysisResponse {
+    requestType: 'log' | 'telemetry' | 'analysisResult' | 'analysisPaused' | 'indexResult' | 'analysisDone';
     data: any;
 }

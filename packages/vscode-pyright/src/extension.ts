@@ -37,6 +37,7 @@ import {
 } from 'vscode-languageclient/node';
 
 import { Commands } from 'pyright-internal/commands/commands';
+import { isThenable } from 'pyright-internal/common/core';
 
 import { FileBasedCancellationStrategy } from './cancellationUtils';
 import { ProgressReporting } from './progress';
@@ -277,10 +278,6 @@ async function getPythonPathFromPythonExtension(
     }
 
     return undefined;
-}
-
-function isThenable<T>(v: any): v is Thenable<T> {
-    return typeof v?.then === 'function';
 }
 
 function installPythonPathChangedListener(

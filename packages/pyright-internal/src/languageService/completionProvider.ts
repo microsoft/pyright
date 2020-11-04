@@ -60,7 +60,6 @@ import {
     getMembersForModule,
     isProperty,
     makeTypeVarsConcrete,
-    specializeType,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
@@ -85,7 +84,13 @@ import {
     StringNode,
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { AutoImporter, ModuleSymbolMap } from './autoImporter';
+import {
+    AbbreviationInfo,
+    AutoImporter,
+    AutoImportResult,
+    getAutoImportCandidatesForAbbr,
+    ModuleSymbolMap,
+} from './autoImporter';
 import { IndexResults } from './documentSymbolProvider';
 
 const _keywords: string[] = [
@@ -179,6 +184,7 @@ export interface CompletionItemData {
     position: Position;
     autoImportText?: string;
     symbolLabel?: string;
+    isInImport?: boolean;
 }
 
 // MemberAccessInfo attempts to gather info for unknown types
@@ -193,9 +199,38 @@ export interface CompletionResults {
     memberAccessInfo?: MemberAccessInfo;
 }
 
+export type AbbreviationMap = Map<string, AbbreviationInfo>;
+
+export interface AutoImportMaps {
+    nameMap?: AbbreviationMap;
+    libraryMap?: Map<string, IndexResults>;
+    getModuleSymbolsMap: () => ModuleSymbolMap;
+}
+
 interface RecentCompletionInfo {
     label: string;
     autoImportText: string;
+}
+
+interface Edits {
+    textEdit?: TextEdit;
+    additionalTextEdits?: TextEditAction[];
+}
+
+interface SymbolDetail {
+    isInImport?: boolean;
+    autoImportSource?: string;
+    autoImportAlias?: string;
+    objectThrough?: ObjectType;
+    edits?: Edits;
+}
+
+interface CompletionDetail {
+    isInImport?: boolean;
+    typeDetail?: string;
+    documentation?: string;
+    autoImportText?: string;
+    edits?: Edits;
 }
 
 // We'll use a somewhat-arbitrary cutoff value here to determine
@@ -224,8 +259,7 @@ export class CompletionProvider {
         private _evaluator: TypeEvaluator,
         private _format: MarkupKind,
         private _sourceMapper: SourceMapper,
-        private _libraryMap: Map<string, IndexResults> | undefined,
-        private _moduleSymbolsCallback: () => ModuleSymbolMap,
+        private _autoImportMaps: AutoImportMaps | undefined,
         private _cancellationToken: CancellationToken
     ) {}
 
@@ -513,7 +547,7 @@ export class CompletionProvider {
 
                     const methodSignature = this._printMethodSignature(decl.node) + ':';
                     const textEdit = TextEdit.replace(range, methodSignature);
-                    this._addSymbol(name, symbol, partialName.value, completionList, undefined, textEdit);
+                    this._addSymbol(name, symbol, partialName.value, completionList, { edits: { textEdit } });
                 }
             }
         });
@@ -603,7 +637,7 @@ export class CompletionProvider {
             const objectThrough: ObjectType | undefined = isObject(specializedLeftType)
                 ? specializedLeftType
                 : undefined;
-            this._addSymbolsForSymbolTable(symbolTable, (_) => true, priorWord, objectThrough, completionList);
+            this._addSymbolsForSymbolTable(symbolTable, (_) => true, priorWord, false, objectThrough, completionList);
 
             // If we don't know this type, look for a module we should stub
             if (!leftType || isUnknown(leftType) || isUnbound(leftType)) {
@@ -965,46 +999,49 @@ export class CompletionProvider {
     }
 
     private _getAutoImportCompletions(priorWord: string, completionList: CompletionList) {
-        const moduleSymbolMap = this._moduleSymbolsCallback();
+        if (!this._autoImportMaps) {
+            return;
+        }
+
+        const moduleSymbolMap = this._autoImportMaps.getModuleSymbolsMap();
+        const excludes = completionList.items.filter((i) => !i.data?.autoImport).map((i) => i.label);
         const autoImporter = new AutoImporter(
             this._configOptions.findExecEnvironment(this._filePath),
             this._importResolver,
             this._parseResults,
             this._position,
-            completionList.items.filter((i) => !i.data?.autoImport).map((i) => i.label),
+            excludes,
             moduleSymbolMap,
-            this._libraryMap
+            this._autoImportMaps.libraryMap
         );
 
-        for (const result of autoImporter.getAutoImportCandidates(
-            priorWord,
-            similarityLimit,
-            undefined,
-            this._cancellationToken
-        )) {
+        const results: AutoImportResult[] = [];
+        const info = this._autoImportMaps.nameMap?.get(priorWord);
+        if (info && priorWord.length > 1 && !excludes.some((e) => e === priorWord)) {
+            results.push(...getAutoImportCandidatesForAbbr(autoImporter, priorWord, info, this._cancellationToken));
+        }
+
+        results.push(
+            ...autoImporter.getAutoImportCandidates(priorWord, similarityLimit, undefined, this._cancellationToken)
+        );
+
+        for (const result of results) {
             if (result.symbol) {
-                this._addSymbol(
-                    result.name,
-                    result.symbol,
-                    priorWord,
-                    completionList,
-                    result.source,
-                    undefined,
-                    result.edits
-                );
+                this._addSymbol(result.name, result.symbol, priorWord, completionList, {
+                    autoImportSource: result.source,
+                    autoImportAlias: result.alias,
+                    edits: { additionalTextEdits: result.edits },
+                });
             } else {
                 this._addNameToCompletionList(
-                    result.name,
+                    result.alias ?? result.name,
                     result.kind ?? CompletionItemKind.Module,
                     priorWord,
                     completionList,
-                    undefined,
-                    '',
-                    result.source
-                        ? `\`\`\`\nfrom ${result.source} import ${result.name}\n\`\`\``
-                        : `\`\`\`\nimport ${result.name}\n\`\`\``,
-                    undefined,
-                    result.edits
+                    {
+                        autoImportText: this._getAutoImportText(result.name, result.source, result.alias),
+                        edits: { additionalTextEdits: result.edits },
+                    }
                 );
             }
         }
@@ -1040,6 +1077,7 @@ export class CompletionProvider {
                     return !importFromNode.imports.find((imp) => imp.name.value === name);
                 },
                 priorWord,
+                true,
                 undefined,
                 completionList
             );
@@ -1120,7 +1158,14 @@ export class CompletionProvider {
             let scope = AnalyzerNodeInfo.getScope(curNode);
             if (scope) {
                 while (scope) {
-                    this._addSymbolsForSymbolTable(scope.symbolTable, () => true, priorWord, undefined, completionList);
+                    this._addSymbolsForSymbolTable(
+                        scope.symbolTable,
+                        () => true,
+                        priorWord,
+                        false,
+                        undefined,
+                        completionList
+                    );
                     scope = scope.parent;
                 }
 
@@ -1144,6 +1189,7 @@ export class CompletionProvider {
                                             .some((decl) => decl.type === DeclarationType.Variable);
                                     },
                                     priorWord,
+                                    false,
                                     undefined,
                                     completionList
                                 );
@@ -1162,6 +1208,7 @@ export class CompletionProvider {
         symbolTable: SymbolTable,
         includeSymbolCallback: (name: string) => boolean,
         priorWord: string,
+        isInImport: boolean,
         objectThrough: ObjectType | undefined,
         completionList: CompletionList
     ) {
@@ -1173,16 +1220,10 @@ export class CompletionProvider {
                 // Don't add a symbol more than once. It may have already been
                 // added from an inner scope's symbol table.
                 if (!completionList.items.some((item) => item.label === name)) {
-                    this._addSymbol(
-                        name,
-                        symbol,
-                        priorWord,
-                        completionList,
-                        undefined,
-                        undefined,
-                        undefined,
-                        objectThrough
-                    );
+                    this._addSymbol(name, symbol, priorWord, completionList, {
+                        objectThrough,
+                        isInImport,
+                    });
                 }
             }
         });
@@ -1193,10 +1234,7 @@ export class CompletionProvider {
         symbol: Symbol,
         priorWord: string,
         completionList: CompletionList,
-        autoImportSource?: string,
-        textEdit?: TextEdit,
-        additionalTextEdits?: TextEditAction[],
-        objectThrough?: ObjectType
+        detail: SymbolDetail
     ) {
         let primaryDecl = getLastTypedDeclaredForSymbol(symbol);
         if (!primaryDecl) {
@@ -1235,11 +1273,11 @@ export class CompletionProvider {
                                     break;
 
                                 case DeclarationType.Function: {
-                                    const functionType = objectThrough
-                                        ? this._evaluator.bindFunctionToClassOrObject(objectThrough, type, false)
+                                    const functionType = detail.objectThrough
+                                        ? this._evaluator.bindFunctionToClassOrObject(detail.objectThrough, type, false)
                                         : type;
                                     if (functionType) {
-                                        if (isProperty(functionType) && objectThrough) {
+                                        if (isProperty(functionType) && detail.objectThrough) {
                                             const propertyType =
                                                 this._evaluator.getGetterTypeFromProperty(
                                                     functionType.classType,
@@ -1339,45 +1377,46 @@ export class CompletionProvider {
                 }
             }
 
-            let autoImportText: string | undefined;
-            if (autoImportSource) {
-                if (this._format === MarkupKind.Markdown) {
-                    autoImportText = `\`\`\`\nfrom ${autoImportSource} import ${name}\n\`\`\``;
-                } else if (this._format === MarkupKind.PlainText) {
-                    autoImportText = `from ${autoImportSource} import ${name}`;
-                } else {
-                    fail(`Unsupported markup type: ${this._format}`);
-                }
-            }
+            const autoImportText = detail.autoImportSource
+                ? this._getAutoImportText(name, detail.autoImportSource, detail.autoImportAlias)
+                : undefined;
 
-            this._addNameToCompletionList(
-                name,
-                itemKind,
-                priorWord,
-                completionList,
-                undefined,
-                undefined,
+            this._addNameToCompletionList(detail.autoImportAlias ?? name, itemKind, priorWord, completionList, {
                 autoImportText,
-                textEdit,
-                additionalTextEdits
-            );
+                isInImport: detail.isInImport,
+                edits: detail.edits,
+            });
         } else {
             // Does the symbol have no declaration but instead has a synthesized type?
             const synthesizedType = symbol.getSynthesizedType();
             if (synthesizedType) {
                 const itemKind: CompletionItemKind = CompletionItemKind.Variable;
-                this._addNameToCompletionList(
-                    name,
-                    itemKind,
-                    priorWord,
-                    completionList,
-                    undefined,
-                    undefined,
-                    undefined,
-                    textEdit,
-                    additionalTextEdits
-                );
+                this._addNameToCompletionList(name, itemKind, priorWord, completionList, {
+                    isInImport: detail.isInImport,
+                    edits: detail.edits,
+                });
             }
+        }
+    }
+
+    private _getAutoImportText(importName: string, importFrom?: string, importAlias?: string) {
+        let autoImportText: string | undefined;
+        if (!importFrom) {
+            autoImportText = `import ${importName}`;
+        } else {
+            autoImportText = `from ${importFrom} import ${importName}`;
+        }
+
+        if (importAlias) {
+            autoImportText = `${autoImportText} as ${importAlias}`;
+        }
+
+        if (this._format === MarkupKind.Markdown) {
+            return `\`\`\`\n${autoImportText}\n\`\`\``;
+        } else if (this._format === MarkupKind.PlainText) {
+            return autoImportText;
+        } else {
+            fail(`Unsupported markup type: ${this._format}`);
         }
     }
 
@@ -1386,114 +1425,117 @@ export class CompletionProvider {
         itemKind: CompletionItemKind,
         filter: string,
         completionList: CompletionList,
-        typeDetail?: string,
-        documentation?: string,
-        autoImportText?: string,
-        textEdit?: TextEdit,
-        additionalTextEdits?: TextEditAction[]
+        detail?: CompletionDetail
     ) {
-        const similarity = StringUtils.computeCompletionSimilarity(filter, name);
-
-        if (similarity > similarityLimit) {
-            const completionItem = CompletionItem.create(name);
-            completionItem.kind = itemKind;
-
-            const completionItemData: CompletionItemData = {
-                workspacePath: this._workspacePath,
-                filePath: this._filePath,
-                position: this._position,
-            };
-            completionItem.data = completionItemData;
-
-            if (autoImportText) {
-                // Force auto-import entries to the end.
-                completionItem.sortText = this._makeSortText(SortCategory.AutoImport, name, autoImportText);
-                completionItemData.autoImportText = autoImportText;
-                completionItem.detail = 'Auto-import';
-            } else if (SymbolNameUtils.isDunderName(name)) {
-                // Force dunder-named symbols to appear after all other symbols.
-                completionItem.sortText = this._makeSortText(SortCategory.DunderSymbol, name);
-            } else if (filter === '' && SymbolNameUtils.isPrivateOrProtectedName(name)) {
-                // Distinguish between normal and private symbols only if there is
-                // currently no filter text. Once we get a single character to filter
-                // upon, we'll no longer differentiate.
-                completionItem.sortText = this._makeSortText(SortCategory.PrivateSymbol, name);
-            } else {
-                completionItem.sortText = this._makeSortText(SortCategory.NormalSymbol, name);
-            }
-
-            completionItemData.symbolLabel = name;
-
-            if (this._format === MarkupKind.Markdown) {
-                let markdownString = '';
-
-                if (autoImportText) {
-                    markdownString += autoImportText + '\n\n';
-                }
-
-                if (typeDetail) {
-                    markdownString += '```python\n' + typeDetail + '\n```\n';
-                }
-
-                if (documentation) {
-                    markdownString += '---\n';
-                    markdownString += convertDocStringToMarkdown(documentation);
-                }
-
-                markdownString = markdownString.trimEnd();
-
-                if (markdownString) {
-                    completionItem.documentation = {
-                        kind: MarkupKind.Markdown,
-                        value: markdownString,
-                    };
-                }
-            } else if (this._format === MarkupKind.PlainText) {
-                let plainTextString = '';
-
-                if (autoImportText) {
-                    plainTextString += autoImportText + '\n\n';
-                }
-
-                if (typeDetail) {
-                    plainTextString += typeDetail + '\n';
-                }
-
-                if (documentation) {
-                    plainTextString += '\n' + convertDocStringToPlainText(documentation);
-                }
-
-                plainTextString = plainTextString.trimEnd();
-
-                if (plainTextString) {
-                    completionItem.documentation = {
-                        kind: MarkupKind.PlainText,
-                        value: plainTextString,
-                    };
-                }
-            } else {
-                fail(`Unsupported markup type: ${this._format}`);
-            }
-
-            if (textEdit) {
-                completionItem.textEdit = textEdit;
-            }
-
-            if (additionalTextEdits) {
-                completionItem.additionalTextEdits = additionalTextEdits.map((te) => {
-                    const textEdit: TextEdit = {
-                        range: {
-                            start: { line: te.range.start.line, character: te.range.start.character },
-                            end: { line: te.range.end.line, character: te.range.end.character },
-                        },
-                        newText: te.replacementText,
-                    };
-                    return textEdit;
-                });
-            }
-
-            completionList.items.push(completionItem);
+        // Auto importer already filtered out unnecessary ones. No need to do it again.
+        const similarity = detail?.autoImportText ? 1 : StringUtils.computeCompletionSimilarity(filter, name);
+        if (similarity <= similarityLimit) {
+            return;
         }
+
+        const completionItem = CompletionItem.create(name);
+        completionItem.kind = itemKind;
+
+        const completionItemData: CompletionItemData = {
+            workspacePath: this._workspacePath,
+            filePath: this._filePath,
+            position: this._position,
+        };
+
+        if (detail?.isInImport) {
+            completionItemData.isInImport = true;
+        }
+
+        completionItem.data = completionItemData;
+
+        if (detail?.autoImportText) {
+            // Force auto-import entries to the end.
+            completionItem.sortText = this._makeSortText(SortCategory.AutoImport, name, detail.autoImportText);
+            completionItemData.autoImportText = detail.autoImportText;
+            completionItem.detail = 'Auto-import';
+        } else if (SymbolNameUtils.isDunderName(name)) {
+            // Force dunder-named symbols to appear after all other symbols.
+            completionItem.sortText = this._makeSortText(SortCategory.DunderSymbol, name);
+        } else if (filter === '' && SymbolNameUtils.isPrivateOrProtectedName(name)) {
+            // Distinguish between normal and private symbols only if there is
+            // currently no filter text. Once we get a single character to filter
+            // upon, we'll no longer differentiate.
+            completionItem.sortText = this._makeSortText(SortCategory.PrivateSymbol, name);
+        } else {
+            completionItem.sortText = this._makeSortText(SortCategory.NormalSymbol, name);
+        }
+
+        completionItemData.symbolLabel = name;
+
+        if (this._format === MarkupKind.Markdown) {
+            let markdownString = '';
+
+            if (detail?.autoImportText) {
+                markdownString += detail.autoImportText + '\n\n';
+            }
+
+            if (detail?.typeDetail) {
+                markdownString += '```python\n' + detail.typeDetail + '\n```\n';
+            }
+
+            if (detail?.documentation) {
+                markdownString += '---\n';
+                markdownString += convertDocStringToMarkdown(detail.documentation);
+            }
+
+            markdownString = markdownString.trimEnd();
+
+            if (markdownString) {
+                completionItem.documentation = {
+                    kind: MarkupKind.Markdown,
+                    value: markdownString,
+                };
+            }
+        } else if (this._format === MarkupKind.PlainText) {
+            let plainTextString = '';
+
+            if (detail?.autoImportText) {
+                plainTextString += detail.autoImportText + '\n\n';
+            }
+
+            if (detail?.typeDetail) {
+                plainTextString += detail.typeDetail + '\n';
+            }
+
+            if (detail?.documentation) {
+                plainTextString += '\n' + convertDocStringToPlainText(detail.documentation);
+            }
+
+            plainTextString = plainTextString.trimEnd();
+
+            if (plainTextString) {
+                completionItem.documentation = {
+                    kind: MarkupKind.PlainText,
+                    value: plainTextString,
+                };
+            }
+        } else {
+            fail(`Unsupported markup type: ${this._format}`);
+        }
+
+        if (detail?.edits?.textEdit) {
+            completionItem.textEdit = detail.edits.textEdit;
+        }
+
+        if (detail?.edits?.additionalTextEdits) {
+            completionItem.additionalTextEdits = detail.edits.additionalTextEdits.map((te) => {
+                const textEdit: TextEdit = {
+                    range: {
+                        start: { line: te.range.start.line, character: te.range.start.character },
+                        end: { line: te.range.end.line, character: te.range.end.character },
+                    },
+                    newText: te.replacementText,
+                };
+                return textEdit;
+            });
+        }
+
+        completionList.items.push(completionItem);
     }
 
     private _getRecentListIndex(name: string, autoImportText: string) {

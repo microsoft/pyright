@@ -10,13 +10,14 @@
         "build:extension:dev": "cd packages/vscode-pyright && npm run webpack",
         "build:cli:dev": "cd packages/pyright && npm run webpack",
         "watch:extension": "cd packages/vscode-pyright && npm run webpack-dev",
-        "check": "npm run check:syncpack && npm run check:eslint && npm run check:prettier",
+        "check": "npm run check:syncpack && npm run check:eslint && npm run check:prettier && npm run check:lockindent",
         "check:syncpack": "syncpack list-mismatches",
         "fix:syncpack": "syncpack fix-mismatches --indent \"    \" && npm run install:all",
         "check:eslint": "eslint .",
         "fix:eslint": "eslint --fix .",
         "check:prettier": "prettier -c .",
-        "fix:prettier": "prettier --write ."
+        "fix:prettier": "prettier --write .",
+        "check:lockindent": "node ./build/checkLockIndent.js"
     },
     "devDependencies": {
         "@types/fs-extra": "^9.0.2",
@@ -25,6 +26,7 @@
         "@types/yargs": "^15.0.9",
         "@typescript-eslint/eslint-plugin": "^4.6.0",
         "@typescript-eslint/parser": "^4.6.0",
+        "detect-indent": "^6.0.0",
         "eslint": "^7.12.0",
         "eslint-config-prettier": "^6.14.0",
         "eslint-plugin-simple-import-sort": "^5.0.3",

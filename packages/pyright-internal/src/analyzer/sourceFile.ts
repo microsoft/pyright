@@ -33,7 +33,7 @@ import { DocumentRange, getEmptyRange, Position, TextRange } from '../common/tex
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/autoImporter';
-import { CompletionResults } from '../languageService/completionProvider';
+import { AbbreviationMap, CompletionResults } from '../languageService/completionProvider';
 import { CompletionItemData, CompletionProvider } from '../languageService/completionProvider';
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
@@ -790,6 +790,7 @@ export class SourceFile {
         evaluator: TypeEvaluator,
         format: MarkupKind,
         sourceMapper: SourceMapper,
+        nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
         moduleSymbolsCallback: () => ModuleSymbolMap,
         token: CancellationToken
@@ -818,8 +819,11 @@ export class SourceFile {
             evaluator,
             format,
             sourceMapper,
-            libraryMap,
-            moduleSymbolsCallback,
+            {
+                nameMap,
+                libraryMap,
+                getModuleSymbolsMap: moduleSymbolsCallback,
+            },
             token
         );
 
@@ -833,8 +837,6 @@ export class SourceFile {
         evaluator: TypeEvaluator,
         format: MarkupKind,
         sourceMapper: SourceMapper,
-        libraryMap: Map<string, IndexResults> | undefined,
-        moduleSymbolsCallback: () => ModuleSymbolMap,
         completionItem: CompletionItem,
         token: CancellationToken
     ) {
@@ -856,8 +858,7 @@ export class SourceFile {
             evaluator,
             format,
             sourceMapper,
-            libraryMap,
-            moduleSymbolsCallback,
+            undefined,
             token
         );
 
