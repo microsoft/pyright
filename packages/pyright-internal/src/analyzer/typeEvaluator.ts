@@ -7794,6 +7794,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isNever(leftType)) {
                     return rightType;
                 }
+
+                if (!canBeTruthy(leftType)) {
+                    return rightType;
+                }
             } else if (operator === OperatorType.Or) {
                 leftType = removeFalsinessFromType(leftType);
 
@@ -7801,6 +7805,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // always return the type of the right-hand side.
                 if (isNever(leftType)) {
                     return rightType;
+                }
+
+                if (!canBeFalsy(leftType)) {
+                    return leftType;
                 }
             }
 

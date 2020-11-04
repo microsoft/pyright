@@ -16,11 +16,10 @@ a = 3
 foo = Foo()
 bar = Bar()
 
-b = a and foo or bar
+b = a and bar or foo
 
 # This should not be flagged as an error because
-# the type of b should be the union of Foo and Bar
-# at this point.
+# the type of b should be of type bar.
 b.do_something1()
 
 # This should be flagged as an error because the
