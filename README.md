@@ -53,7 +53,9 @@ For rich Python editing and debugging capabilities with Visual Studio Code, be s
 
 ## Installation
 ### VS Code Extension
-You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pyright`.
+You can install the latest-published version of the Pyright VS Code extension directly from VS Code. Simply open the extensions panel and search for `pylance`.
+
+(There's also an older VS Code extension called `pyright`, but we now recommend using `pylance`. See below for more details.)
 
 ### Vim
 For vim/neovim users, you can install [coc-pyright](https://github.com/fannheyward/coc-pyright), the Pyright extension for coc.nvim.
