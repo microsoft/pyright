@@ -388,6 +388,12 @@ test('Expressions6', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Expressions7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions7.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Unpack1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unpack1.py']);
 

@@ -7787,29 +7787,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If it's an AND or OR, we need to handle short-circuiting by
             // eliminating any known-truthy or known-falsy types.
             if (operator === OperatorType.And) {
-                leftType = removeTruthinessFromType(leftType);
-
                 // If the LHS evaluates to False, the And expression will
                 // always return the type of the right-hand side.
-                if (isNever(leftType)) {
-                    return rightType;
-                }
-
                 if (!canBeTruthy(leftType)) {
                     return rightType;
                 }
-            } else if (operator === OperatorType.Or) {
-                leftType = removeFalsinessFromType(leftType);
 
-                // If the LHS evaluates to True, the Or expression will
-                // always return the type of the right-hand side.
-                if (isNever(leftType)) {
-                    return rightType;
-                }
-
+                // If the LHS evaluates to True, the And expression will
+                // always return the type of the left-hand side.
                 if (!canBeFalsy(leftType)) {
                     return leftType;
                 }
+
+                leftType = removeTruthinessFromType(leftType);
+            } else if (operator === OperatorType.Or) {
+                // If the LHS evaluates to True, the Or expression will
+                // always return the type of the right-hand side.
+                if (!canBeFalsy(leftType)) {
+                    return rightType;
+                }
+
+                // If the LHS evaluates to False, the Or expression will
+                // always return the type of the left-hand side.
+                if (!canBeTruthy(leftType)) {
+                    return leftType;
+                }
+
+                leftType = removeFalsinessFromType(leftType);
             }
 
             // The "in" and "not in" operators make use of the __contains__
