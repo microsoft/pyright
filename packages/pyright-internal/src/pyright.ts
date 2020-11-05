@@ -546,7 +546,7 @@ function convertDiagnosticToJson(filePath: string, diag: Diagnostic): PyrightJso
         severity:
             diag.category === DiagnosticCategory.Error
                 ? 'error'
-                : DiagnosticCategory.Warning
+                : diag.category === DiagnosticCategory.Warning
                 ? 'warning'
                 : 'information',
         message: diag.message,
