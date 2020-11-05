@@ -246,7 +246,11 @@ export class Parser {
             parseTree = this._parseFunctionTypeAnnotation();
         } else {
             const exprListResult = this._parseTestExpressionList();
-            parseTree = this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ false);
+            if (exprListResult.parseError) {
+                parseTree = exprListResult.parseError;
+            } else {
+                parseTree = this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ false);
+            }
         }
 
         if (this._peekTokenType() === TokenType.NewLine) {
