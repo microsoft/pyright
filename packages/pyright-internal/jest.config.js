@@ -13,7 +13,7 @@ module.exports = {
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
     globals: {
         'ts-jest': {
-            tsConfig: {
+            tsconfig: {
                 target: 'es6',
 
                 // Needed because jest calls tsc in a way that doesn't
