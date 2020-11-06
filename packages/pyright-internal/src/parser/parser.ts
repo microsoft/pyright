@@ -2806,7 +2806,7 @@ export class Parser {
     // expr_stmt: testlist_star_expr (annassign | augassign (yield_expr | testlist) |
     //                     ('=' (yield_expr | testlist_star_expr))*)
     // testlist_star_expr: (test|star_expr) (',' (test|star_expr))* [',']
-    // annassign: ':' test ['=' test]
+    // annassign: ':' test ['=' (yield_expr | testlist_star_expr)]
     // augassign: ('+=' | '-=' | '*=' | '@=' | '/=' | '%=' | '&=' | '|=' | '^=' |
     //             '<<=' | '>>=' | '**=' | '//=')
     private _parseExpressionStatement(): ExpressionNode {
@@ -2845,7 +2845,20 @@ export class Parser {
                 this._isParsingTypeAnnotation = true;
             }
 
-            const rightExpr = this._parseTestExpression(false);
+            let rightExpr =
+                this._tryParseYieldExpression() ||
+                this._parseTestOrStarListAsExpression(
+                    /* allowAssignmentExpression */ false,
+                    ErrorExpressionCategory.MissingExpression,
+                    Localizer.Diagnostic.expectedAssignRightHandExpr()
+                );
+
+            if (rightExpr.nodeType !== ParseNodeType.Error) {
+                // Consume additional assignments until we're done.
+                if (this._consumeTokenIfOperator(OperatorType.Assign)) {
+                    rightExpr = this._parseChainAssignments(rightExpr);
+                }
+            }
 
             this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 
@@ -2857,7 +2870,7 @@ export class Parser {
             return this._parseChainAssignments(leftExpr);
         }
 
-        if (!annotationExpr && Tokenizer.isOperatorAssignment(this._peekOperatorType())) {
+        if (Tokenizer.isOperatorAssignment(this._peekOperatorType())) {
             const operatorToken = this._getNextToken() as OperatorToken;
 
             const rightExpr =
@@ -2878,15 +2891,13 @@ export class Parser {
     }
 
     private _parseChainAssignments(leftExpr: ExpressionNode): ExpressionNode {
-        let rightExpr: ExpressionNode | undefined;
-        rightExpr = this._tryParseYieldExpression();
-        if (!rightExpr) {
-            rightExpr = this._parseTestOrStarListAsExpression(
+        let rightExpr =
+            this._tryParseYieldExpression() ||
+            this._parseTestOrStarListAsExpression(
                 /* allowAssignmentExpression */ false,
                 ErrorExpressionCategory.MissingExpression,
                 Localizer.Diagnostic.expectedAssignRightHandExpr()
             );
-        }
 
         if (rightExpr.nodeType === ParseNodeType.Error) {
             return AssignmentNode.create(leftExpr, rightExpr);
