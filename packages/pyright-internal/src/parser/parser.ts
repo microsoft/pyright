@@ -2845,20 +2845,8 @@ export class Parser {
                 this._isParsingTypeAnnotation = true;
             }
 
-            let rightExpr =
-                this._tryParseYieldExpression() ||
-                this._parseTestOrStarListAsExpression(
-                    /* allowAssignmentExpression */ false,
-                    ErrorExpressionCategory.MissingExpression,
-                    Localizer.Diagnostic.expectedAssignRightHandExpr()
-                );
-
-            if (rightExpr.nodeType !== ParseNodeType.Error) {
-                // Consume additional assignments until we're done.
-                if (this._consumeTokenIfOperator(OperatorType.Assign)) {
-                    rightExpr = this._parseChainAssignments(rightExpr);
-                }
-            }
+            const rightExpr =
+                this._tryParseYieldExpression() || this._parseTestExpression(/* allowAssignmentExpression */ false);
 
             this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 
