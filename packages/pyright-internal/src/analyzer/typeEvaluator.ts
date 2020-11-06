@@ -12695,14 +12695,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const classType = getTypeOfExpression(testExpression.rightExpression).type;
                             if (isClass(classType)) {
                                 return (type: Type) => {
-                                    // Narrow the type based on whether the type matches the specified type.
+                                    // Narrow the type based on whether the type derives from the specified type.
                                     return doForSubtypes(type, (subtype) => {
                                         if (isObject(subtype)) {
-                                            const matches = ClassType.isSameGenericClass(subtype.classType, classType);
+                                            const matches = ClassType.isDerivedFrom(classType, subtype.classType);
                                             if (adjIsPositiveTest) {
-                                                return matches ? subtype : undefined;
+                                                return matches ? ObjectType.create(classType) : undefined;
                                             } else {
-                                                return matches ? undefined : subtype;
+                                                // We can't eliminate the subtype in the negative
+                                                // case because it could be a subclass of the type,
+                                                // in which case `type(x) is y` would fail.
+                                                return subtype;
                                             }
                                         } else if (isNone(subtype)) {
                                             return adjIsPositiveTest ? undefined : subtype;
