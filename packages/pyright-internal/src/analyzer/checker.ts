@@ -1598,7 +1598,12 @@ export class Checker extends ParseTreeWalker {
             const filteredTypes: Type[] = [];
 
             for (const filterType of classTypeList) {
-                const filterIsSuperclass = ClassType.isDerivedFrom(varType, filterType);
+                // Handle the special case where the variable type is a TypedDict and
+                // we're filtering against 'dict'. TypedDict isn't derived from dict,
+                // but at runtime, isinstance returns True.
+                const filterIsSuperclass =
+                    ClassType.isDerivedFrom(varType, filterType) ||
+                    (ClassType.isBuiltIn(filterType, 'dict') && ClassType.isTypedDictClass(varType));
                 const filterIsSubclass = ClassType.isDerivedFrom(filterType, varType);
 
                 // Normally, a class should never be both a subclass and a

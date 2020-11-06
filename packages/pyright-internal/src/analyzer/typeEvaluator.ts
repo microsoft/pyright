@@ -12960,7 +12960,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let isClassRelationshipIndeterminate = false;
 
             for (const filterType of classTypeList) {
-                const filterIsSuperclass = ClassType.isDerivedFrom(varType, filterType);
+                // Handle the special case where the variable type is a TypedDict and
+                // we're filtering against 'dict'. TypedDict isn't derived from dict,
+                // but at runtime, isinstance returns True.
+                const filterIsSuperclass =
+                    ClassType.isDerivedFrom(varType, filterType) ||
+                    (ClassType.isBuiltIn(filterType, 'dict') && ClassType.isTypedDictClass(varType));
                 const filterIsSubclass = ClassType.isDerivedFrom(filterType, varType);
 
                 if (filterIsSuperclass) {

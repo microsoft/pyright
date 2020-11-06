@@ -156,7 +156,7 @@ test('UnnecessaryIsInstance1', () => {
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportUnnecessaryIsInstance = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unnecessaryIsInstance1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('UnnecessaryIsSubclass1', () => {
