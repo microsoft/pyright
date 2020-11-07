@@ -131,6 +131,7 @@ import {
     isNever,
     isNone,
     isObject,
+    isOverloadedFunction,
     isPossiblyUnbound,
     isSameWithoutLiteralValue,
     isTypeSame,
@@ -343,9 +344,10 @@ interface AliasMapEntry {
 export const enum MemberAccessFlags {
     None = 0,
 
-    // By default, both class and instance members are considered.
-    // Set this flag to skip the instance members.
-    SkipInstanceMembers = 1 << 0,
+    // By default, member accesses are assumed to access the attributes
+    // of a class instance. By setting this flag, only attributes of
+    // the class are considered.
+    AccessClassMembersOnly = 1 << 0,
 
     // By default, members of base classes are also searched.
     // Set this flag to consider only the specified class' members.
@@ -354,19 +356,8 @@ export const enum MemberAccessFlags {
     // Do not include the "object" base class in the search.
     SkipObjectBaseClass = 1 << 2,
 
-    // By default, if the class has a __getattribute__ or __getattr__
-    // magic method, it is assumed to have any member.
-    SkipGetAttributeCheck = 1 << 3,
-
     // Consider writes to symbols flagged as ClassVars as an error.
-    DisallowClassVarWrites = 1 << 4,
-
-    // Allow classes to be bound to instance methods. This is used for
-    // metaclass methods.
-    TreatAsClassMethod = 1 << 5,
-
-    // This set of flags is appropriate for looking up methods.
-    SkipForMethodLookup = SkipInstanceMembers | SkipGetAttributeCheck,
+    DisallowClassVarWrites = 1 << 3,
 }
 
 export const enum PrintTypeFlags {
@@ -1179,27 +1170,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             memberName,
             usage,
             diag,
-            memberAccessFlags | MemberAccessFlags.DisallowClassVarWrites
+            memberAccessFlags | MemberAccessFlags.DisallowClassVarWrites,
+            bindToType
         );
 
-        let resultType = memberInfo ? memberInfo.type : undefined;
-        if (resultType) {
-            if (
-                resultType.category === TypeCategory.Function ||
-                resultType.category === TypeCategory.OverloadedFunction
-            ) {
-                if (memberInfo!.isClassMember) {
-                    resultType = bindFunctionToClassOrObject(
-                        bindToType || objectType,
-                        resultType,
-                        (memberAccessFlags & MemberAccessFlags.TreatAsClassMethod) !== 0,
-                        errorNode
-                    );
-                }
-            }
-        }
-
-        return resultType;
+        return memberInfo?.type;
     }
 
     // Gets a member type from a class and if it's a function binds
@@ -1218,44 +1193,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             memberName,
             usage,
             diag,
-            memberAccessFlags | MemberAccessFlags.SkipInstanceMembers | MemberAccessFlags.SkipGetAttributeCheck
+            memberAccessFlags | MemberAccessFlags.AccessClassMembersOnly
         );
-        let isMetaclassMember = false;
 
         // If it wasn't found on the class, see if it's part of the metaclass.
         if (!memberInfo) {
             const metaclass = classType.details.effectiveMetaclass;
-            if (metaclass && isClass(metaclass)) {
+            if (metaclass && isClass(metaclass) && !ClassType.isSameGenericClass(metaclass, classType)) {
                 memberInfo = getTypeFromClassMemberName(
                     errorNode,
                     metaclass,
                     memberName,
                     usage,
                     new DiagnosticAddendum(),
-                    memberAccessFlags
+                    memberAccessFlags,
+                    classType
                 );
-                isMetaclassMember = true;
             }
         }
 
-        let resultType = memberInfo ? memberInfo.type : undefined;
-        if (resultType) {
-            if (
-                resultType.category === TypeCategory.Function ||
-                resultType.category === TypeCategory.OverloadedFunction
-            ) {
-                if (memberInfo!.isClassMember) {
-                    resultType = bindFunctionToClassOrObject(
-                        classType,
-                        resultType,
-                        /* treatAsClassMember */ isMetaclassMember,
-                        errorNode
-                    );
-                }
-            }
-        }
-
-        return resultType;
+        return memberInfo?.type;
     }
 
     function getBoundMethod(
@@ -3755,14 +3712,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberName: string,
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum,
-        flags: MemberAccessFlags
+        flags: MemberAccessFlags,
+        bindToType?: ClassType | ObjectType
     ): ClassMemberLookup | undefined {
         // If this is a special type (like "List") that has an alias class (like
         // "list"), switch to the alias, which defines the members.
-        classType = ClassType.getAliasClass(classType);
+        const classTypeAlias = ClassType.getAliasClass(classType);
 
         let classLookupFlags = ClassMemberLookupFlags.Default;
-        if (flags & MemberAccessFlags.SkipInstanceMembers) {
+        if (flags & MemberAccessFlags.AccessClassMembersOnly) {
             classLookupFlags |= ClassMemberLookupFlags.SkipInstanceVariables;
         }
         if (flags & MemberAccessFlags.SkipBaseClasses) {
@@ -3774,7 +3732,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Always look for a member with a declared type first.
         let memberInfo = lookUpClassMember(
-            classType,
+            classTypeAlias,
             memberName,
             classLookupFlags | ClassMemberLookupFlags.DeclaredTypesOnly
         );
@@ -3782,11 +3740,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If we couldn't find a symbol with a declared type, use
         // a symbol with an inferred type.
         if (!memberInfo) {
-            memberInfo = lookUpClassMember(classType, memberName, classLookupFlags);
+            memberInfo = lookUpClassMember(classTypeAlias, memberName, classLookupFlags);
         }
 
         if (memberInfo) {
             let type: Type | undefined;
+
             if (usage.method === 'get') {
                 type = getTypeOfMember(memberInfo);
             } else {
@@ -3799,7 +3758,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (
                         containingClassType &&
                         isClass(containingClassType) &&
-                        ClassType.isSameGenericClass(containingClassType, classType)
+                        ClassType.isSameGenericClass(containingClassType, classTypeAlias)
                     ) {
                         type = getDeclaredTypeOfSymbol(memberInfo.symbol) || UnknownType.create();
                     }
@@ -3833,11 +3792,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            const objectAccessType = applyObjectAccessMethod(
+            const objectAccessType = applyDescriptorAccessMethod(
                 type,
                 memberInfo,
                 classType,
-                (flags & MemberAccessFlags.SkipInstanceMembers) === 0,
+                bindToType,
+                (flags & MemberAccessFlags.AccessClassMembersOnly) === 0,
                 errorNode,
                 memberName,
                 usage,
@@ -3869,11 +3829,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
         }
 
-        if (!(flags & MemberAccessFlags.SkipGetAttributeCheck)) {
-            const generalAttrType = applyGeneralAttributeAccess(classType, errorNode, usage);
+        // No attribute of that name was found. If this is a member access
+        // through an object, see if there's an attribute access override
+        // method ("__getattr__", etc.).
+        if ((flags & MemberAccessFlags.AccessClassMembersOnly) === 0) {
+            const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage);
+
             if (generalAttrType) {
+                const objectAccessType = applyDescriptorAccessMethod(
+                    generalAttrType,
+                    memberInfo,
+                    classType,
+                    bindToType,
+                    /* isAccessedThroughObject */ false,
+                    errorNode,
+                    memberName,
+                    usage,
+                    diag
+                );
+
+                if (!objectAccessType) {
+                    return undefined;
+                }
+
                 return {
-                    type: generalAttrType,
+                    type: objectAccessType,
                     isClassMember: false,
                 };
             }
@@ -3883,11 +3863,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
-    // Applies special access methods "__get__", "__set__", or "__delete__".
-    function applyObjectAccessMethod(
+    // Applies descriptor access methods "__get__", "__set__", or "__delete__"
+    // if they apply. Also binds methods to the class/object through which it
+    // is accessed.
+    function applyDescriptorAccessMethod(
         type: Type,
-        memberInfo: ClassMember,
+        memberInfo: ClassMember | undefined,
         classType: ClassType,
+        bindToType: ObjectType | ClassType | undefined,
         isAccessedThroughObject: boolean,
         errorNode: ExpressionNode,
         memberName: string,
@@ -3989,8 +3972,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         /* inferReturnTypeIfNeeded */ true,
                                         /* expectedType */ undefined
                                     ).returnType || UnknownType.create();
-                                if (isClass(memberInfo!.classType)) {
-                                    return partiallySpecializeType(returnType, memberInfo!.classType);
+                                if (memberInfo && isClass(memberInfo!.classType)) {
+                                    return partiallySpecializeType(returnType, memberInfo.classType);
                                 }
                                 return returnType;
                             } else {
@@ -4013,12 +3996,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 }
+            } else if (isFunction(subtype) || isOverloadedFunction(subtype)) {
+                // If this function is an instance member (e.g. a lambda that was
+                // assigned to an instance variable), don't perform any binding.
+                const isInstanceMember = isAccessedThroughObject && memberInfo?.isInstanceMember;
+                if (!isInstanceMember) {
+                    return bindFunctionToClassOrObject(
+                        bindToType || (isAccessedThroughObject ? ObjectType.create(classType) : classType),
+                        subtype,
+                        /* treatAsClassMethod */ bindToType !== undefined,
+                        errorNode
+                    );
+                }
             }
 
             if (usage.method === 'set') {
                 let enforceTargetType = false;
 
-                if (memberInfo!.symbol.hasTypedDeclarations()) {
+                if (memberInfo && memberInfo.symbol.hasTypedDeclarations()) {
                     // If the member has a declared type, we will enforce it.
                     enforceTargetType = true;
                 } else {
@@ -4026,7 +4021,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // if this assignment isn't within the enclosing class. If
                     // it is within the enclosing class, the assignment is used
                     // to infer the type of the member.
-                    if (!memberInfo!.symbol.getDeclarations().some((decl) => decl.node === errorNode)) {
+                    if (memberInfo && !memberInfo.symbol.getDeclarations().some((decl) => decl.node === errorNode)) {
                         enforceTargetType = true;
                     }
                 }
@@ -4057,7 +4052,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Applies the __getattr__, __setattr__ or __delattr__ method if present.
-    function applyGeneralAttributeAccess(
+    function applyAttributeAccessOverride(
         classType: ClassType,
         errorNode: ExpressionNode,
         usage: EvaluatorUsage
@@ -4071,7 +4066,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 '__getattribute__',
                 { method: 'get' },
                 new DiagnosticAddendum(),
-                MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
+                MemberAccessFlags.SkipObjectBaseClass
             );
 
             if (getAttribType && getAttribType.category === TypeCategory.Function) {
@@ -4084,7 +4079,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 '__getattr__',
                 { method: 'get' },
                 new DiagnosticAddendum(),
-                MemberAccessFlags.SkipForMethodLookup
+                MemberAccessFlags.SkipObjectBaseClass
             );
             if (getAttrType && getAttrType.category === TypeCategory.Function) {
                 return getFunctionEffectiveReturnType(getAttrType);
@@ -4096,7 +4091,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 '__setattr__',
                 { method: 'get' },
                 new DiagnosticAddendum(),
-                MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
+                MemberAccessFlags.SkipObjectBaseClass
             );
             if (setAttrType) {
                 // The type doesn't matter for a set usage. We just need
@@ -4111,7 +4106,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 '__detattr__',
                 { method: 'get' },
                 new DiagnosticAddendum(),
-                MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
+                MemberAccessFlags.SkipObjectBaseClass
             );
             if (delAttrType) {
                 // The type doesn't matter for a delete usage. We just need
@@ -4452,7 +4447,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             magicMethodName,
             { method: 'get' },
             new DiagnosticAddendum(),
-            MemberAccessFlags.SkipForMethodLookup
+            MemberAccessFlags.None
         );
 
         if (!itemMethodType) {
@@ -5321,7 +5316,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         '__call__',
                         { method: 'get' },
                         new DiagnosticAddendum(),
-                        MemberAccessFlags.SkipForMethodLookup
+                        MemberAccessFlags.None
                     );
                     if (memberType) {
                         type = validateCallArguments(
@@ -5484,7 +5479,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             '__init__',
             { method: 'get' },
             new DiagnosticAddendum(),
-            MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
+            MemberAccessFlags.SkipObjectBaseClass
         );
 
         if (initMethodType && !skipConstructorCheck(initMethodType)) {
@@ -5569,15 +5564,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 '__new__',
                 { method: 'get' },
                 new DiagnosticAddendum(),
-                MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
+                MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipObjectBaseClass,
+                type
             );
             if (constructorMethodInfo && !skipConstructorCheck(constructorMethodInfo.type)) {
-                const constructorMethodType = bindFunctionToClassOrObject(
-                    type,
-                    constructorMethodInfo.type,
-                    /* treatAsClassMember */ true,
-                    errorNode
-                );
+                const constructorMethodType = constructorMethodInfo.type;
                 const typeVarMap = new TypeVarMap();
 
                 if (constructorMethodType) {
@@ -5921,7 +5912,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     '__call__',
                     { method: 'get' },
                     new DiagnosticAddendum(),
-                    MemberAccessFlags.SkipForMethodLookup
+                    MemberAccessFlags.None
                 );
 
                 if (memberType && memberType.category === TypeCategory.Function) {
@@ -7914,18 +7905,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Create a helper lambda for object subtypes.
         const handleObjectSubtype = (subtype: ObjectType, bindToClassType?: ClassType) => {
-            let flags = MemberAccessFlags.SkipForMethodLookup;
-            if (bindToClassType) {
-                flags |= MemberAccessFlags.TreatAsClassMethod;
-            }
-
             const magicMethodType = getTypeFromObjectMember(
                 errorNode,
                 subtype,
                 magicMethodName,
                 { method: 'get' },
                 new DiagnosticAddendum(),
-                flags,
+                MemberAccessFlags.None,
                 bindToClassType
             );
 
@@ -10016,18 +10002,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             '__init_subclass__',
             { method: 'get' },
             new DiagnosticAddendum(),
-            MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
+            MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipObjectBaseClass,
+            classType
         );
 
         if (initSubclassMethodInfo) {
-            const initSubclassMethodType = bindFunctionToClassOrObject(
-                classType,
-                initSubclassMethodInfo.type,
-                /* treatAsClassMember */ true,
-                errorNode
-            );
+            const initSubclassMethodType = initSubclassMethodInfo.type;
 
-            if (initSubclassMethodType)
+            if (initSubclassMethodType) {
                 validateCallArguments(
                     errorNode,
                     argList,
@@ -10037,6 +10019,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* inferReturnTypeIfNeeded */ true,
                     NoneType.createInstance()
                 );
+            }
         }
     }
 
@@ -13228,7 +13211,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         '__call__',
                         { method: 'get' },
                         new DiagnosticAddendum(),
-                        MemberAccessFlags.SkipForMethodLookup
+                        MemberAccessFlags.None
                     );
                     if (!callMemberType) {
                         return isPositiveTest ? undefined : subtype;
@@ -13755,7 +13738,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             '__init__',
                             { method: 'get' },
                             new DiagnosticAddendum(),
-                            MemberAccessFlags.SkipForMethodLookup | MemberAccessFlags.SkipObjectBaseClass
+                            MemberAccessFlags.SkipObjectBaseClass
                         );
 
                         if (initMethodType && initMethodType.category === TypeCategory.Function) {

@@ -1,7 +1,11 @@
 # This sample tests member access expressions where the
 # LHS is a class and the RHS is a property.
 
+
 class A:
+    def __init__(self):
+        return
+
     @property
     def value(self):
         return 42
@@ -24,4 +28,3 @@ c2 = a.blah
 # This should generate an error because a.value is
 # the property value.
 c3 = a.value.fget
-
