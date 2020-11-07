@@ -462,7 +462,8 @@ export class CompletionProvider {
             }
 
             let token = tokens.getItemAt(tokenIndex);
-            if (TextRange.contains(token, offset)) {
+            // If we're in the middle of a token, we can't be within a comment.
+            if (offset > token.start && offset < token.start + token.length) {
                 return undefined;
             }
 
