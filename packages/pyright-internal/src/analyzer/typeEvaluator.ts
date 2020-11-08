@@ -1849,6 +1849,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     let variableNameNode: NameNode | undefined;
                     let variableTypeEvaluator: TypeEvaluator | undefined;
                     let hasDefaultValue = false;
+                    let defaultValueExpression: ExpressionNode | undefined;
                     let includeInInit = true;
 
                     if (statement.nodeType === ParseNodeType.Assignment) {
@@ -1865,6 +1866,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         hasDefaultValue = true;
+                        defaultValueExpression = statement.rightExpression;
 
                         // If the RHS of the assignment is assigning a field instance where the
                         // "init" parameter is set to false, do not include it in the init method.
@@ -1913,6 +1915,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const dataClassEntry: DataClassEntry = {
                                 name: variableName,
                                 hasDefault: hasDefaultValue,
+                                defaultValueExpression,
                                 includeInInit,
                                 type: UnknownType.create(),
                             };
@@ -1973,6 +1976,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         category: ParameterCategory.Simple,
                         name: entry.name,
                         hasDefault: entry.hasDefault,
+                        defaultValueExpression: entry.defaultValueExpression,
                         type: entry.type,
                         hasDeclaredType: true,
                     };
@@ -8555,6 +8559,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 category: param.category,
                 name: param.name ? param.name.value : undefined,
                 hasDefault: !!param.defaultValue,
+                defaultValueExpression: param.defaultValue,
                 hasDeclaredType: true,
                 type: paramType,
             };
@@ -10232,6 +10237,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 category: param.category,
                 name: param.name ? param.name.value : undefined,
                 hasDefault: !!param.defaultValue,
+                defaultValueExpression: param.defaultValue,
                 defaultType: defaultValueType,
                 type: paramType || UnknownType.create(),
                 hasDeclaredType: !!paramTypeNode,
@@ -16827,17 +16833,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 paramString += '/';
             }
 
-            if (type.details.declaration) {
-                const adjustedIndex = type.ignoreFirstParamOfDeclaration ? index + 1 : index;
-                const paramNode = type.details.declaration.node.parameters[adjustedIndex];
-                if (paramNode.defaultValue) {
-                    paramString += defaultValueAssignment + ParseTreeUtils.printExpression(paramNode.defaultValue);
+            if (param.hasDefault) {
+                if (param.defaultValueExpression) {
+                    paramString +=
+                        defaultValueAssignment + ParseTreeUtils.printExpression(param.defaultValueExpression);
+                } else {
+                    // If the function doesn't originate from a function declaration (e.g. it is
+                    // synthesized), we can't get to the default declaration, but we can still indicate
+                    // that there is a default value provided.
+                    paramString += defaultValueAssignment + '...';
                 }
-            } else if (param.hasDefault) {
-                // If the function doesn't originate from a function declaration (e.g. it is
-                // synthesized), we can't get to the default declaration, but we can still indicate
-                // that there is a default value provided.
-                paramString += defaultValueAssignment + '...';
             }
 
             return paramString;

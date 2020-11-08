@@ -8,7 +8,7 @@
  */
 
 import { assert } from '../common/debug';
-import { ParameterCategory } from '../parser/parseNodes';
+import { ExpressionNode, ParameterCategory } from '../parser/parseNodes';
 import { FunctionDeclaration } from './declaration';
 import { Symbol, SymbolTable } from './symbol';
 
@@ -198,7 +198,8 @@ export namespace ModuleType {
 
 export interface DataClassEntry {
     name: string;
-    hasDefault: boolean;
+    hasDefault?: boolean;
+    defaultValueExpression?: ExpressionNode;
     includeInInit: boolean;
     type: Type;
 }
@@ -727,6 +728,7 @@ export interface FunctionParameter {
     isNameSynthesized?: boolean;
     isTypeInferred?: boolean;
     hasDefault?: boolean;
+    defaultValueExpression?: ExpressionNode;
     defaultType?: Type;
     hasDeclaredType?: boolean;
     type: Type;
@@ -817,10 +819,6 @@ export interface FunctionType extends TypeBase {
 
     details: FunctionDetails;
 
-    // This flag is set when the first parameter is stripped
-    // (see "clone" method below).
-    ignoreFirstParamOfDeclaration?: boolean;
-
     // A function type can be specialized (i.e. generic type
     // variables replaced by a concrete type).
     specializedTypes?: SpecializedFunctionTypes;
@@ -893,7 +891,6 @@ export namespace FunctionType {
             newFunction.details.parameters = type.details.parameters.slice(1);
             newFunction.details.flags &= ~(FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.ClassMethod);
             newFunction.details.flags |= FunctionTypeFlags.StaticMethod;
-            newFunction.ignoreFirstParamOfDeclaration = true;
         }
 
         if (type.typeAliasInfo !== undefined) {
