@@ -591,6 +591,16 @@ export namespace ClassType {
             return false;
         }
 
+        // Special-case NamedTuple and Tuple classes because we rewrite the base classes
+        // in these cases.
+        if (ClassType.isBuiltIn(classType, 'NamedTuple') && ClassType.isBuiltIn(type2, 'NamedTuple')) {
+            return true;
+        }
+        if (ClassType.isBuiltIn(classType, 'Tuple') && ClassType.isBuiltIn(type2, 'Tuple')) {
+            return true;
+        }
+
+        // Make sure the base classes match.
         for (let i = 0; i < class1Details.baseClasses.length; i++) {
             if (!isTypeSame(class1Details.baseClasses[i], class2Details.baseClasses[i], recursionCount + 1)) {
                 return false;

@@ -60,3 +60,5 @@ t2: Tuple[float, float] = NamedTuple3("hello", 2)
 
 # This should generate an error because the lengths are incompatible.
 t3: Tuple[str, float, str] = NamedTuple3("hello", 2)
+
+t4: NamedTuple = NamedTuple3("hello", 2)
