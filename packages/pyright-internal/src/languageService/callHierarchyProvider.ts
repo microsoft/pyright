@@ -22,13 +22,13 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { ClassType, isClass, isObject, isTypeVar, TypeCategory } from '../analyzer/types';
-import { specializeType } from '../analyzer/typeUtils';
 import {
     ClassMemberLookupFlags,
     doForSubtypes,
     isProperty,
     lookUpClassMember,
     lookUpObjectMember,
+    makeTopLevelTypeVarsConcrete,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { getFileName } from '../common/pathUtils';
@@ -216,7 +216,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
 
                 // This could be a bound TypeVar (e.g. used for "self" and "cls").
                 if (isTypeVar(baseType)) {
-                    baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
+                    baseType = makeTopLevelTypeVarsConcrete(baseType);
                 }
 
                 if (!isObject(baseType)) {
@@ -352,7 +352,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
 
                     // This could be a bound TypeVar (e.g. used for "self" and "cls").
                     if (isTypeVar(baseType)) {
-                        baseType = specializeType(baseType, /* typeVarMap */ undefined, /* makeConcrete */ true);
+                        baseType = makeTopLevelTypeVarsConcrete(baseType);
                     }
 
                     if (!isObject(baseType)) {

@@ -10,7 +10,15 @@
  */
 
 import { assert } from '../common/debug';
-import { ClassType, maxTypeRecursionCount, ParamSpecEntry, Type, TypeCategory, TypeVarType } from './types';
+import {
+    ClassType,
+    maxTypeRecursionCount,
+    ParamSpecEntry,
+    Type,
+    TypeCategory,
+    TypeVarScopeId,
+    TypeVarType,
+} from './types';
 
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
@@ -23,19 +31,28 @@ export interface ParamSpecMapEntry {
 }
 
 export class TypeVarMap {
+    private _solveForScopes: string[] | undefined;
     private _typeVarMap: Map<string, TypeVarMapEntry>;
     private _paramSpecMap: Map<string, ParamSpecMapEntry>;
     private _isNarrowableMap: Map<string, boolean>;
     private _isLocked = false;
 
-    constructor() {
+    constructor(solveForScopes?: TypeVarScopeId[] | TypeVarScopeId) {
+        if (Array.isArray(solveForScopes)) {
+            this._solveForScopes = solveForScopes;
+        } else if (solveForScopes !== undefined) {
+            this._solveForScopes = [solveForScopes];
+        } else {
+            this._solveForScopes = undefined;
+        }
+
         this._typeVarMap = new Map<string, TypeVarMapEntry>();
         this._paramSpecMap = new Map<string, ParamSpecMapEntry>();
         this._isNarrowableMap = new Map<string, boolean>();
     }
 
     clone() {
-        const newTypeVarMap = new TypeVarMap();
+        const newTypeVarMap = new TypeVarMap(this._solveForScopes);
 
         this._typeVarMap.forEach((value) => {
             newTypeVarMap.setTypeVar(value.typeVar, value.type, this.isNarrowable(value.typeVar));
@@ -56,6 +73,28 @@ export class TypeVarMap {
         this._paramSpecMap = clone._paramSpecMap;
         this._isNarrowableMap = clone._isNarrowableMap;
         this._isLocked = clone._isLocked;
+    }
+
+    // Returns the list of scopes this type var map is "solving".
+    getSolveForScopes() {
+        return this._solveForScopes;
+    }
+
+    hasSolveForScope(scopeId: TypeVarScopeId) {
+        return this._solveForScopes !== undefined && this._solveForScopes.some((s) => s === scopeId);
+    }
+
+    setSolveForScopes(scopeIds: TypeVarScopeId[]) {
+        this._solveForScopes = scopeIds;
+    }
+
+    addSolveForScope(scopeId?: TypeVarScopeId) {
+        if (scopeId !== undefined) {
+            if (!this._solveForScopes) {
+                this._solveForScopes = [];
+            }
+            this._solveForScopes.push(scopeId);
+        }
     }
 
     // Provides a "score" - a value that values completeness (number

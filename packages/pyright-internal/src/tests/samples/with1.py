@@ -64,7 +64,7 @@ def test1():
     a3 = Class3()
     with a3 as foo:
         # This should generate an error because foo
-        # should be of type Class3/
+        # should be of type Class3.
         requires_int(foo)
 
         requires_class3(foo)

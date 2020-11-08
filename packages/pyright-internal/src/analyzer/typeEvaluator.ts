@@ -178,6 +178,7 @@ import {
     getDeclaredGeneratorSendType,
     getSpecializedTupleType,
     getTypeVarArgumentsRecursive,
+    getTypeVarScopeId,
     isEllipsisType,
     isLiteralType,
     isNoReturnType,
@@ -190,7 +191,7 @@ import {
     isTypeAliasRecursive,
     lookUpClassMember,
     lookUpObjectMember,
-    makeTypeVarsConcrete,
+    makeTopLevelTypeVarsConcrete,
     partiallySpecializeType,
     printLiteralValue,
     removeFalsinessFromType,
@@ -1178,7 +1179,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Gets a member type from a class and if it's a function binds
-    // it to the object.
+    // it to the class.
     function getTypeFromClassMember(
         errorNode: ExpressionNode,
         classType: ClassType,
@@ -1412,7 +1413,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     exprNode,
                     argList,
                     type,
-                    new TypeVarMap(),
+                    new TypeVarMap(getTypeVarScopeId(type)),
                     /* skipUnknownArgCheck */ true,
                     /* inferReturnTypeIfNeeded */ true,
                     /* expectedType */ undefined
@@ -1537,7 +1538,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.MemberAccess: {
-                const baseType = makeTypeVarsConcrete(getTypeOfExpression(expression.leftExpression).type);
+                const baseType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(expression.leftExpression).type);
                 let classMemberInfo: ClassMember | undefined;
 
                 if (isObject(baseType)) {
@@ -1689,7 +1690,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const nextMethodName = isAsync ? '__anext__' : '__next__';
         const getItemMethodName = supportGetItem ? '__getitem__' : '';
 
-        type = makeTypeVarsConcrete(type);
+        type = makeTopLevelTypeVarsConcrete(type);
 
         if (type.category === TypeCategory.Union && type.subtypes.some((t) => isNone(t))) {
             if (errorNode) {
@@ -2495,7 +2496,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedTypeDiagAddendum?: DiagnosticAddendum
     ) {
         const baseTypeResult = getTypeOfExpression(target.leftExpression);
-        const baseType = makeTypeVarsConcrete(baseTypeResult.type);
+        const baseType = makeTopLevelTypeVarsConcrete(baseTypeResult.type);
 
         // Handle member accesses (e.g. self.x or cls.y).
         if (target.leftExpression.nodeType === ParseNodeType.Name) {
@@ -3434,7 +3435,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // potentially initialized the value.
             let initialType = memberTypeResult.type;
             if (isUnbound(initialType)) {
-                const baseType = makeTypeVarsConcrete(baseTypeResult.type);
+                const baseType = makeTopLevelTypeVarsConcrete(baseTypeResult.type);
 
                 let classMemberInfo: ClassMember | undefined;
                 if (isClass(baseType)) {
@@ -3971,7 +3972,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         errorNode,
                                         argList.slice(1),
                                         accessMethodType,
-                                        new TypeVarMap(),
+                                        new TypeVarMap(getTypeVarScopeId(accessMethodType)),
                                         /* skipUnknownArgCheck */ true,
                                         /* inferReturnTypeIfNeeded */ true,
                                         /* expectedType */ undefined
@@ -4246,7 +4247,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const type = doForSubtypes(baseType, (subtype) => {
-            subtype = makeTypeVarsConcrete(subtype);
+            subtype = makeTopLevelTypeVarsConcrete(subtype);
             subtype = getClassFromPotentialTypeObject(subtype);
 
             if (isAnyOrUnknown(subtype)) {
@@ -4528,7 +4529,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             node,
             argList,
             itemMethodType,
-            new TypeVarMap(),
+            new TypeVarMap(getTypeVarScopeId(itemMethodType)),
             /* skipUnknownArgCheck */ false,
             /* inferReturnTypeIfNeeded */ true,
             /* expectedType */ undefined
@@ -4652,7 +4653,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
             }
         } else {
-            const tupleTypeVarMap = new TypeVarMap();
+            const tupleTypeVarMap = new TypeVarMap(getTypeVarScopeId(builtInTuple.classType));
             if (!populateTypeVarMapBasedOnExpectedType(builtInTuple.classType, expectedType, tupleTypeVarMap)) {
                 return undefined;
             }
@@ -5040,7 +5041,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let resultType = doForSubtypes(baseTypeResult.type, (subtype) => {
             let type: Type | undefined;
 
-            subtype = makeTypeVarsConcrete(subtype);
+            subtype = makeTopLevelTypeVarsConcrete(subtype);
             let isTypeObject = false;
             if (
                 isObject(subtype) &&
@@ -5210,7 +5211,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             errorNode,
                             argList,
                             subtype,
-                            new TypeVarMap(),
+                            new TypeVarMap(getTypeVarScopeId(subtype)),
                             skipUnknownArgCheck,
                             /* inferReturnTypeIfNeeded */ true,
                             expectedType
@@ -5224,7 +5225,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             errorNode,
                             argList,
                             subtype,
-                            new TypeVarMap(),
+                            new TypeVarMap(getTypeVarScopeId(subtype)),
                             skipUnknownArgCheck,
                             /* inferReturnTypeIfNeeded */ true,
                             expectedType
@@ -5272,7 +5273,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 errorNode,
                                 argList,
                                 functionType,
-                                new TypeVarMap(),
+                                new TypeVarMap(getTypeVarScopeId(functionType)),
                                 skipUnknownArgCheck,
                                 /* inferReturnTypeIfNeeded */ true,
                                 expectedType
@@ -5327,7 +5328,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             errorNode,
                             argList,
                             memberType,
-                            new TypeVarMap(),
+                            new TypeVarMap(getTypeVarScopeId(memberType)),
                             skipUnknownArgCheck,
                             /* inferReturnTypeIfNeeded */ true,
                             expectedType
@@ -5420,7 +5421,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // This is the intended behavior according to PEP 484.
             if (FunctionType.isOverloaded(overload)) {
                 // Clone the typeVarMap so we don't modify the original.
-                const effectiveTypeVarMap = typeVarMap ? typeVarMap.clone() : new TypeVarMap();
+                const effectiveTypeVarMap = typeVarMap
+                    ? typeVarMap.clone()
+                    : new TypeVarMap(getTypeVarScopeId(overload));
+
+                effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(overload));
 
                 // Temporarily disable diagnostic output.
                 useSpeculativeMode(errorNode, () => {
@@ -5492,7 +5497,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // one or more analyzes with no errors, use those results.
             if (expectedType) {
                 returnType = doForSubtypes(expectedType, (expectedSubType) => {
-                    const typeVarMap = new TypeVarMap();
+                    const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
                     if (populateTypeVarMapBasedOnExpectedType(type, expectedSubType, typeVarMap)) {
                         const callResult = validateCallArguments(
                             errorNode,
@@ -5528,8 +5533,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!returnType) {
                 const typeVarMap = type.typeArguments
                     ? buildTypeVarMapFromSpecializedClass(type, /* makeConcrete */ false)
-                    : new TypeVarMap();
+                    : new TypeVarMap(getTypeVarScopeId(type));
 
+                typeVarMap.addSolveForScope(getTypeVarScopeId(initMethodType));
                 const callResult = validateCallArguments(
                     errorNode,
                     argList,
@@ -5573,7 +5579,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             );
             if (constructorMethodInfo && !skipConstructorCheck(constructorMethodInfo.type)) {
                 const constructorMethodType = constructorMethodInfo.type;
-                const typeVarMap = new TypeVarMap();
+                const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
 
                 if (constructorMethodType) {
                     // Skip the unknown argument check if we've already checked for __init__.
@@ -5693,7 +5699,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return expectedSubtype;
             }
 
-            const typeVarMap = new TypeVarMap();
+            const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
             if (populateTypeVarMapBasedOnExpectedType(type, expectedSubtype, typeVarMap)) {
                 return specializeType(objType, typeVarMap) as ClassType;
             }
@@ -5847,6 +5853,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeVarMap
                 );
                 if (overloadedFunctionType) {
+                    typeVarMap.addSolveForScope(getTypeVarScopeId(overloadedFunctionType));
                     callResult = validateFunctionArguments(
                         errorNode,
                         argList,
@@ -6449,7 +6456,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let diag = new DiagnosticAddendum();
 
-        argType = makeTypeVarsConcrete(argType);
+        argType = makeTopLevelTypeVarsConcrete(argType);
 
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
             if (!isDiagnosticSuppressedForNode(argParam.errorNode)) {
@@ -7395,7 +7402,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeFromUnaryOperation(node: UnaryOperationNode, expectedType: Type | undefined): TypeResult {
-        let exprType = makeTypeVarsConcrete(getTypeOfExpression(node.expression).type);
+        let exprType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(node.expression).type);
 
         // Map unary operators to magic functions. Note that the bitwise
         // invert has two magic functions that are aliases of each other.
@@ -7502,8 +7509,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // have no magic method, so we apply the expected type directly to both operands.
         const expectedOperandType =
             node.operator === OperatorType.Or || node.operator === OperatorType.And ? expectedType : undefined;
-        let leftType = makeTypeVarsConcrete(getTypeOfExpression(leftExpression, expectedOperandType).type);
-        let rightType = makeTypeVarsConcrete(getTypeOfExpression(rightExpression, expectedOperandType).type);
+        let leftType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(leftExpression, expectedOperandType).type);
+        let rightType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(rightExpression, expectedOperandType).type);
 
         // Is this a "|" operator used in a context where it is supposed to be
         // interpreted as a union operator?
@@ -7605,8 +7612,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let type: Type | undefined;
 
-        const leftType = makeTypeVarsConcrete(getTypeOfExpression(node.leftExpression).type);
-        const rightType = makeTypeVarsConcrete(getTypeOfExpression(node.rightExpression).type);
+        const leftType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(node.leftExpression).type);
+        const rightType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(node.rightExpression).type);
 
         type = doForSubtypes(leftType!, (leftSubtype) => {
             return doForSubtypes(rightType, (rightSubtype) => {
@@ -7934,7 +7941,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         errorNode,
                         functionArgs,
                         magicMethodType,
-                        new TypeVarMap(),
+                        new TypeVarMap(getTypeVarScopeId(magicMethodType)),
                         /* skipUnknownArgCheck */ true,
                         /* inferFunctionReturnType */ true,
                         expectedType
@@ -8008,7 +8015,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const classAlias = ClassType.getAliasClass(subtype.classType);
                     if (ClassType.isBuiltIn(classAlias, 'set') && subtype.classType.typeArguments) {
                         const typeArg = subtype.classType.typeArguments[0];
-                        const typeVarMap = new TypeVarMap();
+                        const typeVarMap = new TypeVarMap(getTypeVarScopeId(subtype));
 
                         for (const entryType of entryTypes) {
                             if (!canAssignType(typeArg, entryType, new DiagnosticAddendum(), typeVarMap)) {
@@ -8121,7 +8128,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const dictTypeVarMap = new TypeVarMap();
+        const dictTypeVarMap = new TypeVarMap(getTypeVarScopeId(builtInDict.classType));
         if (!populateTypeVarMapBasedOnExpectedType(builtInDict.classType, expectedType, dictTypeVarMap)) {
             return undefined;
         }
@@ -8215,7 +8222,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (entryNode.nodeType === ParseNodeType.DictionaryKeyEntry) {
                 let keyType = getTypeOfExpression(entryNode.keyExpression, expectedKeyType).type;
                 if (expectedKeyType) {
-                    const adjExpectedKeyType = makeTypeVarsConcrete(expectedKeyType);
+                    const adjExpectedKeyType = makeTopLevelTypeVarsConcrete(expectedKeyType);
                     if (!isAnyOrUnknown(adjExpectedKeyType)) {
                         if (canAssignType(adjExpectedKeyType, keyType, new DiagnosticAddendum(), undefined)) {
                             keyType = adjExpectedKeyType;
@@ -8251,7 +8258,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     const mappingType = getTypingType(node, 'Mapping');
                     if (mappingType && isClass(mappingType)) {
-                        const mappingTypeVarMap = new TypeVarMap();
+                        const mappingTypeVarMap = new TypeVarMap(getTypeVarScopeId(mappingType));
                         if (
                             canAssignType(
                                 ObjectType.create(mappingType),
@@ -8353,7 +8360,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const listTypeVarMap = new TypeVarMap();
+        const listTypeVarMap = new TypeVarMap(getTypeVarScopeId(builtInList.classType));
         if (!populateTypeVarMapBasedOnExpectedType(builtInList.classType, expectedType, listTypeVarMap)) {
             return undefined;
         }
@@ -9556,6 +9563,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ParseTreeUtils.getDocString(node.suite.statements)
         );
 
+        classType.details.typeVarScopeId = getScopeIdForNode(node);
+
         // Some classes refer to themselves within type arguments used within
         // base classes. We'll register the partially-constructed class type
         // to allow these to be resolved.
@@ -10019,7 +10028,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     errorNode,
                     argList,
                     initSubclassMethodType,
-                    new TypeVarMap(),
+                    new TypeVarMap(getTypeVarScopeId(initSubclassMethodType)),
                     /* skipUnknownArgCheck */ false,
                     /* inferReturnTypeIfNeeded */ true,
                     NoneType.createInstance()
@@ -10082,6 +10091,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             functionFlags,
             ParseTreeUtils.getDocString(node.suite.statements)
         );
+
+        functionType.details.typeVarScopeId = getScopeIdForNode(node);
 
         if (fileInfo.isBuiltInStubFile || fileInfo.isTypingStubFile || fileInfo.isTypingExtensionsStubFile) {
             // Stash away the name of the function since we need to handle
@@ -11289,7 +11300,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Verify that the target has an __enter__ or __aenter__ method defined.
         const enterMethodName = isAsync ? '__aenter__' : '__enter__';
         const scopedType = doForSubtypes(exprType, (subtype) => {
-            subtype = makeTypeVarsConcrete(subtype);
+            subtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
@@ -11353,7 +11364,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Verify that the target has an __exit__ or __aexit__ method defined.
         const exitMethodName = isAsync ? '__aexit__' : '__exit__';
         doForSubtypes(exprType, (subtype) => {
-            subtype = makeTypeVarsConcrete(subtype);
+            subtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isAnyOrUnknown(subtype)) {
                 return undefined;
@@ -11915,7 +11926,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return undefined;
             }
 
-            baseType = makeTypeVarsConcrete(baseType);
+            baseType = makeTopLevelTypeVarsConcrete(baseType);
 
             let symbol: Symbol | undefined;
             if (isModule(baseType)) {
@@ -12940,7 +12951,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         // Handle bound TypeVar.
-        effectiveType = makeTypeVarsConcrete(effectiveType);
+        effectiveType = makeTopLevelTypeVarsConcrete(effectiveType);
 
         // Filters the varType by the parameters of the isinstance
         // and returns the list of types the varType could be after
@@ -14482,7 +14493,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             undefined,
             /* isTypeArgumentExplicit */ false
         );
-        const genericDestTypeVarMap = new TypeVarMap();
+        const genericDestTypeVarMap = new TypeVarMap(getTypeVarScopeId(destType));
 
         let typesAreConsistent = true;
         const srcClassTypeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
@@ -15232,7 +15243,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     srcType,
                     /* canNarrowType */ false,
                     diag,
-                    typeVarMap || new TypeVarMap(),
+                    typeVarMap || new TypeVarMap(getTypeVarScopeId(destType)),
                     flags,
                     recursionCount + 1
                 );
@@ -15290,7 +15301,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     destType,
                     /* canNarrowType */ true,
                     diag,
-                    typeVarMap || new TypeVarMap(),
+                    typeVarMap || new TypeVarMap(getTypeVarScopeId(srcType)),
                     flags,
                     recursionCount + 1
                 );
@@ -15717,7 +15728,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     destOverload,
                     srcType,
                     overloadDiag.createAddendum(),
-                    new TypeVarMap(),
+                    new TypeVarMap(getTypeVarScopeId(destOverload)),
                     flags,
                     recursionCount + 1
                 );
@@ -16167,7 +16178,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             assignedType.typeArguments &&
             assignedType.typeArguments.length <= assignedTypeAlias.details.typeParameters.length
         ) {
-            const typeVarMap = new TypeVarMap();
+            const typeVarMap = new TypeVarMap(getTypeVarScopeId(assignedTypeAlias));
             populateTypeVarMapBasedOnExpectedType(
                 ClassType.cloneForSpecialization(
                     assignedTypeAlias,
@@ -16698,12 +16709,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If the class has already been specialized (fully or partially), use its
         // existing type arg mappings. If it hasn't, use a fresh type arg map.
-        const typeVarMap = classType.typeArguments ? buildTypeVarMapFromSpecializedClass(classType) : new TypeVarMap();
+        const typeVarMap = classType.typeArguments
+            ? buildTypeVarMapFromSpecializedClass(classType)
+            : new TypeVarMap(getTypeVarScopeId(classType));
 
         if (memberType.details.parameters.length > 0) {
             const firstParam = memberType.details.parameters[0];
 
-            // Fill out the typeVarMap.
+            // Fill out the typeVarMap for the "self" or "cls" parameter.
+            typeVarMap.addSolveForScope(getTypeVarScopeId(memberType));
             canAssignType(firstParam.type, baseType, new DiagnosticAddendum(), typeVarMap);
         }
 
@@ -16719,7 +16733,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const firstParam = memberType.details.parameters[0];
 
             if (firstParam.name && !firstParam.isNameSynthesized && firstParam.hasDeclaredType) {
-                const paramType = makeTypeVarsConcrete(FunctionType.getEffectiveParameterType(memberType, 0));
+                const paramType = makeTopLevelTypeVarsConcrete(FunctionType.getEffectiveParameterType(memberType, 0));
                 const diag = new DiagnosticAddendum();
                 if (!canAssignType(paramType, baseType, diag)) {
                     if (errorNode) {

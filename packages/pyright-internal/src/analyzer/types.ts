@@ -80,6 +80,8 @@ export type Type =
     | UnionType
     | TypeVarType;
 
+export type TypeVarScopeId = string;
+
 export class EnumLiteral {
     constructor(public className: string, public itemName: string) {}
 }
@@ -296,6 +298,7 @@ interface ClassDetails {
     aliasClass?: ClassType;
     fields: SymbolTable;
     typeParameters: TypeVarType[];
+    typeVarScopeId?: TypeVarScopeId;
     docString?: string;
     dataClassEntries?: DataClassEntry[];
     typedDictEntries?: Map<string, TypedDictEntry>;
@@ -801,6 +804,7 @@ interface FunctionDetails {
     parameters: FunctionParameter[];
     declaredReturnType?: Type;
     declaration?: FunctionDeclaration;
+    typeVarScopeId?: TypeVarScopeId;
     builtInName?: string;
     docString?: string;
 
@@ -1273,7 +1277,7 @@ export interface TypeVarType extends TypeBase {
 
     // An ID that uniquely identifies the scope in which this TypeVar is
     // defined.
-    scopeId?: string;
+    scopeId?: TypeVarScopeId;
 
     // String formatted as <name>.<scopeId>.
     scopeName?: string;

@@ -59,7 +59,7 @@ import {
     getMembersForClass,
     getMembersForModule,
     isProperty,
-    makeTypeVarsConcrete,
+    makeTopLevelTypeVarsConcrete,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
@@ -636,7 +636,7 @@ export class CompletionProvider {
             }
 
             doForSubtypes(leftType, (subtype) => {
-                const specializedSubtype = makeTypeVarsConcrete(subtype);
+                const specializedSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
                 if (isObject(specializedSubtype)) {
                     getMembersForClass(specializedSubtype.classType, symbolTable, /* includeInstanceVars */ true);
@@ -662,7 +662,7 @@ export class CompletionProvider {
                 return undefined;
             });
 
-            const specializedLeftType = makeTypeVarsConcrete(leftType);
+            const specializedLeftType = makeTopLevelTypeVarsConcrete(leftType);
             const objectThrough: ObjectType | undefined = isObject(specializedLeftType)
                 ? specializedLeftType
                 : undefined;

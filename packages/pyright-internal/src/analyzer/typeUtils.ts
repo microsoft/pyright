@@ -34,6 +34,7 @@ import {
     Type,
     TypeBase,
     TypeCategory,
+    TypeVarScopeId,
     TypeVarType,
     UnknownType,
 } from './types';
@@ -308,7 +309,11 @@ export function transformPossibleRecursiveTypeAlias(type: Type | undefined): Typ
                 return unspecializedType;
             }
 
-            const typeVarMap = buildTypeVarMap(type.details.recursiveTypeParameters, type.typeAliasInfo.typeArguments);
+            const typeVarMap = buildTypeVarMap(
+                type.details.recursiveTypeParameters,
+                type.typeAliasInfo.typeArguments,
+                getTypeVarScopeId(type)
+            );
             return specializeType(unspecializedType, typeVarMap);
         }
     }
@@ -428,6 +433,22 @@ export function canBeTruthy(type: Type, recursionLevel = 0): boolean {
     }
 }
 
+export function getTypeVarScopeId(type: Type): TypeVarScopeId | undefined {
+    if (type.category === TypeCategory.Class) {
+        return ClassType.getAliasClass(type).details.typeVarScopeId;
+    }
+
+    if (type.category === TypeCategory.Object) {
+        return ClassType.getAliasClass(type.classType).details.typeVarScopeId;
+    }
+
+    if (type.category === TypeCategory.Function) {
+        return type.details.typeVarScopeId;
+    }
+
+    return undefined;
+}
+
 // Determines whether the type is a Tuple class or object.
 export function getSpecializedTupleType(type: Type): ClassType | undefined {
     let classType: ClassType | undefined;
@@ -521,7 +542,7 @@ export function partiallySpecializeType(type: Type, contextClassType: ClassType)
 
 // Replaces all of the top-level TypeVars (as opposed to TypeVars
 // used as type arguments in other types) with their concrete form.
-export function makeTypeVarsConcrete(type: Type): Type {
+export function makeTopLevelTypeVarsConcrete(type: Type): Type {
     return doForSubtypes(type, (subtype) => {
         if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
             if (subtype.details.boundType) {
@@ -992,11 +1013,15 @@ export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeCo
         typeArguments = typeParameters;
     }
 
-    return buildTypeVarMap(typeParameters, typeArguments);
+    return buildTypeVarMap(typeParameters, typeArguments, getTypeVarScopeId(classType));
 }
 
-export function buildTypeVarMap(typeParameters: TypeVarType[], typeArgs: Type[] | undefined): TypeVarMap {
-    const typeVarMap = new TypeVarMap();
+export function buildTypeVarMap(
+    typeParameters: TypeVarType[],
+    typeArgs: Type[] | undefined,
+    typeVarScopeId: TypeVarScopeId | undefined
+): TypeVarMap {
+    const typeVarMap = new TypeVarMap(typeVarScopeId);
     typeParameters.forEach((typeParam, index) => {
         let typeArgType: Type;
 
