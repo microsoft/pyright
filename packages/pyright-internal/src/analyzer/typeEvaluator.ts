@@ -4844,9 +4844,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         clonedNamedTupleClass.details.mro[1] = updatedTupleClass.details.mro[0];
         clonedNamedTupleClass.details.mro[2] = updatedTupleClass.details.mro[1];
 
+        clonedNamedTupleClass.details.baseClasses = clonedNamedTupleClass.details.baseClasses.map((baseClass) => {
+            if (isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'Tuple')) {
+                return updatedTupleClass;
+            }
+            return baseClass;
+        });
+
         classType.details.mro[namedTupleIndex] = clonedNamedTupleClass;
         classType.details.mro[namedTupleIndex + 1] = updatedTupleClass.details.mro[0];
         classType.details.mro[namedTupleIndex + 2] = updatedTupleClass.details.mro[1];
+
+        classType.details.baseClasses = classType.details.baseClasses.map((baseClass) => {
+            if (isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'NamedTuple')) {
+                return clonedNamedTupleClass;
+            }
+            return baseClass;
+        });
     }
 
     function getTypeFromCall(node: CallNode, expectedType: Type | undefined, flags: EvaluatorFlags): TypeResult {
