@@ -16833,6 +16833,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (paramNode.defaultValue) {
                     paramString += defaultValueAssignment + ParseTreeUtils.printExpression(paramNode.defaultValue);
                 }
+            } else if (param.hasDefault) {
+                // If the function doesn't originate from a function declaration (e.g. it is
+                // synthesized), we can't get to the default declaration, but we can still indicate
+                // that there is a default value provided.
+                paramString += defaultValueAssignment + '...';
             }
 
             return paramString;
