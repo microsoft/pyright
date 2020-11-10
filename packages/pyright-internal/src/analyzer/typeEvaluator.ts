@@ -12572,11 +12572,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
                     const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
-                    if (preFinallyFlowNode.isGateClosed) {
-                        return false;
-                    }
-                    curFlowNode = preFinallyFlowNode.antecedent;
-                    continue;
+                    return !preFinallyFlowNode.isGateClosed;
                 }
 
                 if (curFlowNode.flags & FlowFlags.PostFinally) {
