@@ -4934,7 +4934,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             targetClassType = getTypeOfExpression(node.arguments[0].valueExpression).type;
 
             if (!isAnyOrUnknown(targetClassType) && !isClass(targetClassType)) {
-                addError(
+                addDiagnostic(
+                    getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
                     Localizer.Diagnostic.superCallFirstArg().format({ type: printType(targetClassType) }),
                     node.arguments[0].valueExpression
                 );
