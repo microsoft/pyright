@@ -1533,8 +1533,8 @@ function _specializeFunctionType(
         let paramSpec = typeVarMap?.getParamSpec(functionType.details.paramSpec);
         if (!paramSpec && makeConcrete) {
             paramSpec = [
-                { name: 'args', type: AnyType.create() },
-                { name: 'kwargs', type: AnyType.create() },
+                { category: ParameterCategory.VarArgList, name: 'args', type: AnyType.create() },
+                { category: ParameterCategory.VarArgDictionary, name: 'kwargs', type: AnyType.create() },
             ];
         }
         if (paramSpec) {

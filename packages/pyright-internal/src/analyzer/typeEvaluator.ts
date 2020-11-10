@@ -16044,76 +16044,78 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Handle matching of named (keyword) parameters.
             // Build a dictionary of named parameters in the dest.
-            const destParamMap = new Map<string, FunctionParameter>();
-            let destHasKwargsParam = false;
-            if (destStartOfNamed >= 0) {
-                destParams.forEach((param, index) => {
-                    if (index >= destStartOfNamed) {
-                        if (param.category === ParameterCategory.VarArgDictionary) {
-                            destHasKwargsParam = true;
-                        } else if (param.name && param.category === ParameterCategory.Simple) {
-                            destParamMap.set(param.name, param);
-                        }
-                    }
-                });
-            }
-
-            if (srcStartOfNamed >= 0) {
-                srcParams.forEach((param, index) => {
-                    if (index >= srcStartOfNamed) {
-                        if (param.name && param.category === ParameterCategory.Simple) {
-                            const destParam = destParamMap.get(param.name);
-                            const paramDiag = diag.createAddendum();
-                            if (!destParam) {
-                                if (!destHasKwargsParam && !param.hasDefault) {
-                                    paramDiag.addMessage(
-                                        Localizer.DiagnosticAddendum.namedParamMissingInDest().format({
-                                            name: param.name,
-                                        })
-                                    );
-                                    canAssign = false;
-                                }
-                            } else {
-                                const specializedDestParamType = specializeType(
-                                    destParam.type,
-                                    typeVarMap,
-                                    /* makeConcrete */ false,
-                                    recursionCount + 1
-                                );
-                                if (
-                                    !canAssignType(
-                                        param.type,
-                                        specializedDestParamType,
-                                        paramDiag.createAddendum(),
-                                        undefined,
-                                        flags,
-                                        recursionCount + 1
-                                    )
-                                ) {
-                                    paramDiag.addMessage(
-                                        Localizer.DiagnosticAddendum.namedParamTypeMismatch().format({
-                                            name: param.name,
-                                            sourceType: printType(specializedDestParamType),
-                                            destType: printType(param.type),
-                                        })
-                                    );
-                                    canAssign = false;
-                                }
-                                destParamMap.delete(param.name);
+            if (!destType.details.paramSpec) {
+                const destParamMap = new Map<string, FunctionParameter>();
+                let destHasKwargsParam = false;
+                if (destStartOfNamed >= 0) {
+                    destParams.forEach((param, index) => {
+                        if (index >= destStartOfNamed) {
+                            if (param.category === ParameterCategory.VarArgDictionary) {
+                                destHasKwargsParam = true;
+                            } else if (param.name && param.category === ParameterCategory.Simple) {
+                                destParamMap.set(param.name, param);
                             }
                         }
-                    }
+                    });
+                }
+
+                if (srcStartOfNamed >= 0) {
+                    srcParams.forEach((param, index) => {
+                        if (index >= srcStartOfNamed) {
+                            if (param.name && param.category === ParameterCategory.Simple) {
+                                const destParam = destParamMap.get(param.name);
+                                const paramDiag = diag.createAddendum();
+                                if (!destParam) {
+                                    if (!destHasKwargsParam && !param.hasDefault) {
+                                        paramDiag.addMessage(
+                                            Localizer.DiagnosticAddendum.namedParamMissingInDest().format({
+                                                name: param.name,
+                                            })
+                                        );
+                                        canAssign = false;
+                                    }
+                                } else {
+                                    const specializedDestParamType = specializeType(
+                                        destParam.type,
+                                        typeVarMap,
+                                        /* makeConcrete */ false,
+                                        recursionCount + 1
+                                    );
+                                    if (
+                                        !canAssignType(
+                                            param.type,
+                                            specializedDestParamType,
+                                            paramDiag.createAddendum(),
+                                            undefined,
+                                            flags,
+                                            recursionCount + 1
+                                        )
+                                    ) {
+                                        paramDiag.addMessage(
+                                            Localizer.DiagnosticAddendum.namedParamTypeMismatch().format({
+                                                name: param.name,
+                                                sourceType: printType(specializedDestParamType),
+                                                destType: printType(param.type),
+                                            })
+                                        );
+                                        canAssign = false;
+                                    }
+                                    destParamMap.delete(param.name);
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // See if there are any unmatched named parameters.
+                destParamMap.forEach((_, paramName) => {
+                    const paramDiag = diag.createAddendum();
+                    paramDiag.addMessage(
+                        Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName })
+                    );
+                    canAssign = false;
                 });
             }
-
-            // See if there are any unmatched named parameters.
-            destParamMap.forEach((_, paramName) => {
-                const paramDiag = diag.createAddendum();
-                paramDiag.addMessage(
-                    Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName })
-                );
-                canAssign = false;
-            });
         }
 
         // Perform partial specialization of type variables to allow for
@@ -16125,6 +16127,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeVarMap.setTypeVar(entry.typeVar, specializedType, typeVarMap.isNarrowable(entry.typeVar));
                 }
             });
+        }
+
+        // Are we assigning to a function with a ParamSpec?
+        if (destType.details.paramSpec && typeVarMap && !typeVarMap.isLocked()) {
+            typeVarMap.setParamSpec(
+                destType.details.paramSpec,
+                srcType.details.parameters
+                    .map((p) => {
+                        const paramSpecEntry: ParamSpecEntry = {
+                            category: p.category,
+                            name: p.name,
+                            type: p.type,
+                        };
+                        return paramSpecEntry;
+                    })
+                    .slice(destType.details.parameters.length, srcType.details.parameters.length)
+            );
         }
 
         // Match the return parameter.
@@ -16155,22 +16174,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     canAssign = false;
                 }
-            }
-
-            // Are we assigning to a function with a ParamSpec?
-            if (destType.details.paramSpec && typeVarMap && !typeVarMap.isLocked()) {
-                typeVarMap.setParamSpec(
-                    destType.details.paramSpec,
-                    srcType.details.parameters
-                        .map((p, index) => {
-                            const paramSpecEntry: ParamSpecEntry = {
-                                name: p.name || `__p${index}`,
-                                type: p.type,
-                            };
-                            return paramSpecEntry;
-                        })
-                        .slice(destType.details.parameters.length, srcType.details.parameters.length)
-                );
             }
         }
 

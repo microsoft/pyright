@@ -842,7 +842,8 @@ export interface FunctionType extends TypeBase {
 }
 
 export interface ParamSpecEntry {
-    name: string;
+    category: ParameterCategory;
+    name?: string;
     type: Type;
 }
 
@@ -988,9 +989,9 @@ export namespace FunctionType {
         if (paramTypes) {
             newFunction.details.parameters = paramTypes.map((specEntry, index) => {
                 return {
-                    category: ParameterCategory.Simple,
+                    category: specEntry.category,
                     name: specEntry.name,
-                    isNameSynthesized: true,
+                    isNameSynthesized: false,
                     hasDeclaredType: true,
                     type: specEntry.type,
                 };
