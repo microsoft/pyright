@@ -13336,7 +13336,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const fileInfo = getFileInfo(errorNode);
-        if (fileInfo.isStubFile || fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_9) {
+        if (
+            fileInfo.isStubFile ||
+            fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_9 ||
+            isAnnotationEvaluationPostponed(getFileInfo(errorNode))
+        ) {
             // Handle "type" specially, since it needs to act like "Type"
             // in Python 3.9 and newer.
             if (ClassType.isBuiltIn(classType, 'type')) {
