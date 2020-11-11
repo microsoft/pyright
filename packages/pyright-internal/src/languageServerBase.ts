@@ -173,6 +173,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _hasHierarchicalDocumentSymbolCapability = false;
     protected _hoverContentFormat: MarkupKind = MarkupKind.PlainText;
     protected _completionDocFormat: MarkupKind = MarkupKind.PlainText;
+    protected _signatureDocFormat: MarkupKind = MarkupKind.PlainText;
     protected _supportsUnnecessaryDiagnosticTag = false;
     protected _defaultClientConfig: any;
 
@@ -589,6 +590,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             const signatureHelpResults = workspace.serviceInstance.getSignatureHelpForPosition(
                 filePath,
                 position,
+                this._signatureDocFormat,
                 token
             );
             if (!signatureHelpResults) {
@@ -606,7 +608,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                     );
                 }
 
-                const sigInfo = SignatureInformation.create(sig.label, sig.documentation, ...paramInfo);
+                const sigInfo = SignatureInformation.create(sig.label, undefined, ...paramInfo);
+                sigInfo.documentation = sig.documentation;
                 sigInfo.activeParameter = sig.activeParameter;
                 return sigInfo;
             });
@@ -933,6 +936,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._hoverContentFormat = this._getCompatibleMarkupKind(capabilities.textDocument?.hover?.contentFormat);
         this._completionDocFormat = this._getCompatibleMarkupKind(
             capabilities.textDocument?.completion?.completionItem?.documentationFormat
+        );
+        this._signatureDocFormat = this._getCompatibleMarkupKind(
+            capabilities.textDocument?.signatureHelp?.signatureInformation?.documentationFormat
         );
         const supportedDiagnosticTags = capabilities.textDocument?.publishDiagnostics?.tagSupport?.valueSet || [];
         this._supportsUnnecessaryDiagnosticTag = supportedDiagnosticTags.some(

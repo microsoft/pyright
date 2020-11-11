@@ -12,6 +12,7 @@
 ////     '''another function docs'''
 ////     pass
 //// some_fun[|/*marker3*/|]
+//// unknownVariable.[|/*marker4*/|]
 
 // @ts-ignore
 await helper.verifyCompletion('exact', 'markdown', {
@@ -31,4 +32,5 @@ await helper.verifyCompletion('exact', 'markdown', {
             },
         ],
     },
+    marker4: { completions: [] },
 });

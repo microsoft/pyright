@@ -72,6 +72,7 @@ import { comparePositions, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import {
+    DecoratorNode,
     ErrorExpressionCategory,
     ErrorNode,
     ExpressionNode,
@@ -356,26 +357,12 @@ export class CompletionProvider {
             }
 
             if (curNode.nodeType === ParseNodeType.Name) {
-                // Are we within a "from X import Y as Z" statement and
-                // more specifically within the "Y"?
-                if (curNode.parent && curNode.parent.nodeType === ParseNodeType.ModuleName) {
-                    return this._getImportModuleCompletions(curNode.parent);
-                } else if (curNode.parent && curNode.parent.nodeType === ParseNodeType.ImportFromAs) {
-                    const parentNode = curNode.parent.parent;
-
-                    if (parentNode && parentNode.nodeType === ParseNodeType.ImportFrom) {
-                        if (curNode.parent.name === curNode) {
-                            return this._getImportFromCompletions(parentNode, priorWord);
-                        } else {
-                            return this._getImportFromCompletions(parentNode, '');
-                        }
-                    }
-                } else if (
-                    curNode.parent &&
-                    curNode.parent.nodeType === ParseNodeType.MemberAccess &&
-                    curNode === curNode.parent.memberName
-                ) {
-                    return this._getMemberAccessCompletions(curNode.parent.leftExpression, priorWord);
+                // This condition is little different than others since it does its own
+                // tree walk up to find context and let outer tree walk up to proceed if it can't find
+                // one to show completion.
+                const result = this._tryGetNameCompletions(curNode, offset, priorWord);
+                if (result || result === undefined) {
+                    return result;
                 }
             }
 
@@ -387,8 +374,45 @@ export class CompletionProvider {
                 return this._getExpressionCompletions(curNode, priorWord, priorText, postText);
             }
 
-            if (curNode.nodeType === ParseNodeType.Suite || curNode.nodeType === ParseNodeType.Module) {
+            if (curNode.nodeType === ParseNodeType.Suite) {
+                if (
+                    curNode.parent &&
+                    curNode.parent.nodeType === ParseNodeType.Except &&
+                    !curNode.parent.name &&
+                    curNode.parent.typeExpression &&
+                    TextRange.getEnd(curNode.parent.typeExpression) < offset &&
+                    offset <= curNode.parent.exceptSuite.start
+                ) {
+                    // except Exception as [<empty>]
+                    return undefined;
+                }
+
+                if (
+                    curNode.parent &&
+                    curNode.parent.nodeType === ParseNodeType.Class &&
+                    (!curNode.parent.name || !curNode.parent.name.value) &&
+                    curNode.parent.arguments.length === 0 &&
+                    offset <= curNode.parent.suite.start
+                ) {
+                    // class [<empty>]
+                    return undefined;
+                }
+
                 return this._getStatementCompletions(curNode, priorWord, priorText, postText);
+            }
+
+            if (curNode.nodeType === ParseNodeType.Module) {
+                return this._getStatementCompletions(curNode, priorWord, priorText, postText);
+            }
+
+            if (
+                curNode.nodeType === ParseNodeType.Parameter &&
+                curNode.length === 0 &&
+                curNode.parent &&
+                curNode.parent.nodeType === ParseNodeType.Lambda
+            ) {
+                // lambda [<empty>] or lambda x, [<empty>]
+                return undefined;
             }
 
             if (!curNode.parent) {
@@ -444,6 +468,96 @@ export class CompletionProvider {
             // cached, so it's not as bad as it might seem.
             this.getCompletionsForPosition();
         }
+    }
+
+    private _tryGetNameCompletions(curNode: NameNode, offset: number, priorWord: string) {
+        if (!curNode.parent) {
+            return false;
+        }
+
+        if (curNode.parent.nodeType === ParseNodeType.ImportAs && curNode.parent.alias === curNode) {
+            // Are we within a "import Y as [Z]"?
+            return undefined;
+        }
+
+        if (curNode.parent.nodeType === ParseNodeType.ModuleName) {
+            // Are we within a "import Y as [<empty>]"?
+            if (
+                curNode.parent.parent &&
+                curNode.parent.parent.nodeType === ParseNodeType.ImportAs &&
+                !curNode.parent.parent.alias &&
+                TextRange.getEnd(curNode.parent.parent) < offset
+            ) {
+                return undefined;
+            }
+
+            // Are we within a "from X import Y as Z" statement and
+            // more specifically within the "Y"?
+            return this._getImportModuleCompletions(curNode.parent);
+        }
+
+        if (curNode.parent.nodeType === ParseNodeType.ImportFromAs) {
+            if (curNode.parent.alias === curNode) {
+                // Are we within a "from X import Y as [Z]"?
+                return undefined;
+            }
+
+            const parentNode = curNode.parent.parent;
+            if (parentNode && parentNode.nodeType === ParseNodeType.ImportFrom) {
+                // Are we within a "from X import Y as [<empty>]"?
+                if (!curNode.parent.alias && TextRange.getEnd(curNode.parent) < offset) {
+                    return undefined;
+                }
+
+                if (curNode.parent.name === curNode) {
+                    return this._getImportFromCompletions(parentNode, priorWord);
+                }
+
+                return this._getImportFromCompletions(parentNode, '');
+            }
+
+            return false;
+        }
+
+        if (curNode.parent.nodeType === ParseNodeType.MemberAccess && curNode === curNode.parent.memberName) {
+            return this._getMemberAccessCompletions(curNode.parent.leftExpression, priorWord);
+        }
+
+        if (curNode.parent.nodeType === ParseNodeType.Except && curNode === curNode.parent.name) {
+            return undefined;
+        }
+
+        if (curNode.parent.nodeType === ParseNodeType.Function && curNode === curNode.parent.name) {
+            if (curNode.parent.decorators?.some((d) => this._isOverload(d))) {
+                return this._getMethodOverloadsCompletions(curNode);
+            }
+
+            return undefined;
+        }
+
+        if (curNode.parent.nodeType === ParseNodeType.Parameter && curNode === curNode.parent.name) {
+            return undefined;
+        }
+
+        if (curNode.parent.nodeType === ParseNodeType.Class && curNode === curNode.parent.name) {
+            return undefined;
+        }
+
+        if (
+            curNode.parent.nodeType === ParseNodeType.For &&
+            TextRange.contains(curNode.parent.targetExpression, curNode.start)
+        ) {
+            return undefined;
+        }
+
+        if (
+            curNode.parent.nodeType === ParseNodeType.ListComprehensionFor &&
+            TextRange.contains(curNode.parent.targetExpression, curNode.start)
+        ) {
+            return undefined;
+        }
+
+        return false;
     }
 
     private _isWithinComment(offset: number): boolean {
@@ -523,6 +637,10 @@ export class CompletionProvider {
 
             case ErrorExpressionCategory.MissingFunctionParameterList: {
                 if (node.child && node.child.nodeType === ParseNodeType.Name) {
+                    if (node.decorators?.some((d) => this._isOverload(d))) {
+                        return this._getMethodOverloadsCompletions(node.child);
+                    }
+
                     // Determine if the partial name is a method that's overriding
                     // a method in a base class.
                     return this._getMethodOverrideCompletions(node.child);
@@ -534,12 +652,85 @@ export class CompletionProvider {
         return undefined;
     }
 
+    private _isOverload(d: DecoratorNode): unknown {
+        return d.expression.nodeType === ParseNodeType.Name && d.expression.value === 'overload';
+    }
+
     private _createSingleKeywordCompletionList(keyword: string): CompletionResults {
         const completionItem = CompletionItem.create(keyword);
         completionItem.kind = CompletionItemKind.Keyword;
         completionItem.sortText = this._makeSortText(SortCategory.LikelyKeyword, keyword);
         const completionList = CompletionList.create([completionItem]);
         return { completionList };
+    }
+
+    private _getMethodOverloadsCompletions(partialName: NameNode): CompletionResults | undefined {
+        const symbolTable = getSymbolTable(this._evaluator, partialName);
+        if (!symbolTable) {
+            return undefined;
+        }
+
+        const completionList = CompletionList.create();
+
+        const enclosingFunc = ParseTreeUtils.getEnclosingFunction(partialName);
+        symbolTable.forEach((symbol, name) => {
+            const decl = getLastTypedDeclaredForSymbol(symbol);
+            if (!decl || decl.type !== DeclarationType.Function) {
+                return;
+            }
+
+            if (!decl.node.decorators.some((d) => this._isOverload(d))) {
+                // Only consider ones that have overload decorator.
+                return;
+            }
+
+            const decls = symbol.getDeclarations();
+            if (decls.length === 1 && decls.some((d) => d.node === enclosingFunc)) {
+                // Don't show itself.
+                return;
+            }
+
+            const isSimilar = StringUtils.computeCompletionSimilarity(partialName.value, name) > similarityLimit;
+            if (isSimilar) {
+                const range: Range = {
+                    start: { line: this._position.line, character: this._position.character - partialName.length },
+                    end: { line: this._position.line, character: this._position.character },
+                };
+
+                const textEdit = TextEdit.replace(range, decl.node.name.value);
+                this._addSymbol(name, symbol, partialName.value, completionList, { edits: { textEdit } });
+            }
+        });
+
+        return { completionList };
+
+        function getSymbolTable(evaluator: TypeEvaluator, partialName: NameNode) {
+            const enclosingClass = ParseTreeUtils.getEnclosingClass(partialName, false);
+            if (enclosingClass) {
+                const classResults = evaluator.getTypeOfClass(enclosingClass);
+                if (!classResults) {
+                    return undefined;
+                }
+
+                const symbolTable = new Map<string, Symbol>();
+                for (const mroClass of classResults.classType.details.mro) {
+                    if (isClass(mroClass)) {
+                        getMembersForClass(mroClass, symbolTable, false);
+                    }
+                }
+
+                return symbolTable;
+            }
+
+            // For function overload, we only care about top level functions
+            const moduleNode = ParseTreeUtils.getEnclosingModule(partialName);
+            if (moduleNode) {
+                const moduleScope = AnalyzerNodeInfo.getScope(moduleNode);
+                return moduleScope?.symbolTable;
+            }
+
+            return undefined;
+        }
     }
 
     private _getMethodOverrideCompletions(partialName: NameNode): CompletionResults | undefined {
@@ -928,7 +1119,13 @@ export class CompletionProvider {
                 this._addLiteralValuesForTargetType(declaredTypeOfTarget, priorText, postText, completionList);
             }
         } else {
-            this._addCallArgumentCompletions(parseNode, priorWord, priorText, postText, completionList);
+            // Make sure we are not inside of the string literal.
+            debug.assert(parseNode.nodeType === ParseNodeType.String);
+
+            const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines)!;
+            if (offset <= parentNode.start || TextRange.getEnd(parseNode) <= offset) {
+                this._addCallArgumentCompletions(parseNode, priorWord, priorText, postText, completionList);
+            }
         }
 
         return { completionList };

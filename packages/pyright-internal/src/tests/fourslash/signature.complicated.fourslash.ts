@@ -44,7 +44,7 @@
         },
     ];
 
-    helper.verifySignature({
+    helper.verifySignature('plaintext', {
         init: {
             signatures: xInitSignatures,
             activeParameters: [0],

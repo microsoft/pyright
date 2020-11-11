@@ -38,7 +38,7 @@
         },
     ];
 
-    helper.verifySignature({
+    helper.verifySignature('plaintext', {
         o1: {
             signatures: overloadedSignatures,
             activeParameters: [undefined, 0, 0],

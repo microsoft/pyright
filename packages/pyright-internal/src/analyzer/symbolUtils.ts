@@ -7,10 +7,9 @@
  * Collection of functions that operate on Symbol objects.
  */
 
-import { ParseNodeType } from '../parser/parseNodes';
 import { Declaration, DeclarationType } from './declaration';
 import { isFinalVariableDeclaration } from './declarationUtils';
-import { Symbol, SymbolTable } from './symbol';
+import { Symbol } from './symbol';
 
 export function getLastTypedDeclaredForSymbol(symbol: Symbol): Declaration | undefined {
     const typedDecls = symbol.getTypedDeclarations();

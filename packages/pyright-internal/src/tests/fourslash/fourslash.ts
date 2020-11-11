@@ -136,6 +136,8 @@ declare namespace _ {
         importName: string;
     }
 
+    type MarkupKind = 'markdown' | 'plaintext';
+
     interface Fourslash {
         getDocumentHighlightKind(m?: Marker): DocumentHighlightKind | undefined;
 
@@ -166,7 +168,8 @@ declare namespace _ {
 
         moveCaretRight(count: number): void;
 
-        openFile(indexOrName: number | string, content?: string): void;
+        openFile(indexOrName: number | string): void;
+        openFiles(indexOrNames: (number | string)[]): void;
 
         verifyDiagnostics(map?: { [marker: string]: { category: string; message: string } }): void;
         verifyCodeActions(
@@ -185,7 +188,7 @@ declare namespace _ {
         verifyHover(kind: string, map: { [marker: string]: string }): void;
         verifyCompletion(
             verifyMode: FourSlashCompletionVerificationMode,
-            docFormat: string,
+            docFormat: MarkupKind,
             map: {
                 [marker: string]: {
                     completions: FourSlashCompletionItem[];
@@ -198,17 +201,21 @@ declare namespace _ {
             },
             abbrMap?: { [abbr: string]: AbbreviationInfo }
         ): Promise<void>;
-        verifySignature(map: {
-            [marker: string]: {
-                noSig?: boolean;
-                signatures?: {
-                    label: string;
-                    parameters: string[];
-                }[];
-                activeParameters?: (number | undefined)[];
-                callHasParameters?: boolean;
-            };
-        }): void;
+        verifySignature(
+            docFormat: MarkupKind,
+            map: {
+                [marker: string]: {
+                    noSig?: boolean;
+                    signatures?: {
+                        label: string;
+                        parameters: string[];
+                        documentation?: string;
+                    }[];
+                    activeParameters?: (number | undefined)[];
+                    callHasParameters?: boolean;
+                };
+            }
+        ): void;
         verifyFindAllReferences(map: {
             [marker: string]: {
                 references: DocumentRange[];

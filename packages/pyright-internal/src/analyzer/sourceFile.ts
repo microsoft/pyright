@@ -771,6 +771,7 @@ export class SourceFile {
         position: Position,
         importLookup: ImportLookup,
         evaluator: TypeEvaluator,
+        format: MarkupKind,
         token: CancellationToken
     ): SignatureHelpResults | undefined {
         // If we have no completed analysis job, there's nothing to do.
@@ -778,7 +779,13 @@ export class SourceFile {
             return undefined;
         }
 
-        return SignatureHelpProvider.getSignatureHelpForPosition(this._parseResults, position, evaluator, token);
+        return SignatureHelpProvider.getSignatureHelpForPosition(
+            this._parseResults,
+            position,
+            evaluator,
+            format,
+            token
+        );
     }
 
     getCompletionsForPosition(

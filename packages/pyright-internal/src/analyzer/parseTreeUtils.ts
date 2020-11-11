@@ -550,7 +550,11 @@ export function getEnclosingClassOrFunction(node: ParseNode): FunctionNode | Cla
     return undefined;
 }
 
-export function getEnclosingSuiteOrModule(node: ParseNode): SuiteNode | ModuleNode | undefined {
+export function getEnclosingSuiteOrModule(
+    node: ParseNode,
+    stopAtFunction = false,
+    stopAtLambda = true
+): SuiteNode | ModuleNode | undefined {
     let curNode = node.parent;
     while (curNode) {
         if (curNode.nodeType === ParseNodeType.Suite) {
@@ -562,7 +566,15 @@ export function getEnclosingSuiteOrModule(node: ParseNode): SuiteNode | ModuleNo
         }
 
         if (curNode.nodeType === ParseNodeType.Lambda) {
-            return undefined;
+            if (stopAtLambda) {
+                return undefined;
+            }
+        }
+
+        if (curNode.nodeType === ParseNodeType.Function) {
+            if (stopAtFunction) {
+                return undefined;
+            }
         }
 
         curNode = curNode.parent;

@@ -355,12 +355,18 @@ export class TestState {
     }
 
     // Opens a file given its 0-based index or fileName
-    openFile(indexOrName: number | string, content?: string): void {
+    openFile(indexOrName: number | string): void {
         const fileToOpen: FourSlashFile = this._findFile(indexOrName);
         fileToOpen.fileName = normalizeSlashes(fileToOpen.fileName);
         this.activeFile = fileToOpen;
 
         this.program.setFileOpened(this.activeFile.fileName, 1, [{ text: fileToOpen.content }]);
+    }
+
+    openFiles(indexOrNames: (number | string)[]): void {
+        for (const indexOrName of indexOrNames) {
+            this.openFile(indexOrName);
+        }
     }
 
     printCurrentFileState(showWhitespace: boolean, makeCaretVisible: boolean) {
@@ -663,6 +669,7 @@ export class TestState {
                 );
             }
         }
+        return commandResult;
     }
 
     async verifyInvokeCodeAction(
@@ -936,17 +943,21 @@ export class TestState {
         }
     }
 
-    verifySignature(map: {
-        [marker: string]: {
-            noSig?: boolean;
-            signatures?: {
-                label: string;
-                parameters: string[];
-            }[];
-            activeParameters?: (number | undefined)[];
-            callHasParameters?: boolean;
-        };
-    }): void {
+    verifySignature(
+        docFormat: MarkupKind,
+        map: {
+            [marker: string]: {
+                noSig?: boolean;
+                signatures?: {
+                    label: string;
+                    parameters: string[];
+                    documentation?: string;
+                }[];
+                activeParameters?: (number | undefined)[];
+                callHasParameters?: boolean;
+            };
+        }
+    ): void {
         this._analyze();
 
         for (const marker of this.getMarkers()) {
@@ -960,7 +971,12 @@ export class TestState {
             const expected = map[name];
             const position = this.convertOffsetToPosition(fileName, marker.position);
 
-            const actual = this.program.getSignatureHelpForPosition(fileName, position, CancellationToken.None);
+            const actual = this.program.getSignatureHelpForPosition(
+                fileName,
+                position,
+                docFormat,
+                CancellationToken.None
+            );
 
             if (expected.noSig) {
                 assert.equal(actual, undefined);
@@ -984,6 +1000,15 @@ export class TestState {
                 });
 
                 assert.deepEqual(actualParameters, expectedSig.parameters);
+
+                if (expectedSig.documentation === undefined) {
+                    assert.equal(sig.documentation, undefined);
+                } else {
+                    assert.deepEqual(sig.documentation, {
+                        kind: docFormat,
+                        value: expectedSig.documentation,
+                    });
+                }
             });
 
             assert.deepEqual(
