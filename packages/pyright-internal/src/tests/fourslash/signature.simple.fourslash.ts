@@ -21,7 +21,7 @@
         },
     ];
 
-    helper.verifySignature({
+    helper.verifySignature('plaintext', {
         s1: {
             signatures: simpleSignatures,
             activeParameters: [0],

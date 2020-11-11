@@ -720,7 +720,12 @@ export class Parser {
         const nameToken = this._getTokenIfIdentifier();
         if (!nameToken) {
             this._addError(Localizer.Diagnostic.expectedFunctionName(), defToken);
-            return ErrorNode.create(defToken, ErrorExpressionCategory.MissingFunctionParameterList);
+            return ErrorNode.create(
+                defToken,
+                ErrorExpressionCategory.MissingFunctionParameterList,
+                undefined,
+                decorators
+            );
         }
 
         if (!this._consumeTokenIfType(TokenType.OpenParenthesis)) {
@@ -728,7 +733,8 @@ export class Parser {
             return ErrorNode.create(
                 nameToken,
                 ErrorExpressionCategory.MissingFunctionParameterList,
-                NameNode.create(nameToken)
+                NameNode.create(nameToken),
+                decorators
             );
         }
 

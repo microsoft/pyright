@@ -701,10 +701,16 @@ export interface ErrorNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Error;
     readonly category: ErrorExpressionCategory;
     readonly child?: ExpressionNode;
+    readonly decorators?: DecoratorNode[];
 }
 
 export namespace ErrorNode {
-    export function create(initialRange: TextRange, category: ErrorExpressionCategory, child?: ExpressionNode) {
+    export function create(
+        initialRange: TextRange,
+        category: ErrorExpressionCategory,
+        child?: ExpressionNode,
+        decorators?: DecoratorNode[]
+    ) {
         const node: ErrorNode = {
             start: initialRange.start,
             length: initialRange.length,
@@ -712,11 +718,22 @@ export namespace ErrorNode {
             id: _nextNodeId++,
             category,
             child,
+            decorators,
         };
 
         if (child) {
             child.parent = node;
             extendRange(node, child);
+        }
+
+        if (decorators) {
+            decorators.forEach((decorator) => {
+                decorator.parent = node;
+            });
+
+            if (decorators.length > 0) {
+                extendRange(node, decorators[0]);
+            }
         }
 
         return node;

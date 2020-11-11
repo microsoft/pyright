@@ -54,7 +54,7 @@ export class ReferencesResult {
     }
 }
 
-class FindReferencesTreeWalker extends ParseTreeWalker {
+export class FindReferencesTreeWalker extends ParseTreeWalker {
     private readonly _locationsFound: DocumentRange[] = [];
 
     constructor(
@@ -68,8 +68,8 @@ class FindReferencesTreeWalker extends ParseTreeWalker {
         super();
     }
 
-    findReferences() {
-        this.walk(this._parseResults.parseTree);
+    findReferences(rootNode = this._parseResults.parseTree) {
+        this.walk(rootNode);
 
         return this._locationsFound;
     }

@@ -9,8 +9,9 @@
  * arguments for the call.
  */
 
-import { CancellationToken } from 'vscode-languageserver';
+import { CancellationToken, MarkupContent, MarkupKind } from 'vscode-languageserver';
 
+import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluator';
@@ -28,7 +29,7 @@ export interface ParamInfo {
 
 export interface SignatureInfo {
     label: string;
-    documentation?: string;
+    documentation?: MarkupContent;
     parameters?: ParamInfo[];
     activeParameter?: number;
 }
@@ -43,6 +44,7 @@ export class SignatureHelpProvider {
         parseResults: ParseResults,
         position: Position,
         evaluator: TypeEvaluator,
+        format: MarkupKind,
         token: CancellationToken
     ): SignatureHelpResults | undefined {
         throwIfCancellationRequested(token);
@@ -80,7 +82,7 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        const signatures = callSignatureInfo.signatures.map((sig) => this._makeSignature(sig, evaluator));
+        const signatures = callSignatureInfo.signatures.map((sig) => this._makeSignature(sig, evaluator, format));
         const callHasParameters = !!callSignatureInfo.callNode.arguments?.length;
 
         return {
@@ -89,7 +91,11 @@ export class SignatureHelpProvider {
         };
     }
 
-    private static _makeSignature(signature: CallSignature, evaluator: TypeEvaluator): SignatureInfo {
+    private static _makeSignature(
+        signature: CallSignature,
+        evaluator: TypeEvaluator,
+        format: MarkupKind
+    ): SignatureInfo {
         const functionType = signature.type;
         const stringParts = evaluator.printFunctionParts(functionType);
         const parameters: ParamInfo[] = [];
@@ -124,9 +130,22 @@ export class SignatureHelpProvider {
         const sigInfo: SignatureInfo = {
             label,
             parameters,
-            documentation: functionDocString,
             activeParameter,
         };
+
+        if (functionDocString) {
+            if (format === MarkupKind.Markdown) {
+                sigInfo.documentation = {
+                    kind: MarkupKind.Markdown,
+                    value: convertDocStringToMarkdown(functionDocString),
+                };
+            } else {
+                sigInfo.documentation = {
+                    kind: MarkupKind.PlainText,
+                    value: convertDocStringToPlainText(functionDocString),
+                };
+            }
+        }
 
         return sigInfo;
     }

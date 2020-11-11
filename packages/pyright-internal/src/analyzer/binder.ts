@@ -2963,3 +2963,17 @@ export class YieldFinder extends ParseTreeWalker {
         return false;
     }
 }
+
+export class ReturnFinder extends ParseTreeWalker {
+    private _containsReturn = false;
+
+    checkContainsReturn(node: ParseNode) {
+        this.walk(node);
+        return this._containsReturn;
+    }
+
+    visitReturn(node: ReturnNode): boolean {
+        this._containsReturn = true;
+        return false;
+    }
+}

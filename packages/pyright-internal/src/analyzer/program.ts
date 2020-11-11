@@ -1330,6 +1330,7 @@ export class Program {
     getSignatureHelpForPosition(
         filePath: string,
         position: Position,
+        format: MarkupKind,
         token: CancellationToken
     ): SignatureHelpResults | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
@@ -1344,6 +1345,7 @@ export class Program {
                 position,
                 this._lookUpImport,
                 this._evaluator!,
+                format,
                 token
             );
         });
