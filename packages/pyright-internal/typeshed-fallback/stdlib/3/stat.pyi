@@ -1,7 +1,3 @@
-# Stubs for stat
-
-# Based on http://docs.python.org/3.2/library/stat.html
-
 import sys
 
 def S_ISDIR(mode: int) -> bool: ...

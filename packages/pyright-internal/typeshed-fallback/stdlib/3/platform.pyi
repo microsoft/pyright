@@ -1,5 +1,3 @@
-# Stubs for platform (Python 3.5)
-
 import sys
 
 if sys.version_info < (3, 9):

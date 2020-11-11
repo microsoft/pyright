@@ -43,6 +43,9 @@ class _PaddedFile:
     def seek(self, off: int) -> int: ...
     def seekable(self) -> bool: ...
 
+if sys.version_info >= (3, 8):
+    class BadGzipFile(OSError): ...
+
 class GzipFile(_compression.BaseStream):
     myfileobj: Optional[IO[bytes]]
     mode: str

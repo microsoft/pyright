@@ -1,5 +1,3 @@
-# Stubs for code
-
 import sys
 from types import CodeType
 from typing import Any, Callable, Mapping, Optional

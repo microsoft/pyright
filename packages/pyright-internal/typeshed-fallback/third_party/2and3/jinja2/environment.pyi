@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Callable, Dict, Iterator, List, Optional, Text, Type, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Text, Type, Union
 
 from .bccache import BytecodeCache
 from .loaders import BaseLoader
@@ -133,11 +133,11 @@ class Environment:
         self, name: Union[Template, Text], parent: Optional[Text] = ..., globals: Optional[Any] = ...
     ) -> Template: ...
     def select_template(
-        self, names: List[Union[Template, Text]], parent: Optional[Text] = ..., globals: Optional[Dict[str, Any]] = ...
+        self, names: Sequence[Union[Template, Text]], parent: Optional[Text] = ..., globals: Optional[Dict[str, Any]] = ...
     ) -> Template: ...
     def get_or_select_template(
         self,
-        template_name_or_list: Union[Union[Template, Text], List[Union[Template, Text]]],
+        template_name_or_list: Union[Union[Template, Text], Sequence[Union[Template, Text]]],
         parent: Optional[Text] = ...,
         globals: Optional[Dict[str, Any]] = ...,
     ) -> Template: ...

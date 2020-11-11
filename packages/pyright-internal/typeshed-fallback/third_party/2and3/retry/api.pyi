@@ -13,8 +13,8 @@ def retry_call(
     tries: int = ...,
     delay: float = ...,
     max_delay: Optional[float] = ...,
-    backoff: int = ...,
-    jitter: int = ...,
+    backoff: float = ...,
+    jitter: Union[Tuple[float, float], float] = ...,
     logger: Optional[Logger] = ...,
 ) -> _R: ...
 def retry(
@@ -22,7 +22,7 @@ def retry(
     tries: int = ...,
     delay: float = ...,
     max_delay: Optional[float] = ...,
-    backoff: int = ...,
-    jitter: int = ...,
+    backoff: float = ...,
+    jitter: Union[Tuple[float, float], float] = ...,
     logger: Optional[Logger] = ...,
 ) -> _Decorator: ...

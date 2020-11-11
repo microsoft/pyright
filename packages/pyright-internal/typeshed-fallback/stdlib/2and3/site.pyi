@@ -1,5 +1,3 @@
-# Stubs for site
-
 import sys
 from typing import Iterable, List, Optional
 

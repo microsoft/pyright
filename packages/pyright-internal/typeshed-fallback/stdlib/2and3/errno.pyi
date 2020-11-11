@@ -1,5 +1,3 @@
-# Stubs for errno
-
 from typing import Mapping
 
 errorcode: Mapping[int, str]

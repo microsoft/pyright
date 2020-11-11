@@ -1,5 +1,3 @@
-# Stubs for nntplib (Python 3)
-
 import datetime
 import socket
 import ssl

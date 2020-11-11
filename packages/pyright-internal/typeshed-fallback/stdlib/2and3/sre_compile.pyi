@@ -1,6 +1,3 @@
-# Source: https://hg.python.org/cpython/file/2.7/Lib/sre_compile.py
-# and https://github.com/python/cpython/blob/master/Lib/sre_compile.py
-
 import sys
 from sre_constants import (
     SRE_FLAG_DEBUG as SRE_FLAG_DEBUG,

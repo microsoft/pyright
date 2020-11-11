@@ -1,4 +1,3 @@
-# Stubs for pickletools (Python 2 and 3)
 import sys
 from typing import IO, Any, Callable, Iterator, List, MutableMapping, Optional, Text, Tuple, Type, Union
 

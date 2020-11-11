@@ -25,19 +25,14 @@ class shlex(Iterable[str]):
     lineno: int
     token: str
     eof: str
-    if sys.version_info >= (3, 6):
-        punctuation_chars: str
-
-    if sys.version_info >= (3, 6):
-        def __init__(
-            self,
-            instream: Union[str, TextIO] = ...,
-            infile: Optional[str] = ...,
-            posix: bool = ...,
-            punctuation_chars: Union[bool, str] = ...,
-        ) -> None: ...
-    else:
-        def __init__(self, instream: Union[str, TextIO] = ..., infile: Optional[str] = ..., posix: bool = ...) -> None: ...
+    punctuation_chars: str
+    def __init__(
+        self,
+        instream: Union[str, TextIO] = ...,
+        infile: Optional[str] = ...,
+        posix: bool = ...,
+        punctuation_chars: Union[bool, str] = ...,
+    ) -> None: ...
     def get_token(self) -> str: ...
     def push_token(self, tok: str) -> None: ...
     def read_token(self) -> str: ...

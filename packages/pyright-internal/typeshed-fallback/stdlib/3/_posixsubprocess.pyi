@@ -1,5 +1,3 @@
-# Stubs for _posixsubprocess
-
 # NOTE: These are incomplete!
 
 from typing import Callable, Sequence, Tuple

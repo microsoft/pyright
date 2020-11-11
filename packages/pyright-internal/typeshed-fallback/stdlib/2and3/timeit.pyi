@@ -1,5 +1,3 @@
-# Stubs for timeit (Python 2 and 3)
-
 import sys
 from typing import IO, Any, Callable, Dict, List, Optional, Sequence, Text, Tuple, Union
 

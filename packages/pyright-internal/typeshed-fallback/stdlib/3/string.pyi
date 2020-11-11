@@ -1,7 +1,3 @@
-# Stubs for string
-
-# Based on http://docs.python.org/3.2/library/string.html
-
 from typing import Any, Iterable, Mapping, Optional, Sequence, Tuple, Union
 
 ascii_letters: str

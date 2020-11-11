@@ -1,6 +1,9 @@
 import sys
 from typing import Any, Callable, Generic, Optional, TypeVar, overload
 
+if sys.version_info >= (3, 9):
+    from types import GenericAlias
+
 _C = TypeVar("_C", bound=Callable[..., Any])
 _T = TypeVar("_T")
 
@@ -16,6 +19,8 @@ class ReferenceType(Generic[_T]):
     def __init__(self, o: _T, callback: Optional[Callable[[ReferenceType[_T]], Any]] = ...) -> None: ...
     def __call__(self) -> Optional[_T]: ...
     def __hash__(self) -> int: ...
+    if sys.version_info >= (3, 9):
+        def __class_getitem__(cls, item: Any) -> GenericAlias: ...
 
 ref = ReferenceType
 

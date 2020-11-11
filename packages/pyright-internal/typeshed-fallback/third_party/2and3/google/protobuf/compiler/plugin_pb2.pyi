@@ -2,6 +2,7 @@ from typing import Iterable, Optional, Text
 
 from google.protobuf.descriptor_pb2 import FileDescriptorProto
 from google.protobuf.internal.containers import RepeatedCompositeFieldContainer, RepeatedScalarFieldContainer
+from google.protobuf.internal.enum_type_wrapper import EnumTypeWrapper
 from google.protobuf.message import Message
 
 class Version(Message):
@@ -36,6 +37,13 @@ class CodeGeneratorResponse(Message):
         def __init__(
             self, name: Optional[Text] = ..., insertion_point: Optional[Text] = ..., content: Optional[Text] = ...
         ) -> None: ...
+    class _Feature(EnumTypeWrapper):
+        FEATURE_NONE: int
+        FEATURE_PROTO_3_OPTIONAL: int
+    Feature: CodeGeneratorResponse._Feature
+    FEATURE_NONE: int
+    FEATURE_PROTO_3_OPTIONAL: int
+    supported_features: int
     error: Text
     @property
     def file(self) -> RepeatedCompositeFieldContainer[CodeGeneratorResponse.File]: ...

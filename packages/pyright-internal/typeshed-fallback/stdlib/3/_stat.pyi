@@ -1,5 +1,3 @@
-"""Stub file for the '_stat' module."""
-
 SF_APPEND: int
 SF_ARCHIVED: int
 SF_IMMUTABLE: int

@@ -87,12 +87,11 @@ class AugAssign(stmt):
     op: operator
     value: expr
 
-if sys.version_info >= (3, 6):
-    class AnnAssign(stmt):
-        target: expr
-        annotation: expr
-        value: Optional[expr]
-        simple: int
+class AnnAssign(stmt):
+    target: expr
+    annotation: expr
+    value: Optional[expr]
+    simple: int
 
 class For(stmt):
     target: expr
@@ -225,13 +224,13 @@ class Call(expr):
     args: typing.List[expr]
     keywords: typing.List[keyword]
 
-if sys.version_info >= (3, 6):
-    class FormattedValue(expr):
-        value: expr
-        conversion: Optional[int]
-        format_spec: Optional[expr]
-    class JoinedStr(expr):
-        values: typing.List[expr]
+class FormattedValue(expr):
+    value: expr
+    conversion: Optional[int]
+    format_spec: Optional[expr]
+
+class JoinedStr(expr):
+    values: typing.List[expr]
 
 if sys.version_info < (3, 8):
     class Num(expr):  # Deprecated in 3.8; use Constant
@@ -244,13 +243,12 @@ if sys.version_info < (3, 8):
         value: Any
     class Ellipsis(expr): ...  # Deprecated in 3.8; use Constant
 
-if sys.version_info >= (3, 6):
-    class Constant(expr):
-        value: Any  # None, str, bytes, bool, int, float, complex, Ellipsis
-        kind: Optional[str]
-        # Aliases for value, for backwards compatibility
-        s: Any
-        n: complex
+class Constant(expr):
+    value: Any  # None, str, bytes, bool, int, float, complex, Ellipsis
+    kind: Optional[str]
+    # Aliases for value, for backwards compatibility
+    s: Any
+    n: complex
 
 if sys.version_info >= (3, 8):
     class NamedExpr(expr):
@@ -350,8 +348,7 @@ class comprehension(AST):
     target: expr
     iter: expr
     ifs: typing.List[expr]
-    if sys.version_info >= (3, 6):
-        is_async: int
+    is_async: int
 
 class excepthandler(AST): ...
 
@@ -366,7 +363,7 @@ class arguments(AST):
     args: typing.List[arg]
     vararg: Optional[arg]
     kwonlyargs: typing.List[arg]
-    kw_defaults: typing.List[expr]
+    kw_defaults: typing.List[Optional[expr]]
     kwarg: Optional[arg]
     defaults: typing.List[expr]
 

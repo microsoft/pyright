@@ -1,4 +1,3 @@
-# Stubs for flask.json (Python 3.6)
 import json as _json
 from typing import Any
 

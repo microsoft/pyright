@@ -1,4 +1,3 @@
-# Stub for tabulate: https://github.com/astanin/python-tabulate
 from typing import Any, Callable, Container, Iterable, List, Mapping, NamedTuple, Optional, Sequence, Union
 
 PRESERVE_WHITESPACE: bool

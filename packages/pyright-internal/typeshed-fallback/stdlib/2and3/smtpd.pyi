@@ -1,4 +1,3 @@
-# Stubs for smtpd (Python 2 and 3)
 import asynchat
 import asyncore
 import socket

@@ -1,5 +1,3 @@
-# Stubs for telnetlib (Python 2 and 3)
-
 import socket
 import sys
 from typing import Any, Callable, Match, Optional, Pattern, Sequence, Tuple, Union

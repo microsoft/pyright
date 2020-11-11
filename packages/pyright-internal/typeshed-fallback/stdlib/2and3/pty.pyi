@@ -1,4 +1,3 @@
-# Stubs for pty (Python 2 and 3)
 import sys
 from typing import Callable, Iterable, Tuple, Union
 

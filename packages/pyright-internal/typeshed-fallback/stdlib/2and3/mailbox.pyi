@@ -1,4 +1,5 @@
 import email.message
+import sys
 from _typeshed import AnyPath
 from types import TracebackType
 from typing import (
@@ -23,6 +24,9 @@ from typing import (
     overload,
 )
 from typing_extensions import Literal
+
+if sys.version_info >= (3, 9):
+    from types import GenericAlias
 
 _T = TypeVar("_T")
 _MessageType = TypeVar("_MessageType", bound=Message)
@@ -76,6 +80,8 @@ class Mailbox(Generic[_MessageType]):
     def lock(self) -> None: ...
     def unlock(self) -> None: ...
     def close(self) -> None: ...
+    if sys.version_info >= (3, 9):
+        def __class_getitem__(cls, item: Any) -> GenericAlias: ...
 
 class Maildir(Mailbox[MaildirMessage]):
 
@@ -188,6 +194,8 @@ class _ProxyFile(Generic[AnyStr]):
     def flush(self) -> None: ...
     @property
     def closed(self) -> bool: ...
+    if sys.version_info >= (3, 9):
+        def __class_getitem__(cls, item: Any) -> GenericAlias: ...
 
 class _PartialFile(_ProxyFile[AnyStr]):
     def __init__(self, f: IO[AnyStr], start: Optional[int] = ..., stop: Optional[int] = ...) -> None: ...

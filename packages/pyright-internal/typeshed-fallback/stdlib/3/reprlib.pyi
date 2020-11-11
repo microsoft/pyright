@@ -1,5 +1,3 @@
-# Stubs for reprlib (Python 3)
-
 from array import array
 from typing import Any, Callable, Deque, Dict, FrozenSet, List, Set, Tuple
 

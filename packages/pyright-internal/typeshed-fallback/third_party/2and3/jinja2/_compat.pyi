@@ -1,7 +1,7 @@
 import sys
 from typing import Any, Optional
 
-if sys.version_info[0] >= 3:
+if sys.version_info >= (3,):
     from urllib.parse import quote_from_bytes
 
     url_quote = quote_from_bytes

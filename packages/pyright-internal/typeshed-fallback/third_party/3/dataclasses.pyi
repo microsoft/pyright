@@ -1,4 +1,8 @@
+import sys
 from typing import Any, Callable, Dict, Generic, Iterable, List, Mapping, Optional, Tuple, Type, TypeVar, Union, overload
+
+if sys.version_info >= (3, 9):
+    from types import GenericAlias
 
 _T = TypeVar("_T")
 
@@ -32,6 +36,8 @@ class Field(Generic[_T]):
     init: bool
     compare: bool
     metadata: Mapping[str, Any]
+    if sys.version_info >= (3, 9):
+        def __class_getitem__(cls, item: Any) -> GenericAlias: ...
 
 # NOTE: Actual return type is 'Field[_T]', but we want to help type checkers
 # to understand the magic that happens at runtime.
@@ -68,7 +74,10 @@ def fields(class_or_instance: Any) -> Tuple[Field[Any], ...]: ...
 def is_dataclass(obj: Any) -> bool: ...
 
 class FrozenInstanceError(AttributeError): ...
-class InitVar(Generic[_T]): ...
+
+class InitVar(Generic[_T]):
+    if sys.version_info >= (3, 9):
+        def __class_getitem__(cls, type: Any) -> GenericAlias: ...
 
 def make_dataclass(
     cls_name: str,

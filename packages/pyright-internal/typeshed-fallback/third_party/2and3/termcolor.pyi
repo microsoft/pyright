@@ -1,4 +1,3 @@
-# Stub for termcolor: https://pypi.python.org/pypi/termcolor
 from typing import Any, Iterable, Optional, Text
 
 def colored(
