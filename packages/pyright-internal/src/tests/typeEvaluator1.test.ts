@@ -1007,7 +1007,7 @@ test('TypeAlias4', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults3_9 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
-    TestUtils.validateResults(analysisResults3_9, 1);
+    TestUtils.validateResults(analysisResults3_9, 6);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults3_10 = TestUtils.typeAnalyzeSampleFiles(['typeAlias4.py'], configOptions);
@@ -1033,7 +1033,10 @@ test('TypeAlias7', () => {
 });
 
 test('TypeAlias8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias8.py']);
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias8.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 4);
 });

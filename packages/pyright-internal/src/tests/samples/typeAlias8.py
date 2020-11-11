@@ -14,8 +14,8 @@ a1: RecursiveUnion = 3
 
 # This should generate an error because the type alias refers
 # to itself through a mutually-referential type alias.
-MultualReference1 = Union["MultualReference2", int]
-MultualReference2 = Union["MultualReference1", str]
+MutualReference1 = Union["MutualReference2", int]
+MutualReference2 = Union["MutualReference1", str]
 
 # This should generate an error because the type alias refers
 # to itself.
