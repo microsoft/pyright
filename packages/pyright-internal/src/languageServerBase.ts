@@ -382,11 +382,21 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
 
         // For any non-workspace paths, use the node file watcher.
-        const nodeWatchers = nonWorkspacePaths.map((path) => {
-            return fs.watch(path, { recursive: true }, (event, filename) =>
-                listener(event as FileWatcherEventType, filename)
-            );
-        });
+        let nodeWatchers: fs.FSWatcher[];
+
+        try {
+            nodeWatchers = nonWorkspacePaths.map((path) => {
+                return fs.watch(path, { recursive: true }, (event, filename) =>
+                    listener(event as FileWatcherEventType, filename)
+                );
+            });
+        } catch (e) {
+            // Versions of node >= 14 are reportedly throwing exceptions
+            // when calling fs.watch with recursive: true. Just swallow
+            // the exception and proceed.
+            this.console.error(`Exception received when installing recursive file system watcher`);
+            nodeWatchers = [];
+        }
 
         const fileWatcher: InternalFileWatcher = {
             close() {
