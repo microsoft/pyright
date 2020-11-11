@@ -41,7 +41,7 @@ Pyright uses an internal type called “Unknown” to represent types that are n
 
 Pyright attempts to infer the types of global (module-level) variables, class variables, instance variables, and local variables. Return and yield types are also inferred. If type annotations are provided in these cases, the type annotation overrides any inferred types.
 
-Pyright supports type narrowing (sometimes called “type guards”) to track assumptions that apply within certain code flow paths. For example, consider the following code:
+Pyright supports type narrowing to track assumptions that apply within certain code flow paths. For example, consider the following code:
 ```python
 def func(a: Optional[Union[str, List[str]]):
     if isinstance(a, str):
