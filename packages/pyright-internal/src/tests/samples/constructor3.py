@@ -13,6 +13,6 @@ t1: Literal["list[int]"] = reveal_type(my_list)
 
 
 pending: Dict[Future[Any], Any] = {}
-done_tasks, _ = wait(list(pending.keys()))
+done_tasks = wait(list(pending.keys())).done
 
 t2: Literal["Set[Future[Any]]"] = reveal_type(done_tasks)
