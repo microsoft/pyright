@@ -13,7 +13,6 @@
 // * NOTE * except tests, this should be only file that import "fs"
 import * as chokidar from 'chokidar';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as tmp from 'tmp';
 
 // Automatically remove files created by tmp at process exit.

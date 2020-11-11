@@ -7525,8 +7525,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // have no magic method, so we apply the expected type directly to both operands.
         const expectedOperandType =
             node.operator === OperatorType.Or || node.operator === OperatorType.And ? expectedType : undefined;
-        let leftType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(leftExpression, expectedOperandType).type);
-        let rightType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(rightExpression, expectedOperandType).type);
+        let leftType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(leftExpression, expectedOperandType, flags).type);
+        let rightType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(rightExpression, expectedOperandType, flags).type);
 
         // Is this a "|" operator used in a context where it is supposed to be
         // interpreted as a union operator?
