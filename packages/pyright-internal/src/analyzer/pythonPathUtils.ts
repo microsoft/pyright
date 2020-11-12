@@ -121,11 +121,11 @@ export function findPythonSearchPaths(
                 importFailureInfo.push(`  ${path}`);
             });
             return foundPaths;
-        } else {
-            importFailureInfo.push(
-                `Did not find any '${pathConsts.sitePackages}' dirs. Falling back on python interpreter.`
-            );
         }
+
+        importFailureInfo.push(
+            `Did not find any '${pathConsts.sitePackages}' dirs. Falling back on python interpreter.`
+        );
     }
 
     // Fall back on the python interpreter.
