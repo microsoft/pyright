@@ -10095,6 +10095,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             functionFlags |= FunctionTypeFlags.Generator;
         }
 
+        // Special-case magic method __class_getitem__, which is implicitly a class method.
+        if (containingClassNode && node.name.value === '__class_getitem__') {
+            functionFlags |= FunctionTypeFlags.ClassMethod;
+        }
+
         if (fileInfo.isStubFile) {
             functionFlags |= FunctionTypeFlags.StubDefinition;
         } else if (fileInfo.isInPyTypedPackage && evaluatorOptions.disableInferenceForPyTypedSources) {
