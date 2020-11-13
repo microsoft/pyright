@@ -36,7 +36,7 @@ export function computeCompletionSimilarity(typedValue: string, symbolName: stri
     let currentSearchIndex = 0;
     for (let i = 0; i < typedLower.length; i++) {
         const index = symbolLower.indexOf(typedLower[i], currentSearchIndex);
-        if (index != -1) {
+        if (index !== -1) {
             numCommonChars++;
             currentLongestSequence++;
             currentSearchIndex = index + 1;
@@ -53,12 +53,12 @@ export function computeCompletionSimilarity(typedValue: string, symbolName: stri
     }
 
     // Exclude symbol if the user has typed characters that didn't match
-    if (typedValue.length != numCommonChars) {
+    if (typedValue.length !== numCommonChars) {
         return 0;
     }
 
     // If typed string matches continuously, it's probably a good fit
-    if (typedValue.length == longestSequence) {
+    if (typedValue.length === longestSequence) {
         return 0.7;
     }
 
