@@ -283,6 +283,12 @@ export const enum ClassTypeFlags {
     // the class refers to itself (e.g. uses itself as a type
     // argument to one of its generic base classes).
     PartiallyConstructed = 1 << 15,
+
+    // The class or one of its ancestors defines a __class_getitem__
+    // method that is used for subscripting. This is not set if the
+    // class is generic, and therefore supports standard subscripting
+    // semantics.
+    HasCustomClassGetItem = 1 << 16,
 }
 
 interface ClassDetails {
@@ -538,6 +544,10 @@ export namespace ClassType {
 
     export function isPartiallyConstructed(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.PartiallyConstructed);
+    }
+
+    export function hasCustomClassGetItem(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.HasCustomClassGetItem);
     }
 
     export function getAliasClass(classType: ClassType): ClassType {

@@ -4300,8 +4300,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 const isAnnotatedClass = isClass(subtype) && ClassType.isBuiltIn(subtype, 'Annotated');
+                const hasCustomClassGetItem = isClass(subtype) && ClassType.hasCustomClassGetItem(subtype);
 
-                const typeArgs = getTypeArgs(node.items, adjustedFlags, isAnnotatedClass);
+                const typeArgs = getTypeArgs(node.items, adjustedFlags, isAnnotatedClass, hasCustomClassGetItem);
+
+                // If this is a custom __class_getitem__, there's no need to specialize the class.
+                // Just return it as is.
+                if (hasCustomClassGetItem) {
+                    return subtype;
+                }
+
                 return createSpecializedClassType(subtype, typeArgs, flags, node);
             }
 
@@ -4538,14 +4546,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return callResult.returnType || UnknownType.create();
     }
 
-    function getTypeArgs(node: IndexItemsNode, flags: EvaluatorFlags, isAnnotatedClass = false): TypeResult[] {
+    function getTypeArgs(
+        node: IndexItemsNode,
+        flags: EvaluatorFlags,
+        isAnnotatedClass = false,
+        hasCustomClassGetItem = false
+    ): TypeResult[] {
         const typeArgs: TypeResult[] = [];
         const adjFlags = flags & ~EvaluatorFlags.ParamSpecDisallowed;
 
         node.items.forEach((expr, index) => {
-            // If it's an Annotated[a, b, c], only the first index should be treated
-            // as a type. The others can be regular (non-type) objects.
-            if (isAnnotatedClass && index > 0) {
+            // If it's a custom __class_getitem__, none of the arguments should be
+            // treated as types. If it's an Annotated[a, b, c], only the first index
+            // should be treated as a type. The others can be regular (non-type) objects.
+            if (hasCustomClassGetItem || (isAnnotatedClass && index > 0)) {
                 typeArgs.push(
                     getTypeOfExpression(
                         expr,
@@ -9896,6 +9910,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 }
+            }
+        }
+
+        // Determine if the class has a custom __class_getitem__ method. This applies
+        // only to classes that have no type parameters, since those with type parameters
+        // are assumed to follow normal subscripting semantics for generic classes.
+        if (classType.details.typeParameters.length === 0) {
+            if (
+                classType.details.baseClasses.some(
+                    (baseClass) => isClass(baseClass) && ClassType.hasCustomClassGetItem(baseClass)
+                ) ||
+                classType.details.fields.has('__class_getitem__')
+            ) {
+                classType.details.flags |= ClassTypeFlags.HasCustomClassGetItem;
             }
         }
 

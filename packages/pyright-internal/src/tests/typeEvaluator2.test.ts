@@ -1107,3 +1107,9 @@ test('Constructor3', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('ClassGetItem1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classGetItem1.py']);
+
+    TestUtils.validateResults(analysisResults, 0, 1);
+});
