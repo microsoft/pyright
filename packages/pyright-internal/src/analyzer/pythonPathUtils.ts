@@ -59,7 +59,56 @@ export function getTypeshedSubdirectory(typeshedPath: string, isStdLib: boolean)
     return combinePaths(typeshedPath, isStdLib ? stdLibFolderName : thirdPartyFolderName);
 }
 
-function checkVenvPath(fs: FileSystem, libPath: string, importFailureInfo: string[]): string | undefined {
+export function findPythonSearchPaths(
+    fs: FileSystem,
+    configOptions: ConfigOptions,
+    venv: string | undefined,
+    importFailureInfo: string[],
+    includeWatchPathsOnly?: boolean | undefined,
+    workspaceRoot?: string | undefined
+): string[] | undefined {
+    importFailureInfo.push('Finding python search paths');
+
+    if (configOptions.venvPath !== undefined && (venv !== undefined || configOptions.defaultVenv)) {
+        const venvDir = venv !== undefined ? venv : configOptions.defaultVenv;
+        const venvPath = combinePaths(configOptions.venvPath, venvDir);
+
+        const foundPaths: string[] = [];
+
+        [pathConsts.lib, pathConsts.lib64, pathConsts.libAlternate].forEach((libPath) => {
+            const sitePackagesPath = findSitePackagesPath(fs, combinePaths(venvPath, libPath), importFailureInfo);
+            if (sitePackagesPath) {
+                foundPaths.push(sitePackagesPath);
+            }
+        });
+
+        if (foundPaths.length > 0) {
+            importFailureInfo.push(`Found the following '${pathConsts.sitePackages}' dirs`);
+            foundPaths.forEach((path) => {
+                importFailureInfo.push(`  ${path}`);
+            });
+            return foundPaths;
+        }
+
+        importFailureInfo.push(
+            `Did not find any '${pathConsts.sitePackages}' dirs. Falling back on python interpreter.`
+        );
+    }
+
+    // Fall back on the python interpreter.
+    const pathResult = getPythonPathFromPythonInterpreter(fs, configOptions.pythonPath, importFailureInfo);
+    if (includeWatchPathsOnly && workspaceRoot) {
+        const paths = pathResult.paths.filter(
+            (p) => !containsPath(workspaceRoot, p, true) || containsPath(pathResult.prefix, p, true)
+        );
+
+        return paths;
+    }
+
+    return pathResult.paths;
+}
+
+function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo: string[]): string | undefined {
     if (fs.existsSync(libPath)) {
         importFailureInfo.push(`Found path '${libPath}'; looking for ${pathConsts.sitePackages}`);
     } else {
@@ -90,55 +139,6 @@ function checkVenvPath(fs: FileSystem, libPath: string, importFailureInfo: strin
             }
         }
     }
-}
-
-export function findPythonSearchPaths(
-    fs: FileSystem,
-    configOptions: ConfigOptions,
-    venv: string | undefined,
-    importFailureInfo: string[],
-    includeWatchPathsOnly?: boolean | undefined,
-    workspaceRoot?: string | undefined
-): string[] | undefined {
-    importFailureInfo.push('Finding python search paths');
-
-    if (configOptions.venvPath !== undefined && (venv !== undefined || configOptions.defaultVenv)) {
-        const venvDir = venv !== undefined ? venv : configOptions.defaultVenv;
-        const venvPath = combinePaths(configOptions.venvPath, venvDir);
-
-        const foundPaths: string[] = [];
-
-        [pathConsts.lib, pathConsts.lib64, pathConsts.Lib].forEach((libPath) => {
-            const ret = checkVenvPath(fs, combinePaths(venvPath, libPath), importFailureInfo);
-            if (ret) {
-                foundPaths.push(ret);
-            }
-        });
-
-        if (foundPaths.length > 0) {
-            importFailureInfo.push(`Found the following '${pathConsts.sitePackages}' dirs`);
-            foundPaths.forEach((path) => {
-                importFailureInfo.push(`  ${path}`);
-            });
-            return foundPaths;
-        }
-
-        importFailureInfo.push(
-            `Did not find any '${pathConsts.sitePackages}' dirs. Falling back on python interpreter.`
-        );
-    }
-
-    // Fall back on the python interpreter.
-    const pathResult = getPythonPathFromPythonInterpreter(fs, configOptions.pythonPath, importFailureInfo);
-    if (includeWatchPathsOnly && workspaceRoot) {
-        const paths = pathResult.paths.filter(
-            (p) => !containsPath(workspaceRoot, p, true) || containsPath(pathResult.prefix, p, true)
-        );
-
-        return paths;
-    }
-
-    return pathResult.paths;
 }
 
 function getPathResultFromInterpreter(
