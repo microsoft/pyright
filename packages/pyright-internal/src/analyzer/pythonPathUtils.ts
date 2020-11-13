@@ -59,6 +59,39 @@ export function getTypeshedSubdirectory(typeshedPath: string, isStdLib: boolean)
     return combinePaths(typeshedPath, isStdLib ? stdLibFolderName : thirdPartyFolderName);
 }
 
+function checkVenvPath(fs: FileSystem, libPath: string, importFailureInfo: string[]): string | undefined {
+    if (fs.existsSync(libPath)) {
+        importFailureInfo.push(`Found path '${libPath}'; looking for ${pathConsts.sitePackages}`);
+    } else {
+        importFailureInfo.push(`Did not find '${libPath}'`);
+        return undefined;
+    }
+
+    const sitePackagesPath = combinePaths(libPath, pathConsts.sitePackages);
+    if (fs.existsSync(sitePackagesPath)) {
+        importFailureInfo.push(`Found path '${sitePackagesPath}'`);
+        return sitePackagesPath;
+    } else {
+        importFailureInfo.push(`Did not find '${sitePackagesPath}', so looking for python subdirectory`);
+    }
+
+    // We didn't find a site-packages directory directly in the lib
+    // directory. Scan for a "python*" directory instead.
+    const entries = getFileSystemEntries(fs, libPath);
+    for (let i = 0; i < entries.directories.length; i++) {
+        const dirName = entries.directories[i];
+        if (dirName.startsWith('python')) {
+            const dirPath = combinePaths(libPath, dirName, pathConsts.sitePackages);
+            if (fs.existsSync(dirPath)) {
+                importFailureInfo.push(`Found path '${dirPath}'`);
+                return dirPath;
+            } else {
+                importFailureInfo.push(`Path '${dirPath}' is not a valid directory`);
+            }
+        }
+    }
+}
+
 export function findPythonSearchPaths(
     fs: FileSystem,
     configOptions: ConfigOptions,
@@ -69,59 +102,30 @@ export function findPythonSearchPaths(
 ): string[] | undefined {
     importFailureInfo.push('Finding python search paths');
 
-    let venvPath: string | undefined;
-    if (venv !== undefined) {
-        if (configOptions.venvPath) {
-            venvPath = combinePaths(configOptions.venvPath, venv);
-        }
-    } else if (configOptions.defaultVenv) {
-        if (configOptions.venvPath) {
-            venvPath = combinePaths(configOptions.venvPath, configOptions.defaultVenv);
-        }
-    }
+    if (configOptions.venvPath !== undefined && (venv !== undefined || configOptions.defaultVenv)) {
+        const venvDir = venv !== undefined ? venv : configOptions.defaultVenv;
+        const venvPath = combinePaths(configOptions.venvPath, venvDir);
 
-    if (venvPath) {
-        let libPath = combinePaths(venvPath, pathConsts.lib);
-        if (fs.existsSync(libPath)) {
-            importFailureInfo.push(`Found path '${libPath}'; looking for ${pathConsts.sitePackages}`);
-        } else {
-            importFailureInfo.push(`Did not find '${libPath}'; trying 'Lib' instead`);
-            libPath = combinePaths(venvPath, 'Lib');
-            if (fs.existsSync(libPath)) {
-                importFailureInfo.push(`Found path '${libPath}'; looking for ${pathConsts.sitePackages}`);
-            } else {
-                importFailureInfo.push(`Did not find '${libPath}'`);
-                libPath = '';
+        const foundPaths: string[] = [];
+
+        [pathConsts.lib, pathConsts.lib64, pathConsts.Lib].forEach((libPath) => {
+            const ret = checkVenvPath(fs, combinePaths(venvPath, libPath), importFailureInfo);
+            if (ret) {
+                foundPaths.push(ret);
             }
+        });
+
+        if (foundPaths.length > 0) {
+            importFailureInfo.push(`Found the following '${pathConsts.sitePackages}' dirs`);
+            foundPaths.forEach((path) => {
+                importFailureInfo.push(`  ${path}`);
+            });
+            return foundPaths;
         }
 
-        if (libPath) {
-            const sitePackagesPath = combinePaths(libPath, pathConsts.sitePackages);
-            if (fs.existsSync(sitePackagesPath)) {
-                importFailureInfo.push(`Found path '${sitePackagesPath}'`);
-                return [sitePackagesPath];
-            } else {
-                importFailureInfo.push(`Did not find '${sitePackagesPath}', so looking for python subdirectory`);
-            }
-
-            // We didn't find a site-packages directory directly in the lib
-            // directory. Scan for a "python*" directory instead.
-            const entries = getFileSystemEntries(fs, libPath);
-            for (let i = 0; i < entries.directories.length; i++) {
-                const dirName = entries.directories[i];
-                if (dirName.startsWith('python')) {
-                    const dirPath = combinePaths(libPath, dirName, pathConsts.sitePackages);
-                    if (fs.existsSync(dirPath)) {
-                        importFailureInfo.push(`Found path '${dirPath}'`);
-                        return [dirPath];
-                    } else {
-                        importFailureInfo.push(`Path '${dirPath}' is not a valid directory`);
-                    }
-                }
-            }
-        }
-
-        importFailureInfo.push(`Did not find '${pathConsts.sitePackages}'. Falling back on python interpreter.`);
+        importFailureInfo.push(
+            `Did not find any '${pathConsts.sitePackages}' dirs. Falling back on python interpreter.`
+        );
     }
 
     // Fall back on the python interpreter.
