@@ -28,30 +28,68 @@ export function computeCompletionSimilarity(typedValue: string, symbolName: stri
         return 0.75;
     }
 
+    // Check longest common subsequence of symbolLower and typedLower
+    // Store max number of continuous characters that match
+    let numCommonChars = 0;
+    let longestSequence = 0;
+    let currentLongestSequence = 0;
+    let currentSearchIndex = 0;
+    for (let i = 0; i < typedLower.length; i++) {
+        const index = symbolLower.indexOf(typedLower[i], currentSearchIndex);
+        if (index != -1) {
+            numCommonChars++;
+            currentLongestSequence++;
+            currentSearchIndex = index + 1;
+            if (longestSequence < currentLongestSequence) {
+                longestSequence++;
+            }
+        } else {
+            currentLongestSequence = 0;
+            currentSearchIndex = i + 1;
+        }
+        if (currentSearchIndex > symbolLower.length - 1) {
+            break;
+        }
+    }
+
+    // Exclude symbol if the user has typed characters that didn't match
+    if (typedValue.length != numCommonChars) {
+        return 0;
+    }
+
+    // If typed string matches continuously, it's probably a good fit
+    if (typedValue.length == longestSequence) {
+        return 0.7;
+    }
+
+    // Everything else that matched, probably not as good
+    // TODO some logic that evaluates longestSequence in comparison to typedValue.length
+    return 0.4;
+
     // How far apart are the two strings? Find the smallest edit
     // distance for each of the substrings taken from the start of
     // symbolName.
-    let symbolSubstrLength = symbolLower.length;
-    let smallestEditDistance = Number.MAX_VALUE;
-    while (symbolSubstrLength > 0) {
-        const editDistance = leven(symbolLower.substr(0, symbolSubstrLength), typedLower);
-        if (editDistance < smallestEditDistance) {
-            smallestEditDistance = editDistance;
-        }
-        symbolSubstrLength--;
-    }
+    // let symbolSubstrLength = symbolLower.length;
+    // let smallestEditDistance = Number.MAX_VALUE;
+    // while (symbolSubstrLength > 0) {
+    //     const editDistance = leven(symbolLower.substr(0, symbolSubstrLength), typedLower);
+    //     if (editDistance < smallestEditDistance) {
+    //         smallestEditDistance = editDistance;
+    //     }
+    //     symbolSubstrLength--;
+    // }
 
     // We'll take into account the length of the typed value. If the user
     // has typed more characters, and they largely match the symbol name,
     // it is considered more similar. If the the edit distance is similar
     // to the number of characters the user has typed, then there's almost
     // no similarity.
-    if (smallestEditDistance >= typedValue.length) {
-        return 0;
-    }
+    // if (smallestEditDistance >= typedValue.length) {
+    //     return 0;
+    // }
 
-    const similarity = (typedValue.length - smallestEditDistance) / typedValue.length;
-    return 0.5 * similarity;
+    // const similarity = (typedValue.length - smallestEditDistance) / typedValue.length;
+    // return 0.5 * similarity;
 }
 
 // This is a simple, non-cryptographic hash function for text.
