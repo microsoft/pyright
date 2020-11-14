@@ -7,8 +7,6 @@
  * Utility methods for manipulating and comparing strings.
  */
 
-import leven from 'leven';
-
 import { compareComparableValues, Comparison } from './core';
 
 // Determines if typed string matches a symbol
@@ -29,35 +27,6 @@ export function computeCompletionSimilarity(typedValue: string, symbolName: stri
     }
     return typedPos === typedLength ? 1 : 0;
 }
-
-// export function computeCompletionSimilarity_3(typedValue: string, symbolName: string): number {
-//     if (recurseSimilarity(typedValue.toLocaleLowerCase(), symbolName.toLocaleLowerCase())) {
-//         return 1;
-//     }
-//     return 0;
-// }
-
-// function recurseSimilarity(typedLower: string, symbolLower: string): boolean {
-//     if (typedLower.length === 0) {
-//         return true;
-//     }
-//     const index = symbolLower.indexOf(typedLower[0]);
-//     if (index === -1) {
-//         return false;
-//     }
-//     if (typedLower.length === 1) {
-//         return true;
-//     } else if (typedLower.length === 2) {
-//         symbolLower = symbolLower.slice(index + 1);
-//         return recurseSimilarity(typedLower.slice(1), symbolLower);
-//     } else {
-//         symbolLower = symbolLower.slice(index + 1);
-//         return (
-//             recurseSimilarity(typedLower.slice(1), symbolLower) ||
-//             recurseSimilarity(typedLower[2] + typedLower[1] + typedLower.slice(3), symbolLower)
-//         );
-//     }
-// }
 
 // This is a simple, non-cryptographic hash function for text.
 export function hashString(contents: string) {
