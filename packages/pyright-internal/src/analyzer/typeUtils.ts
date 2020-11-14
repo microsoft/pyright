@@ -1004,7 +1004,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 // _T1 with str and _T2 with int.
 export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeConcrete = true): TypeVarMap {
     const typeParameters = ClassType.getTypeParameters(classType);
-    let typeArguments = classType.typeArguments;
+    let typeArguments = classType.effectiveTypeArguments || classType.typeArguments;
 
     // If there are no type arguments, we can either use the type variables
     // from the type parameters (keeping the type arguments generic) or
