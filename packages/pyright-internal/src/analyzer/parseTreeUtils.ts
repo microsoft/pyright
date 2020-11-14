@@ -23,7 +23,6 @@ import {
     isExpressionNode,
     LambdaNode,
     ModuleNode,
-    NameNode,
     ParameterCategory,
     ParseNode,
     ParseNodeType,

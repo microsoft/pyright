@@ -95,7 +95,6 @@ import {
     Type,
     TypeBase,
     TypeCategory,
-    TypeVarType,
     UnknownType,
 } from './types';
 import {
@@ -869,7 +868,7 @@ export class Checker extends ParseTreeWalker {
             prevOverload,
             new DiagnosticAddendum(),
             /* typeVarMap */ undefined,
-            CanAssignFlags.MatchTypeVarsExactly |
+            CanAssignFlags.SkipSolveTypeVars |
                 CanAssignFlags.SkipFunctionReturnTypeCheck |
                 CanAssignFlags.DisallowAssignFromAny
         );
@@ -2143,7 +2142,8 @@ export class Checker extends ParseTreeWalker {
                             Localizer.Diagnostic.methodOverridden().format({
                                 name,
                                 className: baseClassAndSymbol.classType.details.name,
-                            }) + diagAddendum.getString(),
+                                type: this._evaluator.printType(typeOfSymbol, /* expandTypeAlias */ false),
+                            }),
                             lastDecl.node
                         );
 

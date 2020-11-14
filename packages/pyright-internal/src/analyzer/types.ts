@@ -97,6 +97,7 @@ interface TypeAliasInfo {
     aliasName: string;
     typeParameters?: TypeVarType[];
     typeArguments?: Type[];
+    typeVarScopeId: TypeVarScopeId;
 }
 
 interface TypeBase {
@@ -114,13 +115,20 @@ export namespace TypeBase {
         return (type.flags & TypeFlags.Instance) !== 0;
     }
 
-    export function cloneForTypeAlias(type: Type, name: string, typeParams?: TypeVarType[], typeArgs?: Type[]): Type {
+    export function cloneForTypeAlias(
+        type: Type,
+        name: string,
+        typeVarScopeId: TypeVarScopeId,
+        typeParams?: TypeVarType[],
+        typeArgs?: Type[]
+    ): Type {
         const typeClone = { ...type };
 
         typeClone.typeAliasInfo = {
             aliasName: name,
             typeParameters: typeParams,
             typeArguments: typeArgs,
+            typeVarScopeId,
         };
 
         return typeClone;
@@ -1287,6 +1295,7 @@ export interface TypeVarDetails {
 
     // Used for recursive type aliases.
     recursiveTypeAliasName?: string;
+    recursiveTypeAliasScopeId?: TypeVarScopeId;
 
     // Type parameters for a recursive type alias.
     recursiveTypeParameters?: TypeVarType[];

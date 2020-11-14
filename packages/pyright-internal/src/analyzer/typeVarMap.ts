@@ -97,6 +97,10 @@ export class TypeVarMap {
         }
     }
 
+    isEmpty() {
+        return this._typeVarMap.size === 0 && this._paramSpecMap.size === 0;
+    }
+
     // Provides a "score" - a value that values completeness (number
     // of type variables that are assigned) and completeness.
     getScore() {

@@ -861,6 +861,12 @@ test('Callable1', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('Callable2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callable2.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('ThreePartVersion1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['threePartVersion1.py']);
 
@@ -909,7 +915,7 @@ test('ParamSpec1', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec1.py'], configOptions);
-    TestUtils.validateResults(results, 7);
+    TestUtils.validateResults(results, 6);
 });
 
 test('ParamSpec2', () => {

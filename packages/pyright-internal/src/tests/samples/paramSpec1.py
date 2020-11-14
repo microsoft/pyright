@@ -16,7 +16,6 @@ a = 3
 # This should generate an error.
 b = cast(TParams, a)
 
-# This should generate an error.
 foo(1)
 
 # This should generate an error.

@@ -168,7 +168,7 @@
         "methodNotDefined": "\"{name}\" method not defined",
         "methodNotDefinedOnType": "\"{name}\" method not defined on type \"{type}\"",
         "methodOrdering": "Cannot create consistent method ordering",
-        "methodOverridden": "\"{name}\" overrides method of same name in class \"{className}\"",
+        "methodOverridden": "\"{name}\" overrides method of same name in class \"{className}\" with incompatible type \"{type}\"",
         "methodReturnsNonObject": "\"{name}\" method does not return an object",
         "moduleContext": "Module not allowed in this context",
         "moduleUnknownMember": "\"{name}\" is not a known member of module",

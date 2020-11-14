@@ -1,10 +1,10 @@
 # This sample tests the reportIncompatibleMethodOverride
 # configuration option.
 
-from typing import Iterable, List, Sequence, Union
+from typing import Any, Callable, Iterable, List, Sequence, TypeVar, Union
 
 
-class ParentClass():
+class ParentClass:
     def my_method1(self, a: int):
         return 1
 
@@ -52,6 +52,7 @@ class ParentClass():
 
     def my_method16(self, a: int) -> int:
         return 1
+
 
 class ChildClass(ParentClass):
     # This should generate an error because the type of 'a' doesn't match.
@@ -117,7 +118,6 @@ class ChildClass(ParentClass):
         pass
 
 
-
 class A:
     def test(self, t: Sequence[int]) -> Sequence[str]:
         ...
@@ -146,9 +146,23 @@ class GeneralizedReturn1(A):
     def test(self, t: Sequence[int]) -> Iterable[str]:
         ...
 
+
 class GeneralizedReturn2(A):
     # This should generate an error because List[int] is
     # incompatible with Sequence[str].
     def test(self, t: Sequence[int]) -> List[int]:
         ...
 
+
+_T1 = TypeVar("_T1")
+_T2 = TypeVar("_T2")
+
+
+class Base1:
+    def submit(self, fn: Callable[..., _T1], *args: Any, **kwargs: Any) -> List[_T1]:
+        return []
+
+
+class Base2(Base1):
+    def submit(self, fn: Callable[..., _T2], *args: Any, **kwargs: Any) -> List[_T2]:
+        return []

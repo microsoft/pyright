@@ -94,8 +94,8 @@ export const enum CanAssignFlags {
 
     // Normally type vars are treated as variables that need to
     // be "solved". If this flag is set, they are treated as types
-    // that must match exactly.
-    MatchTypeVarsExactly = 1 << 2,
+    // that must match. It is used for overload consistency checking.
+    SkipSolveTypeVars = 1 << 2,
 
     // If the dest is not Any but the src is Any, treat it
     // as incompatible.
@@ -107,6 +107,11 @@ export const enum CanAssignFlags {
     // Normally type vars are specialized during type comparisons.
     // With this flag, a type var must match a type var exactly.
     DoNotSpecializeTypeVars = 1 << 5,
+
+    // Normally any assignment to an out-of-scope type var will
+    // result in an error. In some cases (such as with argument
+    // matching), these errors are suppressed.
+    AllowOutOfScopeTypeVars = 1 << 6,
 }
 
 const singleTickRegEx = /'/g;
@@ -446,6 +451,10 @@ export function getTypeVarScopeId(type: Type): TypeVarScopeId | undefined {
         return type.details.typeVarScopeId;
     }
 
+    if (type.category === TypeCategory.TypeVar) {
+        return type.scopeId;
+    }
+
     return undefined;
 }
 
@@ -615,6 +624,7 @@ export function specializeType(
             return TypeBase.cloneForTypeAlias(
                 type,
                 type.typeAliasInfo.aliasName,
+                type.typeAliasInfo.typeVarScopeId,
                 type.typeAliasInfo.typeParameters,
                 typeArgs
             );
@@ -1219,6 +1229,7 @@ export function convertToInstance(type: Type): Type {
         result = TypeBase.cloneForTypeAlias(
             result,
             type.typeAliasInfo.aliasName,
+            type.typeAliasInfo.typeVarScopeId,
             type.typeAliasInfo.typeParameters,
             type.typeAliasInfo.typeArguments
         );
@@ -1261,6 +1272,7 @@ export function convertToInstantiable(type: Type): Type {
         result = TypeBase.cloneForTypeAlias(
             result,
             type.typeAliasInfo.aliasName,
+            type.typeAliasInfo.typeVarScopeId,
             type.typeAliasInfo.typeParameters,
             type.typeAliasInfo.typeArguments
         );
@@ -1443,11 +1455,7 @@ function _specializeClassType(
                 // If the type var map wasn't provided or doesn't contain this
                 // type var, specialize the type var.
                 typeArgType = makeConcrete
-                    ? getConcreteTypeFromTypeVar(
-                          typeParam,
-                          /* convertConstraintsToUnion */ undefined,
-                          recursionLevel + 1
-                      )
+                    ? getConcreteTypeFromTypeVar(typeParam, /* convertConstraintsToUnion */ undefined)
                     : typeParam;
                 if (typeArgType !== typeParam) {
                     specializationNeeded = true;
@@ -1474,11 +1482,7 @@ function _specializeClassType(
 
 // Converts a type var type into the most specific type
 // that fits the specified constraints.
-export function getConcreteTypeFromTypeVar(
-    type: TypeVarType,
-    convertConstraintsToUnion = false,
-    recursionLevel = 0
-): Type {
+export function getConcreteTypeFromTypeVar(type: TypeVarType, convertConstraintsToUnion = false): Type {
     if (type.details.boundType) {
         // If this is a recursive type alias placeholder, don't continue
         // to specialize it because it will expand it out until we hit the
@@ -1487,7 +1491,7 @@ export function getConcreteTypeFromTypeVar(
             return type.details.boundType;
         }
 
-        return specializeType(type.details.boundType, undefined, /* makeConcrete */ false, recursionLevel + 1);
+        return specializeType(type.details.boundType, undefined, /* makeConcrete */ false);
     }
 
     // Note that we can't use constraints for specialization because
