@@ -123,12 +123,13 @@ test('stringUtils computeCompletionSimilarity', () => {
     assert.equal(computeCompletionSimilarity('abcd', 'abcd'), 1);
     assert.equal(computeCompletionSimilarity('abc', 'abcd'), 1);
 
-    assert.equal(computeCompletionSimilarity('ABCD', 'abcd'), 0.75);
-    assert.equal(computeCompletionSimilarity('ABC', 'abcd'), 0.75);
+    assert.equal(computeCompletionSimilarity('ABCD', 'abcd'), 1);
+    assert.equal(computeCompletionSimilarity('ABC', 'abcd'), 1);
 
-    assert.equal(computeCompletionSimilarity('abce', 'abcd'), 0.375);
-    assert.equal(computeCompletionSimilarity('abcde', 'abcd'), 0.4);
-    assert.equal(computeCompletionSimilarity('azcde', 'abcd'), 0.3);
-    assert.equal(computeCompletionSimilarity('acde', 'abcd'), 0.25);
-    assert.equal(computeCompletionSimilarity('zbcd', 'abcd'), 0.375);
+    assert.equal(computeCompletionSimilarity('acbd', 'abcd'), 0);
+    assert.equal(computeCompletionSimilarity('abce', 'abcd'), 0);
+    assert.equal(computeCompletionSimilarity('abcde', 'abcd'), 0);
+    assert.equal(computeCompletionSimilarity('azcde', 'abcd'), 0);
+    assert.equal(computeCompletionSimilarity('acde', 'abcd'), 0);
+    assert.equal(computeCompletionSimilarity('zbcd', 'abcd'), 0);
 });

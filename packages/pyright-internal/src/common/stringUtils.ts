@@ -11,86 +11,53 @@ import leven from 'leven';
 
 import { compareComparableValues, Comparison } from './core';
 
-// Determines how closely a typed string matches a symbol
-// name. An exact match returns 1. A match that differs
-// only in case returns a slightly lower number. A match
-// that involves a few missing or added characters returns
-// an even lower number.
+// Determines if typed string matches a symbol
+// name. Characters must appear in order.
+// Return 1 if all typed characters are in symbol
 export function computeCompletionSimilarity(typedValue: string, symbolName: string): number {
-    if (symbolName.startsWith(typedValue)) {
-        return 1;
-    }
-
-    const symbolLower = symbolName.toLocaleLowerCase();
     const typedLower = typedValue.toLocaleLowerCase();
-
-    if (symbolLower.startsWith(typedLower)) {
-        return 0.75;
-    }
-
-    // Check longest common subsequence of symbolLower and typedLower
-    // Store max number of continuous characters that match
-    let numCommonChars = 0;
-    let longestSequence = 0;
-    let currentLongestSequence = 0;
-    let currentSearchIndex = 0;
-    for (let i = 0; i < typedLower.length; i++) {
-        const index = symbolLower.indexOf(typedLower[i], currentSearchIndex);
-        if (index !== -1) {
-            numCommonChars++;
-            currentLongestSequence++;
-            currentSearchIndex = index + 1;
-            if (longestSequence < currentLongestSequence) {
-                longestSequence++;
-            }
-        } else {
-            currentLongestSequence = 0;
-            currentSearchIndex = i + 1;
+    const symbolLower = symbolName.toLocaleLowerCase();
+    const typedLength = typedLower.length;
+    const symbolLength = symbolLower.length;
+    let typedPos = 0;
+    let symbolPos = 0;
+    while (typedPos < typedLength && symbolPos < symbolLength) {
+        if (typedLower[typedPos] === symbolLower[symbolPos]) {
+            typedPos += 1;
         }
-        if (currentSearchIndex > symbolLower.length - 1) {
-            break;
-        }
+        symbolPos += 1;
     }
-
-    // Exclude symbol if the user has typed characters that didn't match
-    if (typedValue.length !== numCommonChars) {
-        return 0;
-    }
-
-    // If typed string matches continuously, it's probably a good fit
-    if (typedValue.length === longestSequence) {
-        return 0.7;
-    }
-
-    // Everything else that matched, probably not as good
-    // TODO some logic that evaluates longestSequence in comparison to typedValue.length
-    return 0.4;
-
-    // How far apart are the two strings? Find the smallest edit
-    // distance for each of the substrings taken from the start of
-    // symbolName.
-    // let symbolSubstrLength = symbolLower.length;
-    // let smallestEditDistance = Number.MAX_VALUE;
-    // while (symbolSubstrLength > 0) {
-    //     const editDistance = leven(symbolLower.substr(0, symbolSubstrLength), typedLower);
-    //     if (editDistance < smallestEditDistance) {
-    //         smallestEditDistance = editDistance;
-    //     }
-    //     symbolSubstrLength--;
-    // }
-
-    // We'll take into account the length of the typed value. If the user
-    // has typed more characters, and they largely match the symbol name,
-    // it is considered more similar. If the the edit distance is similar
-    // to the number of characters the user has typed, then there's almost
-    // no similarity.
-    // if (smallestEditDistance >= typedValue.length) {
-    //     return 0;
-    // }
-
-    // const similarity = (typedValue.length - smallestEditDistance) / typedValue.length;
-    // return 0.5 * similarity;
+    return typedPos === typedLength ? 1 : 0;
 }
+
+// export function computeCompletionSimilarity_3(typedValue: string, symbolName: string): number {
+//     if (recurseSimilarity(typedValue.toLocaleLowerCase(), symbolName.toLocaleLowerCase())) {
+//         return 1;
+//     }
+//     return 0;
+// }
+
+// function recurseSimilarity(typedLower: string, symbolLower: string): boolean {
+//     if (typedLower.length === 0) {
+//         return true;
+//     }
+//     const index = symbolLower.indexOf(typedLower[0]);
+//     if (index === -1) {
+//         return false;
+//     }
+//     if (typedLower.length === 1) {
+//         return true;
+//     } else if (typedLower.length === 2) {
+//         symbolLower = symbolLower.slice(index + 1);
+//         return recurseSimilarity(typedLower.slice(1), symbolLower);
+//     } else {
+//         symbolLower = symbolLower.slice(index + 1);
+//         return (
+//             recurseSimilarity(typedLower.slice(1), symbolLower) ||
+//             recurseSimilarity(typedLower[2] + typedLower[1] + typedLower.slice(3), symbolLower)
+//         );
+//     }
+// }
 
 // This is a simple, non-cryptographic hash function for text.
 export function hashString(contents: string) {
