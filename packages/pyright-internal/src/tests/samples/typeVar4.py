@@ -18,8 +18,6 @@ class Foo(Generic[_T, _T_co, _T_contra]):
     def func2(self, a: _T_co):
         pass
 
-    # This should generate an error because covariant
-    # TypeVars are not allowed for input parameters.
     def func3(self, a: Union[int, _T_co]):
         pass
 

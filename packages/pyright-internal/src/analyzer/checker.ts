@@ -289,13 +289,11 @@ export class Checker extends ParseTreeWalker {
                 const annotationNode = param.typeAnnotation || param.typeAnnotationComment;
                 if (annotationNode) {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;
-                    const diag = new DiagnosticAddendum();
-                    const scopeId = this._evaluator.getScopeIdForNode(node);
-                    if (this._containsCovariantTypeVar(paramType, scopeId, diag)) {
+                    if (isTypeVar(paramType) && paramType.details.isCovariant && !paramType.details.isSynthesized) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.paramTypeCovariant() + diag.getString(),
+                            Localizer.Diagnostic.paramTypeCovariant(),
                             annotationNode
                         );
                     }
@@ -1984,24 +1982,6 @@ export class Checker extends ParseTreeWalker {
                 if (subtype.scopeId !== scopeId) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeVarIsContravariant().format({ name: subtype.details.name })
-                    );
-                    isValid = false;
-                }
-            }
-            return undefined;
-        });
-
-        return !isValid;
-    }
-
-    private _containsCovariantTypeVar(type: Type, scopeId: string, diag: DiagnosticAddendum): boolean {
-        let isValid = true;
-
-        doForSubtypes(type, (subtype) => {
-            if (isTypeVar(subtype) && subtype.details.isCovariant) {
-                if (subtype.scopeId !== scopeId) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeVarIsCovariant().format({ name: subtype.details.name })
                     );
                     isValid = false;
                 }
