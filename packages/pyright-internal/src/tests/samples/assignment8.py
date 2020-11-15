@@ -31,6 +31,8 @@ my_obj = Foo.bar
 my_obj = Foo.baz
 my_obj = ()
 my_obj = lambda x: x
+
+# This should generate an error because _T has no meaning.
 my_obj = _T
 
 # This should generate an error because a is unbound.

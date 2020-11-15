@@ -52,7 +52,10 @@ export class TypeVarMap {
     }
 
     clone() {
-        const newTypeVarMap = new TypeVarMap(this._solveForScopes);
+        const newTypeVarMap = new TypeVarMap();
+        if (this._solveForScopes) {
+            newTypeVarMap._solveForScopes = [...this._solveForScopes];
+        }
 
         this._typeVarMap.forEach((value) => {
             newTypeVarMap.setTypeVar(value.typeVar, value.type, this.isNarrowable(value.typeVar));
@@ -89,7 +92,7 @@ export class TypeVarMap {
     }
 
     addSolveForScope(scopeId?: TypeVarScopeId) {
-        if (scopeId !== undefined) {
+        if (scopeId !== undefined && !this.hasSolveForScope(scopeId)) {
             if (!this._solveForScopes) {
                 this._solveForScopes = [];
             }

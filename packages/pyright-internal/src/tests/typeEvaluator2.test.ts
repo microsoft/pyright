@@ -63,7 +63,7 @@ test('Assignment7', () => {
 test('Assignment8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignment8.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('AugmentedAssignment1', () => {
@@ -231,7 +231,7 @@ test('GenericTypes5', () => {
 test('GenericTypes6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes6.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('GenericTypes7', () => {
@@ -417,6 +417,24 @@ test('GenericTypes35', () => {
 
 test('GenericTypes36', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes36.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('GenericTypes37', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes37.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
+test('GenericTypes38', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes38.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('GenericTypes39', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes38.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
@@ -915,7 +933,7 @@ test('ParamSpec1', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec1.py'], configOptions);
-    TestUtils.validateResults(results, 7);
+    TestUtils.validateResults(results, 6);
 });
 
 test('ParamSpec2', () => {
@@ -981,7 +999,7 @@ test('TypeVar2', () => {
 test('TypeVar3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar3.py']);
 
-    TestUtils.validateResults(analysisResults, 8);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('TypeVar4', () => {
@@ -1112,6 +1130,12 @@ test('Constructor3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor3.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Constructor4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor4.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('ClassGetItem1', () => {

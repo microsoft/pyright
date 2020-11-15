@@ -1,17 +1,17 @@
 # This sample tests the handling of a property that's defined
 # with a generic type for the "self" parameter.
 
-from typing import TypeVar
+from typing import Literal, TypeVar
 
 
-_P = TypeVar('_P', bound=str)
+_P = TypeVar("_P", bound=str)
+
 
 class Foo(str):
     @property
-    def parent(self: _P) -> _P: ...
+    def parent(self: _P) -> _P:
+        ...
 
-def requires_foo(a: Foo):
-    pass
 
 p = Foo().parent
-requires_foo(p)
+t1: Literal["Foo"] = reveal_type(p)

@@ -820,7 +820,13 @@ export class Checker extends ParseTreeWalker {
                 if (
                     prevReturnType &&
                     returnType &&
-                    !this._evaluator.canAssignType(returnType, prevReturnType, new DiagnosticAddendum())
+                    !this._evaluator.canAssignType(
+                        returnType,
+                        prevReturnType,
+                        new DiagnosticAddendum(),
+                        /* typeVarMap */ undefined,
+                        CanAssignFlags.SkipSolveTypeVars
+                    )
                 ) {
                     const altNode = this._findNodeForOverload(node, prevOverload);
                     this._evaluator.addDiagnostic(

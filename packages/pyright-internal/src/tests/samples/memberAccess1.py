@@ -4,13 +4,18 @@
 from typing import Any, Generic, TypeVar, overload
 from functools import cached_property
 
-_T = TypeVar('_T')
+_T = TypeVar("_T")
+
 
 class Column(Generic[_T]):
     @overload
-    def __get__(self, instance: None, owner: Any) -> 'Column[_T]': ...
+    def __get__(self, instance: None, owner: Any) -> "Column[_T]":  # type: ignore
+        ...
+
     @overload
-    def __get__(self, instance: object, owner: Any) -> _T: ...
+    def __get__(self, instance: Any, owner: Any) -> _T:
+        ...
+
 
 class Foo:
     bar = Column[str]()
@@ -24,6 +29,7 @@ class Foo2:
     @cached_property
     def baz(self) -> int:
         return 3
+
 
 c: cached_property[int] = Foo2.baz
 d: int = Foo2().baz

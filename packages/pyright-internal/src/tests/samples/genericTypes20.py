@@ -6,9 +6,11 @@
 # no "unknown" types remaining in this file.
 # pyright: strict, reportUnknownParameterType=false
 
+from logging import Handler, NOTSET
 
-class Foo:
-    def __init__(self, a, b="hello"):
+class Foo(Handler):
+    def __init__(self, a, b="hello", level=NOTSET):
+        super().__init__(level)
         self._foo_a = a
         self._foo_b = b
 
