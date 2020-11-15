@@ -2091,7 +2091,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
             const defaultTypeVar = TypeVarType.createInstance(
                 `__${classType.details.name}_default`,
-                /* isParamSpec */ false
+                /* isParamSpec */ false,
+                /* isSynthesized */ true
             );
 
             const createGetMethod = (keyType: Type, valueType: Type) => {
@@ -2153,7 +2154,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return [popOverload1, popOverload2];
             };
 
-            const createSetDefaultMethod = (keyType: Type, valueType: Type) => {
+            const createSetDefaultMethod = (keyType: Type, valueType: Type, isEntryRequired = false) => {
                 const setDefaultOverload = FunctionType.createInstance(
                     'setdefault',
                     '',
@@ -2170,10 +2171,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     category: ParameterCategory.Simple,
                     name: 'default',
                     hasDeclaredType: true,
-                    type: defaultTypeVar,
+                    type: isEntryRequired ? AnyType.create() : defaultTypeVar,
                     hasDefault: true,
                 });
-                setDefaultOverload.details.declaredReturnType = combineTypes([valueType, defaultTypeVar]);
+                setDefaultOverload.details.declaredReturnType = isEntryRequired
+                    ? valueType
+                    : combineTypes([valueType, defaultTypeVar]);
                 return setDefaultOverload;
             };
 
@@ -2203,7 +2206,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 getOverloads.push(createGetMethod(nameLiteralType, entry.valueType));
                 popOverloads.push(...createPopMethods(nameLiteralType, entry.valueType));
-                setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType));
+                setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType, entry.isRequired));
             });
 
             // Provide a final overload that handles the general case where the key is
