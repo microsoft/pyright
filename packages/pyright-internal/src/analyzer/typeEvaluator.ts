@@ -6328,7 +6328,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 trySetActive(argList[argIndex], typeParams[paramInfoIndex]);
                             }
                         } else if (varArgDictParam) {
-                            const paramInfoIndex = typeParams.findIndex((param) => param.category === ParameterCategory.VarArgDictionary);
+                            const paramInfoIndex = typeParams.findIndex(
+                                (param) => param.category === ParameterCategory.VarArgDictionary
+                            );
                             assert(paramInfoIndex >= 0);
                             const paramType = FunctionType.getEffectiveParameterType(type, paramInfoIndex);
                             validateArgTypeParams.push({
