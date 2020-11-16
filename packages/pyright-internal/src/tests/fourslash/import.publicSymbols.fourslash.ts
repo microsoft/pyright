@@ -37,6 +37,16 @@ await helper.verifyCompletion('exact', 'markdown', {
         ],
     },
     marker3: { completions: [] },
-    marker4: { completions: [] },
+    marker4: {
+        // Protected variables SHOULD be added
+        completions: [
+            {
+                label: '_MY_PROTECTED2',
+                kind: Consts.CompletionItemKind.Constant,
+                documentation: '```\nfrom lib import _MY_PROTECTED2\n```',
+                detail: 'Auto-import',
+            },
+        ],
+    },
     marker5: { completions: [] },
 });
