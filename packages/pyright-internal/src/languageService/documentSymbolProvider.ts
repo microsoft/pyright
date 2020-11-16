@@ -236,8 +236,7 @@ function appendWorkspaceSymbolsRecursive(
             continue;
         }
 
-        const similarity = StringUtils.computeCompletionSimilarity(query, symbolData.name);
-        if (similarity >= similarityLimit) {
+        if (StringUtils.isPatternInSymbol(query, symbolData.name)) {
             const location: Location = {
                 uri: URI.file(filePath).toString(),
                 range: symbolData.selectionRange!,
