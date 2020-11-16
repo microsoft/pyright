@@ -9,6 +9,7 @@
 
 const _constantRegEx = /^[A-Z0-9_]+$/;
 const _underscoreOnlyRegEx = /^[_]+$/;
+const _camelCaseRegEx = /^_{0,2}[A-Z][A-Za-z0-9_]+$/;
 
 // Private symbol names start with a double underscore.
 export function isPrivateName(name: string) {
@@ -32,4 +33,13 @@ export function isDunderName(name: string) {
 // Constants are all-caps with possible numbers and underscores.
 export function isConstantName(name: string) {
     return !!name.match(_constantRegEx) && !name.match(_underscoreOnlyRegEx);
+}
+
+// Type aliases are CamelCase with possible numbers and underscores.
+export function isTypeAliasName(name: string) {
+    return !!name.match(_camelCaseRegEx);
+}
+
+export function isPublicConstantOrTypeAlias(name: string) {
+    return !isPrivateOrProtectedName(name) && (isConstantName(name) || isTypeAliasName(name));
 }
