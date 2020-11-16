@@ -942,6 +942,18 @@ export class CompletionProvider {
             return undefined;
         }
 
+        // Are we within a "with Y as []"?
+        // Don't add any completion options.
+        if (
+            parseNode.parent &&
+            parseNode.parent.nodeType === ParseNodeType.WithItem &&
+            parseNode.parent.target &&
+            parseNode.parent.target.parent &&
+            parseNode.parent === parseNode.parent.target.parent
+        ) {
+            return undefined;
+        }
+
         const completionList = CompletionList.create();
 
         // Add call argument completions.
