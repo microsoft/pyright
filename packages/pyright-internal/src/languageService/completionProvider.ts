@@ -39,6 +39,7 @@ import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluator';
 import {
     ClassType,
     FunctionType,
+    getTypeAliasInfo,
     isClass,
     isModule,
     isNone,
@@ -1502,11 +1503,19 @@ export class CompletionProvider {
                             switch (primaryDecl.type) {
                                 case DeclarationType.Intrinsic:
                                 case DeclarationType.Variable:
-                                case DeclarationType.Parameter:
-                                    typeDetail =
-                                        name + ': ' + this._evaluator.printType(type, /* expandTypeAlias */ false);
+                                case DeclarationType.Parameter: {
+                                    let expandTypeAlias = false;
+                                    if (type && TypeBase.isInstantiable(type)) {
+                                        const typeAliasInfo = getTypeAliasInfo(type);
+                                        if (typeAliasInfo) {
+                                            if (typeAliasInfo.aliasName === name) {
+                                                expandTypeAlias = true;
+                                            }
+                                        }
+                                    }
+                                    typeDetail = name + ': ' + this._evaluator.printType(type, expandTypeAlias);
                                     break;
-
+                                }
                                 case DeclarationType.Function: {
                                     const functionType = detail.objectThrough
                                         ? this._evaluator.bindFunctionToClassOrObject(detail.objectThrough, type, false)
