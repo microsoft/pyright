@@ -991,6 +991,16 @@ export class CompletionProvider {
             }
         }
 
+        if (parseNode.parent?.nodeType === ParseNodeType.Except) {
+            const completionItems: CompletionItem[] = [];
+            completionList.items.forEach((item) => {
+                if (item.label !== 'NotImplemented') {
+                    completionItems.push(item);
+                }
+            });
+            completionList.items = completionItems;
+        }
+
         return { completionList };
     }
 
