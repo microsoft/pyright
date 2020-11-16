@@ -134,15 +134,21 @@ export function isOptionalType(type: Type): boolean {
 export function doForSubtypes(type: Type, callback: (type: Type) => Type | undefined): Type {
     if (type.category === TypeCategory.Union) {
         const newTypes: Type[] = [];
+        let typeChanged = false;
 
         type.subtypes.forEach((typeEntry) => {
             const transformedType = callback(typeEntry);
             if (transformedType) {
                 newTypes.push(transformedType);
+                if (transformedType !== typeEntry) {
+                    typeChanged = true;
+                }
+            } else {
+                typeChanged = true;
             }
         });
 
-        return combineTypes(newTypes);
+        return typeChanged ? combineTypes(newTypes) : type;
     }
 
     return callback(type) || NeverType.create();
