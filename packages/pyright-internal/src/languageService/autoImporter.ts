@@ -279,11 +279,11 @@ export class AutoImporter {
 
             if (
                 !isStubOrHasInit.isStub &&
-                autoImportSymbol.kind === CompletionItemKind.Variable &&
-                /[a-z]/.test(name)
+                (autoImportSymbol.kind === undefined || autoImportSymbol.kind === CompletionItemKind.Variable) &&
+                !SymbolNameUtils.isPublicConstantOrTypeAlias(name)
             ) {
                 // If it is not a stub file and symbol is Variable, we only include it if
-                // name is all upper case.
+                // name is public constant or type alias.
                 return;
             }
 
