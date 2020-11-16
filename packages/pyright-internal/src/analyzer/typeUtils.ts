@@ -264,12 +264,7 @@ export function transformTypeObjectToClass(type: Type): Type {
         return type;
     }
 
-    const typeArg = classType.typeArguments[0];
-    if (!isObject(typeArg)) {
-        return type;
-    }
-
-    return typeArg.classType;
+    return convertToInstantiable(classType.typeArguments[0]);
 }
 
 // Indicates whether the specified type is a recursive type alias
@@ -559,6 +554,9 @@ export function makeTopLevelTypeVarsConcrete(type: Type): Type {
     return doForSubtypes(type, (subtype) => {
         if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
             if (subtype.details.boundType) {
+                if (TypeBase.isInstantiable(subtype)) {
+                    return convertToInstantiable(subtype.details.boundType);
+                }
                 return subtype.details.boundType;
             }
 
