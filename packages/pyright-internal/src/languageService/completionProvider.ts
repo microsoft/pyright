@@ -691,8 +691,7 @@ export class CompletionProvider {
                 return;
             }
 
-            const isSimilar = StringUtils.computeCompletionSimilarity(partialName.value, name) > similarityLimit;
-            if (isSimilar) {
+            if (StringUtils.isPatternInSymbol(partialName.value, name)) {
                 const range: Range = {
                     start: { line: this._position.line, character: this._position.character - partialName.length },
                     end: { line: this._position.line, character: this._position.character },
@@ -759,8 +758,7 @@ export class CompletionProvider {
         symbolTable.forEach((symbol, name) => {
             const decl = getLastTypedDeclaredForSymbol(symbol);
             if (decl && decl.type === DeclarationType.Function) {
-                const isSimilar = StringUtils.computeCompletionSimilarity(partialName.value, name) > similarityLimit;
-                if (isSimilar) {
+                if (StringUtils.isPatternInSymbol(partialName.value, name)) {
                     const range: Range = {
                         start: { line: this._position.line, character: this._position.character - partialName.length },
                         end: { line: this._position.line, character: this._position.character },
@@ -1203,8 +1201,7 @@ export class CompletionProvider {
         quoteCharacter: string,
         completionList: CompletionList
     ) {
-        const isSimilar = StringUtils.computeCompletionSimilarity(priorString || '', value) > similarityLimit;
-        if (isSimilar) {
+        if (StringUtils.isPatternInSymbol(priorString || '', value)) {
             const valueWithQuotes = `${quoteCharacter}${value}${quoteCharacter}`;
             const completionItem = CompletionItem.create(valueWithQuotes);
 
@@ -1332,7 +1329,7 @@ export class CompletionProvider {
     private _findMatchingKeywords(keywordList: string[], partialMatch: string): string[] {
         return keywordList.filter((keyword) => {
             if (partialMatch) {
-                return StringUtils.computeCompletionSimilarity(partialMatch, keyword) > similarityLimit;
+                return StringUtils.isPatternInSymbol(partialMatch, keyword);
             } else {
                 return true;
             }
@@ -1355,9 +1352,7 @@ export class CompletionProvider {
 
         // Add the remaining unique parameter names to the completion list.
         argNameMap.forEach((argName) => {
-            const similarity = StringUtils.computeCompletionSimilarity(priorWord, argName);
-
-            if (similarity > similarityLimit) {
+            if (StringUtils.isPatternInSymbol(priorWord, argName)) {
                 const completionItem = CompletionItem.create(argName + '=');
                 completionItem.kind = CompletionItemKind.Variable;
 
@@ -1672,8 +1667,8 @@ export class CompletionProvider {
         detail?: CompletionDetail
     ) {
         // Auto importer already filtered out unnecessary ones. No need to do it again.
-        const similarity = detail?.autoImportText ? 1 : StringUtils.computeCompletionSimilarity(filter, name);
-        if (similarity <= similarityLimit) {
+        const similarity = detail?.autoImportText ? true : StringUtils.isPatternInSymbol(filter, name);
+        if (!similarity) {
             return;
         }
 

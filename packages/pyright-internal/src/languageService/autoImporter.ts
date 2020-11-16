@@ -512,9 +512,7 @@ export class AutoImporter {
             return word === name;
         }
 
-        return word.length > 2
-            ? StringUtils.computeCompletionSimilarity(word, name) > similarityLimit
-            : word.length > 0 && name.startsWith(word);
+        return word.length > 0 && StringUtils.isPatternInSymbol(word, name);
     }
 
     private _containsName(name: string, source: string | undefined, results: AutoImportResult[]) {

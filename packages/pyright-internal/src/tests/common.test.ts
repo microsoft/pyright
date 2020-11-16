@@ -6,7 +6,6 @@
 
 import * as assert from 'assert';
 
-import { computeCompletionSimilarity } from '../common/stringUtils';
 import { doesRangeContain, doRangesOverlap, Range, rangesAreEqual, TextRange } from '../common/textRange';
 
 test('textRange create', () => {
@@ -115,21 +114,4 @@ test('textRange equal', () => {
     assert.equal(rangesAreEqual(textRangeOne, textRangeTwo), true);
     assert.equal(rangesAreEqual(textRangeTwo, textRangeOne), true);
     assert.equal(rangesAreEqual(textRangeOne, textRangeThree), false);
-});
-
-test('stringUtils computeCompletionSimilarity', () => {
-    assert.equal(computeCompletionSimilarity('', 'abcd'), 1);
-
-    assert.equal(computeCompletionSimilarity('abcd', 'abcd'), 1);
-    assert.equal(computeCompletionSimilarity('abc', 'abcd'), 1);
-
-    assert.equal(computeCompletionSimilarity('ABCD', 'abcd'), 1);
-    assert.equal(computeCompletionSimilarity('ABC', 'abcd'), 1);
-
-    assert.equal(computeCompletionSimilarity('acbd', 'abcd'), 0);
-    assert.equal(computeCompletionSimilarity('abce', 'abcd'), 0);
-    assert.equal(computeCompletionSimilarity('abcde', 'abcd'), 0);
-    assert.equal(computeCompletionSimilarity('azcde', 'abcd'), 0);
-    assert.equal(computeCompletionSimilarity('acde', 'abcd'), 0);
-    assert.equal(computeCompletionSimilarity('zbcd', 'abcd'), 0);
 });
