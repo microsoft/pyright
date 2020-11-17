@@ -7569,12 +7569,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // have no magic method, so we apply the expected type directly to both operands.
         const expectedOperandType =
             node.operator === OperatorType.Or || node.operator === OperatorType.And ? expectedType : undefined;
-        let leftType = makeTopLevelTypeVarsConcrete(
-            getTypeOfExpression(leftExpression, expectedOperandType, flags).type
-        );
-        let rightType = makeTopLevelTypeVarsConcrete(
-            getTypeOfExpression(rightExpression, expectedOperandType, flags).type
-        );
+        let leftType = getTypeOfExpression(leftExpression, expectedOperandType, flags).type;
+        let rightType = getTypeOfExpression(rightExpression, expectedOperandType, flags).type;
 
         // Is this a "|" operator used in a context where it is supposed to be
         // interpreted as a union operator?
@@ -7608,6 +7604,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 };
             }
         }
+
+        leftType = makeTopLevelTypeVarsConcrete(leftType);
+        rightType = makeTopLevelTypeVarsConcrete(rightType);
 
         // Optional checks apply to all operations except for boolean operations.
         if (booleanOperatorMap[node.operator] === undefined) {
@@ -11130,11 +11129,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Wrap in a Coroutine, which is a subclass of Awaitable.
             const coroutineType = getTypingType(node, 'Coroutine');
             if (coroutineType && isClass(coroutineType)) {
-                // Don't wrap a NoReturn in a Coroutine. Treat it as an Any.
-                if (isNoReturnType(returnType)) {
-                    returnType = AnyType.create();
-                }
-
                 awaitableReturnType = ObjectType.create(
                     ClassType.cloneForSpecialization(
                         coroutineType,
