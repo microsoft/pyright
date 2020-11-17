@@ -24,6 +24,7 @@ import {
     isTypeSame,
     isTypeVar,
     isUnknown,
+    maxApplyTypesPasses,
     maxTypeRecursionCount,
     ModuleType,
     NeverType,
@@ -209,16 +210,9 @@ export function stripLiteralValue(type: Type): Type {
     }
 
     if (type.category === TypeCategory.Union) {
-        let typeChanged = false;
-        const strippedValue = doForSubtypes(type, (subtype) => {
-            const strippedValue = stripLiteralValue(subtype);
-            if (strippedValue !== subtype) {
-                typeChanged = true;
-            }
-            return strippedValue;
+        return doForSubtypes(type, (subtype) => {
+            return stripLiteralValue(subtype);
         });
-
-        return typeChanged ? strippedValue : type;
     }
 
     return type;
@@ -591,7 +585,7 @@ export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap): Type {
     }
 
     let resultingType = type;
-    for (let i = 0; i < maxTypeRecursionCount; i++) {
+    for (let i = 0; i < maxApplyTypesPasses; i++) {
         const resolvedType = _transformTypeVars(
             resultingType,
             (typeVar: TypeVarType) => {
@@ -1381,17 +1375,31 @@ export function _transformTypeVars(
                 return type;
             }
 
-            const typeArgs = type.typeAliasInfo.typeArguments.map((typeArg) =>
-                _transformTypeVars(typeArg, typeVarCallback, paramSpecCallback, recursionLevel + 1)
-            );
+            let requiresUpdate = false;
+            const typeArgs = type.typeAliasInfo.typeArguments.map((typeArg) => {
+                const replacementType = _transformTypeVars(
+                    typeArg,
+                    typeVarCallback,
+                    paramSpecCallback,
+                    recursionLevel + 1
+                );
+                if (replacementType !== typeArg) {
+                    requiresUpdate = true;
+                }
+                return replacementType;
+            });
 
-            return TypeBase.cloneForTypeAlias(
-                type,
-                type.typeAliasInfo.aliasName,
-                type.typeAliasInfo.typeVarScopeId,
-                type.typeAliasInfo.typeParameters,
-                typeArgs
-            );
+            if (requiresUpdate) {
+                return TypeBase.cloneForTypeAlias(
+                    type,
+                    type.typeAliasInfo.aliasName,
+                    type.typeAliasInfo.typeVarScopeId,
+                    type.typeAliasInfo.typeParameters,
+                    typeArgs
+                );
+            }
+
+            return type;
         }
 
         const replacementType = typeVarCallback(type);
@@ -1407,12 +1415,9 @@ export function _transformTypeVars(
     }
 
     if (type.category === TypeCategory.Union) {
-        const subtypes: Type[] = [];
-        type.subtypes.forEach((typeEntry) => {
-            subtypes.push(_transformTypeVars(typeEntry, typeVarCallback, paramSpecCallback, recursionLevel + 1));
-        });
-
-        return combineTypes(subtypes);
+        return doForSubtypes(type, (subtype) =>
+            _transformTypeVars(subtype, typeVarCallback, paramSpecCallback, recursionLevel + 1)
+        );
     }
 
     if (isObject(type)) {
