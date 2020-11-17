@@ -197,6 +197,7 @@ import {
     partiallySpecializeType,
     printLiteralValue,
     removeFalsinessFromType,
+    removeNoReturnFromUnion,
     removeTruthinessFromType,
     requiresSpecialization,
     requiresTypeArguments,
@@ -11219,6 +11220,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // Remove any unbound values since those would generate an exception
                         // before being returned.
                         inferredReturnType = removeUnbound(inferredReturnType);
+
+                        // Remove NoReturn types if they appear within a union.
+                        inferredReturnType = removeNoReturnFromUnion(inferredReturnType);
                     }
 
                     // Is it a generator?
@@ -14445,7 +14449,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             const contextualReturnType = getFunctionInferredReturnTypeUsingArguments(type, args);
             if (contextualReturnType) {
-                returnType = contextualReturnType;
+                returnType = removeNoReturnFromUnion(contextualReturnType);
             }
         }
 

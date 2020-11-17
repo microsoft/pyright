@@ -32,6 +32,7 @@ import {
     ObjectType,
     OverloadedFunctionType,
     ParamSpecEntry,
+    removeFromUnion,
     SpecializedFunctionTypes,
     Type,
     TypeBase,
@@ -509,13 +510,11 @@ export function isEllipsisType(type: Type): boolean {
 }
 
 export function isNoReturnType(type: Type): boolean {
-    if (isObject(type)) {
-        const classType = type.classType;
-        if (ClassType.isBuiltIn(classType, 'NoReturn')) {
-            return true;
-        }
-    }
-    return false;
+    return isObject(type) && ClassType.isBuiltIn(type.classType, 'NoReturn');
+}
+
+export function removeNoReturnFromUnion(type: Type): Type {
+    return removeFromUnion(type, (subtype) => isNoReturnType(subtype));
 }
 
 export function isParamSpecType(type: Type): boolean {
