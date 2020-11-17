@@ -1755,13 +1755,6 @@ export function combineTypes(types: Type[], maxSubtypeCount?: number): Type {
         return 0;
     });
 
-    // If the union contains a NoReturn, remove it. NoReturn should
-    // be used only when it's by itself.
-    const isNoReturn = (t: Type) => isObject(t) && ClassType.isBuiltIn(t.classType, 'NoReturn');
-    if (expandedTypes.find((t) => isNoReturn(t))) {
-        expandedTypes = expandedTypes.filter((t) => !isNoReturn(t));
-    }
-
     // If removing all NoReturn types results in no remaining types,
     // convert it to an unknown.
     if (expandedTypes.length === 0) {
