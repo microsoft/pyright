@@ -11129,11 +11129,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Wrap in a Coroutine, which is a subclass of Awaitable.
             const coroutineType = getTypingType(node, 'Coroutine');
             if (coroutineType && isClass(coroutineType)) {
-                // Don't wrap a NoReturn in a Coroutine. Treat it as an Any.
-                if (isNoReturnType(returnType)) {
-                    returnType = AnyType.create();
-                }
-
                 awaitableReturnType = ObjectType.create(
                     ClassType.cloneForSpecialization(
                         coroutineType,
