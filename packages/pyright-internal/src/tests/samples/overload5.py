@@ -48,6 +48,11 @@ def func3(a: int, b: int) -> int:
 
 
 @overload
+def func3(a: int, b: int, **c: Any) -> int:
+    return 1
+
+
+@overload
 def func3(a: int, b: Any) -> int:
     return 1
 
@@ -95,4 +100,3 @@ class GenericClass(Generic[_T1, _T2]):
     @overload
     def method2(a: _T1, b: _T2) -> int:
         return 1
-
