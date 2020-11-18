@@ -274,56 +274,59 @@ export class Binder extends ParseTreeWalker {
         const importResult = AnalyzerNodeInfo.getImportInfo(node);
         assert(importResult !== undefined);
 
-        if (importResult) {
-            if (!importResult.isImportFound) {
+        if (!importResult || importResult.isNativeLib) {
+            return true;
+        }
+
+        if (!importResult.isImportFound) {
+            this._addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportMissingImports,
+                DiagnosticRule.reportMissingImports,
+                Localizer.Diagnostic.importResolveFailure().format({ importName: importResult.importName }),
+                node
+            );
+            return true;
+        }
+
+        // Source found, but type stub is missing
+        if (
+            !importResult.isStubFile &&
+            importResult.importType === ImportType.ThirdParty &&
+            !importResult.isPyTypedPresent
+        ) {
+            const diagnostic = this._addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportMissingTypeStubs,
+                DiagnosticRule.reportMissingTypeStubs,
+                Localizer.Diagnostic.stubFileMissing().format({ importName: importResult.importName }),
+                node
+            );
+            if (diagnostic) {
+                // Add a diagnostic action for resolving this diagnostic.
+                const createTypeStubAction: CreateTypeStubFileAction = {
+                    action: Commands.createTypeStub,
+                    moduleName: importResult.importName,
+                };
+                diagnostic.addAction(createTypeStubAction);
+            }
+        }
+
+        // Type stub found, but source is missing.
+        if (
+            importResult.isStubFile &&
+            importResult.importType !== ImportType.BuiltIn &&
+            importResult.nonStubImportResult &&
+            !importResult.nonStubImportResult.isImportFound
+        ) {
+            // Don't report this for stub files.
+            if (!this._fileInfo.isStubFile) {
                 this._addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportMissingImports,
-                    DiagnosticRule.reportMissingImports,
-                    Localizer.Diagnostic.importResolveFailure().format({ importName: importResult.importName }),
+                    this._fileInfo.diagnosticRuleSet.reportMissingModuleSource,
+                    DiagnosticRule.reportMissingModuleSource,
+                    Localizer.Diagnostic.importSourceResolveFailure().format({
+                        importName: importResult.importName,
+                    }),
                     node
                 );
-            } else {
-                // Source found, but type stub is missing
-                if (
-                    !importResult.isStubFile &&
-                    importResult.importType === ImportType.ThirdParty &&
-                    !importResult.isPyTypedPresent
-                ) {
-                    const diagnostic = this._addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportMissingTypeStubs,
-                        DiagnosticRule.reportMissingTypeStubs,
-                        Localizer.Diagnostic.stubFileMissing().format({ importName: importResult.importName }),
-                        node
-                    );
-                    if (diagnostic) {
-                        // Add a diagnostic action for resolving this diagnostic.
-                        const createTypeStubAction: CreateTypeStubFileAction = {
-                            action: Commands.createTypeStub,
-                            moduleName: importResult.importName,
-                        };
-                        diagnostic.addAction(createTypeStubAction);
-                    }
-                }
-
-                // Type stub found, but source is missing.
-                if (
-                    importResult.isStubFile &&
-                    importResult.importType !== ImportType.BuiltIn &&
-                    importResult.nonStubImportResult &&
-                    !importResult.nonStubImportResult.isImportFound
-                ) {
-                    // Don't report this for stub files.
-                    if (!this._fileInfo.isStubFile) {
-                        this._addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportMissingModuleSource,
-                            DiagnosticRule.reportMissingModuleSource,
-                            Localizer.Diagnostic.importSourceResolveFailure().format({
-                                importName: importResult.importName,
-                            }),
-                            node
-                        );
-                    }
-                }
             }
         }
 
@@ -1344,7 +1347,7 @@ export class Binder extends ParseTreeWalker {
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
         let resolvedPath = '';
-        if (importInfo && importInfo.isImportFound) {
+        if (importInfo && importInfo.isImportFound && !importInfo.isNativeLib) {
             resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
         }
 

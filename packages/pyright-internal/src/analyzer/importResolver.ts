@@ -112,6 +112,7 @@ export class ImportResolver {
         if (moduleDescriptor.leadingDots > 0) {
             const relativeImport = this._resolveRelativeImport(
                 sourceFilePath,
+                execEnv,
                 moduleDescriptor,
                 importName,
                 importFailureInfo
@@ -479,6 +480,7 @@ export class ImportResolver {
     // https://www.python.org/dev/peps/pep-0420/
     protected resolveAbsoluteImport(
         rootPath: string,
+        execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor,
         importName: string,
         importFailureInfo: string[],
@@ -519,7 +521,7 @@ export class ImportResolver {
                 isNamespacePackage = true;
             }
 
-            implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
+            implicitImports = this._findImplicitImports(importName, dirPath, [pyFilePath, pyiFilePath]);
         } else {
             for (let i = 0; i < moduleDescriptor.nameParts.length; i++) {
                 const isFirstPart = i === 0;
@@ -565,7 +567,10 @@ export class ImportResolver {
                     }
 
                     if (foundInit) {
-                        implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
+                        implicitImports = this._findImplicitImports(moduleDescriptor.nameParts.join('.'), dirPath, [
+                            pyFilePath,
+                            pyiFilePath,
+                        ]);
                         break;
                     }
                 }
@@ -595,26 +600,20 @@ export class ImportResolver {
                         isDirectory(this.fileSystem, fileDirectory)
                     ) {
                         const filesInDir = this._getFilesInDirectory(fileDirectory);
-                        const nativeLibFileName = filesInDir.find((f) => {
-                            // Strip off the final file extension and the part of the file name
-                            // that excludes all (multi-part) file extensions. This allows us to
-                            // handle file names like "foo.cpython-32m.so".
-                            const fileExtension = getFileExtension(f, /* multiDotExtension */ false).toLowerCase();
-                            const withoutExtension = stripFileExtension(f, /* multiDotExtension */ true);
-                            if (supportedNativeLibExtensions.some((ext) => ext === fileExtension)) {
-                                if (equateStringsCaseInsensitive(fileNameWithoutExtension, withoutExtension)) {
-                                    return true;
-                                }
-                            }
-
-                            return false;
-                        });
-
+                        const nativeLibFileName = filesInDir.find((f) =>
+                            this._isNativeModuleFileName(fileNameWithoutExtension, f)
+                        );
                         if (nativeLibFileName) {
                             const nativeLibPath = combinePaths(fileDirectory, nativeLibFileName);
-                            importFailureInfo.push(`Resolved import with file '${nativeLibPath}'`);
-                            resolvedPaths.push(nativeLibPath);
-                            isNativeLib = true;
+                            // Try resolving native library to a custom stub.
+                            isNativeLib = this._resolveNativeModuleStub(
+                                nativeLibPath,
+                                execEnv,
+                                importName,
+                                moduleDescriptor,
+                                importFailureInfo,
+                                resolvedPaths
+                            );
                         }
                     }
 
@@ -622,10 +621,10 @@ export class ImportResolver {
                         importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
                         resolvedPaths.push('');
                         if (isLastPart) {
-                            implicitImports = this._findImplicitImports(dirPath, [pyFilePath, pyiFilePath]);
+                            implicitImports = this._findImplicitImports(importName, dirPath, [pyFilePath, pyiFilePath]);
                             isNamespacePackage = true;
                         }
-                    } else {
+                    } else if (isNativeLib) {
                         importFailureInfo.push(`Did not find file '${pyiFilePath}' or '${pyFilePath}'`);
                     }
                 }
@@ -678,6 +677,24 @@ export class ImportResolver {
         return undefined;
     }
 
+    // Intended to be overridden by subclasses to provide additional stub
+    // resolving capabilities for native (compiled) modules. Returns undefined
+    // if no stubs were found for this import.
+    protected resolveNativeImportEx(
+        libraryFilePath: string,
+        importName: string,
+        importFailureInfo: string[] = []
+    ): string | undefined {
+        return undefined;
+    }
+
+    protected getNativeModuleName(fileName: string): string | undefined {
+        const fileExtension = getFileExtension(fileName, /* multiDotExtension */ false).toLowerCase();
+        if (this._isNativeModuleFileExtension(fileExtension)) {
+            return stripFileExtension(stripFileExtension(fileName));
+        }
+    }
+
     private _lookUpResultsInCache(
         execEnv: ExecutionEnvironment,
         importName: string,
@@ -725,6 +742,11 @@ export class ImportResolver {
     ): string | undefined {
         containerPath = ensureTrailingDirectorySeparator(containerPath);
         let filePathWithoutExtension = stripFileExtension(filePath);
+
+        // If module is native, strip platform part, such as 'cp36-win_amd64' in 'mtrand.cp36-win_amd64'.
+        if (this._isNativeModuleFileExtension(getFileExtension(filePath))) {
+            filePathWithoutExtension = stripFileExtension(filePathWithoutExtension);
+        }
 
         if (!filePathWithoutExtension.startsWith(containerPath)) {
             return undefined;
@@ -794,6 +816,7 @@ export class ImportResolver {
                 importFailureInfo.push(`Looking in stubPath '${this._configOptions.stubPath}'`);
                 const typingsImport = this.resolveAbsoluteImport(
                     this._configOptions.stubPath,
+                    execEnv,
                     moduleDescriptor,
                     importName,
                     importFailureInfo
@@ -814,6 +837,7 @@ export class ImportResolver {
         importFailureInfo.push(`Looking in root directory of execution environment ` + `'${execEnv.root}'`);
         let localImport = this.resolveAbsoluteImport(
             execEnv.root,
+            execEnv,
             moduleDescriptor,
             importName,
             importFailureInfo,
@@ -828,6 +852,7 @@ export class ImportResolver {
             importFailureInfo.push(`Looking in extraPath '${extraPath}'`);
             localImport = this.resolveAbsoluteImport(
                 extraPath,
+                execEnv,
                 moduleDescriptor,
                 importName,
                 importFailureInfo,
@@ -862,6 +887,7 @@ export class ImportResolver {
                     // '-stubs' to its top - level directory name. We'll look there first.
                     thirdPartyImport = this.resolveAbsoluteImport(
                         searchPath,
+                        execEnv,
                         moduleDescriptor,
                         importName,
                         importFailureInfo,
@@ -881,6 +907,7 @@ export class ImportResolver {
 
                         thirdPartyImport = this.resolveAbsoluteImport(
                             searchPath,
+                            execEnv,
                             moduleDescriptor,
                             importName,
                             importFailureInfo,
@@ -1016,6 +1043,7 @@ export class ImportResolver {
             if (this.fileSystem.existsSync(testPath)) {
                 const importInfo = this.resolveAbsoluteImport(
                     testPath,
+                    execEnv,
                     moduleDescriptor,
                     importName,
                     importFailureInfo
@@ -1113,6 +1141,7 @@ export class ImportResolver {
 
     private _resolveRelativeImport(
         sourceFilePath: string,
+        execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor,
         importName: string,
         importFailureInfo: string[]
@@ -1130,7 +1159,15 @@ export class ImportResolver {
         }
 
         // Now try to match the module parts from the current directory location.
-        const absImport = this.resolveAbsoluteImport(curDir, moduleDescriptor, importName, importFailureInfo);
+        const absImport = this.resolveAbsoluteImport(
+            curDir,
+            execEnv,
+            moduleDescriptor,
+            importName,
+            importFailureInfo,
+            false,
+            true
+        );
         return this._filterImplicitImports(absImport, moduleDescriptor.importedSymbols);
     }
 
@@ -1273,7 +1310,7 @@ export class ImportResolver {
         return newImportResult;
     }
 
-    private _findImplicitImports(dirPath: string, exclusions: string[]): ImplicitImport[] {
+    private _findImplicitImports(importingModuleName: string, dirPath: string, exclusions: string[]): ImplicitImport[] {
         const implicitImportMap = new Map<string, ImplicitImport>();
 
         // Enumerate all of the files and directories in the path.
@@ -1281,22 +1318,53 @@ export class ImportResolver {
 
         // Add implicit file-based modules.
         for (const fileName of entries.files) {
-            if (fileName.endsWith('.py') || fileName.endsWith('.pyi')) {
-                const filePath = combinePaths(dirPath, fileName);
+            const fileExt = getFileExtension(fileName);
+            let strippedFileName: string;
+            let isNativeLib = false;
 
-                if (!exclusions.find((exclusion) => exclusion === filePath)) {
-                    const strippedFileName = stripFileExtension(fileName);
-                    const implicitImport: ImplicitImport = {
-                        isStubFile: fileName.endsWith('.pyi'),
-                        name: strippedFileName,
-                        path: filePath,
-                    };
+            if (fileExt === '.py' || fileExt === '.pyi') {
+                strippedFileName = stripFileExtension(fileName);
+            } else if (
+                this._isNativeModuleFileExtension(fileExt) &&
+                !this.fileSystem.existsSync(`${fileName}.py`) &&
+                !this.fileSystem.existsSync(`${fileName}.pyi`)
+            ) {
+                // Native module.
+                strippedFileName = fileName.substr(0, fileName.indexOf('.'));
+                isNativeLib = true;
+            } else {
+                continue;
+            }
 
-                    // Always prefer stub files over non-stub files.
-                    const entry = implicitImportMap.get(implicitImport.name);
-                    if (!entry || !entry.isStubFile) {
-                        implicitImportMap.set(implicitImport.name, implicitImport);
+            const filePath = combinePaths(dirPath, fileName);
+            if (!exclusions.find((exclusion) => exclusion === filePath)) {
+                const implicitImport: ImplicitImport = {
+                    isStubFile: fileName.endsWith('.pyi'),
+                    name: strippedFileName,
+                    path: filePath,
+                };
+
+                // Always prefer stub files over non-stub files.
+                const entry = implicitImportMap.get(implicitImport.name);
+                if (!entry || !entry.isStubFile) {
+                    // Try resolving resolving native lib to a custom stub.
+                    if (isNativeLib) {
+                        const nativeLibPath = combinePaths(dirPath, fileName);
+                        const importDescriptor: ImportedModuleDescriptor = {
+                            leadingDots: 0,
+                            nameParts: [strippedFileName],
+                            importedSymbols: [],
+                        };
+                        const nativeStubPath = this.resolveNativeImportEx(
+                            nativeLibPath,
+                            `${importingModuleName}.${strippedFileName}`,
+                            []
+                        );
+                        if (nativeStubPath) {
+                            implicitImport.path = nativeStubPath;
+                        }
                     }
+                    implicitImportMap.set(implicitImport.name, implicitImport);
                 }
             }
         }
@@ -1338,6 +1406,51 @@ export class ImportResolver {
         }
 
         return name + moduleDescriptor.nameParts.map((part) => part).join('.');
+    }
+
+    private _resolveNativeModuleStub(
+        nativeLibPath: string,
+        execEnv: ExecutionEnvironment,
+        importName: string,
+        moduleDescriptor: ImportedModuleDescriptor,
+        importFailureInfo: string[],
+        resolvedPaths: string[]
+    ): boolean {
+        const moduleDir = getDirectoryPath(nativeLibPath);
+        let moduleFullName = importName;
+
+        if (moduleDescriptor.leadingDots > 0) {
+            // Relative path. Convert `.mtrand` to `numpy.random.mtrand` based on search path.
+            const info = this.getModuleNameForImport(nativeLibPath, execEnv);
+            moduleFullName = info.moduleName.length > 0 ? info.moduleName : moduleFullName;
+        }
+
+        const compiledStubPath = this.resolveNativeImportEx(nativeLibPath, moduleFullName, importFailureInfo);
+        if (compiledStubPath) {
+            importFailureInfo.push(`Resolved native import ${importName} with stub '${compiledStubPath}'`);
+            resolvedPaths.push(compiledStubPath);
+            return false; // Resolved to a stub.
+        }
+
+        importFailureInfo.push(`Resolved import with file '${nativeLibPath}'`);
+        resolvedPaths.push(nativeLibPath);
+        return true;
+    }
+
+    private _isNativeModuleFileName(moduleName: string, fileName: string): boolean {
+        // Strip off the final file extension and the part of the file name
+        // that excludes all (multi-part) file extensions. This allows us to
+        // handle file names like "foo.cpython-32m.so".
+        const fileExtension = getFileExtension(fileName, /* multiDotExtension */ false).toLowerCase();
+        const withoutExtension = stripFileExtension(fileName, /* multiDotExtension */ true);
+        return (
+            this._isNativeModuleFileExtension(fileExtension) &&
+            equateStringsCaseInsensitive(moduleName, withoutExtension)
+        );
+    }
+
+    private _isNativeModuleFileExtension(fileExtension: string): boolean {
+        return supportedNativeLibExtensions.some((ext) => ext === fileExtension);
     }
 }
 
