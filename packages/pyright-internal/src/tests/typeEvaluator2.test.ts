@@ -15,7 +15,7 @@ import * as TestUtils from './testUtils';
 test('CallbackPrototype1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callbackPrototype1.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('Assignment1', () => {

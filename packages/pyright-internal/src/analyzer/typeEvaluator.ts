@@ -16255,6 +16255,44 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     canAssign = false;
                 });
+
+                const srcKwargsIndex = srcParams.findIndex(
+                    (p) => p.category === ParameterCategory.VarArgDictionary && p.name
+                );
+                const destKwargsIndex = destParams.findIndex(
+                    (p) => p.category === ParameterCategory.VarArgDictionary && p.name
+                );
+
+                // If both src and dest have a "*kwargs" parameter, make sure
+                // their types are compatible.
+                if (srcKwargsIndex >= 0 && destKwargsIndex >= 0) {
+                    const srcKwargsType = FunctionType.getEffectiveParameterType(srcType, srcKwargsIndex);
+                    const destKwargsType = FunctionType.getEffectiveParameterType(destType, destKwargsIndex);
+                    if (
+                        !canAssignFunctionParameter(
+                            destKwargsType,
+                            srcKwargsType,
+                            destKwargsIndex,
+                            diag.createAddendum(),
+                            typeVarMap,
+                            flags,
+                            recursionCount
+                        )
+                    ) {
+                        canAssign = false;
+                    }
+                }
+
+                // If the dest has a "*kwargs" but the source doesn't, report the incompatibility.
+                // The converse situation is OK.
+                if (srcKwargsIndex < 0 && destKwargsIndex >= 0) {
+                    diag.createAddendum().addMessage(
+                        Localizer.DiagnosticAddendum.argsParamMissing().format({
+                            paramName: destParams[destKwargsIndex].name!,
+                        })
+                    );
+                    canAssign = false;
+                }
             }
         }
 
