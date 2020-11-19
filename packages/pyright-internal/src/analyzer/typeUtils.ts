@@ -110,11 +110,6 @@ export const enum CanAssignFlags {
     // Normally type vars are specialized during type comparisons.
     // With this flag, a type var must match a type var exactly.
     DoNotSpecializeTypeVars = 1 << 5,
-
-    // Normally any assignment to an out-of-scope type var will
-    // result in an error. In some cases (such as with argument
-    // matching), these errors are suppressed.
-    AllowOutOfScopeTypeVars = 1 << 6,
 }
 
 export type TypeVarTransform = (typeVar: TypeVarType) => Type;
@@ -578,8 +573,8 @@ export function makeTopLevelTypeVarsConcrete(type: Type): Type {
 
 // Specializes a (potentially generic) type by substituting
 // type variables from a type var map.
-export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap): Type {
-    if (typeVarMap.isEmpty()) {
+export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, concreteIfNotFound = false): Type {
+    if (typeVarMap.isEmpty() && !concreteIfNotFound) {
         return type;
     }
 
@@ -594,7 +589,12 @@ export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap): Type {
                     return typeVar;
                 }
 
-                return typeVarMap.getTypeVar(typeVar) || typeVar;
+                const replacement = typeVarMap.getTypeVar(typeVar);
+                if (replacement) {
+                    return replacement;
+                }
+
+                return concreteIfNotFound ? makeTypeVarsConcrete(typeVar) : typeVar;
             },
             (paramSpec: TypeVarType) => {
                 if (!paramSpec.scopeId || !typeVarMap.hasSolveForScope(paramSpec.scopeId)) {
@@ -618,7 +618,7 @@ export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap): Type {
 }
 
 // Replaces unknown TypeVars with their concrete form, either a
-// bound type or Any.
+// bound type or Unknown.
 export function makeTypeVarsConcrete(type: Type): Type {
     return _transformTypeVars(
         type,
@@ -627,7 +627,7 @@ export function makeTypeVarsConcrete(type: Type): Type {
                 return typeVar.details.boundType;
             }
 
-            return AnyType.create();
+            return UnknownType.create();
         },
         (paramSpec: TypeVarType) => {
             return [

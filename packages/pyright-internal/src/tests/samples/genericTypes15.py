@@ -3,13 +3,11 @@
 # the "keys" method on "dict") based on the provided "self"
 # argument.
 
-# pyright: strict
-
-from typing import Dict
+from typing import Dict, Literal
 
 foo: Dict[str, str] = {}
 
 # This should not result in an "Unknown", so no
 # error should be generated.
 result = dict.keys(foo)
-
+t1: Literal["KeysView[Unknown]"] = reveal_type(result)

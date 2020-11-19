@@ -2,7 +2,7 @@
 # covariant and contravariant TypeVars are used incorrectly
 # for method parameters and return types.
 
-from typing import Generic, List, TypeVar, Union
+from typing import Generic, List, Optional, TypeVar, Union
 
 _T = TypeVar("_T")
 _T_co = TypeVar("_T_co", covariant=True)
@@ -27,21 +27,21 @@ class Foo(Generic[_T, _T_co, _T_contra]):
     def func5(self, a: _T_contra):
         pass
 
-    def func6(self) -> _T:
+    def func6(self) -> Optional[_T]:
         pass
 
-    def func7(self) -> _T_co:
+    def func7(self) -> Optional[_T_co]:
         pass
 
     # This should generate an error because contravariant
     # TypeVars are not allowed for return parameters.
-    def func8(self) -> _T_contra:
+    def func8(self) -> Optional[_T_contra]:
         pass
 
     # This should generate an error because contravariant
     # TypeVars are not allowed for return parameters.
     def func9(self) -> Union[_T_contra, int]:
-        pass
+        return 3
 
     def func10(self) -> List[_T_contra]:
         return []

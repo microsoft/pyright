@@ -1,17 +1,19 @@
 # This sample tests the type checker's handling of Enum.
 
 from enum import Enum, IntEnum
-from typing import List
+from typing import List, Literal
 
 
 TestEnum1 = Enum("TestEnum1", "A B C D")
 TestEnum2 = IntEnum("TestEnum2", "AA BB CC DD")
+
 
 class TestEnum3(Enum):
     A = 0
     B = 1
     C = 2
     D = 3
+
 
 a = TestEnum1["A"]
 aa = TestEnum1.A
@@ -36,13 +38,11 @@ z = TestEnum3.Z
 
 
 # Test that enum classes are iterable.
-def requires_enum3_list(a: List[TestEnum3]):
-    return
-
 list1 = list(TestEnum3)
-requires_enum3_list(list1)
+t1: Literal["list[TestEnum3]"] = reveal_type(list1)
 
 list2 = [i for i in TestEnum3]
-requires_enum3_list(list2)
+t2: Literal["List[TestEnum3]"] = reveal_type(list2)
 
 num_items_in_enum3 = len(TestEnum3)
+t3: Literal["int"] = reveal_type(num_items_in_enum3)

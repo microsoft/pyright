@@ -25,6 +25,7 @@ class B1(Mixin1):
 class C1(Mixin1):
     pass
 
+
 A1().do_stuff()
 
 # This should generate an error because B1 doesn't
@@ -45,10 +46,12 @@ class Mixin2:
     @classmethod
     def do_stuff(cls: Type[HasItemProtocol2]):
         pass
-    
+
+
 class A2(Mixin2):
     def must_have(self) -> None:
         pass
+
 
 class B2(Mixin2):
     pass
@@ -59,3 +62,13 @@ A2.do_stuff()
 # This should generate an error because B2 doesn't
 # match the protocol.
 B2.do_stuff()
+
+
+class Bar:
+    pass
+
+
+class Foo:
+    @staticmethod
+    def get_or_create(context: Bar):
+        return object.__getattribute__(context, "")

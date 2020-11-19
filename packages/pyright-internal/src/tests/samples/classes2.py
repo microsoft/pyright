@@ -1,7 +1,17 @@
 # This sample tests the reportIncompatibleMethodOverride
 # configuration option.
 
-from typing import Any, Callable, Iterable, List, Sequence, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+)
 
 
 class ParentClass:
@@ -166,3 +176,20 @@ class Base1:
 class Base2(Base1):
     def submit(self, fn: Callable[..., _T2], *args: Any, **kwargs: Any) -> List[_T2]:
         return []
+
+
+class Foo:
+    pass
+
+
+_T2A = TypeVar("_T2A", bound=Foo)
+
+
+class ClassA(Generic[_T2A]):
+    def func1(self) -> Optional[_T2A]:
+        return None
+
+
+class ClassB(ClassA[_T2A]):
+    def func1(self) -> Optional[_T2A]:
+        return None
