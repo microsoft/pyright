@@ -18,8 +18,8 @@ import {
     CancellationToken,
     Disposable,
     Emitter,
-    ErrorCodes,
     Event,
+    LSPErrorCodes,
     ResponseError,
 } from 'vscode-languageserver';
 
@@ -203,11 +203,11 @@ class FileCancellationReceiverStrategy implements CancellationReceiverStrategy {
 
 export class OperationCanceledException extends ResponseError<void> {
     constructor() {
-        super(ErrorCodes.RequestCancelled, 'request cancelled');
+        super(LSPErrorCodes.RequestCancelled, 'request cancelled');
     }
 
     static is(e: any) {
-        return e.code === ErrorCodes.RequestCancelled;
+        return e.code === LSPErrorCodes.RequestCancelled;
     }
 }
 
