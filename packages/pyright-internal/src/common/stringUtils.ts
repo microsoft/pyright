@@ -54,6 +54,25 @@ export function computeCompletionSimilarity(typedValue: string, symbolName: stri
     return 0.5 * similarity;
 }
 
+// Determines if typed string matches a symbol
+// name. Characters must appear in order.
+// Return true if all typed characters are in symbol
+export function isPatternInSymbol(typedValue: string, symbolName: string): boolean {
+    const typedLower = typedValue.toLocaleLowerCase();
+    const symbolLower = symbolName.toLocaleLowerCase();
+    const typedLength = typedLower.length;
+    const symbolLength = symbolLower.length;
+    let typedPos = 0;
+    let symbolPos = 0;
+    while (typedPos < typedLength && symbolPos < symbolLength) {
+        if (typedLower[typedPos] === symbolLower[symbolPos]) {
+            typedPos += 1;
+        }
+        symbolPos += 1;
+    }
+    return typedPos === typedLength;
+}
+
 // This is a simple, non-cryptographic hash function for text.
 export function hashString(contents: string) {
     let hash = 0;

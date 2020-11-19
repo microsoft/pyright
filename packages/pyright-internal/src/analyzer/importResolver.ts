@@ -1245,10 +1245,7 @@ export class ImportResolver {
 
             if (supportedFileExtensions.some((ext) => ext === fileExtension)) {
                 if (fileWithoutExtension !== '__init__') {
-                    if (
-                        !filter ||
-                        StringUtils.computeCompletionSimilarity(filter, fileWithoutExtension) >= similarityLimit
-                    ) {
+                    if (!filter || StringUtils.isPatternInSymbol(filter, fileWithoutExtension)) {
                         this._addUniqueSuggestion(fileWithoutExtension, suggestions);
                     }
                 }
