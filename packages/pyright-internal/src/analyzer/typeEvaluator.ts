@@ -1994,22 +1994,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
         }
 
-        // Synthesize comparison operators.
-        ['__eq__', '__ne__', '__lt__', '__le__', '__gt__', '__ge__'].forEach((operator) => {
+        const synthesizeComparisonMethod = (operator: string, paramType: Type) => {
             const operatorMethod = FunctionType.createInstance(operator, '', FunctionTypeFlags.SynthesizedMethod);
             FunctionType.addParameter(operatorMethod, selfParam);
             FunctionType.addParameter(operatorMethod, {
                 category: ParameterCategory.Simple,
                 name: 'x',
-                type:
-                    operator === '__eq__' || operator === '__ne__'
-                        ? getBuiltInObject(node, 'object')
-                        : ObjectType.create(classType),
+                type: paramType,
                 hasDeclaredType: true,
             });
             operatorMethod.details.declaredReturnType = getBuiltInObject(node, 'bool');
             symbolTable.set(operator, Symbol.createWithType(SymbolFlags.ClassMember, operatorMethod));
-        });
+        };
+
+        // Synthesize comparison operators.
+        if (!ClassType.isSkipSynthesizedDataclassEq(classType)) {
+            synthesizeComparisonMethod('__eq__', getBuiltInObject(node, 'object'));
+        }
+
+        if (!ClassType.isSkipSynthesizedDataclassOrder(classType)) {
+            const objType = ObjectType.create(classType);
+            ['__lt__', '__le__', '__gt__', '__ge__'].forEach((operator) => {
+                synthesizeComparisonMethod(operator, objType);
+            });
+        }
 
         let dictType = getBuiltInType(node, 'Dict');
         if (isClass(dictType)) {
@@ -10014,7 +10022,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (ClassType.isDataClass(classType)) {
-            let skipSynthesizedInit = ClassType.isSkipSynthesizedInit(classType);
+            let skipSynthesizedInit = ClassType.isSkipSynthesizedDataclassInit(classType);
             if (!skipSynthesizedInit) {
                 // See if there's already a non-synthesized __init__ method.
                 // We shouldn't override it.
@@ -10071,12 +10079,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     decoratorCallType.category === TypeCategory.OverloadedFunction &&
                     decoratorCallType.overloads[0].details.builtInName === 'dataclass'
                 ) {
-                    // Determine whether we should skip synthesizing the init method.
-                    let skipSynthesizeInit = false;
-
                     if (decoratorNode.expression.arguments) {
                         decoratorNode.expression.arguments.forEach((arg) => {
-                            if (arg.name && arg.name.value === 'init') {
+                            if (arg.name) {
                                 if (arg.valueExpression) {
                                     const fileInfo = getFileInfo(decoratorNode);
                                     const value = evaluateStaticBoolExpression(
@@ -10084,7 +10089,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         fileInfo.executionEnvironment
                                     );
                                     if (!value) {
-                                        skipSynthesizeInit = true;
+                                        if (arg.name.value === 'init') {
+                                            originalClassType.details.flags |=
+                                                ClassTypeFlags.SkipSynthesizedDataclassInit;
+                                        } else if (arg.name.value === 'eq') {
+                                            originalClassType.details.flags |=
+                                                ClassTypeFlags.SkipSynthesizedDataclassEq;
+                                        } else if (arg.name.value === 'order') {
+                                            originalClassType.details.flags |=
+                                                ClassTypeFlags.SkipSynthesizedDataclassOrder;
+                                        }
                                     }
                                 }
                             }
@@ -10092,9 +10106,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     originalClassType.details.flags |= ClassTypeFlags.DataClass;
-                    if (skipSynthesizeInit) {
-                        originalClassType.details.flags |= ClassTypeFlags.SkipSynthesizedInit;
-                    }
                     return inputClassType;
                 }
             }

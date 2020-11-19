@@ -239,65 +239,67 @@ export const enum ClassTypeFlags {
 
     // Flags that control whether methods should be
     // synthesized for a dataclass class.
-    SkipSynthesizedInit = 1 << 3,
+    SkipSynthesizedDataclassInit = 1 << 3,
+    SkipSynthesizedDataclassEq = 1 << 4,
+    SkipSynthesizedDataclassOrder = 1 << 5,
 
     // Introduced in PEP 589, TypedDict classes provide a way
     // to specify type hints for dictionaries with different
     // value types and a limited set of static keys.
-    TypedDictClass = 1 << 4,
+    TypedDictClass = 1 << 6,
 
     // Used in conjunction with TypedDictClass, indicates that
     // the dictionary values can be omitted.
-    CanOmitDictValues = 1 << 5,
+    CanOmitDictValues = 1 << 7,
 
     // The class has a metaclass of EnumMet or derives from
     // a class that has this metaclass.
-    EnumClass = 1 << 6,
+    EnumClass = 1 << 8,
 
     // The class derives from a class that has the ABCMeta
     // metaclass. Such classes are allowed to contain
     // @abstractmethod decorators.
-    SupportsAbstractMethods = 1 << 7,
+    SupportsAbstractMethods = 1 << 9,
 
     // The class has at least one abstract method or derives
     // from a base class that is abstract without providing
     // non-abstract overrides for all abstract methods.
-    HasAbstractMethods = 1 << 8,
+    HasAbstractMethods = 1 << 10,
 
     // Derives from property class and has the semantics of
     // a property (with optional setter, deleter).
-    PropertyClass = 1 << 9,
+    PropertyClass = 1 << 11,
 
     // The class is decorated with a "@final" decorator
     // indicating that it cannot be subclassed.
-    Final = 1 << 10,
+    Final = 1 << 12,
 
     // The class derives directly from "Protocol".
-    ProtocolClass = 1 << 11,
+    ProtocolClass = 1 << 13,
 
     // A class whose constructor (__init__ method) does not have
     // annotated types and is treated as though each parameter
     // is a generic type for purposes of type inference.
-    PseudoGenericClass = 1 << 12,
+    PseudoGenericClass = 1 << 14,
 
     // A protocol class that is "runtime checkable" can be used
     // in an isinstance call.
-    RuntimeCheckable = 1 << 13,
+    RuntimeCheckable = 1 << 15,
 
     // The type is defined in the typing_extensions.pyi file.
-    TypingExtensionClass = 1 << 14,
+    TypingExtensionClass = 1 << 16,
 
     // The class type is in the process of being constructed and
     // is not yet complete. This allows us to detect cases where
     // the class refers to itself (e.g. uses itself as a type
     // argument to one of its generic base classes).
-    PartiallyConstructed = 1 << 15,
+    PartiallyConstructed = 1 << 17,
 
     // The class or one of its ancestors defines a __class_getitem__
     // method that is used for subscripting. This is not set if the
     // class is generic, and therefore supports standard subscripting
     // semantics.
-    HasCustomClassGetItem = 1 << 16,
+    HasCustomClassGetItem = 1 << 18,
 }
 
 interface ClassDetails {
@@ -507,8 +509,16 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.DataClass);
     }
 
-    export function isSkipSynthesizedInit(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedInit);
+    export function isSkipSynthesizedDataclassInit(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedDataclassInit);
+    }
+
+    export function isSkipSynthesizedDataclassEq(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedDataclassEq);
+    }
+
+    export function isSkipSynthesizedDataclassOrder(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedDataclassOrder);
     }
 
     export function isTypedDictClass(classType: ClassType) {
