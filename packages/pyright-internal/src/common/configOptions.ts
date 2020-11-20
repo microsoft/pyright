@@ -96,6 +96,9 @@ export interface DiagnosticRuleSet {
     // Report mismatch in types between property getter and setter?
     reportPropertyTypeMismatch: DiagnosticLevel;
 
+    // Report the use of unknown member accesses on function objects?
+    reportFunctionMemberAccess: DiagnosticLevel;
+
     // Report missing imports?
     reportMissingImports: DiagnosticLevel;
 
@@ -246,6 +249,7 @@ export function getDiagLevelDiagnosticRules() {
     return [
         DiagnosticRule.reportGeneralTypeIssues,
         DiagnosticRule.reportPropertyTypeMismatch,
+        DiagnosticRule.reportFunctionMemberAccess,
         DiagnosticRule.reportMissingImports,
         DiagnosticRule.reportMissingModuleSource,
         DiagnosticRule.reportMissingTypeStubs,
@@ -307,6 +311,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'none',
         reportPropertyTypeMismatch: 'none',
+        reportFunctionMemberAccess: 'none',
         reportMissingImports: 'warning',
         reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'none',
@@ -364,6 +369,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         enableTypeIgnoreComments: true,
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'error',
+        reportFunctionMemberAccess: 'none',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'none',
@@ -421,6 +427,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         enableTypeIgnoreComments: true, // Not overridden by strict mode
         reportGeneralTypeIssues: 'error',
         reportPropertyTypeMismatch: 'error',
+        reportFunctionMemberAccess: 'error',
         reportMissingImports: 'error',
         reportMissingModuleSource: 'warning',
         reportMissingTypeStubs: 'error',
@@ -801,6 +808,13 @@ export class ConfigOptions {
                 configObj.reportPropertyTypeMismatch,
                 DiagnosticRule.reportPropertyTypeMismatch,
                 defaultSettings.reportPropertyTypeMismatch
+            ),
+
+            // Read the "reportFunctionMemberAccess" entry.
+            reportFunctionMemberAccess: this._convertDiagnosticLevel(
+                configObj.reportFunctionMemberAccess,
+                DiagnosticRule.reportFunctionMemberAccess,
+                defaultSettings.reportFunctionMemberAccess
             ),
 
             // Read the "reportMissingImports" entry.

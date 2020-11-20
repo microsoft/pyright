@@ -3019,6 +3019,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     EvaluatorFlags.None
                 );
                 writeTypeCache(node.memberName, memberType.type);
+                writeTypeCache(node, memberType.type);
                 break;
             }
 
@@ -3630,9 +3631,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case TypeCategory.Function:
             case TypeCategory.OverloadedFunction: {
-                // TODO - not yet sure what to do about members of functions,
-                // which have associated dictionaries.
-                type = AnyType.create();
+                const functionObj = getBuiltInObject(node, 'function');
+
+                // The "__defaults__" member is not currently defined in the "function"
+                // class, so we'll special-case it here.
+                if (functionObj && memberName !== '__defaults__') {
+                    type = getTypeFromMemberAccessWithBaseType(node, { type: functionObj, node }, usage, flags).type;
+                } else {
+                    type = AnyType.create();
+                }
                 break;
             }
 
@@ -3656,13 +3663,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 diag = usage.setExpectedTypeDiag;
             }
 
+            const isFunctionRule =
+                isFunction(baseType) ||
+                isOverloadedFunction(baseType) ||
+                (isObject(baseType) && ClassType.isBuiltIn(baseType.classType, 'function'));
+            const [ruleSet, rule] = isFunctionRule
+                ? [fileInfo.diagnosticRuleSet.reportFunctionMemberAccess, DiagnosticRule.reportFunctionMemberAccess]
+                : [fileInfo.diagnosticRuleSet.reportGeneralTypeIssues, DiagnosticRule.reportGeneralTypeIssues];
+
             addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
+                ruleSet,
+                rule,
                 diagMessage.format({ name: memberName, type: printType(baseType) }) + diag.getString(),
                 node.memberName
             );
-            type = UnknownType.create();
+
+            // If this is member access on a function, use "Any" so if the
+            // reportFunctionMemberAccess rule is disabled, we don't trigger
+            // additional reportUnknownMemberType diagnostics.
+            type = isFunctionRule ? AnyType.create() : UnknownType.create();
         }
 
         // Should we specialize the class?

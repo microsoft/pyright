@@ -136,6 +136,17 @@
                                 "error"
                             ]
                         },
+                        "reportFunctionMemberAccess": {
+                            "type": "string",
+                            "description": "Diagnostics for member accesses on functions.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportMissingImports": {
                             "type": "string",
                             "description": "Diagnostics for imports that have no corresponding imported python file or type stub file.",

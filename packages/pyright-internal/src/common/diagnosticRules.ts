@@ -18,6 +18,7 @@ export enum DiagnosticRule {
 
     reportGeneralTypeIssues = 'reportGeneralTypeIssues',
     reportPropertyTypeMismatch = 'reportPropertyTypeMismatch',
+    reportFunctionMemberAccess = 'reportFunctionMemberAccess',
     reportMissingImports = 'reportMissingImports',
     reportMissingModuleSource = 'reportMissingModuleSource',
     reportMissingTypeStubs = 'reportMissingTypeStubs',

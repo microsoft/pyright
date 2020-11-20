@@ -518,6 +518,18 @@ test('Function12', () => {
     TestUtils.validateResults(analysisResults, 0, 0, 0, 2);
 });
 
+test('Function13', () => {
+    // Analyze with reportFunctionMemberAccess disabled.
+    const analysisResult1 = TestUtils.typeAnalyzeSampleFiles(['function13.py']);
+    TestUtils.validateResults(analysisResult1, 0);
+
+    // Analyze with reportFunctionMemberAccess enabled.
+    const configOptions = new ConfigOptions('.');
+    configOptions.diagnosticRuleSet.reportFunctionMemberAccess = 'error';
+    const analysisResult2 = TestUtils.typeAnalyzeSampleFiles(['function13.py'], configOptions);
+    TestUtils.validateResults(analysisResult2, 3);
+});
+
 test('Annotations1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['annotations1.py']);
 
