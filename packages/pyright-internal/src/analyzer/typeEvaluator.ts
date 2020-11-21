@@ -775,14 +775,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // context, logging any errors in the process. This may require the
     // type of surrounding statements to be evaluated.
     function getType(node: ExpressionNode): Type | undefined {
-        evaluateTypesForExpressionInContext(node);
-
-        // We assume here that the type for the node in question
-        // will be populated in the cache. Some nodes don't have
-        // defined types (e.g. a raw list comprehension outside
-        // of its containing list), so we'll return undefined in those
-        // cases.
-        return readTypeCache(node);
+        return evaluateTypeForSubnode(node, () => {
+            evaluateTypesForExpressionInContext(node);
+        });
     }
 
     function getTypeOfExpression(node: ExpressionNode, expectedType?: Type, flags = EvaluatorFlags.None): TypeResult {
@@ -12028,8 +12023,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const decl = declarations[declarations.length - 1];
             if (decl.type === DeclarationType.Parameter) {
-                evaluateTypeOfParameter(decl.node);
-                return readTypeCache(decl.node.name!);
+                return evaluateTypeForSubnode(decl.node.name!, () => {
+                    evaluateTypeOfParameter(decl.node);
+                });
             }
 
             if (decl.type === DeclarationType.Alias) {
@@ -12067,6 +12063,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         return undefined;
+    }
+
+    // Helper function for cases where we need to evaluate the types
+    // for a subtree so we can determine the type of one of the subnodes
+    // within that tree. If the type cannot be determined (because it's part
+    // of a cyclical dependency), the function returns undefined.
+    function evaluateTypeForSubnode(subnode: ParseNode, callback: () => void): Type | undefined {
+        // If the type cache is already populated, don't bother
+        // doing additional work.
+        let subnodeType = readTypeCache(subnode);
+        if (!subnodeType) {
+            callback();
+            subnodeType = readTypeCache(subnode);
+        }
+
+        return subnodeType;
     }
 
     // Determines whether a call never returns without fully evaluating its type.
@@ -12314,15 +12326,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                let cachedType = readTypeCache(nodeForCacheLookup);
-                if (!cachedType) {
-                    // There is no cached type for this expression, so we need to
-                    // evaluate it.
+                return evaluateTypeForSubnode(nodeForCacheLookup, () => {
                     evaluateTypesForStatement(flowNode.node);
-                    cachedType = readTypeCache(nodeForCacheLookup);
-                }
-
-                return cachedType;
+                });
             }
 
             // If this flow has no knowledge of the target expression, it returns undefined.
@@ -14135,27 +14141,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the resolved declaration had no defined type, use the
         // inferred type for this node.
         if (resolvedDecl.type === DeclarationType.Parameter) {
-            const cachedValue = readTypeCache(resolvedDecl.node.name!);
-            if (cachedValue) {
-                return cachedValue;
-            }
-            evaluateTypeOfParameter(resolvedDecl.node);
-            return readTypeCache(resolvedDecl.node.name!);
+            return evaluateTypeForSubnode(resolvedDecl.node.name!, () => {
+                evaluateTypeOfParameter(resolvedDecl.node);
+            });
         }
 
         if (resolvedDecl.type === DeclarationType.Variable && resolvedDecl.inferredTypeSource) {
-            let inferredType = readTypeCache(resolvedDecl.node);
-
-            if (!inferredType) {
-                // If this is a type alias, evaluate types for the entire assignment
-                // statement rather than just the RHS of the assignment.
-                const typeSource =
-                    resolvedDecl.typeAliasName && resolvedDecl.inferredTypeSource.parent
-                        ? resolvedDecl.inferredTypeSource.parent
-                        : resolvedDecl.inferredTypeSource;
+            // If this is a type alias, evaluate types for the entire assignment
+            // statement rather than just the RHS of the assignment.
+            const typeSource =
+                resolvedDecl.typeAliasName && resolvedDecl.inferredTypeSource.parent
+                    ? resolvedDecl.inferredTypeSource.parent
+                    : resolvedDecl.inferredTypeSource;
+            let inferredType = evaluateTypeForSubnode(resolvedDecl.node, () => {
                 evaluateTypesForStatement(typeSource);
-                inferredType = readTypeCache(resolvedDecl.node);
-            }
+            });
 
             if (inferredType && resolvedDecl.node.nodeType === ParseNodeType.Name) {
                 inferredType = transformTypeForPossibleEnumClass(resolvedDecl.node, inferredType);
