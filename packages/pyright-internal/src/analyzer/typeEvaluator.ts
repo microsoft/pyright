@@ -1451,7 +1451,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // more type information than __new__.
                     methodType = getBoundMethod(subtype, '__init__', /* treatAsClassMember */ false);
 
-                    if (!methodType || (methodType.category === TypeCategory.Function && FunctionType.isSkipConstructorCheck(methodType))) {
+                    if (
+                        !methodType ||
+                        (methodType.category === TypeCategory.Function &&
+                            FunctionType.isSkipConstructorCheck(methodType))
+                    ) {
                         // If there was no __init__ method, use the __new__ method
                         // instead.
                         methodType = getBoundMethod(subtype, '__new__', /* treatAsClassMember */ true);
