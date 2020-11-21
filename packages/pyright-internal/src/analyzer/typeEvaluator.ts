@@ -6155,6 +6155,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     Localizer.Diagnostic.argPositional(),
                     argList[argIndex].name!
                 );
+                reportedArgError = true;
             }
 
             if (paramIndex >= positionalParamCount) {
