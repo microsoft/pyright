@@ -1,6 +1,7 @@
 # This sample tests the type checker's ability to validate
 # properties.
 
+
 class ClassA(object):
     @property
     def read_only_prop(self):
@@ -8,8 +9,8 @@ class ClassA(object):
 
     @property
     def read_write_prop(self):
-        return 'hello'
-    
+        return "hello"
+
     @read_write_prop.setter
     def read_write_prop(self, value: str):
         return
@@ -17,7 +18,7 @@ class ClassA(object):
     @property
     def deletable_prop(self):
         return 1
-    
+
     @deletable_prop.deleter
     def deletable_prop(self):
         return
@@ -32,12 +33,12 @@ val = a.read_only_prop
 a.read_only_prop = val
 
 # This should generate an error because this
-# property has no deleter. 
+# property has no deleter.
 del a.read_only_prop
 
 val = a.read_write_prop
 
-a.read_write_prop = 'hello'
+a.read_write_prop = "hello"
 
 # This should generate an error because the type
 # is incorrect.

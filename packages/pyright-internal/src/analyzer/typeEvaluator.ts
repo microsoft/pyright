@@ -3950,20 +3950,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     let accessMethodType = getTypeOfMember(accessMethod);
                     const argList: FunctionArgument[] = [
                         {
+                            // Provide "self" argument.
                             argumentCategory: ArgumentCategory.Simple,
                             type: subtype,
                         },
                         {
+                            // Provide "obj" argument.
                             argumentCategory: ArgumentCategory.Simple,
                             type:
                                 bindToType ||
                                 (isAccessedThroughObject ? ObjectType.create(classType) : NoneType.createInstance()),
                         },
-                        {
+                    ];
+
+                    if (usage.method === 'get') {
+                        // Provide "type" argument.
+                        argList.push({
                             argumentCategory: ArgumentCategory.Simple,
                             type: AnyType.create(),
-                        },
-                    ];
+                        });
+                    } else if (usage.method === 'set') {
+                        // Provide "value" argument.
+                        argList.push({
+                            argumentCategory: ArgumentCategory.Simple,
+                            type: usage.setType,
+                        });
+                    }
 
                     if (ClassType.isPropertyClass(subtype.classType) && memberInfo && isClass(memberInfo!.classType)) {
                         // This specialization is required specifically for properties, which should be
@@ -3999,46 +4011,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (accessMethodType && accessMethodType.category === TypeCategory.Function) {
-                        // Bind the accessor to the base object type.
-                        const boundMethodType = bindFunctionToClassOrObject(
-                            subtype,
-                            accessMethodType,
-                            /* treatAsClassMember */ false,
-                            errorNode
-                        );
+                        // Don't emit separate diagnostics for these method calls because
+                        // they will be redundant.
+                        const returnType = suppressDiagnostics(() => {
+                            // Bind the accessor to the base object type.
+                            const boundMethodType = bindFunctionToClassOrObject(
+                                subtype,
+                                accessMethodType,
+                                /* treatAsClassMember */ false,
+                                errorNode
+                            ) as FunctionType | undefined;
 
-                        if (boundMethodType) {
-                            accessMethodType = boundMethodType as FunctionType;
+                            if (boundMethodType) {
+                                const callResult = validateFunctionArguments(
+                                    errorNode,
+                                    argList.slice(1),
+                                    boundMethodType,
+                                    new TypeVarMap(getTypeVarScopeId(boundMethodType)),
+                                    /* skipUnknownArgCheck */ true,
+                                    /* inferReturnTypeIfNeeded */ true,
+                                    /* expectedType */ undefined
+                                );
 
-                            if (usage.method === 'get') {
-                                const returnType =
-                                    validateFunctionArguments(
-                                        errorNode,
-                                        argList.slice(1),
-                                        accessMethodType,
-                                        new TypeVarMap(getTypeVarScopeId(accessMethodType)),
-                                        /* skipUnknownArgCheck */ true,
-                                        /* inferReturnTypeIfNeeded */ true,
-                                        /* expectedType */ undefined
-                                    ).returnType || UnknownType.create();
-                                return returnType;
-                            } else {
-                                if (usage.method === 'set') {
-                                    // Verify that the setter's parameter type matches
-                                    // the type of the value being assigned.
-                                    if (accessMethodType.details.parameters.length >= 2) {
-                                        const setValueType = accessMethodType.details.parameters[1].type;
-                                        if (!canAssignType(setValueType, usage.setType!, diag)) {
-                                            isTypeValid = false;
-                                            return undefined;
-                                        }
-                                    }
+                                if (callResult.argumentErrors) {
+                                    isTypeValid = false;
+                                    return AnyType.create();
                                 }
 
-                                // The type isn't important for set or delete usage.
-                                // We just need to return some defined type.
-                                return AnyType.create();
+                                // For set or delete, always return Any.
+                                return usage.method === 'get'
+                                    ? callResult.returnType || UnknownType.create()
+                                    : AnyType.create();
                             }
+                        });
+
+                        if (returnType) {
+                            return returnType;
                         }
                     }
                 }
@@ -10909,10 +10917,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             type: prop,
             hasDeclaredType: true,
         });
+        let objType = fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create();
+        if (isTypeVar(objType) && objType.details.isSynthesized && objType.details.boundType) {
+            objType = makeTypeVarsConcrete(objType);
+        }
         setFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'obj',
-            type: fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create(),
+            type: combineTypes([objType, NoneType.createInstance()]),
             hasDeclaredType: true,
         });
         setFunction.details.declaredReturnType = NoneType.createInstance();
@@ -10975,10 +10987,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             type: prop,
             hasDeclaredType: true,
         });
+        let objType = fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create();
+        if (isTypeVar(objType) && objType.details.isSynthesized && objType.details.boundType) {
+            objType = makeTypeVarsConcrete(objType);
+        }
         delFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'obj',
-            type: fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create(),
+            type: combineTypes([objType, NoneType.createInstance()]),
             hasDeclaredType: true,
         });
         delFunction.details.declaredReturnType = NoneType.createInstance();
