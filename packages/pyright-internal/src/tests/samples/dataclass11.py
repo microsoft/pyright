@@ -3,13 +3,13 @@
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(order=True)
 class DC1:
     a: str
     b: int
 
 
-@dataclass
+@dataclass(order=True)
 class DC2:
     a: str
     b: int

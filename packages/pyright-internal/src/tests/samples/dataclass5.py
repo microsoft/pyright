@@ -62,18 +62,21 @@ class E:
     def __eq__(self, x: "E") -> float:
         return 1.23
 
+    def __lt__(self, x: "E") -> str:
+        return ""
+
 
 foo1 = E(3) == E(3)
 t1: Literal["float"] = reveal_type(foo1)
 
+foo2 = E(3) < E(3)
+t2: Literal["str"] = reveal_type(foo2)
 
-@dataclass(order=False)
+
+@dataclass(order=True)
 class F:
     x: int
 
-    def __lt__(self, x: "F") -> float:
-        return 1.23
 
-
-foo2 = F(3) < F(3)
-t1: Literal["float"] = reveal_type(foo2)
+foo3 = F(3) < F(3)
+t3: Literal["bool"] = reveal_type(foo3)

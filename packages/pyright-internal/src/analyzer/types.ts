@@ -241,7 +241,7 @@ export const enum ClassTypeFlags {
     // synthesized for a dataclass class.
     SkipSynthesizedDataclassInit = 1 << 3,
     SkipSynthesizedDataclassEq = 1 << 4,
-    SkipSynthesizedDataclassOrder = 1 << 5,
+    SynthesizedDataclassOrder = 1 << 5,
 
     // Introduced in PEP 589, TypedDict classes provide a way
     // to specify type hints for dictionaries with different
@@ -517,8 +517,8 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedDataclassEq);
     }
 
-    export function isSkipSynthesizedDataclassOrder(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedDataclassOrder);
+    export function isSynthesizedDataclassOrder(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.SynthesizedDataclassOrder);
     }
 
     export function isTypedDictClass(classType: ClassType) {
