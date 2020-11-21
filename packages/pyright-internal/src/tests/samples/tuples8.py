@@ -1,7 +1,7 @@
 # This sample verifies that the "tuple" type is treated
 # analogously to "Tuple" type.
 
-from typing import TypeVar
+from typing import Iterable, Literal, Tuple, TypeVar
 
 
 _T = TypeVar("_T")
@@ -82,3 +82,17 @@ t3_1: TupleTypeAlias2 = ()
 
 # This should generate an error.
 t3_2: TupleTypeAlias2 = (3, 4)
+
+
+T = TypeVar("T")
+
+
+def baz(v: Iterable[T]) -> Tuple[T]:
+    ...
+
+
+def qux() -> None:
+    foo = ["foo"]
+    quux = baz(foo)
+    for s in quux:
+        t1: Literal["str"] = reveal_type(s)

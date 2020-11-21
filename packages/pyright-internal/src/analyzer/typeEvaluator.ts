@@ -4821,39 +4821,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         specializedTuple.details.mro = [...specializedTuple.details.mro];
         specializedTuple.details.mro[0] = specializedTuple;
 
-        // Handle the specialization of "Tuple" which inherits from "tuple".
-        if (ClassType.isBuiltIn(tupleClass, 'Tuple')) {
-            if (
-                tupleClass.details.mro.length >= 2 &&
-                isClass(tupleClass.details.mro[0]) &&
-                ClassType.isBuiltIn(tupleClass.details.mro[0], 'Tuple') &&
-                isClass(tupleClass.details.mro[1]) &&
-                ClassType.isBuiltIn(tupleClass.details.mro[1], 'tuple')
-            ) {
-                specializedTuple.details.mro[1] = ClassType.cloneForSpecialization(
-                    specializedTuple.details.mro[1] as ClassType,
-                    [combinedTupleType],
-                    isTypeArgumentExplicit,
-                    /* skipAbstractClassTest */ undefined,
-                    effectiveTypeArguments
-                );
-
-                return specializedTuple;
-            }
-        }
-
-        // Handle the specialization of "tuple" directly.
-        if (ClassType.isBuiltIn(tupleClass, 'tuple')) {
-            if (
-                tupleClass.details.mro.length >= 1 &&
-                isClass(tupleClass.details.mro[0]) &&
-                ClassType.isBuiltIn(tupleClass.details.mro[0], 'tuple')
-            ) {
-                return specializedTuple;
-            }
-        }
-
-        return tupleClass;
+        return specializedTuple;
     }
 
     function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[], isTypeArgumentExplicit: boolean) {
@@ -4867,27 +4835,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const namedTupleClass = classType.details.mro[namedTupleIndex] as ClassType;
         const typedTupleClass = classType.details.mro[namedTupleIndex + 1];
-        const tupleClass = classType.details.mro[namedTupleIndex + 2];
 
-        if (
-            !isClass(typedTupleClass) ||
-            !ClassType.isBuiltIn(typedTupleClass, 'Tuple') ||
-            !isClass(tupleClass) ||
-            !ClassType.isBuiltIn(tupleClass, 'tuple')
-        ) {
+        if (!isClass(typedTupleClass) || !ClassType.isBuiltIn(typedTupleClass, 'Tuple')) {
             return;
         }
 
         const updatedTupleClass = cloneTupleForSpecialization(typedTupleClass, typeArgs, isTypeArgumentExplicit);
 
         // Create a copy of the NamedTuple class that overrides the normal MRO
-        // entries with a version of Tuple and tuple that are specialized
-        // appropriately.
+        // entries with a version of Tuple that is specialized appropriately.
         const clonedNamedTupleClass = ClassType.cloneForSpecialization(namedTupleClass, [], isTypeArgumentExplicit);
         clonedNamedTupleClass.details = { ...clonedNamedTupleClass.details };
         clonedNamedTupleClass.details.mro = [...clonedNamedTupleClass.details.mro];
         clonedNamedTupleClass.details.mro[1] = updatedTupleClass.details.mro[0];
-        clonedNamedTupleClass.details.mro[2] = updatedTupleClass.details.mro[1];
 
         clonedNamedTupleClass.details.baseClasses = clonedNamedTupleClass.details.baseClasses.map((baseClass) => {
             if (isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'Tuple')) {
@@ -4898,7 +4858,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         classType.details.mro[namedTupleIndex] = clonedNamedTupleClass;
         classType.details.mro[namedTupleIndex + 1] = updatedTupleClass.details.mro[0];
-        classType.details.mro[namedTupleIndex + 2] = updatedTupleClass.details.mro[1];
 
         classType.details.baseClasses = classType.details.baseClasses.map((baseClass) => {
             if (isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'NamedTuple')) {
@@ -10127,7 +10086,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         });
                     }
 
-                    originalClassType.details.flags |= ClassTypeFlags.DataClass;
                     return inputClassType;
                 }
             }
