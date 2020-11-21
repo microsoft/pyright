@@ -802,7 +802,15 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
         return combinedList;
     };
 
-    if (isTypeVar(type)) {
+    if (type.typeAliasInfo?.typeArguments) {
+        const combinedList: TypeVarType[] = [];
+
+        type.typeAliasInfo?.typeArguments.forEach((typeArg) => {
+            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(typeArg, recursionCount + 1));
+        });
+
+        return combinedList;
+    } else if (isTypeVar(type)) {
         // Don't return any recursive type alias placeholders.
         if (type.details.recursiveTypeAliasName) {
             return [];
