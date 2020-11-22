@@ -224,7 +224,7 @@ interface TypeResult {
     // as the class or object used to bind the member, but the
     // "super" call can specify a different class or object to
     // bind.
-    bindToType?: ClassType | ObjectType;
+    bindToType?: ClassType | ObjectType | TypeVarType;
 }
 
 interface EffectiveTypeResult {
@@ -1160,7 +1160,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum,
         memberAccessFlags = MemberAccessFlags.None,
-        bindToType?: ClassType | ObjectType
+        bindToType?: ClassType | ObjectType | TypeVarType
     ): Type | undefined {
         const memberInfo = getTypeFromClassMemberName(
             errorNode,
@@ -3520,6 +3520,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     {
                         type: makeTypeVarsConcrete(baseType),
                         node,
+                        bindToType: baseType,
                     },
                     usage,
                     EvaluatorFlags.None
@@ -3739,7 +3740,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum,
         flags: MemberAccessFlags,
-        bindToType?: ClassType | ObjectType
+        bindToType?: ClassType | ObjectType | TypeVarType
     ): ClassMemberLookup | undefined {
         // If this is a special type (like "List") that has an alias class (like
         // "list"), switch to the alias, which defines the members.
@@ -3823,7 +3824,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 memberInfo,
                 classType,
                 bindToType,
-                (flags & MemberAccessFlags.AccessClassMembersOnly) === 0,
+                /* isAccessedThroughObject */ (flags & MemberAccessFlags.AccessClassMembersOnly) === 0,
+                /* treatAsClassMethod */ bindToType !== undefined && TypeBase.isInstantiable(bindToType),
                 errorNode,
                 memberName,
                 usage,
@@ -3868,6 +3870,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     classType,
                     bindToType,
                     /* isAccessedThroughObject */ false,
+                    /* treatAsClassMethod */ bindToType !== undefined && TypeBase.isInstantiable(bindToType),
                     errorNode,
                     memberName,
                     usage,
@@ -3896,8 +3899,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         type: Type,
         memberInfo: ClassMember | undefined,
         classType: ClassType,
-        bindToType: ObjectType | ClassType | undefined,
+        bindToType: ObjectType | ClassType | TypeVarType | undefined,
         isAccessedThroughObject: boolean,
+        treatAsClassMethod: boolean,
         errorNode: ExpressionNode,
         memberName: string,
         usage: EvaluatorUsage,
@@ -4054,12 +4058,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // assigned to an instance variable), don't perform any binding.
                 const isInstanceMember = isAccessedThroughObject && memberInfo?.isInstanceMember;
                 if (!isInstanceMember) {
-                    return bindFunctionToClassOrObject(
-                        bindToType || (isAccessedThroughObject ? ObjectType.create(classType) : classType),
-                        subtype,
-                        /* treatAsClassMethod */ bindToType !== undefined,
-                        errorNode
-                    );
+                    let baseType: ClassType | ObjectType = isAccessedThroughObject
+                        ? ObjectType.create(classType)
+                        : classType;
+                    if (bindToType) {
+                        if (isTypeVar(bindToType)) {
+                            const concreteType = makeTopLevelTypeVarsConcrete(bindToType);
+                            if (isClass(concreteType) || isObject(concreteType)) {
+                                baseType = concreteType;
+                            }
+                        } else {
+                            baseType = bindToType;
+                        }
+                    }
+
+                    return bindFunctionToClassOrObject(baseType, subtype, treatAsClassMethod, errorNode, bindToType);
                 }
             }
 
@@ -16930,7 +16943,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberType: Type,
         treatAsClassMethod: boolean,
         errorNode?: ParseNode,
-        firstParamType?: ClassType | ObjectType
+        firstParamType?: ClassType | ObjectType | TypeVarType
     ): Type | undefined {
         if (memberType.category === TypeCategory.Function) {
             // If the caller specified no base type, always strip the
@@ -16993,7 +17006,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         baseType: ClassType | ObjectType,
         memberType: FunctionType,
         errorNode: ParseNode | undefined,
-        firstParamType?: ClassType | ObjectType,
+        firstParamType?: ClassType | ObjectType | TypeVarType,
         stripFirstParam = true
     ): Type | undefined {
         const classType = isClass(baseType) ? baseType : baseType.classType;
