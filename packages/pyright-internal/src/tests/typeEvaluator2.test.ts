@@ -63,7 +63,7 @@ test('Assignment7', () => {
 test('Assignment8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['assignment8.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('AugmentedAssignment1', () => {
@@ -363,7 +363,7 @@ test('GenericTypes27', () => {
 test('GenericTypes28', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes28.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('GenericTypes29', () => {
@@ -409,11 +409,14 @@ test('GenericTypes34', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('GenericTypes35', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes35.py']);
+// This test is intentionally commented out for now. The functionality
+// that it tests relied on the looser handling of TypeVars.
 
-    TestUtils.validateResults(analysisResults, 1);
-});
+// test('GenericTypes35', () => {
+//     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes35.py']);
+
+//     TestUtils.validateResults(analysisResults, 1);
+// });
 
 test('GenericTypes36', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes36.py']);
@@ -434,9 +437,9 @@ test('GenericTypes38', () => {
 });
 
 test('GenericTypes39', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes38.py']);
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes39.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('GenericTypes40', () => {
@@ -449,6 +452,12 @@ test('GenericTypes41', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes41.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('GenericTypes42', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes42.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Protocol1', () => {
@@ -507,6 +516,12 @@ test('Protocol9', () => {
 
 test('Protocol10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol10.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Protocol11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol11.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

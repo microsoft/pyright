@@ -16,6 +16,7 @@ def do_something(
         s = f(s, x)
         yield s
 
+
 from typing import Dict, Generic, List, Tuple, TypeVar
 
 
@@ -47,7 +48,8 @@ class MyClass2(Generic[_T2]):
 
 class MyClass2A(Generic[_T2, _T2A]):
     def __init__(self, a: _T2, b: _T2A):
-        self._a: Dict[str, _T2] = {"a": b}
+        self._a1: Dict[str, _T2A] = {"a": b}
+        self._a2: Dict[str, _T2] = {"a": a}
         self._b: Tuple[_T2, ...] = (a, a, a)
         self._c: Tuple[_T2, _T2] = (a, a)
         self._d: List[_T2] = [a]
@@ -59,3 +61,25 @@ class MyClass3(Generic[_T3]):
         self._b: Tuple[_T3, ...] = (a, a, a)
         self._c: Tuple[_T3, _T3] = (a, a)
         self._d: List[_T3] = [a]
+
+
+class Animal:
+    pass
+
+
+class Cow(Animal):
+    pass
+
+
+_TA = TypeVar("_TA", bound=Animal)
+
+
+def fn(p2: _TA) -> _TA:
+    # This should generate an error.
+    p2 = Animal()
+
+    if 1 + 1 == 3:
+        return p2
+
+    # This should generate an error.
+    return Animal()

@@ -479,19 +479,13 @@ export class Checker extends ParseTreeWalker {
                 } else {
                     const diagAddendum = new DiagnosticAddendum();
 
-                    // Specialize the return type in case it contains references to type variables.
-                    // These will be replaced with the corresponding constraint or bound types.
-                    const specializedDeclaredType = this._evaluator.makeTopLevelTypeVarsConcrete(declaredReturnType);
-                    if (!this._evaluator.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
+                    if (!this._evaluator.canAssignType(declaredReturnType, returnType, diagAddendum)) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
                             Localizer.Diagnostic.returnTypeMismatch().format({
                                 exprType: this._evaluator.printType(returnType, /* expandTypeAlias */ false),
-                                returnType: this._evaluator.printType(
-                                    specializedDeclaredType,
-                                    /* expandTypeAlias */ false
-                                ),
+                                returnType: this._evaluator.printType(declaredReturnType, /* expandTypeAlias */ false),
                             }) + diagAddendum.getString(),
                             node.returnExpression ? node.returnExpression : node
                         );

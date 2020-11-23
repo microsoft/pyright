@@ -4,16 +4,19 @@
 
 from dataclasses import dataclass
 
+
 @dataclass
 class A:
     x: int
 
-@dataclass(init)
+
+@dataclass(init=False)
 class B(A):
     y: int
 
     def __init__(self, a: A, y: int):
         self.__dict__ = a.__dict__
+
 
 a = A(3)
 b = B(a, 5)
@@ -24,4 +27,3 @@ a = A(3, 4)
 
 # This should generate an error because there is one too few parameters
 b = B(a)
-

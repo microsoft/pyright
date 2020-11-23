@@ -2,7 +2,7 @@
 # assigned any other type.
 
 import os
-from typing import Any, TypeVar, overload
+from typing import Any, Optional, TypeVar, overload
 
 
 class Foo:
@@ -13,6 +13,9 @@ class Foo:
     @overload
     def bar(self, obj: object) -> Any:
         ...
+
+    def bar(self, obj: Optional[object]) -> Any:
+        pass
 
     @staticmethod
     def baz():
@@ -31,8 +34,6 @@ my_obj = Foo.bar
 my_obj = Foo.baz
 my_obj = ()
 my_obj = lambda x: x
-
-# This should generate an error because _T has no meaning.
 my_obj = _T
 
 # This should generate an error because a is unbound.

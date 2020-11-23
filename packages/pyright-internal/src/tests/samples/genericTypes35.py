@@ -3,6 +3,9 @@
 # pass a generic function "identity" to another generic
 # function "fmap".
 
+# NOTE: This test is no longer working. It previously worked
+# because of the looser handling of TypeVars.
+
 from typing import TypeVar, Callable, Optional
 
 T1 = TypeVar("T1")

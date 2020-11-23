@@ -833,6 +833,18 @@ export function selfSpecializeClassType(type: ClassType, setSkipAbstractClassTes
     );
 }
 
+// Creates a specialized version of the class, filling in any unspecified
+// type arguments with Unknown.
+export function specializeClassType(type: ClassType): ClassType {
+    const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
+    const typeParams = ClassType.getTypeParameters(type);
+    typeParams.forEach((typeParam) => {
+        typeVarMap.setTypeVar(typeParam, UnknownType.create(), /* isNarrowable */ false);
+    });
+
+    return applySolvedTypeVars(type, typeVarMap) as ClassType;
+}
+
 // Removes the first parameter of the function and returns a new function.
 export function stripFirstParameter(type: FunctionType): FunctionType {
     if (type.details.parameters.length > 0 && type.details.parameters[0].category === ParameterCategory.Simple) {
