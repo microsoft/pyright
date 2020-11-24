@@ -160,10 +160,12 @@ import {
     UnknownType,
 } from './types';
 import {
+    addTypeVarScopeIdsForType,
     addTypeVarsToListIfUnique,
     applySolvedTypeVars,
     areTypesSame,
     buildTypeVarMapFromSpecializedClass,
+    buildTypeVarMapFromType,
     CanAssignFlags,
     canBeFalsy,
     canBeTruthy,
@@ -192,7 +194,6 @@ import {
     isTypeAliasRecursive,
     lookUpClassMember,
     lookUpObjectMember,
-    makeTypeVarsConcrete,
     partiallySpecializeType,
     removeFalsinessFromType,
     removeNoReturnFromUnion,
@@ -777,7 +778,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // at that point.
         if (!initializedBasicTypes) {
             noneType = getTypeshedType(node, 'NoneType') || AnyType.create();
-            objectType = getBuiltInType(node, 'object') || AnyType.create();
+            objectType = getBuiltInObject(node, 'object') || AnyType.create();
 
             initializedBasicTypes = true;
         }
@@ -5006,7 +5007,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Determine whether to further narrow the type.
         let bindToType: ClassType | ObjectType | undefined;
         if (node.arguments.length > 1) {
-            const secondArgType = makeTypeVarsConcrete(getTypeOfExpression(node.arguments[1].valueExpression).type);
+            const secondArgType = makeTopLevelTypeVarsConcrete(
+                getTypeOfExpression(node.arguments[1].valueExpression).type
+            );
 
             let reportError = false;
 
@@ -5783,7 +5786,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const specializedType = typeVarMap
             ? (applySolvedTypeVars(type, typeVarMap, /* concreteIfNotFound */ true) as ClassType)
-            : (makeTypeVarsConcrete(type) as ClassType);
+            : specializeClassType(type);
 
         return ObjectType.create(specializedType);
     }
@@ -5877,13 +5880,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // If the expected type includes TypeVars that are associated with
                         // some other scope, we need to add those to the "solve for scope"
                         // list in this typeVarMap.
-                        const typeVars = getTypeVarArgumentsRecursive(replacementType);
-                        typeVars.forEach((typeVar) => {
-                            if (typeVar.scopeId && !typeVarMap.hasSolveForScope(typeVar.scopeId)) {
-                                typeVarMap.addSolveForScope(typeVar.scopeId);
-                            }
-                        });
-
+                        addTypeVarScopeIdsForType(replacementType, typeVarMap);
                         typeVarMap.setTypeVar(targetTypeVar, replacementType, /* isNarrowable */ false);
                     }
                 }
@@ -8649,7 +8646,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let paramType: Type = UnknownType.create();
             if (expectedFunctionType && index < expectedFunctionType.details.parameters.length) {
                 paramType = FunctionType.getEffectiveParameterType(expectedFunctionType, index);
-                paramType = makeTypeVarsConcrete(paramType);
             }
 
             if (param.name) {
@@ -9042,12 +9038,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let type = typeArgs[0].type;
 
-        if (requiresSpecialization(type)) {
-            // A ClassVar should not allow generic types, but the typeshed
-            // stubs use this in a few cases. For now, just specialize
-            // it in a general way.
-            type = makeTypeVarsConcrete(type);
-        }
+        // A ClassVar should not allow generic types, but the typeshed
+        // stubs use this in a few cases. For now, just specialize
+        // it in a general way.
+        type = makeTopLevelTypeVarsConcrete(type);
 
         return type;
     }
@@ -10312,7 +10306,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         node.parameters.forEach((param, index) => {
             let paramType: Type | undefined;
             let annotatedType: Type | undefined;
-            let concreteAnnotatedType: Type | undefined;
             let isNoneWithoutOptional = false;
             let paramTypeNode: ExpressionNode | undefined;
 
@@ -10355,8 +10348,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 }
-
-                concreteAnnotatedType = makeTypeVarsConcrete(annotatedType);
             }
 
             let defaultValueType: Type | undefined;
@@ -10371,10 +10362,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (annotatedType) {
                 // If there was both a type annotation and a default value, verify
                 // that the default value matches the annotation.
-                if (param.defaultValue && defaultValueType && concreteAnnotatedType) {
+                if (param.defaultValue && defaultValueType) {
                     const diagAddendum = new DiagnosticAddendum();
-
-                    if (!canAssignType(concreteAnnotatedType, defaultValueType, diagAddendum)) {
+                    const typeVarMap = buildTypeVarMapFromType(annotatedType);
+                    if (!canAssignType(annotatedType, defaultValueType, diagAddendum, typeVarMap)) {
                         const diag = addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -10843,7 +10834,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // bound type instead.
         let objType = fget.details.parameters.length > 0 ? fget.details.parameters[0].type : AnyType.create();
         if (isTypeVar(objType) && objType.details.isSynthesized && objType.details.boundType) {
-            objType = makeTypeVarsConcrete(objType);
+            objType = makeTopLevelTypeVarsConcrete(objType);
         }
         getFunction2.details.parameters.push({
             category: ParameterCategory.Simple,
@@ -10962,7 +10953,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
         let objType = fset.details.parameters.length > 0 ? fset.details.parameters[0].type : AnyType.create();
         if (isTypeVar(objType) && objType.details.isSynthesized && objType.details.boundType) {
-            objType = makeTypeVarsConcrete(objType);
+            objType = makeTopLevelTypeVarsConcrete(objType);
         }
         setFunction.details.parameters.push({
             category: ParameterCategory.Simple,
@@ -11032,7 +11023,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
         let objType = fdel.details.parameters.length > 0 ? fdel.details.parameters[0].type : AnyType.create();
         if (isTypeVar(objType) && objType.details.isSynthesized && objType.details.boundType) {
-            objType = makeTypeVarsConcrete(objType);
+            objType = makeTopLevelTypeVarsConcrete(objType);
         }
         delFunction.details.parameters.push({
             category: ParameterCategory.Simple,
@@ -13843,7 +13834,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             let baseType = getType(node.parent.leftExpression);
             if (baseType) {
-                baseType = makeTypeVarsConcrete(baseType);
+                baseType = makeTopLevelTypeVarsConcrete(baseType);
                 const memberName = node.parent.memberName.value;
                 doForSubtypes(baseType, (subtype) => {
                     let symbol: Symbol | undefined;
@@ -16148,14 +16139,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destPositionals = destPositionals.filter((p) => p.category === ParameterCategory.Simple && p.name);
 
         const positionalsToMatch = Math.min(srcPositionals.length, destPositionals.length);
-
-        const srcTypeVarMap = new TypeVarMap();
-        const srcTypeVars = getTypeVarArgumentsRecursive(srcType);
-        srcTypeVars.forEach((typeVar) => {
-            if (typeVar.scopeId) {
-                srcTypeVarMap.addSolveForScope(typeVar.scopeId);
-            }
-        });
+        const srcTypeVarMap = buildTypeVarMapFromType(srcType);
 
         if (!FunctionType.shouldSkipParamCompatibilityCheck(destType)) {
             // Match positional parameters.
@@ -17114,11 +17098,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // evaluating (and caching) the inferred return type if there is no defined return type.
         getFunctionEffectiveReturnType(memberType);
 
-        const specializedFunction = applySolvedTypeVars(
-            memberType,
-            typeVarMap,
-            /* concreteIfNotFound */ false
-        ) as FunctionType;
+        const specializedFunction = applySolvedTypeVars(memberType, typeVarMap) as FunctionType;
 
         return stripFirstParam ? stripFirstParameter(specializedFunction) : specializedFunction;
     }

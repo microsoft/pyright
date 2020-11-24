@@ -561,7 +561,7 @@ export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, concrete
                     return replacement;
                 }
 
-                return concreteIfNotFound ? makeTypeVarsConcrete(typeVar) : typeVar;
+                return concreteIfNotFound ? UnknownType.create() : typeVar;
             },
             (paramSpec: TypeVarType) => {
                 if (!paramSpec.scopeId || !typeVarMap.hasSolveForScope(paramSpec.scopeId)) {
@@ -582,27 +582,6 @@ export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, concrete
     }
 
     return resultingType;
-}
-
-// Replaces unknown TypeVars with their concrete form, either a
-// bound type or Unknown.
-export function makeTypeVarsConcrete(type: Type): Type {
-    return _transformTypeVars(
-        type,
-        (typeVar: TypeVarType) => {
-            if (typeVar.details.boundType) {
-                return typeVar.details.boundType;
-            }
-
-            return UnknownType.create();
-        },
-        (paramSpec: TypeVarType) => {
-            return [
-                { category: ParameterCategory.VarArgList, name: 'args', type: AnyType.create() },
-                { category: ParameterCategory.VarArgDictionary, name: 'kwargs', type: AnyType.create() },
-            ];
-        }
-    );
 }
 
 export function lookUpObjectMember(
@@ -928,6 +907,23 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
             }
             break;
     }
+}
+
+// Builds a new TypeVarMap and adds the TypeVar scopes for all TypeVars
+// that are used within the type.
+export function buildTypeVarMapFromType(type: Type): TypeVarMap {
+    const typeVarMap = new TypeVarMap();
+    addTypeVarScopeIdsForType(type, typeVarMap);
+    return typeVarMap;
+}
+
+export function addTypeVarScopeIdsForType(type: Type, typeVarMap: TypeVarMap) {
+    const typeVars = getTypeVarArgumentsRecursive(type);
+    typeVars.forEach((typeVar) => {
+        if (typeVar.scopeId) {
+            typeVarMap.addSolveForScope(typeVar.scopeId);
+        }
+    });
 }
 
 // Builds a mapping between type parameters and their specialized
