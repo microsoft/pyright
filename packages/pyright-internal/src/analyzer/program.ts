@@ -66,7 +66,8 @@ import { SourceFile } from './sourceFile';
 import { SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
-import { createTypeEvaluator, PrintTypeFlags, TypeEvaluator } from './typeEvaluator';
+import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
+import { PrintTypeFlags } from './typePrinter';
 import { Type } from './types';
 import { TypeStubWriter } from './typeStubWriter';
 

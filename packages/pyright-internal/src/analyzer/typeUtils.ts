@@ -1849,32 +1849,6 @@ export function computeMroLinearization(classType: ClassType): boolean {
     return isMroFound;
 }
 
-export function printLiteralValue(type: ClassType): string {
-    const literalValue = type.literalValue;
-    if (literalValue === undefined) {
-        return '';
-    }
-
-    let literalStr: string;
-    if (typeof literalValue === 'string') {
-        const prefix = type.details.name === 'bytes' ? 'b' : '';
-        literalStr = literalValue.toString();
-        if (literalStr.indexOf('\n') >= 0) {
-            literalStr = `${prefix}'''${literalStr.replace(tripleTickRegEx, "\\'\\'\\'")}'''`;
-        } else {
-            literalStr = `${prefix}'${literalStr.replace(singleTickRegEx, "\\'")}'`;
-        }
-    } else if (typeof literalValue === 'boolean') {
-        literalStr = literalValue ? 'True' : 'False';
-    } else if (literalValue instanceof EnumLiteral) {
-        literalStr = `${literalValue.className}.${literalValue.itemName}`;
-    } else {
-        literalStr = literalValue.toString();
-    }
-
-    return literalStr;
-}
-
 // Returns zero or more unique module names that point to the place(s)
 // where the type is declared. Unions, for example, can result in more
 // than one result. Type arguments are not included.
