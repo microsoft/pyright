@@ -1733,6 +1733,11 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Ignore privates in named arguments.
+        if (node.parent?.nodeType === ParseNodeType.Argument && node.parent.name === node) {
+            return;
+        }
+
         const nameValue = node.value;
         const isPrivateName = SymbolNameUtils.isPrivateName(nameValue);
         const isProtectedName = SymbolNameUtils.isProtectedName(nameValue);
