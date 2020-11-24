@@ -963,11 +963,9 @@ export function buildTypeVarMap(
             } else {
                 typeArgType = typeArgs[index];
             }
-        } else {
-            typeArgType = getConcreteTypeFromTypeVar(typeParam);
-        }
 
-        typeVarMap.setTypeVar(typeParam, typeArgType, false);
+            typeVarMap.setTypeVar(typeParam, typeArgType, /* isNarrowable */ false);
+        }
     });
 
     return typeVarMap;
@@ -1545,34 +1543,6 @@ function _transformTypeVarsInClassType(
         /* skipAbstractClassTest */ undefined,
         newEffectiveTypeArgs
     );
-}
-
-// Converts a type var type into the most specific type
-// that fits the specified constraints.
-export function getConcreteTypeFromTypeVar(type: TypeVarType, convertConstraintsToUnion = false): Type {
-    if (type.details.boundType) {
-        // If this is a recursive type alias placeholder, don't continue
-        // to specialize it because it will expand it out until we hit the
-        // recursion limit.
-        if (type.details.recursiveTypeAliasName) {
-            return type.details.boundType;
-        }
-
-        const concreteType = makeTypeVarsConcrete(type.details.boundType);
-        if (TypeBase.isInstantiable(type)) {
-            return convertToInstantiable(concreteType);
-        }
-        return concreteType;
-    }
-
-    // Note that we can't use constraints for specialization because
-    // the union of constraints is not the same as individual constraints.
-    if (convertConstraintsToUnion && type.details.constraints.length > 0) {
-        return combineTypes(type.details.constraints);
-    }
-
-    // In all other cases, treat as unknown.
-    return UnknownType.create();
 }
 
 function _transformTypeVarsInFunctionType(

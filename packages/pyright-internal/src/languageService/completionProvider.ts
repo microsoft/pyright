@@ -55,7 +55,6 @@ import {
 } from '../analyzer/types';
 import {
     doForSubtypes,
-    getConcreteTypeFromTypeVar,
     getDeclaringModulesForType,
     getMembersForClass,
     getMembersForModule,
@@ -821,11 +820,14 @@ export class CompletionProvider {
             if (isTypeVar(leftType)) {
                 // If the left is a constrained TypeVar, treat it as a union for the
                 // purposes of providing completion suggestions.
-                leftType = getConcreteTypeFromTypeVar(leftType, /* convertConstraintsToUnion */ true);
+                leftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType, /* convertConstraintsToUnion */ true);
             }
 
             doForSubtypes(leftType, (subtype) => {
-                const specializedSubtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
+                const specializedSubtype = this._evaluator.makeTopLevelTypeVarsConcrete(
+                    subtype,
+                    /* convertConstraintsToUnion */ false
+                );
 
                 if (isObject(specializedSubtype)) {
                     getMembersForClass(specializedSubtype.classType, symbolTable, /* includeInstanceVars */ true);
@@ -851,7 +853,10 @@ export class CompletionProvider {
                 return undefined;
             });
 
-            const specializedLeftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType);
+            const specializedLeftType = this._evaluator.makeTopLevelTypeVarsConcrete(
+                leftType,
+                /* convertConstraintsToUnion */ false
+            );
             const objectThrough: ObjectType | undefined = isObject(specializedLeftType)
                 ? specializedLeftType
                 : undefined;

@@ -174,7 +174,6 @@ import {
     derivesFromClassRecursive,
     doForSubtypes,
     enumerateLiteralsForType,
-    getConcreteTypeFromTypeVar,
     getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType,
     getSpecializedTupleType,
@@ -493,7 +492,7 @@ export interface TypeEvaluator {
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     getScopeIdForNode: (node: ParseNode) => string;
-    makeTopLevelTypeVarsConcrete: (type: Type) => Type;
+    makeTopLevelTypeVarsConcrete: (type: Type, convertConstraintsToUnion: boolean) => Type;
 
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
@@ -2776,7 +2775,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Replaces all of the top-level TypeVars (as opposed to TypeVars
     // used as type arguments in other types) with their concrete form.
-    function makeTopLevelTypeVarsConcrete(type: Type): Type {
+    function makeTopLevelTypeVarsConcrete(type: Type, convertConstraintsToUnion = false): Type {
         return doForSubtypes(type, (subtype) => {
             if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
                 if (subtype.details.boundType) {
@@ -2792,9 +2791,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return subtype;
                 }
 
-                // If this is a constrained type, convert it Any.
                 // TODO - handle constrained types in a better manner.
                 if (subtype.details.constraints.length > 0) {
+                    if (convertConstraintsToUnion) {
+                        return combineTypes(subtype.details.constraints);
+                    }
                     return AnyType.create();
                 }
 
@@ -13592,11 +13593,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        // Fill in any missing type arguments with Any.
+        // Fill in any missing type arguments with Unknown.
         const typeArgTypes = typeArgs ? typeArgs.map((t) => convertToInstance(t.type)) : [];
         const typeParams = ClassType.getTypeParameters(classType);
         for (let i = typeArgTypes.length; i < typeParams.length; i++) {
-            typeArgTypes.push(getConcreteTypeFromTypeVar(typeParams[i]));
+            typeArgTypes.push(UnknownType.create());
         }
 
         typeArgTypes.forEach((typeArgType, index) => {
@@ -16741,15 +16742,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             }
 
-            if (srcType.details.boundType) {
-                // If the source type is a type var itself and has a bound type,
-                // convert it to that bound type.
-                effectiveSrcType = getConcreteTypeFromTypeVar(srcType);
-            } else if (srcType.details.constraints) {
-                effectiveSrcType = combineTypes(srcType.details.constraints);
-            } else {
-                effectiveSrcType = AnyType.create();
-            }
+            effectiveSrcType = makeTopLevelTypeVarsConcrete(srcType, /* convertConstraintsToUnion */ true);
         }
 
         // If there's a bound type, make sure the source is derived from it.
