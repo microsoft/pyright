@@ -51,26 +51,6 @@
             ]
         },
         {
-            "name": "Pyright extension (watch mode)",
-            "type": "extensionHost",
-            "request": "launch",
-            "runtimeExecutable": "${workspaceRoot}/packages/vscode-pyright/dist/extension.js",
-            "preLaunchTask": "Watch extension",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}/packages/vscode-pyright",
-                // The published extension is named "ms-pyright.pyright", but in debug mode it's "ms-pyright.vscode-pyright"
-                // to allow the extension code to participate in the lerna monorepo. Make sure that the published extension
-                // isn't enabled, otherwise both are loaded and conflict.
-                "--disable-extension=ms-pyright.pyright"
-            ],
-            "stopOnEntry": false,
-            "smartStep": true,
-            "sourceMaps": true,
-            "outFiles": [
-                "${workspaceRoot}/packages/vscode-pyright/dist/**/*.js"
-            ]
-        },
-        {
             "name": "Pyright attach server",
             "type": "node",
             "request": "attach",
