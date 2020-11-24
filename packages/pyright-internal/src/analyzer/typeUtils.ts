@@ -48,7 +48,7 @@ export interface ClassMember {
     symbol: Symbol;
 
     // Partially-specialized class that contains the class member
-    classType: Type;
+    classType: ClassType | UnknownType;
 
     // True if instance member, false if class member
     isInstanceMember: boolean;
@@ -106,10 +106,6 @@ export const enum CanAssignFlags {
 
     // For function types, skip the return type check.
     SkipFunctionReturnTypeCheck = 1 << 4,
-
-    // Normally type vars are specialized during type comparisons.
-    // With this flag, a type var must match a type var exactly.
-    DoNotSpecializeTypeVars = 1 << 5,
 }
 
 export type TypeVarTransform = (typeVar: TypeVarType) => Type;
@@ -542,35 +538,6 @@ export function partiallySpecializeType(type: Type, contextClassType: ClassType)
     return applySolvedTypeVars(type, typeVarMap);
 }
 
-// Replaces all of the top-level TypeVars (as opposed to TypeVars
-// used as type arguments in other types) with their concrete form.
-export function makeTopLevelTypeVarsConcrete(type: Type): Type {
-    return doForSubtypes(type, (subtype) => {
-        if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
-            if (subtype.details.boundType) {
-                if (TypeBase.isInstantiable(subtype)) {
-                    return convertToInstantiable(subtype.details.boundType);
-                }
-                return subtype.details.boundType;
-            }
-
-            // If this is a recursive type alias placeholder
-            // that hasn't yet been resolved, return it as is.
-            if (subtype.details.recursiveTypeAliasName) {
-                return subtype;
-            }
-
-            // Normally, we would use UnknownType here, but we need
-            // to use Any because unknown types will generate diagnostics
-            // in strictly-typed files that cannot be suppressed in
-            // any reasonable manner.
-            return AnyType.create();
-        }
-
-        return subtype;
-    });
-}
-
 // Specializes a (potentially generic) type by substituting
 // type variables from a type var map.
 export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, concreteIfNotFound = false): Type {
@@ -666,9 +633,10 @@ export function lookUpClassMember(
     const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
 
     if (isClass(classType)) {
+        const classTypeAlias = ClassType.getAliasClass(classType);
         let foundUnknownBaseClass = false;
 
-        for (const mroClass of classType.details.mro) {
+        for (const mroClass of classTypeAlias.details.mro) {
             if (!isClass(mroClass)) {
                 foundUnknownBaseClass = true;
                 continue;
@@ -677,6 +645,8 @@ export function lookUpClassMember(
             // If mroClass is an ancestor of classType, partially specialize
             // it in the context of classType.
             const specializedMroClass = partiallySpecializeType(mroClass, classType);
+            const isAliasClass =
+                classType.details.aliasClass && ClassType.isSameGenericClass(classType.details.aliasClass, mroClass);
             if (!isClass(specializedMroClass)) {
                 continue;
             }
@@ -690,7 +660,7 @@ export function lookUpClassMember(
 
             if (
                 (flags & ClassMemberLookupFlags.SkipOriginalClass) === 0 ||
-                specializedMroClass.details !== classType.details
+                specializedMroClass.details !== classTypeAlias.details
             ) {
                 const memberFields = specializedMroClass.details.fields;
 
@@ -703,7 +673,7 @@ export function lookUpClassMember(
                             return {
                                 symbol,
                                 isInstanceMember: true,
-                                classType: specializedMroClass,
+                                classType: isAliasClass ? classType : specializedMroClass,
                                 isTypeDeclared: hasDeclaredType,
                             };
                         }
@@ -735,7 +705,7 @@ export function lookUpClassMember(
                         return {
                             symbol,
                             isInstanceMember,
-                            classType: specializedMroClass,
+                            classType: isAliasClass ? classType : specializedMroClass,
                             isTypeDeclared: hasDeclaredType,
                         };
                     }
@@ -1576,7 +1546,11 @@ export function getConcreteTypeFromTypeVar(type: TypeVarType, convertConstraints
             return type.details.boundType;
         }
 
-        return makeTypeVarsConcrete(type.details.boundType);
+        const concreteType = makeTypeVarsConcrete(type.details.boundType);
+        if (TypeBase.isInstantiable(type)) {
+            return convertToInstantiable(concreteType);
+        }
+        return concreteType;
     }
 
     // Note that we can't use constraints for specialization because

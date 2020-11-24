@@ -192,7 +192,6 @@ import {
     isTypeAliasRecursive,
     lookUpClassMember,
     lookUpObjectMember,
-    makeTopLevelTypeVarsConcrete,
     makeTypeVarsConcrete,
     partiallySpecializeType,
     printLiteralValue,
@@ -498,17 +497,14 @@ export interface TypeEvaluator {
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     getScopeIdForNode: (node: ParseNode) => string;
+    makeTopLevelTypeVarsConcrete: (type: Type) => Type;
 
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;
     getFunctionInferredReturnType: (type: FunctionType) => Type;
     getBuiltInType: (node: ParseNode, name: string) => Type;
     getTypeOfMember: (member: ClassMember) => Type;
-    bindFunctionToClassOrObject: (
-        baseType: ClassType | ObjectType | undefined,
-        memberType: Type,
-        treatAsClassMember: boolean
-    ) => Type | undefined;
+    bindFunctionToClassOrObject: (baseType: ClassType | ObjectType | undefined, memberType: Type) => Type | undefined;
     getBoundMethod: (
         classType: ClassType,
         memberName: string,
@@ -622,7 +618,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let cancellationToken: CancellationToken | undefined;
     let isDiagnosticSuppressed = false;
     let flowIncompleteGeneration = 1;
+    let initializedBasicTypes = false;
     let noneType: Type | undefined;
+    let objectType: Type | undefined;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: TypeCache | undefined;
@@ -794,12 +792,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         expectedType = transformPossibleRecursiveTypeAlias(expectedType);
 
-        // If we haven't already fetched the "NoneType" definition from the
+        // If we haven't already fetched some core type definition from the
         // _typeshed stub, do so here. It would be better to fetch this when it's
         // needed in canAssignType, but we don't have access to the parse tree
         // at that point.
-        if (!noneType) {
+        if (!initializedBasicTypes) {
             noneType = getTypeshedType(node, 'NoneType') || AnyType.create();
+            objectType = getBuiltInType(node, 'object') || AnyType.create();
+
+            initializedBasicTypes = true;
         }
 
         let typeResult: TypeResult | undefined;
@@ -2762,6 +2763,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         writeTypeCache(target, type);
     }
 
+    // Replaces all of the top-level TypeVars (as opposed to TypeVars
+    // used as type arguments in other types) with their concrete form.
+    function makeTopLevelTypeVarsConcrete(type: Type): Type {
+        return doForSubtypes(type, (subtype) => {
+            if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
+                if (subtype.details.boundType) {
+                    if (TypeBase.isInstantiable(subtype)) {
+                        return convertToInstantiable(subtype.details.boundType);
+                    }
+                    return subtype.details.boundType;
+                }
+
+                // If this is a recursive type alias placeholder
+                // that hasn't yet been resolved, return it as is.
+                if (subtype.details.recursiveTypeAliasName) {
+                    return subtype;
+                }
+
+                // Normally, we would use UnknownType here, but we need
+                // to use Any because unknown types will generate diagnostics
+                // in strictly-typed files that cannot be suppressed in
+                // any reasonable manner.
+                return AnyType.create();
+            }
+
+            return subtype;
+        });
+    }
+
     function markNamesAccessed(node: ParseNode, names: string[]) {
         const fileInfo = getFileInfo(node);
         const scope = ScopeUtils.getScopeForNode(node);
@@ -3518,7 +3548,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return getTypeFromMemberAccessWithBaseType(
                     node,
                     {
-                        type: makeTypeVarsConcrete(baseType),
+                        type: makeTopLevelTypeVarsConcrete(baseType),
                         node,
                         bindToType: baseType,
                     },
@@ -3744,8 +3774,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): ClassMemberLookup | undefined {
         // If this is a special type (like "List") that has an alias class (like
         // "list"), switch to the alias, which defines the members.
-        const classTypeAlias = ClassType.getAliasClass(classType);
-
         let classLookupFlags = ClassMemberLookupFlags.Default;
         if (flags & MemberAccessFlags.AccessClassMembersOnly) {
             classLookupFlags |= ClassMemberLookupFlags.SkipInstanceVariables;
@@ -3759,7 +3787,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Always look for a member with a declared type first.
         let memberInfo = lookUpClassMember(
-            classTypeAlias,
+            classType,
             memberName,
             classLookupFlags | ClassMemberLookupFlags.DeclaredTypesOnly
         );
@@ -3767,7 +3795,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If we couldn't find a symbol with a declared type, use
         // a symbol with an inferred type.
         if (!memberInfo) {
-            memberInfo = lookUpClassMember(classTypeAlias, memberName, classLookupFlags);
+            memberInfo = lookUpClassMember(classType, memberName, classLookupFlags);
         }
 
         if (memberInfo) {
@@ -3785,7 +3813,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (
                         containingClassType &&
                         isClass(containingClassType) &&
-                        ClassType.isSameGenericClass(containingClassType, classTypeAlias)
+                        ClassType.isSameGenericClass(containingClassType, classType)
                     ) {
                         type = getDeclaredTypeOfSymbol(memberInfo.symbol) || UnknownType.create();
                     }
@@ -9962,6 +9990,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     /* isSynthesized */ true
                                 );
                                 typeVar.scopeId = getScopeIdForNode(initDeclNode);
+                                typeVar.details.boundType = UnknownType.create();
                                 return TypeVarType.cloneForScopeId(typeVar, getScopeIdForNode(node));
                             });
                         }
@@ -10894,15 +10923,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         // The setter type should be assignable to the getter type.
                         const diag = new DiagnosticAddendum();
-                        if (
-                            !canAssignType(
-                                fgetType,
-                                fsetType,
-                                diag,
-                                /* typeVarMap */ undefined,
-                                CanAssignFlags.DoNotSpecializeTypeVars
-                            )
-                        ) {
+                        if (!canAssignType(fgetType, fsetType, diag)) {
                             addDiagnostic(
                                 fileInfo.diagnosticRuleSet.reportPropertyTypeMismatch,
                                 DiagnosticRule.reportPropertyTypeMismatch,
@@ -16941,7 +16962,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function bindFunctionToClassOrObject(
         baseType: ClassType | ObjectType | undefined,
         memberType: Type,
-        treatAsClassMethod: boolean,
+        treatAsClassMethod = false,
         errorNode?: ParseNode,
         firstParamType?: ClassType | ObjectType | TypeVarType
     ): Type | undefined {
@@ -17499,6 +17520,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getGetterTypeFromProperty,
         markNamesAccessed,
         getScopeIdForNode,
+        makeTopLevelTypeVarsConcrete,
         getEffectiveTypeOfSymbol,
         getFunctionDeclaredReturnType,
         getFunctionInferredReturnType,

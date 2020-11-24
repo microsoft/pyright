@@ -60,7 +60,6 @@ import {
     getMembersForClass,
     getMembersForModule,
     isProperty,
-    makeTopLevelTypeVarsConcrete,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { ConfigOptions } from '../common/configOptions';
@@ -826,7 +825,7 @@ export class CompletionProvider {
             }
 
             doForSubtypes(leftType, (subtype) => {
-                const specializedSubtype = makeTopLevelTypeVarsConcrete(subtype);
+                const specializedSubtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
                 if (isObject(specializedSubtype)) {
                     getMembersForClass(specializedSubtype.classType, symbolTable, /* includeInstanceVars */ true);
@@ -852,7 +851,7 @@ export class CompletionProvider {
                 return undefined;
             });
 
-            const specializedLeftType = makeTopLevelTypeVarsConcrete(leftType);
+            const specializedLeftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType);
             const objectThrough: ObjectType | undefined = isObject(specializedLeftType)
                 ? specializedLeftType
                 : undefined;
@@ -1513,7 +1512,7 @@ export class CompletionProvider {
                                 }
                                 case DeclarationType.Function: {
                                     const functionType = detail.objectThrough
-                                        ? this._evaluator.bindFunctionToClassOrObject(detail.objectThrough, type, false)
+                                        ? this._evaluator.bindFunctionToClassOrObject(detail.objectThrough, type)
                                         : type;
                                     if (functionType) {
                                         if (isProperty(functionType) && detail.objectThrough) {

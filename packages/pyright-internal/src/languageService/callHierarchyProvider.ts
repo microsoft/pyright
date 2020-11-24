@@ -28,7 +28,6 @@ import {
     isProperty,
     lookUpClassMember,
     lookUpObjectMember,
-    makeTopLevelTypeVarsConcrete,
 } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { getFileName } from '../common/pathUtils';
@@ -215,9 +214,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                 let baseType = subtype;
 
                 // This could be a bound TypeVar (e.g. used for "self" and "cls").
-                if (isTypeVar(baseType)) {
-                    baseType = makeTopLevelTypeVarsConcrete(baseType);
-                }
+                baseType = this._evaluator.makeTopLevelTypeVarsConcrete(baseType);
 
                 if (!isObject(baseType)) {
                     return undefined;
@@ -351,9 +348,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                     let baseType = subtype;
 
                     // This could be a bound TypeVar (e.g. used for "self" and "cls").
-                    if (isTypeVar(baseType)) {
-                        baseType = makeTopLevelTypeVarsConcrete(baseType);
-                    }
+                    baseType = this._evaluator.makeTopLevelTypeVarsConcrete(baseType);
 
                     if (!isObject(baseType)) {
                         return undefined;

@@ -111,7 +111,6 @@ import {
     isProperty,
     isTupleClass,
     lookUpClassMember,
-    makeTopLevelTypeVarsConcrete,
     partiallySpecializeType,
     transformPossibleRecursiveTypeAlias,
     transformTypeObjectToClass,
@@ -482,7 +481,7 @@ export class Checker extends ParseTreeWalker {
 
                     // Specialize the return type in case it contains references to type variables.
                     // These will be replaced with the corresponding constraint or bound types.
-                    const specializedDeclaredType = makeTopLevelTypeVarsConcrete(declaredReturnType);
+                    const specializedDeclaredType = this._evaluator.makeTopLevelTypeVarsConcrete(declaredReturnType);
                     if (!this._evaluator.canAssignType(specializedDeclaredType, returnType, diagAddendum)) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -1473,7 +1472,7 @@ export class Checker extends ParseTreeWalker {
             let isSupported = true;
 
             doForSubtypes(type, (subtype) => {
-                subtype = makeTopLevelTypeVarsConcrete(subtype);
+                subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
                 switch (subtype.category) {
                     case TypeCategory.Any:

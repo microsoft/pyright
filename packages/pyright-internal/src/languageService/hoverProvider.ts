@@ -274,7 +274,7 @@ export class HoverProvider {
             return false;
         }
 
-        const initMethodType = evaluator.bindFunctionToClassOrObject(instanceType, functionType, false);
+        const initMethodType = evaluator.bindFunctionToClassOrObject(instanceType, functionType);
 
         if (!initMethodType || initMethodType.category !== TypeCategory.Function) {
             return false;
