@@ -6095,9 +6095,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeParams = type.details.parameters;
 
         if (expectedType && !requiresSpecialization(expectedType) && type.details.declaredReturnType) {
-            // Prepopulate the typeVarMap based on the specialized expected type if the callee has a declared
-            // return type. This will allow us to more closely match the expected type if possible.
-            canAssignType(type.details.declaredReturnType, expectedType, new DiagnosticAddendum(), typeVarMap);
+            // If the expected type is a union, we don't know which type is expected,
+            // so avoid using the expected type.
+            if (expectedType.category !== TypeCategory.Union) {
+                // Prepopulate the typeVarMap based on the specialized expected type if the callee has a declared
+                // return type. This will allow us to more closely match the expected type if possible.
+                canAssignType(getFunctionEffectiveReturnType(type), expectedType, new DiagnosticAddendum(), typeVarMap);
+            }
         }
 
         // The last parameter might be a var arg dictionary. If so, strip it off.
