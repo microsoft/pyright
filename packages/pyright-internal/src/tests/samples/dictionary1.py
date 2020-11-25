@@ -26,4 +26,4 @@ d1 = {**t1}
 
 d2 = {"hi": 3}
 d3 = {**d2, "": 4}
-td3: Literal["Dict[str, int]"] = reveal_type(d3)
+td3: Literal["dict[str, int]"] = reveal_type(d3)

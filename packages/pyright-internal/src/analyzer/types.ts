@@ -300,6 +300,11 @@ export const enum ClassTypeFlags {
     // class is generic, and therefore supports standard subscripting
     // semantics.
     HasCustomClassGetItem = 1 << 18,
+
+    // This class uses a variadic type arguments, so the number of
+    // arguments is variable. Currently, the only class that supports
+    // this is tuple.
+    VariadicTypeParameter = 1 << 19,
 }
 
 interface ClassDetails {
@@ -312,7 +317,6 @@ interface ClassDetails {
     mro: Type[];
     declaredMetaclass?: ClassType | UnknownType;
     effectiveMetaclass?: ClassType | UnknownType;
-    aliasClass?: ClassType;
     fields: SymbolTable;
     typeParameters: TypeVarType[];
     typeVarScopeId?: TypeVarScopeId;
@@ -331,12 +335,11 @@ export interface ClassType extends TypeBase {
     // some or all of the type parameters.
     typeArguments?: Type[];
 
-    // For a few classes (e.g., Tuple and tuple), the class definition
-    // calls for a single type parameter but the spec allows the programmer
-    // to provide variadic type arguments. To make these compatible, we need
-    // to derive a single effective type argument from the provided type
-    // arguments.
-    effectiveTypeArguments?: Type[];
+    // For a few classes (e.g., tuple), the class definition calls for a single
+    // type parameter but the spec allows the programmer to provide variadic
+    // type arguments. To make these compatible, we need to derive a single
+    // typeArgument value based on the variadic arguments.
+    variadicTypeArguments?: Type[];
 
     // If type arguments are present, were they explicit (i.e.
     // provided explicitly in the code)?
@@ -347,6 +350,11 @@ export interface ClassType extends TypeBase {
     // Some types can be further constrained to have
     // literal types (e.g. true or 'string' or 3).
     literalValue?: LiteralValue;
+
+    // The typing module defines aliases for builtin types
+    // (e.g. Tuple, List, Dict). This field holds the alias
+    // name.
+    aliasName?: string;
 }
 
 export namespace ClassType {
@@ -388,65 +396,27 @@ export namespace ClassType {
         typeArguments: Type[] | undefined,
         isTypeArgumentExplicit: boolean,
         skipAbstractClassTest = false,
-        effectiveTypeArguments?: Type[]
+        variadicTypeArguments?: Type[]
     ): ClassType {
-        const newClassType = create(
-            classType.details.name,
-            classType.details.fullName,
-            classType.details.moduleName,
-            classType.details.flags,
-            classType.details.typeSourceId,
-            classType.details.declaredMetaclass,
-            classType.details.effectiveMetaclass
-        );
+        const newClassType = { ...classType };
 
-        newClassType.details = classType.details;
-        if (typeArguments) {
-            newClassType.typeArguments = typeArguments;
-        }
+        newClassType.typeArguments = typeArguments;
         newClassType.isTypeArgumentExplicit = isTypeArgumentExplicit;
-        if (effectiveTypeArguments) {
-            newClassType.effectiveTypeArguments = effectiveTypeArguments;
-        }
-
-        if (classType.literalValue !== undefined) {
-            newClassType.literalValue = classType.literalValue;
-        }
-
-        if (classType.typeAliasInfo !== undefined) {
-            newClassType.typeAliasInfo = classType.typeAliasInfo;
-        }
-
-        if (skipAbstractClassTest) {
-            newClassType.skipAbstractClassTest = true;
-        }
+        newClassType.skipAbstractClassTest = skipAbstractClassTest;
+        newClassType.variadicTypeArguments = variadicTypeArguments;
 
         return newClassType;
     }
 
     export function cloneWithLiteral(classType: ClassType, value: LiteralValue | undefined): ClassType {
-        const newClassType = create(
-            classType.details.name,
-            classType.details.fullName,
-            classType.details.moduleName,
-            classType.details.flags,
-            classType.details.typeSourceId,
-            classType.details.declaredMetaclass,
-            classType.details.effectiveMetaclass
-        );
-        newClassType.details = classType.details;
-        if (classType.typeArguments) {
-            newClassType.typeArguments = classType.typeArguments;
-        }
-        if (value !== undefined) {
-            newClassType.literalValue = value;
-        }
-        if (classType.typeAliasInfo !== undefined) {
-            newClassType.typeAliasInfo = classType.typeAliasInfo;
-        }
-        if (classType.skipAbstractClassTest) {
-            newClassType.skipAbstractClassTest = true;
-        }
+        const newClassType = { ...classType };
+        newClassType.literalValue = value;
+        return newClassType;
+    }
+
+    export function cloneForTypingAlias(classType: ClassType, aliasName: string): ClassType {
+        const newClassType = { ...classType };
+        newClassType.aliasName = aliasName;
         return newClassType;
     }
 
@@ -474,7 +444,7 @@ export namespace ClassType {
     }
 
     export function isSpecialBuiltIn(classType: ClassType, className?: string) {
-        if (!(classType.details.flags & ClassTypeFlags.SpecialBuiltIn)) {
+        if (!(classType.details.flags & ClassTypeFlags.SpecialBuiltIn) && !classType.aliasName) {
             return false;
         }
 
@@ -491,7 +461,7 @@ export namespace ClassType {
         }
 
         if (className !== undefined) {
-            return classType.details.name === className;
+            return classType.details.name === className || classType.aliasName === className;
         }
 
         return true;
@@ -569,12 +539,12 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.HasCustomClassGetItem);
     }
 
-    export function getAliasClass(classType: ClassType): ClassType {
-        return classType.details.aliasClass || classType;
+    export function isVariadicTypeParam(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.VariadicTypeParameter);
     }
 
     export function getTypeParameters(classType: ClassType) {
-        return getAliasClass(classType).details.typeParameters;
+        return classType.details.typeParameters;
     }
 
     export function hasUnknownBaseClass(classType: ClassType) {
@@ -582,12 +552,7 @@ export namespace ClassType {
     }
 
     // Same as isSame except that it doesn't compare type arguments.
-    export function isSameGenericClass(
-        classType: ClassType,
-        type2: ClassType,
-        treatAliasAsSame = true,
-        recursionCount = 0
-    ) {
+    export function isSameGenericClass(classType: ClassType, type2: ClassType, recursionCount = 0) {
         if (recursionCount > maxTypeRecursionCount) {
             return true;
         }
@@ -599,10 +564,8 @@ export namespace ClassType {
 
         // If either or both have aliases (e.g. List -> list), use the
         // aliases for comparison purposes.
-        const class1Details =
-            treatAliasAsSame && classType.details.aliasClass ? classType.details.aliasClass.details : classType.details;
-        const class2Details =
-            treatAliasAsSame && type2.details.aliasClass ? type2.details.aliasClass.details : type2.details;
+        const class1Details = classType.details;
+        const class2Details = type2.details;
 
         if (class1Details === class2Details) {
             return true;
@@ -625,7 +588,7 @@ export namespace ClassType {
         if (ClassType.isBuiltIn(classType, 'NamedTuple') && ClassType.isBuiltIn(type2, 'NamedTuple')) {
             return true;
         }
-        if (ClassType.isBuiltIn(classType, 'Tuple') && ClassType.isBuiltIn(type2, 'Tuple')) {
+        if (ClassType.isBuiltIn(classType, 'tuple') && ClassType.isBuiltIn(type2, 'tuple')) {
             return true;
         }
 
@@ -726,8 +689,7 @@ export namespace ClassType {
             return true;
         }
 
-        const aliasedSubclass = subclassType.details.aliasClass || subclassType;
-        for (const baseClass of aliasedSubclass.details.baseClasses) {
+        for (const baseClass of subclassType.details.baseClasses) {
             if (isClass(baseClass)) {
                 if (isDerivedFrom(baseClass, parentClassType, inheritanceChain)) {
                     if (inheritanceChain) {
@@ -1476,7 +1438,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             const classType2 = type2 as ClassType;
 
             // If the details are not the same it's not the same class.
-            if (!ClassType.isSameGenericClass(type1, classType2, true, recursionCount + 1)) {
+            if (!ClassType.isSameGenericClass(type1, classType2, recursionCount + 1)) {
                 return false;
             }
 
@@ -1491,6 +1453,17 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
 
                 if (!isTypeSame(typeArg1, typeArg2, recursionCount + 1)) {
+                    return false;
+                }
+            }
+
+            const type1VariadicTypeArgs = type1.variadicTypeArguments || [];
+            const type2VariadicTypeArgs = classType2.variadicTypeArguments || [];
+            if (type1VariadicTypeArgs.length !== type2VariadicTypeArgs.length) {
+                return false;
+            }
+            for (let i = 0; i < type1VariadicTypeArgs.length; i++) {
+                if (!isTypeSame(type1VariadicTypeArgs[i], type2VariadicTypeArgs[i], recursionCount + 1)) {
                     return false;
                 }
             }

@@ -370,22 +370,23 @@ export function printObjectTypeForClass(
     returnTypeCallback: FunctionReturnTypeCallback,
     recursionCount = 0
 ): string {
-    let objName = type.details.name;
+    let objName = type.aliasName || type.details.name;
 
     // If this is a pseudo-generic class, don't display the type arguments
     // or type parameters because it will confuse users.
     if (!ClassType.isPseudoGenericClass(type)) {
         // If there is a type arguments array, it's a specialized class.
-        if (type.typeArguments) {
+        const typeArgs = type.variadicTypeArguments || type.typeArguments;
+        if (typeArgs) {
             // Handle Tuple[()] as a special case.
-            if (type.typeArguments.length > 0) {
+            if (typeArgs.length > 0) {
                 if (
                     (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
-                    type.typeArguments.some((typeArg) => !isAnyOrUnknown(typeArg))
+                    typeArgs.some((typeArg) => !isAnyOrUnknown(typeArg))
                 ) {
                     objName +=
                         '[' +
-                        type.typeArguments
+                        typeArgs
                             .map((typeArg) => {
                                 return printType(
                                     typeArg,
@@ -399,7 +400,7 @@ export function printObjectTypeForClass(
                         ']';
                 }
             } else {
-                if (isTupleClass(type)) {
+                if (ClassType.isVariadicTypeParam(type)) {
                     objName += '[()]';
                 }
             }

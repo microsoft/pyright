@@ -7,7 +7,7 @@ from typing import List, Literal
 
 
 a1 = (1, 2)
-t1: Literal["Tuple[Literal[1], Literal[2]]"] = reveal_type(a1)
+t1: Literal["tuple[Literal[1], Literal[2]]"] = reveal_type(a1)
 
 a2 = list((1, 2))
 t2: Literal["list[int]"] = reveal_type(a2)

@@ -42,7 +42,7 @@ list1 = list(TestEnum3)
 t1: Literal["list[TestEnum3]"] = reveal_type(list1)
 
 list2 = [i for i in TestEnum3]
-t2: Literal["List[TestEnum3]"] = reveal_type(list2)
+t2: Literal["list[TestEnum3]"] = reveal_type(list2)
 
 num_items_in_enum3 = len(TestEnum3)
 t3: Literal["int"] = reveal_type(num_items_in_enum3)

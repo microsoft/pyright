@@ -617,9 +617,10 @@ export class Checker extends ParseTreeWalker {
         //   assert (x > 3, "bad value x")
         const type = this._evaluator.getType(node.testExpression);
         if (type && isObject(type)) {
-            if (isTupleClass(type.classType) && type.classType.typeArguments) {
-                if (type.classType.typeArguments.length > 0) {
-                    const lastTypeArg = type.classType.typeArguments[type.classType.typeArguments.length - 1];
+            if (isTupleClass(type.classType) && type.classType.variadicTypeArguments) {
+                if (type.classType.variadicTypeArguments.length > 0) {
+                    const lastTypeArg =
+                        type.classType.variadicTypeArguments[type.classType.variadicTypeArguments.length - 1];
                     if (!isEllipsisType(lastTypeArg)) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
@@ -1475,9 +1476,7 @@ export class Checker extends ParseTreeWalker {
                         break;
 
                     case TypeCategory.Object:
-                        isSupported =
-                            ClassType.isBuiltIn(subtype.classType, 'type') ||
-                            ClassType.isBuiltIn(subtype.classType, 'Type');
+                        isSupported = ClassType.isBuiltIn(subtype.classType, 'type');
                         break;
 
                     case TypeCategory.Class:
@@ -1503,8 +1502,14 @@ export class Checker extends ParseTreeWalker {
         };
 
         let isValidType = true;
-        if (isObject(arg1Type) && isTupleClass(arg1Type.classType) && arg1Type.classType.typeArguments) {
-            isValidType = !arg1Type.classType.typeArguments.some((typeArg) => !isSupportedTypeForIsInstance(typeArg));
+        if (
+            isObject(arg1Type) &&
+            ClassType.isVariadicTypeParam(arg1Type.classType) &&
+            arg1Type.classType.variadicTypeArguments
+        ) {
+            isValidType = !arg1Type.classType.variadicTypeArguments.some(
+                (typeArg) => !isSupportedTypeForIsInstance(typeArg)
+            );
         } else {
             isValidType = isSupportedTypeForIsInstance(arg1Type);
         }
@@ -1559,8 +1564,8 @@ export class Checker extends ParseTreeWalker {
             // The isinstance and issubclass call supports a variation where the second
             // parameter is a tuple of classes.
             const objClass = arg1Type.classType;
-            if (isTupleClass(objClass) && objClass.typeArguments) {
-                objClass.typeArguments.forEach((typeArg) => {
+            if (isTupleClass(objClass) && objClass.variadicTypeArguments) {
+                objClass.variadicTypeArguments.forEach((typeArg) => {
                     if (isClass(typeArg)) {
                         classTypeList.push(typeArg);
                     } else {

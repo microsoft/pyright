@@ -1033,12 +1033,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (reportExpectingTypeErrors) {
             const resultType = transformTypeObjectToClass(typeResult.type);
             if (!TypeBase.isInstantiable(resultType)) {
-                const isEmptyTuple =
+                const isEmptyVariadic =
                     isObject(resultType) &&
-                    isTupleClass(resultType.classType) &&
-                    resultType.classType.typeArguments?.length === 0;
+                    ClassType.isVariadicTypeParam(resultType.classType) &&
+                    resultType.classType.variadicTypeArguments?.length === 0;
 
-                if ((flags & EvaluatorFlags.AllowEmptyTupleAsType) === 0 || !isEmptyTuple) {
+                if ((flags & EvaluatorFlags.AllowEmptyTupleAsType) === 0 || !isEmptyVariadic) {
                     addExpectedClassDiagnostic(typeResult.type, node);
                 }
             }
@@ -1199,8 +1199,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberName: string,
         treatAsClassMember: boolean
     ): FunctionType | OverloadedFunctionType | undefined {
-        classType = ClassType.getAliasClass(classType);
-
         const memberInfo = lookUpClassMember(
             classType,
             memberName,
@@ -2014,7 +2012,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        let dictType = getBuiltInType(node, 'Dict');
+        let dictType = getBuiltInType(node, 'dict');
         if (isClass(dictType)) {
             dictType = ObjectType.create(
                 ClassType.cloneForSpecialization(
@@ -2668,8 +2666,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         doForSubtypes(type, (subtype) => {
             // Is this subtype a tuple?
             const tupleType = getSpecializedTupleType(subtype);
-            if (tupleType && tupleType.typeArguments) {
-                const sourceEntryTypes = tupleType.typeArguments;
+            if (tupleType && tupleType.variadicTypeArguments) {
+                const sourceEntryTypes = tupleType.variadicTypeArguments;
                 const sourceEntryCount = sourceEntryTypes.length;
 
                 // Is this a homogenous tuple of indeterminate length?
@@ -2744,7 +2742,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // If the target uses an unpack operator, wrap the target type in a list.
             if (index === unpackIndex) {
-                const listType = getBuiltInType(expr, 'List');
+                const listType = getBuiltInType(expr, 'list');
                 if (isClass(listType)) {
                     targetType = ObjectType.create(
                         ClassType.cloneForSpecialization(listType, [targetType], /* isTypeArgumentExplicit */ true)
@@ -3561,7 +3559,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             case TypeCategory.Object: {
                 const classFromTypeObject = getClassFromPotentialTypeObject(baseType);
                 if (TypeBase.isInstantiable(classFromTypeObject)) {
-                    // Handle the case where the object is a 'Type' object, which
+                    // Handle the case where the object is a 'type' object, which
                     // represents a class.
                     return getTypeFromMemberAccessWithBaseType(
                         node,
@@ -3735,13 +3733,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type, node };
     }
 
-    // If the object type is a 'Type' object, converts it to the corresponding
+    // If the object type is a 'type' object, converts it to the corresponding
     // class that it represents and returns that class. Otherwise returns the
     // original type.
     function getClassFromPotentialTypeObject(potentialTypeObject: Type): Type {
         if (isObject(potentialTypeObject)) {
             const objectClass = potentialTypeObject.classType;
-            if (ClassType.isBuiltIn(objectClass, 'Type') || ClassType.isBuiltIn(objectClass, 'type')) {
+            if (ClassType.isBuiltIn(objectClass, 'type')) {
                 const typeArgs = objectClass.typeArguments;
 
                 if (typeArgs && typeArgs.length > 0) {
@@ -4230,7 +4228,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Check for builtin classes that will generate runtime exceptions if subscripted.
         if ((flags & EvaluatorFlags.AllowForwardReferences) === 0) {
             const fileInfo = getFileInfo(node);
-            if (isClass(baseTypeResult.type) && ClassType.isBuiltIn(baseTypeResult.type)) {
+            if (
+                isClass(baseTypeResult.type) &&
+                ClassType.isBuiltIn(baseTypeResult.type) &&
+                !baseTypeResult.type.aliasName
+            ) {
                 const minPythonVersion = nonSubscriptableBuiltinTypes[baseTypeResult.type.details.fullName];
                 if (minPythonVersion !== undefined && fileInfo.executionEnvironment.pythonVersion < minPythonVersion) {
                     addDiagnostic(
@@ -4370,11 +4372,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return ObjectType.create(subtype);
                 }
 
-                // Handle the case where the base type is "Tuple". We need to
-                // perform special processing of the type args in this case to permit
-                // empty tuples.
+                // Handle the case where the base type allows for a variable number
+                // of type arguments. We need to perform special processing of the
+                // type args in this case to permit empty tuples.
                 let adjustedFlags = flags;
-                if (isClass(subtype) && isTupleClass(subtype)) {
+                if (isClass(subtype) && ClassType.isVariadicTypeParam(subtype)) {
                     adjustedFlags |= EvaluatorFlags.AllowEmptyTupleAsType;
                 }
 
@@ -4573,14 +4575,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !node.items.items[0].isImaginary
             ) {
                 const tupleType = getSpecializedTupleType(baseTypeClass);
-                if (tupleType && tupleType.typeArguments && tupleType.typeArguments.length > 0) {
+                if (tupleType && tupleType.variadicTypeArguments && tupleType.variadicTypeArguments.length > 0) {
                     const numberNode = node.items.items[0];
 
                     if (numberNode.isInteger && numberNode.value >= 0) {
-                        if (tupleType.typeArguments.length === 2 && isEllipsisType(tupleType.typeArguments[1])) {
-                            return tupleType.typeArguments[0];
-                        } else if (numberNode.value < tupleType.typeArguments.length) {
-                            return tupleType.typeArguments[numberNode.value];
+                        if (
+                            tupleType.variadicTypeArguments.length === 2 &&
+                            isEllipsisType(tupleType.variadicTypeArguments[1])
+                        ) {
+                            return tupleType.variadicTypeArguments[0];
+                        } else if (numberNode.value < tupleType.variadicTypeArguments.length) {
+                            return tupleType.variadicTypeArguments[numberNode.value];
                         }
                     }
                 }
@@ -4588,10 +4593,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else {
             // Handle the case where the index expression is a tuple. This
             // isn't used in most cases, but it is supported by the language.
-            const builtInTupleType = getBuiltInType(node, 'Tuple');
+            const builtInTupleType = getBuiltInType(node, 'tuple');
             if (isClass(builtInTupleType)) {
                 indexType = convertToInstance(
-                    cloneTupleForSpecialization(builtInTupleType, indexTypeList, /* isTypeArgumentExplicit */ true)
+                    specializeVariadicGenericClass(builtInTupleType, indexTypeList, /* isTypeArgumentExplicit */ true)
                 );
             } else {
                 indexType = UnknownType.create();
@@ -4720,7 +4725,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const builtInTuple = getBuiltInObject(node, 'Tuple');
+        const builtInTuple = getBuiltInObject(node, 'tuple');
         if (!isObject(builtInTuple)) {
             return undefined;
         }
@@ -4728,20 +4733,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Build an array of expected types.
         const expectedTypes: Type[] = [];
 
-        if (isTupleClass(expectedType.classType) && expectedType.classType.typeArguments) {
+        if (isTupleClass(expectedType.classType) && expectedType.classType.variadicTypeArguments) {
             // Is this a homogeneous tuple of indeterminate length? If so,
             // match the number of expected types to the number of entries
             // in the tuple expression.
             if (
-                expectedType.classType.typeArguments.length === 2 &&
-                isEllipsisType(expectedType.classType.typeArguments[1])
+                expectedType.classType.variadicTypeArguments.length === 2 &&
+                isEllipsisType(expectedType.classType.variadicTypeArguments[1])
             ) {
-                const homogenousType = transformPossibleRecursiveTypeAlias(expectedType.classType.typeArguments[0]);
+                const homogenousType = transformPossibleRecursiveTypeAlias(
+                    expectedType.classType.variadicTypeArguments[0]
+                );
                 for (let i = 0; i < node.expressions.length; i++) {
                     expectedTypes.push(homogenousType);
                 }
             } else {
-                expectedType.classType.typeArguments.forEach((typeArg) => {
+                expectedType.classType.variadicTypeArguments.forEach((typeArg) => {
                     expectedTypes.push(transformPossibleRecursiveTypeAlias(typeArg));
                 });
             }
@@ -4769,7 +4776,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expectedTypesContainLiterals = expectedTypes.some((type) => isLiteralType(type));
 
         const type = convertToInstance(
-            cloneTupleForSpecialization(
+            specializeVariadicGenericClass(
                 builtInTuple.classType,
                 buildTupleTypesList(entryTypeResults),
                 /* isTypeArgumentExplicit */ true,
@@ -4783,13 +4790,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromTupleInferred(node: TupleNode): TypeResult {
         const entryTypeResults = node.expressions.map((expr) => getTypeOfExpression(expr));
 
-        const builtInTupleType = getBuiltInType(node, 'Tuple');
+        const builtInTupleType = getBuiltInType(node, 'tuple');
         if (!isClass(builtInTupleType)) {
             return { type: UnknownType.create(), node };
         }
 
         const type = convertToInstance(
-            cloneTupleForSpecialization(
+            specializeVariadicGenericClass(
                 builtInTupleType,
                 buildTupleTypesList(entryTypeResults),
                 /* isTypeArgumentExplicit */ true
@@ -4808,7 +4815,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // but some other iterator (e.g. a List), we won't know the number of
                 // items, so we'll need to leave the Tuple open-ended.
                 if (isObject(typeResult.unpackedType) && isTupleClass(typeResult.unpackedType.classType)) {
-                    const typeArgs = typeResult.unpackedType.classType.typeArguments;
+                    const typeArgs = typeResult.unpackedType.classType.variadicTypeArguments;
 
                     // If the Tuple wasn't specialized or has a "..." type parameter, we can't
                     // make any determination about its contents.
@@ -4832,20 +4839,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return tupleTypes;
     }
 
-    // Classes of type Tuple and tuple require special handling because they
-    // support variadic type parameters (including a form that represents homogenous
-    // arbitrary-length tuples). It computes the "effective type args" field, which
-    // is a union of the individual type args. If stripLiterals is true, literal
-    // values are stripped when computing the effective type args.
-    function cloneTupleForSpecialization(
-        tupleClass: ClassType,
+    // Generic classes that accept a variable number of type arguments (currently
+    // only tuple) require special handling. This method computes the "effective"
+    // type argument. If stripLiterals is true, literal values are
+    // stripped when computing the effective type args.
+    function specializeVariadicGenericClass(
+        classType: ClassType,
         typeArgs: Type[],
         isTypeArgumentExplicit: boolean,
         stripLiterals = false
     ): ClassType {
-        // Create a copy of the Tuple class that overrides the normal MRO
-        // entries with a version of Tuple and/or tuple that are specialized
-        // appropriately.
         let combinedTupleType: Type = AnyType.create(false);
         if (typeArgs.length === 2 && isEllipsisType(typeArgs[1])) {
             combinedTupleType = typeArgs[0];
@@ -4857,19 +4860,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             combinedTupleType = stripLiteralValue(combinedTupleType);
         }
 
-        const effectiveTypeArguments = [combinedTupleType];
-        const specializedTuple = ClassType.cloneForSpecialization(
-            tupleClass,
-            typeArgs,
+        // An empty tuple has an effective type of Any.
+        if (isNever(combinedTupleType)) {
+            combinedTupleType = AnyType.create();
+        }
+
+        return ClassType.cloneForSpecialization(
+            classType,
+            [combinedTupleType],
             isTypeArgumentExplicit,
             /* skipAbstractClassTest */ undefined,
-            effectiveTypeArguments
+            typeArgs
         );
-        specializedTuple.details = { ...specializedTuple.details };
-        specializedTuple.details.mro = [...specializedTuple.details.mro];
-        specializedTuple.details.mro[0] = specializedTuple;
-
-        return specializedTuple;
     }
 
     function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[], isTypeArgumentExplicit: boolean) {
@@ -4884,11 +4886,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const namedTupleClass = classType.details.mro[namedTupleIndex] as ClassType;
         const typedTupleClass = classType.details.mro[namedTupleIndex + 1];
 
-        if (!isClass(typedTupleClass) || !ClassType.isBuiltIn(typedTupleClass, 'Tuple')) {
+        if (!isClass(typedTupleClass) || !isTupleClass(typedTupleClass)) {
             return;
         }
 
-        const updatedTupleClass = cloneTupleForSpecialization(typedTupleClass, typeArgs, isTypeArgumentExplicit);
+        const updatedTupleClass = specializeVariadicGenericClass(typedTupleClass, typeArgs, isTypeArgumentExplicit);
 
         // Create a copy of the NamedTuple class that overrides the normal MRO
         // entries with a version of Tuple that is specialized appropriately.
@@ -4898,14 +4900,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         clonedNamedTupleClass.details.mro[1] = updatedTupleClass.details.mro[0];
 
         clonedNamedTupleClass.details.baseClasses = clonedNamedTupleClass.details.baseClasses.map((baseClass) => {
-            if (isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'Tuple')) {
+            if (isClass(baseClass) && isTupleClass(baseClass)) {
                 return updatedTupleClass;
             }
             return baseClass;
         });
 
         classType.details.mro[namedTupleIndex] = clonedNamedTupleClass;
-        classType.details.mro[namedTupleIndex + 1] = updatedTupleClass.details.mro[0];
+        classType.details.mro[namedTupleIndex + 1] = updatedTupleClass;
 
         classType.details.baseClasses = classType.details.baseClasses.map((baseClass) => {
             if (isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'NamedTuple')) {
@@ -5109,10 +5111,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let type: Type | undefined;
 
             let isTypeObject = false;
-            if (
-                isObject(subtype) &&
-                (ClassType.isBuiltIn(subtype.classType, 'Type') || ClassType.isBuiltIn(subtype.classType, 'type'))
-            ) {
+            if (isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'type')) {
                 subtype = getClassFromPotentialTypeObject(subtype);
                 isTypeObject = true;
             }
@@ -5122,7 +5121,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             switch (concreteSubtype.category) {
                 case TypeCategory.Class: {
                     if (ClassType.isBuiltIn(concreteSubtype)) {
-                        const className = concreteSubtype.details.name;
+                        const className = concreteSubtype.aliasName || concreteSubtype.details.name;
 
                         if (className === 'type') {
                             // Validate the constructor arguments.
@@ -5682,15 +5681,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     // the homogenous arbitrary-length form.
                                     if (
                                         isObject(newReturnType) &&
-                                        ClassType.isBuiltIn(newReturnType.classType, 'tuple') &&
-                                        newReturnType.classType.typeArguments &&
-                                        newReturnType.classType.typeArguments.length === 1
+                                        ClassType.isVariadicTypeParam(newReturnType.classType) &&
+                                        newReturnType.classType.variadicTypeArguments &&
+                                        newReturnType.classType.variadicTypeArguments.length === 1
                                     ) {
                                         newReturnType = ObjectType.create(
-                                            cloneTupleForSpecialization(
+                                            specializeVariadicGenericClass(
                                                 newReturnType.classType,
                                                 [
-                                                    newReturnType.classType.typeArguments[0],
+                                                    newReturnType.classType.variadicTypeArguments[0],
                                                     AnyType.create(/* isEllipsis */ true),
                                                 ],
                                                 /* isTypeArgumentExplicit */ true
@@ -5803,7 +5802,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeVarMap: TypeVarMap
     ): boolean {
         if (expectedType.category === TypeCategory.Any) {
-            ClassType.getAliasClass(type).details.typeParameters.forEach((typeParam) => {
+            type.details.typeParameters.forEach((typeParam) => {
                 typeVarMap.setTypeVar(typeParam, expectedType, /* isNarrowable */ false);
             });
             return true;
@@ -5814,7 +5813,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // If the expected type is generic (but not specialized), we can't proceed.
-        const expectedTypeArgs = expectedType.classType.effectiveTypeArguments || expectedType.classType.typeArguments;
+        const expectedTypeArgs = expectedType.classType.typeArguments;
         if (!expectedTypeArgs) {
             return canAssignType(type, expectedType.classType, new DiagnosticAddendum(), typeVarMap);
         }
@@ -6236,11 +6235,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (
                     isObject(argType) &&
                     isTupleClass(argType.classType) &&
-                    argType.classType.typeArguments &&
-                    argType.classType.typeArguments.length > 0 &&
-                    !isEllipsisType(argType.classType.typeArguments[argType.classType.typeArguments.length - 1])
+                    argType.classType.variadicTypeArguments &&
+                    argType.classType.variadicTypeArguments.length > 0 &&
+                    !isEllipsisType(
+                        argType.classType.variadicTypeArguments[argType.classType.variadicTypeArguments.length - 1]
+                    )
                 ) {
-                    listElementType = argType.classType.typeArguments[unpackedArgIndex];
+                    listElementType = argType.classType.variadicTypeArguments[unpackedArgIndex];
 
                     // Determine if there are any more unpacked list arguments after
                     // this one. If not, we'll clear this flag because this unpacked
@@ -6251,7 +6252,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ) !== undefined;
 
                     unpackedArgIndex++;
-                    if (unpackedArgIndex >= argType.classType.typeArguments.length) {
+                    if (unpackedArgIndex >= argType.classType.variadicTypeArguments.length) {
                         unpackedArgIndex = 0;
                         advanceToNextArg = true;
                     }
@@ -6990,7 +6991,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (
             !isObject(arg1Type) ||
             !isTupleClass(arg1Type.classType) ||
-            arg1Type.classType.typeArguments === undefined
+            arg1Type.classType.variadicTypeArguments === undefined
         ) {
             return undefined;
         }
@@ -7004,7 +7005,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* declaredMetaclass */ undefined,
             arg1Type.classType.details.effectiveMetaclass
         );
-        arg1Type.classType.typeArguments.forEach((baseClass) => {
+        arg1Type.classType.variadicTypeArguments.forEach((baseClass) => {
             if (isClass(baseClass) || isAnyOrUnknown(baseClass)) {
                 classType.details.baseClasses.push(baseClass);
             } else {
@@ -7427,7 +7428,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const keysItemType = FunctionType.createInstance('keys', '', FunctionTypeFlags.SynthesizedMethod);
         const itemsItemType = FunctionType.createInstance('items', '', FunctionTypeFlags.SynthesizedMethod);
-        keysItemType.details.declaredReturnType = getBuiltInObject(errorNode, 'List', [
+        keysItemType.details.declaredReturnType = getBuiltInObject(errorNode, 'list', [
             getBuiltInObject(errorNode, 'str'),
         ]);
         itemsItemType.details.declaredReturnType = keysItemType.details.declaredReturnType;
@@ -8107,8 +8108,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (expectedType && entryTypes.length > 0) {
             const narrowedExpectedType = doForSubtypes(expectedType, (subtype) => {
                 if (isObject(subtype)) {
-                    const classAlias = ClassType.getAliasClass(subtype.classType);
-                    if (ClassType.isBuiltIn(classAlias, 'set') && subtype.classType.typeArguments) {
+                    if (ClassType.isBuiltIn(subtype.classType, 'set') && subtype.classType.typeArguments) {
                         const typeArg = subtype.classType.typeArguments[0];
                         const typeVarMap = new TypeVarMap(getTypeVarScopeId(subtype));
 
@@ -8139,7 +8139,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             inferredEntryType = stripLiteralValue(inferredEntryType);
         }
 
-        const type = getBuiltInObject(node, 'Set', [inferredEntryType]);
+        const type = getBuiltInObject(node, 'set', [inferredEntryType]);
 
         return { type, node };
     }
@@ -8218,7 +8218,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const builtInDict = getBuiltInObject(node, 'Dict');
+        const builtInDict = getBuiltInObject(node, 'dict');
         if (!isObject(builtInDict)) {
             return undefined;
         }
@@ -8246,8 +8246,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expectedValueType
         );
 
-        const isExpectedTypeDict =
-            isObject(expectedType) && ClassType.isBuiltIn(ClassType.getAliasClass(expectedType.classType), 'dict');
+        const isExpectedTypeDict = isObject(expectedType) && ClassType.isBuiltIn(expectedType.classType, 'dict');
 
         const specializedKeyType = inferTypeArgFromExpectedType(expectedKeyType, keyTypes, /* isNarrowable */ false);
         const specializedValueType = inferTypeArgFromExpectedType(
@@ -8259,7 +8258,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const type = getBuiltInObject(node, 'Dict', [specializedKeyType, specializedValueType]);
+        const type = getBuiltInObject(node, 'dict', [specializedKeyType, specializedValueType]);
         return { type, node };
     }
 
@@ -8297,7 +8296,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             valueType = AnyType.create();
         }
 
-        const type = getBuiltInObject(node, 'Dict', [keyType, valueType]);
+        const type = getBuiltInObject(node, 'dict', [keyType, valueType]);
         return { type, node };
     }
 
@@ -8389,7 +8388,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isObject(dictEntryType)) {
                     const classType = dictEntryType.classType;
                     if (isTupleClass(classType)) {
-                        const typeArgs = classType.typeArguments;
+                        const typeArgs = classType.variadicTypeArguments;
                         if (typeArgs && typeArgs.length === 2) {
                             if (!limitEntryCount || index < maxEntriesToUseForInference) {
                                 keyTypes.push(typeArgs[0]);
@@ -8450,7 +8449,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const builtInList = getBuiltInObject(node, 'List');
+        const builtInList = getBuiltInObject(node, 'list');
         if (!isObject(builtInList)) {
             return undefined;
         }
@@ -8476,8 +8475,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
-        const isExpectedTypeList =
-            isObject(expectedType) && ClassType.isBuiltIn(ClassType.getAliasClass(expectedType.classType), 'list');
+        const isExpectedTypeList = isObject(expectedType) && ClassType.isBuiltIn(expectedType.classType, 'list');
         const specializedEntryType = inferTypeArgFromExpectedType(
             expectedEntryType,
             entryTypes,
@@ -8487,7 +8485,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        const type = getBuiltInObject(node, 'List', [specializedEntryType]);
+        const type = getBuiltInObject(node, 'list', [specializedEntryType]);
         return { type, node };
     }
 
@@ -8523,7 +8521,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const type = getBuiltInObject(node, 'List', [inferredEntryType]);
+        const type = getBuiltInObject(node, 'list', [inferredEntryType]);
         return { type, node };
     }
 
@@ -8772,10 +8770,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const keyType = stripLiteralValue(getTypeOfExpression(node.expression.keyExpression).type);
             const valueType = stripLiteralValue(getTypeOfExpression(node.expression.valueExpression).type);
 
-            type = getBuiltInType(node, 'Tuple');
+            type = getBuiltInType(node, 'tuple');
             if (isClass(type)) {
                 type = convertToInstance(
-                    cloneTupleForSpecialization(type, [keyType, valueType], /* isTypeArgumentExplicit */ true)
+                    specializeVariadicGenericClass(type, [keyType, valueType], /* isTypeArgumentExplicit */ true)
                 );
             }
         } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
@@ -9151,13 +9149,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         paramLimit?: number,
         allowParamSpec = false
     ): Type {
-        const isTuple = isTupleClass(classType);
+        const isVariadicTypeParam = ClassType.isVariadicTypeParam(classType);
 
         if (typeArgs) {
             // Verify that we didn't receive any inappropriate ellipses or modules.
             typeArgs.forEach((typeArg, index) => {
                 if (isEllipsisType(typeArg.type)) {
-                    if (!isTuple) {
+                    if (!isVariadicTypeParam) {
                         addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
                     } else if (typeArgs!.length !== 2 || index !== 1) {
                         addError(Localizer.Diagnostic.ellipsisSecondArg(), typeArg.node);
@@ -9169,14 +9167,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             });
 
-            // Handle Tuple[()] as a special case, as defined in PEP 483.
-            if (isTuple) {
+            // Handle [()] as a special case, as defined in PEP 483 for Tuples.
+            if (isVariadicTypeParam) {
                 if (
                     typeArgs.length === 1 &&
                     isObject(typeArgs[0].type) &&
                     isTupleClass(typeArgs[0].type.classType) &&
-                    typeArgs[0].type.classType.typeArguments &&
-                    typeArgs[0].type.classType.typeArguments.length === 0
+                    typeArgs[0].type.classType.variadicTypeArguments &&
+                    typeArgs[0].type.classType.variadicTypeArguments.length === 0
                 ) {
                     typeArgs = [];
                 }
@@ -9205,15 +9203,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // Handle tuple as a special case.
-        if (isTuple) {
+        // Handle variadic type param as a special case.
+        if (isVariadicTypeParam) {
             // If no type args are provided and it's a tuple, default to [Any, ...].
             if (!typeArgs) {
                 typeArgTypes.push(AnyType.create(false));
                 typeArgTypes.push(AnyType.create(true));
             }
 
-            return cloneTupleForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
+            return specializeVariadicGenericClass(classType, typeArgTypes, typeArgs !== undefined);
         }
 
         return ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
@@ -9347,7 +9345,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function createSpecialBuiltInClass(node: ParseNode, assignedName: string, aliasMapEntry: AliasMapEntry): ClassType {
         const fileInfo = getFileInfo(node);
-        const specialClassType = ClassType.create(
+        let specialClassType = ClassType.create(
             assignedName,
             getClassFullName(node, fileInfo.moduleName, assignedName),
             fileInfo.moduleName,
@@ -9361,11 +9359,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             specialClassType.details.flags |= ClassTypeFlags.TypingExtensionClass;
         }
 
-        const baseClassName = aliasMapEntry.alias ? aliasMapEntry.alias : 'object';
+        const baseClassName = aliasMapEntry.alias || 'object';
 
-        let aliasClass: Type | undefined;
+        let baseClass: Type | undefined;
         if (aliasMapEntry.module === 'builtins') {
-            aliasClass = getBuiltInType(node, baseClassName);
+            baseClass = getBuiltInType(node, baseClassName);
         } else if (aliasMapEntry.module === 'collections') {
             // The typing.pyi file imports collections.
             if (fileInfo.collectionsModulePath) {
@@ -9373,30 +9371,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (lookupResult) {
                     const symbol = lookupResult.symbolTable.get(baseClassName);
                     if (symbol) {
-                        aliasClass = getEffectiveTypeOfSymbol(symbol);
+                        baseClass = getEffectiveTypeOfSymbol(symbol);
                     }
                 }
             }
         } else if (aliasMapEntry.module === 'self') {
             const symbolWithScope = lookUpSymbolRecursive(node, baseClassName, /* honorCodeFlow */ false);
             if (symbolWithScope) {
-                aliasClass = getEffectiveTypeOfSymbol(symbolWithScope.symbol);
+                baseClass = getEffectiveTypeOfSymbol(symbolWithScope.symbol);
+                // The _TypedDict class is marked as abstract, but the
+                // methods that are abstract are overridden and shouldn't
+                // cause the TypedDict to be marked as abstract.
+                if (isClass(baseClass) && ClassType.isBuiltIn(baseClass, '_TypedDict')) {
+                    baseClass.details.flags &= ~(
+                        ClassTypeFlags.HasAbstractMethods | ClassTypeFlags.SupportsAbstractMethods
+                    );
+                }
             }
         }
 
-        if (aliasClass && isClass(aliasClass)) {
-            specialClassType.details.baseClasses.push(aliasClass);
-
+        if (baseClass && isClass(baseClass)) {
             if (aliasMapEntry.alias) {
-                specialClassType.details.aliasClass = aliasClass;
+                specialClassType = ClassType.cloneForTypingAlias(baseClass, assignedName);
+            } else {
+                specialClassType.details.baseClasses.push(baseClass);
+                specialClassType.details.effectiveMetaclass = baseClass.details.effectiveMetaclass;
+                computeMroLinearization(specialClassType);
             }
-            specialClassType.details.effectiveMetaclass = aliasClass.details.effectiveMetaclass;
         } else {
             specialClassType.details.baseClasses.push(UnknownType.create());
             specialClassType.details.effectiveMetaclass = UnknownType.create();
+            computeMroLinearization(specialClassType);
         }
-
-        computeMroLinearization(specialClassType);
 
         return specialClassType;
     }
@@ -9673,6 +9679,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (node.name.value === 'property') {
                 classFlags |= ClassTypeFlags.PropertyClass;
+            }
+
+            if (node.name.value === 'tuple') {
+                classFlags |= ClassTypeFlags.VariadicTypeParameter;
             }
         }
 
@@ -10579,7 +10589,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case ParameterCategory.VarArgList: {
                 // Create a Tuple[X, ...] type.
-                const tupleType = getTypingType(node, 'Tuple');
+                const tupleType = getBuiltInType(node, 'tuple');
                 if (tupleType && isClass(tupleType)) {
                     return ObjectType.create(
                         ClassType.cloneForSpecialization(
@@ -10594,7 +10604,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParameterCategory.VarArgDictionary: {
-                const dictType = getBuiltInType(node, 'Dict');
+                const dictType = getBuiltInType(node, 'dict');
                 const strType = getBuiltInObject(node, 'str');
 
                 if (isClass(dictType) && isObject(strType)) {
@@ -11417,8 +11427,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If more than one type was specified for the exception, we'll receive
             // a specialized tuple object here.
             const tupleType = getSpecializedTupleType(subType);
-            if (tupleType && tupleType.typeArguments) {
-                const entryTypes = tupleType.typeArguments.map((t) => {
+            if (tupleType && tupleType.variadicTypeArguments) {
+                const entryTypes = tupleType.variadicTypeArguments.map((t) => {
                     return getExceptionType(t, node.typeExpression!);
                 });
                 return combineTypes(entryTypes);
@@ -13079,10 +13089,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isObject(argType)) {
             const objClass = argType.classType;
-            if (isTupleClass(objClass) && objClass.typeArguments) {
+            if (isTupleClass(objClass) && objClass.variadicTypeArguments) {
                 let foundNonClassType = false;
                 const classTypeList: ClassType[] = [];
-                objClass.typeArguments.forEach((typeArg) => {
+                objClass.variadicTypeArguments.forEach((typeArg) => {
                     if (isClass(typeArg)) {
                         classTypeList.push(typeArg);
                     } else {
@@ -13235,7 +13245,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const classType = containerType.classType;
-        const builtInName = ClassType.getAliasClass(classType).details.name;
+        const builtInName = classType.details.name;
 
         if (!['list', 'set', 'frozenset', 'deque'].some((name) => name === builtInName)) {
             return referenceType;
@@ -13425,7 +13435,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Handle the special-case classes that are not defined
         // in the type stubs.
         if (ClassType.isSpecialBuiltIn(classType)) {
-            switch (classType.details.name) {
+            const aliasedName = classType.aliasName || classType.details.name;
+            switch (aliasedName) {
                 case 'Callable': {
                     return createCallableType(typeArgs, errorNode);
                 }
@@ -13440,19 +13451,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 case 'ClassVar': {
                     return createClassVarType(errorNode, typeArgs);
-                }
-
-                case 'Deque':
-                case 'List':
-                case 'FrozenSet':
-                case 'Set': {
-                    return createSpecialType(classType, typeArgs, 1);
-                }
-
-                case 'ChainMap':
-                case 'Dict':
-                case 'DefaultDict': {
-                    return createSpecialType(classType, typeArgs, 2);
                 }
 
                 case 'Protocol': {
@@ -13503,7 +13501,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Handle "tuple" specially, since it needs to act like "Tuple"
             // in Python 3.9 and newer.
-            if (ClassType.isBuiltIn(classType, 'tuple')) {
+            if (isTupleClass(classType)) {
                 return createSpecialType(classType, typeArgs, undefined);
             }
         }
@@ -13564,6 +13562,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
                 } else if (isModule(typeArg.type)) {
                     addError(Localizer.Diagnostic.moduleContext(), typeArg.node);
+                } else if (isParamSpecType(typeArg.type)) {
+                    addError(Localizer.Diagnostic.paramSpecContext(), typeArg.node);
                 }
             });
         }
@@ -13984,7 +13984,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (declaration.intrinsicType === 'List[str]') {
-                        const listType = getBuiltInType(declaration.node, 'List');
+                        const listType = getBuiltInType(declaration.node, 'list');
                         if (isClass(listType)) {
                             return ObjectType.create(
                                 ClassType.cloneForSpecialization(listType, [strType], /* isTypeArgumentExplicit */ true)
@@ -13993,7 +13993,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (declaration.intrinsicType === 'Dict[str, Any]') {
-                        const dictType = getBuiltInType(declaration.node, 'Dict');
+                        const dictType = getBuiltInType(declaration.node, 'dict');
                         if (isClass(dictType)) {
                             return ObjectType.create(
                                 ClassType.cloneForSpecialization(
@@ -15000,26 +15000,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (ancestorIndex === 0 && ClassType.isBuiltIn(destType)) {
                 // Handle built-in types that support arbitrary numbers
                 // of type parameters like Tuple.
-                if (isTupleClass(destType)) {
-                    if (destType.typeArguments && curSrcType.typeArguments) {
-                        const destTypeArgs = destType.typeArguments;
+                if (ClassType.isVariadicTypeParam(destType)) {
+                    if (destType.variadicTypeArguments && curSrcType.variadicTypeArguments) {
+                        const destTypeArgs = destType.variadicTypeArguments;
                         let destArgCount = destTypeArgs.length;
-                        const isDestHomogenousTuple = destArgCount === 2 && isEllipsisType(destTypeArgs[1]);
-                        if (isDestHomogenousTuple) {
+                        const isDestHomogenousType = destArgCount === 2 && isEllipsisType(destTypeArgs[1]);
+                        if (isDestHomogenousType) {
                             destArgCount = 1;
                         }
 
-                        const srcTypeArgs = curSrcType.typeArguments;
+                        const srcTypeArgs = curSrcType.variadicTypeArguments;
                         let srcArgCount = srcTypeArgs.length;
                         const isSrcHomogeneousType = srcArgCount === 2 && isEllipsisType(srcTypeArgs[1]);
                         if (isSrcHomogeneousType) {
                             srcArgCount = 1;
                         }
 
-                        if ((srcTypeArgs.length === destArgCount && !isSrcHomogeneousType) || isDestHomogenousTuple) {
+                        if ((srcTypeArgs.length === destArgCount && !isSrcHomogeneousType) || isDestHomogenousType) {
                             for (let i = 0; i < Math.max(destArgCount, srcArgCount); i++) {
                                 const expectedDestType =
-                                    (isDestHomogenousTuple ? destTypeArgs[0] : destTypeArgs[i]) || AnyType.create();
+                                    (isDestHomogenousType ? destTypeArgs[0] : destTypeArgs[i]) || AnyType.create();
                                 const expectedSrcType =
                                     (isSrcHomogeneousType ? srcTypeArgs[0] : srcTypeArgs[i]) || AnyType.create();
                                 const entryDiag = diag.createAddendum();
@@ -15098,10 +15098,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !typeVarMap.isLocked()
         ) {
             // Populate the typeVar map with type arguments of the source.
-            const srcTypeArgs = curSrcType.effectiveTypeArguments || curSrcType.typeArguments;
+            const srcTypeArgs = curSrcType.typeArguments;
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
                 const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
                 typeVarMap.setTypeVar(destType.details.typeParameters[i], typeArgType, /* isNarrowable */ true);
+            }
+
+            if (
+                ClassType.isVariadicTypeParam(curSrcType) &&
+                curSrcType.variadicTypeArguments &&
+                destType.details.typeParameters.length >= 1
+            ) {
+                typeVarMap.setVariadicTypeVar(destType.details.typeParameters[0], curSrcType.variadicTypeArguments);
             }
         }
 
@@ -15136,9 +15144,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         assert(ClassType.isSameGenericClass(destType, srcType));
 
         const destTypeParams = ClassType.getTypeParameters(destType);
-        const destTypeArgs = destType.effectiveTypeArguments || destType.typeArguments!;
-        assert(destTypeArgs !== undefined);
-        const srcTypeArgs = srcType.effectiveTypeArguments || srcType.typeArguments;
+        let destTypeArgs: Type[];
+        let srcTypeArgs: Type[] | undefined;
+
+        if (ClassType.isVariadicTypeParam(destType)) {
+            destTypeArgs = destType.variadicTypeArguments || [];
+            srcTypeArgs = srcType.variadicTypeArguments;
+        } else {
+            destTypeArgs = destType.typeArguments!;
+            assert(destTypeArgs !== undefined);
+            srcTypeArgs = srcType.typeArguments;
+        }
 
         if (srcTypeArgs && srcType.isTypeArgumentExplicit) {
             if (ClassType.isSpecialBuiltIn(srcType) || srcTypeArgs.length === destTypeParams.length) {
@@ -15650,10 +15666,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Is the src a specialized "Type" object?
-        if (
-            isObject(srcType) &&
-            (ClassType.isBuiltIn(srcType.classType, 'Type') || ClassType.isBuiltIn(srcType.classType, 'type'))
-        ) {
+        if (isObject(srcType) && ClassType.isBuiltIn(srcType.classType, 'type')) {
             const srcTypeArgs = srcType.classType.typeArguments;
             if (srcTypeArgs && srcTypeArgs.length >= 1) {
                 if (isAnyOrUnknown(srcTypeArgs[0])) {
@@ -15740,7 +15753,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount + 1
                         );
                     } else if (isTypeVar(destTypeArgs[0])) {
-                        if (isClass(srcType) || (isNone(srcType) && TypeBase.isInstantiable(srcType))) {
+                        if (TypeBase.isInstantiable(srcType)) {
                             return canAssignType(
                                 destTypeArgs[0],
                                 convertToInstance(srcType),
@@ -16467,17 +16480,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // that the caller has already verified that the assignedType is assignable
     // tot he declaredType.
     function replaceTypeArgsWithAny(declaredType: ClassType, assignedType: ClassType): ClassType | undefined {
-        const assignedTypeAlias = ClassType.getAliasClass(assignedType);
-
         if (
-            assignedTypeAlias.details.typeParameters.length > 0 &&
+            assignedType.details.typeParameters.length > 0 &&
             assignedType.typeArguments &&
-            assignedType.typeArguments.length <= assignedTypeAlias.details.typeParameters.length
+            assignedType.typeArguments.length <= assignedType.details.typeParameters.length
         ) {
-            const typeVarMap = new TypeVarMap(getTypeVarScopeId(assignedTypeAlias));
+            const typeVarMap = new TypeVarMap(getTypeVarScopeId(assignedType));
             populateTypeVarMapBasedOnExpectedType(
                 ClassType.cloneForSpecialization(
-                    assignedTypeAlias,
+                    assignedType,
                     /* typeArguments */ undefined,
                     /* isTypeArgumentExplicit */ false
                 ),
@@ -16487,7 +16498,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             let replacedTypeArg = false;
             const newTypeArgs = assignedType.typeArguments.map((typeArg, index) => {
-                const typeParam = assignedTypeAlias.details.typeParameters[index];
+                const typeParam = assignedType.details.typeParameters[index];
                 const expectedTypeArgType = typeVarMap.getTypeVar(typeParam);
 
                 if (expectedTypeArgType) {

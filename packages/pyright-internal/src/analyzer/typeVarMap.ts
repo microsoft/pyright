@@ -30,9 +30,15 @@ export interface ParamSpecMapEntry {
     type: ParamSpecEntry[];
 }
 
+export interface VariadicTypeVarMapEntry {
+    typeVar: TypeVarType;
+    types: Type[];
+}
+
 export class TypeVarMap {
     private _solveForScopes: string[] | undefined;
     private _typeVarMap: Map<string, TypeVarMapEntry>;
+    private _variadicTypeVarMap: Map<string, VariadicTypeVarMapEntry> | undefined;
     private _paramSpecMap: Map<string, ParamSpecMapEntry>;
     private _isNarrowableMap: Map<string, boolean>;
     private _isLocked = false;
@@ -138,6 +144,21 @@ export class TypeVarMap {
         const key = this._getKey(reference);
         this._typeVarMap.set(key, { typeVar: reference, type });
         this._isNarrowableMap.set(key, isNarrowable);
+    }
+
+    getVariadicTypeVar(reference: TypeVarType): Type[] | undefined {
+        return this._variadicTypeVarMap?.get(this._getKey(reference))?.types;
+    }
+
+    setVariadicTypeVar(reference: TypeVarType, types: Type[]) {
+        assert(!this._isLocked);
+        const key = this._getKey(reference);
+
+        // Allocate variadic map on demand since most classes don't use it.
+        if (!this._variadicTypeVarMap) {
+            this._variadicTypeVarMap = new Map<string, VariadicTypeVarMapEntry>();
+        }
+        this._variadicTypeVarMap.set(key, { typeVar: reference, types });
     }
 
     getTypeVars(): TypeVarMapEntry[] {
