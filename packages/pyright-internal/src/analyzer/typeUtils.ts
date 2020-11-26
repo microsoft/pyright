@@ -24,7 +24,6 @@ import {
     isTypeSame,
     isTypeVar,
     isUnknown,
-    maxApplyTypesPasses,
     maxTypeRecursionCount,
     ModuleType,
     NeverType,
@@ -108,9 +107,11 @@ export const enum CanAssignFlags {
     SkipFunctionReturnTypeCheck = 1 << 4,
 }
 
-export type TypeVarTransform = (typeVar: TypeVarType) => Type;
-export type ParamSpecTransform = (paramSpec: TypeVarType) => ParamSpecEntry[] | undefined;
-export type VariadicTypeVarTransform = (paramSpec: TypeVarType) => Type[] | undefined;
+interface TypeVarTransformer {
+    transformTypeVar: (typeVar: TypeVarType) => Type;
+    transformVariadicTypeVar: (paramSpec: TypeVarType) => Type[] | undefined;
+    transformParamSpec: (paramSpec: TypeVarType) => ParamSpecEntry[] | undefined;
+}
 
 const singleTickRegEx = /'/g;
 const tripleTickRegEx = /'''/g;
@@ -547,50 +548,36 @@ export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, concrete
         return type;
     }
 
-    let resultingType = type;
-    for (let i = 0; i < maxApplyTypesPasses; i++) {
-        const resolvedType = _transformTypeVars(
-            resultingType,
-            (typeVar: TypeVarType) => {
-                // If the type variable is unrelated to the scopes we're solving,
-                // don't transform that type variable.
-                if (!typeVar.scopeId || !typeVarMap.hasSolveForScope(typeVar.scopeId)) {
-                    return typeVar;
-                }
-
-                const replacement = typeVarMap.getTypeVar(typeVar);
-                if (replacement) {
-                    return replacement;
-                }
-
-                return concreteIfNotFound ? UnknownType.create() : typeVar;
-            },
-            (typeVar: TypeVarType) => {
-                if (!typeVar.scopeId || !typeVarMap.hasSolveForScope(typeVar.scopeId)) {
-                    return undefined;
-                }
-
-                return typeVarMap.getVariadicTypeVar(typeVar);
-            },
-            (paramSpec: TypeVarType) => {
-                if (!paramSpec.scopeId || !typeVarMap.hasSolveForScope(paramSpec.scopeId)) {
-                    return undefined;
-                }
-
-                return typeVarMap.getParamSpec(paramSpec);
+    return _transformTypeVars(type, {
+        transformTypeVar: (typeVar: TypeVarType) => {
+            // If the type variable is unrelated to the scopes we're solving,
+            // don't transform that type variable.
+            if (!typeVar.scopeId || !typeVarMap.hasSolveForScope(typeVar.scopeId)) {
+                return typeVar;
             }
-        );
 
-        if (resolvedType === resultingType) {
-            return resolvedType;
-        }
+            const replacement = typeVarMap.getTypeVar(typeVar);
+            if (replacement) {
+                return replacement;
+            }
 
-        // Go around the loop again in case there were any nested
-        // type variables that need resolving.
-        resultingType = resolvedType;
-    }
+            return concreteIfNotFound ? UnknownType.create() : typeVar;
+        },
+        transformVariadicTypeVar: (typeVar: TypeVarType) => {
+            if (!typeVar.scopeId || !typeVarMap.hasSolveForScope(typeVar.scopeId)) {
+                return undefined;
+            }
 
-    return resultingType;
+            return typeVarMap.getVariadicTypeVar(typeVar);
+        },
+        transformParamSpec: (paramSpec: TypeVarType) => {
+            if (!paramSpec.scopeId || !typeVarMap.hasSolveForScope(paramSpec.scopeId)) {
+                return undefined;
+            }
+
+            return typeVarMap.getParamSpec(paramSpec);
+        },
+    });
 }
 
 export function lookUpObjectMember(
@@ -1337,9 +1324,8 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
 // it to be replaced with something else.
 export function _transformTypeVars(
     type: Type,
-    typeVarCallback: TypeVarTransform,
-    variadicTypeVarCallback: VariadicTypeVarTransform,
-    paramSpecCallback: ParamSpecTransform,
+    callbacks: TypeVarTransformer,
+    recursionMap = new Map<string, TypeVarType>(),
     recursionLevel = 0
 ): Type {
     if (recursionLevel > maxTypeRecursionCount) {
@@ -1370,13 +1356,7 @@ export function _transformTypeVars(
 
             let requiresUpdate = false;
             const typeArgs = type.typeAliasInfo.typeArguments.map((typeArg) => {
-                const replacementType = _transformTypeVars(
-                    typeArg,
-                    typeVarCallback,
-                    variadicTypeVarCallback,
-                    paramSpecCallback,
-                    recursionLevel + 1
-                );
+                const replacementType = _transformTypeVars(typeArg, callbacks, recursionMap, recursionLevel + 1);
                 if (replacementType !== typeArg) {
                     requiresUpdate = true;
                 }
@@ -1396,47 +1376,47 @@ export function _transformTypeVars(
             return type;
         }
 
-        const replacementType = typeVarCallback(type);
+        let replacementType: Type = type;
 
-        // If we're replacing a TypeVar with another type and the
-        // original is not an instance, convert the replacement so it's also
-        // not an instance. This happens in the case where a type alias refers
-        // to a union that includes a TypeVar.
-        if (TypeBase.isInstantiable(type) && !TypeBase.isInstantiable(replacementType)) {
-            return convertToInstantiable(replacementType);
+        // Recursively transform the results, but ensure that we don't replace the
+        // same type variable recursively by setting it in the recursionMap.
+        const typeVarName = type.scopeName || type.details.name;
+        if (!recursionMap.has(typeVarName)) {
+            replacementType = callbacks.transformTypeVar(type);
+
+            // If we're replacing a TypeVar with another type and the
+            // original is not an instance, convert the replacement so it's also
+            // not an instance. This happens in the case where a type alias refers
+            // to a union that includes a TypeVar.
+            if (TypeBase.isInstantiable(type) && !TypeBase.isInstantiable(replacementType)) {
+                replacementType = convertToInstantiable(replacementType);
+            }
+
+            recursionMap.set(typeVarName, type);
+            replacementType = _transformTypeVars(replacementType, callbacks, recursionMap, recursionLevel + 1);
+            recursionMap.delete(typeVarName);
         }
+
         return replacementType;
     }
 
     if (type.category === TypeCategory.Union) {
         return doForSubtypes(type, (subtype) =>
-            _transformTypeVars(subtype, typeVarCallback, variadicTypeVarCallback, paramSpecCallback, recursionLevel + 1)
+            _transformTypeVars(subtype, callbacks, recursionMap, recursionLevel + 1)
         );
     }
 
     if (isObject(type)) {
-        const classType = _transformTypeVarsInClassType(
-            type.classType,
-            typeVarCallback,
-            variadicTypeVarCallback,
-            paramSpecCallback,
-            recursionLevel + 1
-        );
+        const classType = _transformTypeVarsInClassType(type.classType, callbacks, recursionMap, recursionLevel + 1);
 
         // Handle the "Type" special class.
         if (ClassType.isBuiltIn(classType, 'type')) {
             const typeArgs = classType.typeArguments;
             if (typeArgs && typeArgs.length >= 1) {
                 if (isObject(typeArgs[0])) {
-                    return _transformTypeVars(
-                        typeArgs[0].classType,
-                        typeVarCallback,
-                        variadicTypeVarCallback,
-                        paramSpecCallback,
-                        recursionLevel + 1
-                    );
+                    return _transformTypeVars(typeArgs[0].classType, callbacks, recursionMap, recursionLevel + 1);
                 } else if (isTypeVar(typeArgs[0])) {
-                    const replacementType = typeVarCallback(typeArgs[0]);
+                    const replacementType = callbacks.transformTypeVar(typeArgs[0]);
                     if (replacementType && isObject(replacementType)) {
                         return replacementType.classType;
                     }
@@ -1453,23 +1433,11 @@ export function _transformTypeVars(
     }
 
     if (isClass(type)) {
-        return _transformTypeVarsInClassType(
-            type,
-            typeVarCallback,
-            variadicTypeVarCallback,
-            paramSpecCallback,
-            recursionLevel + 1
-        );
+        return _transformTypeVarsInClassType(type, callbacks, recursionMap, recursionLevel + 1);
     }
 
     if (type.category === TypeCategory.Function) {
-        return _transformTypeVarsInFunctionType(
-            type,
-            typeVarCallback,
-            variadicTypeVarCallback,
-            paramSpecCallback,
-            recursionLevel + 1
-        );
+        return _transformTypeVarsInFunctionType(type, callbacks, recursionMap, recursionLevel + 1);
     }
 
     if (type.category === TypeCategory.OverloadedFunction) {
@@ -1478,13 +1446,7 @@ export function _transformTypeVars(
         // Specialize each of the functions in the overload.
         const newOverloads: FunctionType[] = [];
         type.overloads.forEach((entry) => {
-            const replacementType = _transformTypeVarsInFunctionType(
-                entry,
-                typeVarCallback,
-                variadicTypeVarCallback,
-                paramSpecCallback,
-                recursionLevel
-            );
+            const replacementType = _transformTypeVarsInFunctionType(entry, callbacks, recursionMap, recursionLevel);
             newOverloads.push(replacementType);
             if (replacementType !== entry) {
                 requiresUpdate = true;
@@ -1500,9 +1462,8 @@ export function _transformTypeVars(
 
 function _transformTypeVarsInClassType(
     classType: ClassType,
-    typeVarCallback: TypeVarTransform,
-    variadicTypeVarCallback: VariadicTypeVarTransform,
-    paramSpecCallback: ParamSpecTransform,
+    callbacks: TypeVarTransformer,
+    recursionMap: Map<string, TypeVarType>,
     recursionLevel: number
 ): ClassType {
     // Handle the common case where the class has no type parameters.
@@ -1518,13 +1479,7 @@ function _transformTypeVarsInClassType(
     // If type args were previously provided, specialize them.
     if (classType.typeArguments) {
         newTypeArgs = classType.typeArguments.map((oldTypeArgType) => {
-            const newTypeArgType = _transformTypeVars(
-                oldTypeArgType,
-                typeVarCallback,
-                variadicTypeVarCallback,
-                paramSpecCallback,
-                recursionLevel + 1
-            );
+            const newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);
             if (newTypeArgType !== oldTypeArgType) {
                 specializationNeeded = true;
             }
@@ -1532,31 +1487,34 @@ function _transformTypeVarsInClassType(
         });
     } else {
         typeParams.forEach((typeParam) => {
-            const replacementType = typeVarCallback(typeParam);
-            newTypeArgs.push(replacementType);
-            if (replacementType !== typeParam) {
-                specializationNeeded = true;
+            let replacementType: Type = typeParam;
+
+            const typeParamName = typeParam.scopeName || typeParam.details.name;
+            if (!recursionMap.has(typeParamName)) {
+                replacementType = callbacks.transformTypeVar(typeParam);
+                if (replacementType !== typeParam) {
+                    recursionMap.set(typeParamName, typeParam);
+                    replacementType = _transformTypeVars(replacementType, callbacks, recursionMap, recursionLevel + 1);
+                    recursionMap.delete(typeParamName);
+                    specializationNeeded = true;
+                }
             }
+
+            newTypeArgs.push(replacementType);
         });
     }
 
     if (ClassType.isVariadicTypeParam(classType)) {
         if (classType.variadicTypeArguments) {
             newVariadicTypeArgs = classType.variadicTypeArguments.map((oldTypeArgType) => {
-                const newTypeArgType = _transformTypeVars(
-                    oldTypeArgType,
-                    typeVarCallback,
-                    variadicTypeVarCallback,
-                    paramSpecCallback,
-                    recursionLevel + 1
-                );
+                const newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);
                 if (newTypeArgType !== oldTypeArgType) {
                     specializationNeeded = true;
                 }
                 return newTypeArgType;
             });
         } else if (typeParams.length > 0) {
-            newVariadicTypeArgs = variadicTypeVarCallback(typeParams[0]);
+            newVariadicTypeArgs = callbacks.transformVariadicTypeVar(typeParams[0]);
             if (newVariadicTypeArgs) {
                 specializationNeeded = true;
             }
@@ -1579,16 +1537,15 @@ function _transformTypeVarsInClassType(
 
 function _transformTypeVarsInFunctionType(
     sourceType: FunctionType,
-    typeVarCallback: TypeVarTransform,
-    variadicTypeVarCallback: VariadicTypeVarTransform,
-    paramSpecCallback: ParamSpecTransform,
+    callbacks: TypeVarTransformer,
+    recursionMap: Map<string, TypeVarType>,
     recursionLevel: number
 ): FunctionType {
     let functionType = sourceType;
 
     // Handle functions with a parameter specification in a special manner.
     if (functionType.details.paramSpec) {
-        const paramSpec = paramSpecCallback(functionType.details.paramSpec);
+        const paramSpec = callbacks.transformParamSpec(functionType.details.paramSpec);
         if (paramSpec) {
             functionType = FunctionType.cloneForParamSpec(functionType, paramSpec);
         }
@@ -1599,13 +1556,7 @@ function _transformTypeVarsInFunctionType(
             ? functionType.specializedTypes.returnType
             : functionType.details.declaredReturnType;
     const specializedReturnType = declaredReturnType
-        ? _transformTypeVars(
-              declaredReturnType,
-              typeVarCallback,
-              variadicTypeVarCallback,
-              paramSpecCallback,
-              recursionLevel + 1
-          )
+        ? _transformTypeVars(declaredReturnType, callbacks, recursionMap, recursionLevel + 1)
         : undefined;
     let typesRequiredSpecialization = declaredReturnType !== specializedReturnType;
 
@@ -1616,13 +1567,7 @@ function _transformTypeVarsInFunctionType(
 
     for (let i = 0; i < functionType.details.parameters.length; i++) {
         const paramType = FunctionType.getEffectiveParameterType(functionType, i);
-        const specializedType = _transformTypeVars(
-            paramType,
-            typeVarCallback,
-            variadicTypeVarCallback,
-            paramSpecCallback,
-            recursionLevel + 1
-        );
+        const specializedType = _transformTypeVars(paramType, callbacks, recursionMap, recursionLevel + 1);
         specializedParameters.parameterTypes.push(specializedType);
 
         if (paramType !== specializedType) {
@@ -1638,9 +1583,8 @@ function _transformTypeVarsInFunctionType(
     if (functionType.inferredReturnType) {
         specializedInferredReturnType = _transformTypeVars(
             functionType.inferredReturnType,
-            typeVarCallback,
-            variadicTypeVarCallback,
-            paramSpecCallback,
+            callbacks,
+            recursionMap,
             recursionLevel + 1
         );
     }

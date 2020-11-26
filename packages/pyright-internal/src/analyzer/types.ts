@@ -90,7 +90,6 @@ export type LiteralValue = number | boolean | string | EnumLiteral;
 
 export type TypeSourceId = string | undefined;
 export const maxTypeRecursionCount = 16;
-export const maxApplyTypesPasses = 4;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
 
