@@ -36,7 +36,7 @@ export interface VariadicTypeVarMapEntry {
 }
 
 export class TypeVarMap {
-    private _solveForScopes: string[] | undefined;
+    private _solveForScopes: TypeVarScopeId[] | undefined;
     private _typeVarMap: Map<string, TypeVarMapEntry>;
     private _variadicTypeVarMap: Map<string, VariadicTypeVarMapEntry> | undefined;
     private _paramSpecMap: Map<string, ParamSpecMapEntry>;
@@ -89,8 +89,12 @@ export class TypeVarMap {
         return this._solveForScopes;
     }
 
-    hasSolveForScope(scopeId: TypeVarScopeId) {
-        return this._solveForScopes !== undefined && this._solveForScopes.some((s) => s === scopeId);
+    hasSolveForScope(scopeId: TypeVarScopeId | undefined) {
+        return (
+            scopeId !== undefined &&
+            this._solveForScopes !== undefined &&
+            this._solveForScopes.some((s) => s === scopeId)
+        );
     }
 
     setSolveForScopes(scopeIds: TypeVarScopeId[]) {

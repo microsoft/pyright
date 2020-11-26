@@ -561,7 +561,13 @@ export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, concrete
                 return replacement;
             }
 
-            return concreteIfNotFound ? UnknownType.create() : typeVar;
+            // If this typeVar is in scope for what we're solving but the type
+            // var map doesn't contain any entry for it, replace with Unknown.
+            if (concreteIfNotFound && typeVarMap.hasSolveForScope(typeVar.scopeId)) {
+                return UnknownType.create();
+            }
+
+            return typeVar;
         },
         transformVariadicTypeVar: (typeVar: TypeVarType) => {
             if (!typeVar.scopeId || !typeVarMap.hasSolveForScope(typeVar.scopeId)) {

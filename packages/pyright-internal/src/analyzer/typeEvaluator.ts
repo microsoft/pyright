@@ -8429,7 +8429,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expectedEntryType = specializedList.typeArguments[0];
 
         const entryTypes: Type[] = [];
-        node.entries.forEach((entry, index) => {
+        node.entries.forEach((entry) => {
             if (entry.nodeType === ParseNodeType.ListComprehension) {
                 entryTypes.push(getElementTypeFromListComprehension(entry, expectedEntryType));
             } else {
@@ -16398,7 +16398,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // the corresponding type argument in the assignedType is not "Any",
     // replace that type argument in the assigned type. This function assumes
     // that the caller has already verified that the assignedType is assignable
-    // tot he declaredType.
+    // to the declaredType.
     function replaceTypeArgsWithAny(declaredType: ClassType, assignedType: ClassType): ClassType | undefined {
         if (
             assignedType.details.typeParameters.length > 0 &&
