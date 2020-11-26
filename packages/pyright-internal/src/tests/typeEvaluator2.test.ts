@@ -466,6 +466,12 @@ test('GenericTypes43', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('GenericTypes44', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['GenericTypes44.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Protocol1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol1.py']);
 
@@ -1055,7 +1061,7 @@ test('TypeVar2', () => {
 test('TypeVar3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar3.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('TypeVar4', () => {
@@ -1204,6 +1210,12 @@ test('Constructor4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor4.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Constructor5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor5.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('ClassGetItem1', () => {

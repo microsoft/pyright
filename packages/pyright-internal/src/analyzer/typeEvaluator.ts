@@ -156,12 +156,12 @@ import {
     TypeCategory,
     TypedDictEntry,
     TypeSourceId,
+    TypeVarScopeId,
     TypeVarType,
     UnboundType,
     UnknownType,
 } from './types';
 import {
-    addTypeVarScopeIdsForType,
     addTypeVarsToListIfUnique,
     applySolvedTypeVars,
     areTypesSame,
@@ -206,6 +206,7 @@ import {
     specializeClassType,
     stripFirstParameter,
     stripLiteralValue,
+    transformExpectedTypeForConstructor,
     transformPossibleRecursiveTypeAlias,
     transformTypeObjectToClass,
 } from './typeUtils';
@@ -3371,6 +3372,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return `${fileInfo.filePath}.${node.start.toString()}`;
     }
 
+    // Walks up the parse tree and finds all scopes that can provide
+    // a context for a TypeVar and returns the scope ID for each.
+    function getTypeVarScopesForNode(node: ParseNode): TypeVarScopeId[] {
+        const scopeIds: TypeVarScopeId[] = [];
+
+        let curNode: ParseNode | undefined = node;
+        while (curNode) {
+            curNode = ParseTreeUtils.getTypeVarScopeNode(curNode);
+            if (!curNode) {
+                break;
+            }
+
+            scopeIds.push(getScopeIdForNode(curNode));
+            curNode = curNode.parent;
+        }
+
+        return scopeIds;
+    }
+
     // Walks up the parse tree to find a function, class, or type alias
     // assignment that provides the context for a type variable.
     function findScopedTypeVar(node: NameNode, type: TypeVarType): TypeVarType {
@@ -4731,7 +4751,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         } else {
             const tupleTypeVarMap = new TypeVarMap(getTypeVarScopeId(builtInTuple.classType));
-            if (!populateTypeVarMapBasedOnExpectedType(builtInTuple.classType, expectedType, tupleTypeVarMap)) {
+            if (
+                !populateTypeVarMapBasedOnExpectedType(
+                    builtInTuple.classType,
+                    expectedType,
+                    tupleTypeVarMap,
+                    getTypeVarScopesForNode(node)
+                )
+            ) {
                 return undefined;
             }
 
@@ -5550,7 +5577,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (expectedType) {
                 returnType = doForSubtypes(expectedType, (expectedSubType) => {
                     const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
-                    if (populateTypeVarMapBasedOnExpectedType(type, expectedSubType, typeVarMap)) {
+                    if (
+                        populateTypeVarMapBasedOnExpectedType(
+                            type,
+                            expectedSubType,
+                            typeVarMap,
+                            getTypeVarScopesForNode(errorNode)
+                        )
+                    ) {
                         const callResult = validateCallArguments(
                             errorNode,
                             argList,
@@ -5562,8 +5596,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
 
                         if (!callResult.argumentErrors) {
-                            const specializedType = applySolvedTypeVars(type, typeVarMap) as ClassType;
-                            return applyExpectedSubtypeForConstructor(specializedType, expectedSubType);
+                            return applyExpectedSubtypeForConstructor(type, expectedSubType, typeVarMap);
                         }
                     }
 
@@ -5720,28 +5753,41 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (!returnType) {
-            returnType = applyExpectedTypeForConstructor(type, expectedType, /* typeVarMap */ undefined);
+            // There was no __init__ or __new__ method or we couldn't match the provided
+            // arguments to them. Do our best to specialize the instantiated class based
+            // on the expected type (if provided).
+            const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
+            if (expectedType) {
+                populateTypeVarMapBasedOnExpectedType(
+                    type,
+                    expectedType,
+                    typeVarMap,
+                    getTypeVarScopesForNode(errorNode)
+                );
+            }
+            returnType = applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
         }
 
         return { argumentErrors: reportedErrors, returnType };
     }
 
-    function applyExpectedSubtypeForConstructor(type: ClassType, expectedSubtype: Type): Type | undefined {
-        const objType = ObjectType.create(type);
+    function applyExpectedSubtypeForConstructor(
+        type: ClassType,
+        expectedSubtype: Type,
+        typeVarMap: TypeVarMap
+    ): Type | undefined {
+        const specializedType = applySolvedTypeVars(ObjectType.create(type), typeVarMap, /* concreteIfNotFound */ true);
 
-        if (canAssignType(expectedSubtype, objType, new DiagnosticAddendum())) {
-            // If the expected type is "Any", transform it to an Any.
-            if (expectedSubtype.category === TypeCategory.Any) {
-                return expectedSubtype;
-            }
-
-            const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
-            if (populateTypeVarMapBasedOnExpectedType(type, expectedSubtype, typeVarMap)) {
-                return applySolvedTypeVars(objType, typeVarMap, /* concreteIfNotFound */ true) as ClassType;
-            }
+        if (!canAssignType(expectedSubtype, specializedType, new DiagnosticAddendum())) {
+            return undefined;
         }
 
-        return undefined;
+        // If the expected type is "Any", transform it to an Any.
+        if (expectedSubtype.category === TypeCategory.Any) {
+            return expectedSubtype;
+        }
+
+        return specializedType;
     }
 
     // Handles the case where a constructor is a generic type and the type
@@ -5749,12 +5795,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function applyExpectedTypeForConstructor(
         type: ClassType,
         expectedType: Type | undefined,
-        typeVarMap: TypeVarMap | undefined
+        typeVarMap: TypeVarMap
     ): Type {
         if (expectedType) {
-            const specializedType = typeVarMap ? (applySolvedTypeVars(type, typeVarMap) as ClassType) : type;
             const specializedExpectedType = doForSubtypes(expectedType, (expectedSubtype) => {
-                return applyExpectedSubtypeForConstructor(specializedType, expectedSubtype);
+                return applyExpectedSubtypeForConstructor(type, expectedSubtype, typeVarMap);
             });
 
             if (!isNever(specializedExpectedType)) {
@@ -5762,10 +5807,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const specializedType = typeVarMap
-            ? (applySolvedTypeVars(type, typeVarMap, /* concreteIfNotFound */ true) as ClassType)
-            : specializeClassType(type);
-
+        const specializedType = applySolvedTypeVars(type, typeVarMap, /* concreteIfNotFound */ true) as ClassType;
         return ObjectType.create(specializedType);
     }
 
@@ -5778,7 +5820,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function populateTypeVarMapBasedOnExpectedType(
         type: ClassType,
         expectedType: Type,
-        typeVarMap: TypeVarMap
+        typeVarMap: TypeVarMap,
+        liveTypeVarScopes: TypeVarScopeId[]
     ): boolean {
         if (expectedType.category === TypeCategory.Any) {
             type.details.typeParameters.forEach((typeParam) => {
@@ -5853,13 +5896,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         synthTypeVar.details.synthesizedIndex
                     ];
                     if (index < expectedTypeArgs.length) {
-                        const replacementType = expectedTypeArgs[index];
-
-                        // If the expected type includes TypeVars that are associated with
-                        // some other scope, we need to add those to the "solve for scope"
-                        // list in this typeVarMap.
-                        addTypeVarScopeIdsForType(replacementType, typeVarMap);
-                        typeVarMap.setTypeVar(targetTypeVar, replacementType, /* isNarrowable */ false);
+                        const expectedTypeArgValue = transformExpectedTypeForConstructor(
+                            expectedTypeArgs[index],
+                            typeVarMap,
+                            liveTypeVarScopes
+                        );
+                        if (expectedTypeArgValue) {
+                            typeVarMap.setTypeVar(targetTypeVar, expectedTypeArgValue, /* isNarrowable */ false);
+                        }
                     }
                 }
             });
@@ -8208,7 +8252,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const dictTypeVarMap = new TypeVarMap(getTypeVarScopeId(builtInDict.classType));
-        if (!populateTypeVarMapBasedOnExpectedType(builtInDict.classType, expectedType, dictTypeVarMap)) {
+        if (
+            !populateTypeVarMapBasedOnExpectedType(
+                builtInDict.classType,
+                expectedType,
+                dictTypeVarMap,
+                getTypeVarScopesForNode(node)
+            )
+        ) {
             return undefined;
         }
 
@@ -8439,7 +8490,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const listTypeVarMap = new TypeVarMap(getTypeVarScopeId(builtInList.classType));
-        if (!populateTypeVarMapBasedOnExpectedType(builtInList.classType, expectedType, listTypeVarMap)) {
+        if (
+            !populateTypeVarMapBasedOnExpectedType(
+                builtInList.classType,
+                expectedType,
+                listTypeVarMap,
+                getTypeVarScopesForNode(node)
+            )
+        ) {
             return undefined;
         }
 
@@ -15247,7 +15305,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): boolean {
         let isTypeVarInScope = true;
 
-        if (!destType.scopeId || !typeVarMap.hasSolveForScope(destType.scopeId)) {
+        // If the TypeVar doesn't have a scope ID, then it's being used
+        // outside of a valid TypeVar scope. This will be reported as a
+        // separate error. Just ignore this case to avoid redundant errors.
+        if (!destType.scopeId) {
+            return true;
+        }
+
+        if (!typeVarMap.hasSolveForScope(destType.scopeId)) {
             if (isAnyOrUnknown(srcType)) {
                 return true;
             }
@@ -16455,7 +16520,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* isTypeArgumentExplicit */ false
                 ),
                 ObjectType.create(declaredType),
-                typeVarMap
+                typeVarMap,
+                []
             );
 
             let replacedTypeArg = false;

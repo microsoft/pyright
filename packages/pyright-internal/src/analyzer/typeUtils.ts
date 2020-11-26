@@ -116,6 +116,8 @@ interface TypeVarTransformer {
 const singleTickRegEx = /'/g;
 const tripleTickRegEx = /'''/g;
 
+let synthesizedTypeVarIndexForExpectedType = 1;
+
 export function isOptionalType(type: Type): boolean {
     if (type.category === TypeCategory.Union) {
         return type.subtypes.some((t) => isNone(t));
@@ -586,6 +588,82 @@ export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, concrete
     });
 }
 
+// During bidirectional type inference for constructors, an "executed type"
+// is used to prepopulate the type var map. This is problematic when the
+// expected type uses TypeVars that are not part of the context of the
+// class we are constructor. We'll replace these type variables with dummy
+// type variables that are scoped to the appropriate context.
+export function transformExpectedTypeForConstructor(
+    expectedType: Type,
+    typeVarMap: TypeVarMap,
+    liveTypeVarScopes: TypeVarScopeId[]
+): Type | undefined {
+    const isTypeVarLive = (typeVar: TypeVarType) => liveTypeVarScopes.some((scopeId) => typeVar.scopeId === scopeId);
+
+    const createDummyTypeVar = (prevTypeVar: TypeVarType) => {
+        // If we previously synthesized this dummy type var, just return it.
+        if (prevTypeVar.details.isSynthesized && prevTypeVar.details.name.startsWith(dummyTypeVarPrefix)) {
+            return prevTypeVar;
+        }
+
+        const isInstance = TypeBase.isInstance(prevTypeVar);
+        let newTypeVar = TypeVarType.createInstance(
+            `__expected_type_${synthesizedTypeVarIndexForExpectedType}`,
+            /* isParamSpec */ false,
+            /* isSynthesized */ true
+        );
+        newTypeVar.scopeId = dummyScopeId;
+        newTypeVar.scopeName = TypeVarType.makeScopeName(newTypeVar.details.name, dummyScopeId);
+        if (!isInstance) {
+            newTypeVar = convertToInstantiable(newTypeVar) as TypeVarType;
+        }
+
+        // If the original TypeVar was bound or constrained, make the replacement as well.
+        newTypeVar.details.boundType = prevTypeVar.details.boundType;
+        newTypeVar.details.constraints = prevTypeVar.details.constraints;
+
+        // Also copy the covariant/contravariant flags.
+        newTypeVar.details.isCovariant = prevTypeVar.details.isCovariant;
+        newTypeVar.details.isContravariant = prevTypeVar.details.isContravariant;
+
+        synthesizedTypeVarIndexForExpectedType++;
+        return newTypeVar;
+    };
+
+    // Handle "naked TypeVars" (i.e. the expectedType is a TypeVar itself)
+    // specially. Return undefined to indicate that it's an out-of-scope
+    // TypeVar.
+    if (isTypeVar(expectedType)) {
+        if (isTypeVarLive(expectedType)) {
+            return expectedType;
+        }
+
+        return undefined;
+    }
+
+    const dummyScopeId = '__expected_type_scope_id';
+    const dummyTypeVarPrefix = '__expected_type_';
+    typeVarMap.addSolveForScope(dummyScopeId);
+
+    return _transformTypeVars(expectedType, {
+        transformTypeVar: (typeVar: TypeVarType) => {
+            // If the type variable is unrelated to the scopes we're solving,
+            // don't transform that type variable.
+            if (isTypeVarLive(typeVar)) {
+                return typeVar;
+            }
+
+            return createDummyTypeVar(typeVar);
+        },
+        transformVariadicTypeVar: (typeVar: TypeVarType) => {
+            return undefined;
+        },
+        transformParamSpec: (paramSpec: TypeVarType) => {
+            return undefined;
+        },
+    });
+}
+
 export function lookUpObjectMember(
     objectType: Type,
     memberName: string,
@@ -910,17 +988,13 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 // that are used within the type.
 export function buildTypeVarMapFromType(type: Type): TypeVarMap {
     const typeVarMap = new TypeVarMap();
-    addTypeVarScopeIdsForType(type, typeVarMap);
-    return typeVarMap;
-}
-
-export function addTypeVarScopeIdsForType(type: Type, typeVarMap: TypeVarMap) {
     const typeVars = getTypeVarArgumentsRecursive(type);
     typeVars.forEach((typeVar) => {
         if (typeVar.scopeId) {
             typeVarMap.addSolveForScope(typeVar.scopeId);
         }
     });
+    return typeVarMap;
 }
 
 // Builds a mapping between type parameters and their specialized

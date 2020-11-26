@@ -10,7 +10,7 @@ a1 = (1, 2)
 t1: Literal["tuple[Literal[1], Literal[2]]"] = reveal_type(a1)
 
 a2 = list((1, 2))
-t2: Literal["list[int]"] = reveal_type(a2)
+t2: Literal["list[Literal[1, 2]]"] = reveal_type(a2)
 
 a3: List[Literal[1]] = list((1,))
 t3: Literal["list[Literal[1]]"] = reveal_type(a3)
