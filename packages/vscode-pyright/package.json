@@ -587,6 +587,17 @@
                                 "error"
                             ]
                         },
+                        "reportUnusedCallResult": {
+                            "type": "string",
+                            "description": "Diagnostics for call expressions whose results are not consumed and are not None.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportUnsupportedDunderAll": {
                             "type": "string",
                             "description": "Diagnostics for unsupported operations performed on __all__.",

@@ -229,6 +229,10 @@ export interface DiagnosticRuleSet {
     // Report operations on __all__ symbol that are not supported
     // by a static type checker.
     reportUnsupportedDunderAll: DiagnosticLevel;
+
+    // Report cases where a call expression's return result is not
+    // None and is not used in any way.
+    reportUnusedCallResult: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -295,6 +299,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnboundVariable,
         DiagnosticRule.reportInvalidStubStatement,
         DiagnosticRule.reportUnsupportedDunderAll,
+        DiagnosticRule.reportUnusedCallResult,
     ];
 }
 
@@ -358,6 +363,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUndefinedVariable: 'warning',
         reportInvalidStubStatement: 'none',
         reportUnsupportedDunderAll: 'none',
+        reportUnusedCallResult: 'none',
     };
 
     return diagSettings;
@@ -417,6 +423,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'none',
         reportUnsupportedDunderAll: 'warning',
+        reportUnusedCallResult: 'none',
     };
 
     return diagSettings;
@@ -476,6 +483,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'error',
         reportUnsupportedDunderAll: 'error',
+        reportUnusedCallResult: 'none',
     };
 
     return diagSettings;
@@ -1110,6 +1118,13 @@ export class ConfigOptions {
                 configObj.reportUnsupportedDunderAll,
                 DiagnosticRule.reportUnsupportedDunderAll,
                 defaultSettings.reportUnsupportedDunderAll
+            ),
+
+            // Read the "reportUnusedCallResult" entry.
+            reportUnusedCallResult: this._convertDiagnosticLevel(
+                configObj.reportUnusedCallResult,
+                DiagnosticRule.reportUnusedCallResult,
+                defaultSettings.reportUnusedCallResult
             ),
         };
 

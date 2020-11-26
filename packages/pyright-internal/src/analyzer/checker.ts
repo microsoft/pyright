@@ -421,6 +421,28 @@ export class Checker extends ParseTreeWalker {
             );
         }
 
+        if (this._fileInfo.diagnosticRuleSet.reportUnusedCallResult !== 'none') {
+            if (node.parent?.nodeType === ParseNodeType.StatementList) {
+                const returnType = this._evaluator.getType(node);
+                if (
+                    returnType &&
+                    !isNone(returnType) &&
+                    !isNoReturnType(returnType) &&
+                    !isNever(returnType) &&
+                    !isAnyOrUnknown(returnType)
+                ) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportUnusedCallResult,
+                        DiagnosticRule.reportUnusedCallResult,
+                        Localizer.Diagnostic.unusedCallResult().format({
+                            type: this._evaluator.printType(returnType, /* expandTypeAlias */ false),
+                        }),
+                        node
+                    );
+                }
+            }
+        }
+
         return true;
     }
 

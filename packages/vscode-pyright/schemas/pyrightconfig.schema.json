@@ -387,6 +387,12 @@
       "title": "Controls reporting of unsupported operations performed on __all__",
       "default": "warning"
     },
+    "reportUnusedCallResult": {
+      "$id": "#/properties/reportUnusedCallResult",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of call expressions whose results are not consumed",
+      "default": "none"
+    },
     "pythonVersion": {
       "$id": "#/properties/pythonVersion",
       "type": "string",

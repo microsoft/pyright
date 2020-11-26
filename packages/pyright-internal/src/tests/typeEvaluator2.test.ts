@@ -1211,3 +1211,16 @@ test('ClassGetItem1', () => {
 
     TestUtils.validateResults(analysisResults, 0, 1);
 });
+
+test('UnusedCallResult1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // By default, this is disabled.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedCallResult1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    // Enable it as an error.
+    configOptions.diagnosticRuleSet.reportUnusedCallResult = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedCallResult1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 3);
+});

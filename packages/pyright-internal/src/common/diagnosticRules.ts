@@ -60,4 +60,5 @@ export enum DiagnosticRule {
     reportUnboundVariable = 'reportUnboundVariable',
     reportInvalidStubStatement = 'reportInvalidStubStatement',
     reportUnsupportedDunderAll = 'reportUnsupportedDunderAll',
+    reportUnusedCallResult = 'reportUnusedCallResult',
 }
