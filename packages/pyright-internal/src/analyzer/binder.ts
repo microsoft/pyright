@@ -567,6 +567,8 @@ export class Binder extends ParseTreeWalker {
             node.leftExpression.leftExpression.nodeType === ParseNodeType.Name &&
             node.leftExpression.leftExpression.value === '__all__'
         ) {
+            let emitDunderAllWarning = true;
+
             // Is this a call to "__all__.extend()"?
             if (node.leftExpression.memberName.value === 'extend' && node.arguments.length === 1) {
                 const argExpr = node.arguments[0].valueExpression;
@@ -580,6 +582,7 @@ export class Binder extends ParseTreeWalker {
                             listEntryNode.strings[0].nodeType === ParseNodeType.String
                         ) {
                             this._dunderAllNames?.push(listEntryNode.strings[0].value);
+                            emitDunderAllWarning = false;
                         }
                     });
                 } else if (
@@ -589,10 +592,11 @@ export class Binder extends ParseTreeWalker {
                 ) {
                     // Is this a call to "__all__.extend(<mod>.__all__)"?
                     const namesToAdd = this._getDunderAllNamesFromImport(argExpr.leftExpression.value);
-                    if (namesToAdd) {
+                    if (namesToAdd && namesToAdd.length > 0) {
                         namesToAdd.forEach((name) => {
                             this._dunderAllNames?.push(name);
                         });
+                        emitDunderAllWarning = false;
                     }
                 }
             } else if (node.leftExpression.memberName.value === 'remove' && node.arguments.length === 1) {
@@ -605,6 +609,7 @@ export class Binder extends ParseTreeWalker {
                     this._dunderAllNames
                 ) {
                     this._dunderAllNames = this._dunderAllNames.filter((name) => name !== argExpr.strings[0].value);
+                    emitDunderAllWarning = false;
                 }
             } else if (node.leftExpression.memberName.value === 'append' && node.arguments.length === 1) {
                 // Is this a call to "__all__.append()"?
@@ -615,7 +620,17 @@ export class Binder extends ParseTreeWalker {
                     argExpr.strings[0].nodeType === ParseNodeType.String
                 ) {
                     this._dunderAllNames?.push(argExpr.strings[0].value);
+                    emitDunderAllWarning = false;
                 }
+            }
+
+            if (emitDunderAllWarning) {
+                this._addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
+                    DiagnosticRule.reportUnsupportedDunderAll,
+                    Localizer.Diagnostic.unsupportedDunderAllOperation(),
+                    node
+                );
             }
         }
 
@@ -661,6 +676,7 @@ export class Binder extends ParseTreeWalker {
             ) {
                 const expr = node.rightExpression;
                 this._dunderAllNames = [];
+                let emitDunderAllWarning = false;
 
                 if (expr.nodeType === ParseNodeType.List) {
                     expr.entries.forEach((listEntryNode) => {
@@ -670,6 +686,8 @@ export class Binder extends ParseTreeWalker {
                             listEntryNode.strings[0].nodeType === ParseNodeType.String
                         ) {
                             this._dunderAllNames!.push(listEntryNode.strings[0].value);
+                        } else {
+                            emitDunderAllWarning = true;
                         }
                     });
                 } else if (expr.nodeType === ParseNodeType.Tuple) {
@@ -680,8 +698,21 @@ export class Binder extends ParseTreeWalker {
                             tupleEntryNode.strings[0].nodeType === ParseNodeType.String
                         ) {
                             this._dunderAllNames!.push(tupleEntryNode.strings[0].value);
+                        } else {
+                            emitDunderAllWarning = true;
                         }
                     });
+                } else {
+                    emitDunderAllWarning = true;
+                }
+
+                if (emitDunderAllWarning) {
+                    this._addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
+                        DiagnosticRule.reportUnsupportedDunderAll,
+                        Localizer.Diagnostic.unsupportedDunderAllOperation(),
+                        node
+                    );
                 }
             }
         }
@@ -751,6 +782,7 @@ export class Binder extends ParseTreeWalker {
             node.leftExpression.value === '__all__'
         ) {
             const expr = node.rightExpression;
+            let emitDunderAllWarning = true;
 
             if (expr.nodeType === ParseNodeType.List) {
                 // Is this the form __all__ += ["a", "b"]?
@@ -763,6 +795,7 @@ export class Binder extends ParseTreeWalker {
                         this._dunderAllNames?.push(listEntryNode.strings[0].value);
                     }
                 });
+                emitDunderAllWarning = false;
             } else if (
                 expr.nodeType === ParseNodeType.MemberAccess &&
                 expr.leftExpression.nodeType === ParseNodeType.Name &&
@@ -774,7 +807,18 @@ export class Binder extends ParseTreeWalker {
                     namesToAdd.forEach((name) => {
                         this._dunderAllNames?.push(name);
                     });
+
+                    emitDunderAllWarning = false;
                 }
+            }
+
+            if (emitDunderAllWarning) {
+                this._addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportUnsupportedDunderAll,
+                    DiagnosticRule.reportUnsupportedDunderAll,
+                    Localizer.Diagnostic.unsupportedDunderAllOperation(),
+                    node
+                );
             }
         }
 

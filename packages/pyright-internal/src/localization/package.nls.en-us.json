@@ -326,6 +326,8 @@
         "unpackInSet": "Unpack operator not allowed within a set",
         "unpackTuplesIllegal": "Unpack operation not allowed in tuples prior to Python 3.8",
         "unreachableCode": "Code is unreachable",
+        "unsupportedDunderAllAssignment": "Expression assigned to \"__all__\" is not supported, so exported symbol list may be incorrect; use list or tuple of string literal values in assignment",
+        "unsupportedDunderAllOperation": "Operation on \"__all__\" is not supported, so exported symbol list may not be incorrect",
         "varAnnotationIllegal": "Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with previous versions",
         "walrusIllegal": "Operator \":=\" requires Python 3.8 or newer",
         "walrusNotAllowed": "Operator \":=\" not allowed in this context",

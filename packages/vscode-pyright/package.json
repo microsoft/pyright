@@ -586,6 +586,17 @@
                                 "warning",
                                 "error"
                             ]
+                        },
+                        "reportUnsupportedDunderAll": {
+                            "type": "string",
+                            "description": "Diagnostics for unsupported operations performed on __all__.",
+                            "default": "warning",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
                         }
                     }
                 },

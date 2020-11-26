@@ -225,6 +225,10 @@ export interface DiagnosticRuleSet {
     // Report statements that are syntactically correct but
     // have no semantic meaning within a type stub file.
     reportInvalidStubStatement: DiagnosticLevel;
+
+    // Report operations on __all__ symbol that are not supported
+    // by a static type checker.
+    reportUnsupportedDunderAll: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -290,6 +294,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUndefinedVariable,
         DiagnosticRule.reportUnboundVariable,
         DiagnosticRule.reportInvalidStubStatement,
+        DiagnosticRule.reportUnsupportedDunderAll,
     ];
 }
 
@@ -352,6 +357,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnboundVariable: 'warning',
         reportUndefinedVariable: 'warning',
         reportInvalidStubStatement: 'none',
+        reportUnsupportedDunderAll: 'none',
     };
 
     return diagSettings;
@@ -410,6 +416,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnboundVariable: 'error',
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'none',
+        reportUnsupportedDunderAll: 'warning',
     };
 
     return diagSettings;
@@ -468,6 +475,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnboundVariable: 'error',
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'error',
+        reportUnsupportedDunderAll: 'error',
     };
 
     return diagSettings;
@@ -1095,6 +1103,13 @@ export class ConfigOptions {
                 configObj.reportInvalidStubStatement,
                 DiagnosticRule.reportInvalidStubStatement,
                 defaultSettings.reportInvalidStubStatement
+            ),
+
+            // Read the "reportUnsupportedDunderAll" entry.
+            reportUnsupportedDunderAll: this._convertDiagnosticLevel(
+                configObj.reportUnsupportedDunderAll,
+                DiagnosticRule.reportUnsupportedDunderAll,
+                defaultSettings.reportUnsupportedDunderAll
             ),
         };
 

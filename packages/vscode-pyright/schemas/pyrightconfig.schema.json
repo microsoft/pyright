@@ -381,6 +381,12 @@
       "title": "Controls reporting of type stub statements that do not conform to PEP 484",
       "default": "none"
     },
+    "reportUnsupportedDunderAll": {
+      "$id": "#/properties/reportUnsupportedDunderAll",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of unsupported operations performed on __all__",
+      "default": "warning"
+    },
     "pythonVersion": {
       "$id": "#/properties/pythonVersion",
       "type": "string",
