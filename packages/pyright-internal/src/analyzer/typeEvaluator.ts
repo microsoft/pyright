@@ -9048,16 +9048,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return type;
     }
 
-    // Creates a "TypeGuard" type.
+    // Creates a "TypeGuard" type. This is an alias for 'bool', which
+    // isn't a generic type and therefore doesn't have a typeParameter.
+    // We'll abuse our internal types a bit by specializing it with
+    // a type argument anyway.
     function createTypeGuardType(errorNode: ParseNode, classType: ClassType, typeArgs: TypeResult[] | undefined): Type {
-        // The first time that we use the TypeGuard special type, it won't have
-        // a type parameter. We'll synthesize one here.
-        if (classType.details.typeParameters.length === 0) {
-            classType.details.typeParameters.push(
-                TypeVarType.createInstance('_T', /* isParamSpec */ false, /* isSynthesized */ true)
-            );
-        }
-
         if (!typeArgs || typeArgs.length !== 1) {
             addError(Localizer.Diagnostic.typeGuardArgCount(), errorNode);
         }
