@@ -15740,43 +15740,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 const destTypeArgs = destClassType.typeArguments;
                 if (destTypeArgs && destTypeArgs.length >= 1) {
-                    if (isAnyOrUnknown(destTypeArgs[0])) {
-                        return true;
-                    } else if (isObject(destTypeArgs[0])) {
+                    if (TypeBase.isInstance(destTypeArgs[0]) && TypeBase.isInstantiable(srcType)) {
                         return canAssignType(
-                            destTypeArgs[0].classType,
-                            srcType,
+                            destTypeArgs[0],
+                            convertToInstance(srcType),
                             diag,
                             typeVarMap,
                             flags,
                             recursionCount + 1
                         );
-                    } else if (isTypeVar(destTypeArgs[0])) {
-                        if (TypeBase.isInstantiable(srcType)) {
-                            return canAssignType(
-                                destTypeArgs[0],
-                                convertToInstance(srcType),
-                                diag,
-                                typeVarMap,
-                                flags,
-                                recursionCount + 1
-                            );
-                        } else if (
-                            srcType.category === TypeCategory.Function ||
-                            srcType.category === TypeCategory.OverloadedFunction
-                        ) {
-                            return canAssignType(destTypeArgs[0], srcType, diag, typeVarMap, flags, recursionCount + 1);
-                        } else if (isObject(srcType) && ClassType.isProtocolClass(srcType.classType)) {
-                            // This case is used for protocol matching when the dest is a metaclass.
-                            // For example, when matching an Enum class against Iterable.
-                            return true;
-                        }
                     }
                 }
             }
 
             const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
-
             if (isObject(concreteSrcType)) {
                 if (destType.classType.literalValue !== undefined) {
                     const srcLiteral = concreteSrcType.classType.literalValue;
