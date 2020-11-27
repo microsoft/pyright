@@ -11,6 +11,7 @@ from typing import (
     Sequence,
     TypeVar,
     Union,
+    overload,
 )
 
 
@@ -193,3 +194,21 @@ class ClassA(Generic[_T2A]):
 class ClassB(ClassA[_T2A]):
     def func1(self) -> Optional[_T2A]:
         return None
+
+
+class Base3:
+    def case(self, value: Any) -> Iterable[Any]:
+        return []
+
+
+class Derived3(Base3):
+    @overload
+    def case(self, value: int) -> Iterable[int]:
+        ...
+
+    @overload
+    def case(self, value: float) -> Iterable[float]:
+        ...
+
+    def case(self, value: Any) -> Iterable[Any]:
+        return []

@@ -2095,9 +2095,17 @@ export class Checker extends ParseTreeWalker {
                 baseClassSymbolType.category === TypeCategory.Function ||
                 baseClassSymbolType.category === TypeCategory.OverloadedFunction
             ) {
+                let overrideFunction: FunctionType | undefined;
                 if (typeOfSymbol.category === TypeCategory.Function) {
-                    if (!this._evaluator.canOverrideMethod(baseClassSymbolType, typeOfSymbol, diagAddendum)) {
-                        const decl = getLastTypedDeclaredForSymbol(symbol);
+                    overrideFunction = typeOfSymbol;
+                } else if (typeOfSymbol.category === TypeCategory.OverloadedFunction) {
+                    // Use the last overload.
+                    overrideFunction = typeOfSymbol.overloads[typeOfSymbol.overloads.length - 1];
+                }
+
+                if (overrideFunction) {
+                    if (!this._evaluator.canOverrideMethod(baseClassSymbolType, overrideFunction, diagAddendum)) {
+                        const decl = overrideFunction.details.declaration;
                         if (decl && decl.type === DeclarationType.Function) {
                             const diag = this._evaluator.addDiagnostic(
                                 this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
