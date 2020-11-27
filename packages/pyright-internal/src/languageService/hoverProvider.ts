@@ -26,6 +26,7 @@ import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import {
     getTypeAliasInfo,
     isClass,
+    isFunction,
     isModule,
     isObject,
     Type,
@@ -270,13 +271,13 @@ export class HoverProvider {
         const instanceType = evaluator.getType(callLeftNode.parent);
         const functionType = evaluator.getTypeOfMember(initMethodMember);
 
-        if (!instanceType || !functionType || !isObject(instanceType)) {
+        if (!instanceType || !functionType || !isObject(instanceType) || !isFunction(functionType)) {
             return false;
         }
 
         const initMethodType = evaluator.bindFunctionToClassOrObject(instanceType, functionType);
 
-        if (!initMethodType || initMethodType.category !== TypeCategory.Function) {
+        if (!initMethodType || !isFunction(initMethodType)) {
             return false;
         }
 

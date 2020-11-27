@@ -41,6 +41,7 @@ import {
     FunctionType,
     getTypeAliasInfo,
     isClass,
+    isFunction,
     isModule,
     isNone,
     isObject,
@@ -1516,9 +1517,10 @@ export class CompletionProvider {
                                     break;
                                 }
                                 case DeclarationType.Function: {
-                                    const functionType = detail.objectThrough
-                                        ? this._evaluator.bindFunctionToClassOrObject(detail.objectThrough, type)
-                                        : type;
+                                    const functionType =
+                                        detail.objectThrough && isFunction(type)
+                                            ? this._evaluator.bindFunctionToClassOrObject(detail.objectThrough, type)
+                                            : type;
                                     if (functionType) {
                                         if (isProperty(functionType) && detail.objectThrough) {
                                             const propertyType =

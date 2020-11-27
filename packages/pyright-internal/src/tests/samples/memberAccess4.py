@@ -2,7 +2,7 @@
 # "self" or "cls" parameter type is honored when binding the
 # method to an object or class.
 
-from typing import Protocol, Type
+from typing import Protocol, Type, TypeVar
 
 
 class HasItemProtocol1(Protocol):
@@ -72,3 +72,19 @@ class Foo:
     @staticmethod
     def get_or_create(context: Bar):
         return object.__getattribute__(context, "")
+
+
+TFoo2 = TypeVar("TFoo2", bound="Foo2")
+
+
+class Foo2:
+    @classmethod
+    def bar(cls: type[TFoo2]) -> TFoo2:
+        ...
+
+    def baz(self) -> None:
+        self.bar()
+
+class ClassWithNewOverride:
+    def __new__(cls):
+        return object.__new__(cls)
