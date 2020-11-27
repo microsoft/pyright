@@ -4075,8 +4075,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (isFunction(subtype) || isOverloadedFunction(subtype)) {
                 // If this function is an instance member (e.g. a lambda that was
                 // assigned to an instance variable), don't perform any binding.
-                const isInstanceMember = isAccessedThroughObject && memberInfo?.isInstanceMember;
-                if (!isInstanceMember) {
+                if (!isAccessedThroughObject || !memberInfo?.isInstanceMember) {
                     let baseType: ClassType | ObjectType = isAccessedThroughObject
                         ? ObjectType.create(classType)
                         : classType;
@@ -17031,8 +17030,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         firstParamType: ClassType | ObjectType | TypeVarType,
         stripFirstParam = true
     ): Type | undefined {
-        const classType = isClass(baseType) ? baseType : baseType.classType;
-
         // If the class has already been specialized (fully or partially), use its
         // existing type arg mappings. If it hasn't, use a fresh type arg map.
         const typeVarMap = memberClass.typeArguments
