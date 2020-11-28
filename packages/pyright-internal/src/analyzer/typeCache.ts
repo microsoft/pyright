@@ -123,7 +123,6 @@ export class SpeculativeTypeTracker {
 export class IncompleteTypeTracker {
     private _trackerStack: TypeCacheEntry[][] = [];
     private _isUndoTrackingEnabled = false;
-    private _requiresUndo = false;
 
     trackEntry(cache: TypeCache, id: number) {
         if (this._isUndoTrackingEnabled) {
@@ -148,7 +147,6 @@ export class IncompleteTypeTracker {
             entry.cache.delete(entry.id);
         });
 
-        this._requiresUndo = false;
         // If we have consumed all trackers, no more undo
         // is required.
         if (this._trackerStack.length === 0) {
