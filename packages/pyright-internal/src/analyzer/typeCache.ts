@@ -121,35 +121,51 @@ export class SpeculativeTypeTracker {
 // is incomplete because not all paths have been exhaustively
 // explored.
 export class IncompleteTypeTracker {
-    private _entriesToUndo: TypeCacheEntry[] = [];
+    private _trackerStack: TypeCacheEntry[][] = [];
+    private _isUndoTrackingEnabled = false;
     private _requiresUndo = false;
 
     trackEntry(cache: TypeCache, id: number) {
-        if (this._requiresUndo) {
-            this._entriesToUndo.push({
+        if (this._isUndoTrackingEnabled) {
+            const topOfStack = this._trackerStack[this._trackerStack.length - 1];
+            topOfStack.push({
                 cache,
                 id,
             });
         }
     }
 
-    leaveIncompleteTypeMode() {
-        this._entriesToUndo.forEach((entry) => {
+    // Push a new tracker onto the stack.
+    enterTrackingScope() {
+        this._trackerStack.push([]);
+    }
+
+    // Pop the latest tracker from the stack and deletes
+    // all entries from the type cache that it refers to.
+    exitTrackingScope() {
+        const topOfStack = this._trackerStack.pop()!;
+        topOfStack.forEach((entry) => {
             entry.cache.delete(entry.id);
         });
 
         this._requiresUndo = false;
-        this._entriesToUndo = [];
+        // If we have consumed all trackers, no more undo
+        // is required.
+        if (this._trackerStack.length === 0) {
+            this._isUndoTrackingEnabled = false;
+        }
     }
 
-    enterIncompleteTypeMode() {
+    enableUndoTracking() {
         // Note that subsequent types are based on incomplete
         // type information and should be tracked and ultimately
         // removed from the cache.
-        this._requiresUndo = true;
+        if (this._trackerStack.length > 0) {
+            this._isUndoTrackingEnabled = true;
+        }
     }
 
-    isIncompleteTypeMode() {
-        return this._requiresUndo;
+    isUndoTrackingEnabled() {
+        return this._isUndoTrackingEnabled;
     }
 }

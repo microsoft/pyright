@@ -215,9 +215,12 @@ interface TypeResult {
     type: Type;
     node: ExpressionNode;
 
+    // Is the type incomplete (i.e. not fully evaluated) because
+    // some of the paths involve cyclical dependencies?
+    isIncomplete?: boolean;
+
     unpackedType?: Type;
     typeList?: TypeResult[];
-    isResolutionCyclical?: boolean;
     expectedTypeDiagAddendum?: DiagnosticAddendum;
 
     // Used for the output of "super" calls used on the LHS of
@@ -230,7 +233,7 @@ interface TypeResult {
 
 interface EffectiveTypeResult {
     type: Type;
-    isResolutionCyclical: boolean;
+    isIncomplete: boolean;
     isRecursiveDefinition: boolean;
 }
 
@@ -1052,7 +1055,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Don't update the type cache with an unbound type that results from
         // a resolution cycle. The cache will be updated when the stack unwinds
         // and the type is fully evaluated.
-        if (!typeResult.isResolutionCyclical && !isTypeAliasPlaceholder(typeResult.type)) {
+        if (!typeResult.isIncomplete && !isTypeAliasPlaceholder(typeResult.type)) {
             writeTypeCache(node, typeResult.type);
         }
 
@@ -2348,7 +2351,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function isDiagnosticSuppressedForNode(node: ParseNode) {
-        return isDiagnosticSuppressed || isSpeculativeMode(node) || incompleteTypeTracker.isIncompleteTypeMode();
+        return isDiagnosticSuppressed || isSpeculativeMode(node) || incompleteTypeTracker.isUndoTrackingEnabled();
     }
 
     function addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, node: ParseNode) {
@@ -3067,7 +3070,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function setSymbolAccessed(fileInfo: AnalyzerFileInfo, symbol: Symbol, node: ParseNode) {
-        if (!isSpeculativeMode(node) && !incompleteTypeTracker.isIncompleteTypeMode()) {
+        if (!isSpeculativeMode(node) && !incompleteTypeTracker.isUndoTrackingEnabled()) {
             fileInfo.accessedSymbolMap.set(symbol.id, true);
         }
     }
@@ -3159,7 +3162,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = getFileInfo(node);
         const name = node.value;
         let type: Type | undefined;
-        let isResolutionCyclical = false;
+        let isIncomplete = false;
         const allowForwardReferences = (flags & EvaluatorFlags.AllowForwardReferences) !== 0;
 
         // Look for the scope that contains the value definition and
@@ -3192,8 +3195,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const effectiveTypeInfo = getEffectiveTypeOfSymbolForUsage(symbol, useCodeFlowAnalysis ? node : undefined);
             const effectiveType = effectiveTypeInfo.type;
 
-            if (effectiveTypeInfo.isResolutionCyclical) {
-                isResolutionCyclical = true;
+            if (effectiveTypeInfo.isIncomplete) {
+                isIncomplete = true;
             }
 
             if (effectiveTypeInfo.isRecursiveDefinition && isNodeReachable(node)) {
@@ -3271,7 +3274,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // its actual type will be known then. Also, if the node is unreachable
             // but within a reachable statement (e.g. if False and <name>) then avoid
             // reporting an unbound error.
-            if (!isResolutionCyclical && !AnalyzerNodeInfo.isCodeUnreachable(node)) {
+            if (!isIncomplete && !AnalyzerNodeInfo.isCodeUnreachable(node)) {
                 if (isUnbound(type)) {
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUnboundVariable,
@@ -3357,7 +3360,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        return { type, node, isResolutionCyclical };
+        return { type, node, isIncomplete };
     }
 
     // Creates an ID that identifies this parse node in a way that will
@@ -3439,11 +3442,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             (flags & (EvaluatorFlags.ExpectingType | EvaluatorFlags.AllowForwardReferences));
         const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, baseTypeFlags);
 
-        if (baseTypeResult.isResolutionCyclical || isTypeAliasPlaceholder(baseTypeResult.type)) {
+        if (baseTypeResult.isIncomplete || isTypeAliasPlaceholder(baseTypeResult.type)) {
             return {
                 node,
                 type: UnknownType.create(),
-                isResolutionCyclical: true,
+                isIncomplete: true,
             };
         }
 
@@ -3532,7 +3535,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (baseType.details.recursiveTypeAliasName) {
-                    return { type: UnknownType.create(), node, isResolutionCyclical: true };
+                    return { type: UnknownType.create(), node, isIncomplete: true };
                 }
 
                 return getTypeFromMemberAccessWithBaseType(
@@ -4191,11 +4194,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             flags | EvaluatorFlags.DoNotSpecialize
         );
 
-        if (baseTypeResult.isResolutionCyclical) {
+        if (baseTypeResult.isIncomplete) {
             return {
                 node,
                 type: UnknownType.create(),
-                isResolutionCyclical: true,
+                isIncomplete: true,
             };
         }
 
@@ -4894,11 +4897,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromCall(node: CallNode, expectedType: Type | undefined, flags: EvaluatorFlags): TypeResult {
         const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
 
-        if (baseTypeResult.isResolutionCyclical || isTypeAliasPlaceholder(baseTypeResult.type)) {
+        if (baseTypeResult.isIncomplete || isTypeAliasPlaceholder(baseTypeResult.type)) {
             return {
                 node,
                 type: UnknownType.create(),
-                isResolutionCyclical: true,
+                isIncomplete: true,
             };
         }
 
@@ -6476,7 +6479,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Run through all the args that were not validated and evaluate their types
         // to ensure that we haven't missed any (due to arg/param mismatches). This will
         // ensure that referenced symbols are not reported as unaccessed.
-        if (!isSpeculativeMode(undefined) && !incompleteTypeTracker.isIncompleteTypeMode()) {
+        if (!isSpeculativeMode(undefined) && !incompleteTypeTracker.isUndoTrackingEnabled()) {
             argList.forEach((arg) => {
                 if (arg.valueExpression) {
                     if (!validateArgTypeParams.some((validatedArg) => validatedArg.argument === arg)) {
@@ -9534,7 +9537,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const srcTypeResult = getTypeOfExpression(node.rightExpression, declaredType, flags);
                 let srcType = srcTypeResult.type;
                 expectedTypeDiagAddendum = srcTypeResult.expectedTypeDiagAddendum;
-                if (srcTypeResult.isResolutionCyclical) {
+                if (srcTypeResult.isIncomplete) {
                     isResolutionCycle = true;
                 }
 
@@ -12187,13 +12190,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const wasIncompleteTypeMode = incompleteTypeTracker.isIncompleteTypeMode();
-        const codeFlowResult = analyzer.getTypeFromCodeFlow(reference, targetSymbolId, initialType);
+        incompleteTypeTracker.enterTrackingScope();
+        let codeFlowResult: FlowNodeTypeResult;
+
+        try {
+            codeFlowResult = analyzer.getTypeFromCodeFlow(reference, targetSymbolId, initialType);
+        } finally {
+            incompleteTypeTracker.exitTrackingScope();
+        }
 
         if (codeFlowResult.isIncomplete) {
-            incompleteTypeTracker.enterIncompleteTypeMode();
-        } else if (!wasIncompleteTypeMode) {
-            incompleteTypeTracker.leaveIncompleteTypeMode();
+            incompleteTypeTracker.enableUndoTracking();
         }
 
         return codeFlowResult.type;
@@ -14227,7 +14234,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const declaredType = getDeclaredTypeOfSymbol(symbol);
             return {
                 type: declaredType || UnknownType.create(),
-                isResolutionCyclical: false,
+                isIncomplete: false,
                 isRecursiveDefinition: !declaredType,
             };
         }
@@ -14237,7 +14244,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const isPrivate = symbol.isPrivateMember();
         const decls = symbol.getDeclarations();
         const isFinalVar = isFinalVariable(symbol);
-        let isResolutionCyclical = false;
+        let isIncomplete = false;
 
         decls.forEach((decl, index) => {
             // If useLastDecl is true, consider only the last declaration.
@@ -14279,7 +14286,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         let type = getInferredTypeOfDeclaration(decl);
 
                         if (popSymbolResolution(symbol)) {
-                            isResolutionCyclical = true;
+                            isIncomplete = true;
                         }
 
                         if (type) {
@@ -14316,7 +14323,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         throw e;
                     }
                 } else {
-                    isResolutionCyclical = true;
+                    isIncomplete = true;
                 }
             }
         });
@@ -14324,14 +14331,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (typesToCombine.length > 0) {
             return {
                 type: combineTypes(typesToCombine),
-                isResolutionCyclical: false,
+                isIncomplete: false,
                 isRecursiveDefinition: false,
             };
         }
 
         return {
             type: UnboundType.create(),
-            isResolutionCyclical,
+            isIncomplete,
             isRecursiveDefinition: false,
         };
     }
