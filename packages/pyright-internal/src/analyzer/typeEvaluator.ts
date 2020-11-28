@@ -13043,13 +13043,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const classTypeList = getIsInstanceClassTypes(arg1Type);
                         if (classTypeList) {
                             return (type: Type) => {
-                                return narrowTypeForIsInstance(
-                                    type,
-                                    testExpression,
-                                    classTypeList,
-                                    isInstanceCheck,
-                                    isPositiveTest
-                                );
+                                return narrowTypeForIsInstance(type, classTypeList, isInstanceCheck, isPositiveTest);
                             };
                         }
                     }
@@ -13125,6 +13119,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // of classes. This method determines which form and returns a list of classes
     // or undefined.
     function getIsInstanceClassTypes(argType: Type): ClassType[] | undefined {
+        argType = makeTopLevelTypeVarsConcrete(transformTypeObjectToClass(argType));
         if (isClass(argType)) {
             return [argType];
         }
@@ -13135,6 +13130,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let foundNonClassType = false;
                 const classTypeList: ClassType[] = [];
                 objClass.variadicTypeArguments.forEach((typeArg) => {
+                    typeArg = makeTopLevelTypeVarsConcrete(transformTypeObjectToClass(typeArg));
                     if (isClass(typeArg)) {
                         classTypeList.push(typeArg);
                     } else {
@@ -13158,7 +13154,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // we can conclude that x must be constrained to "Cow".
     function narrowTypeForIsInstance(
         type: Type,
-        node: ExpressionNode,
         classTypeList: ClassType[],
         isInstanceCheck: boolean,
         isPositiveTest: boolean
@@ -13242,6 +13237,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return combineTypes(filterType(subtype.classType));
             } else if (!isInstanceCheck && isClass(subtype)) {
                 return combineTypes(filterType(subtype));
+            } else if (
+                !isInstanceCheck &&
+                isObject(subtype) &&
+                ClassType.isBuiltIn(subtype.classType, 'type') &&
+                objectType &&
+                isObject(objectType)
+            ) {
+                return combineTypes(filterType(objectType.classType));
             } else if (isPositiveTest && isAnyOrUnknown(subtype)) {
                 // If this is a positive test and the effective type is Any or
                 // Unknown, we can assume that the type matches one of the

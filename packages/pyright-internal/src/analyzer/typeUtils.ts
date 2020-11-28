@@ -256,7 +256,7 @@ export function transformTypeObjectToClass(type: Type): Type {
     }
 
     // If it's a generic Type, we can't get the class.
-    if (!classType.typeArguments || classType.typeArguments.length < 1) {
+    if (!classType.typeArguments || classType.typeArguments.length < 1 || !classType.isTypeArgumentExplicit) {
         return type;
     }
 
