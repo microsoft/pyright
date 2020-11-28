@@ -1489,7 +1489,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const symbolWithScope = lookUpSymbolRecursive(expression, expression.value, /* honorCodeFlow */ false);
             if (symbolWithScope) {
                 const symbol = symbolWithScope.symbol;
-                return symbol.getDeclarations().find((decl) => isPossibleTypeAliasDeclaration(decl)) !== undefined;
+                const decls = symbol.getDeclarations();
+
+                // Make sure it's assigned only once and is a variable declaration.
+                if (decls.length === 1 && isPossibleTypeAliasDeclaration(decls[0])) {
+                    // Make sure it's not defined within a looping construct.
+                    if (!ParseTreeUtils.isWithinLoop(decls[0].node)) {
+                        return true;
+                    }
+                }
             }
         }
 

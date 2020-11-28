@@ -944,6 +944,29 @@ export function isWithinAnnotationComment(node: ParseNode) {
     return false;
 }
 
+export function isWithinLoop(node: ParseNode): boolean {
+    let curNode: ParseNode | undefined = node;
+
+    while (curNode) {
+        switch (curNode.nodeType) {
+            case ParseNodeType.For:
+            case ParseNodeType.While: {
+                return true;
+            }
+
+            case ParseNodeType.Function:
+            case ParseNodeType.Module:
+            case ParseNodeType.Class: {
+                break;
+            }
+        }
+
+        curNode = curNode.parent;
+    }
+
+    return false;
+}
+
 export function getDocString(statements: StatementNode[]): string | undefined {
     // See if the first statement in the suite is a triple-quote string.
     if (statements.length === 0) {
