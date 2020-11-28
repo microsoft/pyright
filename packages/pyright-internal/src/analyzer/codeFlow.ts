@@ -37,6 +37,7 @@ export enum FlowFlags {
     PreFinallyGate = 1 << 11, // Injected edge that links pre-finally label and pre-try flow
     PostFinally = 1 << 12, // Injected edge that links post-finally flow with the rest of the graph
     AssignmentAlias = 1 << 13, // Assigned symbol is aliased to another symbol with the same name
+    VariableAnnotation = 1 << 14, // Separates a variable annotation from its name node
 }
 
 let _nextFlowNodeId = 1;
@@ -73,6 +74,17 @@ export interface FlowAssignmentAlias extends FlowNode {
     antecedent: FlowNode;
     targetSymbolId: number;
     aliasSymbolId: number;
+}
+
+// FlowVariableAnnotation separates a variable annotation
+// node from its type annotation. For example, the declaration
+// "foo: bar", the "bar" needs to be associated with a flow
+// node that precedes the "foo". This is important if the
+// same name is used for both (e.g. "foo: foo") and we need
+// to determine that the annotation refers to a symbol within
+// an outer scope.
+export interface FlowVariableAnnotation extends FlowNode {
+    antecedent: FlowNode;
 }
 
 // Similar to FlowAssignment but used specifically for

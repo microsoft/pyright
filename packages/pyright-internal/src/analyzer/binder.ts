@@ -23,7 +23,6 @@ import { CreateTypeStubFileAction, Diagnostic } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
 import { getFileName, stripFileExtension } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
-import { PythonVersion } from '../common/pythonVersion';
 import { getEmptyRange } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
@@ -86,6 +85,7 @@ import {
     FlowNode,
     FlowPostFinally,
     FlowPreFinallyGate,
+    FlowVariableAnnotation,
     FlowWildcardImport,
     getUniqueFlowNodeId,
     isCodeFlowSupportedForReference,
@@ -840,6 +840,11 @@ export class Binder extends ParseTreeWalker {
             return false;
         }
 
+        // Walk the type annotation first so it is "before" the target
+        // in the code flow graph.
+        this.walk(node.typeAnnotation);
+        this._createVariableAnnotationFlowNode();
+
         this._bindPossibleTupleNamedTarget(node.valueExpression);
         this._addTypeDeclarationForVariable(node.valueExpression, node.typeAnnotation);
 
@@ -854,7 +859,9 @@ export class Binder extends ParseTreeWalker {
                 this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
             });
         }
-        return true;
+
+        this.walk(node.valueExpression);
+        return false;
     }
 
     visitFor(node: ForNode) {
@@ -2229,6 +2236,18 @@ export class Binder extends ParseTreeWalker {
                 antecedent: this._currentFlowNode!,
                 targetSymbolId,
                 aliasSymbolId,
+            };
+
+            this._currentFlowNode = flowNode;
+        }
+    }
+
+    private _createVariableAnnotationFlowNode() {
+        if (!this._isCodeUnreachable()) {
+            const flowNode: FlowVariableAnnotation = {
+                flags: FlowFlags.VariableAnnotation,
+                id: getUniqueFlowNodeId(),
+                antecedent: this._currentFlowNode!,
             };
 
             this._currentFlowNode = flowNode;

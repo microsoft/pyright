@@ -487,6 +487,8 @@ export namespace Localizer {
         export const protocolUsedInCall = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.protocolUsedInCall'));
         export const raiseParams = () => getRawString('Diagnostic.raiseParams');
+        export const recursiveDefinition = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.recursiveDefinition'));
         export const relativeImportNotAllowed = () => getRawString('Diagnostic.relativeImportNotAllowed');
         export const returnMissing = () =>
             new ParameterizedString<{ returnType: string }>(getRawString('Diagnostic.returnMissing'));

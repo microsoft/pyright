@@ -85,6 +85,7 @@ import {
     FlowNode,
     FlowPostFinally,
     FlowPreFinallyGate,
+    FlowVariableAnnotation,
     FlowWildcardImport,
     isCodeFlowSupportedForReference,
 } from './codeFlow';
@@ -230,6 +231,7 @@ interface TypeResult {
 interface EffectiveTypeResult {
     type: Type;
     isResolutionCyclical: boolean;
+    isRecursiveDefinition: boolean;
 }
 
 interface FunctionArgument {
@@ -3184,6 +3186,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (effectiveTypeInfo.isResolutionCyclical) {
                 isResolutionCyclical = true;
+            }
+
+            if (effectiveTypeInfo.isRecursiveDefinition && isNodeReachable(node)) {
+                addDiagnostic(
+                    getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.recursiveDefinition().format({ name }),
+                    node
+                );
             }
 
             const isSpecialBuiltIn =
@@ -12358,6 +12369,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
                     }
 
+                    if (curFlowNode.flags & FlowFlags.VariableAnnotation) {
+                        const varAnnotationNode = curFlowNode as FlowVariableAnnotation;
+                        curFlowNode = varAnnotationNode.antecedent;
+                        continue;
+                    }
+
                     if (curFlowNode.flags & FlowFlags.Call) {
                         const callFlowNode = curFlowNode as FlowCall;
 
@@ -12624,6 +12641,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (curFlowNode === sourceFlowNode) {
                     return true;
+                }
+
+                if (curFlowNode.flags & FlowFlags.VariableAnnotation) {
+                    const varAnnotationNode = curFlowNode as FlowVariableAnnotation;
+                    curFlowNode = varAnnotationNode.antecedent;
+                    continue;
                 }
 
                 if (curFlowNode.flags & FlowFlags.Call) {
@@ -14193,9 +14216,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): EffectiveTypeResult {
         // If there's a declared type, it takes precedence over inferred types.
         if (symbol.hasTypedDeclarations()) {
+            const declaredType = getDeclaredTypeOfSymbol(symbol);
             return {
-                type: getDeclaredTypeOfSymbol(symbol) || UnknownType.create(),
+                type: declaredType || UnknownType.create(),
                 isResolutionCyclical: false,
+                isRecursiveDefinition: !declaredType,
             };
         }
 
@@ -14292,12 +14317,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return {
                 type: combineTypes(typesToCombine),
                 isResolutionCyclical: false,
+                isRecursiveDefinition: false,
             };
         }
 
         return {
             type: UnboundType.create(),
             isResolutionCyclical,
+            isRecursiveDefinition: false,
         };
     }
 
