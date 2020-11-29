@@ -480,6 +480,8 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.privateUsedOutsideOfClass'));
         export const privateUsedOutsideOfModule = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.privateUsedOutsideOfModule'));
+        export const propertyOverridden = () =>
+            new ParameterizedString<{ name: string; className: string }>(getRawString('Diagnostic.propertyOverridden'));
         export const propertyStaticOrClassMethod = () => getRawString('Diagnostic.propertyStaticOrClassMethod');
         export const protectedUsedOutsideOfClass = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.protectedUsedOutsideOfClass'));
@@ -765,6 +767,10 @@ export namespace Localizer {
             );
         export const paramType = () =>
             new ParameterizedString<{ paramType: string }>(getRawString('DiagnosticAddendum.paramType'));
+        export const propertyMethodIncompatible = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.propertyMethodIncompatible'));
+        export const propertyMethodMissing = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.propertyMethodMissing'));
         export const propertyMissingDeleter = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.propertyMissingDeleter'));
         export const propertyMissingSetter = () =>
