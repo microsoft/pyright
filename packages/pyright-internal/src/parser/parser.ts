@@ -245,7 +245,7 @@ export class Parser {
         } else if (parseTextMode === ParseTextMode.FunctionAnnotation) {
             parseTree = this._parseFunctionTypeAnnotation();
         } else {
-            const exprListResult = this._parseTestExpressionList();
+            const exprListResult = this._parseTestOrStarExpressionList(/* allowAssignmentExpression */ false);
             if (exprListResult.parseError) {
                 parseTree = exprListResult.parseError;
             } else {
