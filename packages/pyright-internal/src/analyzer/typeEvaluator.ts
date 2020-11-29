@@ -5142,10 +5142,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 // The one-parameter form of "type" returns the class
                                 // for the specified object.
                                 const argType = getTypeForArgument(argList[0]);
-                                if (isObject(argType)) {
-                                    type = argType.classType;
-                                } else if (argType.category === TypeCategory.None) {
-                                    type = NoneType.createType();
+                                if (isObject(argType) || isTypeVar(argType)) {
+                                    type = convertToInstantiable(argType);
                                 }
                             } else if (argList.length >= 2) {
                                 // The two-parameter form of "type" returns a new class type
@@ -5449,13 +5447,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         type: printType(concreteSubtype),
                     })
                 );
-            } else {
-                // Should we specialize the class?
-                if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
-                    if (isClass(type)) {
-                        type = createSpecializedClassType(type, undefined, flags, errorNode);
-                    }
-                }
             }
 
             return type;
