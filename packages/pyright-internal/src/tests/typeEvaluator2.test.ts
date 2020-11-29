@@ -1224,6 +1224,12 @@ test('Constructor5', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Constructor6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constructor6.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('ClassGetItem1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classGetItem1.py']);
 

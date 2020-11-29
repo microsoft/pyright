@@ -462,6 +462,7 @@ export interface CallResult {
     returnType?: Type;
     argumentErrors: boolean;
     activeParam?: FunctionParameter;
+    overloadUsed?: FunctionType;
 }
 
 export interface TypeEvaluator {
@@ -5610,11 +5611,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     argList,
                     initMethodType,
                     typeVarMap,
-                    skipUnknownArgCheck,
-                    /* inferReturnTypeIfNeeded */ true,
-                    NoneType.createInstance()
+                    skipUnknownArgCheck
                 );
                 if (!callResult.argumentErrors) {
+                    // Some typeshed stubs use specialized type annotations in the "self" parameter
+                    // of an overloaded __init__ method to specify which specialized type should
+                    // be constructed. Although this isn't part of the official Python spec, other
+                    // type checkers appear to honor it.
+                    if (
+                        callResult.overloadUsed &&
+                        callResult.overloadUsed.strippedFirstParamType &&
+                        isObject(callResult.overloadUsed.strippedFirstParamType) &&
+                        ClassType.isSameGenericClass(callResult.overloadUsed.strippedFirstParamType.classType, type)
+                    ) {
+                        // Populate the typeVarMap based on the first param type.
+                        canAssignType(
+                            type,
+                            callResult.overloadUsed.strippedFirstParamType.classType,
+                            new DiagnosticAddendum(),
+                            typeVarMap
+                        );
+                    }
+
                     returnType = applyExpectedTypeForConstructor(type, /* expectedType */ undefined, typeVarMap);
                 } else {
                     reportedErrors = true;
@@ -5651,9 +5669,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         argList,
                         constructorMethodType,
                         typeVarMap,
-                        skipUnknownArgCheck,
-                        /* inferReturnTypeIfNeeded */ true,
-                        expectedType
+                        skipUnknownArgCheck
                     );
 
                     if (callResult.argumentErrors) {
@@ -5916,7 +5932,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeVarMap: TypeVarMap,
         skipUnknownArgCheck: boolean,
         inferReturnTypeIfNeeded = true,
-        expectedType: Type | undefined
+        expectedType?: Type
     ): CallResult {
         let callResult: CallResult = { argumentErrors: false };
 
@@ -5961,6 +5977,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         inferReturnTypeIfNeeded,
                         expectedType
                     );
+                    callResult.overloadUsed = overloadedFunctionType;
                 } else {
                     const exprString = ParseTreeUtils.printExpression(errorNode);
                     const diagAddendum = new DiagnosticAddendum();

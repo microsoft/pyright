@@ -829,6 +829,11 @@ export interface FunctionType extends TypeBase {
 
     // Filled in lazily
     inferredReturnType?: Type;
+
+    // If this is a bound function where the first parameter
+    // was stripped from the original unbound function, the
+    // (specialized) type of that stripped parameter.
+    strippedFirstParamType?: Type;
 }
 
 export interface ParamSpecEntry {
@@ -879,7 +884,7 @@ export namespace FunctionType {
 
     // Creates a deep copy of the function type, including a fresh
     // version of _functionDetails.
-    export function clone(type: FunctionType, deleteFirstParam = false): FunctionType {
+    export function clone(type: FunctionType, stripFirstParam = false): FunctionType {
         const newFunction = create(
             type.details.name,
             type.details.moduleName,
@@ -892,7 +897,9 @@ export namespace FunctionType {
 
         // If we strip off the first parameter, this is no longer an
         // instance method or class method.
-        if (deleteFirstParam) {
+        if (stripFirstParam) {
+            // Stash away the effective type of the first parameter.
+            newFunction.strippedFirstParamType = getEffectiveParameterType(type, 0);
             newFunction.details.parameters = type.details.parameters.slice(1);
             newFunction.details.flags &= ~(FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.ClassMethod);
             newFunction.details.flags |= FunctionTypeFlags.StaticMethod;
@@ -904,7 +911,7 @@ export namespace FunctionType {
 
         if (type.specializedTypes) {
             newFunction.specializedTypes = {
-                parameterTypes: deleteFirstParam
+                parameterTypes: stripFirstParam
                     ? type.specializedTypes.parameterTypes.slice(1)
                     : type.specializedTypes.parameterTypes,
                 returnType: type.specializedTypes.returnType,
