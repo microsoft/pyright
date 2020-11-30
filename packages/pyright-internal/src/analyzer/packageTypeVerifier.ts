@@ -32,7 +32,7 @@ import {
     Type,
     TypeCategory,
 } from './types';
-import { convertToInstance, isEllipsisType, transformTypeObjectToClass } from './typeUtils';
+import { convertToInstance, doForSubtypes, isEllipsisType, transformTypeObjectToClass } from './typeUtils';
 
 export enum PackageSymbolType {
     Indeterminate,
@@ -609,7 +609,7 @@ export class PackageTypeVerifier {
 
             case TypeCategory.Union: {
                 let isKnown = true;
-                for (const subtype of type.subtypes) {
+                doForSubtypes(type, (subtype) => {
                     if (
                         !this._validateTypeIsCompletelyKnown(
                             subtype,
@@ -621,7 +621,8 @@ export class PackageTypeVerifier {
                     ) {
                         isKnown = false;
                     }
-                }
+                    return undefined;
+                });
 
                 return isKnown;
             }

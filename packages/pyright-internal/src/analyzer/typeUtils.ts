@@ -16,6 +16,7 @@ import {
     ClassType,
     combineTypes,
     EnumLiteral,
+    findSubtype,
     FunctionType,
     isAnyOrUnknown,
     isClass,
@@ -120,7 +121,7 @@ let synthesizedTypeVarIndexForExpectedType = 1;
 
 export function isOptionalType(type: Type): boolean {
     if (type.category === TypeCategory.Union) {
-        return type.subtypes.some((t) => isNone(t));
+        return findSubtype(type, (subtype) => isNone(subtype)) !== undefined;
     }
 
     return false;
@@ -133,16 +134,17 @@ export function doForSubtypes(type: Type, callback: (type: Type) => Type | undef
         const newTypes: Type[] = [];
         let typeChanged = false;
 
-        type.subtypes.forEach((typeEntry) => {
-            const transformedType = callback(typeEntry);
+        type.subtypes.forEach((subtype) => {
+            const transformedType = callback(subtype);
             if (transformedType) {
                 newTypes.push(transformedType);
-                if (transformedType !== typeEntry) {
+                if (transformedType !== subtype) {
                     typeChanged = true;
                 }
             } else {
                 typeChanged = true;
             }
+            return undefined;
         });
 
         return typeChanged ? combineTypes(newTypes) : type;
@@ -287,13 +289,7 @@ export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Ty
         );
     }
 
-    for (const subtype of type.subtypes) {
-        if (isTypeSame(typeAliasPlaceholder, subtype)) {
-            return true;
-        }
-    }
-
-    return false;
+    return findSubtype(type, (subtype) => isTypeSame(typeAliasPlaceholder, subtype)) !== undefined;
 }
 
 export function transformPossibleRecursiveTypeAlias(type: Type): Type;
@@ -339,7 +335,7 @@ export function canBeFalsy(type: Type, recursionLevel = 0): boolean {
         }
 
         case TypeCategory.Union: {
-            return type.subtypes.some((t) => canBeFalsy(t, recursionLevel + 1));
+            return findSubtype(type, (subtype) => canBeFalsy(subtype, recursionLevel + 1)) !== undefined;
         }
 
         case TypeCategory.Function:
@@ -406,7 +402,7 @@ export function canBeTruthy(type: Type, recursionLevel = 0): boolean {
         }
 
         case TypeCategory.Union: {
-            return type.subtypes.some((t) => canBeTruthy(t, recursionLevel + 1));
+            return findSubtype(type, (subtype) => canBeTruthy(subtype, recursionLevel + 1)) !== undefined;
         }
 
         case TypeCategory.Unbound:
@@ -489,7 +485,7 @@ export function isLiteralType(type: Type, allowLiteralUnions = true): boolean {
     }
 
     if (allowLiteralUnions && type.category === TypeCategory.Union) {
-        return !type.subtypes.some((t) => !isObject(t) || t.classType.literalValue === undefined);
+        return !findSubtype(type, (subtype) => !isObject(subtype) || subtype.classType.literalValue === undefined);
     }
 
     return false;
@@ -846,9 +842,10 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
         return getTypeVarsFromClass(type.classType);
     } else if (type.category === TypeCategory.Union) {
         const combinedList: TypeVarType[] = [];
-        for (const subtype of type.subtypes) {
+        doForSubtypes(type, (subtype) => {
             addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(subtype, recursionCount + 1));
-        }
+            return undefined;
+        });
         return combinedList;
     } else if (type.category === TypeCategory.Function) {
         const combinedList: TypeVarType[] = [];
@@ -920,8 +917,9 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 
     switch (destType.category) {
         case TypeCategory.Union:
-            destType.subtypes.forEach((subtype) => {
+            doForSubtypes(destType, (subtype) => {
                 setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount + 1);
+                return undefined;
             });
             break;
 
@@ -1337,13 +1335,11 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
 
     // See if a union contains an unknown type.
     if (type.category === TypeCategory.Union) {
-        for (const subtype of type.subtypes) {
-            if (isPartlyUnknown(subtype, allowUnknownTypeArgsForClasses, recursionCount + 1)) {
-                return true;
-            }
-        }
-
-        return false;
+        return (
+            findSubtype(type, (subtype) =>
+                isPartlyUnknown(subtype, allowUnknownTypeArgsForClasses, recursionCount + 1)
+            ) !== undefined
+        );
     }
 
     // See if an object or class has an unknown type argument.
@@ -1785,7 +1781,7 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
         }
 
         case TypeCategory.Union: {
-            return type.subtypes.find((type) => requiresSpecialization(type, recursionCount + 1)) !== undefined;
+            return findSubtype(type, (subtype) => requiresSpecialization(subtype, recursionCount + 1)) !== undefined;
         }
 
         case TypeCategory.TypeVar: {
@@ -1961,8 +1957,9 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
         }
 
         case TypeCategory.Union: {
-            type.subtypes.forEach((subtype) => {
+            doForSubtypes(type, (subtype) => {
                 addDeclaringModuleNamesForType(subtype, moduleList, recursionCount + 1);
+                return undefined;
             });
             break;
         }

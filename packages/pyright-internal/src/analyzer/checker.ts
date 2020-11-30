@@ -1666,16 +1666,17 @@ export class Checker extends ParseTreeWalker {
             let remainingTypes: Type[] = [];
             let foundAnyType = false;
 
-            arg0Type.subtypes.forEach((t) => {
-                if (isAnyOrUnknown(t)) {
+            doForSubtypes(arg0Type, (subtype) => {
+                if (isAnyOrUnknown(subtype)) {
                     foundAnyType = true;
                 }
 
-                if (isInstanceCheck && isObject(t)) {
-                    remainingTypes = remainingTypes.concat(filterType(t.classType));
-                } else if (!isInstanceCheck && isClass(t)) {
-                    remainingTypes = remainingTypes.concat(filterType(t));
+                if (isInstanceCheck && isObject(subtype)) {
+                    remainingTypes = remainingTypes.concat(filterType(subtype.classType));
+                } else if (!isInstanceCheck && isClass(subtype)) {
+                    remainingTypes = remainingTypes.concat(filterType(subtype));
                 }
+                return undefined;
             });
 
             filteredType = finalizeFilteredTypeList(remainingTypes);

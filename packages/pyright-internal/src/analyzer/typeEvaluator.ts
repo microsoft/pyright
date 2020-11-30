@@ -122,6 +122,7 @@ import {
     combineTypes,
     DataClassEntry,
     EnumLiteral,
+    findSubtype,
     FunctionParameter,
     FunctionType,
     FunctionTypeFlags,
@@ -1680,7 +1681,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         type = makeTopLevelTypeVarsConcrete(type);
 
-        if (type.category === TypeCategory.Union && type.subtypes.some((t) => isNone(t))) {
+        if (isOptionalType(type)) {
             if (errorNode) {
                 addDiagnostic(
                     getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
@@ -2390,10 +2391,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = getFileInfo(node);
         const diag = new DiagnosticAddendum();
         if (type.category === TypeCategory.Union) {
-            type.subtypes.forEach((subtype) => {
+            doForSubtypes(type, (subtype) => {
                 if (!TypeBase.isInstantiable(subtype)) {
                     diag.addMessage(Localizer.DiagnosticAddendum.typeNotClass().format({ type: printType(subtype) }));
                 }
+                return undefined;
             });
         }
 
@@ -4693,16 +4695,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (expectedType && expectedType.category === TypeCategory.Union) {
             let matchingSubtype: Type | undefined;
 
-            for (const subtype of expectedType.subtypes) {
-                const subtypeResult = useSpeculativeMode(node, () => {
-                    return getTypeFromTupleExpected(node, subtype);
-                });
+            doForSubtypes(expectedType, (subtype) => {
+                if (!matchingSubtype) {
+                    const subtypeResult = useSpeculativeMode(node, () => {
+                        return getTypeFromTupleExpected(node, subtype);
+                    });
 
-                if (subtypeResult) {
-                    matchingSubtype = subtype;
-                    break;
+                    if (subtypeResult) {
+                        matchingSubtype = subtype;
+                    }
                 }
-            }
+                return undefined;
+            });
 
             effectiveExpectedType = matchingSubtype;
         }
@@ -6068,8 +6072,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             case TypeCategory.Union: {
                 const returnTypes: Type[] = [];
 
-                for (const type of callType.subtypes) {
-                    if (isNone(type)) {
+                doForSubtypes(callType, (subtype) => {
+                    if (isNone(subtype)) {
                         addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
                             DiagnosticRule.reportOptionalCall,
@@ -6080,7 +6084,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const subtypeCallResult = validateCallArguments(
                             errorNode,
                             argList,
-                            type,
+                            subtype,
                             typeVarMap,
                             skipUnknownArgCheck,
                             inferReturnTypeIfNeeded,
@@ -6090,7 +6094,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             returnTypes.push(subtypeCallResult.returnType);
                         }
                     }
-                }
+                    return undefined;
+                });
 
                 if (returnTypes.length > 0) {
                     callResult.returnType = combineTypes(returnTypes);
@@ -8186,16 +8191,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (expectedType && expectedType.category === TypeCategory.Union) {
             let matchingSubtype: Type | undefined;
 
-            for (const subtype of expectedType.subtypes) {
-                const subtypeResult = useSpeculativeMode(node, () => {
-                    return getTypeFromDictionaryExpected(node, subtype, new DiagnosticAddendum());
-                });
+            doForSubtypes(expectedType, (subtype) => {
+                if (!matchingSubtype) {
+                    const subtypeResult = useSpeculativeMode(node, () => {
+                        return getTypeFromDictionaryExpected(node, subtype, new DiagnosticAddendum());
+                    });
 
-                if (subtypeResult) {
-                    matchingSubtype = subtype;
-                    break;
+                    if (subtypeResult) {
+                        matchingSubtype = subtype;
+                    }
                 }
-            }
+                return undefined;
+            });
 
             expectedType = matchingSubtype;
         }
@@ -8460,16 +8467,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (expectedType && expectedType.category === TypeCategory.Union) {
             let matchingSubtype: Type | undefined;
 
-            for (const subtype of expectedType.subtypes) {
-                const subtypeResult = useSpeculativeMode(node, () => {
-                    return getTypeFromListExpected(node, subtype);
-                });
+            doForSubtypes(expectedType, (subtype) => {
+                if (!matchingSubtype) {
+                    const subtypeResult = useSpeculativeMode(node, () => {
+                        return getTypeFromListExpected(node, subtype);
+                    });
 
-                if (subtypeResult) {
-                    matchingSubtype = subtype;
-                    break;
+                    if (subtypeResult) {
+                        matchingSubtype = subtype;
+                    }
                 }
-            }
+                return undefined;
+            });
 
             effectiveExpectedType = matchingSubtype;
         }
@@ -8684,7 +8693,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (expectedType.category === TypeCategory.Union) {
                 // It's not clear what we should do with a union type. For now,
                 // simply use the first function in the union.
-                expectedFunctionType = expectedType.subtypes.find(
+                expectedFunctionType = findSubtype(
+                    expectedType,
                     (t) => t.category === TypeCategory.Function
                 ) as FunctionType;
             }
@@ -12874,18 +12884,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // Narrow the type by filtering on "None".
                         return (type: Type) => {
                             if (type.category === TypeCategory.Union) {
-                                const remainingTypes = type.subtypes.filter((t) => {
-                                    if (isAnyOrUnknown(t)) {
+                                return doForSubtypes(type, (subtype) => {
+                                    if (isAnyOrUnknown(subtype)) {
                                         // We need to assume that "Any" is always both None and not None,
                                         // so it matches regardless of whether the test is positive or negative.
-                                        return true;
+                                        return subtype;
                                     }
 
                                     // See if it's a match for None.
-                                    return isNone(t) === adjIsPositiveTest;
+                                    if (isNone(subtype) === adjIsPositiveTest) {
+                                        return subtype;
+                                    }
+                                    return undefined;
                                 });
-
-                                return combineTypes(remainingTypes);
                             } else if (isNone(type)) {
                                 if (!adjIsPositiveTest) {
                                     // Use a "Never" type (which is a special form
@@ -15651,10 +15662,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let isIncompatible = false;
 
             // For union sources, all of the types need to be assignable to the dest.
-            srcType.subtypes.forEach((t) => {
-                if (!canAssignType(destType, t, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)) {
+            doForSubtypes(srcType, (subtype) => {
+                if (!canAssignType(destType, subtype, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)) {
                     isIncompatible = true;
                 }
+                return undefined;
             });
 
             if (isIncompatible) {
@@ -15679,16 +15691,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // match we find because we may need to match TypeVars in other
             // subtypes. We special-case "None" so we can handle Optional[T]
             // without matching the None to the type var.
-            if (
-                srcType.category === TypeCategory.None &&
-                destType.subtypes.some((subtype) => subtype.category === TypeCategory.None)
-            ) {
+            if (srcType.category === TypeCategory.None && isOptionalType(destType)) {
                 foundMatch = true;
             } else {
                 let bestTypeVarMap: TypeVarMap | undefined;
                 let bestTypeVarMapScore: number | undefined;
 
-                destType.subtypes.forEach((subtype) => {
+                doForSubtypes(destType, (subtype) => {
                     // Make a temporary clone of the typeVarMap. We don't want to modify
                     // the original typeVarMap until we find the "optimal" typeVar mapping.
                     const typeVarMapClone = typeVarMap?.clone();
@@ -15706,6 +15715,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         }
                     }
+                    return undefined;
                 });
 
                 // If we found a winning type var mapping, copy it back to typeVarMap.
@@ -16796,7 +16806,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return true;
             } else if (effectiveSrcType.category === TypeCategory.Union) {
                 // Does it match at least one of the constraints?
-                if (effectiveSrcType.subtypes.find((t) => isSameWithoutLiteralValue(constraint, t))) {
+                if (findSubtype(effectiveSrcType, (subtype) => isSameWithoutLiteralValue(constraint, subtype))) {
                     return true;
                 }
             } else if (isSameWithoutLiteralValue(constraint, effectiveSrcType)) {

@@ -24,7 +24,7 @@ import {
     TypeBase,
     TypeCategory,
 } from './types';
-import { isTupleClass } from './typeUtils';
+import { doForSubtypes, isOptionalType, isTupleClass } from './typeUtils';
 
 const singleTickRegEx = /'/g;
 const tripleTickRegEx = /'''/g;
@@ -168,12 +168,9 @@ export function printType(
         }
 
         case TypeCategory.Union: {
-            const unionType = type;
-            let subtypes: Type[] = unionType.subtypes;
-
-            if (subtypes.find((t) => t.category === TypeCategory.None) !== undefined) {
+            if (isOptionalType(type)) {
                 const optionalType = printType(
-                    removeNoneFromUnion(unionType),
+                    removeNoneFromUnion(type),
                     printTypeFlags,
                     returnTypeCallback,
                     /* expandTypeAlias */ false,
@@ -187,9 +184,11 @@ export function printType(
                 return 'Optional[' + optionalType + ']';
             }
 
-            // Make a shallow copy of the array so we can manipulate it.
-            subtypes = [];
-            subtypes = subtypes.concat(...unionType.subtypes);
+            let subtypes: Type[] = [];
+            doForSubtypes(type, (subtype) => {
+                subtypes.push(subtype);
+                return undefined;
+            });
 
             // If we're printing "Unknown" as "Any", remove redundant
             // unknowns so we don't see two Any's appear in the union.

@@ -1367,7 +1367,7 @@ export function isAnyOrUnknown(type: Type): type is AnyType | UnknownType {
     }
 
     if (type.category === TypeCategory.Union) {
-        return type.subtypes.find((t) => !isAnyOrUnknown(t)) === undefined;
+        return type.subtypes.find((subtype) => !isAnyOrUnknown(subtype)) === undefined;
     }
 
     return false;
@@ -1383,7 +1383,7 @@ export function isPossiblyUnbound(type: Type): boolean {
     }
 
     if (type.category === TypeCategory.Union) {
-        return type.subtypes.find((t) => isPossiblyUnbound(t)) !== undefined;
+        return type.subtypes.find((subtype) => isPossiblyUnbound(subtype)) !== undefined;
     }
 
     return false;
@@ -1568,7 +1568,10 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
 
             // The types do not have a particular order, so we need to
             // do the comparison in an order-independent manner.
-            return subtypes1.find((t) => !UnionType.containsType(unionType2, t, recursionCount + 1)) === undefined;
+            return (
+                subtypes1.find((subtype) => !UnionType.containsType(unionType2, subtype, recursionCount + 1)) ===
+                undefined
+            );
         }
 
         case TypeCategory.TypeVar: {
@@ -1684,6 +1687,14 @@ export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolea
     }
 
     return type;
+}
+
+export function findSubtype(type: Type, filter: (type: Type) => boolean) {
+    if (type.category === TypeCategory.Union) {
+        return type.subtypes.find((subtype) => filter(subtype));
+    }
+
+    return filter(type) ? type : undefined;
 }
 
 // Determines whether the specified type is a type that can be
