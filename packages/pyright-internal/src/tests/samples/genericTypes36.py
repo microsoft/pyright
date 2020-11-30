@@ -5,7 +5,7 @@
 
 from typing import Literal, TypeVar
 
-_T1 = TypeVar("_T1", int, float)
+_T1 = TypeVar("_T1", float, str)
 
 
 def add1(a: _T1, b: _T1) -> _T1:
@@ -16,8 +16,8 @@ a1 = add1(3, 5.5)
 ta1: Literal["float"] = reveal_type(a1)
 b1 = add1(3.3, 5)
 tb1: Literal["float"] = reveal_type(b1)
-c1 = add1(3, 5)
-tc1: Literal["int"] = reveal_type(c1)
+c1 = add1("3", "5")
+tc1: Literal["str"] = reveal_type(c1)
 
 
 _T2 = TypeVar("_T2", float, int)

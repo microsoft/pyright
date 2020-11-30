@@ -34,7 +34,7 @@ _T2 = TypeVar("_T2", bound=Union[Foo, Bar])
 
 
 class ClassA(Generic[_T1]):
-    def func1(self, a: _T1) -> _T1:
+    async def func1(self, a: _T1) -> _T1:
         _ = a.var1
 
         # This should generate an error.
@@ -74,7 +74,7 @@ class ClassA(Generic[_T1]):
 
         return a
 
-    def func1(self, a: _T2) -> _T2:
+    async def func1(self, a: _T2) -> _T2:
         _ = a.var1
 
         # This should generate an error.

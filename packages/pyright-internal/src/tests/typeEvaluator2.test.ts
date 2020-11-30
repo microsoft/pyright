@@ -1079,13 +1079,19 @@ test('TypeVar4', () => {
 test('TypeVar5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar5.py']);
 
-    TestUtils.validateResults(analysisResults, 20);
+    TestUtils.validateResults(analysisResults, 18);
 });
 
 test('TypeVar6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar6.py']);
 
-    TestUtils.validateResults(analysisResults, 22);
+    TestUtils.validateResults(analysisResults, 20);
+});
+
+test('TypeVar7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar7.py']);
+
+    TestUtils.validateResults(analysisResults, 21);
 });
 
 test('Annotated1', () => {

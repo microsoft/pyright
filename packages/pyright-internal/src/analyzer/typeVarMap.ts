@@ -210,7 +210,7 @@ export class TypeVarMap {
     }
 
     private _getKey(reference: TypeVarType) {
-        return reference.scopeName || reference.details.name;
+        return TypeVarType.getScopeName(reference);
     }
 
     private _isNarrowableByKey(key: string) {
