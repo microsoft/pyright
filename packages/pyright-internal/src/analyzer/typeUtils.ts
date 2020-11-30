@@ -129,7 +129,7 @@ export function isOptionalType(type: Type): boolean {
 
 // Calls a callback for each subtype and combines the results
 // into a final type.
-export function doForSubtypes(type: Type, callback: (type: Type) => Type | undefined): Type {
+export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefined): Type {
     if (type.category === TypeCategory.Union) {
         const newTypes: Type[] = [];
         let typeChanged = false;
@@ -153,6 +153,16 @@ export function doForSubtypes(type: Type, callback: (type: Type) => Type | undef
     return callback(type) || NeverType.create();
 }
 
+export function doForEachSubtype(type: Type, callback: (type: Type) => void): void {
+    if (type.category === TypeCategory.Union) {
+        type.subtypes.forEach((subtype) => {
+            callback(subtype);
+        });
+    } else {
+        callback(type);
+    }
+}
+
 // Determines if all of the types in the array are the same.
 export function areTypesSame(types: Type[]): boolean {
     if (types.length < 2) {
@@ -171,7 +181,7 @@ export function areTypesSame(types: Type[]): boolean {
 export function derivesFromAnyOrUnknown(type: Type): boolean {
     let anyOrUnknown = false;
 
-    doForSubtypes(type, (subtype) => {
+    doForEachSubtype(type, (subtype) => {
         if (isAnyOrUnknown(type)) {
             anyOrUnknown = true;
         } else if (isClass(subtype)) {
@@ -183,8 +193,6 @@ export function derivesFromAnyOrUnknown(type: Type): boolean {
                 anyOrUnknown = true;
             }
         }
-
-        return undefined;
     });
 
     return anyOrUnknown;
@@ -208,7 +216,7 @@ export function stripLiteralValue(type: Type): Type {
     }
 
     if (type.category === TypeCategory.Union) {
-        return doForSubtypes(type, (subtype) => {
+        return mapSubtypes(type, (subtype) => {
             return stripLiteralValue(subtype);
         });
     }
@@ -842,9 +850,8 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
         return getTypeVarsFromClass(type.classType);
     } else if (type.category === TypeCategory.Union) {
         const combinedList: TypeVarType[] = [];
-        doForSubtypes(type, (subtype) => {
+        doForEachSubtype(type, (subtype) => {
             addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(subtype, recursionCount + 1));
-            return undefined;
         });
         return combinedList;
     } else if (type.category === TypeCategory.Function) {
@@ -917,9 +924,8 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 
     switch (destType.category) {
         case TypeCategory.Union:
-            doForSubtypes(destType, (subtype) => {
+            doForEachSubtype(destType, (subtype) => {
                 setTypeArgumentsRecursive(subtype, srcType, typeVarMap, recursionCount + 1);
-                return undefined;
             });
             break;
 
@@ -1068,7 +1074,7 @@ export function derivesFromClassRecursive(classType: ClassType, baseClassToFind:
 // and an "int", this method would strip off the "None"
 // and return only the "int".
 export function removeFalsinessFromType(type: Type): Type {
-    return doForSubtypes(type, (subtype) => {
+    return mapSubtypes(type, (subtype) => {
         if (isObject(subtype)) {
             if (subtype.classType.literalValue !== undefined) {
                 // If the object is already definitely truthy, it's fine to
@@ -1098,7 +1104,7 @@ export function removeFalsinessFromType(type: Type): Type {
 // method, this method would strip off the "Foo"
 // and return only the "None".
 export function removeTruthinessFromType(type: Type): Type {
-    return doForSubtypes(type, (subtype) => {
+    return mapSubtypes(type, (subtype) => {
         if (isObject(subtype)) {
             if (subtype.classType.literalValue !== undefined) {
                 // If the object is already definitely falsy, it's fine to
@@ -1184,7 +1190,7 @@ export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type
 }
 
 export function convertToInstance(type: Type): Type {
-    let result = doForSubtypes(type, (subtype) => {
+    let result = mapSubtypes(type, (subtype) => {
         subtype = transformTypeObjectToClass(subtype);
 
         switch (subtype.category) {
@@ -1229,7 +1235,7 @@ export function convertToInstance(type: Type): Type {
 }
 
 export function convertToInstantiable(type: Type): Type {
-    let result = doForSubtypes(type, (subtype) => {
+    let result = mapSubtypes(type, (subtype) => {
         switch (subtype.category) {
             case TypeCategory.Object: {
                 return subtype.classType;
@@ -1477,9 +1483,7 @@ export function _transformTypeVars(
     }
 
     if (type.category === TypeCategory.Union) {
-        return doForSubtypes(type, (subtype) =>
-            _transformTypeVars(subtype, callbacks, recursionMap, recursionLevel + 1)
-        );
+        return mapSubtypes(type, (subtype) => _transformTypeVars(subtype, callbacks, recursionMap, recursionLevel + 1));
     }
 
     if (isObject(type)) {
@@ -1957,9 +1961,8 @@ function addDeclaringModuleNamesForType(type: Type, moduleList: string[], recurs
         }
 
         case TypeCategory.Union: {
-            doForSubtypes(type, (subtype) => {
+            doForEachSubtype(type, (subtype) => {
                 addDeclaringModuleNamesForType(subtype, moduleList, recursionCount + 1);
-                return undefined;
             });
             break;
         }

@@ -24,7 +24,7 @@ import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { ClassType, isClass, isObject, isTypeVar, TypeCategory } from '../analyzer/types';
 import {
     ClassMemberLookupFlags,
-    doForSubtypes,
+    doForEachSubtype,
     isProperty,
     lookUpClassMember,
     lookUpObjectMember,
@@ -210,7 +210,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
         // finding outgoing calls.
         const leftHandType = this._evaluator.getType(node.leftExpression);
         if (leftHandType) {
-            doForSubtypes(leftHandType, (subtype) => {
+            doForEachSubtype(leftHandType, (subtype) => {
                 let baseType = subtype;
 
                 // This could be a bound TypeVar (e.g. used for "self" and "cls").
@@ -220,19 +220,19 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                 );
 
                 if (!isObject(baseType)) {
-                    return undefined;
+                    return;
                 }
 
                 const memberInfo = lookUpObjectMember(baseType, node.memberName.value);
                 if (!memberInfo) {
-                    return undefined;
+                    return;
                 }
 
                 const memberType = this._evaluator.getTypeOfMember(memberInfo);
                 const propertyDecls = memberInfo.symbol.getDeclarations();
 
                 if (!memberType) {
-                    return undefined;
+                    return;
                 }
 
                 if (isObject(memberType) && ClassType.isPropertyClass(memberType.classType)) {
@@ -240,8 +240,6 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                         this._addOutgoingCallForDeclaration(node.memberName, decl);
                     });
                 }
-
-                return undefined;
             });
         }
 
@@ -347,7 +345,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
             // finding outgoing calls.
             const leftHandType = this._evaluator.getType(node.leftExpression);
             if (leftHandType) {
-                doForSubtypes(leftHandType, (subtype) => {
+                doForEachSubtype(leftHandType, (subtype) => {
                     let baseType = subtype;
 
                     // This could be a bound TypeVar (e.g. used for "self" and "cls").
@@ -357,26 +355,24 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                     );
 
                     if (!isObject(baseType)) {
-                        return undefined;
+                        return;
                     }
 
                     const memberInfo = lookUpObjectMember(baseType, node.memberName.value);
                     if (!memberInfo) {
-                        return undefined;
+                        return;
                     }
 
                     const memberType = this._evaluator.getTypeOfMember(memberInfo);
                     const propertyDecls = memberInfo.symbol.getDeclarations();
 
                     if (!memberType) {
-                        return undefined;
+                        return;
                     }
 
                     if (propertyDecls.some((decl) => DeclarationUtils.areDeclarationsSame(decl!, this._declaration))) {
                         this._addIncomingCallForDeclaration(node.memberName);
                     }
-
-                    return undefined;
                 });
             }
         }

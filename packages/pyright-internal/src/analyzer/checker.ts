@@ -104,7 +104,7 @@ import {
     ClassMemberLookupFlags,
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
-    doForSubtypes,
+    doForEachSubtype,
     getDeclaredGeneratorReturnType,
     getDeclaredGeneratorYieldType,
     isEllipsisType,
@@ -113,6 +113,7 @@ import {
     isProperty,
     isTupleClass,
     lookUpClassMember,
+    mapSubtypes,
     partiallySpecializeType,
     transformPossibleRecursiveTypeAlias,
     transformTypeObjectToClass,
@@ -578,7 +579,7 @@ export class Checker extends ParseTreeWalker {
             if (exceptionType && baseExceptionType && isClass(baseExceptionType)) {
                 const diagAddendum = new DiagnosticAddendum();
 
-                doForSubtypes(exceptionType, (subtype) => {
+                doForEachSubtype(exceptionType, (subtype) => {
                     if (!isAnyOrUnknown(subtype) && !isNone(subtype)) {
                         if (isObject(subtype)) {
                             if (
@@ -602,8 +603,6 @@ export class Checker extends ParseTreeWalker {
                             );
                         }
                     }
-
-                    return subtype;
                 });
 
                 if (!diagAddendum.isEmpty()) {
@@ -1029,7 +1028,7 @@ export class Checker extends ParseTreeWalker {
             } else if (isObject(exceptionType)) {
                 const iterableType = this._evaluator.getTypeFromIterable(exceptionType, /* isAsync */ false, errorNode);
 
-                resultingExceptionType = doForSubtypes(iterableType, (subtype) => {
+                resultingExceptionType = mapSubtypes(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {
                         return subtype;
                     }
@@ -1467,7 +1466,7 @@ export class Checker extends ParseTreeWalker {
         if (!arg0Type) {
             return;
         }
-        arg0Type = doForSubtypes(arg0Type, (subtype) => {
+        arg0Type = mapSubtypes(arg0Type, (subtype) => {
             return transformPossibleRecursiveTypeAlias(transformTypeObjectToClass(subtype));
         });
 
@@ -1485,7 +1484,7 @@ export class Checker extends ParseTreeWalker {
         const isSupportedTypeForIsInstance = (type: Type) => {
             let isSupported = true;
 
-            doForSubtypes(type, (subtype) => {
+            doForEachSubtype(type, (subtype) => {
                 subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype, /* convertConstraintsToUnion */ false);
 
                 switch (subtype.category) {
@@ -1514,7 +1513,6 @@ export class Checker extends ParseTreeWalker {
                         isSupported = false;
                         break;
                 }
-                return undefined;
             });
 
             return isSupported;
@@ -1666,7 +1664,7 @@ export class Checker extends ParseTreeWalker {
             let remainingTypes: Type[] = [];
             let foundAnyType = false;
 
-            doForSubtypes(arg0Type, (subtype) => {
+            doForEachSubtype(arg0Type, (subtype) => {
                 if (isAnyOrUnknown(subtype)) {
                     foundAnyType = true;
                 }
@@ -1676,7 +1674,6 @@ export class Checker extends ParseTreeWalker {
                 } else if (!isInstanceCheck && isClass(subtype)) {
                     remainingTypes = remainingTypes.concat(filterType(subtype));
                 }
-                return undefined;
             });
 
             filteredType = finalizeFilteredTypeList(remainingTypes);
@@ -2006,7 +2003,7 @@ export class Checker extends ParseTreeWalker {
     private _containsContravariantTypeVar(type: Type, scopeId: string, diag: DiagnosticAddendum): boolean {
         let isValid = true;
 
-        doForSubtypes(type, (subtype) => {
+        doForEachSubtype(type, (subtype) => {
             if (isTypeVar(subtype) && subtype.details.isContravariant) {
                 if (subtype.scopeId !== scopeId) {
                     diag.addMessage(
@@ -2015,7 +2012,6 @@ export class Checker extends ParseTreeWalker {
                     isValid = false;
                 }
             }
-            return undefined;
         });
 
         return !isValid;

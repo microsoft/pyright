@@ -24,7 +24,7 @@ import {
     TypeBase,
     TypeCategory,
 } from './types';
-import { doForSubtypes, isOptionalType, isTupleClass } from './typeUtils';
+import { doForEachSubtype, isOptionalType } from './typeUtils';
 
 const singleTickRegEx = /'/g;
 const tripleTickRegEx = /'''/g;
@@ -185,9 +185,8 @@ export function printType(
             }
 
             let subtypes: Type[] = [];
-            doForSubtypes(type, (subtype) => {
+            doForEachSubtype(type, (subtype) => {
                 subtypes.push(subtype);
-                return undefined;
             });
 
             // If we're printing "Unknown" as "Any", remove redundant

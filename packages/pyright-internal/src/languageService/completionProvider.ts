@@ -55,7 +55,7 @@ import {
     UnknownType,
 } from '../analyzer/types';
 import {
-    doForSubtypes,
+    doForEachSubtype,
     getDeclaringModulesForType,
     getMembersForClass,
     getMembersForModule,
@@ -824,7 +824,7 @@ export class CompletionProvider {
                 leftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType, /* convertConstraintsToUnion */ true);
             }
 
-            doForSubtypes(leftType, (subtype) => {
+            doForEachSubtype(leftType, (subtype) => {
                 const specializedSubtype = this._evaluator.makeTopLevelTypeVarsConcrete(
                     subtype,
                     /* convertConstraintsToUnion */ false
@@ -850,8 +850,6 @@ export class CompletionProvider {
                         getMembersForClass(objectClass, symbolTable, TypeBase.isInstance(subtype));
                     }
                 }
-
-                return undefined;
             });
 
             const specializedLeftType = this._evaluator.makeTopLevelTypeVarsConcrete(
@@ -1059,22 +1057,20 @@ export class CompletionProvider {
         completionList: CompletionList
     ) {
         const quoteValue = this._getQuoteValueFromPriorText(priorText);
-        doForSubtypes(type, (subtype) => {
-            if (isObject(subtype)) {
-                if (ClassType.isBuiltIn(subtype.classType, 'str')) {
-                    if (subtype.classType.literalValue !== undefined) {
-                        this._addStringLiteralToCompletionList(
-                            subtype.classType.literalValue as string,
-                            quoteValue.stringValue,
-                            postText,
-                            quoteValue.quoteCharacter,
-                            completionList
-                        );
-                    }
-                }
+        doForEachSubtype(type, (subtype) => {
+            if (
+                isObject(subtype) &&
+                ClassType.isBuiltIn(subtype.classType, 'str') &&
+                subtype.classType.literalValue !== undefined
+            ) {
+                this._addStringLiteralToCompletionList(
+                    subtype.classType.literalValue as string,
+                    quoteValue.stringValue,
+                    postText,
+                    quoteValue.quoteCharacter,
+                    completionList
+                );
             }
-
-            return undefined;
         });
     }
 

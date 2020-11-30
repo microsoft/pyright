@@ -19,7 +19,7 @@ import {
     TypeVarScopeId,
     TypeVarType,
 } from './types';
-import { doForSubtypes } from './typeUtils';
+import { doForEachSubtype } from './typeUtils';
 
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
@@ -239,12 +239,11 @@ export class TypeVarMap {
 
             case TypeCategory.Union: {
                 let minScore = 1;
-                doForSubtypes(type, (subtype) => {
+                doForEachSubtype(type, (subtype) => {
                     const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount + 1);
                     if (subtypeScore < minScore) {
                         minScore = subtypeScore;
                     }
-                    return undefined;
                 });
 
                 // Assume that a union is more complex than a non-union,

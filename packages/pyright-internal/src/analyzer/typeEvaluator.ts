@@ -177,7 +177,7 @@ import {
     convertToInstance,
     convertToInstantiable,
     derivesFromClassRecursive,
-    doForSubtypes,
+    doForEachSubtype,
     enumerateLiteralsForType,
     getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType,
@@ -196,6 +196,7 @@ import {
     isTypeAliasRecursive,
     lookUpClassMember,
     lookUpObjectMember,
+    mapSubtypes,
     partiallySpecializeType,
     removeFalsinessFromType,
     removeNoReturnFromUnion,
@@ -1415,7 +1416,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        doForSubtypes(callType, (subtype) => {
+        doForEachSubtype(callType, (subtype) => {
             switch (subtype.category) {
                 case TypeCategory.Function:
                 case TypeCategory.OverloadedFunction: {
@@ -1454,8 +1455,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     break;
                 }
             }
-
-            return undefined;
         });
 
         if (signatures.length === 0) {
@@ -1630,7 +1629,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     //    returns a generator object)
     // If errorNode is undefined, no errors are reported.
     function getTypeFromAwaitable(type: Type, errorNode?: ParseNode): Type {
-        return doForSubtypes(type, (subtype) => {
+        return mapSubtypes(type, (subtype) => {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
@@ -1759,7 +1758,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         };
 
-        return doForSubtypes(type, (subtype) => {
+        return mapSubtypes(type, (subtype) => {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
@@ -2391,11 +2390,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const fileInfo = getFileInfo(node);
         const diag = new DiagnosticAddendum();
         if (type.category === TypeCategory.Union) {
-            doForSubtypes(type, (subtype) => {
+            doForEachSubtype(type, (subtype) => {
                 if (!TypeBase.isInstantiable(subtype)) {
                     diag.addMessage(Localizer.DiagnosticAddendum.typeNotClass().format({ type: printType(subtype) }));
                 }
-                return undefined;
             });
         }
 
@@ -2661,7 +2659,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // entries at that location.
         const unpackIndex = target.expressions.findIndex((expr) => expr.nodeType === ParseNodeType.Unpack);
 
-        doForSubtypes(type, (subtype) => {
+        doForEachSubtype(type, (subtype) => {
             // Is this subtype a tuple?
             const tupleType = getSpecializedTupleType(subtype);
             if (tupleType && tupleType.variadicTypeArguments) {
@@ -2723,9 +2721,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     targetTypes[index].push(iterableType);
                 }
             }
-
-            // We need to return something to satisfy doForSubtypes.
-            return undefined;
         });
 
         // Assign the resulting types to the individual names in the tuple target expression.
@@ -2752,7 +2747,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Replaces all of the top-level TypeVars (as opposed to TypeVars
     // used as type arguments in other types) with their concrete form.
     function makeTopLevelTypeVarsConcrete(type: Type, convertConstraintsToUnion = false): Type {
-        return doForSubtypes(type, (subtype) => {
+        return mapSubtypes(type, (subtype) => {
             if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
                 if (subtype.details.boundType) {
                     return TypeBase.isInstantiable(subtype)
@@ -2947,7 +2942,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (exceptionType && baseExceptionType && isClass(baseExceptionType)) {
                 const diagAddendum = new DiagnosticAddendum();
 
-                doForSubtypes(exceptionType, (subtype) => {
+                doForEachSubtype(exceptionType, (subtype) => {
                     if (!isAnyOrUnknown(subtype)) {
                         if (isClass(subtype)) {
                             if (!derivesFromClassRecursive(subtype, baseExceptionType, /* ignoreUnknown */ false)) {
@@ -2998,8 +2993,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             );
                         }
                     }
-
-                    return subtype;
                 });
 
                 if (!diagAddendum.isEmpty()) {
@@ -3645,7 +3638,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.Union: {
-                type = doForSubtypes(baseType, (subtype) => {
+                type = mapSubtypes(baseType, (subtype) => {
                     if (isNone(subtype)) {
                         addDiagnostic(
                             getFileInfo(node).diagnosticRuleSet.reportOptionalMemberAccess,
@@ -3940,7 +3933,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): Type | undefined {
         let isTypeValid = true;
 
-        type = doForSubtypes(type, (subtype) => {
+        type = mapSubtypes(type, (subtype) => {
             if (isObject(subtype)) {
                 let accessMethodName: string;
 
@@ -4326,7 +4319,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type, node };
         }
 
-        const type = doForSubtypes(baseType, (subtype) => {
+        const type = mapSubtypes(baseType, (subtype) => {
             subtype = getClassFromPotentialTypeObject(subtype);
             subtype = makeTopLevelTypeVarsConcrete(subtype);
 
@@ -4449,7 +4442,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             const indexType = getTypeOfExpression(node.items.items[0]).type;
             let diag = new DiagnosticAddendum();
-            const resultingType = doForSubtypes(indexType, (subtype) => {
+            const resultingType = mapSubtypes(indexType, (subtype) => {
                 if (isAnyOrUnknown(subtype)) {
                     return subtype;
                 }
@@ -4694,7 +4687,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (expectedType && expectedType.category === TypeCategory.Union) {
             let matchingSubtype: Type | undefined;
 
-            doForSubtypes(expectedType, (subtype) => {
+            doForEachSubtype(expectedType, (subtype) => {
                 if (!matchingSubtype) {
                     const subtypeResult = useSpeculativeMode(node, () => {
                         return getTypeFromTupleExpected(node, subtype);
@@ -4704,7 +4697,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         matchingSubtype = subtype;
                     }
                 }
-                return undefined;
             });
 
             effectiveExpectedType = matchingSubtype;
@@ -5115,7 +5107,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const skipUnknownArgCheck = (flags & EvaluatorFlags.DoNotCheckForUnknownArgs) !== 0;
         const diag = new DiagnosticAddendum();
 
-        let resultType = doForSubtypes(baseTypeResult.type, (subtype) => {
+        let resultType = mapSubtypes(baseTypeResult.type, (subtype) => {
             let type: Type | undefined;
 
             let isTypeObject = false;
@@ -5570,7 +5562,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // for each of the subtypes that comprise the expected type. If
             // one or more analyzes with no errors, use those results.
             if (expectedType) {
-                returnType = doForSubtypes(expectedType, (expectedSubType) => {
+                returnType = mapSubtypes(expectedType, (expectedSubType) => {
                     const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
                     if (
                         populateTypeVarMapBasedOnExpectedType(
@@ -5808,7 +5800,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeVarMap: TypeVarMap
     ): Type {
         if (expectedType) {
-            const specializedExpectedType = doForSubtypes(expectedType, (expectedSubtype) => {
+            const specializedExpectedType = mapSubtypes(expectedType, (expectedSubtype) => {
                 return applyExpectedSubtypeForConstructor(type, expectedSubtype, typeVarMap);
             });
 
@@ -6071,7 +6063,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             case TypeCategory.Union: {
                 const returnTypes: Type[] = [];
 
-                doForSubtypes(callType, (subtype) => {
+                doForEachSubtype(callType, (subtype) => {
                     if (isNone(subtype)) {
                         addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
@@ -6093,7 +6085,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             returnTypes.push(subtypeCallResult.returnType);
                         }
                     }
-                    return undefined;
                 });
 
                 if (returnTypes.length > 0) {
@@ -7748,8 +7739,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const leftType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(node.leftExpression).type);
         const rightType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(node.rightExpression).type);
 
-        type = doForSubtypes(leftType!, (leftSubtype) => {
-            return doForSubtypes(rightType, (rightSubtype) => {
+        type = mapSubtypes(leftType!, (leftSubtype) => {
+            return mapSubtypes(rightType, (rightSubtype) => {
                 if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                     // If either type is "Unknown" (versus Any), propagate the Unknown.
                     if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
@@ -7785,8 +7776,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const diag = new DiagnosticAddendum();
 
         if (arithmeticOperatorMap[operator]) {
-            type = doForSubtypes(leftType, (leftSubtype) => {
-                return doForSubtypes(rightType, (rightSubtype) => {
+            type = mapSubtypes(leftType, (leftSubtype) => {
+                return mapSubtypes(rightType, (rightSubtype) => {
                     if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                         // If either type is "Unknown" (versus Any), propagate the Unknown.
                         if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
@@ -7829,8 +7820,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
             });
         } else if (bitwiseOperatorMap[operator]) {
-            type = doForSubtypes(leftType, (leftSubtype) => {
-                return doForSubtypes(rightType, (rightSubtype) => {
+            type = mapSubtypes(leftType, (leftSubtype) => {
+                return mapSubtypes(rightType, (rightSubtype) => {
                     if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                         // If either type is "Unknown" (versus Any), propagate the Unknown.
                         if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
@@ -7874,8 +7865,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
             });
         } else if (comparisonOperatorMap[operator]) {
-            type = doForSubtypes(leftType, (leftSubtype) => {
-                return doForSubtypes(rightType, (rightSubtype) => {
+            type = mapSubtypes(leftType, (leftSubtype) => {
+                return mapSubtypes(rightType, (rightSubtype) => {
                     if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                         // If either type is "Unknown" (versus Any), propagate the Unknown.
                         if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
@@ -7954,8 +7945,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // The "in" and "not in" operators make use of the __contains__
             // magic method.
             if (operator === OperatorType.In || operator === OperatorType.NotIn) {
-                type = doForSubtypes(rightType, (rightSubtype) => {
-                    return doForSubtypes(leftType, (leftSubtype) => {
+                type = mapSubtypes(rightType, (rightSubtype) => {
+                    return mapSubtypes(leftType, (leftSubtype) => {
                         if (isAnyOrUnknown(rightSubtype) || isAnyOrUnknown(leftSubtype)) {
                             // If either type is "Unknown" (versus Any), propagate the Unknown.
                             if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
@@ -8006,8 +7997,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     type = getBuiltInObject(errorNode, 'bool');
                 }
             } else {
-                type = doForSubtypes(leftType, (leftSubtype) => {
-                    return doForSubtypes(rightType, (rightSubtype) => {
+                type = mapSubtypes(leftType, (leftSubtype) => {
+                    return mapSubtypes(rightType, (rightSubtype) => {
                         // If the operator is an AND or OR, we need to combine the two types.
                         if (operator === OperatorType.And || operator === OperatorType.Or) {
                             return combineTypes([leftSubtype, rightSubtype]);
@@ -8101,7 +8092,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         };
 
-        const returnType = doForSubtypes(objType, (subtype) => {
+        const returnType = mapSubtypes(objType, (subtype) => {
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
             }
@@ -8146,7 +8137,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If there is an expected type, see if we can match it.
         if (expectedType && entryTypes.length > 0) {
-            const narrowedExpectedType = doForSubtypes(expectedType, (subtype) => {
+            const narrowedExpectedType = mapSubtypes(expectedType, (subtype) => {
                 if (isObject(subtype)) {
                     if (ClassType.isBuiltIn(subtype.classType, 'set') && subtype.classType.typeArguments) {
                         const typeArg = subtype.classType.typeArguments[0];
@@ -8190,7 +8181,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (expectedType && expectedType.category === TypeCategory.Union) {
             let matchingSubtype: Type | undefined;
 
-            doForSubtypes(expectedType, (subtype) => {
+            doForEachSubtype(expectedType, (subtype) => {
                 if (!matchingSubtype) {
                     const subtypeResult = useSpeculativeMode(node, () => {
                         return getTypeFromDictionaryExpected(node, subtype, new DiagnosticAddendum());
@@ -8200,7 +8191,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         matchingSubtype = subtype;
                     }
                 }
-                return undefined;
             });
 
             expectedType = matchingSubtype;
@@ -8466,7 +8456,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (expectedType && expectedType.category === TypeCategory.Union) {
             let matchingSubtype: Type | undefined;
 
-            doForSubtypes(expectedType, (subtype) => {
+            doForEachSubtype(expectedType, (subtype) => {
                 if (!matchingSubtype) {
                     const subtypeResult = useSpeculativeMode(node, () => {
                         return getTypeFromListExpected(node, subtype);
@@ -8476,7 +8466,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         matchingSubtype = subtype;
                     }
                 }
-                return undefined;
             });
 
             effectiveExpectedType = matchingSubtype;
@@ -9052,11 +9041,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Is this a type alias to an existing literal type?
                     let isLiteralType = true;
 
-                    doForSubtypes(exprType.type, (subtype) => {
+                    doForEachSubtype(exprType.type, (subtype) => {
                         if (!isClass(subtype) || subtype.literalValue === undefined) {
                             isLiteralType = false;
                         }
-                        return undefined;
                     });
 
                     if (isLiteralType) {
@@ -9379,9 +9367,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Skip this for a simple TypeVar (one that's not part of a union).
         if (!isTypeVar(type)) {
-            doForSubtypes(type, (subtype) => {
+            doForEachSubtype(type, (subtype) => {
                 addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(subtype));
-                return undefined;
             });
         }
 
@@ -11449,7 +11436,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (isObject(exceptionType)) {
                 const iterableType = getTypeFromIterable(exceptionType, /* isAsync */ false, errorNode);
 
-                return doForSubtypes(iterableType, (subtype) => {
+                return mapSubtypes(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {
                         return subtype;
                     }
@@ -11466,7 +11453,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return UnknownType.create();
         }
 
-        const targetType = doForSubtypes(exceptionTypes, (subType) => {
+        const targetType = mapSubtypes(exceptionTypes, (subType) => {
             // If more than one type was specified for the exception, we'll receive
             // a specialized tuple object here.
             const tupleType = getSpecializedTupleType(subType);
@@ -11508,7 +11495,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Verify that the target has an __enter__ or __aenter__ method defined.
         const enterMethodName = isAsync ? '__aenter__' : '__enter__';
-        const scopedType = doForSubtypes(exprType, (subtype) => {
+        const scopedType = mapSubtypes(exprType, (subtype) => {
             subtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isAnyOrUnknown(subtype)) {
@@ -11572,11 +11559,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Verify that the target has an __exit__ or __aexit__ method defined.
         const exitMethodName = isAsync ? '__aexit__' : '__exit__';
-        doForSubtypes(exprType, (subtype) => {
+        doForEachSubtype(exprType, (subtype) => {
             subtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isAnyOrUnknown(subtype)) {
-                return undefined;
+                return;
             }
 
             const diag = new DiagnosticAddendum();
@@ -11592,7 +11579,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
 
                 if (exitType) {
-                    return undefined;
+                    return;
                 }
             }
 
@@ -11603,7 +11590,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 Localizer.Diagnostic.typeNotUsableWith().format({ type: printType(subtype), method: exitMethodName }),
                 node.expression
             );
-            return undefined;
         });
 
         if (node.target) {
@@ -12883,7 +12869,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         // Narrow the type by filtering on "None".
                         return (type: Type) => {
                             if (type.category === TypeCategory.Union) {
-                                return doForSubtypes(type, (subtype) => {
+                                return mapSubtypes(type, (subtype) => {
                                     if (isAnyOrUnknown(subtype)) {
                                         // We need to assume that "Any" is always both None and not None,
                                         // so it matches regardless of whether the test is positive or negative.
@@ -12925,7 +12911,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (isClass(classType)) {
                                 return (type: Type) => {
                                     // Narrow the type based on whether the type derives from the specified type.
-                                    return doForSubtypes(type, (subtype) => {
+                                    return mapSubtypes(type, (subtype) => {
                                         if (isObject(subtype)) {
                                             const matches = ClassType.isDerivedFrom(classType, subtype.classType);
                                             if (adjIsPositiveTest) {
@@ -13114,7 +13100,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (ParseTreeUtils.isMatchingExpression(reference, testExpression)) {
             return (type: Type) => {
                 // Narrow the type based on whether the subtype can be true or false.
-                return doForSubtypes(type, (subtype) => {
+                return mapSubtypes(type, (subtype) => {
                     if (isPositiveTest) {
                         if (canBeTruthy(subtype)) {
                             return removeFalsinessFromType(subtype);
@@ -13176,7 +13162,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isInstanceCheck: boolean,
         isPositiveTest: boolean
     ): Type {
-        let effectiveType = doForSubtypes(type, (subtype) => {
+        let effectiveType = mapSubtypes(type, (subtype) => {
             subtype = transformPossibleRecursiveTypeAlias(subtype);
             return transformTypeObjectToClass(subtype);
         });
@@ -13250,7 +13236,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const anyOrUnknownSubstitutions: Type[] = [];
         const anyOrUnknown: Type[] = [];
 
-        const filteredType = doForSubtypes(effectiveType, (subtype) => {
+        const filteredType = mapSubtypes(effectiveType, (subtype) => {
             if (isInstanceCheck && isObject(subtype)) {
                 return combineTypes(filterType(subtype.classType));
             } else if (!isInstanceCheck && isClass(subtype)) {
@@ -13321,7 +13307,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeArg = classType.typeArguments[0];
         let canNarrow = true;
 
-        const narrowedType = doForSubtypes(referenceType, (subtype) => {
+        const narrowedType = mapSubtypes(referenceType, (subtype) => {
             if (isAnyOrUnknown(subtype)) {
                 canNarrow = false;
                 return subtype;
@@ -13342,7 +13328,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Attempts to narrow a type based on whether it is a TypedDict with
     // a literal key value.
     function narrowTypeForTypedDictKey(referenceType: Type, literalKey: ClassType, isPositiveTest: boolean): Type {
-        const narrowedType = doForSubtypes(referenceType, (subtype) => {
+        const narrowedType = mapSubtypes(referenceType, (subtype) => {
             if (isObject(subtype) && ClassType.isTypedDictClass(subtype.classType)) {
                 const entries = getTypedDictMembersForClass(subtype.classType);
                 const tdEntry = entries.get(literalKey.literalValue as string);
@@ -13371,7 +13357,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): Type {
         let canNarrow = true;
 
-        const narrowedType = doForSubtypes(referenceType, (subtype) => {
+        const narrowedType = mapSubtypes(referenceType, (subtype) => {
             subtype = transformTypeObjectToClass(subtype);
 
             let memberInfo: ClassMember | undefined;
@@ -13405,7 +13391,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isPositiveTest: boolean
     ): Type {
         let canNarrow = true;
-        const narrowedType = doForSubtypes(referenceType, (subtype) => {
+        const narrowedType = mapSubtypes(referenceType, (subtype) => {
             if (isObject(subtype) && ClassType.isSameGenericClass(literalType.classType, subtype.classType)) {
                 if (subtype.classType.literalValue !== undefined) {
                     const literalValueMatches = ClassType.isLiteralValueSame(subtype.classType, literalType.classType);
@@ -13440,7 +13426,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Union[Callable[..., Any], Type[int], int], it would remove the "int" because
     // it's not callable.
     function narrowTypeForCallable(type: Type, isPositiveTest: boolean, errorNode: ExpressionNode): Type {
-        return doForSubtypes(type, (subtype) => {
+        return mapSubtypes(type, (subtype) => {
             switch (subtype.category) {
                 case TypeCategory.Function:
                 case TypeCategory.OverloadedFunction:
@@ -13899,7 +13885,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (baseType) {
                 baseType = makeTopLevelTypeVarsConcrete(baseType);
                 const memberName = node.parent.memberName.value;
-                doForSubtypes(baseType, (subtype) => {
+                doForEachSubtype(baseType, (subtype) => {
                     let symbol: Symbol | undefined;
 
                     if (isClass(subtype)) {
@@ -13937,8 +13923,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             declarations.push(...symbol.getDeclarations());
                         }
                     }
-
-                    return subtype;
                 });
             }
         } else if (node.parent && node.parent.nodeType === ParseNodeType.ModuleName) {
@@ -15661,11 +15645,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let isIncompatible = false;
 
             // For union sources, all of the types need to be assignable to the dest.
-            doForSubtypes(srcType, (subtype) => {
+            doForEachSubtype(srcType, (subtype) => {
                 if (!canAssignType(destType, subtype, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)) {
                     isIncompatible = true;
                 }
-                return undefined;
             });
 
             if (isIncompatible) {
@@ -15696,7 +15679,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let bestTypeVarMap: TypeVarMap | undefined;
                 let bestTypeVarMapScore: number | undefined;
 
-                doForSubtypes(destType, (subtype) => {
+                doForEachSubtype(destType, (subtype) => {
                     // Make a temporary clone of the typeVarMap. We don't want to modify
                     // the original typeVarMap until we find the "optimal" typeVar mapping.
                     const typeVarMapClone = typeVarMap?.clone();
@@ -15714,7 +15697,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         }
                     }
-                    return undefined;
                 });
 
                 // If we found a winning type var mapping, copy it back to typeVarMap.
@@ -16572,8 +16554,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function narrowTypeBasedOnAssignment(declaredType: Type, assignedType: Type): Type {
         const diag = new DiagnosticAddendum();
 
-        const narrowedType = doForSubtypes(assignedType, (assignedSubtype) => {
-            const narrowedSubtype = doForSubtypes(declaredType, (declaredSubtype) => {
+        const narrowedType = mapSubtypes(assignedType, (assignedSubtype) => {
+            const narrowedSubtype = mapSubtypes(declaredType, (declaredSubtype) => {
                 // We can't narrow "Any".
                 if (isAnyOrUnknown(declaredType)) {
                     return declaredType;
