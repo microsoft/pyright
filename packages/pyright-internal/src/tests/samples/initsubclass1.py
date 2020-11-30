@@ -3,7 +3,7 @@
 # PEP 487.
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Optional, Type
 
 
 class Foo:
@@ -27,3 +27,15 @@ class Bar2(Foo, param1="0", param3=datetime.now()):
 class Bar3(Foo, param1="0", param2=5.0):
     pass
 
+
+class Bar4:
+    def __init_subclass__(cls, *, arg: int) -> None:
+        func(cls, arg)
+
+    def __new__(cls) -> "Bar4":
+        func(cls, 9)
+        return super().__new__(cls)
+
+
+def func(klass: Type[Bar4], arg: int):
+    pass

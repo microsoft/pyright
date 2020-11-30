@@ -2755,10 +2755,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return doForSubtypes(type, (subtype) => {
             if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
                 if (subtype.details.boundType) {
-                    if (TypeBase.isInstantiable(subtype)) {
-                        return convertToInstantiable(subtype.details.boundType);
-                    }
-                    return subtype.details.boundType;
+                    return TypeBase.isInstantiable(subtype)
+                        ? convertToInstantiable(subtype.details.boundType)
+                        : convertToInstance(subtype.details.boundType);
                 }
 
                 // If this is a recursive type alias placeholder
