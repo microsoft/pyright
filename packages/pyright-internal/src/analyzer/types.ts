@@ -88,7 +88,7 @@ export class EnumLiteral {
 
 export type LiteralValue = number | boolean | string | EnumLiteral;
 
-export type TypeSourceId = string | undefined;
+export type TypeSourceId = number;
 export const maxTypeRecursionCount = 16;
 
 export type InheritanceChain = (ClassType | UnknownType)[];
@@ -573,7 +573,7 @@ export namespace ClassType {
         // Compare most of the details fields. We intentionally skip the isAbstractClass
         // flag because it gets set dynamically.
         if (
-            class1Details.name !== class2Details.name ||
+            class1Details.fullName !== class2Details.fullName ||
             class1Details.flags !== class2Details.flags ||
             class1Details.typeSourceId !== class2Details.typeSourceId ||
             class1Details.baseClasses.length !== class2Details.baseClasses.length ||
@@ -610,22 +610,6 @@ export namespace ClassType {
 
         for (let i = 0; i < class1Details.typeParameters.length; i++) {
             if (!isTypeSame(class1Details.typeParameters[i], class2Details.typeParameters[i], recursionCount + 1)) {
-                return false;
-            }
-        }
-
-        const dataClassEntries1 = class1Details.dataClassEntries || [];
-        const dataClassEntries2 = class2Details.dataClassEntries || [];
-        if (dataClassEntries1.length !== dataClassEntries2.length) {
-            return false;
-        }
-
-        for (let i = 0; i < dataClassEntries1.length; i++) {
-            if (
-                dataClassEntries1[i].name !== dataClassEntries2[i].name ||
-                dataClassEntries1[i].hasDefault !== dataClassEntries2[i].hasDefault ||
-                !isTypeSame(dataClassEntries1[i].type, dataClassEntries2[i].type, recursionCount + 1)
-            ) {
                 return false;
             }
         }

@@ -9433,7 +9433,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getClassFullName(node, fileInfo.moduleName, assignedName),
             fileInfo.moduleName,
             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
-            /* typeSourceId */ undefined,
+            getTypeSourceId(node),
             /* declaredMetaclass */ undefined,
             /* effectiveMetaclass */ undefined
         );
@@ -9774,7 +9774,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getClassFullName(node, fileInfo.moduleName, node.name.value),
             fileInfo.moduleName,
             classFlags,
-            /* typeSourceId */ undefined,
+            getTypeSourceId(node),
             /* declaredMetaclass */ undefined,
             /* effectiveMetaclass */ undefined,
             ParseTreeUtils.getDocString(node.suite.statements)
@@ -17299,14 +17299,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return undefined;
     }
 
-    // Create an ID that is based on the file and the location
-    // within the file. This allows us to disambiguate between
-    // different types that don't have unique names (those that
-    // are not created with class declarations).
+    // Create an ID that is based on the location within the file.
+    // This allows us to disambiguate between different types that
+    // don't have unique names (those that are not created with class
+    // declarations).
     function getTypeSourceId(node: ParseNode): TypeSourceId {
-        const fileInfo = getFileInfo(node);
-
-        return `${fileInfo.moduleName}-${node.start.toString()}`;
+        return node.start;
     }
 
     return {
