@@ -12762,9 +12762,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
 
-                if (curFlowNode.flags & FlowFlags.VariableAnnotation) {
-                    const varAnnotationNode = curFlowNode as FlowVariableAnnotation;
-                    curFlowNode = varAnnotationNode.antecedent;
+                if (
+                    curFlowNode.flags &
+                    (FlowFlags.VariableAnnotation |
+                        FlowFlags.Assignment |
+                        FlowFlags.AssignmentAlias |
+                        FlowFlags.TrueCondition |
+                        FlowFlags.FalseCondition |
+                        FlowFlags.WildcardImport)
+                ) {
+                    const typedFlowNode = curFlowNode as
+                        | FlowVariableAnnotation
+                        | FlowAssignment
+                        | FlowAssignmentAlias
+                        | FlowCondition
+                        | FlowWildcardImport;
+                    curFlowNode = typedFlowNode.antecedent;
                     continue;
                 }
 
@@ -12787,18 +12800,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     continue;
                 }
 
-                if (curFlowNode.flags & FlowFlags.Assignment) {
-                    const assignmentFlowNode = curFlowNode as FlowAssignment;
-                    curFlowNode = assignmentFlowNode.antecedent;
-                    continue;
-                }
-
-                if (curFlowNode.flags & FlowFlags.AssignmentAlias) {
-                    const aliasFlowNode = curFlowNode as FlowAssignmentAlias;
-                    curFlowNode = aliasFlowNode.antecedent;
-                    continue;
-                }
-
                 if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
                     const labelNode = curFlowNode as FlowLabel;
                     for (const antecedent of labelNode.antecedents) {
@@ -12809,10 +12810,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return false;
                 }
 
-                if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
-                    const conditionalFlowNode = curFlowNode as FlowCondition;
-                    curFlowNode = conditionalFlowNode.antecedent;
-                    continue;
+                if (curFlowNode.flags & FlowFlags.Start) {
+                    // If we hit the start but were looking for a particular source flow
+                    // node, return false. Otherwise, the start is what we're looking for.
+                    return sourceFlowNode ? false : true;
                 }
 
                 if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
@@ -12830,18 +12831,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } finally {
                         postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
                     }
-                }
-
-                if (curFlowNode.flags & FlowFlags.Start) {
-                    // If we hit the start but were looking for a particular source flow
-                    // node, return false. Otherwise, the start is what we're looking for.
-                    return sourceFlowNode ? false : true;
-                }
-
-                if (curFlowNode.flags & FlowFlags.WildcardImport) {
-                    const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
-                    curFlowNode = wildcardImportFlowNode.antecedent;
-                    continue;
                 }
 
                 // We shouldn't get here.
