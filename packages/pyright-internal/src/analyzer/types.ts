@@ -66,19 +66,19 @@ export const enum TypeFlags {
     Instance = 1 << 1,
 }
 
-export type Type =
+export type UnionableType =
     | UnboundType
     | UnknownType
     | AnyType
     | NoneType
-    | NeverType
     | FunctionType
     | OverloadedFunctionType
     | ClassType
     | ObjectType
     | ModuleType
-    | UnionType
     | TypeVarType;
+
+export type Type = UnionableType | NeverType | UnionType;
 
 export type TypeVarScopeId = string;
 
@@ -1284,10 +1284,10 @@ export interface ConstrainedSubtype {
 
 export interface UnionType extends TypeBase {
     category: TypeCategory.Union;
-    subtypes: Type[];
+    subtypes: UnionableType[];
     constraints?: SubtypeConstraints[];
-    literalStrMap?: Map<string, Type>;
-    literalIntMap?: Map<number, Type>;
+    literalStrMap?: Map<string, UnionableType>;
+    literalIntMap?: Map<number, UnionableType>;
 }
 
 export namespace UnionType {
@@ -1301,10 +1301,7 @@ export namespace UnionType {
         return newUnionType;
     }
 
-    export function addType(unionType: UnionType, newType: Type, constraints: SubtypeConstraints) {
-        assert(newType.category !== TypeCategory.Union);
-        assert(newType.category !== TypeCategory.Never);
-
+    export function addType(unionType: UnionType, newType: UnionableType, constraints: SubtypeConstraints) {
         // If we're adding a string literal type, add it to the
         // literal string map to speed up some operations. It's not
         // uncommon for unions to contain hundreds of string literals.
@@ -1315,7 +1312,7 @@ export namespace UnionType {
             !constraints
         ) {
             if (unionType.literalStrMap === undefined) {
-                unionType.literalStrMap = new Map<string, Type>();
+                unionType.literalStrMap = new Map<string, UnionableType>();
             }
             unionType.literalStrMap.set(newType.classType.literalValue as string, newType);
         } else if (
@@ -1325,7 +1322,7 @@ export namespace UnionType {
             !constraints
         ) {
             if (unionType.literalIntMap === undefined) {
-                unionType.literalIntMap = new Map<number, Type>();
+                unionType.literalIntMap = new Map<number, UnionableType>();
             }
             unionType.literalIntMap.set(newType.classType.literalValue as number, newType);
         }
@@ -1811,7 +1808,10 @@ export function removeFromUnion(type: Type, removeFilter: (type: Type, constrain
     return type;
 }
 
-export function findSubtype(type: Type, filter: (type: Type, constraints: SubtypeConstraints) => boolean) {
+export function findSubtype(
+    type: Type,
+    filter: (type: UnionableType | NeverType, constraints: SubtypeConstraints) => boolean
+) {
     if (type.category === TypeCategory.Union) {
         return type.subtypes.find((subtype, index) => {
             return filter(subtype, type.constraints ? type.constraints[index] : undefined);
@@ -1910,10 +1910,10 @@ export function combineConstrainedTypes(subtypes: ConstrainedSubtype[], maxSubty
 
     expandedTypes.forEach((constrainedType, index) => {
         if (index === 0) {
-            UnionType.addType(newUnionType, constrainedType.type, constrainedType.constraints);
+            UnionType.addType(newUnionType, constrainedType.type as UnionableType, constrainedType.constraints);
         } else {
             if (maxSubtypeCount === undefined || newUnionType.subtypes.length < maxSubtypeCount) {
-                _addTypeIfUnique(newUnionType, constrainedType.type, constrainedType.constraints);
+                _addTypeIfUnique(newUnionType, constrainedType.type as UnionableType, constrainedType.constraints);
             } else {
                 hitMaxSubtypeCount = true;
             }
@@ -1956,7 +1956,7 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
     return false;
 }
 
-function _addTypeIfUnique(unionType: UnionType, typeToAdd: Type, constraintsToAdd: SubtypeConstraints) {
+function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, constraintsToAdd: SubtypeConstraints) {
     // Handle the addition of a string literal in a special manner to
     // avoid n^2 behavior in unions that contain hundreds of string
     // literal types. Skip this for constrained types.
