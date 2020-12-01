@@ -3193,7 +3193,7 @@ export class Parser {
         let braceCount = 0;
         let parenCount = 0;
         let bracketCount = 0;
-        let prevCharWasEqual = false;
+        let indexOfDebugEqual: number | undefined;
 
         while (segmentExprLength < segmentValue.length) {
             const curChar = segmentValue[segmentExprLength];
@@ -3201,7 +3201,7 @@ export class Parser {
             const inString = quoteStack.length > 0;
 
             if (curChar === '=') {
-                prevCharWasEqual = true;
+                indexOfDebugEqual = segmentExprLength;
             } else {
                 if (curChar === ':') {
                     if (!ignoreSeparator) {
@@ -3259,7 +3259,9 @@ export class Parser {
                     }
                 }
 
-                prevCharWasEqual = false;
+                if (curChar !== ' ') {
+                    indexOfDebugEqual = undefined;
+                }
             }
 
             segmentExprLength++;
@@ -3267,8 +3269,8 @@ export class Parser {
 
         // Handle Python 3.8 f-string formatting expressions that
         // end in an "=".
-        if (this._parseOptions.pythonVersion >= PythonVersion.V3_8 && prevCharWasEqual) {
-            segmentExprLength--;
+        if (this._parseOptions.pythonVersion >= PythonVersion.V3_8 && indexOfDebugEqual !== undefined) {
+            segmentExprLength = indexOfDebugEqual - 1;
         }
 
         return segmentExprLength;
