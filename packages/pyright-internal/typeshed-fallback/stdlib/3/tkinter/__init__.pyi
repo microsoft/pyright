@@ -95,7 +95,7 @@ _Cursor = Union[str, Tuple[str], Tuple[str, str], Tuple[str, str, str], Tuple[st
 _EntryValidateCommand = Union[
     Callable[[], bool], str, _TkinterSequence[str]
 ]  # example when it's sequence:  entry['invalidcommand'] = [entry.register(print), '%P']
-_ImageSpec = Union[Image, str]  # str can be from e.g. tkinter.image_names()
+_ImageSpec = Union[_Image, str]  # str can be from e.g. tkinter.image_names()
 _Padding = Union[
     _ScreenUnits,
     Tuple[_ScreenUnits],
@@ -106,7 +106,7 @@ _Padding = Union[
 _Relief = Literal["raised", "sunken", "flat", "ridge", "solid", "groove"]  # manual page: Tk_GetRelief
 _ScreenUnits = Union[str, float]  # manual page: Tk_GetPixels
 _XYScrollCommand = Union[str, Callable[[float, float], Any]]  # -xscrollcommand and -yscrollcommand in 'options' manual page
-_TakeFocusValue = Union[bool, Literal[""], Callable[[str], Optional[bool]]]  # -takefocus in manual page named 'options'
+_TakeFocusValue = Union[int, Literal[""], Callable[[str], Optional[bool]]]  # -takefocus in manual page named 'options'
 
 class EventType(str, Enum):
     Activate: str = ...
@@ -642,7 +642,7 @@ class Pack:
         after: Misc = ...,
         anchor: _Anchor = ...,
         before: Misc = ...,
-        expand: bool = ...,
+        expand: int = ...,
         fill: Literal["none", "x", "y", "both"] = ...,
         side: Literal["left", "right", "top", "bottom"] = ...,
         ipadx: Union[_ScreenUnits, Tuple[_ScreenUnits, _ScreenUnits]] = ...,
@@ -1685,7 +1685,7 @@ class Listbox(Widget, XView, YView):
         borderwidth: _ScreenUnits = ...,
         cursor: _Cursor = ...,
         disabledforeground: _Color = ...,
-        exportselection: bool = ...,
+        exportselection: int = ...,
         fg: _Color = ...,
         font: _FontDescription = ...,
         foreground: _Color = ...,
@@ -1831,7 +1831,7 @@ class Menu(Widget):
         relief: _Relief = ...,
         selectcolor: _Color = ...,
         takefocus: _TakeFocusValue = ...,
-        tearoff: bool = ...,
+        tearoff: int = ...,
         # I guess tearoffcommand arguments are supposed to be widget objects,
         # but they are widget name strings. Use nametowidget() to handle the
         # arguments of tearoffcommand.
@@ -2830,6 +2830,12 @@ class OptionMenu(Menubutton):
     ) -> None: ...
     # configure, config, cget are inherited from Menubutton
     # destroy and __getitem__ are overrided, signature does not change
+
+class _Image(Protocol):
+    tk: _tkinter.TkappType
+    def __del__(self) -> None: ...
+    def height(self) -> int: ...
+    def width(self) -> int: ...
 
 class Image:
     name: Any

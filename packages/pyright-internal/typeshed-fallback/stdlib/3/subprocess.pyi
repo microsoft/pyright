@@ -50,7 +50,7 @@ if sys.version_info >= (3, 7):
     def run(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stdout: _FILE = ...,
         stderr: _FILE = ...,
@@ -78,7 +78,7 @@ if sys.version_info >= (3, 7):
     def run(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stdout: _FILE = ...,
         stderr: _FILE = ...,
@@ -106,7 +106,7 @@ if sys.version_info >= (3, 7):
     def run(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stdout: _FILE = ...,
         stderr: _FILE = ...,
@@ -134,7 +134,7 @@ if sys.version_info >= (3, 7):
     def run(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stdout: _FILE = ...,
         stderr: _FILE = ...,
@@ -163,7 +163,7 @@ if sys.version_info >= (3, 7):
     def run(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stdout: _FILE = ...,
         stderr: _FILE = ...,
@@ -191,7 +191,7 @@ if sys.version_info >= (3, 7):
     def run(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stdout: _FILE = ...,
         stderr: _FILE = ...,
@@ -222,7 +222,7 @@ else:
     def run(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stdout: _FILE = ...,
         stderr: _FILE = ...,
@@ -248,7 +248,7 @@ else:
     def run(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stdout: _FILE = ...,
         stderr: _FILE = ...,
@@ -274,7 +274,7 @@ else:
     def run(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stdout: _FILE = ...,
         stderr: _FILE = ...,
@@ -301,7 +301,7 @@ else:
     def run(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stdout: _FILE = ...,
         stderr: _FILE = ...,
@@ -327,7 +327,7 @@ else:
     def run(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stdout: _FILE = ...,
         stderr: _FILE = ...,
@@ -354,7 +354,7 @@ else:
 def call(
     args: _CMD,
     bufsize: int = ...,
-    executable: AnyPath = ...,
+    executable: Optional[AnyPath] = ...,
     stdin: _FILE = ...,
     stdout: _FILE = ...,
     stderr: _FILE = ...,
@@ -401,7 +401,7 @@ if sys.version_info >= (3, 7):
     def check_output(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stderr: _FILE = ...,
         preexec_fn: Callable[[], Any] = ...,
@@ -426,7 +426,7 @@ if sys.version_info >= (3, 7):
     def check_output(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stderr: _FILE = ...,
         preexec_fn: Callable[[], Any] = ...,
@@ -451,7 +451,7 @@ if sys.version_info >= (3, 7):
     def check_output(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stderr: _FILE = ...,
         preexec_fn: Callable[[], Any] = ...,
@@ -476,7 +476,7 @@ if sys.version_info >= (3, 7):
     def check_output(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stderr: _FILE = ...,
         preexec_fn: Callable[[], Any] = ...,
@@ -502,7 +502,7 @@ if sys.version_info >= (3, 7):
     def check_output(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stderr: _FILE = ...,
         preexec_fn: Callable[[], Any] = ...,
@@ -527,7 +527,7 @@ if sys.version_info >= (3, 7):
     def check_output(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stderr: _FILE = ...,
         preexec_fn: Callable[[], Any] = ...,
@@ -554,7 +554,7 @@ else:
     def check_output(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stderr: _FILE = ...,
         preexec_fn: Callable[[], Any] = ...,
@@ -578,7 +578,7 @@ else:
     def check_output(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stderr: _FILE = ...,
         preexec_fn: Callable[[], Any] = ...,
@@ -602,7 +602,7 @@ else:
     def check_output(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stderr: _FILE = ...,
         preexec_fn: Callable[[], Any] = ...,
@@ -626,7 +626,7 @@ else:
     def check_output(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stderr: _FILE = ...,
         preexec_fn: Callable[[], Any] = ...,
@@ -650,7 +650,7 @@ else:
     def check_output(
         args: _CMD,
         bufsize: int = ...,
-        executable: AnyPath = ...,
+        executable: Optional[AnyPath] = ...,
         stdin: _FILE = ...,
         stderr: _FILE = ...,
         preexec_fn: Callable[[], Any] = ...,
