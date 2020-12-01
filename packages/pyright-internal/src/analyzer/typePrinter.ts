@@ -11,6 +11,7 @@ import { ParameterCategory } from '../parser/parseNodes';
 import * as ParseTreeUtils from './parseTreeUtils';
 import {
     ClassType,
+    combineTypes,
     EnumLiteral,
     FunctionType,
     isAnyOrUnknown,
@@ -168,6 +169,12 @@ export function printType(
         }
 
         case TypeCategory.Union: {
+            // If the union has constraints, throw them out to avoid duplicate
+            // types (e.g. "float | float | float | int").
+            if (type.constraints) {
+                type = combineTypes(type.subtypes);
+            }
+
             if (isOptionalType(type)) {
                 const optionalType = printType(
                     removeNoneFromUnion(type),

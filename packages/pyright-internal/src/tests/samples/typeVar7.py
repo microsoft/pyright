@@ -2,7 +2,7 @@
 # with constrained types properly generate errors. It tests
 # both class-defined and function-defined type variables.
 
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 
 
 class Foo:
@@ -122,3 +122,15 @@ class ClassA(Generic[_T1]):
         _ = a.__doc__
 
         return b
+
+
+_T3 = TypeVar("_T3", float, int, str)
+_T4 = TypeVar("_T4", float, int)
+
+
+def custom_add(a: _T3, b: _T4) -> float:
+    if isinstance(a, str):
+        return 0
+    c = a + b
+    t1: Literal["float | int"] = reveal_type(c)
+    return c
