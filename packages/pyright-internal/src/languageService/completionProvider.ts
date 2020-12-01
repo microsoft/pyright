@@ -743,7 +743,7 @@ export class CompletionProvider {
             return undefined;
         }
 
-        // Get symbols in reverse-MRO, but leave omit the class itself.
+        // Get symbols in reverse-MRO, but omit the class itself.
         const symbolTable = new Map<string, Symbol>();
         for (let i = classResults.classType.details.mro.length - 1; i > 0; i--) {
             const mroClass = classResults.classType.details.mro[i];
