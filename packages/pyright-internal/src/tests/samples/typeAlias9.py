@@ -17,7 +17,7 @@ JSONType = Union[JSONPrimitive, JSONStructured]
 # Using type alias checking for list:
 def f2(args: JSONStructured):
     if isinstance(args, List):
-        t1: Literal["List[JSONType]"] = reveal_type(args)
+        t1: Literal["JSONArray"] = reveal_type(args)
     else:
         t2: Literal["Dict[str, JSONType]"] = reveal_type(args)
         dargs: JSONObject = args
@@ -26,7 +26,7 @@ def f2(args: JSONStructured):
 # Using type alias checking for dict:
 def f3(args: JSONStructured):
     if isinstance(args, Dict):
-        t1: Literal["Dict[str, JSONType]"] = reveal_type(args)
+        t1: Literal["JSONObject"] = reveal_type(args)
     else:
-        t2: Literal["List[JSONType]"] = reveal_type(args)
+        t2: Literal["JSONArray"] = reveal_type(args)
         largs: JSONArray = args

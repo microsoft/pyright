@@ -13052,19 +13052,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isInstanceCheck: boolean,
         isPositiveTest: boolean
     ): Type {
-        let effectiveType = mapSubtypes(type, (subtype) => {
+        const effectiveType = mapSubtypes(type, (subtype) => {
             subtype = transformPossibleRecursiveTypeAlias(subtype);
             return transformTypeObjectToClass(subtype);
         });
 
-        // Handle bound TypeVar.
-        effectiveType = makeTopLevelTypeVarsConcrete(effectiveType);
-
         // Filters the varType by the parameters of the isinstance
         // and returns the list of types the varType could be after
         // applying the filter.
-        const filterType = (varType: ClassType): ObjectType[] | ClassType[] => {
-            const filteredTypes: ClassType[] = [];
+        const filterType = (varType: ClassType, negativeFallbackType: Type): Type[] => {
+            const filteredTypes: Type[] = [];
 
             let foundSuperclass = false;
             let isClassRelationshipIndeterminate = false;
@@ -13112,7 +13109,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // match, then the original variable type survives the filter.
             if (!isPositiveTest) {
                 if (!foundSuperclass || isClassRelationshipIndeterminate) {
-                    filteredTypes.push(varType);
+                    filteredTypes.push(negativeFallbackType);
                 }
             }
 
@@ -13120,42 +13117,58 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return filteredTypes;
             }
 
-            return filteredTypes.map((t) => ObjectType.create(t));
+            return filteredTypes.map((t) => convertToInstance(t));
         };
 
         const anyOrUnknownSubstitutions: Type[] = [];
         const anyOrUnknown: Type[] = [];
 
-        const filteredType = mapSubtypes(effectiveType, (subtype) => {
-            if (isInstanceCheck && isObject(subtype)) {
-                return combineTypes(filterType(subtype.classType));
-            } else if (!isInstanceCheck && isClass(subtype)) {
-                return combineTypes(filterType(subtype));
-            } else if (
-                !isInstanceCheck &&
-                isObject(subtype) &&
-                ClassType.isBuiltIn(subtype.classType, 'type') &&
-                objectType &&
-                isObject(objectType)
-            ) {
-                return combineTypes(filterType(objectType.classType));
-            } else if (isPositiveTest && isAnyOrUnknown(subtype)) {
-                // If this is a positive test and the effective type is Any or
-                // Unknown, we can assume that the type matches one of the
-                // specified types.
-                if (isInstanceCheck) {
-                    anyOrUnknownSubstitutions.push(
-                        combineTypes(classTypeList.map((classType) => ObjectType.create(classType)))
-                    );
-                } else {
-                    anyOrUnknownSubstitutions.push(combineTypes(classTypeList));
+        const filteredType = mapSubtypes(effectiveType, (possibleTypeVarSubtype) => {
+            const specializedSubtype = makeTopLevelTypeVarsConcrete(possibleTypeVarSubtype);
+
+            // We have to call mapSubtypes again because a constrained TypeVar may
+            // be expanded into a union.
+            return mapSubtypes(specializedSubtype, (subtype) => {
+                // If we fail to filter anything in the negative case, we need to decide
+                // whether to retain the original TypeVar or replace it with its specialized
+                // type(s). We'll assume that if someone is using isinstance or issubclass
+                // on a constrained TypeVar that they want to filter based on its constrained
+                // parts.
+                const negativeFallback =
+                    !isTypeVar(possibleTypeVarSubtype) || possibleTypeVarSubtype.details.constraints.length > 0
+                        ? subtype
+                        : possibleTypeVarSubtype;
+
+                if (isInstanceCheck && isObject(subtype)) {
+                    return combineTypes(filterType(subtype.classType, negativeFallback));
+                } else if (!isInstanceCheck && isClass(subtype)) {
+                    return combineTypes(filterType(subtype, negativeFallback));
+                } else if (
+                    !isInstanceCheck &&
+                    isObject(subtype) &&
+                    ClassType.isBuiltIn(subtype.classType, 'type') &&
+                    objectType &&
+                    isObject(objectType)
+                ) {
+                    return combineTypes(filterType(objectType.classType, negativeFallback));
+                } else if (isPositiveTest && isAnyOrUnknown(subtype)) {
+                    // If this is a positive test and the effective type is Any or
+                    // Unknown, we can assume that the type matches one of the
+                    // specified types.
+                    if (isInstanceCheck) {
+                        anyOrUnknownSubstitutions.push(
+                            combineTypes(classTypeList.map((classType) => ObjectType.create(classType)))
+                        );
+                    } else {
+                        anyOrUnknownSubstitutions.push(combineTypes(classTypeList));
+                    }
+
+                    anyOrUnknown.push(subtype);
+                    return undefined;
                 }
 
-                anyOrUnknown.push(subtype);
-                return undefined;
-            }
-
-            return isPositiveTest ? undefined : subtype;
+                return isPositiveTest ? undefined : negativeFallback;
+            });
         });
 
         // If the result is Any/Unknown and contains no other subtypes and
