@@ -817,16 +817,27 @@ export function isSuiteEmpty(node: SuiteNode): boolean {
     return true;
 }
 
-export function isMatchingExpression(expression1: ExpressionNode, expression2: ExpressionNode): boolean {
-    if (expression1.nodeType === ParseNodeType.Name && expression2.nodeType === ParseNodeType.Name) {
-        return expression1.value === expression2.value;
+export function isMatchingExpression(reference: ExpressionNode, expression: ExpressionNode): boolean {
+    if (reference.nodeType === ParseNodeType.Name && expression.nodeType === ParseNodeType.Name) {
+        return reference.value === expression.value;
     } else if (
-        expression1.nodeType === ParseNodeType.MemberAccess &&
-        expression2.nodeType === ParseNodeType.MemberAccess
+        reference.nodeType === ParseNodeType.MemberAccess &&
+        expression.nodeType === ParseNodeType.MemberAccess
     ) {
         return (
-            isMatchingExpression(expression1.leftExpression, expression2.leftExpression) &&
-            expression1.memberName.value === expression2.memberName.value
+            isMatchingExpression(reference.leftExpression, expression.leftExpression) &&
+            reference.memberName.value === expression.memberName.value
+        );
+    }
+
+    return false;
+}
+
+export function isPartialMatchingExpression(reference: ExpressionNode, expression: ExpressionNode): boolean {
+    if (reference.nodeType === ParseNodeType.MemberAccess) {
+        return (
+            isMatchingExpression(reference.leftExpression, expression) ||
+            isPartialMatchingExpression(reference.leftExpression, expression)
         );
     }
 

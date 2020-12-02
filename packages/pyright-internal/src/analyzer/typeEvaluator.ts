@@ -12396,6 +12396,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 flowType = undefined;
                             }
                             return setCacheEntry(curFlowNode, flowType, /* isIncomplete */ false);
+                        } else if (ParseTreeUtils.isPartialMatchingExpression(reference, assignmentFlowNode.node)) {
+                            // If the node partially matches the reference, we need to "kill" any narrowed
+                            // types further above this point. For example, if we see the sequence
+                            //    a.b = 3
+                            //    a = Foo()
+                            //    x = a.b
+                            // The type of "a.b" can no longer be assumed to be Literal[3].
+                            return setCacheEntry(curFlowNode, initialType, /* isIncomplete */ false);
                         }
 
                         curFlowNode = assignmentFlowNode.antecedent;

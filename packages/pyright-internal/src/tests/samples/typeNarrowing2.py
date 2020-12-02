@@ -1,4 +1,4 @@
-# This sample exercises the type analyzer's isinstance type constraint logic.
+# This sample exercises the type analyzer's isinstance type narrowing logic.
 
 from typing import Type, Union, Any
 
