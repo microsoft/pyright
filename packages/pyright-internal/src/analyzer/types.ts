@@ -399,10 +399,16 @@ export namespace ClassType {
     ): ClassType {
         const newClassType = { ...classType };
 
-        newClassType.typeArguments = typeArguments;
+        // Never should never appear as a type argument, so replace it with
+        newClassType.typeArguments = typeArguments
+            ? typeArguments.map((t) => (isNever(t) ? UnknownType.create() : t))
+            : undefined;
+
         newClassType.isTypeArgumentExplicit = isTypeArgumentExplicit;
         newClassType.skipAbstractClassTest = skipAbstractClassTest;
-        newClassType.variadicTypeArguments = variadicTypeArguments;
+        newClassType.variadicTypeArguments = variadicTypeArguments
+            ? variadicTypeArguments.map((t) => (isNever(t) ? UnknownType.create() : t))
+            : undefined;
 
         return newClassType;
     }
