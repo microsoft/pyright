@@ -209,6 +209,7 @@ import {
     selfSpecializeClassType,
     setTypeArgumentsRecursive,
     specializeClassType,
+    specializeForBaseClass,
     stripFirstParameter,
     stripLiteralValue,
     transformExpectedTypeForConstructor,
@@ -14686,7 +14687,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !ClassType.isBuiltIn(baseClass, 'object') &&
                 !ClassType.isBuiltIn(baseClass, 'Protocol')
             ) {
-                const specializedBaseClass = specializeForBaseClass(destType, baseClass, recursionCount + 1);
+                const specializedBaseClass = specializeForBaseClass(destType, baseClass);
                 if (
                     !canAssignClassToProtocol(
                         specializedBaseClass,
@@ -14878,22 +14879,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return false;
     }
 
-    // Determines the specialized base class type that srcType derives from.
-    function specializeForBaseClass(srcType: ClassType, baseClass: ClassType, recursionCount: number): ClassType {
-        const typeParams = ClassType.getTypeParameters(baseClass);
-
-        // If there are no type parameters for the specified base class,
-        // no specialization is required.
-        if (typeParams.length === 0) {
-            return baseClass;
-        }
-
-        const typeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
-        const specializedType = applySolvedTypeVars(baseClass, typeVarMap);
-        assert(isClass(specializedType));
-        return specializedType as ClassType;
-    }
-
     // Determines whether the specified type can be assigned to the
     // specified inheritance chain, taking into account its type arguments.
     function canAssignClassWithTypeArgs(
@@ -14931,7 +14916,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If this isn't the first time through the loop, specialize
             // for the next ancestor in the chain.
             if (ancestorIndex < inheritanceChain.length - 1) {
-                curSrcType = specializeForBaseClass(curSrcType, ancestorType, recursionCount + 1);
+                curSrcType = specializeForBaseClass(curSrcType, ancestorType);
             }
 
             // Do we need to do special-case processing for various built-in classes?

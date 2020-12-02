@@ -7,6 +7,8 @@
  * Collection of functions that operate on Type objects.
  */
 
+import { assert } from 'console';
+
 import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
@@ -1069,6 +1071,22 @@ export function buildTypeVarMap(
     });
 
     return typeVarMap;
+}
+
+// Determines the specialized base class type that srcType derives from.
+export function specializeForBaseClass(srcType: ClassType, baseClass: ClassType): ClassType {
+    const typeParams = ClassType.getTypeParameters(baseClass);
+
+    // If there are no type parameters for the specified base class,
+    // no specialization is required.
+    if (typeParams.length === 0) {
+        return baseClass;
+    }
+
+    const typeVarMap = buildTypeVarMapFromSpecializedClass(srcType);
+    const specializedType = applySolvedTypeVars(baseClass, typeVarMap);
+    assert(isClass(specializedType));
+    return specializedType as ClassType;
 }
 
 // If ignoreUnknown is true, an unknown base class is ignored when
