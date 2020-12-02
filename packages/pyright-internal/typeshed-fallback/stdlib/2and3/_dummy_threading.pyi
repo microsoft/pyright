@@ -155,7 +155,10 @@ class Event:
     def wait(self, timeout: Optional[float] = ...) -> bool: ...
 
 if sys.version_info >= (3, 8):
-    from _thread import _excepthook as excepthook, _ExceptHookArgs as ExceptHookArgs
+    from _thread import _excepthook, _ExceptHookArgs
+
+    excepthook = _excepthook
+    ExceptHookArgs = _ExceptHookArgs
 
 class Timer(Thread):
     if sys.version_info >= (3,):
