@@ -42,6 +42,7 @@ export interface ImportStatement {
 export interface ImportStatements {
     orderedImports: ImportStatement[];
     mapByFilePath: Map<string, ImportStatement>;
+    implicitImports?: Map<string, ImportFromAsNode>;
 }
 
 export const enum ImportGroup {
@@ -91,7 +92,7 @@ export function compareImportStatements(a: ImportStatement, b: ImportStatement) 
 
 // Looks for top-level 'import' and 'import from' statements and provides
 // an ordered list and a map (by file path).
-export function getTopLevelImports(parseTree: ModuleNode): ImportStatements {
+export function getTopLevelImports(parseTree: ModuleNode, includeImplicitImports = false): ImportStatements {
     const localImports: ImportStatements = {
         orderedImports: [],
         mapByFilePath: new Map<string, ImportStatement>(),
@@ -109,7 +110,12 @@ export function getTopLevelImports(parseTree: ModuleNode): ImportStatements {
                     followsNonImportStatement = false;
                 } else if (subStatement.nodeType === ParseNodeType.ImportFrom) {
                     foundFirstImportStatement = true;
-                    _processImportFromNode(subStatement, localImports, followsNonImportStatement);
+                    _processImportFromNode(
+                        subStatement,
+                        localImports,
+                        followsNonImportStatement,
+                        includeImplicitImports
+                    );
                     followsNonImportStatement = false;
                 } else {
                     followsNonImportStatement = foundFirstImportStatement;
@@ -346,13 +352,25 @@ function _processImportNode(node: ImportNode, localImports: ImportStatements, fo
 function _processImportFromNode(
     node: ImportFromNode,
     localImports: ImportStatements,
-    followsNonImportStatement: boolean
+    followsNonImportStatement: boolean,
+    includeImplicitImports: boolean
 ) {
     const importResult = AnalyzerNodeInfo.getImportInfo(node.module);
     let resolvedPath: string | undefined;
 
     if (importResult && importResult.isImportFound) {
         resolvedPath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+    }
+
+    if (includeImplicitImports && importResult) {
+        localImports.implicitImports = localImports.implicitImports ?? new Map<string, ImportFromAsNode>();
+
+        for (const implicitImport of importResult.implicitImports) {
+            const importFromAs = node.imports.find((i) => i.name.value === implicitImport.name);
+            if (importFromAs) {
+                localImports.implicitImports.set(implicitImport.path, importFromAs);
+            }
+        }
     }
 
     const localImport: ImportStatement = {

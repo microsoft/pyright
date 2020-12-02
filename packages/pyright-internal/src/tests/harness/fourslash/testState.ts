@@ -718,11 +718,7 @@ export class TestState {
                     const workspaceEdits = results as WorkspaceEdit;
                     for (const edits of Object.values(workspaceEdits.changes!)) {
                         for (const edit of edits) {
-                            if (
-                                map[name].edits!.filter(
-                                    (e) => rangesAreEqual(e.range, edit.range) && e.newText === edit.newText
-                                ).length !== 1
-                            ) {
+                            if (map[name].edits!.filter((e) => this._editsAreEqual(e, edit)).length !== 1) {
                                 this.raiseError(
                                     `doesn't contain expected result: ${stringify(map[name])}, actual: ${stringify(
                                         edits
@@ -853,7 +849,7 @@ export class TestState {
                 if (verifyMode === 'exact') {
                     if (result.completionList.items.length !== expectedCompletions.length) {
                         assert.fail(
-                            `Expected ${expectedCompletions.length} items but received ${
+                            `${markerName} - Expected ${expectedCompletions.length} items but received ${
                                 result.completionList.items.length
                             }. Actual completions:\n${stringify(result.completionList.items.map((r) => r.label))}`
                         );
@@ -867,7 +863,7 @@ export class TestState {
                         if (verifyMode === 'excluded') {
                             // we're not supposed to find the completions passed to the test
                             assert.fail(
-                                `Completion item with label "${
+                                `${markerName} - Completion item with label "${
                                     expected.label
                                 }" unexpected. Actual completions:\n${stringify(
                                     result.completionList.items.map((r) => r.label)
@@ -888,7 +884,7 @@ export class TestState {
                                 assert.strictEqual(actual.documentation.kind, docFormat);
                             } else {
                                 assert.fail(
-                                    `Unexpected type of contents object "${actual.documentation}", should be MarkupContent.`
+                                    `${markerName} - Unexpected type of contents object "${actual.documentation}", should be MarkupContent.`
                                 );
                             }
                         }
@@ -898,7 +894,7 @@ export class TestState {
                         if (verifyMode === 'included' || verifyMode === 'exact') {
                             // we're supposed to find all items passed to the test
                             assert.fail(
-                                `Completion item with label "${
+                                `${markerName} - Completion item with label "${
                                     expected.label
                                 }" expected. Actual completions:\n${stringify(
                                     result.completionList.items.map((r) => r.label)
@@ -912,13 +908,15 @@ export class TestState {
                     if (result.completionList.items.length !== 0) {
                         // we removed every item we found, there should not be any remaining
                         assert.fail(
-                            `Completion items unexpected: ${stringify(result.completionList.items.map((r) => r.label))}`
+                            `${markerName} - Completion items unexpected: ${stringify(
+                                result.completionList.items.map((r) => r.label)
+                            )}`
                         );
                     }
                 }
             } else {
                 if (verifyMode !== 'exact' || expectedCompletions.length > 0) {
-                    assert.fail('Failed to get completions');
+                    assert.fail(`${markerName} - Failed to get completions`);
                 }
             }
 
@@ -932,7 +930,7 @@ export class TestState {
                     result?.memberAccessInfo?.unknownMemberName !== expectedName
                 ) {
                     assert.fail(
-                        `Expected completion results memberAccessInfo with \n    lastKnownModule: "${expectedModule}"\n    lastKnownMemberName: "${expectedType}"\n    unknownMemberName: "${expectedName}"\n  Actual memberAccessInfo:\n    lastKnownModule: "${
+                        `${markerName} - Expected completion results memberAccessInfo with \n    lastKnownModule: "${expectedModule}"\n    lastKnownMemberName: "${expectedType}"\n    unknownMemberName: "${expectedName}"\n  Actual memberAccessInfo:\n    lastKnownModule: "${
                             result.memberAccessInfo?.lastKnownModule ?? ''
                         }"\n    lastKnownMemberName: "${
                             result.memberAccessInfo?.lastKnownMemberName ?? ''
@@ -1575,9 +1573,51 @@ export class TestState {
         }
     }
 
+    private _editsAreEqual(actual: TextEdit | undefined, expected: TextEdit | undefined) {
+        if (actual === expected) {
+            return true;
+        }
+
+        if (actual === undefined || expected === undefined) {
+            return false;
+        }
+
+        return rangesAreEqual(actual.range, expected.range) && actual.newText === expected.newText;
+    }
+
+    private _verifyEdit(actual: TextEdit | undefined, expected: TextEdit | undefined) {
+        if (!this._editsAreEqual(actual, expected)) {
+            this.raiseError(`doesn't contain expected result: ${stringify(expected)}, actual: ${stringify(actual)}`);
+        }
+    }
+
+    private _verifyEdits(actual: TextEdit[] | undefined, expected: TextEdit[] | undefined) {
+        actual = actual ?? [];
+        expected = expected ?? [];
+
+        let extra = expected.slice(0);
+        let left = actual.slice(0);
+
+        for (const item of actual) {
+            extra = extra.filter((e) => !this._editsAreEqual(e, item));
+        }
+
+        for (const item of expected) {
+            left = left.filter((e) => !this._editsAreEqual(e, item));
+        }
+
+        if (extra.length > 0 || left.length > 0) {
+            this.raiseError(`doesn't contain expected result: ${stringify(extra)}, actual: ${stringify(left)}`);
+        }
+    }
+
     protected verifyCompletionItem(expected: _.FourSlashCompletionItem, actual: CompletionItem) {
         assert.strictEqual(actual.label, expected.label);
         assert.strictEqual(actual.detail, expected.detail);
         assert.strictEqual(actual.kind, expected.kind);
+
+        assert.strictEqual(actual.insertText, expected.insertionText);
+        this._verifyEdit(actual.textEdit as TextEdit, expected.textEdit);
+        this._verifyEdits(actual.additionalTextEdits, expected.additionalTextEdits);
     }
 }

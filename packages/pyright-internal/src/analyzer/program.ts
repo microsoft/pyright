@@ -39,6 +39,7 @@ import {
     stripFileExtension,
 } from '../common/pathUtils';
 import { convertPositionToOffset, convertRangeToTextRange } from '../common/positionUtils';
+import { computeCompletionSimilarity } from '../common/stringUtils';
 import { DocumentRange, doesRangeContain, doRangesIntersect, Position, Range } from '../common/textRange';
 import { Duration, timingStats } from '../common/timing';
 import {
@@ -998,7 +999,8 @@ export class Program {
                 range.start,
                 [],
                 map,
-                libraryMap
+                libraryMap,
+                (p, t) => computeCompletionSimilarity(p, t) > similarityLimit
             );
 
             // Filter out any name that is already defined in the current scope.

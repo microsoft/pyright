@@ -57,6 +57,8 @@ declare namespace _ {
         insertionText?: string;
         documentation?: string;
         detail?: string;
+        textEdit?: TextEdit;
+        additionalTextEdits?: TextEdit[];
     }
 
     interface TextRange {

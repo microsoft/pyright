@@ -1,7 +1,7 @@
 /// <reference path="fourslash.ts" />
 
 // @filename: test1.py
-//// test[|/*marker*/|]
+//// [|/*import*/|][|test/*marker*/|]
 
 // @filename: test2.py
 //// import testLib
@@ -25,16 +25,23 @@
 //// class Test2:
 ////     pass
 
-// @ts-ignore
-await helper.verifyCompletion('included', 'markdown', {
-    marker: {
-        completions: [
-            {
-                label: 'test1',
-                kind: Consts.CompletionItemKind.Module,
-                documentation: '```\nfrom testLib import test1\n```',
-                detail: 'Auto-import',
-            },
-        ],
-    },
-});
+{
+    const importRange = helper.getPositionRange('import');
+    const markerRange = helper.getPositionRange('marker');
+
+    // @ts-ignore
+    await helper.verifyCompletion('included', 'markdown', {
+        marker: {
+            completions: [
+                {
+                    label: 'test1',
+                    kind: Consts.CompletionItemKind.Module,
+                    documentation: '```\nfrom testLib import test1\n```',
+                    detail: 'Auto-import',
+                    textEdit: { range: markerRange, newText: 'test1' },
+                    additionalTextEdits: [{ range: importRange, newText: 'from testLib import test1\n\n\n' }],
+                },
+            ],
+        },
+    });
+}

@@ -696,9 +696,9 @@
     },
     "dependencies": {
         "vscode-jsonrpc": "6.0.0-next.7",
-        "vscode-languageclient": "7.0.0-next.12",
-        "vscode-languageserver": "7.0.0-next.10",
-        "vscode-languageserver-protocol": "^3.16.0-next.10"
+        "vscode-languageclient": "7.0.0-next.14",
+        "vscode-languageserver": "7.0.0-next.11",
+        "vscode-languageserver-protocol": "^3.16.0-next.11"
     },
     "devDependencies": {
         "@types/node": "^12.19.4",
