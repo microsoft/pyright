@@ -1320,7 +1320,7 @@ export function convertToInstantiable(type: Type): Type {
 }
 
 export function getMembersForClass(classType: ClassType, symbolTable: SymbolTable, includeInstanceVars: boolean) {
-    for (let i = classType.details.mro.length - 1; i >= 0; i--) {
+    for (let i = 0; i < classType.details.mro.length; i++) {
         const mroClass = classType.details.mro[i];
 
         if (isClass(mroClass)) {

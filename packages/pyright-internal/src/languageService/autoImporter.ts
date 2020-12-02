@@ -27,7 +27,7 @@ import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Position } from '../common/textRange';
-import { ParseNodeType } from '../parser/parseNodes';
+import { ImportFromNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { IndexAliasData, IndexResults } from './documentSymbolProvider';
 
@@ -135,6 +135,7 @@ export interface AutoImportResult {
     name: string;
     symbol?: Symbol;
     source?: string;
+    insertionText: string;
     edits: TextEditAction[];
     alias?: string;
     kind?: CompletionItemKind;
@@ -158,6 +159,7 @@ interface ImportAliasData {
 
 export class AutoImporter {
     private _importStatements: ImportStatements;
+    private _patternMatcher: (pattern: string, name: string) => boolean;
 
     constructor(
         private _execEnvironment: ExecutionEnvironment,
@@ -166,30 +168,32 @@ export class AutoImporter {
         private _invocationPosition: Position,
         private _excludes: string[],
         private _moduleSymbolMap: ModuleSymbolMap,
-        private _libraryMap?: Map<string, IndexResults>
+        private _libraryMap?: Map<string, IndexResults>,
+        patternMatcher?: (pattern: string, name: string) => boolean
     ) {
-        this._importStatements = getTopLevelImports(this._parseResults.parseTree);
+        this._patternMatcher = patternMatcher ?? StringUtils.isPatternInSymbol;
+        this._importStatements = getTopLevelImports(this._parseResults.parseTree, true);
     }
 
     getAutoImportCandidates(
         word: string,
         similarityLimit: number,
-        aliasName: string | undefined,
+        abbrFromUsers: string | undefined,
         token: CancellationToken
     ) {
         const results: AutoImportResult[] = [];
         const importAliasMap = new Map<string, Map<string, ImportAliasData>>();
 
-        this._addImportsFromModuleMap(word, similarityLimit, aliasName, importAliasMap, results, token);
-        this._addImportsFromLibraryMap(word, similarityLimit, aliasName, importAliasMap, results, token);
-        this._addImportsFromImportAliasMap(importAliasMap, aliasName, results, token);
+        this._addImportsFromModuleMap(word, similarityLimit, abbrFromUsers, importAliasMap, results, token);
+        this._addImportsFromLibraryMap(word, similarityLimit, abbrFromUsers, importAliasMap, results, token);
+        this._addImportsFromImportAliasMap(importAliasMap, abbrFromUsers, results, token);
         return results;
     }
 
     private _addImportsFromLibraryMap(
         word: string,
         similarityLimit: number,
-        aliasName: string | undefined,
+        abbrFromUsers: string | undefined,
         aliasMap: Map<string, Map<string, ImportAliasData>>,
         results: AutoImportResult[],
         token: CancellationToken
@@ -213,7 +217,7 @@ export class AutoImporter {
                 word,
                 similarityLimit,
                 isStubFileOrHasInit,
-                aliasName,
+                abbrFromUsers,
                 aliasMap,
                 results,
                 token
@@ -224,7 +228,7 @@ export class AutoImporter {
     private _addImportsFromModuleMap(
         word: string,
         similarityLimit: number,
-        aliasName: string | undefined,
+        abbrFromUsers: string | undefined,
         aliasMap: Map<string, Map<string, ImportAliasData>>,
         results: AutoImportResult[],
         token: CancellationToken
@@ -238,7 +242,7 @@ export class AutoImporter {
                 word,
                 similarityLimit,
                 isStubFileOrHasInit,
-                aliasName,
+                abbrFromUsers,
                 aliasMap,
                 results,
                 token
@@ -261,7 +265,7 @@ export class AutoImporter {
         word: string,
         similarityLimit: number,
         isStubOrHasInit: { isStub: boolean; hasInit: boolean },
-        aliasName: string | undefined,
+        abbrFromUsers: string | undefined,
         importAliasMap: Map<string, Map<string, ImportAliasData>>,
         results: AutoImportResult[],
         token: CancellationToken
@@ -323,20 +327,22 @@ export class AutoImporter {
             }
 
             const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
-                name,
-                filePath,
                 importSource,
+                name,
+                abbrFromUsers,
+                name,
                 importGroup,
-                aliasName
+                filePath
             );
 
             results.push({
                 name,
+                alias: abbrFromUsers,
                 symbol: autoImportSymbol.symbol,
                 source: importSource,
-                edits: autoImportTextEdits,
-                alias: aliasName,
                 kind: autoImportSymbol.kind,
+                insertionText: autoImportTextEdits.insertionText,
+                edits: autoImportTextEdits.edits,
             });
         });
 
@@ -371,31 +377,65 @@ export class AutoImporter {
 
     private _addImportsFromImportAliasMap(
         importAliasMap: Map<string, Map<string, ImportAliasData>>,
-        aliasName: string | undefined,
+        abbrFromUsers: string | undefined,
         results: AutoImportResult[],
         token: CancellationToken
     ) {
         throwIfCancellationRequested(token);
 
-        importAliasMap.forEach((mapPerSymbolName, filePath) => {
-            mapPerSymbolName.forEach((importAliasData, symbolName) => {
+        importAliasMap.forEach((mapPerSymbolName) => {
+            mapPerSymbolName.forEach((importAliasData) => {
                 throwIfCancellationRequested(token);
 
+                if (abbrFromUsers) {
+                    // When alias name is used, our regular exclude mechanism would not work. we need to check
+                    // whether import, the alias is refering to, already exists.
+                    // ex) import numpy
+                    //     np| <= auto-import here.
+                    // or
+                    //     from scipy import io as spio
+                    //     io| <= auto-import here
+
+                    // If import statement for the module already exist, then bail out.
+                    // ex) import module[.submodule] or from module[.submodule] import symbol
+                    if (this._importStatements.mapByFilePath.has(importAliasData.importParts.filePath)) {
+                        return;
+                    }
+
+                    // If it is the module itself that got imported, make sure we don't import it again.
+                    // ex) from module import submodule as ss
+                    //     submodule <= auto-import here
+                    if (importAliasData.importParts.importFrom) {
+                        const imported = this._importStatements.orderedImports.find(
+                            (i) => i.moduleName === importAliasData.importParts.importFrom
+                        );
+                        if (
+                            imported &&
+                            imported.node.nodeType === ParseNodeType.ImportFrom &&
+                            imported.node.imports.some((i) => i.name.value === importAliasData.importParts.symbolName)
+                        ) {
+                            return;
+                        }
+                    }
+                }
+
                 const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
-                    importAliasData.importParts.symbolName,
-                    importAliasData.importParts.filePath,
                     importAliasData.importParts.importFrom ?? importAliasData.importParts.importName,
+                    importAliasData.importParts.symbolName,
+                    abbrFromUsers,
+                    importAliasData.importParts.importName,
                     importAliasData.importGroup,
-                    aliasName
+                    importAliasData.importParts.filePath
                 );
 
                 results.push({
                     name: importAliasData.importParts.importName,
-                    alias: aliasName,
+                    alias: abbrFromUsers,
                     symbol: importAliasData.symbol,
                     kind: importAliasData.kind,
                     source: importAliasData.importParts.importFrom,
-                    edits: autoImportTextEdits,
+                    insertionText: autoImportTextEdits.insertionText,
+                    edits: autoImportTextEdits.edits,
                 });
             });
         });
@@ -512,7 +552,7 @@ export class AutoImporter {
             return word === name;
         }
 
-        return word.length > 0 && StringUtils.isPatternInSymbol(word, name);
+        return word.length > 0 && this._patternMatcher(word, name);
     }
 
     private _containsName(name: string, source: string | undefined, results: AutoImportResult[]) {
@@ -546,34 +586,122 @@ export class AutoImporter {
     }
 
     private _getTextEditsForAutoImportByFilePath(
-        symbolName: string | undefined,
-        filePath: string,
         moduleName: string,
+        importName: string | undefined,
+        abbrFromUsers: string | undefined,
+        insertionText: string,
         importGroup: ImportGroup,
-        aliasName: string | undefined
-    ): TextEditAction[] {
-        if (symbolName) {
-            // Does an 'import from' statement already exist? If so, we'll reuse it.
-            const importStatement = this._importStatements.mapByFilePath.get(filePath);
-            if (importStatement && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
-                return getTextEditsForAutoImportSymbolAddition(
-                    symbolName,
-                    importStatement,
-                    this._parseResults,
-                    aliasName
-                );
+        filePath: string
+    ): { insertionText: string; edits: TextEditAction[] } {
+        // If there is no symbolName, there can't be existing import statement.
+        const importStatement = this._importStatements.mapByFilePath.get(filePath);
+        if (importStatement) {
+            // Found import for given module. See whether we can use the module as it is.
+            if (importStatement.node.nodeType === ParseNodeType.Import) {
+                // For now, we don't check whether alias or moduleName got overwritten at
+                // given position
+                const importAlias = importStatement.subnode?.alias?.value;
+                if (importName) {
+                    // ex) import module
+                    //     method | <= auto-import
+                    return {
+                        insertionText: `${importAlias ?? importStatement.moduleName}.${importName}`,
+                        edits: [],
+                    };
+                } else if (importAlias) {
+                    // ex) import module as m
+                    //     m | <= auto-import
+                    return {
+                        insertionText: `${importAlias}`,
+                        edits: [],
+                    };
+                }
+            }
+
+            // Does an 'import from' statement already exist?
+            if (importName && importStatement.node.nodeType === ParseNodeType.ImportFrom) {
+                // If so, see whether what we want already exist.
+                const importNode = importStatement.node.imports.find((i) => i.name.value === importName);
+                if (importNode) {
+                    // For now, we don't check whether alias or moduleName got overwritten at
+                    // given position
+                    const importAlias = importNode.alias?.value;
+                    return {
+                        insertionText: `${importAlias ?? importName}`,
+                        edits: [],
+                    };
+                }
+
+                // If not, add what we want at the existing 'import from' statement as long as
+                // what is imported is not module itself.
+                // ex) don't add "path" to existing "from os.path import dirname" statement.
+                if (moduleName === importStatement.moduleName) {
+                    return {
+                        insertionText: abbrFromUsers ?? insertionText,
+                        edits: getTextEditsForAutoImportSymbolAddition(
+                            importName,
+                            importStatement,
+                            this._parseResults,
+                            abbrFromUsers
+                        ),
+                    };
+                }
+            }
+        } else if (importName) {
+            // If it is the module itself that got imported, make sure we don't import it again.
+            // ex) from module import submodule
+            const imported = this._importStatements.orderedImports.find((i) => i.moduleName === moduleName);
+            if (imported && imported.node.nodeType === ParseNodeType.ImportFrom) {
+                const importFrom = imported.node.imports.find((i) => i.name.value === importName);
+                if (importFrom) {
+                    // For now, we don't check whether alias or moduleName got overwritten at
+                    // given position. only move to alias, but not the other way around
+                    const importAlias = importFrom.alias?.value;
+                    if (importAlias) {
+                        return {
+                            insertionText: `${importAlias}`,
+                            edits: [],
+                        };
+                    }
+                } else {
+                    // If not, add what we want at the existing import from statement.
+                    return {
+                        insertionText: abbrFromUsers ?? insertionText,
+                        edits: getTextEditsForAutoImportSymbolAddition(
+                            importName,
+                            imported,
+                            this._parseResults,
+                            abbrFromUsers
+                        ),
+                    };
+                }
+            }
+
+            // Check whether it is one of implicit imports
+            const importFrom = this._importStatements.implicitImports?.get(filePath);
+            if (importFrom) {
+                // For now, we don't check whether alias or moduleName got overwritten at
+                // given position
+                const importAlias = importFrom.alias?.value;
+                return {
+                    insertionText: `${importAlias ?? importFrom.name.value}.${importName}`,
+                    edits: [],
+                };
             }
         }
 
-        return getTextEditsForAutoImportInsertion(
-            symbolName,
-            this._importStatements,
-            moduleName,
-            importGroup,
-            this._parseResults,
-            this._invocationPosition,
-            aliasName
-        );
+        return {
+            insertionText: abbrFromUsers ?? insertionText,
+            edits: getTextEditsForAutoImportInsertion(
+                importName,
+                this._importStatements,
+                moduleName,
+                importGroup,
+                this._parseResults,
+                this._invocationPosition,
+                abbrFromUsers
+            ),
+        };
     }
 }
 
