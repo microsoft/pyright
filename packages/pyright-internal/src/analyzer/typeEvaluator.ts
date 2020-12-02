@@ -10581,7 +10581,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
             }
 
-            const decoratorType = getTypeOfExpression(decoratorNode.expression, undefined, evaluatorFlags).type;
+            const decoratorType = getTypeOfExpression(
+                decoratorNode.expression,
+                /* expectedType */ undefined,
+                evaluatorFlags
+            ).type;
             if (decoratorType.category === TypeCategory.Function) {
                 if (decoratorType.details.builtInName === 'abstractmethod') {
                     if (isInClass) {
@@ -10814,7 +10818,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             accessorFunction.details.parameters.push({
                 category: ParameterCategory.Simple,
                 name: 'self',
-                type: propertyObject,
+                type: AnyType.create(),
                 hasDeclaredType: true,
             });
             accessorFunction.details.parameters.push({
@@ -11831,11 +11835,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // We may be able to infer the type of the first parameter.
         if (paramIndex === 0) {
-            const containingClassNode = ParseTreeUtils.getEnclosingClass(functionNode, true);
+            const containingClassNode = ParseTreeUtils.getEnclosingClass(functionNode, /* stopAtFunction */ true);
             if (containingClassNode) {
                 const classInfo = getTypeOfClass(containingClassNode);
                 if (classInfo) {
-                    const functionFlags = getFunctionFlagsFromDecorators(functionNode, true);
+                    const functionFlags = getFunctionFlagsFromDecorators(functionNode, /* isInClass */ true);
                     // If the first parameter doesn't have an explicit type annotation,
                     // provide a type if it's an instance, class or constructor method.
                     const inferredParamType = inferFirstParamType(functionFlags, classInfo.classType, functionNode);
@@ -14313,6 +14317,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let declIndex = typedDecls.length - 1;
         while (declIndex >= 0) {
             const decl = typedDecls[declIndex];
+            const considerDecl = true;
 
             // If there's a partially-constructed type that is allowed
             // for recursive symbol resolution, return it as the resolved type.
@@ -14326,19 +14331,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     try {
                         const type = getTypeForDeclaration(decl);
 
-                        if (!popSymbolResolution(symbol)) {
-                            return undefined;
+                        if (popSymbolResolution(symbol)) {
+                            return type;
                         }
-
-                        return type;
                     } catch (e) {
                         // Clean up the stack before rethrowing.
                         popSymbolResolution(symbol);
                         throw e;
                     }
                 }
-
-                break;
             }
 
             declIndex--;
