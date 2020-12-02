@@ -293,52 +293,49 @@ export const enum EvaluatorFlags {
     // Allow forward references. Don't report unbound errors.
     AllowForwardReferences = 1 << 2,
 
-    // Skip the check for unknown arguments.
-    DoNotCheckForUnknownArgs = 1 << 4,
-
     // Treat string literal as a type.
-    EvaluateStringLiteralAsType = 1 << 5,
+    EvaluateStringLiteralAsType = 1 << 3,
 
     // 'Final' is not allowed in this context.
-    FinalDisallowed = 1 << 6,
+    FinalDisallowed = 1 << 4,
 
     // A ParamSpec isn't allowed in this context.
-    ParamSpecDisallowed = 1 << 7,
+    ParamSpecDisallowed = 1 << 5,
 
     // Expression is expected to be a type (class) rather
     // than an instance (object)
-    ExpectingType = 1 << 8,
+    ExpectingType = 1 << 6,
 
     // The Tuple type allows the use of a tuple literal
     // expression "()" as a type argument. When this appears
     // as a type argument in other contexts, it's illegal.
-    AllowEmptyTupleAsType = 1 << 9,
+    AllowEmptyTupleAsType = 1 << 7,
 
     // Interpret an ellipsis type annotation to mean "Unknown".
-    ConvertEllipsisToUnknown = 1 << 10,
+    ConvertEllipsisToUnknown = 1 << 8,
 
     // The Generic class type is allowed in this context. It is
     // normally not allowed if ExpectingType is set.
-    GenericClassTypeAllowed = 1 << 11,
+    GenericClassTypeAllowed = 1 << 9,
 
     // In most cases where ExpectingType is set, generic classes
     // with missing type args are reported to the user, but there
     // are cases where it is legitimate to leave off missing
     // type args, such as with the "bound" parameter in a TypeArg.
-    AllowMissingTypeArgs = 1 << 12,
+    AllowMissingTypeArgs = 1 << 10,
 
     // TypeVars within this expression must not refer to type vars
     // used in an outer scope that.
-    DisallowTypeVarsWithScopeId = 1 << 13,
+    DisallowTypeVarsWithScopeId = 1 << 11,
 
     // TypeVars within this expression must refer to type vars
     // used in an outer scope that.
-    DisallowTypeVarsWithoutScopeId = 1 << 14,
+    DisallowTypeVarsWithoutScopeId = 1 << 12,
 
     // TypeVars within this expression that are otherwise not
     // associated with an outer scope should be associated with
     // the containing function's scope.
-    AssociateTypeVarsWithCurrentScope = 1 << 15,
+    AssociateTypeVarsWithCurrentScope = 1 << 13,
 }
 
 interface EvaluatorUsage {
@@ -1135,13 +1132,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             },
         ];
 
-        return getTypeFromCallWithBaseType(
-            node,
-            argList,
-            decoratorTypeResult,
-            /* expectedType */ undefined,
-            EvaluatorFlags.DoNotCheckForUnknownArgs | EvaluatorFlags.DoNotSpecialize
-        ).type;
+        return (
+            validateCallArguments(
+                node.expression,
+                argList,
+                decoratorTypeResult.type,
+                /* typeVarMap */ undefined,
+                /* skipUnknownArgCheck */ true,
+                /* expectedType */ undefined
+            ).returnType || UnknownType.create()
+        );
     }
 
     // Gets a member type from an object and if it's a function binds
@@ -1399,9 +1399,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     argList,
                     type,
                     new TypeVarMap(getTypeVarScopeId(type)),
-                    /* skipUnknownArgCheck */ true,
-                    /* inferReturnTypeIfNeeded */ true,
-                    /* expectedType */ undefined
+                    /* skipUnknownArgCheck */ true
                 );
             });
 
@@ -4066,9 +4064,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     argList.slice(1),
                                     boundMethodType,
                                     new TypeVarMap(getTypeVarScopeId(boundMethodType)),
-                                    /* skipUnknownArgCheck */ true,
-                                    /* inferReturnTypeIfNeeded */ true,
-                                    /* expectedType */ undefined
+                                    /* skipUnknownArgCheck */ true
                                 );
 
                                 if (callResult.argumentErrors) {
@@ -4624,7 +4620,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             itemMethodType,
             new TypeVarMap(getTypeVarScopeId(itemMethodType)),
             /* skipUnknownArgCheck */ false,
-            /* inferReturnTypeIfNeeded */ true,
             /* expectedType */ undefined
         );
 
@@ -4974,15 +4969,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return functionArg;
         });
 
-        const typeResult = getTypeFromCallWithBaseType(
+        const callResult = validateCallArguments(
             node,
             argList,
-            baseTypeResult,
-            expectedType,
-            flags & ~EvaluatorFlags.DoNotSpecialize
+            baseTypeResult.type,
+            /* typeVarMap */ undefined,
+            /* skipUnknownArgCheck */ false,
+            expectedType
         );
 
-        return typeResult;
+        return { node, type: callResult.returnType || UnknownType.create() };
     }
 
     function getTypeFromSuperCall(node: CallNode): TypeResult {
@@ -5106,385 +5102,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
     }
 
-    function getTypeFromCallWithBaseType(
-        errorNode: CallNode | DecoratorNode,
-        argList: FunctionArgument[],
-        baseTypeResult: TypeResult,
-        expectedType: Type | undefined,
-        flags: EvaluatorFlags
-    ): TypeResult {
-        const skipUnknownArgCheck = (flags & EvaluatorFlags.DoNotCheckForUnknownArgs) !== 0;
-        const diag = new DiagnosticAddendum();
-
-        let resultType = mapSubtypes(baseTypeResult.type, (subtype) => {
-            let type: Type | undefined;
-
-            let isTypeObject = false;
-            if (isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'type')) {
-                subtype = getClassFromPotentialTypeObject(subtype);
-                isTypeObject = true;
-            }
-
-            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
-
-            switch (concreteSubtype.category) {
-                case TypeCategory.Class: {
-                    if (ClassType.isBuiltIn(concreteSubtype)) {
-                        const className = concreteSubtype.aliasName || concreteSubtype.details.name;
-
-                        if (className === 'type') {
-                            // Validate the constructor arguments.
-                            validateConstructorArguments(
-                                errorNode,
-                                argList,
-                                concreteSubtype,
-                                skipUnknownArgCheck,
-                                expectedType
-                            );
-
-                            // Handle the 'type' call specially.
-                            if (argList.length === 1) {
-                                // The one-parameter form of "type" returns the class
-                                // for the specified object.
-                                const argType = getTypeForArgument(argList[0]);
-                                if (isObject(argType) || isTypeVar(argType)) {
-                                    type = convertToInstantiable(argType);
-                                }
-                            } else if (argList.length >= 2) {
-                                // The two-parameter form of "type" returns a new class type
-                                // built from the specified base types.
-                                type = createType(errorNode, argList);
-                            }
-
-                            // If the parameter to type() is not statically known,
-                            // fall back to Any.
-                            if (!type) {
-                                type = AnyType.create();
-                            }
-                        } else if (className === 'TypeVar') {
-                            type = createTypeVarType(errorNode, argList, /* isParamSpec */ false);
-                        } else if (className === 'ParamSpec') {
-                            type = createTypeVarType(errorNode, argList, /* isParamSpec */ true);
-                        } else if (className === 'NamedTuple') {
-                            type = createNamedTupleType(errorNode, argList, true);
-                        } else if (
-                            className === 'Protocol' ||
-                            className === 'Generic' ||
-                            className === 'Callable' ||
-                            className === 'Concatenate' ||
-                            className === 'Type'
-                        ) {
-                            const fileInfo = getFileInfo(errorNode);
-                            addDiagnostic(
-                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.typeNotIntantiable().format({ type: className }),
-                                errorNode
-                            );
-                        } else if (
-                            className === 'Enum' ||
-                            className === 'IntEnum' ||
-                            className === 'Flag' ||
-                            className === 'IntFlag'
-                        ) {
-                            type = createEnumType(errorNode, concreteSubtype, argList);
-                        } else if (className === 'TypedDict') {
-                            type = createTypedDictType(errorNode, concreteSubtype, argList);
-                        } else if (className === 'auto' && argList.length === 0) {
-                            type = getBuiltInObject(errorNode, 'int');
-                        }
-                    } else if (
-                        isClass(concreteSubtype) &&
-                        !isTypeObject &&
-                        ClassType.hasAbstractMethods(concreteSubtype)
-                    ) {
-                        // If the class is abstract, it can't be instantiated.
-                        const abstractMethods = getAbstractMethods(concreteSubtype);
-
-                        const diagAddendum = new DiagnosticAddendum();
-                        const errorsToDisplay = 2;
-
-                        abstractMethods.forEach((abstractMethod, index) => {
-                            if (index === errorsToDisplay) {
-                                diagAddendum.addMessage(
-                                    Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
-                                        count: abstractMethods.length - errorsToDisplay,
-                                    })
-                                );
-                            } else if (index < errorsToDisplay) {
-                                if (isClass(abstractMethod.classType)) {
-                                    const className = abstractMethod.classType.details.name;
-                                    diagAddendum.addMessage(
-                                        Localizer.DiagnosticAddendum.memberIsAbstract().format({
-                                            type: className,
-                                            name: abstractMethod.symbolName,
-                                        })
-                                    );
-                                }
-                            }
-                        });
-
-                        const fileInfo = getFileInfo(errorNode);
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typeAbstract().format({ type: concreteSubtype.details.name }) +
-                                diagAddendum.getString(),
-                            errorNode
-                        );
-                    }
-
-                    // Assume this is a call to the constructor.
-                    if (!type) {
-                        type = validateConstructorArguments(
-                            errorNode,
-                            argList,
-                            concreteSubtype,
-                            skipUnknownArgCheck,
-                            expectedType
-                        ).returnType;
-
-                        // If the concreteSubtype originated from a TypeVar, convert
-                        // the constructed type back to the TypeVar. For example, if
-                        // we have `cls: Type[_T]` followed by `_T()`.
-                        if (isTypeVar(subtype) && !subtype.details.isSynthesized) {
-                            type = convertToInstance(subtype);
-                        }
-                    }
-
-                    // If we instantiated a type, transform it into a class.
-                    // This can happen if someone directly instantiates a metaclass
-                    // deriving from type.
-                    if (
-                        type &&
-                        isObject(type) &&
-                        type.classType.details.mro.some(
-                            (baseClass) => isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'type')
-                        )
-                    ) {
-                        // We don't know the name of the new class in this case.
-                        const newClassName = '__class_' + type.classType.details.name;
-                        const newClassType = ClassType.create(
-                            newClassName,
-                            '',
-                            '',
-                            ClassTypeFlags.None,
-                            getTypeSourceId(errorNode),
-                            type.classType,
-                            type.classType
-                        );
-                        newClassType.details.baseClasses.push(getBuiltInType(errorNode, 'object'));
-                        computeMroLinearization(newClassType);
-                        type = newClassType;
-                    }
-                    break;
-                }
-
-                case TypeCategory.Function: {
-                    // The stdlib collections/__init__.pyi stub file defines namedtuple
-                    // as a function rather than a class, so we need to check for it here.
-                    if (concreteSubtype.details.builtInName === 'namedtuple') {
-                        addDiagnostic(
-                            getFileInfo(errorNode).diagnosticRuleSet.reportUntypedNamedTuple,
-                            DiagnosticRule.reportUntypedNamedTuple,
-                            Localizer.Diagnostic.namedTupleNoTypes(),
-                            errorNode
-                        );
-                        type = createNamedTupleType(errorNode, argList, false);
-                    } else if (concreteSubtype.details.builtInName === 'NewType') {
-                        const callResult = validateCallArguments(
-                            errorNode,
-                            argList,
-                            concreteSubtype,
-                            new TypeVarMap(getTypeVarScopeId(concreteSubtype)),
-                            skipUnknownArgCheck,
-                            /* inferReturnTypeIfNeeded */ true,
-                            expectedType
-                        );
-
-                        // If the call's arguments were validated, replace the
-                        // type with a new synthesized subclass.
-                        type = callResult.argumentErrors ? callResult.returnType : createNewType(errorNode, argList);
-                    } else {
-                        type = validateCallArguments(
-                            errorNode,
-                            argList,
-                            concreteSubtype,
-                            new TypeVarMap(getTypeVarScopeId(concreteSubtype)),
-                            skipUnknownArgCheck,
-                            /* inferReturnTypeIfNeeded */ true,
-                            expectedType
-                        ).returnType;
-
-                        if (concreteSubtype.details.builtInName === '__import__') {
-                            // For the special __import__ type, we'll override the return type to be "Any".
-                            // This is required because we don't know what module was imported, and we don't
-                            // want to fail type checks when accessing members of the resulting module type.
-                            type = AnyType.create();
-                        }
-                    }
-
-                    if (!type) {
-                        type = UnknownType.create();
-                    }
-                    break;
-                }
-
-                case TypeCategory.OverloadedFunction: {
-                    // Determine which of the overloads (if any) match.
-                    const functionType = findOverloadedFunctionType(errorNode, argList, concreteSubtype, expectedType);
-
-                    if (functionType) {
-                        if (functionType.details.builtInName === 'cast' && argList.length === 2) {
-                            // Verify that the cast is necessary.
-                            const castToType = getTypeForArgumentExpectingType(argList[0], getFileInfo(errorNode));
-                            const castFromType = getTypeForArgument(argList[1]);
-                            if (isClass(castToType) && isObject(castFromType)) {
-                                if (isTypeSame(castToType, castFromType.classType)) {
-                                    addDiagnostic(
-                                        getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
-                                        DiagnosticRule.reportUnnecessaryCast,
-                                        Localizer.Diagnostic.unnecessaryCast().format({
-                                            type: printType(castFromType),
-                                        }),
-                                        errorNode
-                                    );
-                                }
-                            }
-
-                            type = convertToInstance(castToType);
-                        } else {
-                            type = validateCallArguments(
-                                errorNode,
-                                argList,
-                                functionType,
-                                new TypeVarMap(getTypeVarScopeId(functionType)),
-                                skipUnknownArgCheck,
-                                /* inferReturnTypeIfNeeded */ true,
-                                expectedType
-                            ).returnType;
-                            if (!type) {
-                                type = UnknownType.create();
-                            }
-                        }
-                    } else {
-                        const exprString = ParseTreeUtils.printExpression(errorNode);
-                        const diagAddendum = new DiagnosticAddendum();
-                        const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
-
-                        if (errorNode.nodeType !== ParseNodeType.Call && concreteSubtype.overloads[0].details.name) {
-                            // If the expression isn't an explicit call, it is probably an implicit
-                            // call to a magic method. Provide additional information in this case
-                            // to make it clear that a call was being evaluated.
-                            diagAddendum.addMessage(
-                                Localizer.DiagnosticAddendum.overloadCallName().format({
-                                    name: concreteSubtype.overloads[0].details.name,
-                                })
-                            );
-                        }
-
-                        diagAddendum.addMessage(
-                            Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
-                        );
-                        const fileInfo = getFileInfo(errorNode);
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.noOverload().format({ expression: exprString }) +
-                                diagAddendum.getString(),
-                            errorNode
-                        );
-                        type = UnknownType.create();
-                    }
-                    break;
-                }
-
-                case TypeCategory.Object: {
-                    const memberType = getTypeFromObjectMember(
-                        errorNode,
-                        concreteSubtype,
-                        '__call__',
-                        { method: 'get' },
-                        new DiagnosticAddendum(),
-                        MemberAccessFlags.None
-                    );
-                    if (memberType) {
-                        type = validateCallArguments(
-                            errorNode,
-                            argList,
-                            memberType,
-                            new TypeVarMap(getTypeVarScopeId(memberType)),
-                            skipUnknownArgCheck,
-                            /* inferReturnTypeIfNeeded */ true,
-                            expectedType
-                        ).returnType;
-                        if (!type) {
-                            type = UnknownType.create();
-                        }
-                    }
-                    break;
-                }
-
-                case TypeCategory.None: {
-                    addDiagnostic(
-                        getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
-                        DiagnosticRule.reportOptionalCall,
-                        Localizer.Diagnostic.noneNotCallable(),
-                        errorNode
-                    );
-                    // Directly return undefined here so we don't report the diagnostic
-                    // a second time below.
-                    return undefined;
-                }
-
-                case TypeCategory.Any:
-                case TypeCategory.Unknown: {
-                    // Mark the arguments accessed.
-                    argList.forEach((arg) => getTypeForArgument(arg));
-                    type = concreteSubtype;
-                    break;
-                }
-            }
-
-            if (!type) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeNotCallable().format({
-                        type: printType(concreteSubtype),
-                    })
-                );
-                return undefined;
-            }
-
-            return type;
-        });
-
-        if (!diag.isEmpty() || isNever(resultType)) {
-            const fileInfo = getFileInfo(errorNode);
-            const callNode = errorNode.nodeType === ParseNodeType.Decorator ? errorNode : errorNode.leftExpression;
-            addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.typeNotCallable().format({
-                    expression: ParseTreeUtils.printExpression(callNode),
-                    type: printType(baseTypeResult.type),
-                }) + diag.getString(),
-                callNode
-            );
-
-            resultType = UnknownType.create();
-
-            // Evaluate the arguments to generate errors and mark
-            // symbols as referenced.
-            argList.forEach((arg) => {
-                if (!arg.type && arg.valueExpression) {
-                    getTypeOfExpression(arg.valueExpression);
-                }
-            });
-        }
-
-        return { type: resultType, node: baseTypeResult.node };
-    }
-
     function findOverloadedFunctionType(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
@@ -5508,13 +5125,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // Temporarily disable diagnostic output.
                 useSpeculativeMode(errorNode, () => {
-                    const callResult = validateCallArguments(
+                    const callResult = validateFunctionArguments(
                         errorNode,
                         argList,
                         overload,
                         effectiveTypeVarMap,
                         /* skipUnknownArgCheck */ true,
-                        /* inferReturnTypeIfNeeded */ false,
                         expectedType
                     );
                     if (!callResult.argumentErrors) {
@@ -5588,7 +5204,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             initMethodType,
                             typeVarMap,
                             skipUnknownArgCheck,
-                            /* inferReturnTypeIfNeeded */ true,
                             NoneType.createInstance()
                         );
 
@@ -5934,67 +5549,159 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         callType: Type,
-        typeVarMap: TypeVarMap,
-        skipUnknownArgCheck: boolean,
-        inferReturnTypeIfNeeded = true,
+        typeVarMap?: TypeVarMap,
+        skipUnknownArgCheck = false,
         expectedType?: Type
     ): CallResult {
-        let callResult: CallResult = { argumentErrors: false };
+        let argumentErrors = false;
+        let overloadUsed: FunctionType | undefined;
 
-        switch (callType.category) {
-            case TypeCategory.Unknown:
-            case TypeCategory.Any: {
-                // Touch all of the args so they're marked accessed.
-                argList.forEach((arg) => getTypeForArgument(arg));
-                callResult.returnType = callType;
-                break;
+        const returnType = mapSubtypes(callType, (subtype) => {
+            let isTypeObject = false;
+            if (isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'type')) {
+                subtype = getClassFromPotentialTypeObject(subtype);
+                isTypeObject = true;
             }
 
-            case TypeCategory.Function: {
-                callResult = validateFunctionArguments(
-                    errorNode,
-                    argList,
-                    callType,
-                    typeVarMap,
-                    skipUnknownArgCheck,
-                    inferReturnTypeIfNeeded,
-                    expectedType
-                );
-                break;
-            }
+            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
-            case TypeCategory.OverloadedFunction: {
-                const overloadedFunctionType = findOverloadedFunctionType(
-                    errorNode,
-                    argList,
-                    callType,
-                    expectedType,
-                    typeVarMap
-                );
-                if (overloadedFunctionType) {
-                    typeVarMap.addSolveForScope(getTypeVarScopeId(overloadedFunctionType));
-                    callResult = validateFunctionArguments(
+            switch (concreteSubtype.category) {
+                case TypeCategory.Unknown:
+                case TypeCategory.Any: {
+                    // Touch all of the args so they're marked accessed.
+                    argList.forEach((arg) => getTypeForArgument(arg));
+                    return concreteSubtype;
+                }
+
+                // Normally a union wouldn't appear within a mapSubtypes iteration, but
+                // unions can come from making type vars concrete.
+                case TypeCategory.Union: {
+                    const callResult = validateCallArguments(
                         errorNode,
                         argList,
-                        overloadedFunctionType,
+                        concreteSubtype,
                         typeVarMap,
                         skipUnknownArgCheck,
-                        inferReturnTypeIfNeeded,
                         expectedType
                     );
-                    callResult.overloadUsed = overloadedFunctionType;
-                } else {
+                    if (callResult.argumentErrors) {
+                        argumentErrors = true;
+                    }
+                    if (callResult.overloadUsed) {
+                        overloadUsed = callResult.overloadUsed;
+                    }
+                    return callResult.returnType;
+                }
+
+                case TypeCategory.Function: {
+                    // The stdlib collections/__init__.pyi stub file defines namedtuple
+                    // as a function rather than a class, so we need to check for it here.
+                    if (concreteSubtype.details.builtInName === 'namedtuple') {
+                        addDiagnostic(
+                            getFileInfo(errorNode).diagnosticRuleSet.reportUntypedNamedTuple,
+                            DiagnosticRule.reportUntypedNamedTuple,
+                            Localizer.Diagnostic.namedTupleNoTypes(),
+                            errorNode
+                        );
+                        return createNamedTupleType(errorNode, argList, false);
+                    }
+
+                    if (concreteSubtype.details.builtInName === 'NewType') {
+                        const callResult = validateFunctionArguments(
+                            errorNode,
+                            argList,
+                            concreteSubtype,
+                            new TypeVarMap(getTypeVarScopeId(concreteSubtype)),
+                            skipUnknownArgCheck,
+                            expectedType
+                        );
+
+                        // If the call's arguments were validated, replace the
+                        // type with a new synthesized subclass.
+                        return callResult.argumentErrors ? callResult.returnType : createNewType(errorNode, argList);
+                    }
+
+                    const functionResult = validateFunctionArguments(
+                        errorNode,
+                        argList,
+                        concreteSubtype,
+                        typeVarMap || new TypeVarMap(getTypeVarScopeId(concreteSubtype)),
+                        skipUnknownArgCheck,
+                        expectedType
+                    );
+                    if (functionResult.argumentErrors) {
+                        argumentErrors = true;
+                    }
+
+                    if (concreteSubtype.details.builtInName === '__import__') {
+                        // For the special __import__ type, we'll override the return type to be "Any".
+                        // This is required because we don't know what module was imported, and we don't
+                        // want to fail type checks when accessing members of the resulting module type.
+                        return AnyType.create();
+                    }
+
+                    return functionResult.returnType;
+                }
+
+                case TypeCategory.OverloadedFunction: {
+                    const functionType = findOverloadedFunctionType(
+                        errorNode,
+                        argList,
+                        concreteSubtype,
+                        expectedType,
+                        typeVarMap
+                    );
+                    if (functionType) {
+                        if (functionType.details.builtInName === 'cast' && argList.length === 2) {
+                            // Verify that the cast is necessary.
+                            const castToType = getTypeForArgumentExpectingType(argList[0], getFileInfo(errorNode));
+                            const castFromType = getTypeForArgument(argList[1]);
+                            if (isClass(castToType) && isObject(castFromType)) {
+                                if (isTypeSame(castToType, castFromType.classType)) {
+                                    addDiagnostic(
+                                        getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
+                                        DiagnosticRule.reportUnnecessaryCast,
+                                        Localizer.Diagnostic.unnecessaryCast().format({
+                                            type: printType(castFromType),
+                                        }),
+                                        errorNode
+                                    );
+                                }
+                            }
+
+                            return convertToInstance(castToType);
+                        }
+
+                        const effectiveTypeVar = typeVarMap || new TypeVarMap(getTypeVarScopeId(concreteSubtype));
+                        effectiveTypeVar.addSolveForScope(getTypeVarScopeId(functionType));
+                        const functionResult = validateFunctionArguments(
+                            errorNode,
+                            argList,
+                            functionType,
+                            effectiveTypeVar,
+                            skipUnknownArgCheck,
+                            expectedType
+                        );
+
+                        overloadUsed = functionType;
+                        if (functionResult.argumentErrors) {
+                            argumentErrors = true;
+                        }
+
+                        return functionResult.returnType || UnknownType.create();
+                    }
+
                     const exprString = ParseTreeUtils.printExpression(errorNode);
                     const diagAddendum = new DiagnosticAddendum();
                     const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
 
-                    if (errorNode.nodeType !== ParseNodeType.Call && callType.overloads[0].details.name) {
+                    if (errorNode.nodeType !== ParseNodeType.Call && concreteSubtype.overloads[0].details.name) {
                         // If the expression isn't an explicit call, it is probably an implicit
                         // call to a magic method. Provide additional information in this case
                         // to make it clear that a call was being evaluated.
                         diagAddendum.addMessage(
                             Localizer.DiagnosticAddendum.overloadCallName().format({
-                                name: callType.overloads[0].details.name,
+                                name: concreteSubtype.overloads[0].details.name,
                             })
                         );
                     }
@@ -6002,116 +5709,269 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diagAddendum.addMessage(
                         Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
                     );
-                    const fileInfo = getFileInfo(errorNode);
                     addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.noOverload().format({ expression: exprString }) + diagAddendum.getString(),
                         errorNode
                     );
-                    callResult.argumentErrors = true;
+                    argumentErrors = true;
+                    return UnknownType.create();
                 }
-                break;
-            }
 
-            case TypeCategory.Class: {
-                if (!ClassType.isSpecialBuiltIn(callType)) {
-                    callResult = validateConstructorArguments(
-                        errorNode,
-                        argList,
-                        callType,
-                        skipUnknownArgCheck,
-                        expectedType
-                    );
-                } else {
-                    const fileInfo = getFileInfo(errorNode);
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.typeNotIntantiable().format({ type: callType.details.name }),
-                        errorNode
-                    );
-                    callResult.argumentErrors = true;
-                }
-                break;
-            }
+                case TypeCategory.Class: {
+                    if (ClassType.isBuiltIn(concreteSubtype)) {
+                        const className = concreteSubtype.aliasName || concreteSubtype.details.name;
 
-            case TypeCategory.Object: {
-                const memberType = getTypeFromObjectMember(
-                    errorNode,
-                    callType,
-                    '__call__',
-                    { method: 'get' },
-                    new DiagnosticAddendum(),
-                    MemberAccessFlags.None
-                );
+                        if (className === 'type') {
+                            // Validate the constructor arguments.
+                            validateConstructorArguments(
+                                errorNode,
+                                argList,
+                                concreteSubtype,
+                                skipUnknownArgCheck,
+                                expectedType
+                            );
 
-                if (memberType && memberType.category === TypeCategory.Function) {
-                    const callMethodType = stripFirstParameter(memberType);
-                    callResult = validateCallArguments(
-                        errorNode,
-                        argList,
-                        callMethodType,
-                        typeVarMap,
-                        skipUnknownArgCheck,
-                        inferReturnTypeIfNeeded,
-                        expectedType
-                    );
-                } else {
-                    const fileInfo = getFileInfo(errorNode);
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.objectNotCallable().format({ type: printType(callType) }),
-                        errorNode
-                    );
-                    callResult.argumentErrors = true;
-                }
-                break;
-            }
+                            // Handle the 'type' call specially.
+                            if (argList.length === 1) {
+                                // The one-parameter form of "type" returns the class
+                                // for the specified object.
+                                const argType = getTypeForArgument(argList[0]);
+                                if (isObject(argType) || isTypeVar(argType)) {
+                                    return convertToInstantiable(argType);
+                                }
+                            } else if (argList.length >= 2) {
+                                // The two-parameter form of "type" returns a new class type
+                                // built from the specified base types.
+                                return createType(errorNode, argList) || AnyType.create();
+                            }
 
-            case TypeCategory.Union: {
-                const returnTypes: Type[] = [];
+                            // If the parameter to type() is not statically known,
+                            // fall back to Any.
+                            return AnyType.create();
+                        }
 
-                doForEachSubtype(callType, (subtype) => {
-                    if (isNone(subtype)) {
-                        addDiagnostic(
-                            getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
-                            DiagnosticRule.reportOptionalCall,
-                            Localizer.Diagnostic.noneNotCallable(),
-                            errorNode
-                        );
-                    } else {
-                        const subtypeCallResult = validateCallArguments(
-                            errorNode,
-                            argList,
-                            subtype,
-                            typeVarMap,
-                            skipUnknownArgCheck,
-                            inferReturnTypeIfNeeded,
-                            expectedType
-                        );
-                        if (subtypeCallResult.returnType) {
-                            returnTypes.push(subtypeCallResult.returnType);
+                        if (className === 'TypeVar') {
+                            return createTypeVarType(errorNode, argList, /* isParamSpec */ false);
+                        }
+
+                        if (className === 'ParamSpec') {
+                            return createTypeVarType(errorNode, argList, /* isParamSpec */ true);
+                        }
+
+                        if (className === 'NamedTuple') {
+                            return createNamedTupleType(errorNode, argList, true);
+                        }
+
+                        if (
+                            className === 'Protocol' ||
+                            className === 'Generic' ||
+                            className === 'Callable' ||
+                            className === 'Concatenate' ||
+                            className === 'Type'
+                        ) {
+                            const fileInfo = getFileInfo(errorNode);
+                            addDiagnostic(
+                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.typeNotIntantiable().format({ type: className }),
+                                errorNode
+                            );
+                            return AnyType.create();
+                        }
+
+                        if (
+                            className === 'Enum' ||
+                            className === 'IntEnum' ||
+                            className === 'Flag' ||
+                            className === 'IntFlag'
+                        ) {
+                            return createEnumType(errorNode, concreteSubtype, argList);
+                        }
+
+                        if (className === 'TypedDict') {
+                            return createTypedDictType(errorNode, concreteSubtype, argList);
+                        }
+
+                        if (className === 'auto' && argList.length === 0) {
+                            return getBuiltInObject(errorNode, 'int');
                         }
                     }
-                });
 
-                if (returnTypes.length > 0) {
-                    callResult.returnType = combineTypes(returnTypes);
-                } else {
-                    callResult.argumentErrors = true;
+                    if (!isTypeObject && ClassType.hasAbstractMethods(concreteSubtype)) {
+                        // If the class is abstract, it can't be instantiated.
+                        const abstractMethods = getAbstractMethods(concreteSubtype);
+                        const diagAddendum = new DiagnosticAddendum();
+                        const errorsToDisplay = 2;
+
+                        abstractMethods.forEach((abstractMethod, index) => {
+                            if (index === errorsToDisplay) {
+                                diagAddendum.addMessage(
+                                    Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
+                                        count: abstractMethods.length - errorsToDisplay,
+                                    })
+                                );
+                            } else if (index < errorsToDisplay) {
+                                if (isClass(abstractMethod.classType)) {
+                                    const className = abstractMethod.classType.details.name;
+                                    diagAddendum.addMessage(
+                                        Localizer.DiagnosticAddendum.memberIsAbstract().format({
+                                            type: className,
+                                            name: abstractMethod.symbolName,
+                                        })
+                                    );
+                                }
+                            }
+                        });
+
+                        const fileInfo = getFileInfo(errorNode);
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeAbstract().format({ type: concreteSubtype.details.name }) +
+                                diagAddendum.getString(),
+                            errorNode
+                        );
+                    }
+
+                    if (!isTypeObject && ClassType.hasAbstractMethods(concreteSubtype)) {
+                        // If the class is abstract, it can't be instantiated.
+                        const abstractMethods = getAbstractMethods(concreteSubtype);
+                        const diagAddendum = new DiagnosticAddendum();
+                        const errorsToDisplay = 2;
+
+                        abstractMethods.forEach((abstractMethod, index) => {
+                            if (index === errorsToDisplay) {
+                                diagAddendum.addMessage(
+                                    Localizer.DiagnosticAddendum.memberIsAbstractMore().format({
+                                        count: abstractMethods.length - errorsToDisplay,
+                                    })
+                                );
+                            } else if (index < errorsToDisplay) {
+                                if (isClass(abstractMethod.classType)) {
+                                    const className = abstractMethod.classType.details.name;
+                                    diagAddendum.addMessage(
+                                        Localizer.DiagnosticAddendum.memberIsAbstract().format({
+                                            type: className,
+                                            name: abstractMethod.symbolName,
+                                        })
+                                    );
+                                }
+                            }
+                        });
+
+                        const fileInfo = getFileInfo(errorNode);
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeAbstract().format({ type: concreteSubtype.details.name }) +
+                                diagAddendum.getString(),
+                            errorNode
+                        );
+                    }
+
+                    // Assume this is a call to the constructor.
+                    const constructorResult = validateConstructorArguments(
+                        errorNode,
+                        argList,
+                        concreteSubtype,
+                        skipUnknownArgCheck,
+                        expectedType
+                    );
+                    if (constructorResult.argumentErrors) {
+                        argumentErrors = true;
+                    }
+                    let returnType = constructorResult.returnType;
+
+                    // If the concreteSubtype originated from a TypeVar, convert
+                    // the constructed type back to the TypeVar. For example, if
+                    // we have `cls: Type[_T]` followed by `_T()`.
+                    if (isTypeVar(subtype) && !subtype.details.isSynthesized) {
+                        returnType = convertToInstance(subtype);
+                    }
+
+                    // If we instantiated a type, transform it into a class.
+                    // This can happen if someone directly instantiates a metaclass
+                    // deriving from type.
+                    if (
+                        returnType &&
+                        isObject(returnType) &&
+                        returnType.classType.details.mro.some(
+                            (baseClass) => isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'type')
+                        )
+                    ) {
+                        // We don't know the name of the new class in this case.
+                        const newClassName = '__class_' + returnType.classType.details.name;
+                        const newClassType = ClassType.create(
+                            newClassName,
+                            '',
+                            '',
+                            ClassTypeFlags.None,
+                            getTypeSourceId(errorNode),
+                            returnType.classType,
+                            returnType.classType
+                        );
+                        newClassType.details.baseClasses.push(getBuiltInType(errorNode, 'object'));
+                        computeMroLinearization(newClassType);
+                        return newClassType;
+                    }
+
+                    return returnType;
                 }
-                break;
-            }
-        }
 
-        if (!callResult.returnType) {
+                case TypeCategory.Object: {
+                    const memberType = getTypeFromObjectMember(
+                        errorNode,
+                        concreteSubtype,
+                        '__call__',
+                        { method: 'get' },
+                        new DiagnosticAddendum(),
+                        MemberAccessFlags.None
+                    );
+
+                    if (memberType) {
+                        const functionResult = validateCallArguments(
+                            errorNode,
+                            argList,
+                            memberType,
+                            typeVarMap,
+                            skipUnknownArgCheck,
+                            expectedType
+                        );
+                        if (functionResult.argumentErrors) {
+                            argumentErrors = true;
+                        }
+                        return functionResult.returnType || UnknownType.create();
+                    }
+
+                    addDiagnostic(
+                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.objectNotCallable().format({ type: printType(subtype) }),
+                        errorNode
+                    );
+                    return UnknownType.create();
+                }
+
+                case TypeCategory.None: {
+                    addDiagnostic(
+                        getFileInfo(errorNode).diagnosticRuleSet.reportOptionalCall,
+                        DiagnosticRule.reportOptionalCall,
+                        Localizer.Diagnostic.noneNotCallable(),
+                        errorNode
+                    );
+                    return undefined;
+                }
+            }
+        });
+
+        if (argumentErrors) {
             // Touch all of the args so they're marked accessed.
             argList.forEach((arg) => getTypeForArgument(arg));
         }
 
-        return callResult;
+        return { argumentErrors, returnType: isNever(returnType) ? undefined : returnType, overloadUsed };
     }
 
     // Tries to assign the call arguments to the function parameter
@@ -6123,9 +5983,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         argList: FunctionArgument[],
         type: FunctionType,
         typeVarMap: TypeVarMap,
-        skipUnknownArgCheck: boolean,
-        inferReturnTypeIfNeeded = true,
-        expectedType: Type | undefined
+        skipUnknownArgCheck = false,
+        expectedType?: Type
     ): CallResult {
         let argIndex = 0;
         const typeParams = type.details.parameters;
@@ -6548,11 +6407,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Calculate the return type. If there was an error matching arguments to
         // parameters, don't bother attempting to infer the return type.
-        const returnType = getFunctionEffectiveReturnType(
-            type,
-            validateArgTypeParams,
-            inferReturnTypeIfNeeded && !reportedArgError
-        );
+        const returnType = getFunctionEffectiveReturnType(type, validateArgTypeParams, !reportedArgError);
         const specializedReturnType = applySolvedTypeVars(returnType, typeVarMap);
 
         return { argumentErrors: reportedArgError, returnType: specializedReturnType, activeParam };
@@ -8119,7 +7974,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         magicMethodType!,
                         new TypeVarMap(getTypeVarScopeId(magicMethodType!)),
                         /* skipUnknownArgCheck */ true,
-                        /* inferFunctionReturnType */ true,
                         expectedType
                     );
                 });
@@ -10268,7 +10122,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     initSubclassMethodType,
                     new TypeVarMap(getTypeVarScopeId(initSubclassMethodType)),
                     /* skipUnknownArgCheck */ false,
-                    /* inferReturnTypeIfNeeded */ true,
                     NoneType.createInstance()
                 );
             }

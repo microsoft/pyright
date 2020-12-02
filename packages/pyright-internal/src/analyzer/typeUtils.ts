@@ -930,7 +930,7 @@ export function specializeClassType(type: ClassType): ClassType {
 // Removes the first parameter of the function and returns a new function.
 export function stripFirstParameter(type: FunctionType): FunctionType {
     if (type.details.parameters.length > 0 && type.details.parameters[0].category === ParameterCategory.Simple) {
-        return FunctionType.clone(type, true);
+        return FunctionType.clone(type, /* stripFirstParam */ true);
     }
     return type;
 }

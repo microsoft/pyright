@@ -369,7 +369,7 @@ test('GenericTypes27', () => {
 test('GenericTypes28', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes28.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('GenericTypes29', () => {
@@ -1085,13 +1085,13 @@ test('TypeVar5', () => {
 test('TypeVar6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar6.py']);
 
-    TestUtils.validateResults(analysisResults, 20);
+    TestUtils.validateResults(analysisResults, 19);
 });
 
 test('TypeVar7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar7.py']);
 
-    TestUtils.validateResults(analysisResults, 21);
+    TestUtils.validateResults(analysisResults, 22);
 });
 
 test('Annotated1', () => {
