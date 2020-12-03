@@ -5967,10 +5967,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         });
 
-        if (argumentErrors) {
-            // Touch all of the args so they're marked accessed.
-            argList.forEach((arg) => getTypeForArgument(arg));
-        }
+        // Touch all of the args so they're marked accessed even if there were errors.
+        argList.forEach((arg) => getTypeForArgument(arg));
 
         return { argumentErrors, returnType: isNever(returnType) ? undefined : returnType, overloadUsed };
     }
