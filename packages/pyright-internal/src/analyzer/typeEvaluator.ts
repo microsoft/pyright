@@ -1257,16 +1257,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        // We may need to skip the first parameter if this is a method.
-        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
-        const functionFlags = getFunctionFlagsFromDecorators(node, !!containingClassNode);
-
         let firstCommentAnnotationIndex = 0;
-        if (containingClassNode && (functionFlags & FunctionTypeFlags.StaticMethod) === 0) {
+        const paramAnnotations = node.functionAnnotationComment.paramTypeAnnotations;
+        if (paramAnnotations.length < node.parameters.length) {
             firstCommentAnnotationIndex = 1;
         }
 
-        const paramAnnotations = node.functionAnnotationComment.paramTypeAnnotations;
         const adjIndex = paramIndex - firstCommentAnnotationIndex;
         if (adjIndex < 0 || adjIndex >= paramAnnotations.length) {
             return undefined;

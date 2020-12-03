@@ -28,6 +28,15 @@ export function hasTypeForDeclaration(declaration: Declaration): boolean {
                     parameterParent.functionAnnotationComment &&
                     !parameterParent.functionAnnotationComment.isParamListEllipsis
                 ) {
+                    const paramAnnotations = parameterParent.functionAnnotationComment.paramTypeAnnotations;
+                    // Handle the case where the annotation comment is missing an
+                    // annotation for the first parameter (self or cls).
+                    if (
+                        parameterParent.parameters.length > paramAnnotations.length &&
+                        declaration.node === parameterParent.parameters[0]
+                    ) {
+                        return false;
+                    }
                     return true;
                 }
             }
