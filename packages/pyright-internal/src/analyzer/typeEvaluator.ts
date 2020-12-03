@@ -3086,16 +3086,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const mroClass = classType.details.mro[i];
 
             if (isClass(mroClass)) {
+                const typeVarMap = buildTypeVarMapFromSpecializedClass(mroClass, /* makeConcrete */ false);
                 const dataClassEntries = ClassType.getDataClassEntries(mroClass);
 
                 // Add the entries to the end of the list, replacing same-named
                 // entries if found.
                 dataClassEntries.forEach((entry) => {
                     const existingIndex = entries.findIndex((e) => e.name === entry.name);
+
+                    // If the type from the parent class is generic, we need to convert
+                    // to the type parameter namespace of child class.
+                    const updatedEntry = { ...entry };
+                    updatedEntry.type = applySolvedTypeVars(updatedEntry.type, typeVarMap);
+
                     if (existingIndex >= 0) {
-                        entries[existingIndex] = entry;
+                        entries[existingIndex] = updatedEntry;
                     } else {
-                        entries.push(entry);
+                        entries.push(updatedEntry);
                     }
                 });
             } else {
