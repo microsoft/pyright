@@ -2568,6 +2568,8 @@ export class Parser {
         const exprListResult = this._parseTestListWithComprehension();
         const tupleOrExpression = this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ true);
 
+        extendRange(tupleOrExpression, startParen);
+
         if (this._peekTokenType() !== TokenType.CloseParenthesis) {
             return this._handleExpressionParseError(
                 ErrorExpressionCategory.MissingTupleCloseParen,
