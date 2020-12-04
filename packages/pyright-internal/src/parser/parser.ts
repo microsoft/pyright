@@ -3272,7 +3272,7 @@ export class Parser {
         // Handle Python 3.8 f-string formatting expressions that
         // end in an "=".
         if (this._parseOptions.pythonVersion >= PythonVersion.V3_8 && indexOfDebugEqual !== undefined) {
-            segmentExprLength = indexOfDebugEqual - 1;
+            segmentExprLength = indexOfDebugEqual;
         }
 
         return segmentExprLength;

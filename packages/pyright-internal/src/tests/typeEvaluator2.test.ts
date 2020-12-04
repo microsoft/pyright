@@ -839,7 +839,7 @@ test('FString5', () => {
     // Analyze with Python 3.7 settings. This will generate errors.
     configOptions.defaultPythonVersion = PythonVersion.V3_7;
     const analysisResults37 = TestUtils.typeAnalyzeSampleFiles(['fstring5.py'], configOptions);
-    TestUtils.validateResults(analysisResults37, 3);
+    TestUtils.validateResults(analysisResults37, 6);
 
     // Analyze with Python 3.8 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_8;

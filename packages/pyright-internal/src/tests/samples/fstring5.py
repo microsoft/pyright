@@ -9,3 +9,9 @@ print(f"Value for {key =}")
 print(f"Value for {key =    }")
 
 print(f"Value for {key =   :.2f}")
+
+print(f"Value for {key=}")
+
+print(f"Value for {key=    }")
+
+print(f"Value for {key=   :.2f}")
