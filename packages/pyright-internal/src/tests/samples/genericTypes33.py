@@ -14,7 +14,7 @@ class Class2(Class1):
     pass
 
 
-# This should not generate an error.
+# This should generate an error when reportMissingTypeArgument is enabled.
 _T2 = TypeVar("_T2", bound=Class1)
 
 
