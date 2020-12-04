@@ -1,5 +1,5 @@
 # This sample tests type checking for lambdas and their parameters.
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, Iterable, Optional, TypeVar
 
 #------------------------------------------------------
 # Test basic lambda matching
@@ -69,3 +69,9 @@ def may_need_function_generic(callback: Optional[Callable[[_T1], _T1]]):
 
 may_need_function_generic(lambda x: x)
 
+
+def reduce(function: Callable[[_T1, _T1], _T1], sequence: Iterable[_T1]) -> _T1:
+    ...
+
+
+a: object = reduce((lambda x, y: x * y), [1, 2, 3, 4])

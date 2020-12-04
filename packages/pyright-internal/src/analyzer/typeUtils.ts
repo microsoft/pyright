@@ -100,17 +100,21 @@ export const enum CanAssignFlags {
     // on dest type vars rather than source type var.
     ReverseTypeVarMatching = 1 << 1,
 
+    // Normally TypeVars cannot be narrowed, only widened, unless
+    // ReverseTypeVarMatching is in effect. This overrides the behavior.
+    AllowTypeVarNarrowing = 1 << 2,
+
     // Normally type vars are treated as variables that need to
     // be "solved". If this flag is set, they are treated as types
     // that must match. It is used for overload consistency checking.
-    SkipSolveTypeVars = 1 << 2,
+    SkipSolveTypeVars = 1 << 3,
 
     // If the dest is not Any but the src is Any, treat it
     // as incompatible.
-    DisallowAssignFromAny = 1 << 3,
+    DisallowAssignFromAny = 1 << 4,
 
     // For function types, skip the return type check.
-    SkipFunctionReturnTypeCheck = 1 << 4,
+    SkipFunctionReturnTypeCheck = 1 << 5,
 }
 
 interface TypeVarTransformer {

@@ -5997,7 +5997,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (expectedType.category !== TypeCategory.Union) {
                 // Prepopulate the typeVarMap based on the specialized expected type if the callee has a declared
                 // return type. This will allow us to more closely match the expected type if possible.
-                canAssignType(getFunctionEffectiveReturnType(type), expectedType, new DiagnosticAddendum(), typeVarMap);
+                // We set the AllowTypeVarNarrowing flag so a narrower type can be used for TypeVars if possible.
+                canAssignType(
+                    getFunctionEffectiveReturnType(type),
+                    expectedType,
+                    new DiagnosticAddendum(),
+                    typeVarMap,
+                    CanAssignFlags.AllowTypeVarNarrowing
+                );
             }
         }
 
@@ -15462,7 +15469,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // We don't want to propagate this flag to any nested calls to
         // canAssignType.
         const reverseTypeVarMatching = (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0;
-        flags &= ~CanAssignFlags.ReverseTypeVarMatching;
+        const canNarrowType = (flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0;
+        flags &= ~(CanAssignFlags.ReverseTypeVarMatching | CanAssignFlags.AllowTypeVarNarrowing);
 
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
@@ -15512,7 +15520,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return assignTypeToTypeVar(
                     destType,
                     srcType,
-                    /* canNarrowType */ false,
+                    canNarrowType,
                     diag,
                     typeVarMap || new TypeVarMap(),
                     flags,
