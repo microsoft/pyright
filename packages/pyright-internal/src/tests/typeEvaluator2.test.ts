@@ -103,7 +103,10 @@ test('NewType3', () => {
 });
 
 test('isInstance1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance1.py']);
+    // This test requires Python 3.10 because it uses PEP 604 notation for unions.
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance1.py'], configOptions);
 
     TestUtils.validateResults(analysisResults, 0);
 });

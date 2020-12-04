@@ -13054,6 +13054,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Python 3.10 supports unions within isinstance and issubclass calls.
+        if (argType.category === TypeCategory.Union) {
+            let isValid = true;
+            const classList: ClassType[] = [];
+            doForEachSubtype(argType, subtype => {
+                if (isClass(subtype)) {
+                    classList.push(subtype);
+                } else {
+                    isValid = false;
+                }
+            });
+
+            if (isValid && classList.length > 0) {
+                return classList;
+            }
+        }
+
         return undefined;
     }
 
