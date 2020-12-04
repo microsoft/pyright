@@ -1,29 +1,57 @@
-# This sample tests the assignment of callables
-# that include type variables in the parameter and
-# return types.
+# This sample tests the assignment of generic callables
+# to concrete callable types.
 
-from typing import Any, Callable, Iterable, Sequence, TypeVar
-
-
-_T = TypeVar("_T")
+from asyncio.futures import Future
+from asyncio.tasks import ensure_future
+from typing import Any, Awaitable, Callable, Iterable, Literal, Sequence, TypeVar
 
 
-def my_min(__iterable: Iterable[_T]) -> _T:
+_T1 = TypeVar("_T1")
+
+
+def my_min(__iterable: Iterable[_T1]) -> _T1:
     ...
 
 
 a: Callable[[Sequence[float]], float] = my_min
 b: Callable[[Sequence[Any]], Any] = my_min
 
-_S = TypeVar("_S", bound=float)
 
-
-def my_max(__iterable: Iterable[_S]) -> _S:
+def my_min2(__iterable: Sequence[_T1]) -> _T1:
     ...
 
 
-c: Callable[[Sequence[int]], int] = my_max
+# This should generate an error because an Iterable parameter
+# is not assignable to a Sequence parameter.
+c: Callable[[Iterable[float]], float] = my_min2
+
+
+_T2 = TypeVar("_T2", bound=float)
+
+
+def my_max(__iterable: Iterable[_T2]) -> _T2:
+    ...
+
+
+d: Callable[[Sequence[int]], int] = my_max
 
 # This should generate an error because Sequence[str]
-# is not compatible with the bound TypeVar _S.
-d: Callable[[Sequence[str]], Any] = my_max
+# is not compatible with the bound TypeVar _T2.
+e: Callable[[Sequence[str]], Any] = my_max
+
+
+_T3 = TypeVar("_T3")
+
+
+def from_continuation(
+    callback: Callable[[Callable[[_T3], None]], None]
+) -> Awaitable[_T3]:
+    future: Future[_T3] = Future()
+    return ensure_future(future)
+
+
+def callback(done: Callable[[int], None]) -> None:
+    pass
+
+
+t1: Literal["Awaitable[int]"] = reveal_type(from_continuation(callback))

@@ -16393,32 +16393,38 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // Perform partial specialization of type variables to allow for
-        // "higher-order" type variables.
         if (typeVarMap && !typeVarMap.isLocked()) {
+            // If the source function was generic and we solved some of the type variables
+            // in that generic type, assign them back to the destination typeVar.
+            srcTypeVarMap.getTypeVars().forEach((typeVarEntry) => {
+                canAssignType(typeVarEntry.typeVar, typeVarEntry.type, new DiagnosticAddendum(), typeVarMap);
+            });
+
+            // Perform partial specialization of type variables to allow for
+            // "higher-order" type variables.
             typeVarMap.getTypeVars().forEach((entry) => {
                 const specializedType = applySolvedTypeVars(entry.type, typeVarMap);
                 if (specializedType !== entry.type) {
                     typeVarMap.setTypeVar(entry.typeVar, specializedType, typeVarMap.isNarrowable(entry.typeVar));
                 }
             });
-        }
 
-        // Are we assigning to a function with a ParamSpec?
-        if (destType.details.paramSpec && typeVarMap && !typeVarMap.isLocked()) {
-            typeVarMap.setParamSpec(
-                destType.details.paramSpec,
-                srcType.details.parameters
-                    .map((p) => {
-                        const paramSpecEntry: ParamSpecEntry = {
-                            category: p.category,
-                            name: p.name,
-                            type: p.type,
-                        };
-                        return paramSpecEntry;
-                    })
-                    .slice(destType.details.parameters.length, srcType.details.parameters.length)
-            );
+            // Are we assigning to a function with a ParamSpec?
+            if (destType.details.paramSpec) {
+                typeVarMap.setParamSpec(
+                    destType.details.paramSpec,
+                    srcType.details.parameters
+                        .map((p) => {
+                            const paramSpecEntry: ParamSpecEntry = {
+                                category: p.category,
+                                name: p.name,
+                                type: p.type,
+                            };
+                            return paramSpecEntry;
+                        })
+                        .slice(destType.details.parameters.length, srcType.details.parameters.length)
+                );
+            }
         }
 
         // Match the return parameter.

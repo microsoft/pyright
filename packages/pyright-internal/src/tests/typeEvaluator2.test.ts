@@ -962,7 +962,7 @@ test('Callable1', () => {
 test('Callable2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callable2.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('ThreePartVersion1', () => {
