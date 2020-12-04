@@ -7540,9 +7540,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        leftType = makeTopLevelTypeVarsConcrete(leftType);
-        rightType = makeTopLevelTypeVarsConcrete(rightType);
-
         // Optional checks apply to all operations except for boolean operations.
         if (booleanOperatorMap[node.operator] === undefined) {
             if (isOptionalType(leftType)) {
@@ -7610,13 +7607,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let type: Type | undefined;
 
-        const leftType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(node.leftExpression).type);
-        const rightType = makeTopLevelTypeVarsConcrete(getTypeOfExpression(node.rightExpression).type);
+        const leftType = getTypeOfExpression(node.leftExpression).type;
+        const concreteLeftType = makeTopLevelTypeVarsConcrete(leftType);
 
-        type = mapSubtypes(leftType!, (leftSubtype, leftConstraints) => {
+        const rightType = getTypeOfExpression(node.rightExpression).type;
+        const concreteRightType = makeTopLevelTypeVarsConcrete(rightType);
+
+        type = mapSubtypes(concreteLeftType, (leftSubtype, leftConstraints) => {
             return mapSubtypes(
-                rightType,
-                (rightSubtype, rightConstraints) => {
+                concreteRightType,
+                (rightSubtype) => {
                     if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                         // If either type is "Unknown" (versus Any), propagate the Unknown.
                         if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
@@ -7659,10 +7659,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let type: Type | undefined;
         const diag = new DiagnosticAddendum();
 
+        let concreteLeftType = makeTopLevelTypeVarsConcrete(leftType);
+        const concreteRightType = makeTopLevelTypeVarsConcrete(rightType);
+
         if (arithmeticOperatorMap[operator]) {
-            type = mapSubtypes(leftType, (leftSubtype, leftConstraints) => {
+            type = mapSubtypes(concreteLeftType, (leftSubtype, leftConstraints) => {
                 return mapSubtypes(
-                    rightType,
+                    concreteRightType,
                     (rightSubtype) => {
                         if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                             // If either type is "Unknown" (versus Any), propagate the Unknown.
@@ -7708,9 +7711,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             });
         } else if (bitwiseOperatorMap[operator]) {
-            type = mapSubtypes(leftType, (leftSubtype, leftConstraints) => {
+            type = mapSubtypes(concreteLeftType, (leftSubtype, leftConstraints) => {
                 return mapSubtypes(
-                    rightType,
+                    concreteRightType,
                     (rightSubtype) => {
                         if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                             // If either type is "Unknown" (versus Any), propagate the Unknown.
@@ -7757,9 +7760,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 );
             });
         } else if (comparisonOperatorMap[operator]) {
-            type = mapSubtypes(leftType, (leftSubtype, leftConstraints) => {
+            type = mapSubtypes(concreteLeftType, (leftSubtype, leftConstraints) => {
                 return mapSubtypes(
-                    rightType,
+                    concreteRightType,
                     (rightSubtype) => {
                         if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
                             // If either type is "Unknown" (versus Any), propagate the Unknown.
@@ -7811,39 +7814,39 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (operator === OperatorType.And) {
                 // If the LHS evaluates to falsy, the And expression will
                 // always return the type of the left-hand side.
-                if (!canBeTruthy(leftType)) {
-                    return leftType;
+                if (!canBeTruthy(concreteLeftType)) {
+                    return concreteLeftType;
                 }
 
                 // If the LHS evaluates to truthy, the And expression will
                 // always return the type of the right-hand side.
-                if (!canBeFalsy(leftType)) {
-                    return rightType;
+                if (!canBeFalsy(concreteLeftType)) {
+                    return concreteRightType;
                 }
 
-                leftType = removeTruthinessFromType(leftType);
+                concreteLeftType = removeTruthinessFromType(concreteLeftType);
             } else if (operator === OperatorType.Or) {
                 // If the LHS evaluates to truthy, the Or expression will
                 // always return the type of the left-hand side.
-                if (!canBeFalsy(leftType)) {
-                    return leftType;
+                if (!canBeFalsy(concreteLeftType)) {
+                    return concreteLeftType;
                 }
 
                 // If the LHS evaluates to falsy, the Or expression will
                 // always return the type of the right-hand side.
-                if (!canBeTruthy(leftType)) {
-                    return rightType;
+                if (!canBeTruthy(concreteLeftType)) {
+                    return concreteRightType;
                 }
 
-                leftType = removeFalsinessFromType(leftType);
+                concreteLeftType = removeFalsinessFromType(concreteLeftType);
             }
 
             // The "in" and "not in" operators make use of the __contains__
             // magic method.
             if (operator === OperatorType.In || operator === OperatorType.NotIn) {
-                type = mapSubtypes(rightType, (rightSubtype, rightConstraints) => {
+                type = mapSubtypes(concreteRightType, (rightSubtype, rightConstraints) => {
                     return mapSubtypes(
-                        leftType,
+                        concreteLeftType,
                         (leftSubtype) => {
                             if (isAnyOrUnknown(rightSubtype) || isAnyOrUnknown(leftSubtype)) {
                                 // If either type is "Unknown" (versus Any), propagate the Unknown.
@@ -7900,9 +7903,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     type = getBuiltInObject(errorNode, 'bool');
                 }
             } else {
-                type = mapSubtypes(leftType, (leftSubtype, leftConstraints) => {
+                type = mapSubtypes(concreteLeftType, (leftSubtype, leftConstraints) => {
                     return mapSubtypes(
-                        rightType,
+                        concreteRightType,
                         (rightSubtype) => {
                             // If the operator is an AND or OR, we need to combine the two types.
                             if (operator === OperatorType.And || operator === OperatorType.Or) {
@@ -13058,7 +13061,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (argType.category === TypeCategory.Union) {
             let isValid = true;
             const classList: ClassType[] = [];
-            doForEachSubtype(argType, subtype => {
+            doForEachSubtype(argType, (subtype) => {
                 if (isClass(subtype)) {
                     classList.push(subtype);
                 } else {
