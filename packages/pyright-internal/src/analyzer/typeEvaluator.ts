@@ -14888,7 +14888,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Everything is assignable to an object.
         if (ClassType.isBuiltIn(destType, 'object')) {
-            return true;
+            if ((flags & CanAssignFlags.EnforceInvariance) === 0) {
+                return true;
+            }
         }
 
         const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
