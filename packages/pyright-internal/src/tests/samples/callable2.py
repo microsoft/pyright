@@ -42,15 +42,16 @@ e: Callable[[Sequence[str]], Any] = my_max
 
 _T3 = TypeVar("_T3")
 
+Continuation = Callable[[_T3], None]
+Callback = Callable[[Continuation[_T3]], None]
 
-def from_continuation(
-    callback: Callable[[Callable[[_T3], None]], None]
-) -> Awaitable[_T3]:
+
+def from_continuation(callback: Callback[_T3]) -> Awaitable[_T3]:
     future: Future[_T3] = Future()
     return ensure_future(future)
 
 
-def callback(done: Callable[[int], None]) -> None:
+def callback(done: Continuation[int]) -> None:
     pass
 
 

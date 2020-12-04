@@ -883,15 +883,16 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
     } else if (type.category === TypeCategory.Function) {
         const combinedList: TypeVarType[] = [];
 
-        type.details.parameters.forEach((param) => {
-            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(param.type, recursionCount + 1));
-        });
-
-        if (type.details.declaredReturnType) {
+        for (let i = 0; i < type.details.parameters.length; i++) {
             addTypeVarsToListIfUnique(
                 combinedList,
-                getTypeVarArgumentsRecursive(type.details.declaredReturnType, recursionCount + 1)
+                getTypeVarArgumentsRecursive(FunctionType.getEffectiveParameterType(type, i), recursionCount + 1)
             );
+        }
+
+        const returnType = FunctionType.getSpecializedReturnType(type);
+        if (returnType) {
+            addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(returnType, recursionCount + 1));
         }
 
         return combinedList;
