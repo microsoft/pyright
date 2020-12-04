@@ -3311,6 +3311,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        if (isTypeVar(type) && (flags & EvaluatorFlags.ExpectingType) === 0 && type.details.name === name) {
+            // A TypeVar in contexts where we're not expecting a type is
+            // simply a TypeVar object.
+            const typeVarType = getTypingType(node, 'TypeVar');
+            if (typeVarType && isClass(typeVarType)) {
+                type = ObjectType.create(typeVarType);
+            } else {
+                type = UnknownType.create();
+            }
+        }
+
         if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
             if ((flags & EvaluatorFlags.GenericClassTypeAllowed) === 0) {
                 if (isClass(type) && ClassType.isBuiltIn(type, 'Generic')) {
@@ -3326,34 +3337,36 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // If this is a TypeVar, try to match it against a TypeVar
         // defined by an enclosing scope (either a class or function).
-        if (isTypeVar(type) && TypeBase.isInstantiable(type) && !isTypeAliasPlaceholder(type)) {
-            type = findScopedTypeVar(node, type);
-            if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0 && type.scopeId !== undefined) {
-                if (!type.details.isSynthesized && !type.details.isParamSpec) {
-                    addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.typeVarUsedByOuterScope().format({ name: type.details.name }),
-                        node
-                    );
-                }
-            } else if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
-                if (type.scopeId === undefined) {
-                    const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
-                    if (enclosingScope) {
-                        type = TypeVarType.cloneForScopeId(type, getScopeIdForNode(enclosingScope));
-                    } else {
-                        fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
+        if (isTypeVar(type)) {
+            if (TypeBase.isInstantiable(type) && !isTypeAliasPlaceholder(type)) {
+                type = findScopedTypeVar(node, type);
+                if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0 && type.scopeId !== undefined) {
+                    if (!type.details.isSynthesized && !type.details.isParamSpec) {
+                        addDiagnostic(
+                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeVarUsedByOuterScope().format({ name: type.details.name }),
+                            node
+                        );
                     }
-                }
-            } else if ((flags & EvaluatorFlags.DisallowTypeVarsWithoutScopeId) !== 0) {
-                if (type.scopeId === undefined && !type.details.isSynthesized && !type.details.isParamSpec) {
-                    addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.typeVarNotUsedByOuterScope().format({ name: type.details.name }),
-                        node
-                    );
+                } else if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
+                    if (type.scopeId === undefined) {
+                        const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
+                        if (enclosingScope) {
+                            type = TypeVarType.cloneForScopeId(type, getScopeIdForNode(enclosingScope));
+                        } else {
+                            fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
+                        }
+                    }
+                } else if ((flags & EvaluatorFlags.DisallowTypeVarsWithoutScopeId) !== 0) {
+                    if (type.scopeId === undefined && !type.details.isSynthesized && !type.details.isParamSpec) {
+                        addDiagnostic(
+                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeVarNotUsedByOuterScope().format({ name: type.details.name }),
+                            node
+                        );
+                    }
                 }
             }
         }
