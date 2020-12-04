@@ -319,12 +319,6 @@ export const enum EvaluatorFlags {
     // normally not allowed if ExpectingType is set.
     GenericClassTypeAllowed = 1 << 9,
 
-    // In most cases where ExpectingType is set, generic classes
-    // with missing type args are reported to the user, but there
-    // are cases where it is legitimate to leave off missing
-    // type args, such as with the "bound" parameter in a TypeArg.
-    AllowMissingTypeArgs = 1 << 10,
-
     // TypeVars within this expression must not refer to type vars
     // used in an outer scope that.
     DisallowTypeVarsWithScopeId = 1 << 11,
@@ -3234,12 +3228,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            if (!(flags & EvaluatorFlags.DoNotSpecialize)) {
+            if ((flags & EvaluatorFlags.DoNotSpecialize) === 0) {
                 if (isClass(type)) {
-                    if (
-                        (flags & EvaluatorFlags.ExpectingType) !== 0 &&
-                        (flags & EvaluatorFlags.AllowMissingTypeArgs) === 0
-                    ) {
+                    if ((flags & EvaluatorFlags.ExpectingType) !== 0) {
                         if (requiresTypeArguments(type) && !type.typeArguments) {
                             addDiagnostic(
                                 fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
@@ -6612,11 +6603,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argList[i].valueExpression || errorNode
                         );
                     } else {
-                        const argType = getTypeForArgumentExpectingType(
-                            argList[i],
-                            getFileInfo(errorNode),
-                            /* allowMissingTypeArgs */ true
-                        );
+                        const argType = getTypeForArgumentExpectingType(argList[i], getFileInfo(errorNode));
                         if (requiresSpecialization(argType)) {
                             addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                         }
@@ -13600,11 +13587,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // used in cases where the argument is expected to be a type
     // and therefore follows the normal rules of types (e.g. they
     // can be forward-declared in stubs, etc.).
-    function getTypeForArgumentExpectingType(
-        arg: FunctionArgument,
-        fileInfo: AnalyzerFileInfo,
-        allowMissingTypeArgs = false
-    ): Type {
+    function getTypeForArgumentExpectingType(arg: FunctionArgument, fileInfo: AnalyzerFileInfo): Type {
         if (arg.type) {
             return arg.type;
         }
@@ -13616,10 +13599,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (fileInfo.isStubFile) {
             flags |= EvaluatorFlags.AllowForwardReferences;
-        }
-
-        if (allowMissingTypeArgs) {
-            flags |= EvaluatorFlags.AllowMissingTypeArgs;
         }
 
         // If there was no defined type provided, there should always
