@@ -1204,3 +1204,9 @@ test('Never1', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('TypePromotions1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typePromotions1.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});

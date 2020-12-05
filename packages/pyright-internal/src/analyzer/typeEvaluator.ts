@@ -154,7 +154,6 @@ import {
     ParamSpecEntry,
     removeNoneFromUnion,
     removeUnbound,
-    SubtypeConstraint,
     Type,
     TypeBase,
     TypeCategory,
@@ -439,6 +438,15 @@ const nonSubscriptableBuiltinTypes: { [builtinName: string]: PythonVersion } = {
     'collections.deque': PythonVersion.V3_9,
     'collections.OrderedDict': PythonVersion.V3_9,
     'queue.Queue': PythonVersion.V3_9,
+};
+
+// Some types that do not inherit from others are still considered
+// "compatible" based on the Python spec. These are sometimes referred
+// to as "type promotions".
+const typePromotions: { [destType: string]: string[] } = {
+    'builtins.float': ['builtins.int'],
+    'builtins.complex': ['builtins.float', 'builtins.int'],
+    'builtins.bytes': ['builtins.bytearray', 'builtins.memoryview'],
 };
 
 export interface ClassTypeResult {
@@ -14921,20 +14929,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return typesAreConsistent;
         }
 
-        // Special-case conversion for the "numeric tower".
-        if (ClassType.isBuiltIn(destType, 'float')) {
-            if (ClassType.isBuiltIn(srcType, 'int')) {
-                if ((flags & CanAssignFlags.EnforceInvariance) === 0) {
-                    return true;
-                }
-            }
-        }
-
-        if (ClassType.isBuiltIn(destType, 'complex')) {
-            if (ClassType.isBuiltIn(srcType, 'int') || ClassType.isBuiltIn(srcType, 'float')) {
-                if ((flags & CanAssignFlags.EnforceInvariance) === 0) {
-                    return true;
-                }
+        // Handle special-case type promotions.
+        const promotionList = typePromotions[destType.details.fullName];
+        if (promotionList && promotionList.some((srcName) => srcName === srcType.details.fullName)) {
+            if ((flags & CanAssignFlags.EnforceInvariance) === 0) {
+                return true;
             }
         }
 
