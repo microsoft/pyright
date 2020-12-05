@@ -98,6 +98,7 @@ import {
     TypeBase,
     TypeCategory,
     UnknownType,
+    Variance,
 } from './types';
 import {
     CanAssignFlags,
@@ -291,7 +292,11 @@ export class Checker extends ParseTreeWalker {
                 const annotationNode = param.typeAnnotation || param.typeAnnotationComment;
                 if (annotationNode) {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;
-                    if (isTypeVar(paramType) && paramType.details.isCovariant && !paramType.details.isSynthesized) {
+                    if (
+                        isTypeVar(paramType) &&
+                        paramType.details.variance === Variance.Covariant &&
+                        !paramType.details.isSynthesized
+                    ) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -2004,7 +2009,7 @@ export class Checker extends ParseTreeWalker {
         let isValid = true;
 
         doForEachSubtype(type, (subtype) => {
-            if (isTypeVar(subtype) && subtype.details.isContravariant) {
+            if (isTypeVar(subtype) && subtype.details.variance === Variance.Contravariant) {
                 if (subtype.scopeId !== scopeId) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeVarIsContravariant().format({ name: subtype.details.name })

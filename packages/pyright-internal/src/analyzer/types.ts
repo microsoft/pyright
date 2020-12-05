@@ -1363,12 +1363,17 @@ export namespace UnionType {
     }
 }
 
+export const enum Variance {
+    Invariant,
+    Covariant,
+    Contravariant,
+}
+
 export interface TypeVarDetails {
     name: string;
     constraints: Type[];
     boundType?: Type;
-    isCovariant: boolean;
-    isContravariant: boolean;
+    variance: Variance;
     isParamSpec: boolean;
 
     // Internally created (e.g. for pseudo-generic classes)
@@ -1437,8 +1442,7 @@ export namespace TypeVarType {
             details: {
                 name,
                 constraints: [],
-                isCovariant: false,
-                isContravariant: false,
+                variance: Variance.Invariant,
                 isParamSpec,
                 isSynthesized,
             },
@@ -1711,11 +1715,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 }
             }
 
-            if (type1.details.isContravariant !== type2TypeVar.details.isContravariant) {
-                return false;
-            }
-
-            if (type1.details.isCovariant !== type2TypeVar.details.isCovariant) {
+            if (type1.details.variance !== type2TypeVar.details.variance) {
                 return false;
             }
 

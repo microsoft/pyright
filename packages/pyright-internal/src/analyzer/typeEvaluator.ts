@@ -164,6 +164,7 @@ import {
     TypeVarType,
     UnboundType,
     UnknownType,
+    Variance,
 } from './types';
 import {
     addTypeVarsToListIfUnique,
@@ -6653,18 +6654,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 } else if (paramName === 'covariant' && !isParamSpec) {
                     if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
-                        if (typeVar.details.isContravariant) {
+                        if (typeVar.details.variance === Variance.Contravariant) {
                             addError(Localizer.Diagnostic.typeVarVariance(), argList[i].valueExpression!);
                         } else {
-                            typeVar.details.isCovariant = true;
+                            typeVar.details.variance = Variance.Covariant;
                         }
                     }
                 } else if (paramName === 'contravariant' && !isParamSpec) {
                     if (argList[i].valueExpression && getBooleanValue(argList[i].valueExpression!)) {
-                        if (typeVar.details.isContravariant) {
+                        if (typeVar.details.variance === Variance.Covariant) {
                             addError(Localizer.Diagnostic.typeVarVariance(), argList[i].valueExpression!);
                         } else {
-                            typeVar.details.isContravariant = true;
+                            typeVar.details.variance = Variance.Contravariant;
                         }
                     }
                 } else {
@@ -15186,7 +15187,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destArgIndex < destTypeParams.length ? destTypeParams[destArgIndex] : undefined;
                     const assignmentDiag = new DiagnosticAddendum();
 
-                    if (!destTypeParam || destTypeParam.details.isCovariant) {
+                    if (!destTypeParam || destTypeParam.details.variance === Variance.Covariant) {
                         if (
                             !canAssignType(
                                 destTypeArg,
@@ -15208,7 +15209,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                             return false;
                         }
-                    } else if (destTypeParam.details.isContravariant) {
+                    } else if (destTypeParam.details.variance === Variance.Contravariant) {
                         if (
                             !canAssignType(
                                 srcTypeArg,

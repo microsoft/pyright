@@ -656,9 +656,8 @@ export function transformExpectedTypeForConstructor(
         newTypeVar.details.boundType = prevTypeVar.details.boundType;
         newTypeVar.details.constraints = prevTypeVar.details.constraints;
 
-        // Also copy the covariant/contravariant flags.
-        newTypeVar.details.isCovariant = prevTypeVar.details.isCovariant;
-        newTypeVar.details.isContravariant = prevTypeVar.details.isContravariant;
+        // Also copy the variance.
+        newTypeVar.details.variance = prevTypeVar.details.variance;
 
         synthesizedTypeVarIndexForExpectedType++;
         return newTypeVar;
