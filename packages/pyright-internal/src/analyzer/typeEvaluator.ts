@@ -369,6 +369,11 @@ export const enum MemberAccessFlags {
     // it is invoked implicitly through a constructor call, it
     // acts like a class method instead.
     TreatConstructorAsClassMethod = 1 << 4,
+
+    // By default, class member lookups start with the class itself
+    // and fall back on the metaclass if it's not found. This option
+    // skips the first check.
+    ConsiderMetaclassOnly = 1 << 5,
 }
 
 interface ParamAssignmentInfo {
@@ -1176,14 +1181,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         diag: DiagnosticAddendum,
         memberAccessFlags = MemberAccessFlags.None
     ): Type | undefined {
-        let memberInfo = getTypeFromClassMemberName(
-            errorNode,
-            classType,
-            memberName,
-            usage,
-            diag,
-            memberAccessFlags | MemberAccessFlags.AccessClassMembersOnly
-        );
+        let memberInfo: ClassMemberLookup | undefined;
+
+        if ((memberAccessFlags & MemberAccessFlags.ConsiderMetaclassOnly) === 0) {
+            memberInfo = getTypeFromClassMemberName(
+                errorNode,
+                classType,
+                memberName,
+                usage,
+                diag,
+                memberAccessFlags | MemberAccessFlags.AccessClassMembersOnly
+            );
+        }
 
         // If it wasn't found on the class, see if it's part of the metaclass.
         if (!memberInfo) {
@@ -5746,8 +5755,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 // The one-parameter form of "type" returns the class
                                 // for the specified object.
                                 const argType = getTypeForArgument(argList[0]);
-                                if (isObject(argType) || isTypeVar(argType)) {
-                                    return convertToInstantiable(argType);
+                                if (isObject(argType) || (isTypeVar(argType) && TypeBase.isInstance(argType))) {
+                                    const typeType = getTypingType(errorNode, 'Type');
+                                    if (typeType && isClass(typeType)) {
+                                        return ObjectType.create(
+                                            ClassType.cloneForSpecialization(
+                                                typeType,
+                                                [stripLiteralValue(argType)],
+                                                /* isTypeArgumentExplicit */ true
+                                            )
+                                        );
+                                    } else {
+                                        return ObjectType.create(concreteSubtype);
+                                    }
                                 }
                             } else if (argList.length >= 2) {
                                 // The two-parameter form of "type" returns a new class type
@@ -7965,7 +7985,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     subtype,
                     magicMethodName,
                     { method: 'get' },
-                    new DiagnosticAddendum()
+                    new DiagnosticAddendum(),
+                    MemberAccessFlags.ConsiderMetaclassOnly
                 );
             }
 
@@ -9894,7 +9915,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         }
                     } else {
-                        effectiveMetaclass = UnknownType.create();
+                        effectiveMetaclass = baseClassMeta ? UnknownType.create() : undefined;
                         break;
                     }
                 } else {
