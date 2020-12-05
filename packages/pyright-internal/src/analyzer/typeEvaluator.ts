@@ -210,7 +210,6 @@ import {
     setTypeArgumentsRecursive,
     specializeClassType,
     specializeForBaseClass,
-    stripFirstParameter,
     stripLiteralValue,
     transformExpectedTypeForConstructor,
     transformPossibleRecursiveTypeAlias,
@@ -4160,7 +4159,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (isAccessedThroughObject) {
                         if (!memberInfo!.isInstanceMember && subtype.category === TypeCategory.Function) {
                             if (FunctionType.isClassMethod(subtype) || FunctionType.isInstanceMethod(subtype)) {
-                                effectiveType = stripFirstParameter(subtype);
+                                effectiveType = FunctionType.clone(subtype, /* stripFirstParam */ true);
                             }
                         }
                     }
@@ -6032,6 +6031,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): CallResult {
         let argIndex = 0;
         const typeParams = type.details.parameters;
+
+        // If the function was bound to a class or object, it's possible that
+        // some of that class's type variables have not yet been solved. Add
+        // that class's TypeVar scope ID.
+        if (type.boundTypeVarScopeId) {
+            typeVarMap.addSolveForScope(type.boundTypeVarScopeId);
+        }
 
         if (expectedType && !requiresSpecialization(expectedType) && type.details.declaredReturnType) {
             // If the expected type is a union, we don't know which type is expected,
@@ -15956,7 +15962,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (callMember) {
                     const memberType = getTypeOfMember(callMember);
                     if (memberType.category === TypeCategory.Function) {
-                        srcFunction = stripFirstParameter(memberType);
+                        srcFunction = FunctionType.clone(memberType, /* stripFirstParam */ true);
                     }
                 }
             } else if (isClass(concreteSrcType)) {
@@ -17023,7 +17029,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If the caller specified no base type, always strip the
             // first parameter. This is used in cases like constructors.
             if (!baseType) {
-                return stripFirstParameter(memberType);
+                return FunctionType.clone(memberType, /* stripFirstParam */ true);
             }
 
             if (FunctionType.isInstanceMethod(memberType)) {
@@ -17186,7 +17192,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const specializedFunction = applySolvedTypeVars(memberType, typeVarMap) as FunctionType;
 
-        return stripFirstParam ? stripFirstParameter(specializedFunction) : specializedFunction;
+        return FunctionType.clone(specializedFunction, stripFirstParam, getTypeVarScopeId(baseType));
     }
 
     function printObjectTypeForClass(type: ClassType): string {

@@ -442,7 +442,7 @@ test('GenericTypes36', () => {
 test('GenericTypes37', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes37.py']);
 
-    TestUtils.validateResults(analysisResults, 2);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('GenericTypes38', () => {
@@ -485,6 +485,12 @@ test('GenericTypes44', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes44.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('GenericTypes45', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes45.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Protocol1', () => {

@@ -831,6 +831,9 @@ export interface FunctionType extends TypeBase {
     // was stripped from the original unbound function, the
     // (specialized) type of that stripped parameter.
     strippedFirstParamType?: Type;
+
+    // The type var scope for the class that the function was bound to
+    boundTypeVarScopeId?: TypeVarScopeId;
 }
 
 export interface ParamSpecEntry {
@@ -881,7 +884,11 @@ export namespace FunctionType {
 
     // Creates a deep copy of the function type, including a fresh
     // version of _functionDetails.
-    export function clone(type: FunctionType, stripFirstParam = false): FunctionType {
+    export function clone(
+        type: FunctionType,
+        stripFirstParam = false,
+        boundTypeVarScopeId?: TypeVarScopeId
+    ): FunctionType {
         const newFunction = create(
             type.details.name,
             type.details.moduleName,
@@ -892,12 +899,18 @@ export namespace FunctionType {
 
         newFunction.details = { ...type.details };
 
-        // If we strip off the first parameter, this is no longer an
-        // instance method or class method.
         if (stripFirstParam) {
-            // Stash away the effective type of the first parameter.
-            newFunction.strippedFirstParamType = getEffectiveParameterType(type, 0);
-            newFunction.details.parameters = type.details.parameters.slice(1);
+            if (
+                type.details.parameters.length > 0 &&
+                type.details.parameters[0].category === ParameterCategory.Simple
+            ) {
+                // Stash away the effective type of the first parameter.
+                newFunction.strippedFirstParamType = getEffectiveParameterType(type, 0);
+                newFunction.details.parameters = type.details.parameters.slice(1);
+            }
+
+            // If we strip off the first parameter, this is no longer an
+            // instance method or class method.
             newFunction.details.flags &= ~(FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.ClassMethod);
             newFunction.details.flags |= FunctionTypeFlags.StaticMethod;
         }
@@ -916,6 +929,7 @@ export namespace FunctionType {
         }
 
         newFunction.inferredReturnType = type.inferredReturnType;
+        newFunction.boundTypeVarScopeId = boundTypeVarScopeId;
 
         return newFunction;
     }

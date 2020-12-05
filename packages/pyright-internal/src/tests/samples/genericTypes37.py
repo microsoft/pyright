@@ -21,7 +21,6 @@ class Foo(Generic[_T]):
         self.func1(x)
 
         y = Bar()
-        # This should generate an error
         self.func1(y)
 
         z: Any = 3
