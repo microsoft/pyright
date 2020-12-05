@@ -1996,7 +1996,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         };
 
         // Synthesize comparison operators.
-        if (!ClassType.isSkipSynthesizedDataclassEq(classType)) {
+        if (!ClassType.isSkipSynthesizedDataClassEq(classType)) {
             synthesizeComparisonMethod('__eq__', getBuiltInObject(node, 'object'));
         }
 
@@ -3893,6 +3893,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             type: printType(usage.setType!),
                             name: memberName,
                             classType: printObjectTypeForClass(classType),
+                        })
+                    );
+                    return undefined;
+                }
+
+                if (isClass(memberInfo.classType) && ClassType.isFrozenDataClass(memberInfo.classType)) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.dataclassFrozen().format({
+                            name: printType(ObjectType.create(memberInfo.classType)),
                         })
                     );
                     return undefined;
@@ -10033,7 +10042,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (ClassType.isDataClass(classType)) {
-            let skipSynthesizedInit = ClassType.isSkipSynthesizedDataclassInit(classType);
+            let skipSynthesizedInit = ClassType.isSkipSynthesizedDataClassInit(classType);
             if (!skipSynthesizedInit) {
                 // See if there's already a non-synthesized __init__ method.
                 // We shouldn't override it.
@@ -10103,15 +10112,34 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     );
                                     if (value === true) {
                                         if (arg.name.value === 'order') {
-                                            originalClassType.details.flags |= ClassTypeFlags.SynthesizedDataclassOrder;
+                                            originalClassType.details.flags |= ClassTypeFlags.SynthesizedDataClassOrder;
+                                        } else if (arg.name.value === 'frozen') {
+                                            originalClassType.details.flags |= ClassTypeFlags.FrozenDataClass;
+
+                                            // A dataclass cannot derive from a non-frozen dataclass.
+                                            if (
+                                                originalClassType.details.baseClasses.some(
+                                                    (baseClass) =>
+                                                        isClass(baseClass) &&
+                                                        ClassType.isDataClass(baseClass) &&
+                                                        !ClassType.isFrozenDataClass(baseClass)
+                                                )
+                                            ) {
+                                                addDiagnostic(
+                                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                                    DiagnosticRule.reportGeneralTypeIssues,
+                                                    Localizer.Diagnostic.dataClassBaseClassNotFrozen(),
+                                                    arg
+                                                );
+                                            }
                                         }
                                     } else if (value === false) {
                                         if (arg.name.value === 'init') {
                                             originalClassType.details.flags |=
-                                                ClassTypeFlags.SkipSynthesizedDataclassInit;
+                                                ClassTypeFlags.SkipSynthesizedDataClassInit;
                                         } else if (arg.name.value === 'eq') {
                                             originalClassType.details.flags |=
-                                                ClassTypeFlags.SkipSynthesizedDataclassEq;
+                                                ClassTypeFlags.SkipSynthesizedDataClassEq;
                                         }
                                     }
                                 }

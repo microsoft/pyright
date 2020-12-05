@@ -236,24 +236,23 @@ export const enum ClassTypeFlags {
     // from NamedTuple or has a @dataclass class decorator.
     DataClass = 1 << 2,
 
+    // Indicates that the dataclass is frozen.
+    FrozenDataClass = 1 << 3,
+
     // Flags that control whether methods should be
     // synthesized for a dataclass class.
-    SkipSynthesizedDataclassInit = 1 << 3,
-    SkipSynthesizedDataclassEq = 1 << 4,
-    SynthesizedDataclassOrder = 1 << 5,
+    SkipSynthesizedDataClassInit = 1 << 4,
+    SkipSynthesizedDataClassEq = 1 << 5,
+    SynthesizedDataClassOrder = 1 << 6,
 
     // Introduced in PEP 589, TypedDict classes provide a way
     // to specify type hints for dictionaries with different
     // value types and a limited set of static keys.
-    TypedDictClass = 1 << 6,
+    TypedDictClass = 1 << 7,
 
     // Used in conjunction with TypedDictClass, indicates that
     // the dictionary values can be omitted.
-    CanOmitDictValues = 1 << 7,
-
-    // The class has a metaclass of EnumMet or derives from
-    // a class that has this metaclass.
-    EnumClass = 1 << 8,
+    CanOmitDictValues = 1 << 8,
 
     // The class derives from a class that has the ABCMeta
     // metaclass. Such classes are allowed to contain
@@ -304,6 +303,10 @@ export const enum ClassTypeFlags {
     // arguments is variable. Currently, the only class that supports
     // this is tuple.
     VariadicTypeParameter = 1 << 19,
+
+    // The class has a metaclass of EnumMet or derives from
+    // a class that has this metaclass.
+    EnumClass = 1 << 20,
 }
 
 interface ClassDetails {
@@ -484,16 +487,20 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.DataClass);
     }
 
-    export function isSkipSynthesizedDataclassInit(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedDataclassInit);
+    export function isSkipSynthesizedDataClassInit(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedDataClassInit);
     }
 
-    export function isSkipSynthesizedDataclassEq(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedDataclassEq);
+    export function isSkipSynthesizedDataClassEq(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.SkipSynthesizedDataClassEq);
+    }
+
+    export function isFrozenDataClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.FrozenDataClass);
     }
 
     export function isSynthesizedDataclassOrder(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.SynthesizedDataclassOrder);
+        return !!(classType.details.flags & ClassTypeFlags.SynthesizedDataClassOrder);
     }
 
     export function isTypedDictClass(classType: ClassType) {
