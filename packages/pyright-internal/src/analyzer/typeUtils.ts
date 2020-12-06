@@ -138,24 +138,15 @@ export function isOptionalType(type: Type): boolean {
 
 // Calls a callback for each subtype and combines the results
 // into a final type.
-export function mapSubtypes(
-    type: Type,
-    callback: (type: Type, constraints: SubtypeConstraints) => Type | undefined,
-    constraintFilter?: SubtypeConstraints
-): Type {
+export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefined): Type {
     if (type.category === TypeCategory.Union) {
         const newSubtypes: ConstrainedSubtype[] = [];
         let typeChanged = false;
 
         type.subtypes.forEach((subtype, index) => {
             const subtypeConstraints = type.constraints ? type.constraints[index] : undefined;
-            if (constraintFilter) {
-                if (!SubtypeConstraint.isCompatible(subtypeConstraints, constraintFilter)) {
-                    return undefined;
-                }
-            }
 
-            const transformedType = callback(subtype, subtypeConstraints);
+            const transformedType = callback(subtype);
             if (transformedType) {
                 newSubtypes.push({ type: transformedType, constraints: subtypeConstraints });
                 if (transformedType !== subtype) {
@@ -164,13 +155,12 @@ export function mapSubtypes(
             } else {
                 typeChanged = true;
             }
-            return undefined;
         });
 
         return typeChanged ? combineConstrainedTypes(newSubtypes) : type;
     }
 
-    const transformedSubtype = callback(type, undefined);
+    const transformedSubtype = callback(type);
     if (!transformedSubtype) {
         return NeverType.create();
     }
@@ -400,6 +390,11 @@ export function canBeFalsy(type: Type, recursionLevel = 0): boolean {
                 return false;
             }
 
+            // Check for Literal[False] and Literal[True].
+            if (ClassType.isBuiltIn(type.classType, 'bool') && type.classType.literalValue !== undefined) {
+                return type.classType.literalValue === false;
+            }
+
             const lenMethod = lookUpObjectMember(type, '__len__');
             if (lenMethod) {
                 return true;
@@ -408,13 +403,6 @@ export function canBeFalsy(type: Type, recursionLevel = 0): boolean {
             const boolMethod = lookUpObjectMember(type, '__bool__');
             if (boolMethod) {
                 return true;
-            }
-
-            // Check for Literal[False].
-            if (ClassType.isBuiltIn(type.classType, 'bool')) {
-                if (type.classType.literalValue === false) {
-                    return true;
-                }
             }
 
             return false;
@@ -456,11 +444,13 @@ export function canBeTruthy(type: Type, recursionLevel = 0): boolean {
                 }
             }
 
-            // Check for Literal[False].
-            if (ClassType.isBuiltIn(type.classType, 'bool')) {
-                if (type.classType.literalValue === false) {
-                    return false;
-                }
+            // Check for Literal[False], Literal[0], Literal[""].
+            if (
+                type.classType.literalValue === false ||
+                type.classType.literalValue === 0 ||
+                type.classType.literalValue === ''
+            ) {
+                return false;
             }
 
             return true;

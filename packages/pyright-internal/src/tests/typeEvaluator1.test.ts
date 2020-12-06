@@ -400,6 +400,12 @@ test('Expressions7', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Expressions8', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['expressions8.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Unpack1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unpack1.py']);
 
