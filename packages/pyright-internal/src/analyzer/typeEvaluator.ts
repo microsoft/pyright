@@ -382,32 +382,28 @@ interface ParamAssignmentInfo {
 
 export type SetAnalysisChangedCallback = (reason: string) => void;
 
-const arithmeticOperatorMap: { [operator: number]: [string, string] } = {
-    [OperatorType.Add]: ['__add__', '__radd__'],
-    [OperatorType.Subtract]: ['__sub__', '__rsub__'],
-    [OperatorType.Multiply]: ['__mul__', '__rmul__'],
-    [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__'],
-    [OperatorType.Divide]: ['__truediv__', '__rtruediv__'],
-    [OperatorType.Mod]: ['__mod__', '__rmod__'],
-    [OperatorType.Power]: ['__pow__', '__rpow__'],
-    [OperatorType.MatrixMultiply]: ['__matmul__', '__rmatmul__'],
-};
-
-const bitwiseOperatorMap: { [operator: number]: [string, string] } = {
-    [OperatorType.BitwiseAnd]: ['__and__', '__rand__'],
-    [OperatorType.BitwiseOr]: ['__or__', '__ror__'],
-    [OperatorType.BitwiseXor]: ['__xor__', '__rxor__'],
-    [OperatorType.LeftShift]: ['__lshift__', '__rlshift__'],
-    [OperatorType.RightShift]: ['__rshift__', '__rrshift__'],
-};
-
-const comparisonOperatorMap: { [operator: number]: [string, string] } = {
-    [OperatorType.Equals]: ['__eq__', '__ne__'],
-    [OperatorType.NotEquals]: ['__ne__', '__eq__'],
-    [OperatorType.LessThan]: ['__lt__', '__gt__'],
-    [OperatorType.LessThanOrEqual]: ['__le__', '__ge__'],
-    [OperatorType.GreaterThan]: ['__gt__', '__lt__'],
-    [OperatorType.GreaterThanOrEqual]: ['__ge__', '__le__'],
+// Maps binary operators to the magic methods that implement them.
+// The boolean indicates whether the operators "chain" together.
+const binaryOperatorMap: { [operator: number]: [string, string, boolean] } = {
+    [OperatorType.Add]: ['__add__', '__radd__', false],
+    [OperatorType.Subtract]: ['__sub__', '__rsub__', false],
+    [OperatorType.Multiply]: ['__mul__', '__rmul__', false],
+    [OperatorType.FloorDivide]: ['__floordiv__', '__rfloordiv__', false],
+    [OperatorType.Divide]: ['__truediv__', '__rtruediv__', false],
+    [OperatorType.Mod]: ['__mod__', '__rmod__', false],
+    [OperatorType.Power]: ['__pow__', '__rpow__', false],
+    [OperatorType.MatrixMultiply]: ['__matmul__', '__rmatmul__', false],
+    [OperatorType.BitwiseAnd]: ['__and__', '__rand__', false],
+    [OperatorType.BitwiseOr]: ['__or__', '__ror__', false],
+    [OperatorType.BitwiseXor]: ['__xor__', '__rxor__', false],
+    [OperatorType.LeftShift]: ['__lshift__', '__rlshift__', false],
+    [OperatorType.RightShift]: ['__rshift__', '__rrshift__', false],
+    [OperatorType.Equals]: ['__eq__', '__ne__', true],
+    [OperatorType.NotEquals]: ['__ne__', '__eq__', true],
+    [OperatorType.LessThan]: ['__lt__', '__gt__', true],
+    [OperatorType.LessThanOrEqual]: ['__le__', '__ge__', true],
+    [OperatorType.GreaterThan]: ['__gt__', '__lt__', true],
+    [OperatorType.GreaterThanOrEqual]: ['__ge__', '__le__', true],
 };
 
 const booleanOperatorMap: { [operator: number]: boolean } = {
@@ -7529,11 +7525,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If this is a comparison and the left expression is also a comparison,
         // we need to change the behavior to accommodate python's "chained
         // comparisons" feature.
-        if (comparisonOperatorMap[node.operator]) {
+        if (binaryOperatorMap[node.operator] && binaryOperatorMap[node.operator][2]) {
             if (
                 rightExpression.nodeType === ParseNodeType.BinaryOperation &&
                 !rightExpression.parenthesized &&
-                comparisonOperatorMap[rightExpression.operator]
+                binaryOperatorMap[rightExpression.operator] &&
+                binaryOperatorMap[rightExpression.operator][2]
             ) {
                 // Evaluate the right expression so it is type checked.
                 getTypeFromBinaryOperation(rightExpression, expectedType, flags);
@@ -7706,153 +7703,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let concreteLeftType = makeTopLevelTypeVarsConcrete(leftType);
         const concreteRightType = makeTopLevelTypeVarsConcrete(rightType);
 
-        if (arithmeticOperatorMap[operator]) {
-            type = mapSubtypes(concreteLeftType, (leftSubtype, leftConstraints) => {
-                return mapSubtypes(
-                    concreteRightType,
-                    (rightSubtype) => {
-                        if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
-                            // If either type is "Unknown" (versus Any), propagate the Unknown.
-                            if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
-                                return UnknownType.create();
-                            } else {
-                                return AnyType.create();
-                            }
-                        }
-
-                        const magicMethodName = arithmeticOperatorMap[operator][0];
-                        let resultType = getTypeFromMagicMethodReturn(
-                            leftSubtype,
-                            [rightSubtype],
-                            magicMethodName,
-                            errorNode,
-                            expectedType
-                        );
-                        if (resultType) {
-                            return resultType;
-                        }
-
-                        const altMagicMethodName = arithmeticOperatorMap[operator][1];
-                        resultType = getTypeFromMagicMethodReturn(
-                            rightSubtype,
-                            [leftSubtype],
-                            altMagicMethodName,
-                            errorNode,
-                            expectedType
-                        );
-                        if (!resultType) {
-                            diag.addMessage(
-                                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
-                                    operator: ParseTreeUtils.printOperator(operator),
-                                    leftType: printType(leftSubtype),
-                                    rightType: printType(rightSubtype),
-                                })
-                            );
-                        }
-                        return resultType;
-                    },
-                    leftConstraints
-                );
-            });
-        } else if (bitwiseOperatorMap[operator]) {
-            type = mapSubtypes(concreteLeftType, (leftSubtype, leftConstraints) => {
-                return mapSubtypes(
-                    concreteRightType,
-                    (rightSubtype) => {
-                        if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
-                            // If either type is "Unknown" (versus Any), propagate the Unknown.
-                            if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
-                                return UnknownType.create();
-                            } else {
-                                return AnyType.create();
-                            }
-                        }
-
-                        // Handle the general case.
-                        const magicMethodName = bitwiseOperatorMap[operator][0];
-                        let resultType = getTypeFromMagicMethodReturn(
-                            leftSubtype,
-                            [rightSubtype],
-                            magicMethodName,
-                            errorNode,
-                            expectedType
-                        );
-                        if (resultType) {
-                            return resultType;
-                        }
-
-                        const altMagicMethodName = bitwiseOperatorMap[operator][1];
-                        resultType = getTypeFromMagicMethodReturn(
-                            rightSubtype,
-                            [leftSubtype],
-                            altMagicMethodName,
-                            errorNode,
-                            expectedType
-                        );
-                        if (!resultType) {
-                            diag.addMessage(
-                                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
-                                    operator: ParseTreeUtils.printOperator(operator),
-                                    leftType: printType(leftSubtype),
-                                    rightType: printType(rightSubtype),
-                                })
-                            );
-                        }
-                        return resultType;
-                    },
-                    leftConstraints
-                );
-            });
-        } else if (comparisonOperatorMap[operator]) {
-            type = mapSubtypes(concreteLeftType, (leftSubtype, leftConstraints) => {
-                return mapSubtypes(
-                    concreteRightType,
-                    (rightSubtype) => {
-                        if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
-                            // If either type is "Unknown" (versus Any), propagate the Unknown.
-                            if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
-                                return UnknownType.create();
-                            } else {
-                                return AnyType.create();
-                            }
-                        }
-
-                        const magicMethodName = comparisonOperatorMap[operator][0];
-                        let resultType = getTypeFromMagicMethodReturn(
-                            leftSubtype,
-                            [rightSubtype],
-                            magicMethodName,
-                            errorNode,
-                            expectedType
-                        );
-                        if (resultType) {
-                            return resultType;
-                        }
-
-                        const altMagicMethodName = comparisonOperatorMap[operator][1];
-                        resultType = getTypeFromMagicMethodReturn(
-                            rightSubtype,
-                            [leftSubtype],
-                            altMagicMethodName,
-                            errorNode,
-                            expectedType
-                        );
-
-                        if (!resultType) {
-                            diag.addMessage(
-                                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
-                                    operator: ParseTreeUtils.printOperator(operator),
-                                    leftType: printType(leftSubtype),
-                                    rightType: printType(rightSubtype),
-                                })
-                            );
-                        }
-                        return resultType;
-                    },
-                    leftConstraints
-                );
-            });
-        } else if (booleanOperatorMap[operator]) {
+        if (booleanOperatorMap[operator]) {
             // If it's an AND or OR, we need to handle short-circuiting by
             // eliminating any known-truthy or known-falsy types.
             if (operator === OperatorType.And) {
@@ -7962,6 +7813,54 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                 });
             }
+        } else if (binaryOperatorMap[operator]) {
+            type = mapSubtypes(concreteLeftType, (leftSubtype, leftConstraints) => {
+                return mapSubtypes(
+                    concreteRightType,
+                    (rightSubtype) => {
+                        if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtype)) {
+                            // If either type is "Unknown" (versus Any), propagate the Unknown.
+                            if (isUnknown(leftSubtype) || isUnknown(rightSubtype)) {
+                                return UnknownType.create();
+                            } else {
+                                return AnyType.create();
+                            }
+                        }
+
+                        const magicMethodName = binaryOperatorMap[operator][0];
+                        let resultType = getTypeFromMagicMethodReturn(
+                            leftSubtype,
+                            [rightSubtype],
+                            magicMethodName,
+                            errorNode,
+                            expectedType
+                        );
+                        if (resultType) {
+                            return resultType;
+                        }
+
+                        const altMagicMethodName = binaryOperatorMap[operator][1];
+                        resultType = getTypeFromMagicMethodReturn(
+                            rightSubtype,
+                            [leftSubtype],
+                            altMagicMethodName,
+                            errorNode,
+                            expectedType
+                        );
+                        if (!resultType) {
+                            diag.addMessage(
+                                Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                                    operator: ParseTreeUtils.printOperator(operator),
+                                    leftType: printType(leftSubtype),
+                                    rightType: printType(rightSubtype),
+                                })
+                            );
+                        }
+                        return resultType;
+                    },
+                    leftConstraints
+                );
+            });
         }
 
         if (!diag.isEmpty() || !type || isNever(type)) {
