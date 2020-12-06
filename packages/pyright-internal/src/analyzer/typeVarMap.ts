@@ -24,6 +24,7 @@ import { doForEachSubtype } from './typeUtils';
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
     type: Type;
+    isNarrowable: boolean;
 }
 
 export interface ParamSpecMapEntry {
@@ -41,7 +42,6 @@ export class TypeVarMap {
     private _typeVarMap: Map<string, TypeVarMapEntry>;
     private _variadicTypeVarMap: Map<string, VariadicTypeVarMapEntry> | undefined;
     private _paramSpecMap: Map<string, ParamSpecMapEntry>;
-    private _isNarrowableMap: Map<string, boolean>;
     private _isLocked = false;
 
     constructor(solveForScopes?: TypeVarScopeId[] | TypeVarScopeId) {
@@ -55,7 +55,6 @@ export class TypeVarMap {
 
         this._typeVarMap = new Map<string, TypeVarMapEntry>();
         this._paramSpecMap = new Map<string, ParamSpecMapEntry>();
-        this._isNarrowableMap = new Map<string, boolean>();
     }
 
     clone() {
@@ -81,7 +80,6 @@ export class TypeVarMap {
     copyFromClone(clone: TypeVarMap) {
         this._typeVarMap = clone._typeVarMap;
         this._paramSpecMap = clone._paramSpecMap;
-        this._isNarrowableMap = clone._isNarrowableMap;
         this._isLocked = clone._isLocked;
     }
 
@@ -147,8 +145,7 @@ export class TypeVarMap {
     setTypeVar(reference: TypeVarType, type: Type, isNarrowable: boolean) {
         assert(!this._isLocked);
         const key = this._getKey(reference);
-        this._typeVarMap.set(key, { typeVar: reference, type });
-        this._isNarrowableMap.set(key, isNarrowable);
+        this._typeVarMap.set(key, { typeVar: reference, type, isNarrowable });
     }
 
     getVariadicTypeVar(reference: TypeVarType): Type[] | undefined {
@@ -194,9 +191,13 @@ export class TypeVarMap {
     }
 
     isNarrowable(reference: TypeVarType): boolean {
-        const key = this._getKey(reference);
+        const entry = this._typeVarMap.get(this._getKey(reference));
+        if (entry) {
+            return entry.isNarrowable;
+        }
 
-        return this._isNarrowableByKey(key);
+        // A TypeVar that doesn't yet exist in the map is considered narrowable.
+        return true;
     }
 
     lock() {
@@ -211,13 +212,6 @@ export class TypeVarMap {
 
     private _getKey(reference: TypeVarType) {
         return TypeVarType.getScopeName(reference);
-    }
-
-    private _isNarrowableByKey(key: string) {
-        const isNarrowable = this._isNarrowableMap.get(key);
-
-        // Unless told otherwise, assume type is narrowable.
-        return isNarrowable !== undefined ? isNarrowable : true;
     }
 
     // Returns a "score" for a type that captures the relative complexity
