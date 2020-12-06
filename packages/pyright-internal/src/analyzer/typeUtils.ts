@@ -579,8 +579,8 @@ export function partiallySpecializeType(type: Type, contextClassType: ClassType)
 
 // Specializes a (potentially generic) type by substituting
 // type variables from a type var map.
-export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, concreteIfNotFound = false): Type {
-    if (typeVarMap.isEmpty() && !concreteIfNotFound) {
+export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, unknownIfNotFound = false): Type {
+    if (typeVarMap.isEmpty() && !unknownIfNotFound) {
         return type;
     }
 
@@ -588,19 +588,17 @@ export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, concrete
         transformTypeVar: (typeVar: TypeVarType) => {
             // If the type variable is unrelated to the scopes we're solving,
             // don't transform that type variable.
-            if (!typeVar.scopeId || !typeVarMap.hasSolveForScope(typeVar.scopeId)) {
-                return typeVar;
-            }
+            if (typeVar.scopeId && typeVarMap.hasSolveForScope(typeVar.scopeId)) {
+                const replacement = typeVarMap.getTypeVar(typeVar);
+                if (replacement) {
+                    return replacement;
+                }
 
-            const replacement = typeVarMap.getTypeVar(typeVar);
-            if (replacement) {
-                return replacement;
-            }
-
-            // If this typeVar is in scope for what we're solving but the type
-            // var map doesn't contain any entry for it, replace with Unknown.
-            if (concreteIfNotFound && typeVarMap.hasSolveForScope(typeVar.scopeId)) {
-                return UnknownType.create();
+                // If this typeVar is in scope for what we're solving but the type
+                // var map doesn't contain any entry for it, replace with Unknown.
+                if (unknownIfNotFound) {
+                    return UnknownType.create();
+                }
             }
 
             return typeVar;

@@ -5438,7 +5438,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         expectedSubtype: Type,
         typeVarMap: TypeVarMap
     ): Type | undefined {
-        const specializedType = applySolvedTypeVars(ObjectType.create(type), typeVarMap, /* concreteIfNotFound */ true);
+        const specializedType = applySolvedTypeVars(ObjectType.create(type), typeVarMap, /* unknownIfNotFound */ true);
 
         if (!canAssignType(expectedSubtype, specializedType, new DiagnosticAddendum())) {
             return undefined;
@@ -5469,7 +5469,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const specializedType = applySolvedTypeVars(type, typeVarMap, /* concreteIfNotFound */ true) as ClassType;
+        const specializedType = applySolvedTypeVars(type, typeVarMap, /* unknownIfNotFound */ true) as ClassType;
         return ObjectType.create(specializedType);
     }
 
@@ -17061,6 +17061,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* stripFirstParam */ !neverStripFirstParam
                 );
             }
+
+            if (FunctionType.isStaticMethod(memberType)) {
+                const baseClass = isClass(baseType) ? baseType : baseType.classType;
+
+                return partiallySpecializeFunctionForBoundClassOrObject(
+                    baseType,
+                    memberType,
+                    memberClass || baseClass,
+                    errorNode,
+                    /* effectiveFirstParamType */ undefined,
+                    /* stripFirstParam */ false
+                );
+            }
         } else if (isOverloadedFunction(memberType)) {
             const newOverloadType = OverloadedFunctionType.create();
             memberType.overloads.forEach((overload) => {
@@ -17116,7 +17129,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberType: FunctionType,
         memberClass: ClassType,
         errorNode: ParseNode | undefined,
-        firstParamType: ClassType | ObjectType | TypeVarType,
+        firstParamType: ClassType | ObjectType | TypeVarType | undefined,
         stripFirstParam = true
     ): FunctionType | undefined {
         // If the class has already been specialized (fully or partially), use its
@@ -17125,7 +17138,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ? buildTypeVarMapFromSpecializedClass(memberClass)
             : new TypeVarMap(getTypeVarScopeId(memberClass));
 
-        if (memberType.details.parameters.length > 0) {
+        if (firstParamType && memberType.details.parameters.length > 0) {
             const firstParam = memberType.details.parameters[0];
 
             // Fill out the typeVarMap for the "self" or "cls" parameter.
