@@ -12,6 +12,8 @@
  * cannot (or should not be) performed lazily.
  */
 
+import { file } from 'tmp';
+
 import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert } from '../common/debug';
@@ -781,7 +783,12 @@ export class Checker extends ParseTreeWalker {
             });
         } else {
             const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
-            if (importInfo && importInfo.isImportFound && importInfo.importType !== ImportType.Local) {
+            if (
+                importInfo &&
+                importInfo.isImportFound &&
+                importInfo.importType !== ImportType.Local &&
+                !this._fileInfo.isStubFile
+            ) {
                 this._evaluator.addDiagnosticForTextRange(
                     this._fileInfo,
                     this._fileInfo.diagnosticRuleSet.reportWildcardImportFromLibrary,
