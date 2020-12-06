@@ -15628,6 +15628,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
+            // If the source is a constrained TypeVar, see if we can assign all of the
+            // constraints to the union.
+            if (!foundMatch) {
+                if (isTypeVar(srcType) && srcType.details.constraints.length > 0) {
+                    foundMatch = canAssignType(
+                        destType,
+                        makeTopLevelTypeVarsConcrete(srcType),
+                        diagAddendum,
+                        typeVarMap,
+                        flags,
+                        recursionCount + 1
+                    );
+                }
+            }
+
             if (!foundMatch) {
                 diag.addMessage(
                     Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
