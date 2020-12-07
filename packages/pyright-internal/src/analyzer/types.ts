@@ -615,7 +615,7 @@ export namespace ClassType {
             if (
                 !class1Details.declaredMetaclass ||
                 !class2Details.declaredMetaclass ||
-                !isTypeSame(class1Details.declaredMetaclass, class2Details.declaredMetaclass)
+                !isTypeSame(class1Details.declaredMetaclass, class2Details.declaredMetaclass, recursionCount + 1)
             ) {
                 return false;
             }
@@ -1674,7 +1674,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             // We assume here that overloaded functions always appear
             // in the same order from one analysis pass to another.
             for (let i = 0; i < type1.overloads.length; i++) {
-                if (!isTypeSame(type1.overloads[i], functionType2.overloads[i])) {
+                if (!isTypeSame(type1.overloads[i], functionType2.overloads[i], recursionCount + 1)) {
                     return false;
                 }
             }
