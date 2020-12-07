@@ -12,8 +12,6 @@
  * cannot (or should not be) performed lazily.
  */
 
-import { file } from 'tmp';
-
 import { Commands } from '../commands/commands';
 import { DiagnosticLevel } from '../common/configOptions';
 import { assert } from '../common/debug';
