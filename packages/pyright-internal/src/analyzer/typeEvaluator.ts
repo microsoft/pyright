@@ -15937,8 +15937,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 // All functions are assignable to "object".
-                if (ClassType.isBuiltIn(destType.classType) && destType.classType.details.name === 'object') {
-                    return true;
+                if (ClassType.isBuiltIn(destType.classType, 'object')) {
+                    if ((flags & CanAssignFlags.EnforceInvariance) === 0) {
+                        return true;
+                    }
                 }
             } else if (isModule(concreteSrcType)) {
                 // Is the destination the built-in "ModuleType"?
@@ -15946,11 +15948,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
             } else if (isClass(concreteSrcType)) {
-                // All classes are assignable to "object".
-                if (ClassType.isBuiltIn(destType.classType, 'object')) {
-                    return true;
-                }
-
                 // Determine if the metaclass can be assigned to the object.
                 const metaclass = concreteSrcType.details.effectiveMetaclass;
                 if (metaclass) {
@@ -16108,8 +16105,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isObject(destType) && ClassType.isBuiltIn(destType.classType, 'object')) {
-            // All types (including None, Module, OverloadedFunction) derive from object.
-            return true;
+            if ((flags & CanAssignFlags.EnforceInvariance) === 0) {
+                // All types (including None, Module, OverloadedFunction) derive from object.
+                return true;
+            }
         }
 
         // Are we trying to assign None to a protocol?
