@@ -167,19 +167,22 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
     return transformedSubtype;
 }
 
-export function doForEachSubtype(type: Type, callback: (type: Type, constraints: SubtypeConstraints) => void): void {
+export function doForEachSubtype(
+    type: Type,
+    callback: (type: Type, index: number, constraints: SubtypeConstraints) => void
+): void {
     if (type.category === TypeCategory.Union) {
         if (type.constraints) {
             type.subtypes.forEach((subtype, index) => {
-                callback(subtype, type.constraints![index]);
+                callback(subtype, index, type.constraints![index]);
             });
         } else {
             type.subtypes.forEach((subtype, index) => {
-                callback(subtype, undefined);
+                callback(subtype, index, undefined);
             });
         }
     } else {
-        callback(type, undefined);
+        callback(type, 0, undefined);
     }
 }
 

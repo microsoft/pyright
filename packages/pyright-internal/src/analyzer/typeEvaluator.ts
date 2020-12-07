@@ -2664,7 +2664,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // entries at that location.
         const unpackIndex = target.expressions.findIndex((expr) => expr.nodeType === ParseNodeType.Unpack);
 
-        doForEachSubtype(type, (subtype, constraints) => {
+        doForEachSubtype(type, (subtype, index, constraints) => {
             // Is this subtype a tuple?
             const tupleType = getSpecializedTupleType(subtype);
             if (tupleType && tupleType.variadicTypeArguments) {
@@ -15645,24 +15645,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // If we need to enforce invariance, union types must match exactly.
-        if (flags & CanAssignFlags.EnforceInvariance) {
-            if (srcType.category === TypeCategory.Union || destType.category === TypeCategory.Union) {
-                if (!isTypeSame(srcType, destType)) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(destType),
-                        })
-                    );
-                    return false;
-                }
-
+        if (srcType.category === TypeCategory.Union) {
+            // Start by checking for an exact match. This is needed to handle unions
+            // that contain recursive type aliases.
+            if (isTypeSame(srcType, destType)) {
                 return true;
             }
-        }
 
-        if (srcType.category === TypeCategory.Union) {
             let isIncompatible = false;
 
             // For union sources, all of the types need to be assignable to the dest.
@@ -15686,6 +15675,58 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (destType.category === TypeCategory.Union) {
+            // If we need to enforce invariance, the source needs to be compatible
+            // with all subtypes in the dest, unless those subtypes are subclasses
+            // of other subtypes.
+            if (flags & CanAssignFlags.EnforceInvariance) {
+                let isIncompatible = false;
+
+                doForEachSubtype(destType, (subtype, index) => {
+                    // First determine whether this subtype is assignable to
+                    // another subtype elsewhere in the union. If so, we'll skip
+                    // this one.
+                    let skipSubtype = false;
+
+                    if (!isAnyOrUnknown(subtype)) {
+                        doForEachSubtype(destType, (otherSubtype, otherIndex) => {
+                            if (index !== otherIndex && !skipSubtype) {
+                                if (
+                                    canAssignType(
+                                        otherSubtype,
+                                        subtype,
+                                        new DiagnosticAddendum(),
+                                        /* typeVarMap */ undefined,
+                                        CanAssignFlags.Default,
+                                        recursionCount + 1
+                                    )
+                                ) {
+                                    skipSubtype = true;
+                                }
+                            }
+                        });
+                    }
+
+                    if (
+                        !skipSubtype &&
+                        !canAssignType(subtype, srcType, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)
+                    ) {
+                        isIncompatible = true;
+                    }
+                });
+
+                if (isIncompatible) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(srcType),
+                            destType: printType(destType),
+                        })
+                    );
+                    return false;
+                }
+
+                return true;
+            }
+
             // For union destinations, we just need to match one of the types.
             const diagAddendum = new DiagnosticAddendum();
 
