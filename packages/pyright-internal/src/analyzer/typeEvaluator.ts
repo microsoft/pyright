@@ -4676,9 +4676,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // isn't used in most cases, but it is supported by the language.
             const builtInTupleType = getBuiltInType(node, 'tuple');
             if (isClass(builtInTupleType)) {
-                indexType = convertToInstance(
-                    specializeVariadicGenericClass(builtInTupleType, indexTypeList, /* isTypeArgumentExplicit */ true)
-                );
+                indexType = convertToInstance(specializeVariadicGenericClass(builtInTupleType, indexTypeList));
             } else {
                 indexType = UnknownType.create();
             }
@@ -4884,11 +4882,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const type = convertToInstance(
-            specializeVariadicGenericClass(
-                builtInTupleType,
-                buildTupleTypesList(entryTypeResults),
-                /* isTypeArgumentExplicit */ true
-            )
+            specializeVariadicGenericClass(builtInTupleType, buildTupleTypesList(entryTypeResults))
         );
 
         return { type, node };
@@ -4934,8 +4928,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function specializeVariadicGenericClass(
         classType: ClassType,
         typeArgs: Type[],
-        isTypeArgumentExplicit: boolean,
-        stripLiterals = false
+        isTypeArgumentExplicit = true,
+        stripLiterals = true
     ): ClassType {
         let combinedTupleType: Type = AnyType.create(false);
         if (typeArgs.length === 2 && isEllipsisType(typeArgs[1])) {
@@ -5409,14 +5403,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         newReturnType.classType.variadicTypeArguments.length === 1
                                     ) {
                                         newReturnType = ObjectType.create(
-                                            specializeVariadicGenericClass(
-                                                newReturnType.classType,
-                                                [
-                                                    newReturnType.classType.variadicTypeArguments[0],
-                                                    AnyType.create(/* isEllipsis */ true),
-                                                ],
-                                                /* isTypeArgumentExplicit */ true
-                                            )
+                                            specializeVariadicGenericClass(newReturnType.classType, [
+                                                newReturnType.classType.variadicTypeArguments[0],
+                                                AnyType.create(/* isEllipsis */ true),
+                                            ])
                                         );
                                     }
 
@@ -8770,9 +8760,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             type = getBuiltInType(node, 'tuple');
             if (isClass(type)) {
-                type = convertToInstance(
-                    specializeVariadicGenericClass(type, [keyType, valueType], /* isTypeArgumentExplicit */ true)
-                );
+                type = convertToInstance(specializeVariadicGenericClass(type, [keyType, valueType]));
             }
         } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
             // The parser should have reported an error in this case because it's not allowed.
