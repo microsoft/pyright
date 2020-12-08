@@ -1,6 +1,6 @@
 # This sample file tests various aspects of type analysis for tuples.
 
-from typing import Tuple
+from typing import List, Tuple
 import os
 
 
@@ -114,3 +114,11 @@ def func11() -> float:
 
     return 3
 
+# Tests for assignment of tuple list that includes star
+# operator both with and without type annotations.
+def func12():
+    data = ["a", "b"]
+    data1 = *map(str.split, data),
+    data2: Tuple[List[str], ...] = *map(str.split, data),
+    data3 = (*map(str.split, data),)
+    data4: Tuple[List[str], ...] = (*map(str.split, data),)

@@ -2854,7 +2854,12 @@ export class Parser {
             }
 
             const rightExpr =
-                this._tryParseYieldExpression() || this._parseTestExpression(/* allowAssignmentExpression */ false);
+                this._tryParseYieldExpression() ||
+                this._parseTestOrStarListAsExpression(
+                    /* allowAssignmentExpression */ false,
+                    ErrorExpressionCategory.MissingExpression,
+                    Localizer.Diagnostic.expectedAssignRightHandExpr()
+                );
 
             this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 
