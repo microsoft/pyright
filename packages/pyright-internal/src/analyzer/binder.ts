@@ -83,6 +83,7 @@ import {
     FlowFlags,
     FlowLabel,
     FlowNode,
+    FlowPostContextManagerLabel,
     FlowPostFinally,
     FlowPreFinallyGate,
     FlowVariableAnnotation,
@@ -1185,10 +1186,9 @@ export class Binder extends ParseTreeWalker {
         }
 
         // Handle the try block.
-        const prevExceptTargets = this._currentExceptTargets;
-        this._currentExceptTargets = curExceptTargets;
-        this.walk(node.trySuite);
-        this._currentExceptTargets = prevExceptTargets;
+        this._useExceptTargets(curExceptTargets, () => {
+            this.walk(node.trySuite);
+        });
 
         // Handle the else block, which is executed only if
         // execution falls through the try block.
@@ -1601,7 +1601,43 @@ export class Binder extends ParseTreeWalker {
             }
         });
 
-        this.walk(node.suite);
+        // We need to treat the "with" body as though it is wrapped in a try/except
+        // block because some context managers catch and suppress exceptions.
+        // We'll make use of a special "context manager label" which acts like
+        // a regular branch label in most respects except that it is disabled
+        // if none of the context managers support exception suppression. We won't
+        // be able to determine whether any context managers support exception
+        // processing until the type evaluation phase.
+        //
+        //  (pre with suite)
+        //         ^
+        //         |<--------------------|
+        //    (with suite)<--------------|
+        //         ^                     |
+        //         |        ContextManagerExceptionTarget
+        //         |                     ^
+        //         |           PostContextManagerLabel
+        //         |                     ^
+        //         |---------------------|
+        //         |
+        //   (after with)
+        //
+
+        const contextManagerExceptionTarget = this._createContextManagerLabel(
+            node.withItems.map((item) => item.expression),
+            !!node.isAsync
+        );
+        this._addAntecedent(contextManagerExceptionTarget, this._currentFlowNode!);
+
+        const postContextManagerLabel = this._createBranchLabel();
+        this._addAntecedent(postContextManagerLabel, contextManagerExceptionTarget!);
+
+        this._useExceptTargets([contextManagerExceptionTarget], () => {
+            this.walk(node.suite);
+        });
+
+        this._addAntecedent(postContextManagerLabel, this._currentFlowNode!);
+        this._currentFlowNode = postContextManagerLabel;
 
         return false;
     }
@@ -1736,6 +1772,13 @@ export class Binder extends ParseTreeWalker {
         });
 
         return false;
+    }
+
+    private _useExceptTargets(targets: FlowLabel[], callback: () => void) {
+        const prevExceptTargets = this._currentExceptTargets;
+        this._currentExceptTargets = targets;
+        callback();
+        this._currentExceptTargets = prevExceptTargets;
     }
 
     private _disableTrueFalseTargets(callback: () => void): void {
@@ -1941,6 +1984,17 @@ export class Binder extends ParseTreeWalker {
             flags: FlowFlags.BranchLabel,
             id: getUniqueFlowNodeId(),
             antecedents: [],
+        };
+        return flowNode;
+    }
+
+    private _createContextManagerLabel(expressions: ExpressionNode[], isAsync: boolean) {
+        const flowNode: FlowPostContextManagerLabel = {
+            flags: FlowFlags.PostContextManager | FlowFlags.BranchLabel,
+            id: getUniqueFlowNodeId(),
+            antecedents: [],
+            expressions,
+            isAsync,
         };
         return flowNode;
     }

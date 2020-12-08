@@ -14,6 +14,7 @@
  * taken by the TypeScript compiler.
  */
 
+import { Expression } from 'typescript';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { Commands } from '../commands/commands';
@@ -83,6 +84,7 @@ import {
     FlowFlags,
     FlowLabel,
     FlowNode,
+    FlowPostContextManagerLabel,
     FlowPostFinally,
     FlowPreFinallyGate,
     FlowVariableAnnotation,
@@ -12118,7 +12120,45 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return subnodeType;
     }
 
-    // Determines whether a call never returns without fully evaluating its type.
+    // Performs a cursory analysis to determine whether the expression
+    // corresponds to a context manager object that supports the swallowing
+    // of exceptions. By convention, these objects have an "__exit__" method
+    // that returns a bool response (as opposed to a None). This function is
+    // called during code flow, so it can't rely on full type evaluation. It
+    // makes some simplifying assumptions that work in most cases.
+    function isExceptionContextManager(node: ExpressionNode, isAsync: boolean) {
+        // We assume that the context manager is instantiated through a call.
+        if (node.nodeType !== ParseNodeType.Call) {
+            return false;
+        }
+
+        const callType = getDeclaredCallBaseType(node.leftExpression);
+        if (!callType || !isClass(callType)) {
+            return false;
+        }
+
+        const exitMethodName = isAsync ? '__aexit__' : '__exit__';
+        const exitType = getTypeFromObjectMember(
+            node.leftExpression,
+            ObjectType.create(callType),
+            exitMethodName,
+            { method: 'get' },
+            new DiagnosticAddendum(),
+            MemberAccessFlags.None
+        );
+
+        if (!exitType || !isFunction(exitType) || !exitType.details.declaredReturnType) {
+            return false;
+        }
+
+        const returnType = exitType.details.declaredReturnType;
+        return isObject(returnType) && ClassType.isBuiltIn(returnType.classType, 'bool');
+    }
+
+    // Performs a cursory analysis to determine whether a call never returns
+    // without fully evaluating its type. This is done during code flow,
+    // so it can't rely on full type analysis. It makes some simplifying
+    // assumptions that work fine in practice.
     function isCallNoReturn(node: CallNode) {
         // See if this information is cached already.
         if (callIsNoReturnCache.has(node.id)) {
@@ -12483,6 +12523,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     if (curFlowNode.flags & FlowFlags.BranchLabel) {
+                        if (curFlowNode.flags & FlowFlags.PostContextManager) {
+                            // Determine whether any of the context managers support exception
+                            // suppression. If not, none of its antecedents are reachable.
+                            const contextMgrNode = curFlowNode as FlowPostContextManagerLabel;
+                            if (
+                                !contextMgrNode.expressions.some((expr) =>
+                                    isExceptionContextManager(expr, contextMgrNode.isAsync)
+                                )
+                            ) {
+                                return setCacheEntry(curFlowNode, undefined, /* isIncomplete */ false);
+                            }
+                        }
+
                         const labelNode = curFlowNode as FlowLabel;
                         const typesToCombine: Type[] = [];
 
@@ -12727,6 +12780,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 if (curFlowNode.flags & (FlowFlags.BranchLabel | FlowFlags.LoopLabel)) {
+                    if (curFlowNode.flags & FlowFlags.PostContextManager) {
+                        // Determine whether any of the context managers support exception
+                        // suppression. If not, none of its antecedents are reachable.
+                        const contextMgrNode = curFlowNode as FlowPostContextManagerLabel;
+                        if (
+                            !contextMgrNode.expressions.some((expr) =>
+                                isExceptionContextManager(expr, contextMgrNode.isAsync)
+                            )
+                        ) {
+                            return false;
+                        }
+                    }
+
                     const labelNode = curFlowNode as FlowLabel;
                     for (const antecedent of labelNode.antecedents) {
                         if (isFlowNodeReachableRecursive(antecedent, sourceFlowNode)) {

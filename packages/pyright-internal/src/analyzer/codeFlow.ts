@@ -38,6 +38,7 @@ export enum FlowFlags {
     PostFinally = 1 << 12, // Injected edge that links post-finally flow with the rest of the graph
     AssignmentAlias = 1 << 13, // Assigned symbol is aliased to another symbol with the same name
     VariableAnnotation = 1 << 14, // Separates a variable annotation from its name node
+    PostContextManager = 1 << 15, // Label that's used for context managers that suppress exceptions
 }
 
 let _nextFlowNodeId = 1;
@@ -119,6 +120,11 @@ export interface FlowPreFinallyGate extends FlowNode {
 export interface FlowPostFinally extends FlowNode {
     antecedent: FlowNode;
     preFinallyGate: FlowPreFinallyGate;
+}
+
+export interface FlowPostContextManagerLabel extends FlowLabel {
+    expressions: ExpressionNode[];
+    isAsync: boolean;
 }
 
 export function isCodeFlowSupportedForReference(reference: ExpressionNode): boolean {
