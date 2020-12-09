@@ -12,7 +12,7 @@ import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Diagnostic, DiagnosticAddendum, DiagnosticCategory } from '../common/diagnostic';
 import { FileSystem } from '../common/fileSystem';
 import { combinePaths, getDirectoryPath, getFileExtension, stripFileExtension } from '../common/pathUtils';
-import { getEmptyRange, Range } from '../common/textRange';
+import { getEmptyRange } from '../common/textRange';
 import { DeclarationType, FunctionDeclaration, VariableDeclaration } from './declaration';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
 import { Program } from './program';

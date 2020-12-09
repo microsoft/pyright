@@ -116,10 +116,6 @@ export function convertToFlatSymbols(documentUri: string, symbolList: DocumentSy
     return flatSymbols;
 }
 
-// We'll use a somewhat-arbitrary cutoff value here to determine
-// whether it's sufficiently similar.
-const similarityLimit = 0.5;
-
 export class DocumentSymbolProvider {
     static getSymbolsForDocument(
         indexResults: IndexResults | undefined,

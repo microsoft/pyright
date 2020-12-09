@@ -3,5 +3,8 @@
     "compilerOptions": {
         "outDir": "./out"
     },
-    "include": ["src/**/*", "src/localization/*.json"]
+    "include": [
+        "src/**/*",
+        "src/localization/*.json"
+    ]
 }

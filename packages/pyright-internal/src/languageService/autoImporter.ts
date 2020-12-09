@@ -27,7 +27,7 @@ import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Position } from '../common/textRange';
-import { ImportFromNode, ParseNodeType } from '../parser/parseNodes';
+import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { IndexAliasData, IndexResults } from './documentSymbolProvider';
 
@@ -389,7 +389,7 @@ export class AutoImporter {
 
                 if (abbrFromUsers) {
                     // When alias name is used, our regular exclude mechanism would not work. we need to check
-                    // whether import, the alias is refering to, already exists.
+                    // whether import, the alias is referring to, already exists.
                     // ex) import numpy
                     //     np| <= auto-import here.
                     // or

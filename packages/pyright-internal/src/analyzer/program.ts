@@ -8,7 +8,7 @@
  * and all of their recursive imports.
  */
 
-import { CancellationToken, CompletionItem, DocumentSymbol, SymbolInformation } from 'vscode-languageserver';
+import { CancellationToken, CompletionItem, DocumentSymbol } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import {
     CallHierarchyIncomingCall,

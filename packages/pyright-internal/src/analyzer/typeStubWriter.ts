@@ -9,8 +9,6 @@
  */
 
 import {
-    ArgumentCategory,
-    ArgumentNode,
     AssignmentNode,
     AugmentedAssignmentNode,
     ClassNode,

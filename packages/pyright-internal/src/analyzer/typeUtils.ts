@@ -9,7 +9,6 @@
 
 import { assert } from 'console';
 
-import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
@@ -37,7 +36,6 @@ import {
     ParamSpecEntry,
     removeFromUnion,
     SpecializedFunctionTypes,
-    SubtypeConstraint,
     SubtypeConstraints,
     Type,
     TypeBase,
@@ -122,9 +120,6 @@ interface TypeVarTransformer {
     transformVariadicTypeVar: (paramSpec: TypeVarType) => Type[] | undefined;
     transformParamSpec: (paramSpec: TypeVarType) => ParamSpecEntry[] | undefined;
 }
-
-const singleTickRegEx = /'/g;
-const tripleTickRegEx = /'''/g;
 
 let synthesizedTypeVarIndexForExpectedType = 1;
 

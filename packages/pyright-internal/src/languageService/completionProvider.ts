@@ -781,7 +781,7 @@ export class CompletionProvider {
                     }
 
                     const methodSignature = this._printMethodSignature(decl.node) + ':';
-                    const methodBody = this._printOverridenMethodBody(declaredType, decl);
+                    const methodBody = this._printOverriddenMethodBody(declaredType, decl);
                     const textEdit = this._createReplaceEdits(
                         priorWord,
                         partialName,
@@ -855,7 +855,7 @@ export class CompletionProvider {
         return methodSignature;
     }
 
-    private _printOverridenMethodBody(declaredType: FunctionType, decl: FunctionDeclaration) {
+    private _printOverriddenMethodBody(declaredType: FunctionType, decl: FunctionDeclaration) {
         let sb = '    ';
 
         if (decl.node.parameters.length === 0) {

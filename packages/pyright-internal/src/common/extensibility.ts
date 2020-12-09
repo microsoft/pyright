@@ -31,7 +31,7 @@ export interface CompletionListExtension {
     // should be 'myextension.command'.
     readonly commandPrefix: string;
 
-    // Extension executes command attached to commited
+    // Extension executes command attached to committed
     // completion list item, if any.
     executeCommand(command: string, args: any[] | undefined, token: CancellationToken): Promise<void>;
 }

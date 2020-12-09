@@ -19,7 +19,7 @@ import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertOffsetToPosition, convertPositionToOffset } from '../common/positionUtils';
 import { Position, TextRange } from '../common/textRange';
-import { ModuleNameNode, NameNode, ParseNode, ParseNodeType, StringNode } from '../parser/parseNodes';
+import { ModuleNameNode, NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 // This walker looks for symbols that are semantically equivalent
@@ -190,48 +190,6 @@ class HighlightSymbolTreeWalker extends ParseTreeWalker {
     }
 }
 
-// This walker looks for strings that are equivalent
-// to the requested string.
-class HighlightStringTreeWalker extends ParseTreeWalker {
-    constructor(
-        private _stringValue: string,
-        private _parseResults: ParseResults,
-        private _highlightResults: DocumentHighlight[],
-        private _cancellationToken: CancellationToken
-    ) {
-        super();
-    }
-
-    findHighlights() {
-        this.walk(this._parseResults.parseTree);
-    }
-
-    walk(node: ParseNode) {
-        if (!isCodeUnreachable(node)) {
-            super.walk(node);
-        }
-    }
-
-    visitString(node: StringNode): boolean {
-        throwIfCancellationRequested(this._cancellationToken);
-
-        // Compare the unescaped values.
-        if (node.value !== this._stringValue) {
-            return false;
-        }
-
-        this._highlightResults.push({
-            kind: DocumentHighlightKind.Text,
-            range: {
-                start: convertOffsetToPosition(node.start, this._parseResults.tokenizerOutput.lines),
-                end: convertOffsetToPosition(TextRange.getEnd(node), this._parseResults.tokenizerOutput.lines),
-            },
-        });
-
-        return true;
-    }
-}
-
 export class DocumentHighlightProvider {
     static getDocumentHighlight(
         parseResults: ParseResults,
@@ -273,12 +231,6 @@ export class DocumentHighlightProvider {
                 token
             );
             walker.findHighlights();
-        } else if (node.nodeType === ParseNodeType.String) {
-            // User feedback indicates that most users don't want string literals
-            // to be highlighted through the document highlight provider, so we
-            // will disable this.
-            // const walker = new HighlightStringTreeWalker(node.value, parseResults, results, token);
-            // walker.findHighlights();
         }
 
         return results.length > 0 ? results : undefined;

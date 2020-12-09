@@ -9,10 +9,7 @@
  * heavily upon).
  */
 
-import * as assert from 'assert';
-
 import { ConfigOptions } from '../common/configOptions';
-import { PythonVersion } from '../common/pythonVersion';
 import * as TestUtils from './testUtils';
 
 test('BadToken1', () => {

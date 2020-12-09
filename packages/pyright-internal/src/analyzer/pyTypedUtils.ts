@@ -22,7 +22,6 @@ export function getPyTypedInfo(fileSystem: FileSystem, dirPath: string): PyTyped
     let isPyTypedPresent = false;
     let isPartiallyTyped = false;
     let pyTypedPath: string | undefined;
-    const publicModules: string[] = [];
 
     if (fileSystem.existsSync(dirPath) && isDirectory(fileSystem, dirPath)) {
         pyTypedPath = combinePaths(dirPath, _pyTypedFileName);

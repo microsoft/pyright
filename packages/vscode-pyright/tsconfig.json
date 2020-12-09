@@ -4,8 +4,12 @@
         "baseUrl": ".",
         "outDir": "./out",
         "paths": {
-            "pyright-internal/*": ["../pyright-internal/src/*"]
+            "pyright-internal/*": [
+                "../pyright-internal/src/*"
+            ]
         }
     },
-    "include": ["src/**/*"]
+    "include": [
+        "src/**/*"
+    ]
 }

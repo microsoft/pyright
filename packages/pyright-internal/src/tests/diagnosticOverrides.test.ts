@@ -3,7 +3,7 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * Tests to verify consistentcy between declarations of diagnostic
+ * Tests to verify consistency between declarations of diagnostic
  * overrides in code and in the configuration schema.
  */
 

@@ -21,18 +21,29 @@
         "eqeqeq": "error",
         "no-constant-condition": 0,
         "no-inner-declarations": 0,
+        "no-unused-vars": "off",
         "no-undef": 0,
         "simple-import-sort/sort": [
             "error",
             {
                 "groups": [
                     // Defaults from simple-import-sort, but with local packages between third-party and relative imports.
-                    ["^\\u0000"],
-                    ["^@?\\w"],
-                    ["^[^.]"],
-                    ["^pyright"],
-                    ["^\\."]
-                  ]
+                    [
+                        "^\\u0000"
+                    ],
+                    [
+                        "^@?\\w"
+                    ],
+                    [
+                        "^[^.]"
+                    ],
+                    [
+                        "^pyright"
+                    ],
+                    [
+                        "^\\."
+                    ]
+                ]
             }
         ],
         "@typescript-eslint/explicit-function-return-type": 0,
@@ -44,7 +55,12 @@
         "@typescript-eslint/no-namespace": 0,
         "@typescript-eslint/no-non-null-assertion": 0,
         "@typescript-eslint/no-this-alias": 0,
-        "@typescript-eslint/no-unused-vars": 0,
+        "@typescript-eslint/no-unused-vars": [
+            "error",
+            {
+                "args": "none"
+            }
+        ],
         "@typescript-eslint/no-use-before-define": 0
     }
 }

@@ -1347,11 +1347,6 @@ export class ImportResolver {
                     // Try resolving resolving native lib to a custom stub.
                     if (isNativeLib) {
                         const nativeLibPath = combinePaths(dirPath, fileName);
-                        const importDescriptor: ImportedModuleDescriptor = {
-                            leadingDots: 0,
-                            nameParts: [strippedFileName],
-                            importedSymbols: [],
-                        };
                         const nativeStubPath = this.resolveNativeImportEx(
                             nativeLibPath,
                             `${importingModuleName}.${strippedFileName}`,
@@ -1413,7 +1408,6 @@ export class ImportResolver {
         importFailureInfo: string[],
         resolvedPaths: string[]
     ): boolean {
-        const moduleDir = getDirectoryPath(nativeLibPath);
         let moduleFullName = importName;
 
         if (moduleDescriptor.leadingDots > 0) {

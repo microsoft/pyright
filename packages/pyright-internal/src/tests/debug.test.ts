@@ -38,7 +38,7 @@ test('DebugAssertDetailInfo', () => {
 });
 
 test('DebugAssertStackTrace', () => {
-    // let assert to control what callstack to put in exception stack
+    // let assert to control what call stack to put in exception stack
     assert.throws(
         () => {
             debug.assert(false, 'should throw', undefined, assert.throws);

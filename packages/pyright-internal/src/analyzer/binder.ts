@@ -208,7 +208,7 @@ export class Binder extends ParseTreeWalker {
         // binding the builtins module itself.
         const isBuiltInModule = this._fileInfo.builtinsScope === undefined;
 
-        const moduleScope = this._createNewScope(
+        this._createNewScope(
             isBuiltInModule ? ScopeType.Builtin : ScopeType.Module,
             this._fileInfo.builtinsScope,
             () => {

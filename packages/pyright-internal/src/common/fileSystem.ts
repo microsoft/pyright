@@ -20,7 +20,6 @@ tmp.setGracefulCleanup();
 
 import { ConsoleInterface, NullConsole } from './console';
 import { createDeferred } from './deferred';
-import { resolvePaths } from './pathUtils';
 
 export type FileWatcherEventType = 'add' | 'addDir' | 'change' | 'unlink' | 'unlinkDir';
 export type FileWatcherEventHandler = (eventName: FileWatcherEventType, path: string, stats?: Stats) => void;

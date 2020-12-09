@@ -1,5 +1,5 @@
 /*
- * fourslashrunner.test.ts
+ * fourSlashRunner.test.ts
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *

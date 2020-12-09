@@ -559,7 +559,7 @@ export class ConfigOptions {
     // Use indexing.
     indexing = false;
 
-    // Avoid using type inferencing for files within packages that claim
+    // Avoid using type inference for files within packages that claim
     // to contain type annotations?
     disableInferenceForPyTypedSources = true;
 

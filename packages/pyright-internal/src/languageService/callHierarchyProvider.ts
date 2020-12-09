@@ -21,7 +21,7 @@ import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { ClassType, isClass, isObject, isTypeVar, TypeCategory } from '../analyzer/types';
+import { ClassType, isClass, isObject, TypeCategory } from '../analyzer/types';
 import {
     ClassMemberLookupFlags,
     doForEachSubtype,

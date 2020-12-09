@@ -18,7 +18,7 @@ import commandLineArgs from 'command-line-args';
 import { CommandLineOptions, OptionDefinition } from 'command-line-args';
 import * as process from 'process';
 
-import { PackageTypeVerifier, PackageTypeReport, PackageSymbolType } from './analyzer/packageTypeVerifier';
+import { PackageTypeVerifier, PackageTypeReport } from './analyzer/packageTypeVerifier';
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
 import { NullConsole } from './common/console';
@@ -54,7 +54,7 @@ interface PyrightTypeCompletenessReport {
     missingFunctionDocStringCount: number;
     missingClassDocStringCount: number;
     missingDefaultParamCount: number;
-    completnessScore: number;
+    completenessScore: number;
     modules: PyrightPublicModuleReport[];
 }
 
@@ -316,7 +316,7 @@ function verifyPackageTypes(
         }
 
         process.exit(
-            jsonReport.typeCompleteness!.completnessScore < 1 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors
+            jsonReport.typeCompleteness!.completenessScore < 1 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors
         );
     } catch (err) {
         let errMessage = '';
@@ -366,7 +366,7 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
         missingFunctionDocStringCount: completenessReport.missingFunctionDocStringCount,
         missingClassDocStringCount: completenessReport.missingClassDocStringCount,
         missingDefaultParamCount: completenessReport.missingDefaultParamCount,
-        completnessScore: 0,
+        completenessScore: 0,
         modules: [],
     };
 
@@ -391,7 +391,7 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
     });
 
     if (completenessReport.symbolCount > 0) {
-        report.typeCompleteness!.completnessScore =
+        report.typeCompleteness!.completenessScore =
             (completenessReport.symbolCount - completenessReport.unknownTypeCount) / completenessReport.symbolCount;
     }
 
@@ -447,7 +447,7 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
     console.log(`  Functions with missing docstring: ${completenessReport.missingFunctionDocStringCount}`);
     console.log(`  Functions with missing default param: ${completenessReport.missingDefaultParamCount}`);
     console.log(`  Classes with missing docstring: ${completenessReport.missingClassDocStringCount}`);
-    console.log(`Type completeness score: ${Math.round(completenessReport.completnessScore * 1000) / 10}%`);
+    console.log(`Type completeness score: ${Math.round(completenessReport.completenessScore * 1000) / 10}%`);
     console.log('');
     console.info(`Completed in ${results.summary.timeInSec}sec`);
 }

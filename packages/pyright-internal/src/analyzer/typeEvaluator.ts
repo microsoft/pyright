@@ -14,7 +14,6 @@
  * taken by the TypeScript compiler.
  */
 
-import { Expression } from 'typescript';
 import { CancellationToken } from 'vscode-languageserver';
 
 import { Commands } from '../commands/commands';
@@ -823,7 +822,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Call: {
-                typeResult = getTypeFromCall(node, expectedType, flags);
+                typeResult = getTypeFromCall(node, expectedType);
                 break;
             }
 
@@ -5001,7 +5000,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
     }
 
-    function getTypeFromCall(node: CallNode, expectedType: Type | undefined, flags: EvaluatorFlags): TypeResult {
+    function getTypeFromCall(node: CallNode, expectedType: Type | undefined): TypeResult {
         const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
 
         if (baseTypeResult.isIncomplete || isTypeAliasPlaceholder(baseTypeResult.type)) {
@@ -10310,8 +10309,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const typeParameters: TypeVarType[] = [];
-
         node.parameters.forEach((param, index) => {
             let paramType: Type | undefined;
             let annotatedType: Type | undefined;
@@ -14473,7 +14470,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let declIndex = typedDecls.length - 1;
         while (declIndex >= 0) {
             const decl = typedDecls[declIndex];
-            const considerDecl = true;
 
             // If there's a partially-constructed type that is allowed
             // for recursive symbol resolution, return it as the resolved type.
