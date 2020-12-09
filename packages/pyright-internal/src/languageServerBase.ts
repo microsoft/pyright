@@ -1229,9 +1229,9 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
     }
 
-    protected getDocumentationUrlForDiagnosticRule(rule: string) {
+    protected getDocumentationUrlForDiagnosticRule(rule: string): string | undefined {
         // For now, return the same URL for all rules. We can separate these
         // in the future.
-        return 'https://github.com/microsoft/pylance-release/blob/master/DIAGNOSTIC_SEVERITY_RULES.md';
+        return 'https://github.com/microsoft/pyright/blob/master/docs/configuration.md';
     }
 }
