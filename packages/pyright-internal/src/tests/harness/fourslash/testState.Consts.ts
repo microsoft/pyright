@@ -11,6 +11,7 @@
 
 import * as lsp from 'vscode-languageserver';
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 export namespace Consts {
     export import CodeActionKind = lsp.CodeActionKind;
 

@@ -257,11 +257,7 @@ export class Metadata {
 
     get size(): number {
         if (this._size === -1 || (this._parent && this._parent._version !== this._parentVersion)) {
-            let size = 0;
-            for (const _ of Object.keys(this._map)) {
-                size++;
-            }
-            this._size = size;
+            this._size = Object.keys(this._map).length;
             if (this._parent) {
                 this._parentVersion = this._parent._version;
             }
