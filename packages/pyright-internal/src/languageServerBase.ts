@@ -1169,14 +1169,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         diags.forEach((diag) => {
             const severity = convertCategoryToSeverity(diag.category);
-
-            let source = this._serverOptions.productName;
             const rule = diag.getRule();
-            if (rule) {
-                source = `${source} (${rule})`;
-            }
-
-            const vsDiag = Diagnostic.create(diag.range, diag.message, severity, undefined, source);
+            const vsDiag = Diagnostic.create(diag.range, diag.message, severity, rule, this._serverOptions.productName);
 
             if (diag.category === DiagnosticCategory.UnusedCode) {
                 vsDiag.tags = [DiagnosticTag.Unnecessary];
@@ -1185,6 +1179,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 // If the client doesn't support "unnecessary" tags, don't report unused code.
                 if (!this._supportsUnnecessaryDiagnosticTag) {
                     return;
+                }
+            }
+
+            if (rule) {
+                const ruleDocUrl = this.getDocumentationUrlForDiagnosticRule(rule);
+                if (ruleDocUrl) {
+                    vsDiag.codeDescription = {
+                        href: ruleDocUrl,
+                    };
                 }
             }
 
@@ -1224,5 +1227,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._workspaceMap.forEach((workspace: { serviceInstance: { recordUserInteractionTime: () => void } }) => {
             workspace.serviceInstance.recordUserInteractionTime();
         });
+    }
+
+    protected getDocumentationUrlForDiagnosticRule(rule: string): string | undefined {
+        // For now, return the same URL for all rules. We can separate these
+        // in the future.
+        return 'https://github.com/microsoft/pyright/blob/master/docs/configuration.md';
     }
 }
