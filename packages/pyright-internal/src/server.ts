@@ -217,6 +217,11 @@ function reporterFactory(connection: ProgressReporterConnection): ProgressReport
 }
 
 export function main() {
+    if (process.env.NODE_ENV === 'production') {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require('source-map-support').install();
+    }
+
     if (isMainThread) {
         new PyrightServer();
     } else {

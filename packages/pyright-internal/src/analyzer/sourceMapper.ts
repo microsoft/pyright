@@ -50,7 +50,10 @@ export class SourceMapper {
         return sourceFiles.flatMap((sourceFile) => this._findClassDeclarations(sourceFile, className));
     }
 
-    public findFunctionDeclarations(stubDecl: FunctionDeclaration): FunctionDeclaration[] {
+    public findFunctionDeclarations(
+        stubDecl: FunctionDeclaration,
+        recursiveDeclCache = new Set<string>()
+    ): FunctionDeclaration[] {
         const functionName = stubDecl.node.name.value;
         const sourceFiles = this._getBoundSourceFiles(stubDecl.path);
 
@@ -66,7 +69,9 @@ export class SourceMapper {
                 this._findMethodDeclarations(sourceFile, className, functionName)
             );
         } else {
-            return sourceFiles.flatMap((sourceFile) => this._findFunctionDeclarations(sourceFile, functionName));
+            return sourceFiles.flatMap((sourceFile) =>
+                this._findFunctionDeclarations(sourceFile, functionName, recursiveDeclCache)
+            );
         }
     }
 
@@ -91,8 +96,19 @@ export class SourceMapper {
         return result;
     }
 
-    private _findFunctionDeclarations(sourceFile: SourceFile, functionName: string): FunctionDeclaration[] {
+    private _findFunctionDeclarations(
+        sourceFile: SourceFile,
+        functionName: string,
+        recursiveDeclCache: Set<string>
+    ): FunctionDeclaration[] {
         const result: FunctionDeclaration[] = [];
+
+        const uniqueId = sourceFile.getFilePath() + functionName;
+        if (recursiveDeclCache.has(uniqueId)) {
+            return result;
+        }
+
+        recursiveDeclCache.add(uniqueId);
 
         const functionDecls = this._lookUpSymbolDeclarations(sourceFile.getParseResults()?.parseTree, functionName);
 
@@ -107,7 +123,7 @@ export class SourceMapper {
                 if (resolvedDecl) {
                     if (resolvedDecl.type === DeclarationType.Function) {
                         if (isStubFile(resolvedDecl.path)) {
-                            result.push(...this.findFunctionDeclarations(resolvedDecl));
+                            result.push(...this.findFunctionDeclarations(resolvedDecl, recursiveDeclCache));
                         } else {
                             result.push(resolvedDecl);
                         }
@@ -116,6 +132,7 @@ export class SourceMapper {
             }
         }
 
+        recursiveDeclCache.delete(uniqueId);
         return result;
     }
 
