@@ -1495,7 +1495,7 @@ export class Checker extends ParseTreeWalker {
             let isSupported = true;
 
             doForEachSubtype(type, (subtype) => {
-                subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype, /* convertConstraintsToUnion */ false);
+                subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
 
                 switch (subtype.category) {
                     case TypeCategory.Any:

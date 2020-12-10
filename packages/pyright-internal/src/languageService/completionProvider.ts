@@ -45,7 +45,6 @@ import {
     isModule,
     isNone,
     isObject,
-    isTypeVar,
     isUnbound,
     isUnknown,
     ObjectType,
@@ -902,27 +901,18 @@ export class CompletionProvider {
         let memberAccessInfo: MemberAccessInfo = {};
 
         if (leftType) {
-            if (isTypeVar(leftType)) {
-                // If the left is a constrained TypeVar, treat it as a union for the
-                // purposes of providing completion suggestions.
-                leftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType, /* convertConstraintsToUnion */ true);
-            }
+            leftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType);
 
             doForEachSubtype(leftType, (subtype) => {
-                const specializedSubtype = this._evaluator.makeTopLevelTypeVarsConcrete(
-                    subtype,
-                    /* convertConstraintsToUnion */ false
-                );
-
-                if (isObject(specializedSubtype)) {
-                    getMembersForClass(specializedSubtype.classType, symbolTable, /* includeInstanceVars */ true);
-                } else if (isClass(specializedSubtype)) {
-                    getMembersForClass(specializedSubtype, symbolTable, /* includeInstanceVars */ false);
-                } else if (isModule(specializedSubtype)) {
-                    getMembersForModule(specializedSubtype, symbolTable);
+                if (isObject(subtype)) {
+                    getMembersForClass(subtype.classType, symbolTable, /* includeInstanceVars */ true);
+                } else if (isClass(subtype)) {
+                    getMembersForClass(subtype, symbolTable, /* includeInstanceVars */ false);
+                } else if (isModule(subtype)) {
+                    getMembersForModule(subtype, symbolTable);
                 } else if (
-                    specializedSubtype.category === TypeCategory.Function ||
-                    specializedSubtype.category === TypeCategory.OverloadedFunction
+                    subtype.category === TypeCategory.Function ||
+                    subtype.category === TypeCategory.OverloadedFunction
                 ) {
                     const functionClass = this._evaluator.getBuiltInType(leftExprNode, 'function');
                     if (functionClass && isClass(functionClass)) {
@@ -936,10 +926,7 @@ export class CompletionProvider {
                 }
             });
 
-            const specializedLeftType = this._evaluator.makeTopLevelTypeVarsConcrete(
-                leftType,
-                /* convertConstraintsToUnion */ false
-            );
+            const specializedLeftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType);
             const objectThrough: ObjectType | undefined = isObject(specializedLeftType)
                 ? specializedLeftType
                 : undefined;

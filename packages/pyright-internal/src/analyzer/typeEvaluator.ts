@@ -498,7 +498,7 @@ export interface TypeEvaluator {
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     getScopeIdForNode: (node: ParseNode) => string;
-    makeTopLevelTypeVarsConcrete: (type: Type, convertConstraintsToUnion: boolean) => Type;
+    makeTopLevelTypeVarsConcrete: (type: Type) => Type;
 
     getEffectiveTypeOfSymbol: (symbol: Symbol) => Type;
     getFunctionDeclaredReturnType: (node: FunctionNode) => Type | undefined;

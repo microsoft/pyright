@@ -214,10 +214,7 @@ class FindOutgoingCallTreeWalker extends ParseTreeWalker {
                 let baseType = subtype;
 
                 // This could be a bound TypeVar (e.g. used for "self" and "cls").
-                baseType = this._evaluator.makeTopLevelTypeVarsConcrete(
-                    baseType,
-                    /* convertConstraintsToUnion */ false
-                );
+                baseType = this._evaluator.makeTopLevelTypeVarsConcrete(baseType);
 
                 if (!isObject(baseType)) {
                     return;
@@ -349,10 +346,7 @@ class FindIncomingCallTreeWalker extends ParseTreeWalker {
                     let baseType = subtype;
 
                     // This could be a bound TypeVar (e.g. used for "self" and "cls").
-                    baseType = this._evaluator.makeTopLevelTypeVarsConcrete(
-                        baseType,
-                        /* convertConstraintsToUnion */ false
-                    );
+                    baseType = this._evaluator.makeTopLevelTypeVarsConcrete(baseType);
 
                     if (!isObject(baseType)) {
                         return;
