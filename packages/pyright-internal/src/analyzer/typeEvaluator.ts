@@ -5050,6 +5050,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const functionArg: FunctionArgument = {
                 valueExpression: arg.valueExpression,
                 argumentCategory: arg.argumentCategory,
+                node: arg,
                 name: arg.name,
             };
             return functionArg;
@@ -6735,7 +6736,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         isParamSpec
                             ? Localizer.Diagnostic.paramSpecUnknownParam().format({ name: paramName })
                             : Localizer.Diagnostic.typeVarUnknownParam().format({ name: paramName }),
-                        argList[i].valueExpression || errorNode
+                        argList[i].node?.name || argList[i].valueExpression || errorNode
                     );
                 }
 
