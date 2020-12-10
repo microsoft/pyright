@@ -31,6 +31,7 @@ import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
     getDirectoryPath,
+    getFileExtension,
     getFileName,
     getRelativePath,
     makeDirectories,
@@ -1953,13 +1954,15 @@ export class Program {
 
                 importResult.filteredImplicitImports.forEach((implicitImport) => {
                     if (this._isImportAllowed(sourceFileInfo, importResult, implicitImport.isStubFile)) {
-                        const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
-                        newImportPathMap.set(normalizePathCase(this._fs, implicitImport.path), {
-                            path: implicitImport.path,
-                            isTypeshedFile: !!importResult.isTypeshedFile,
-                            isThirdPartyImport: thirdPartyTypeInfo.isThirdPartyImport,
-                            isPyTypedPresent: thirdPartyTypeInfo.isPyTypedPresent,
-                        });
+                        if (!implicitImport.isNativeLib) {
+                            const thirdPartyTypeInfo = getThirdPartyImportInfo(importResult);
+                            newImportPathMap.set(normalizePathCase(this._fs, implicitImport.path), {
+                                path: implicitImport.path,
+                                isTypeshedFile: !!importResult.isTypeshedFile,
+                                isThirdPartyImport: thirdPartyTypeInfo.isThirdPartyImport,
+                                isPyTypedPresent: thirdPartyTypeInfo.isPyTypedPresent,
+                            });
+                        }
                     }
                 });
             } else if (options.verboseOutput) {
@@ -2065,6 +2068,10 @@ export class Program {
 
     private _addToSourceFileListAndMap(fileInfo: SourceFileInfo) {
         const filePath = normalizePathCase(this._fs, fileInfo.sourceFile.getFilePath());
+
+        // All source files should be ".pyi" or ".py" files.
+        const fileExtension = getFileExtension(filePath).toLowerCase();
+        assert(fileExtension === '.py' || fileExtension === '.pyi');
 
         // We should never add a file with the same path twice.
         assert(!this._sourceFileMap.has(filePath));

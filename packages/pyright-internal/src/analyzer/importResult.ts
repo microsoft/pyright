@@ -15,6 +15,7 @@ export const enum ImportType {
 
 export interface ImplicitImport {
     isStubFile: boolean;
+    isNativeLib: boolean;
     name: string;
     path: string;
 }

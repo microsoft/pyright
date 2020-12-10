@@ -1337,6 +1337,7 @@ export class ImportResolver {
             if (!exclusions.find((exclusion) => exclusion === filePath)) {
                 const implicitImport: ImplicitImport = {
                     isStubFile: fileName.endsWith('.pyi'),
+                    isNativeLib,
                     name: strippedFileName,
                     path: filePath,
                 };
@@ -1379,6 +1380,7 @@ export class ImportResolver {
                 if (!exclusions.find((exclusion) => exclusion === path)) {
                     const implicitImport: ImplicitImport = {
                         isStubFile,
+                        isNativeLib: false,
                         name: dirName,
                         path,
                     };
