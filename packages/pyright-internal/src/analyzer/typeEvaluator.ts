@@ -6023,7 +6023,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         MemberAccessFlags.None
                     );
 
-                    if (memberType) {
+                    if (memberType && (isFunction(memberType) || isOverloadedFunction(memberType))) {
                         const functionResult = validateCallArguments(
                             errorNode,
                             argList,
