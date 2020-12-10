@@ -4718,7 +4718,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeArgs: TypeResult[] = [];
         const adjFlags = flags & ~EvaluatorFlags.ParamSpecDisallowed;
 
-        node.items.forEach((expr, index) => {
+        let items = node.items;
+
+        // A single tuple is treated the same as a list of items in the index.
+        if (items.length === 1 && items[0].nodeType === ParseNodeType.Tuple) {
+            items = items[0].expressions;
+        }
+
+        items.forEach((expr, index) => {
             // If it's a custom __class_getitem__, none of the arguments should be
             // treated as types. If it's an Annotated[a, b, c], only the first index
             // should be treated as a type. The others can be regular (non-type) objects.
