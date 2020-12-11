@@ -5010,42 +5010,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromCall(node: CallNode, expectedType: Type | undefined): TypeResult {
         const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
 
-        if (baseTypeResult.isIncomplete || isTypeAliasPlaceholder(baseTypeResult.type)) {
-            return {
-                node,
-                type: UnknownType.create(),
-                isIncomplete: true,
-            };
-        }
-
-        // Handle the built-in "super" call specially.
-        if (node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === 'super') {
-            return getTypeFromSuperCall(node);
-        }
-
-        // Handle the special-case "reveal_type" call.
-        if (
-            isAnyOrUnknown(baseTypeResult.type) &&
-            node.leftExpression.nodeType === ParseNodeType.Name &&
-            node.leftExpression.value === 'reveal_type' &&
-            node.arguments.length === 1 &&
-            node.arguments[0].argumentCategory === ArgumentCategory.Simple &&
-            node.arguments[0].name === undefined
-        ) {
-            const type = getTypeOfExpression(node.arguments[0].valueExpression).type;
-            const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
-            const typeString = printType(type);
-            addInformation(`Type of "${exprString}" is "${typeString}"`, node.arguments[0]);
-
-            // Return a literal string with the type. We can use this in unit tests
-            // to validate the exact type.
-            const strType = getBuiltInType(node, 'str');
-            if (isClass(strType)) {
-                return { type: ObjectType.create(ClassType.cloneWithLiteral(strType, typeString)), node };
-            }
-            return { type: AnyType.create(), node };
-        }
-
         const argList = node.arguments.map((arg) => {
             const functionArg: FunctionArgument = {
                 valueExpression: arg.valueExpression,
@@ -5056,16 +5020,53 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return functionArg;
         });
 
-        const callResult = validateCallArguments(
-            node,
-            argList,
-            baseTypeResult.type,
-            /* typeVarMap */ undefined,
-            /* skipUnknownArgCheck */ false,
-            expectedType
-        );
+        let returnResult: TypeResult = { node, type: UnknownType.create() };
 
-        return { node, type: callResult.returnType || UnknownType.create() };
+        if (!baseTypeResult.isIncomplete && !isTypeAliasPlaceholder(baseTypeResult.type)) {
+            if (node.leftExpression.nodeType === ParseNodeType.Name && node.leftExpression.value === 'super') {
+                // Handle the built-in "super" call specially.
+                returnResult = getTypeFromSuperCall(node);
+            } else if (
+                isAnyOrUnknown(baseTypeResult.type) &&
+                node.leftExpression.nodeType === ParseNodeType.Name &&
+                node.leftExpression.value === 'reveal_type' &&
+                node.arguments.length === 1 &&
+                node.arguments[0].argumentCategory === ArgumentCategory.Simple &&
+                node.arguments[0].name === undefined
+            ) {
+                // Handle the special-case "reveal_type" call.
+                const type = getTypeOfExpression(node.arguments[0].valueExpression).type;
+                const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
+                const typeString = printType(type);
+                addInformation(`Type of "${exprString}" is "${typeString}"`, node.arguments[0]);
+
+                // Return a literal string with the type. We can use this in unit tests
+                // to validate the exact type.
+                const strType = getBuiltInType(node, 'str');
+                if (isClass(strType)) {
+                    returnResult.type = ObjectType.create(ClassType.cloneWithLiteral(strType, typeString));
+                } else {
+                    returnResult.type = AnyType.create();
+                }
+            } else {
+                returnResult.type =
+                    validateCallArguments(
+                        node,
+                        argList,
+                        baseTypeResult.type,
+                        /* typeVarMap */ undefined,
+                        /* skipUnknownArgCheck */ false,
+                        expectedType
+                    ).returnType || UnknownType.create();
+            }
+        } else {
+            returnResult.isIncomplete = true;
+        }
+
+        // Touch all of the args so they're marked accessed even if there were errors.
+        argList.forEach((arg) => getTypeForArgument(arg));
+
+        return returnResult;
     }
 
     function getTypeFromSuperCall(node: CallNode): TypeResult {
@@ -6059,9 +6060,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
         });
-
-        // Touch all of the args so they're marked accessed even if there were errors.
-        argList.forEach((arg) => getTypeForArgument(arg));
 
         return { argumentErrors, returnType: isNever(returnType) ? undefined : returnType, overloadUsed };
     }
