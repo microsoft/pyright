@@ -907,6 +907,8 @@ export namespace FunctionType {
                 // Stash away the effective type of the first parameter.
                 newFunction.strippedFirstParamType = getEffectiveParameterType(type, 0);
                 newFunction.details.parameters = type.details.parameters.slice(1);
+            } else {
+                stripFirstParam = false;
             }
 
             // If we strip off the first parameter, this is no longer an
@@ -1101,6 +1103,7 @@ export namespace FunctionType {
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {
         assert(index < type.details.parameters.length);
         if (type.specializedTypes) {
+            assert(index < type.specializedTypes.parameterTypes.length);
             return type.specializedTypes.parameterTypes[index];
         }
 
