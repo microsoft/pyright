@@ -11,6 +11,7 @@ import {
     CodeActionParams,
     Command,
     ExecuteCommandParams,
+    WorkDoneProgressServerReporter,
 } from 'vscode-languageserver/node';
 import { isMainThread } from 'worker_threads';
 
@@ -33,6 +34,8 @@ import {
 import { CodeActionProvider } from './languageService/codeActionProvider';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
+
+let _workDoneProgress: Promise<WorkDoneProgressServerReporter> | undefined;
 
 class PyrightServer extends LanguageServerBase {
     private _controller: CommandController;
@@ -203,15 +206,27 @@ function reporterFactory(connection: ProgressReporterConnection): ProgressReport
         },
 
         begin(): void {
-            connection.sendNotification('pyright/beginProgress');
+            _workDoneProgress = connection.window.createWorkDoneProgress();
+            _workDoneProgress.then((progress) => {
+                progress.begin('');
+            });
         },
 
         report(message: string): void {
-            connection.sendNotification('pyright/reportProgress', message);
+            if (_workDoneProgress) {
+                _workDoneProgress.then((progress) => {
+                    progress.report(message);
+                });
+            }
         },
 
         end(): void {
-            connection.sendNotification('pyright/endProgress');
+            if (_workDoneProgress) {
+                _workDoneProgress.then((progress) => {
+                    progress.done();
+                });
+            }
+            _workDoneProgress = undefined;
         },
     };
 }

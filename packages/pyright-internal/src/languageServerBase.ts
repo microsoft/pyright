@@ -139,6 +139,7 @@ export interface LanguageServerInterface {
 // in the public interface.
 export interface ProgressReporterConnection {
     sendNotification: (method: string, params?: any) => void;
+    window: RemoteWindow;
 }
 
 export interface ServerOptions {
