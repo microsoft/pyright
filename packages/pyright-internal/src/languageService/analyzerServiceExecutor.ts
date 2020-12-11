@@ -110,6 +110,10 @@ function _expandPathVariables(rootPath: string, value: string): string {
         if (trimmedName === 'workspaceFolder') {
             return rootPath;
         }
+        if (trimmedName === 'env:HOME' && process.env.HOME !== undefined) {
+            return process.env.HOME;
+        }
+
         return match;
     });
 }
