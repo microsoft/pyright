@@ -15274,7 +15274,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 destTypeArg,
                                 assignmentDiag,
                                 typeVarMap,
-                                flags | CanAssignFlags.ReverseTypeVarMatching,
+                                flags ^ CanAssignFlags.ReverseTypeVarMatching,
                                 recursionCount + 1
                             )
                         ) {
@@ -15585,12 +15585,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        // Strip the ReverseTypeVarMatching from the incoming flags.
+        // Strip the AllowTypeVarNarrowing from the incoming flags.
         // We don't want to propagate this flag to any nested calls to
         // canAssignType.
-        const reverseTypeVarMatching = (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0;
         const canNarrowType = (flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0;
-        flags &= ~(CanAssignFlags.ReverseTypeVarMatching | CanAssignFlags.AllowTypeVarNarrowing);
+        flags &= ~CanAssignFlags.AllowTypeVarNarrowing;
 
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
@@ -15636,7 +15635,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isTypeVar(srcType)) {
                     return true;
                 }
-            } else if (!reverseTypeVarMatching) {
+            } else if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0) {
                 return assignTypeToTypeVar(
                     destType,
                     srcType,
@@ -15688,7 +15687,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     return false;
                 }
-            } else if (reverseTypeVarMatching) {
+            } else if ((flags & CanAssignFlags.ReverseTypeVarMatching) !== 0) {
                 return assignTypeToTypeVar(
                     srcType,
                     destType,
@@ -16247,7 +16246,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             destType,
             new DiagnosticAddendum(),
             destTypeVarMap,
-            flags | CanAssignFlags.ReverseTypeVarMatching,
+            flags ^ CanAssignFlags.ReverseTypeVarMatching,
             recursionCount + 1
         );
 
