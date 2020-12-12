@@ -1073,7 +1073,7 @@ test('ParamSpec4', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec4.py'], configOptions);
-    TestUtils.validateResults(results, 5);
+    TestUtils.validateResults(results, 5, 2);
 });
 
 test('ParamSpec5', () => {
@@ -1135,7 +1135,7 @@ test('TypeVar6', () => {
 test('TypeVar7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar7.py']);
 
-    TestUtils.validateResults(analysisResults, 22);
+    TestUtils.validateResults(analysisResults, 22, 2);
 });
 
 test('TypeVar8', () => {
