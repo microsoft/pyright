@@ -35,8 +35,6 @@ import { CodeActionProvider } from './languageService/codeActionProvider';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
 
-let _workDoneProgress: Promise<WorkDoneProgressServerReporter> | undefined;
-
 class PyrightServer extends LanguageServerBase {
     private _controller: CommandController;
 
@@ -200,33 +198,35 @@ class PyrightServer extends LanguageServerBase {
 }
 
 function reporterFactory(connection: ProgressReporterConnection): ProgressReporter {
+    let workDoneProgress: Promise<WorkDoneProgressServerReporter> | undefined;
+
     return {
         isEnabled(data: AnalysisResults): boolean {
             return true;
         },
 
         begin(): void {
-            _workDoneProgress = connection.window.createWorkDoneProgress();
-            _workDoneProgress.then((progress) => {
+            workDoneProgress = connection.window.createWorkDoneProgress();
+            workDoneProgress.then((progress) => {
                 progress.begin('');
             });
         },
 
         report(message: string): void {
-            if (_workDoneProgress) {
-                _workDoneProgress.then((progress) => {
+            if (workDoneProgress) {
+                workDoneProgress.then((progress) => {
                     progress.report(message);
                 });
             }
         },
 
         end(): void {
-            if (_workDoneProgress) {
-                _workDoneProgress.then((progress) => {
+            if (workDoneProgress) {
+                workDoneProgress.then((progress) => {
                     progress.done();
                 });
             }
-            _workDoneProgress = undefined;
+            workDoneProgress = undefined;
         },
     };
 }
