@@ -327,6 +327,12 @@
       "title": "Controls reporting generic class reference with missing type arguments",
       "default": "none"
     },
+    "reportInvalidTypeVarUse": {
+      "$id": "#/properties/reportInvalidTypeVarUse",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting improper use of type variables within function signatures",
+      "default": "warning"
+    },
     "reportCallInDefaultInitializer": {
       "$id": "#/properties/reportCallInDefaultInitializer",
       "$ref": "#/definitions/diagnostic",
