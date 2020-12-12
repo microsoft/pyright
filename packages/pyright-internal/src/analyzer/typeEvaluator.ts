@@ -173,7 +173,6 @@ import {
     applySolvedTypeVars,
     areTypesSame,
     buildTypeVarMapFromSpecializedClass,
-    buildTypeVarMapFromType,
     CanAssignFlags,
     canBeFalsy,
     canBeTruthy,
@@ -10376,7 +10375,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // that the default value matches the annotation.
                 if (param.defaultValue && defaultValueType) {
                     const diagAddendum = new DiagnosticAddendum();
-                    const typeVarMap = buildTypeVarMapFromType(annotatedType);
+                    const typeVarMap = new TypeVarMap(functionType.details.typeVarScopeId);
                     if (!canAssignType(annotatedType, defaultValueType, diagAddendum, typeVarMap)) {
                         const diag = addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -16266,7 +16265,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             diag.addMessage(
                 Localizer.DiagnosticAddendum.paramAssignment().format({
                     index: paramIndex + 1,
-                    sourceType: printType(specializedDestType),
+                    sourceType: printType(destType),
                     destType: printType(srcType),
                 })
             );
@@ -16312,7 +16311,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destPositionals = destPositionals.filter((p) => p.category === ParameterCategory.Simple && p.name);
 
         const positionalsToMatch = Math.min(srcPositionals.length, destPositionals.length);
-        const srcTypeVarMap = buildTypeVarMapFromType(srcType);
+        const srcTypeVarMap = new TypeVarMap(getTypeVarScopeId(srcType));
 
         if (!FunctionType.shouldSkipParamCompatibilityCheck(destType)) {
             // Match positional parameters.
