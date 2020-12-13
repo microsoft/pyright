@@ -15,10 +15,12 @@ _TAnything = TypeVar("_TAnything")
 class Bar(Generic[_TFoo, _TAnything]):
     def __init__(
         self,
+        # This should generate an error.
         p1: Type[_TFoo] = Foo,
         p2: List[_TAnything] = [],
         # This should generate an error.
-        p3: List[_TFoo] = [2, 3],
-        p4: List[_TAnything] = [2, 3],
+        p3: List[_TFoo] = [2],
+        # This should generate an error.
+        p4: List[_TAnything] = [2],
     ):
         pass

@@ -330,7 +330,7 @@ test('GenericTypes18', () => {
 test('GenericTypes19', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes19.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('GenericTypes20', () => {
@@ -484,7 +484,7 @@ test('GenericTypes42', () => {
 test('GenericTypes43', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes43.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('GenericTypes44', () => {
@@ -995,6 +995,12 @@ test('Callable2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callable2.py']);
 
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('Callable3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callable3.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('ThreePartVersion1', () => {

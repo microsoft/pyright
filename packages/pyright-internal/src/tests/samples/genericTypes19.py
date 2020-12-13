@@ -12,6 +12,7 @@ _A = TypeVar('_A')
 _B = TypeVar('_B')
 
 class Foo(Generic[_A, _B]):
+    # This should generate an error because "hello" isn't compatible with "_B".
     def __init__(self, a: _A, b: _B = 'hello'):
         self._foo_a = a
         self._foo_b = b

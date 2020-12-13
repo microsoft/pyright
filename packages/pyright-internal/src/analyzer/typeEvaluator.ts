@@ -173,7 +173,6 @@ import {
     applySolvedTypeVars,
     areTypesSame,
     buildTypeVarMapFromSpecializedClass,
-    buildTypeVarMapFromType,
     CanAssignFlags,
     canBeFalsy,
     canBeTruthy,
@@ -10376,7 +10375,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // that the default value matches the annotation.
                 if (param.defaultValue && defaultValueType) {
                     const diagAddendum = new DiagnosticAddendum();
-                    const typeVarMap = buildTypeVarMapFromType(annotatedType);
+                    const typeVarMap = new TypeVarMap(functionType.details.typeVarScopeId);
                     if (!canAssignType(annotatedType, defaultValueType, diagAddendum, typeVarMap)) {
                         const diag = addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -15274,7 +15273,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 destTypeArg,
                                 assignmentDiag,
                                 typeVarMap,
-                                flags | CanAssignFlags.ReverseTypeVarMatching,
+                                flags ^ CanAssignFlags.ReverseTypeVarMatching,
                                 recursionCount + 1
                             )
                         ) {
@@ -15585,12 +15584,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        // Strip the ReverseTypeVarMatching from the incoming flags.
+        // Strip the AllowTypeVarNarrowing from the incoming flags.
         // We don't want to propagate this flag to any nested calls to
         // canAssignType.
-        const reverseTypeVarMatching = (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0;
         const canNarrowType = (flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0;
-        flags &= ~(CanAssignFlags.ReverseTypeVarMatching | CanAssignFlags.AllowTypeVarNarrowing);
+        flags &= ~CanAssignFlags.AllowTypeVarNarrowing;
 
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
@@ -15636,7 +15634,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isTypeVar(srcType)) {
                     return true;
                 }
-            } else if (!reverseTypeVarMatching) {
+            } else if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0) {
                 return assignTypeToTypeVar(
                     destType,
                     srcType,
@@ -15688,7 +15686,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     return false;
                 }
-            } else if (reverseTypeVarMatching) {
+            } else if ((flags & CanAssignFlags.ReverseTypeVarMatching) !== 0) {
                 return assignTypeToTypeVar(
                     srcType,
                     destType,
@@ -16247,7 +16245,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             destType,
             new DiagnosticAddendum(),
             destTypeVarMap,
-            flags | CanAssignFlags.ReverseTypeVarMatching,
+            flags ^ CanAssignFlags.ReverseTypeVarMatching,
             recursionCount + 1
         );
 
@@ -16267,7 +16265,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             diag.addMessage(
                 Localizer.DiagnosticAddendum.paramAssignment().format({
                     index: paramIndex + 1,
-                    sourceType: printType(specializedDestType),
+                    sourceType: printType(destType),
                     destType: printType(srcType),
                 })
             );
@@ -16313,7 +16311,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destPositionals = destPositionals.filter((p) => p.category === ParameterCategory.Simple && p.name);
 
         const positionalsToMatch = Math.min(srcPositionals.length, destPositionals.length);
-        const srcTypeVarMap = buildTypeVarMapFromType(srcType);
+        const srcTypeVarMap = new TypeVarMap(getTypeVarScopeId(srcType));
 
         if (!FunctionType.shouldSkipParamCompatibilityCheck(destType)) {
             // Match positional parameters.
@@ -17255,6 +17253,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (firstParamType && memberType.details.parameters.length > 0) {
             const firstParam = memberType.details.parameters[0];
 
+            // If the type has a literal associated with it, strip it now. This
+            // is needed to handle generic functions in the enum.Flag class.
+            const nonLiteralFirstParamType = stripLiteralValue(firstParamType);
+
             // Fill out the typeVarMap for the "self" or "cls" parameter.
             typeVarMap.addSolveForScope(getTypeVarScopeId(memberType));
             const diag = new DiagnosticAddendum();
@@ -17269,9 +17271,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // we attempt to call canAssignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
                 if (!typeVarMap.isLocked()) {
-                    typeVarMap.setTypeVar(firstParam.type, firstParamType, /* isNarrowable */ false);
+                    typeVarMap.setTypeVar(firstParam.type, nonLiteralFirstParamType, /* isNarrowable */ false);
                 }
-            } else if (!canAssignType(firstParam.type, firstParamType, diag, typeVarMap)) {
+            } else if (!canAssignType(firstParam.type, nonLiteralFirstParamType, diag, typeVarMap)) {
                 if (firstParam.name && !firstParam.isNameSynthesized && firstParam.hasDeclaredType) {
                     if (errorNode) {
                         addDiagnostic(
