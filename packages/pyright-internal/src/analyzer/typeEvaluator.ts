@@ -17253,6 +17253,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (firstParamType && memberType.details.parameters.length > 0) {
             const firstParam = memberType.details.parameters[0];
 
+            // If the type has a literal associated with it, strip it now. This
+            // is needed to handle generic functions in the enum.Flag class.
+            const nonLiteralFirstParamType = stripLiteralValue(firstParamType);
+
             // Fill out the typeVarMap for the "self" or "cls" parameter.
             typeVarMap.addSolveForScope(getTypeVarScopeId(memberType));
             const diag = new DiagnosticAddendum();
@@ -17267,9 +17271,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // we attempt to call canAssignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
                 if (!typeVarMap.isLocked()) {
-                    typeVarMap.setTypeVar(firstParam.type, firstParamType, /* isNarrowable */ false);
+                    typeVarMap.setTypeVar(firstParam.type, nonLiteralFirstParamType, /* isNarrowable */ false);
                 }
-            } else if (!canAssignType(firstParam.type, firstParamType, diag, typeVarMap)) {
+            } else if (!canAssignType(firstParam.type, nonLiteralFirstParamType, diag, typeVarMap)) {
                 if (firstParam.name && !firstParam.isNameSynthesized && firstParam.hasDeclaredType) {
                     if (errorNode) {
                         addDiagnostic(
