@@ -996,19 +996,6 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
     }
 }
 
-// Builds a new TypeVarMap and adds the TypeVar scopes for all TypeVars
-// that are used within the type.
-export function buildTypeVarMapFromType(type: Type): TypeVarMap {
-    const typeVarMap = new TypeVarMap();
-    const typeVars = getTypeVarArgumentsRecursive(type);
-    typeVars.forEach((typeVar) => {
-        if (typeVar.scopeId) {
-            typeVarMap.addSolveForScope(typeVar.scopeId);
-        }
-    });
-    return typeVarMap;
-}
-
 // Builds a mapping between type parameters and their specialized
 // types. For example, if the generic type is Dict[_T1, _T2] and the
 // specialized type is Dict[str, int], it returns a map that associates
