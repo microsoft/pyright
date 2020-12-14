@@ -35,7 +35,7 @@ def get_type_of_object(object: Union[Callable[..., Any], CustomClass]):
 _T = TypeVar("_T", bound=CustomClass)
 
 
-def func(cls: Type[_T]):
+def func(cls: Type[_T], val: _T):
     if issubclass(cls, CustomClass):
         t1: Literal["Type[CustomClass]"] = reveal_type(cls)
     else:

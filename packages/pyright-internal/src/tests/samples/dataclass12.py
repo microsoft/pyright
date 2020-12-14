@@ -21,12 +21,12 @@ class MapTreeNode(MapTreeLeaf[Key1, Value]):
     pass
 
 
-def add(key: Key2, value: Value):
-    return MapTreeNode(key=key, value=value)
+class Foo(Generic[Key2, Value]):
+    def add(self, key: Key2, value: Value):
+        return MapTreeNode(key=key, value=value)
 
-
-def test1(a: int, b: str):
-    v1 = add(a, b)
-    t1: Literal["MapTreeNode[int, str]"] = reveal_type(v1)
-    t1_key: Literal["int"] = reveal_type(v1.key)
-    t1_value: Literal["str"] = reveal_type(v1.value)
+    def test1(self, a: int, b: str):
+        v1 = self.add(a, b)
+        t1: Literal["MapTreeNode[int, str]"] = reveal_type(v1)
+        t1_key: Literal["int"] = reveal_type(v1.key)
+        t1_value: Literal["str"] = reveal_type(v1.value)

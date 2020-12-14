@@ -488,6 +488,17 @@
                                 "error"
                             ]
                         },
+                        "reportInvalidTypeVarUse": {
+                            "type": "string",
+                            "description": "Diagnostics for improper use of type variables in a function signature.",
+                            "default": "warning",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportCallInDefaultInitializer": {
                             "type": "string",
                             "description": "Diagnostics for function calls within a default value initialization expression. Such calls can mask expensive operations that are performed at module initialization time.",

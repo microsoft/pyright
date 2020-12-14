@@ -14,7 +14,7 @@ t2: Literal["list[Unknown]"] = reveal_type(val2)
 _T = TypeVar("_T")
 
 
-def foo(value: Type[_T]) -> None:
+def foo(value: Type[_T], b: _T) -> None:
     val1: "DefaultDict[str, list[_T]]" = defaultdict(list)
     t1: Literal["defaultdict[str, list[_T]]"] = reveal_type(val1)
 

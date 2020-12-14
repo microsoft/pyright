@@ -195,6 +195,9 @@ export interface DiagnosticRuleSet {
     // Report usage of generic class without explicit type arguments?
     reportMissingTypeArgument: DiagnosticLevel;
 
+    // Report improper usage of type variables within function signatures?
+    reportInvalidTypeVarUse: DiagnosticLevel;
+
     // Report usage of function call within default value
     // initialization expression?
     reportCallInDefaultInitializer: DiagnosticLevel;
@@ -289,6 +292,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUnknownVariableType,
         DiagnosticRule.reportUnknownMemberType,
         DiagnosticRule.reportMissingTypeArgument,
+        DiagnosticRule.reportInvalidTypeVarUse,
         DiagnosticRule.reportCallInDefaultInitializer,
         DiagnosticRule.reportUnnecessaryIsInstance,
         DiagnosticRule.reportUnnecessaryCast,
@@ -353,6 +357,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnknownVariableType: 'none',
         reportUnknownMemberType: 'none',
         reportMissingTypeArgument: 'none',
+        reportInvalidTypeVarUse: 'none',
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
@@ -413,6 +418,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnknownVariableType: 'none',
         reportUnknownMemberType: 'none',
         reportMissingTypeArgument: 'none',
+        reportInvalidTypeVarUse: 'warning',
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
@@ -473,6 +479,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnknownVariableType: 'error',
         reportUnknownMemberType: 'error',
         reportMissingTypeArgument: 'error',
+        reportInvalidTypeVarUse: 'error',
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'error',
         reportUnnecessaryCast: 'error',
@@ -1048,6 +1055,13 @@ export class ConfigOptions {
                 configObj.reportMissingTypeArgument,
                 DiagnosticRule.reportMissingTypeArgument,
                 defaultSettings.reportMissingTypeArgument
+            ),
+
+            // Read the "reportInvalidTypeVarUse" entry.
+            reportInvalidTypeVarUse: this._convertDiagnosticLevel(
+                configObj.reportInvalidTypeVarUse,
+                DiagnosticRule.reportInvalidTypeVarUse,
+                defaultSettings.reportInvalidTypeVarUse
             ),
 
             // Read the "reportCallInDefaultInitializer" entry.

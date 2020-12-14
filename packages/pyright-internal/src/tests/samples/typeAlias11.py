@@ -40,7 +40,7 @@ HttpHandler = Callable[
 
 async def run_async(
     ctx: Context[TSource],
-    handler: HttpHandler[TNext, TResult, TError, TSource],
+    handler: HttpHandler[str, TResult, TError, TSource],
 ) -> Result[TResult, TError]:
     result = Result[TResult, TError]()
 

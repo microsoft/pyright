@@ -39,7 +39,7 @@ _T1 = TypeVar("_T1", Foo, Bar)
 _T2 = TypeVar("_T2", Foo, Bar, str)
 
 
-class ClassA(Generic[_T1]):
+class ClassA(Generic[_T1, _T2]):
     async def func1(self, a: _T1) -> _T1:
         _ = a.var1
 

@@ -9,7 +9,7 @@ _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
 
 
-class ClassA(Generic[_T1]):
+class ClassA(Generic[_T1, _T2]):
     async def func1(self, a: _T1):
         # This should generate an error.
         _ = a.temp
