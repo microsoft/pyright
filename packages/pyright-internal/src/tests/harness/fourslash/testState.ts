@@ -39,6 +39,7 @@ import {
     comparePaths,
     convertPathToUri,
     getBaseFileName,
+    getFileExtension,
     normalizePath,
     normalizeSlashes,
 } from '../../../common/pathUtils';
@@ -1515,7 +1516,12 @@ export class TestState {
 
         // directly set files to track rather than using fileSpec from config
         // to discover those files from file system
-        service.test_program.setTrackedFiles(this._files);
+        service.test_program.setTrackedFiles(
+            this._files.filter((path) => {
+                const fileExtension = getFileExtension(path).toLowerCase();
+                return fileExtension === '.py' || fileExtension === '.pyi';
+            })
+        );
 
         return service;
     }

@@ -15,14 +15,14 @@ export class ProgressReportTracker implements ProgressReporter {
     // Tracks whether we're currently displaying progress.
     private _isDisplayingProgress = false;
 
-    constructor(private _reporter?: ProgressReporter) {}
+    constructor(private _reporter: ProgressReporter) {}
 
     isEnabled(data: any): boolean {
         if (this._isDisplayingProgress) {
             return true;
         }
 
-        return this._reporter?.isEnabled(data) ?? false;
+        return this._reporter.isEnabled(data) ?? false;
     }
 
     begin(): void {
@@ -31,7 +31,7 @@ export class ProgressReportTracker implements ProgressReporter {
         }
 
         this._isDisplayingProgress = true;
-        this._reporter?.begin();
+        this._reporter.begin();
     }
 
     report(message: string): void {
@@ -39,7 +39,7 @@ export class ProgressReportTracker implements ProgressReporter {
             return;
         }
 
-        this._reporter?.report(message);
+        this._reporter.report(message);
     }
 
     end(): void {
@@ -48,6 +48,6 @@ export class ProgressReportTracker implements ProgressReporter {
         }
 
         this._isDisplayingProgress = false;
-        this._reporter?.end();
+        this._reporter.end();
     }
 }

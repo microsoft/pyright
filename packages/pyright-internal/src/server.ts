@@ -11,6 +11,7 @@ import {
     CodeActionParams,
     Command,
     ExecuteCommandParams,
+    WorkDoneProgressServerReporter,
 } from 'vscode-languageserver/node';
 import { isMainThread } from 'worker_threads';
 
@@ -24,12 +25,7 @@ import { LogLevel } from './common/console';
 import { isDebugMode, isString } from './common/core';
 import { convertUriToPath, resolvePaths } from './common/pathUtils';
 import { ProgressReporter } from './common/progressReporter';
-import {
-    LanguageServerBase,
-    ProgressReporterConnection,
-    ServerSettings,
-    WorkspaceServiceInstance,
-} from './languageServerBase';
+import { LanguageServerBase, ServerSettings, WorkspaceServiceInstance } from './languageServerBase';
 import { CodeActionProvider } from './languageService/codeActionProvider';
 
 const maxAnalysisTimeInForeground = { openFilesTimeInMs: 50, noOpenFilesTimeInMs: 200 };
@@ -50,7 +46,6 @@ class PyrightServer extends LanguageServerBase {
             rootDirectory,
             version,
             maxAnalysisTimeInForeground,
-            progressReporterFactory: reporterFactory,
             supportedCodeActions: [CodeActionKind.QuickFix, CodeActionKind.SourceOrganizeImports],
         });
 
@@ -194,26 +189,51 @@ class PyrightServer extends LanguageServerBase {
         const workspace = await this.getWorkspaceForFile(filePath);
         return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range, token);
     }
-}
 
-function reporterFactory(connection: ProgressReporterConnection): ProgressReporter {
-    return {
-        isEnabled(data: AnalysisResults): boolean {
-            return true;
-        },
+    protected createProgressReporter(): ProgressReporter {
+        // The old progress notifications are kept for backwards compatiblity with
+        // clients that do not support work done progress.
 
-        begin(): void {
-            connection.sendNotification('pyright/beginProgress');
-        },
-
-        report(message: string): void {
-            connection.sendNotification('pyright/reportProgress', message);
-        },
-
-        end(): void {
-            connection.sendNotification('pyright/endProgress');
-        },
-    };
+        let workDoneProgress: Promise<WorkDoneProgressServerReporter> | undefined;
+        return {
+            isEnabled: (data: AnalysisResults) => true,
+            begin: () => {
+                if (this._hasWindowProgressCapability) {
+                    workDoneProgress = this._connection.window.createWorkDoneProgress();
+                    workDoneProgress
+                        .then((progress) => {
+                            progress.begin('');
+                        })
+                        .ignoreErrors();
+                } else {
+                    this._connection.sendNotification('pyright/beginProgress');
+                }
+            },
+            report: (message: string) => {
+                if (workDoneProgress) {
+                    workDoneProgress
+                        .then((progress) => {
+                            progress.report(message);
+                        })
+                        .ignoreErrors();
+                } else {
+                    this._connection.sendNotification('pyright/reportProgress', message);
+                }
+            },
+            end: () => {
+                if (workDoneProgress) {
+                    workDoneProgress
+                        .then((progress) => {
+                            progress.done();
+                        })
+                        .ignoreErrors();
+                    workDoneProgress = undefined;
+                } else {
+                    this._connection.sendNotification('pyright/endProgress');
+                }
+            },
+        };
+    }
 }
 
 export function main() {
