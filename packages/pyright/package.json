@@ -23,14 +23,14 @@
         "webpack": "webpack --mode development --progress"
     },
     "devDependencies": {
-        "@types/node": "^12.19.4",
+        "@types/node": "^12.19.9",
         "clean-webpack-plugin": "^3.0.0",
-        "copy-webpack-plugin": "^6.3.1",
+        "copy-webpack-plugin": "^7.0.0",
         "shx": "^0.3.3",
-        "ts-loader": "^8.0.11",
+        "ts-loader": "^8.0.12",
         "tsconfig-paths-webpack-plugin": "^3.3.0",
-        "typescript": "^4.0.5",
-        "webpack": "^5.4.0",
+        "typescript": "^4.1.3",
+        "webpack": "^5.10.1",
         "webpack-cli": "^4.2.0"
     },
     "files": [

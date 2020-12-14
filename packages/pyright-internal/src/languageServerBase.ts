@@ -135,12 +135,6 @@ export interface LanguageServerInterface {
     readonly fs: FileSystem;
 }
 
-// This is a subset of the LSP Connection, defined to not expose the LSP library
-// in the public interface.
-export interface ProgressReporterConnection {
-    sendNotification: (method: string, params?: any) => void;
-}
-
 export interface ServerOptions {
     productName: string;
     rootDirectory: string;
@@ -149,7 +143,6 @@ export interface ServerOptions {
     maxAnalysisTimeInForeground?: MaxAnalysisTime;
     supportedCommands?: string[];
     supportedCodeActions?: string[];
-    progressReporterFactory?: (connection: ProgressReporterConnection) => ProgressReporter;
 }
 
 interface InternalFileWatcher extends FileWatcher {
@@ -171,6 +164,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _hasActiveParameterCapability = false;
     protected _hasSignatureLabelOffsetCapability = false;
     protected _hasHierarchicalDocumentSymbolCapability = false;
+    protected _hasWindowProgressCapability = false;
     protected _hoverContentFormat: MarkupKind = MarkupKind.PlainText;
     protected _completionDocFormat: MarkupKind = MarkupKind.PlainText;
     protected _signatureDocFormat: MarkupKind = MarkupKind.PlainText;
@@ -227,11 +221,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // Set up callbacks.
         this.setupConnection(_serverOptions.supportedCommands ?? [], _serverOptions.supportedCodeActions ?? []);
 
-        this._progressReporter = new ProgressReportTracker(
-            this._serverOptions.progressReporterFactory
-                ? this._serverOptions.progressReporterFactory(this._connection)
-                : undefined
-        );
+        this._progressReporter = new ProgressReportTracker(this.createProgressReporter());
 
         // Listen on the connection.
         this._connection.listen();
@@ -944,6 +934,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._supportsUnnecessaryDiagnosticTag = supportedDiagnosticTags.some(
             (tag) => tag === DiagnosticTag.Unnecessary
         );
+        this._hasWindowProgressCapability = !!capabilities.window?.workDoneProgress;
 
         // Create a service instance for each of the workspace folders.
         if (params.workspaceFolders) {
@@ -1234,4 +1225,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         // in the future.
         return 'https://github.com/microsoft/pyright/blob/master/docs/configuration.md';
     }
+
+    protected abstract createProgressReporter(): ProgressReporter;
 }

@@ -22,7 +22,7 @@ import { OperationCanceledException, throwIfCancellationRequested } from '../com
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { isDebugMode } from '../common/core';
-import { assert } from '../common/debug';
+import { assert, fail } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
@@ -2071,7 +2071,9 @@ export class Program {
 
         // All source files should be ".pyi" or ".py" files.
         const fileExtension = getFileExtension(filePath).toLowerCase();
-        assert(fileExtension === '.py' || fileExtension === '.pyi');
+        if (fileExtension !== '.py' && fileExtension !== '.pyi') {
+            fail(`${filePath} is not a source file`);
+        }
 
         // We should never add a file with the same path twice.
         assert(!this._sourceFileMap.has(filePath));

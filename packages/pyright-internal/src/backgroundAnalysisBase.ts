@@ -6,8 +6,8 @@
  * run analyzer from background thread
  */
 
-import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { CancellationToken } from 'vscode-languageserver/node';
+import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 import { MessageChannel, MessagePort, parentPort, threadId, Worker, workerData } from 'worker_threads';
 
 import { AnalysisCompleteCallback, AnalysisResults, analyzeProgram, nullCallback } from './analyzer/analysis';
