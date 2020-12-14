@@ -10,7 +10,6 @@ from typing import (
     Mapping,
     NamedTuple,
     Optional,
-    Protocol,
     Sequence,
     Tuple,
     Type,

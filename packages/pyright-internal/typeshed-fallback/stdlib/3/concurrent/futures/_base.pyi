@@ -2,7 +2,6 @@ import sys
 import threading
 from abc import abstractmethod
 from logging import Logger
-from types import TracebackType
 from typing import (
     Any,
     Callable,

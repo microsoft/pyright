@@ -1,5 +1,5 @@
 from distutils.config import PyPIRCCommand
-from typing import ClassVar, List, Optional, Tuple
+from typing import ClassVar, List
 
 class upload(PyPIRCCommand):
     description: ClassVar[str]

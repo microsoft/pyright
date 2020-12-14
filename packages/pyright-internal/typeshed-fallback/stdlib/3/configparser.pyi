@@ -20,6 +20,7 @@ from typing import (
     Union,
     overload,
 )
+from typing_extensions import Literal
 
 # Internal type aliases
 _section = Mapping[str, str]
@@ -58,6 +59,23 @@ class RawConfigParser(_parser):
 
     BOOLEAN_STATES: ClassVar[Mapping[str, bool]] = ...  # Undocumented
     default_section: str
+    @overload
+    def __init__(
+        self,
+        defaults: Optional[Mapping[str, Optional[str]]] = ...,
+        dict_type: Type[Mapping[str, str]] = ...,
+        allow_no_value: Literal[True] = ...,
+        *,
+        delimiters: Sequence[str] = ...,
+        comment_prefixes: Sequence[str] = ...,
+        inline_comment_prefixes: Optional[Sequence[str]] = ...,
+        strict: bool = ...,
+        empty_lines_in_values: bool = ...,
+        default_section: str = ...,
+        interpolation: Optional[Interpolation] = ...,
+        converters: _converters = ...,
+    ) -> None: ...
+    @overload
     def __init__(
         self,
         defaults: Optional[_section] = ...,
