@@ -74,7 +74,7 @@ import {
     FileWatcherEventHandler,
     FileWatcherEventType,
 } from './common/fileSystem';
-import { containsPath, convertPathToUri, convertUriToPath } from './common/pathUtils';
+import { containsPath, convertPathToUri, convertUriToPath, getFileExtension } from './common/pathUtils';
 import { ProgressReporter, ProgressReportTracker } from './common/progressReporter';
 import { convertWorkspaceEdits } from './common/textEditUtils';
 import { DocumentRange, Position } from './common/textRange';
@@ -776,7 +776,13 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._connection.onDidOpenTextDocument(async (params) => {
             const filePath = convertUriToPath(params.textDocument.uri);
             const workspace = await this.getWorkspaceForFile(filePath);
-            workspace.serviceInstance.setFileOpened(filePath, params.textDocument.version, params.textDocument.text);
+            if (this._isSupportedSourceFileType(filePath)) {
+                workspace.serviceInstance.setFileOpened(
+                    filePath,
+                    params.textDocument.version,
+                    params.textDocument.text
+                );
+            }
         });
 
         this._connection.onDidChangeTextDocument(async (params) => {
@@ -784,17 +790,21 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
             const filePath = convertUriToPath(params.textDocument.uri);
             const workspace = await this.getWorkspaceForFile(filePath);
-            workspace.serviceInstance.updateOpenFileContents(
-                filePath,
-                params.textDocument.version,
-                params.contentChanges
-            );
+            if (this._isSupportedSourceFileType(filePath)) {
+                workspace.serviceInstance.updateOpenFileContents(
+                    filePath,
+                    params.textDocument.version,
+                    params.contentChanges
+                );
+            }
         });
 
         this._connection.onDidCloseTextDocument(async (params) => {
             const filePath = convertUriToPath(params.textDocument.uri);
             const workspace = await this.getWorkspaceForFile(filePath);
-            workspace.serviceInstance.setFileClosed(filePath);
+            if (this._isSupportedSourceFileType(filePath)) {
+                workspace.serviceInstance.setFileClosed(filePath);
+            }
         });
 
         this._connection.onDidChangeWatchedFiles((params) => {
@@ -1119,6 +1129,15 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             default:
                 return LogLevel.Info;
         }
+    }
+
+    private _isSupportedSourceFileType(filePath: string) {
+        // The language server assumes that all source files are either ".py"
+        // or ".pyi" files. We don't want to attempt to parse other files
+        // (like binaries, etc.). And we need to know whether to use normal
+        // or stub semantics.
+        const extension = getFileExtension(filePath).toLowerCase();
+        return extension === '.py' || extension === '.pyi';
     }
 
     private _getCompatibleMarkupKind(clientSupportedFormats: MarkupKind[] | undefined) {
