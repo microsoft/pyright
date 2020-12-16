@@ -9,7 +9,7 @@
  */
 import { isPythonBinary } from '../analyzer/pythonPathUtils';
 import { CommandLineOptions } from '../common/commandLineOptions';
-import { combinePaths, normalizePath } from '../common/pathUtils';
+import { combinePaths } from '../common/pathUtils';
 import { ServerSettings, WorkspaceServiceInstance } from '../languageServerBase';
 
 export class AnalyzerServiceExecutor {
@@ -58,7 +58,7 @@ function getEffectiveCommandLineOptions(
     if (serverSettings.venvPath) {
         commandLineOptions.venvPath = combinePaths(
             workspaceRootPath || languageServiceRootPath,
-            normalizePath(_expandPathVariables(languageServiceRootPath, serverSettings.venvPath))
+            serverSettings.venvPath
         );
     }
 
@@ -69,7 +69,7 @@ function getEffectiveCommandLineOptions(
         if (!isPythonBinary(serverSettings.pythonPath)) {
             commandLineOptions.pythonPath = combinePaths(
                 workspaceRootPath || languageServiceRootPath,
-                normalizePath(_expandPathVariables(languageServiceRootPath, serverSettings.pythonPath))
+                serverSettings.pythonPath
             );
         }
     }
@@ -78,15 +78,11 @@ function getEffectiveCommandLineOptions(
         // Pyright supports only one typeshed path currently, whereas the
         // official VS Code Python extension supports multiple typeshed paths.
         // We'll use the first one specified and ignore the rest.
-        commandLineOptions.typeshedPath = normalizePath(
-            _expandPathVariables(languageServiceRootPath, serverSettings.typeshedPath)
-        );
+        commandLineOptions.typeshedPath = serverSettings.typeshedPath;
     }
 
     if (serverSettings.stubPath) {
-        commandLineOptions.stubPath = normalizePath(
-            _expandPathVariables(languageServiceRootPath, serverSettings.stubPath)
-        );
+        commandLineOptions.stubPath = serverSettings.stubPath;
     }
 
     if (typeStubTargetImportName) {
@@ -98,22 +94,4 @@ function getEffectiveCommandLineOptions(
     commandLineOptions.diagnosticSeverityOverrides = serverSettings.diagnosticSeverityOverrides;
 
     return commandLineOptions;
-}
-
-// Expands certain predefined variables supported within VS Code settings.
-// Ideally, VS Code would provide an API for doing this expansion, but
-// it doesn't. We'll handle the most common variables here as a convenience.
-function _expandPathVariables(rootPath: string, value: string): string {
-    const regexp = /\$\{(.*?)\}/g;
-    return value.replace(regexp, (match: string, name: string) => {
-        const trimmedName = name.trim();
-        if (trimmedName === 'workspaceFolder') {
-            return rootPath;
-        }
-        if (trimmedName === 'env:HOME' && process.env.HOME !== undefined) {
-            return process.env.HOME;
-        }
-
-        return match;
-    });
 }
