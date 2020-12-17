@@ -51,25 +51,6 @@ class PyrightServer extends LanguageServerBase {
 
         this._controller = new CommandController(this);
     }
-
-    // Expands certain predefined variables supported within VS Code settings.
-    // Ideally, VS Code would provide an API for doing this expansion, but
-    // it doesn't. We'll handle the most common variables here as a convenience.
-    protected expandPathVariables(rootPath: string, value: string): string {
-        const regexp = /\$\{(.*?)\}/g;
-        return value.replace(regexp, (match: string, name: string) => {
-            const trimmedName = name.trim();
-            if (trimmedName === 'workspaceFolder') {
-                return rootPath;
-            }
-            if (trimmedName === 'env:HOME' && process.env.HOME !== undefined) {
-                return process.env.HOME;
-            }
-
-            return match;
-        });
-    }
-
     async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings> {
         const serverSettings: ServerSettings = {
             watchForSourceChanges: true,
@@ -111,7 +92,10 @@ class PyrightServer extends LanguageServerBase {
                 if (typeshedPaths && Array.isArray(typeshedPaths) && typeshedPaths.length > 0) {
                     const typeshedPath = typeshedPaths[0];
                     if (typeshedPath && isString(typeshedPath)) {
-                        serverSettings.typeshedPath = resolvePaths(workspace.rootPath, typeshedPath);
+                        serverSettings.typeshedPath = resolvePaths(
+                            workspace.rootPath,
+                            this.expandPathVariables(workspace.rootPath, typeshedPath)
+                        );
                     }
                 }
 
@@ -151,7 +135,7 @@ class PyrightServer extends LanguageServerBase {
                 if (extraPaths && Array.isArray(extraPaths) && extraPaths.length > 0) {
                     serverSettings.extraPaths = extraPaths
                         .filter((p) => p && isString(p))
-                        .map((p) => resolvePaths(workspace.rootPath, p));
+                        .map((p) => resolvePaths(workspace.rootPath, this.expandPathVariables(workspace.rootPath, p)));
                 }
 
                 if (pythonAnalysisSection.typeCheckingMode !== undefined) {
