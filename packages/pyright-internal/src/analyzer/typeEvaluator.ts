@@ -16599,6 +16599,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const paramSpecEntry: ParamSpecEntry = {
                                 category: p.category,
                                 name: p.name,
+                                hasDefault: !!p.hasDefault,
                                 type: p.type,
                             };
                             return paramSpecEntry;
