@@ -52,6 +52,24 @@ class PyrightServer extends LanguageServerBase {
         this._controller = new CommandController(this);
     }
 
+    // Expands certain predefined variables supported within VS Code settings.
+    // Ideally, VS Code would provide an API for doing this expansion, but
+    // it doesn't. We'll handle the most common variables here as a convenience.
+    protected expandPathVariables(rootPath: string, value: string): string {
+        const regexp = /\$\{(.*?)\}/g;
+        return value.replace(regexp, (match: string, name: string) => {
+            const trimmedName = name.trim();
+            if (trimmedName === 'workspaceFolder') {
+                return rootPath;
+            }
+            if (trimmedName === 'env:HOME' && process.env.HOME !== undefined) {
+                return process.env.HOME;
+            }
+
+            return match;
+        });
+    }
+
     async getSettings(workspace: WorkspaceServiceInstance): Promise<ServerSettings> {
         const serverSettings: ServerSettings = {
             watchForSourceChanges: true,
@@ -71,12 +89,19 @@ class PyrightServer extends LanguageServerBase {
             if (pythonSection) {
                 const pythonPath = pythonSection.pythonPath;
                 if (pythonPath && isString(pythonPath) && !isPythonBinary(pythonPath)) {
-                    serverSettings.pythonPath = resolvePaths(workspace.rootPath, pythonPath);
+                    serverSettings.pythonPath = resolvePaths(
+                        workspace.rootPath,
+                        this.expandPathVariables(workspace.rootPath, pythonPath)
+                    );
                 }
 
                 const venvPath = pythonSection.venvPath;
+
                 if (venvPath && isString(venvPath)) {
-                    serverSettings.venvPath = resolvePaths(workspace.rootPath, venvPath);
+                    serverSettings.venvPath = resolvePaths(
+                        workspace.rootPath,
+                        this.expandPathVariables(workspace.rootPath, venvPath)
+                    );
                 }
             }
 
@@ -92,7 +117,10 @@ class PyrightServer extends LanguageServerBase {
 
                 const stubPath = pythonAnalysisSection.stubPath;
                 if (stubPath && isString(stubPath)) {
-                    serverSettings.stubPath = resolvePaths(workspace.rootPath, stubPath);
+                    serverSettings.stubPath = resolvePaths(
+                        workspace.rootPath,
+                        this.expandPathVariables(workspace.rootPath, stubPath)
+                    );
                 }
 
                 const diagnosticSeverityOverrides = pythonAnalysisSection.diagnosticSeverityOverrides;
