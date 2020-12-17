@@ -839,6 +839,7 @@ export interface FunctionType extends TypeBase {
 export interface ParamSpecEntry {
     category: ParameterCategory;
     name?: string;
+    hasDefault: boolean;
     type: Type;
 }
 
@@ -1001,6 +1002,7 @@ export namespace FunctionType {
                 return {
                     category: specEntry.category,
                     name: specEntry.name,
+                    hasDefault: specEntry.hasDefault,
                     isNameSynthesized: false,
                     hasDeclaredType: true,
                     type: specEntry.type,
