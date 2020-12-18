@@ -14651,10 +14651,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const arg = args.find((arg) => param.name!.value === arg.paramName);
                         if (arg && arg.argument.valueExpression) {
                             paramType = getTypeOfExpression(arg.argument.valueExpression).type;
-                            allArgTypesAreUnknown = false;
+                            if (!isUnknown(paramType)) {
+                                allArgTypesAreUnknown = false;
+                            }
                         } else if (param.defaultValue) {
                             paramType = getTypeOfExpression(param.defaultValue).type;
-                            allArgTypesAreUnknown = false;
+                            if (!isUnknown(paramType)) {
+                                allArgTypesAreUnknown = false;
+                            }
                         } else if (index === 0) {
                             // If this is an instance or class method, use the implied
                             // parameter type for the "self" or "cls" parameter.
