@@ -794,6 +794,10 @@ export namespace Localizer {
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('DiagnosticAddendum.tupleSizeMismatch')
             );
+        export const tupleSizeMismatchIndeterminate = () =>
+            new ParameterizedString<{ expected: number }>(
+                getRawString('DiagnosticAddendum.tupleSizeMismatchIndeterminate')
+            );
         export const typeAssignmentMismatch = () =>
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.typeAssignmentMismatch')

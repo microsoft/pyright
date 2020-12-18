@@ -392,6 +392,7 @@
         "seeVariableDeclaration": "See variable declaration",
         "tupleEntryTypeMismatch": "Tuple entry {entry} is incorrect type",
         "tupleSizeMismatch": "Tuple size mismatch; expected {expected} but received {received}",
+        "tupleSizeMismatchIndeterminate": "Tuple size mismatch; expected {expected} but received indeterminate number",
         "typeAssignmentMismatch": "Type \"{sourceType}\" cannot be assigned to type \"{destType}\"",
         "typeBound": "Type \"{sourceType}\" is not compatible with bound type \"{destType}\" for TypeVar \"{name}\"",
         "typeConstrainedTypeVar": "Type \"{type}\" is not compatible with constrained TypeVar \"{name}\"",

@@ -15132,12 +15132,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 }
                             }
                         } else {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
-                                    expected: destArgCount,
-                                    received: srcTypeArgs.length,
-                                })
-                            );
+                            if (isSrcHomogeneousType) {
+                                diag.addMessage(
+                                    Localizer.DiagnosticAddendum.tupleSizeMismatchIndeterminate().format({
+                                        expected: destArgCount,
+                                    })
+                                );
+                            } else {
+                                diag.addMessage(
+                                    Localizer.DiagnosticAddendum.tupleSizeMismatch().format({
+                                        expected: destArgCount,
+                                        received: srcTypeArgs.length,
+                                    })
+                                );
+                            }
                             return false;
                         }
                     }
