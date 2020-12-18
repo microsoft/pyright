@@ -590,6 +590,12 @@ interface ReturnTypeInferenceContext {
 // performance.
 const maxReturnTypeInferenceStackSize = 3;
 
+// What is the max number of input arguments we should allow
+// for call-site return type inference? We've found that large,
+// complex functions with many arguments can take too long to
+// analyze.
+const maxReturnTypeInferenceArgumentCount = 6;
+
 // How many entries in a list, set, or dict should we examine
 // when inferring the type? We need to cut it off at some point
 // to avoid excessive computation.
@@ -14622,6 +14628,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const functionType = getTypeOfFunction(functionNode);
         if (!functionType) {
+            return undefined;
+        }
+
+        // Very complex functions with many arguments can take a long time to analyze,
+        // so we'll use a heuristic and avoiding this inference technique for any
+        // call site that involves too many arguments.
+        if (args.length > maxReturnTypeInferenceArgumentCount) {
             return undefined;
         }
 
