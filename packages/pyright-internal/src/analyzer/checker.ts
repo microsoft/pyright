@@ -2491,6 +2491,7 @@ export class Checker extends ParseTreeWalker {
 
     private _validateYieldType(node: YieldNode | YieldFromNode, adjustedYieldType: Type) {
         let declaredYieldType: Type | undefined;
+        let declaredGeneratorType: Type | undefined;
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
 
         if (enclosingFunctionNode) {
@@ -2498,13 +2499,14 @@ export class Checker extends ParseTreeWalker {
             if (functionTypeResult) {
                 assert(functionTypeResult.functionType.category === TypeCategory.Function);
                 const iterableType = this._evaluator.getBuiltInType(node, 'Iterable');
-                declaredYieldType = getDeclaredGeneratorYieldType(functionTypeResult.functionType, iterableType);
+                declaredYieldType = FunctionType.getSpecializedReturnType(functionTypeResult.functionType);
+                declaredGeneratorType = getDeclaredGeneratorYieldType(functionTypeResult.functionType, iterableType);
             }
         }
 
         if (this._evaluator.isNodeReachable(node)) {
-            if (declaredYieldType) {
-                if (isNoReturnType(declaredYieldType)) {
+            if (declaredGeneratorType && declaredYieldType) {
+                if (isNoReturnType(declaredGeneratorType)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -2513,7 +2515,7 @@ export class Checker extends ParseTreeWalker {
                     );
                 } else {
                     const diagAddendum = new DiagnosticAddendum();
-                    if (!this._evaluator.canAssignType(declaredYieldType, adjustedYieldType, diagAddendum)) {
+                    if (!this._evaluator.canAssignType(declaredGeneratorType, adjustedYieldType, diagAddendum)) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,

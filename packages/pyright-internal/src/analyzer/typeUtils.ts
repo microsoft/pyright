@@ -1140,16 +1140,16 @@ export function removeTruthinessFromType(type: Type): Type {
 }
 
 // Returns the declared yield type if provided, or undefined otherwise.
-export function getDeclaredGeneratorYieldType(functionType: FunctionType, iteratorType: Type): Type | undefined {
+export function getDeclaredGeneratorYieldType(functionType: FunctionType, iterableType: Type): Type | undefined {
     const returnType = FunctionType.getSpecializedReturnType(functionType);
     if (returnType) {
         const generatorTypeArgs = _getGeneratorReturnTypeArgs(returnType);
 
-        if (generatorTypeArgs && generatorTypeArgs.length >= 1 && isClass(iteratorType)) {
-            // The yield type is the first type arg. Wrap it in an iterator.
+        if (generatorTypeArgs && generatorTypeArgs.length >= 1 && isClass(iterableType)) {
+            // The yield type is the first type arg. Wrap it in an iterable.
             return ObjectType.create(
                 ClassType.cloneForSpecialization(
-                    iteratorType,
+                    iterableType,
                     [generatorTypeArgs[0]],
                     /* isTypeArgumentExplicit */ true
                 )
@@ -1696,7 +1696,12 @@ function _getGeneratorReturnTypeArgs(returnType: Type): Type[] | undefined {
                 return classType.typeArguments;
             }
 
-            if (className === 'Iterator' || className === 'AsyncIterator' || className === 'AsyncIterable') {
+            if (
+                className === 'Iterator' ||
+                className === 'Iterable' ||
+                className === 'AsyncIterator' ||
+                className === 'AsyncIterable'
+            ) {
                 return classType.typeArguments;
             }
         }
