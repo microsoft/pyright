@@ -279,7 +279,7 @@ export function transformTypeObjectToClass(type: Type): Type {
     }
 
     const classType = type.classType;
-    if (!ClassType.isBuiltIn(classType, 'type')) {
+    if (!ClassType.isBuiltIn(classType, 'Type')) {
         return type;
     }
 
@@ -1366,12 +1366,6 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
 
     if (isClass(type)) {
         if (type.typeArguments && !allowUnknownTypeArgsForClasses && !ClassType.isPseudoGenericClass(type)) {
-            // Handle the 'type' class specially because it's sometimes
-            // treated as generic and sometimes not.
-            if (ClassType.isBuiltIn(type, 'type') && !type.isTypeArgumentExplicit) {
-                return false;
-            }
-
             for (const argType of type.typeArguments) {
                 if (isPartlyUnknown(argType, allowUnknownTypeArgsForClasses, recursionCount + 1)) {
                     return true;
@@ -1503,7 +1497,7 @@ export function _transformTypeVars(
         const classType = _transformTypeVarsInClassType(type.classType, callbacks, recursionMap, recursionLevel + 1);
 
         // Handle the "Type" special class.
-        if (ClassType.isBuiltIn(classType, 'type')) {
+        if (ClassType.isBuiltIn(classType, 'Type')) {
             const typeArgs = classType.typeArguments;
             if (typeArgs && typeArgs.length >= 1) {
                 if (isObject(typeArgs[0])) {

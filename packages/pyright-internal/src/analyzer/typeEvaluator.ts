@@ -3830,12 +3830,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type, node };
     }
 
-    // If the object type is a 'type' object, converts it to the corresponding
+    // If the object type is a 'Type' object, converts it to the corresponding
     // class that it represents and returns that class. Otherwise returns the
     // original type.
     function getClassFromPotentialTypeObject(potentialTypeObject: Type): Type {
         if (isObject(potentialTypeObject)) {
-            if (ClassType.isBuiltIn(potentialTypeObject.classType, 'type')) {
+            if (ClassType.isBuiltIn(potentialTypeObject.classType, 'Type')) {
                 const typeArgs = potentialTypeObject.classType.typeArguments;
 
                 if (typeArgs && typeArgs.length > 0) {
@@ -5647,7 +5647,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const returnType = mapSubtypes(callType, (subtype) => {
             let isTypeObject = false;
-            if (isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'type')) {
+            if (isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'Type')) {
                 subtype = getClassFromPotentialTypeObject(subtype);
                 isTypeObject = true;
             }
@@ -13606,8 +13606,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             // Handle "type" specially, since it needs to act like "Type"
             // in Python 3.9 and newer.
-            if (ClassType.isBuiltIn(classType, 'type')) {
-                return createSpecialType(classType, typeArgs, 1);
+            if (ClassType.isBuiltIn(classType, 'type') && typeArgs) {
+                const typeClass = getTypingType(errorNode, 'Type');
+                if (typeClass && isClass(typeClass)) {
+                    return createSpecialType(typeClass, typeArgs, 1);
+                }
             }
 
             // Handle "tuple" specially, since it needs to act like "Tuple"
@@ -15945,18 +15948,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isObject(destType)) {
             const destClassType = destType.classType;
 
-            // Is the dest a generic "type" object?
-            if (ClassType.isBuiltIn(destClassType, 'type') && !destClassType.isTypeArgumentExplicit) {
-                if (TypeBase.isInstantiable(srcType)) {
-                    return true;
-                }
-            }
-
             // Is the dest a specialized "Type" object?
-            if (
-                ClassType.isBuiltIn(destClassType, 'Type') ||
-                (ClassType.isBuiltIn(destClassType, 'type') && destClassType.isTypeArgumentExplicit)
-            ) {
+            if (ClassType.isBuiltIn(destClassType, 'Type')) {
                 const destTypeArgs = destClassType.typeArguments;
                 if (destTypeArgs && destTypeArgs.length >= 1) {
                     if (TypeBase.isInstance(destTypeArgs[0]) && TypeBase.isInstantiable(srcType)) {
@@ -15969,6 +15962,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             recursionCount + 1
                         );
                     }
+                }
+            } else if (ClassType.isBuiltIn(destClassType, 'type')) {
+                // Is the dest a "type" object? Assume that all instantiable
+                // types are assignable to "type".
+                if (TypeBase.isInstantiable(srcType)) {
+                    return true;
                 }
             }
 
