@@ -15246,12 +15246,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let destTypeArgs: Type[];
         let srcTypeArgs: Type[] | undefined;
 
+        // If either source or dest type arguments are missing, they are
+        // treated as "Any", so they are assumed to be assignable.
+        if (!destType.typeArguments || !srcType.typeArguments) {
+            return true;
+        }
+
         if (ClassType.isVariadicTypeParam(destType)) {
             destTypeArgs = destType.variadicTypeArguments || [];
             srcTypeArgs = srcType.variadicTypeArguments;
         } else {
             destTypeArgs = destType.typeArguments!;
-            assert(destTypeArgs !== undefined);
             srcTypeArgs = srcType.typeArguments;
         }
 
