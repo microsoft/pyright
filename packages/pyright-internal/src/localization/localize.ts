@@ -486,6 +486,10 @@ export namespace Localizer {
         export const propertyStaticOrClassMethod = () => getRawString('Diagnostic.propertyStaticOrClassMethod');
         export const protectedUsedOutsideOfClass = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.protectedUsedOutsideOfClass'));
+        export const protocolBaseClass = () =>
+            new ParameterizedString<{ classType: string; baseType: string }>(
+                getRawString('Diagnostic.protocolBaseClass')
+            );
         export const protocolIllegal = () => getRawString('Diagnostic.protocolIllegal');
         export const protocolUsedInCall = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.protocolUsedInCall'));

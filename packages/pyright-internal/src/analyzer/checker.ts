@@ -191,6 +191,33 @@ export class Checker extends ParseTreeWalker {
         this.walkMultiple(node.arguments);
 
         if (classTypeResult) {
+            // Protocol classes cannot derive from non-protocol classes.
+            if (ClassType.isProtocolClass(classTypeResult.classType)) {
+                node.arguments.forEach((arg) => {
+                    if (!arg.name) {
+                        const baseClassType = this._evaluator.getType(arg.valueExpression);
+                        if (
+                            baseClassType &&
+                            isClass(baseClassType) &&
+                            !ClassType.isBuiltIn(baseClassType, 'Protocol')
+                        ) {
+                            if (!ClassType.isProtocolClass(baseClassType)) {
+                                this._evaluator.addError(
+                                    Localizer.Diagnostic.protocolBaseClass().format({
+                                        classType: this._evaluator.printType(
+                                            classTypeResult.classType,
+                                            /* expandTypeAlias */ false
+                                        ),
+                                        baseType: this._evaluator.printType(baseClassType, /* expandTypeAlias */ false),
+                                    }),
+                                    arg.valueExpression
+                                );
+                            }
+                        }
+                    }
+                });
+            }
+
             this._validateClassMethods(classTypeResult.classType);
 
             this._validateFinalMemberOverrides(classTypeResult.classType);
