@@ -1423,7 +1423,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         function addFunctionToSignature(type: FunctionType | OverloadedFunctionType) {
-            if (type.category === TypeCategory.Function) {
+            if (isFunction(type)) {
                 addOneFunctionToSignature(type);
             } else {
                 type.overloads.forEach(addOneFunctionToSignature);
@@ -1445,11 +1445,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // more type information than __new__.
                     methodType = getBoundMethod(subtype, '__init__');
 
-                    if (
-                        !methodType ||
-                        (methodType.category === TypeCategory.Function &&
-                            FunctionType.isSkipConstructorCheck(methodType))
-                    ) {
+                    if (!methodType || (isFunction(methodType) && FunctionType.isSkipConstructorCheck(methodType))) {
                         // If there was no __init__ method, use the __new__ method
                         // instead.
                         methodType = getBoundMethod(subtype, '__new__', /* treatConstructorAsClassMember */ true);
@@ -1607,7 +1603,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isProperty(declaredType)) {
                     const setterInfo = lookUpClassMember((declaredType as ObjectType).classType, 'fset');
                     const setter = setterInfo ? getTypeOfMember(setterInfo) : undefined;
-                    if (!setter || setter.category !== TypeCategory.Function || setter.details.parameters.length < 2) {
+                    if (!setter || !isFunction(setter) || setter.details.parameters.length < 2) {
                         return undefined;
                     }
 
@@ -1879,7 +1875,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         if (statement.rightExpression.nodeType === ParseNodeType.Call) {
                             const callType = getTypeOfExpression(statement.rightExpression.leftExpression).type;
                             if (
-                                callType.category === TypeCategory.OverloadedFunction &&
+                                isOverloadedFunction(callType) &&
                                 callType.overloads[0].details.builtInName === 'field'
                             ) {
                                 const initArg = statement.rightExpression.arguments.find(
@@ -3706,7 +3702,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Only honor the __getattr__ if it's in a stub file.
                             if (decls.some((decl) => decl.path.toLowerCase().endsWith('.pyi'))) {
                                 const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
-                                if (getAttrType.category === TypeCategory.Function) {
+                                if (isFunction(getAttrType)) {
                                     type = getFunctionEffectiveReturnType(getAttrType);
                                 }
                             }
@@ -4214,7 +4210,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // off the original type. This is sometimes done for test
                     // purposes to override standard behaviors of specific methods.
                     if (isAccessedThroughObject) {
-                        if (!memberInfo!.isInstanceMember && subtype.category === TypeCategory.Function) {
+                        if (!memberInfo!.isInstanceMember && isFunction(subtype)) {
                             if (FunctionType.isClassMethod(subtype) || FunctionType.isInstanceMethod(subtype)) {
                                 effectiveType = FunctionType.clone(subtype, /* stripFirstParam */ true);
                             }
@@ -4249,7 +4245,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 MemberAccessFlags.SkipObjectBaseClass
             );
 
-            if (getAttribType && getAttribType.category === TypeCategory.Function) {
+            if (getAttribType && isFunction(getAttribType)) {
                 return getFunctionEffectiveReturnType(getAttribType);
             }
 
@@ -4261,7 +4257,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 new DiagnosticAddendum(),
                 MemberAccessFlags.SkipObjectBaseClass
             );
-            if (getAttrType && getAttrType.category === TypeCategory.Function) {
+            if (getAttrType && isFunction(getAttrType)) {
                 return getFunctionEffectiveReturnType(getAttrType);
             }
         } else if (usage.method === 'set') {
@@ -5260,7 +5256,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // validation for either __init__ or __new__. This is required for certain
         // synthesized constructor types, namely NamedTuples.
         const skipConstructorCheck = (type: Type) => {
-            return type.category === TypeCategory.Function && FunctionType.isSkipConstructorCheck(type);
+            return isFunction(type) && FunctionType.isSkipConstructorCheck(type);
         };
 
         // Validate __init__
@@ -8630,7 +8626,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         let expectedFunctionType: FunctionType | undefined;
         if (expectedType) {
-            if (expectedType.category === TypeCategory.Function) {
+            if (isFunction(expectedType)) {
                 expectedFunctionType = expectedType;
             } else if (expectedType.category === TypeCategory.Union) {
                 // It's not clear what we should do with a union type. For now,
@@ -10062,7 +10058,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const initSymbol = lookUpClassMember(classType, '__init__', ClassMemberLookupFlags.SkipBaseClasses);
                 if (initSymbol) {
                     const initSymbolType = getTypeOfMember(initSymbol);
-                    if (initSymbolType.category === TypeCategory.Function) {
+                    if (isFunction(initSymbolType)) {
                         if (!FunctionType.isSynthesizedMethod(initSymbolType)) {
                             skipSynthesizedInit = true;
                         }
@@ -10099,17 +10095,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): Type {
         const decoratorType = getTypeOfExpression(decoratorNode.expression).type;
 
-        if (decoratorType.category === TypeCategory.OverloadedFunction) {
+        if (isOverloadedFunction(decoratorType)) {
             if (decoratorType.overloads[0].details.builtInName === 'dataclass') {
                 originalClassType.details.flags |= ClassTypeFlags.DataClass;
             }
-        } else if (decoratorType.category === TypeCategory.Function) {
+        } else if (isFunction(decoratorType)) {
             // Is this a @dataclass call?
             if (decoratorNode.expression.nodeType === ParseNodeType.Call) {
                 const decoratorCallType = getTypeOfExpression(decoratorNode.expression.leftExpression).type;
 
                 if (
-                    decoratorCallType.category === TypeCategory.OverloadedFunction &&
+                    isOverloadedFunction(decoratorCallType) &&
                     decoratorCallType.overloads[0].details.builtInName === 'dataclass'
                 ) {
                     originalClassType.details.flags |= ClassTypeFlags.DataClass;
@@ -10530,7 +10526,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // See if there are any overloads provided by previous function declarations.
-        if (decoratedType.category === TypeCategory.Function) {
+        if (isFunction(decoratedType)) {
             decoratedType = addOverloadsToFunctionType(node, decoratedType);
         }
 
@@ -10657,7 +10653,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* expectedType */ undefined,
                 evaluatorFlags
             ).type;
-            if (decoratorType.category === TypeCategory.Function) {
+            if (isFunction(decoratorType)) {
                 if (decoratorType.details.builtInName === 'abstractmethod') {
                     if (isInClass) {
                         flags |= FunctionTypeFlags.AbstractMethod;
@@ -10701,7 +10697,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Special-case the "overload" because it has no definition.
         if (isClass(decoratorType) && ClassType.isSpecialBuiltIn(decoratorType, 'overload')) {
-            if (inputFunctionType.category === TypeCategory.Function) {
+            if (isFunction(inputFunctionType)) {
                 inputFunctionType.details.flags |= FunctionTypeFlags.Overloaded;
                 return inputFunctionType;
             }
@@ -10710,7 +10706,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const returnType = getTypeFromDecorator(decoratorNode, inputFunctionType);
 
         // Check for some built-in decorator types with known semantics.
-        if (decoratorType.category === TypeCategory.Function) {
+        if (isFunction(decoratorType)) {
             if (decoratorType.details.builtInName === 'abstractmethod') {
                 return inputFunctionType;
             }
@@ -10749,7 +10745,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             // Handle properties and subclasses of properties specially.
             if (ClassType.isPropertyClass(decoratorType)) {
-                if (inputFunctionType.category === TypeCategory.Function) {
+                if (isFunction(inputFunctionType)) {
                     validatePropertyMethod(inputFunctionType, decoratorNode);
                     return createProperty(
                         decoratorNode,
@@ -10764,7 +10760,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Copy the overload flag from the input function type.
-        if (inputFunctionType.category === TypeCategory.Function && returnType.category === TypeCategory.Function) {
+        if (isFunction(inputFunctionType) && isFunction(returnType)) {
             if (FunctionType.isOverloaded(inputFunctionType)) {
                 returnType.details.flags |= FunctionTypeFlags.Overloaded;
             }
@@ -11084,11 +11080,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (prevDecl.type === DeclarationType.Function) {
                     const prevDeclDeclTypeInfo = getTypeOfFunction(prevDecl.node);
                     if (prevDeclDeclTypeInfo) {
-                        if (prevDeclDeclTypeInfo.decoratedType.category === TypeCategory.Function) {
+                        if (isFunction(prevDeclDeclTypeInfo.decoratedType)) {
                             if (FunctionType.isOverloaded(prevDeclDeclTypeInfo.decoratedType)) {
                                 overloadedTypes.push(prevDeclDeclTypeInfo.decoratedType);
                             }
-                        } else if (prevDeclDeclTypeInfo.decoratedType.category === TypeCategory.OverloadedFunction) {
+                        } else if (isOverloadedFunction(prevDeclDeclTypeInfo.decoratedType)) {
                             // If the previous declaration was itself an overloaded function,
                             // copy the entries from it.
                             overloadedTypes.push(...prevDeclDeclTypeInfo.decoratedType.overloads);
@@ -11489,7 +11485,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (enterType) {
                     let memberReturnType: Type;
-                    if (enterType.category === TypeCategory.Function) {
+                    if (isFunction(enterType)) {
                         memberReturnType = getFunctionEffectiveReturnType(enterType);
                     } else {
                         memberReturnType = UnknownType.create();
@@ -12186,9 +12182,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // will be inferred "no return" types, so we can restrict
             // our check to functions.
             let functionType: FunctionType | undefined;
-            if (callType.category === TypeCategory.Function) {
+            if (isFunction(callType)) {
                 functionType = callType;
-            } else if (callType.category === TypeCategory.OverloadedFunction) {
+            } else if (isOverloadedFunction(callType)) {
                 // Use the last overload, which should be the most general.
                 const overloadedFunction = callType;
                 functionType = overloadedFunction.overloads[overloadedFunction.overloads.length - 1];
@@ -13873,7 +13869,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getDeclarationFromFunctionNamedParameter(type: FunctionType, paramName: string): Declaration | undefined {
-        if (type.category === TypeCategory.Function) {
+        if (isFunction(type)) {
             if (type.details.declaration) {
                 const functionDecl = type.details.declaration;
                 if (functionDecl.type === DeclarationType.Function) {
@@ -14018,7 +14014,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const baseType = getType(argNode.parent.leftExpression);
 
                 if (baseType) {
-                    if (baseType.category === TypeCategory.Function && baseType.details.declaration) {
+                    if (isFunction(baseType) && baseType.details.declaration) {
                         const paramDecl = getDeclarationFromFunctionNamedParameter(baseType, paramName);
                         if (paramDecl) {
                             declarations.push(paramDecl);
@@ -14033,7 +14029,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             MemberAccessFlags.SkipObjectBaseClass
                         );
 
-                        if (initMethodType && initMethodType.category === TypeCategory.Function) {
+                        if (initMethodType && isFunction(initMethodType)) {
                             const paramDecl = getDeclarationFromFunctionNamedParameter(initMethodType, paramName);
                             if (paramDecl) {
                                 declarations.push(paramDecl);
@@ -15228,7 +15224,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (fgetSymbol) {
             const fgetType = getDeclaredTypeOfSymbol(fgetSymbol);
-            if (fgetType && fgetType.category === TypeCategory.Function) {
+            if (fgetType && isFunction(fgetType)) {
                 return getFunctionEffectiveReturnType(fgetType, /* args */ undefined, inferTypeIfNeeded);
             }
         }
@@ -15823,7 +15819,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // match we find because we may need to match TypeVars in other
             // subtypes. We special-case "None" so we can handle Optional[T]
             // without matching the None to the type var.
-            if (srcType.category === TypeCategory.None && isOptionalType(destType)) {
+            if (isNone(srcType) && isOptionalType(destType)) {
                 foundMatch = true;
             } else {
                 let bestTypeVarMap: TypeVarMap | undefined;
@@ -15883,7 +15879,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (destType.category === TypeCategory.None && srcType.category === TypeCategory.None) {
+        if (isNone(destType) && isNone(srcType)) {
             return true;
         }
 
@@ -16006,7 +16002,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 return true;
-            } else if (concreteSrcType.category === TypeCategory.Function) {
+            } else if (isFunction(concreteSrcType)) {
                 // Is the destination a callback protocol (defined in PEP 544)?
                 const callbackType = getCallbackProtocolType(destType);
                 if (callbackType) {
@@ -16062,11 +16058,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (destType.category === TypeCategory.Function) {
+        if (isFunction(destType)) {
             let srcFunction: FunctionType | undefined;
             const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
 
-            if (concreteSrcType.category === TypeCategory.OverloadedFunction) {
+            if (isOverloadedFunction(concreteSrcType)) {
                 // Find first overloaded function that matches the parameters.
                 // We don't want to pollute the current typeVarMap, so we'll
                 // make a copy of the existing one if it's specified.
@@ -16089,7 +16085,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return false;
                 }
                 srcFunction = overloads[overloadIndex];
-            } else if (concreteSrcType.category === TypeCategory.Function) {
+            } else if (isFunction(concreteSrcType)) {
                 srcFunction = concreteSrcType;
             } else if (isObject(concreteSrcType)) {
                 const callMember = lookUpObjectMember(concreteSrcType, '__call__');
@@ -16125,7 +16121,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 const constructorType = constructorInfo ? getTypeOfMember(constructorInfo) : undefined;
-                if (constructorType && constructorType.category === TypeCategory.Function) {
+                if (constructorType && isFunction(constructorType)) {
                     constructorType.details.parameters.forEach((param, index) => {
                         // Skip the 'cls' or 'self' parameter.
                         if (index > 0) {
@@ -16157,7 +16153,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (destType.category === TypeCategory.OverloadedFunction) {
+        if (isOverloadedFunction(destType)) {
             const overloadDiag = diag.createAddendum();
 
             // All overloads in the dest must be assignable.
@@ -16774,13 +16770,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType, diag: DiagnosticAddendum): boolean {
         // If we're overriding an overloaded method, uses the last overload.
-        if (baseMethod.category === TypeCategory.OverloadedFunction) {
+        if (isOverloadedFunction(baseMethod)) {
             baseMethod = baseMethod.overloads[baseMethod.overloads.length - 1];
         }
 
         // If we're overriding a non-method with a method, report it as an error.
         // This occurs when a non-property overrides a property.
-        if (baseMethod.category !== TypeCategory.Function) {
+        if (!isFunction(baseMethod)) {
             diag.addMessage(Localizer.DiagnosticAddendum.overrideType().format({ type: printType(baseMethod) }));
             return false;
         }
