@@ -20,3 +20,12 @@ class BasePipeline(Operator, Generic[OpType]):
             t1: Literal["BasePipeline[Unknown]"] = reveal_type(step)
         else:
             t2: Literal["OpType"] = reveal_type(step)
+
+
+T1 = TypeVar("T1", int, str)
+
+
+def do_nothing1(x: T1) -> T1:
+    if isinstance(x, int):
+        return x
+    return x

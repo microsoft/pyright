@@ -13288,21 +13288,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const anyOrUnknownSubstitutions: Type[] = [];
         const anyOrUnknown: Type[] = [];
 
-        const filteredType = mapSubtypes(effectiveType, (possibleTypeVarSubtype) => {
-            const specializedSubtype = makeTopLevelTypeVarsConcrete(possibleTypeVarSubtype);
-
-            // We have to call mapSubtypes again because a constrained TypeVar may
-            // be expanded into a union.
-            return mapSubtypes(specializedSubtype, (subtype) => {
+        const filteredType = mapSubtypesExpandTypeVars(
+            effectiveType,
+            /* constraintFilter */ undefined,
+            (subtype, unexpandedSubtype, constraints) => {
                 // If we fail to filter anything in the negative case, we need to decide
                 // whether to retain the original TypeVar or replace it with its specialized
                 // type(s). We'll assume that if someone is using isinstance or issubclass
                 // on a constrained TypeVar that they want to filter based on its constrained
                 // parts.
-                const negativeFallback =
-                    !isTypeVar(possibleTypeVarSubtype) || possibleTypeVarSubtype.details.constraints.length > 0
-                        ? subtype
-                        : possibleTypeVarSubtype;
+                const negativeFallback = constraints ? subtype : unexpandedSubtype;
 
                 if (isInstanceCheck && isObject(subtype)) {
                     return combineTypes(filterType(subtype.classType, negativeFallback));
@@ -13333,8 +13328,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 return isPositiveTest ? undefined : negativeFallback;
-            });
-        });
+            }
+        );
 
         // If the result is Any/Unknown and contains no other subtypes and
         // we have substitutions for Any/Unknown, use those instead. We don't

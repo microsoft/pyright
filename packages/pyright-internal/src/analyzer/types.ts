@@ -1940,8 +1940,8 @@ export function combineConstrainedTypes(subtypes: ConstrainedSubtype[], maxSubty
         return AnyType.create();
     }
 
-    // If only one type remains, convert it from a union to a simple type.
-    if (newUnionType.subtypes.length === 1) {
+    // If only one type remains and there are no constraints, convert it from a union to a simple type.
+    if (newUnionType.subtypes.length === 1 && !newUnionType.constraints) {
         return newUnionType.subtypes[0];
     }
 
