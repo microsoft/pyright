@@ -179,6 +179,7 @@ import {
     ClassMember,
     ClassMemberLookupFlags,
     computeMroLinearization,
+    containsUnknown,
     convertToInstance,
     convertToInstantiable,
     derivesFromClassRecursive,
@@ -10035,7 +10036,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const decorator = node.decorators[i];
 
             const newDecoratedType = applyClassDecorator(decoratedType, classType, decorator);
-            if (isUnknown(newDecoratedType)) {
+            if (containsUnknown(newDecoratedType)) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     addDiagnostic(
@@ -10510,7 +10511,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const decorator = node.decorators[i];
 
             const newDecoratedType = applyFunctionDecorator(decoratedType, decorator, node);
-            if (isUnknown(newDecoratedType)) {
+            if (containsUnknown(newDecoratedType)) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
                     addDiagnostic(

@@ -1341,6 +1341,21 @@ export function getMembersForModule(moduleType: ModuleType, symbolTable: SymbolT
     });
 }
 
+// Determines if the type is an Unknown or a union that contains an Unknown.
+// It does not look at type arguments.
+export function containsUnknown(type: Type) {
+    let foundUnknown = false;
+
+    doForEachSubtype(type, (subtype) => {
+        if (isUnknown(subtype)) {
+            foundUnknown = true;
+        }
+    });
+
+    return foundUnknown;
+}
+
+// Determines if any part of the type contains "Unknown", including any type arguments.
 export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = false, recursionCount = 0): boolean {
     if (recursionCount > maxTypeRecursionCount) {
         return false;

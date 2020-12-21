@@ -1238,6 +1238,12 @@ test('Decorator3', () => {
     TestUtils.validateResults(analysisResults39, 0);
 });
 
+test('Decorator4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator4.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('FunctionAnnotation1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionAnnotation1.py']);
 
