@@ -8631,10 +8631,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else if (expectedType.category === TypeCategory.Union) {
                 // It's not clear what we should do with a union type. For now,
                 // simply use the first function in the union.
-                expectedFunctionType = findSubtype(
-                    expectedType,
-                    (t) => t.category === TypeCategory.Function
-                ) as FunctionType;
+                expectedFunctionType = findSubtype(expectedType, (t) => isFunction(t)) as FunctionType;
+            } else if (isObject(expectedType)) {
+                const callMember = lookUpObjectMember(expectedType, '__call__');
+                if (callMember) {
+                    const memberType = getTypeOfMember(callMember);
+                    if (memberType && isFunction(memberType)) {
+                        const boundMethod = bindFunctionToClassOrObject(expectedType, memberType);
+
+                        if (boundMethod) {
+                            expectedFunctionType = boundMethod as FunctionType;
+                        }
+                    }
+                }
             }
         }
 
@@ -16091,8 +16100,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const callMember = lookUpObjectMember(concreteSrcType, '__call__');
                 if (callMember) {
                     const memberType = getTypeOfMember(callMember);
-                    if (memberType.category === TypeCategory.Function) {
-                        srcFunction = FunctionType.clone(memberType, /* stripFirstParam */ true);
+                    if (isFunction(memberType)) {
+                        const boundMethod = bindFunctionToClassOrObject(concreteSrcType, memberType);
+                        if (boundMethod) {
+                            srcFunction = boundMethod as FunctionType;
+                        }
                     }
                 }
             } else if (isClass(concreteSrcType)) {
