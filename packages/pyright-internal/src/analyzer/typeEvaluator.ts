@@ -16319,7 +16319,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const srcParams = srcType.details.parameters;
         const destParams = destType.details.parameters;
 
-        const srcStartOfNamed = srcParams.findIndex(
+        let srcStartOfNamed = srcParams.findIndex(
             (p, index) =>
                 p.category === ParameterCategory.VarArgDictionary ||
                 (p.category === ParameterCategory.VarArgList && !p.name) ||
@@ -16506,6 +16506,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             }
                         }
                     });
+                }
+
+                // If the dest has fewer positional arguments than the source, the remaining
+                // positional arguments in the source can be treated as named arguments.
+                if (destPositionals.length < srcPositionals.length && destArgsIndex < 0) {
+                    srcStartOfNamed = destPositionals.length;
                 }
 
                 if (srcStartOfNamed >= 0) {
