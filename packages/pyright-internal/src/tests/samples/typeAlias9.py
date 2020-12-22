@@ -2,7 +2,7 @@
 
 # pyright: strict, reportUnusedVariable=false
 
-from typing import Dict, List, Literal, Union
+from typing import Dict, List, Literal, Optional, Union
 
 
 JSONArray = List["JSONType"]
@@ -30,3 +30,14 @@ def f3(args: JSONStructured):
     else:
         t2: Literal["JSONArray"] = reveal_type(args)
         largs: JSONArray = args
+
+
+# Using type alias for "is None" narrowing:
+LinkedList = Optional[tuple[int, "LinkedList"]]
+
+
+def g(xs: LinkedList):
+    while xs is not None:
+        x, rest = xs
+        yield x
+        xs = rest

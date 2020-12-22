@@ -12906,30 +12906,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (ParseTreeUtils.isMatchingExpression(reference, leftExpression)) {
                         // Narrow the type by filtering on "None".
                         return (type: Type) => {
-                            if (type.category === TypeCategory.Union) {
-                                return mapSubtypes(type, (subtype) => {
-                                    if (isAnyOrUnknown(subtype)) {
-                                        // We need to assume that "Any" is always both None and not None,
-                                        // so it matches regardless of whether the test is positive or negative.
-                                        return subtype;
-                                    }
-
-                                    // See if it's a match for None.
-                                    if (isNone(subtype) === adjIsPositiveTest) {
-                                        return subtype;
-                                    }
-                                    return undefined;
-                                });
-                            } else if (isNone(type)) {
-                                if (!adjIsPositiveTest) {
-                                    // Use a "Never" type (which is a special form
-                                    // of None) to indicate that the condition will
-                                    // always evaluate to false.
-                                    return NeverType.create();
+                            const expandedType = mapSubtypes(type, (subtype) => {
+                                return transformPossibleRecursiveTypeAlias(subtype);
+                            });
+                            return mapSubtypes(expandedType, (subtype) => {
+                                if (isAnyOrUnknown(subtype)) {
+                                    // We need to assume that "Any" is always both None and not None,
+                                    // so it matches regardless of whether the test is positive or negative.
+                                    return subtype;
                                 }
-                            }
 
-                            return type;
+                                // See if it's a match for None.
+                                if (isNone(subtype) === adjIsPositiveTest) {
+                                    return subtype;
+                                }
+
+                                return undefined;
+                            });
                         };
                     }
                 }
@@ -13217,8 +13210,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         isInstanceCheck: boolean,
         isPositiveTest: boolean
     ): Type {
-        const effectiveType = mapSubtypes(type, (subtype) => {
-            subtype = transformPossibleRecursiveTypeAlias(subtype);
+        const expandedTypes = mapSubtypes(type, (subtype) => {
+            return transformPossibleRecursiveTypeAlias(subtype);
+        });
+        const effectiveType = mapSubtypes(expandedTypes, (subtype) => {
             return transformTypeObjectToClass(subtype);
         });
 
