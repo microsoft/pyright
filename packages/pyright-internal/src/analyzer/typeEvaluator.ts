@@ -5066,7 +5066,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Touch all of the args so they're marked accessed even if there were errors.
-        argList.forEach((arg) => getTypeForArgument(arg));
+        argList.forEach((arg) => {
+            if (arg.valueExpression && !isSpeculativeMode(arg.valueExpression)) {
+                getTypeForArgument(arg);
+            }
+        });
 
         return returnResult;
     }
@@ -5440,7 +5444,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // here to mark symbols as referenced and report expression-level errors.
         if (!validatedTypes) {
             argList.forEach((arg) => {
-                if (arg.valueExpression) {
+                if (arg.valueExpression && !isSpeculativeMode(arg.valueExpression)) {
                     getTypeOfExpression(arg.valueExpression);
                 }
             });
@@ -5655,7 +5659,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 case TypeCategory.Unknown:
                 case TypeCategory.Any: {
                     // Touch all of the args so they're marked accessed.
-                    argList.forEach((arg) => getTypeForArgument(arg));
+                    argList.forEach((arg) => {
+                        if (arg.valueExpression && !isSpeculativeMode(arg.valueExpression)) {
+                            getTypeForArgument(arg);
+                        }
+                    });
+
                     return concreteSubtype;
                 }
 
@@ -5777,30 +5786,37 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         return functionResult.returnType || UnknownType.create();
                     }
 
-                    const exprString = ParseTreeUtils.printExpression(errorNode);
-                    const diagAddendum = new DiagnosticAddendum();
-                    const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
+                    // We couldn't find any valid overloads. Skip the error message if we're
+                    // in speculative mode because it's very expensive, and we're going to
+                    // suppress the diagnostic anyway.
+                    if (!isDiagnosticSuppressedForNode(errorNode)) {
+                        const exprString = ParseTreeUtils.printExpression(errorNode);
+                        const diagAddendum = new DiagnosticAddendum();
+                        const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
 
-                    if (errorNode.nodeType !== ParseNodeType.Call && concreteSubtype.overloads[0].details.name) {
-                        // If the expression isn't an explicit call, it is probably an implicit
-                        // call to a magic method. Provide additional information in this case
-                        // to make it clear that a call was being evaluated.
+                        if (errorNode.nodeType !== ParseNodeType.Call && concreteSubtype.overloads[0].details.name) {
+                            // If the expression isn't an explicit call, it is probably an implicit
+                            // call to a magic method. Provide additional information in this case
+                            // to make it clear that a call was being evaluated.
+                            diagAddendum.addMessage(
+                                Localizer.DiagnosticAddendum.overloadCallName().format({
+                                    name: concreteSubtype.overloads[0].details.name,
+                                })
+                            );
+                        }
+
                         diagAddendum.addMessage(
-                            Localizer.DiagnosticAddendum.overloadCallName().format({
-                                name: concreteSubtype.overloads[0].details.name,
-                            })
+                            Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
+                        );
+                        addDiagnostic(
+                            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.noOverload().format({ expression: exprString }) +
+                                diagAddendum.getString(),
+                            errorNode
                         );
                     }
 
-                    diagAddendum.addMessage(
-                        Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
-                    );
-                    addDiagnostic(
-                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.noOverload().format({ expression: exprString }) + diagAddendum.getString(),
-                        errorNode
-                    );
                     argumentErrors = true;
                     return UnknownType.create();
                 }
@@ -6462,53 +6478,59 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             skipUnknownArgCheck = true;
         }
 
-        // Run through all args and validate them against their matched parameter.
-        // We'll do two passes. The first one will match any type arguments. The second
-        // will perform the actual validation. We can skip the first pass if there
-        // are no type vars to match.
-        const typeVarMatchingCount = validateArgTypeParams.filter((arg) => arg.requiresTypeVarMatching).length;
-        if (typeVarMatchingCount > 0) {
-            // In theory, we may need to do up to n passes where n is the number of
-            // arguments that need type var matching. That's because later matches
-            // can provide bidirectional type hints for earlier matches. The best
-            // example of this is the built-in "map" method whose first parameter is
-            // a lambda and second parameter indicates what type the lambda should accept.
-            // In practice, we will limit the number of passes to 2 because it can get
-            // very expensive to go beyond this, and we don't see generally see cases
-            // where more than two passes are needed.
-            const passCount = Math.min(typeVarMatchingCount, 2);
-            for (let i = 0; i < passCount; i++) {
-                useSpeculativeMode(errorNode, () => {
-                    validateArgTypeParams.forEach((argParam) => {
-                        if (argParam.requiresTypeVarMatching) {
-                            validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck);
-                        }
+        // If we're in speculative mode and an arg/param mismatch has already been reported, don't
+        // bother doing the extra work here. This occurs frequently when attempting to find the
+        // correct overload.
+        if (!reportedArgError || !isSpeculativeMode(undefined)) {
+            // Run through all args and validate them against their matched parameter.
+            // We'll do two passes. The first one will match any type arguments. The second
+            // will perform the actual validation. We can skip the first pass if there
+            // are no type vars to match.
+            const typeVarMatchingCount = validateArgTypeParams.filter((arg) => arg.requiresTypeVarMatching).length;
+            if (typeVarMatchingCount > 0) {
+                // In theory, we may need to do up to n passes where n is the number of
+                // arguments that need type var matching. That's because later matches
+                // can provide bidirectional type hints for earlier matches. The best
+                // example of this is the built-in "map" method whose first parameter is
+                // a lambda and second parameter indicates what type the lambda should accept.
+                // In practice, we will limit the number of passes to 2 because it can get
+                // very expensive to go beyond this, and we don't see generally see cases
+                // where more than two passes are needed.
+                const passCount = Math.min(typeVarMatchingCount, 2);
+                for (let i = 0; i < passCount; i++) {
+                    useSpeculativeMode(errorNode, () => {
+                        // suppressDiagnostics(() => {
+                        validateArgTypeParams.forEach((argParam) => {
+                            if (argParam.requiresTypeVarMatching) {
+                                validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck);
+                            }
+                        });
                     });
-                });
+                }
+
+                // Lock the type var map so it cannot be modified and revalidate the
+                // arguments in a second pass.
+                typeVarMap.lock();
             }
 
-            // Lock the type var map so it cannot be modified and revalidate the
-            // arguments in a second pass.
-            typeVarMap.lock();
-        }
-
-        validateArgTypeParams.forEach((argParam) => {
-            if (!validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck)) {
-                reportedArgError = true;
-            }
-        });
-
-        // Run through all the args that were not validated and evaluate their types
-        // to ensure that we haven't missed any (due to arg/param mismatches). This will
-        // ensure that referenced symbols are not reported as unaccessed.
-        if (!isSpeculativeMode(undefined) && !incompleteTypeTracker.isUndoTrackingEnabled()) {
-            argList.forEach((arg) => {
-                if (arg.valueExpression) {
-                    if (!validateArgTypeParams.some((validatedArg) => validatedArg.argument === arg)) {
-                        getTypeOfExpression(arg.valueExpression);
-                    }
+            validateArgTypeParams.forEach((argParam) => {
+                if (!validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck)) {
+                    reportedArgError = true;
                 }
             });
+
+            // Run through all the args that were not validated and evaluate their types
+            // to ensure that we haven't missed any (due to arg/param mismatches). This will
+            // ensure that referenced symbols are not reported as unaccessed.
+            if (!incompleteTypeTracker.isUndoTrackingEnabled()) {
+                argList.forEach((arg) => {
+                    if (arg.valueExpression && !isSpeculativeMode(arg.valueExpression)) {
+                        if (!validateArgTypeParams.some((validatedArg) => validatedArg.argument === arg)) {
+                            getTypeOfExpression(arg.valueExpression);
+                        }
+                    }
+                });
+            }
         }
 
         // Calculate the return type. If there was an error matching arguments to
