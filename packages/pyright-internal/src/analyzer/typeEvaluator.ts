@@ -16110,6 +16110,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
 
             if (isOverloadedFunction(concreteSrcType)) {
+                // Overloads are not compatible with ParamSpec.
+                if (destType.details.paramSpec) {
+                    diag.addMessage(Localizer.DiagnosticAddendum.paramSpecOverload());
+                    return false;
+                }
+
                 // Find first overloaded function that matches the parameters.
                 // We don't want to pollute the current typeVarMap, so we'll
                 // make a copy of the existing one if it's specified.
@@ -16125,6 +16131,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         recursionCount + 1
                     );
                 });
+
                 if (overloadIndex < 0) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.noOverloadAssignable().format({ type: printType(destType) })

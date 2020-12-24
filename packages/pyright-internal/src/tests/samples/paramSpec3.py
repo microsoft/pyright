@@ -1,6 +1,6 @@
 # This sample tests ParamSpec (PEP 612) behavior.
 
-from typing import Awaitable, Callable, ParamSpec, TypeVar
+from typing import Awaitable, Callable, Optional, ParamSpec, TypeVar, Union, overload
 
 Ps = ParamSpec("Ps")
 R = TypeVar("R")
@@ -29,3 +29,25 @@ async def my_async_function():
     # This should generate an error because
     # the first parameter is not an int.
     await foo("B", "2")
+
+
+@overload
+def bar(x: int) -> None:
+    ...
+
+
+@overload
+def bar(x: str) -> str:
+    ...
+
+
+def bar(x: Union[int, str]) -> Optional[str]:
+    if isinstance(x, int):
+        return None
+    else:
+        return x
+
+
+# This should generate an error because ParamSpec cannot
+# be used with an overloaded function.
+x = add_logging(bar)
