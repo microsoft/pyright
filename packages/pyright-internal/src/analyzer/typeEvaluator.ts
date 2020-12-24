@@ -16660,12 +16660,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeVarMap.setParamSpec(
                     destType.details.paramSpec,
                     srcType.details.parameters
-                        .map((p) => {
+                        .map((p, index) => {
                             const paramSpecEntry: ParamSpecEntry = {
                                 category: p.category,
                                 name: p.name,
                                 hasDefault: !!p.hasDefault,
-                                type: p.type,
+                                type: FunctionType.getEffectiveParameterType(srcType, index),
                             };
                             return paramSpecEntry;
                         })
