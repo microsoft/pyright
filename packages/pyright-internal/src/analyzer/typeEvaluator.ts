@@ -13007,7 +13007,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             rightType.classType.literalValue !== undefined
                         ) {
                             return (type: Type) => {
-                                return narrowTypeForLiteralComparison(type, rightType, adjIsPositiveTest);
+                                return narrowTypeForLiteralComparison(
+                                    type,
+                                    rightType,
+                                    adjIsPositiveTest,
+                                    /* isIsOperator */ true
+                                );
                             };
                         }
                     }
@@ -13022,7 +13027,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const rightType = getTypeOfExpression(testExpression.rightExpression).type;
                         if (isObject(rightType) && rightType.classType.literalValue !== undefined) {
                             return (type: Type) => {
-                                return narrowTypeForLiteralComparison(type, rightType, adjIsPositiveTest);
+                                return narrowTypeForLiteralComparison(
+                                    type,
+                                    rightType,
+                                    adjIsPositiveTest,
+                                    /* isIsOperator */ false
+                                );
                             };
                         }
                     }
@@ -13031,7 +13041,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const leftType = getTypeOfExpression(testExpression.leftExpression).type;
                         if (isObject(leftType) && leftType.classType.literalValue !== undefined) {
                             return (type: Type) => {
-                                return narrowTypeForLiteralComparison(type, leftType, adjIsPositiveTest);
+                                return narrowTypeForLiteralComparison(
+                                    type,
+                                    leftType,
+                                    adjIsPositiveTest,
+                                    /* isIsOperator */ false
+                                );
                             };
                         }
                     }
@@ -13474,14 +13489,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     // Attempts to narrow a type (make it more constrained) based on a comparison
-    // (equal or not equal) to a literal value.
+    // (equal or not equal) to a literal value. It also handles "is" or "is not"
+    // operators if isIsOperator is true.
     function narrowTypeForLiteralComparison(
         referenceType: Type,
         literalType: ObjectType,
-        isPositiveTest: boolean
+        isPositiveTest: boolean,
+        isIsOperator: boolean
     ): Type {
-        let canNarrow = true;
-        const narrowedType = mapSubtypes(referenceType, (subtype) => {
+        return mapSubtypes(referenceType, (subtype) => {
             if (isObject(subtype) && ClassType.isSameGenericClass(literalType.classType, subtype.classType)) {
                 if (subtype.classType.literalValue !== undefined) {
                     const literalValueMatches = ClassType.isLiteralValueSame(subtype.classType, literalType.classType);
@@ -13503,12 +13519,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         );
                     }
                 }
+            } else if (isIsOperator && isPositiveTest) {
+                return undefined;
             }
-            canNarrow = false;
+
             return subtype;
         });
-
-        return canNarrow ? narrowedType : referenceType;
     }
 
     // Attempts to narrow a type (make it more constrained) based on a
