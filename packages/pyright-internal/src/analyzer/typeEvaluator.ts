@@ -2744,6 +2744,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         target.expressions.forEach((expr, index) => {
             const typeList = targetTypes[index];
             let targetType = typeList.length === 0 ? UnknownType.create() : combineConstrainedTypes(typeList);
+            targetType = removeNoReturnFromUnion(targetType);
 
             // If the target uses an unpack operator, wrap the target type in a list.
             if (index === unpackIndex) {
