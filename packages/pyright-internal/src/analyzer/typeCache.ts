@@ -10,7 +10,8 @@
 
 import { assert } from '../common/debug';
 import { ParseNode } from '../parser/parseNodes';
-import { Type } from './types';
+import * as ParseTreeUtils from './parseTreeUtils';
+import { isTypeSame, Type } from './types';
 
 // A type cache maps node IDs to types or pseudo-type objects.
 export type TypeCache = Map<number, CachedType | undefined>;
@@ -51,17 +52,29 @@ interface TypeCacheEntry {
 interface SpeculativeContext {
     speculativeRootNode: ParseNode;
     entriesToUndo: TypeCacheEntry[];
+    speculativeTypeCache: Map<number, SpeculativeTypeEntry>;
+}
+
+interface SpeculativeTypeEntry {
+    type: Type;
+    expectedType: Type;
 }
 
 // This class maintains a stack of "speculative type contexts". When
 // a context is popped off the stack, all of the speculative type cache
 // entries that were created within that context are removed from the
 // corresponding type caches because they are no longer valid.
+// Each type context also contains a map of "speculative types" that are
+// contextually evaluated based on an "expected type".
 export class SpeculativeTypeTracker {
     private _speculativeContextStack: SpeculativeContext[] = [];
 
     enterSpeculativeContext(speculativeRootNode: ParseNode) {
-        this._speculativeContextStack.push({ speculativeRootNode, entriesToUndo: [] });
+        this._speculativeContextStack.push({
+            speculativeRootNode,
+            entriesToUndo: [],
+            speculativeTypeCache: new Map<number, SpeculativeTypeEntry>(),
+        });
     }
 
     leaveSpeculativeContext() {
@@ -73,6 +86,23 @@ export class SpeculativeTypeTracker {
         context!.entriesToUndo.forEach((entry) => {
             entry.cache.delete(entry.id);
         });
+
+        // If the context's node is located within another context
+        // that still exists on the stack, copy its type cache.
+        let overlappingContext: SpeculativeContext | undefined;
+        for (let i = this._speculativeContextStack.length - 1; i >= 0; i--) {
+            const candidate = this._speculativeContextStack[i];
+            if (ParseTreeUtils.isNodeContainedWithin(context!.speculativeRootNode, candidate.speculativeRootNode)) {
+                overlappingContext = candidate;
+                break;
+            }
+        }
+
+        if (overlappingContext) {
+            context!.speculativeTypeCache.forEach((entry, id) => {
+                overlappingContext!.speculativeTypeCache.set(id, entry);
+            });
+        }
     }
 
     isSpeculative() {
@@ -112,6 +142,33 @@ export class SpeculativeTypeTracker {
     enableSpeculativeMode(stack: SpeculativeContext[]) {
         assert(this._speculativeContextStack.length === 0);
         this._speculativeContextStack = stack;
+    }
+
+    addSpeculativeType(node: ParseNode, type: Type, expectedType: Type) {
+        assert(this._speculativeContextStack.length > 0);
+        const topContext = this._speculativeContextStack[this._speculativeContextStack.length - 1];
+        topContext.speculativeTypeCache.set(node.id, { type, expectedType });
+    }
+
+    getSpeculativeType(node: ParseNode, expectedType: Type) {
+        let entry: SpeculativeTypeEntry | undefined;
+
+        // Search for the entry in the speculative contexts on the stack
+        // starting with the topmost one.
+        for (let i = this._speculativeContextStack.length - 1; i >= 0; i--) {
+            const candidate = this._speculativeContextStack[i];
+            entry = candidate.speculativeTypeCache.get(node.id);
+            if (entry) {
+                break;
+            }
+        }
+
+        // If the expected type matches, we have a cache hit.
+        if (entry && isTypeSame(expectedType, entry.expectedType)) {
+            return entry.type;
+        }
+
+        return undefined;
     }
 }
 

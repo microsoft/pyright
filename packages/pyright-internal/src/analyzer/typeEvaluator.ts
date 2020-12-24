@@ -668,7 +668,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return cachedType as Type;
     }
 
-    function writeTypeCache(node: ParseNode, type: Type) {
+    function writeTypeCache(node: ParseNode, type: Type, expectedType?: Type) {
         // Should we use a temporary cache associated with a contextual
         // analysis of a function, contextualized based on call-site argument types?
         const typeCacheToUse =
@@ -684,6 +684,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const speculativeNode = speculativeTypeTracker.getSpeculativeRootNode();
         if (speculativeNode && ParseTreeUtils.isNodeContainedWithin(node, speculativeNode)) {
             speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
+            if (expectedType) {
+                speculativeTypeTracker.addSpeculativeType(node, type, expectedType);
+            }
         }
 
         incompleteTypeTracker.trackEntry(typeCacheToUse, node.id);
@@ -788,6 +791,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const cachedType = readTypeCache(node);
         if (cachedType) {
             return { type: cachedType, node };
+        } else if (expectedType) {
+            // Is it cached in the speculative type cache?
+            const speculativeCachedType = speculativeTypeTracker.getSpeculativeType(node, expectedType);
+            if (speculativeCachedType) {
+                return { type: speculativeCachedType, node };
+            }
         }
 
         // This is a frequently-called routine, so it's a good place to call
@@ -1073,7 +1082,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // a resolution cycle. The cache will be updated when the stack unwinds
         // and the type is fully evaluated.
         if (!typeResult.isIncomplete && !isTypeAliasPlaceholder(typeResult.type)) {
-            writeTypeCache(node, typeResult.type);
+            writeTypeCache(node, typeResult.type, expectedType);
         }
 
         return typeResult;
