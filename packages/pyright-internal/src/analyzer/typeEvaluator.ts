@@ -16057,7 +16057,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         callbackType,
                         concreteSrcType,
                         diag,
-                        typeVarMap || new TypeVarMap(getTypeVarScopeId(callbackType)),
+                        typeVarMap || new TypeVarMap(),
                         flags,
                         recursionCount + 1
                     );
@@ -16200,7 +16200,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         destType,
                         srcFunction,
                         diag.createAddendum(),
-                        typeVarMap || new TypeVarMap(getTypeVarScopeId(destType)),
+                        typeVarMap || new TypeVarMap(),
                         flags,
                         recursionCount + 1
                     )
