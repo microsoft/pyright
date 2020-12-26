@@ -211,7 +211,7 @@ export class TypeVarMap {
     }
 
     private _getKey(reference: TypeVarType) {
-        return TypeVarType.getScopeName(reference);
+        return TypeVarType.getNameWithScope(reference);
     }
 
     // Returns a "score" for a type that captures the relative complexity

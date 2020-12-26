@@ -97,6 +97,7 @@ import {
     Type,
     TypeBase,
     TypeCategory,
+    TypeVarType,
     UnknownType,
     Variance,
 } from './types';
@@ -2095,7 +2096,9 @@ export class Checker extends ParseTreeWalker {
             if (isTypeVar(subtype) && subtype.details.variance === Variance.Contravariant) {
                 if (subtype.scopeId !== scopeId) {
                     diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeVarIsContravariant().format({ name: subtype.details.name })
+                        Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
+                            name: TypeVarType.getReadableName(subtype),
+                        })
                     );
                     isValid = false;
                 }

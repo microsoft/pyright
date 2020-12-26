@@ -2112,7 +2112,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* isParamSpec */ false,
                 /* isSynthesized */ true
             );
-            defaultTypeVar = TypeVarType.cloneForScopeId(defaultTypeVar, typeVarScopeId);
+            defaultTypeVar = TypeVarType.cloneForScopeId(defaultTypeVar, typeVarScopeId, classType.details.name);
 
             const createGetMethod = (keyType: Type, valueType: Type) => {
                 const getOverload = FunctionType.createInstance(
@@ -2785,7 +2785,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             type: constraintType,
                             constraints: [
                                 {
-                                    typeVarName: TypeVarType.getScopeName(subtype),
+                                    typeVarName: TypeVarType.getNameWithScope(subtype),
                                     constraintIndex,
                                 },
                             ],
@@ -2886,8 +2886,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (target.nodeType !== ParseNodeType.Name || target.value !== type.details.name) {
                         addError(
                             type.details.isParamSpec
-                                ? Localizer.Diagnostic.paramSpecAssignedName().format({ name: type.details.name })
-                                : Localizer.Diagnostic.typeVarAssignedName().format({ name: type.details.name }),
+                                ? Localizer.Diagnostic.paramSpecAssignedName().format({
+                                      name: TypeVarType.getReadableName(type),
+                                  })
+                                : Localizer.Diagnostic.typeVarAssignedName().format({
+                                      name: TypeVarType.getReadableName(type),
+                                  }),
                             target
                         );
                     }
@@ -3433,7 +3437,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (type.scopeId === undefined) {
                         const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
                         if (enclosingScope) {
-                            type = TypeVarType.cloneForScopeId(type, getScopeIdForNode(enclosingScope));
+                            type = TypeVarType.cloneForScopeId(
+                                type,
+                                getScopeIdForNode(enclosingScope),
+                                enclosingScope.name.value
+                            );
                         } else {
                             fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
                         }
@@ -3534,8 +3542,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 // Is this a placeholder that was temporarily written to the cache for
                 // purposes of resolving type aliases?
-                if (leftType && isTypeVar(leftType) && leftType.details.recursiveTypeAliasScopeId) {
-                    return TypeVarType.cloneForScopeId(type, leftType.details.recursiveTypeAliasScopeId);
+                if (
+                    leftType &&
+                    isTypeVar(leftType) &&
+                    leftType.details.recursiveTypeAliasScopeId &&
+                    leftType.details.recursiveTypeAliasName
+                ) {
+                    return TypeVarType.cloneForScopeId(
+                        type,
+                        leftType.details.recursiveTypeAliasScopeId,
+                        leftType.details.recursiveTypeAliasName
+                    );
                 }
             }
 
@@ -10036,7 +10053,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 );
                                 typeVar.scopeId = getScopeIdForNode(initDeclNode);
                                 typeVar.details.boundType = UnknownType.create();
-                                return TypeVarType.cloneForScopeId(typeVar, getScopeIdForNode(node));
+                                return TypeVarType.cloneForScopeId(typeVar, getScopeIdForNode(node), node.name.value);
                             });
                         }
                     }
@@ -10594,7 +10611,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* isSynthesized */ true
                     );
                     const scopeId = getScopeIdForNode(functionNode);
-                    clsType.scopeName = TypeVarType.makeScopeName(clsType.details.name, scopeId);
+                    clsType.nameWithScope = TypeVarType.makeNameWithScope(clsType.details.name, scopeId);
                     clsType.scopeId = scopeId;
 
                     clsType.details.boundType = selfSpecializeClassType(
@@ -10609,7 +10626,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         /* isSynthesized */ true
                     );
                     const scopeId = getScopeIdForNode(functionNode);
-                    selfType.scopeName = TypeVarType.makeScopeName(selfType.details.name, scopeId);
+                    selfType.nameWithScope = TypeVarType.makeNameWithScope(selfType.details.name, scopeId);
                     selfType.scopeId = scopeId;
 
                     selfType.details.boundType = ObjectType.create(
@@ -13743,7 +13760,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.typeVarAssignmentMismatch().format({
                             type: printType(typeArgType),
-                            name: typeParameters[index].details.name,
+                            name: TypeVarType.getReadableName(typeParameters[index]),
                         }) + diag.getString(),
                         typeArgs![index].node
                     );
@@ -15336,7 +15353,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 const childDiag = diag.createAddendum();
                                 childDiag.addMessage(
                                     Localizer.DiagnosticAddendum.typeVarIsCovariant().format({
-                                        name: destTypeParam.details.name,
+                                        name: TypeVarType.getReadableName(destTypeParam),
                                     })
                                 );
                                 childDiag.addAddendum(assignmentDiag);
@@ -15357,7 +15374,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const childDiag = diag.createAddendum();
                             childDiag.addMessage(
                                 Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
-                                    name: destTypeParam.details.name,
+                                    name: TypeVarType.getReadableName(destTypeParam),
                                 })
                             );
                             childDiag.addAddendum(assignmentDiag);
@@ -15377,7 +15394,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             const childDiag = diag.createAddendum();
                             childDiag.addMessage(
                                 Localizer.DiagnosticAddendum.typeVarIsInvariant().format({
-                                    name: destTypeParam.details.name,
+                                    name: TypeVarType.getReadableName(destTypeParam),
                                 })
                             );
                             childDiag.addAddendum(assignmentDiag);
@@ -15616,7 +15633,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         Localizer.DiagnosticAddendum.typeBound().format({
                             sourceType: printType(updatedType),
                             destType: printType(destType.details.boundType),
-                            name: destType.details.name,
+                            name: TypeVarType.getNameWithScope(destType),
                         })
                     );
                 }
@@ -15688,7 +15705,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                         if (
                             constraints?.find(
-                                (constraint) => constraint.typeVarName === TypeVarType.getScopeName(destTypeVar)
+                                (constraint) => constraint.typeVarName === TypeVarType.getNameWithScope(destTypeVar)
                             )
                         ) {
                             if (
@@ -16993,7 +17010,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         Localizer.DiagnosticAddendum.typeBound().format({
                             sourceType: printType(effectiveSrcType),
                             destType: printType(boundType),
-                            name: destType.details.name,
+                            name: TypeVarType.getReadableName(destType),
                         })
                     );
                 }
@@ -17024,7 +17041,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         diag.addMessage(
             Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
                 type: printType(effectiveSrcType),
-                name: destType.details.name,
+                name: TypeVarType.getReadableName(destType),
             })
         );
 

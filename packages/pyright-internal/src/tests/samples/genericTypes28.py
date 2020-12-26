@@ -33,5 +33,5 @@ class Foo(Generic[_T1]):
 def bar(value: _T1) -> Type[Foo[_T1]]:
     baz = Foo(value)
     qux = type(baz)
-    t1: Literal["Type[Foo[_T1]]"] = reveal_type(qux)
+    t1: Literal["Type[Foo[_T1'bar]]"] = reveal_type(qux)
     return qux

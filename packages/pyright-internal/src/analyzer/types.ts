@@ -1411,12 +1411,16 @@ export interface TypeVarType extends TypeBase {
     category: TypeCategory.TypeVar;
     details: TypeVarDetails;
 
-    // An ID that uniquely identifies the scope in which this TypeVar is
-    // defined.
+    // An ID that uniquely identifies the scope in which this TypeVar is defined.
     scopeId?: TypeVarScopeId;
 
-    // String formatted as <name>.<scopeId>.
+    // A human-readable name of the function, class, or type alias that
+    // provides the scope for this type variable. This might not be unique,
+    // so it should be used only for error messages.
     scopeName?: string;
+
+    // String formatted as <name>.<scopeId>.
+    nameWithScope?: string;
 }
 
 export namespace TypeVarType {
@@ -1444,14 +1448,15 @@ export namespace TypeVarType {
         return newInstance;
     }
 
-    export function cloneForScopeId(type: TypeVarType, scopeId: string) {
+    export function cloneForScopeId(type: TypeVarType, scopeId: string, scopeName: string) {
         const newInstance: TypeVarType = { ...type };
-        newInstance.scopeName = makeScopeName(type.details.name, scopeId);
+        newInstance.nameWithScope = makeNameWithScope(type.details.name, scopeId);
         newInstance.scopeId = scopeId;
+        newInstance.scopeName = scopeName;
         return newInstance;
     }
 
-    export function makeScopeName(name: string, scopeId: string) {
+    export function makeNameWithScope(name: string, scopeId: string) {
         return `${name}.${scopeId}`;
     }
 
@@ -1474,8 +1479,17 @@ export namespace TypeVarType {
         typeVarType.details.constraints.push(constraintType);
     }
 
-    export function getScopeName(typeVarType: TypeVarType) {
-        return typeVarType.scopeName || typeVarType.details.name;
+    export function getNameWithScope(typeVarType: TypeVarType) {
+        // If there is no name with scope, fall back on the (unscoped) name.
+        return typeVarType.nameWithScope || typeVarType.details.name;
+    }
+
+    export function getReadableName(typeVarType: TypeVarType) {
+        if (typeVarType.scopeName) {
+            return `${typeVarType.details.name}'${typeVarType.scopeName}`;
+        }
+
+        return typeVarType.details.name;
     }
 }
 

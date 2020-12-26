@@ -633,7 +633,7 @@ export function transformExpectedTypeForConstructor(
             /* isSynthesized */ true
         );
         newTypeVar.scopeId = dummyScopeId;
-        newTypeVar.scopeName = TypeVarType.makeScopeName(newTypeVar.details.name, dummyScopeId);
+        newTypeVar.nameWithScope = TypeVarType.makeNameWithScope(newTypeVar.details.name, dummyScopeId);
         if (!isInstance) {
             newTypeVar = convertToInstantiable(newTypeVar) as TypeVarType;
         }
@@ -1482,7 +1482,7 @@ export function _transformTypeVars(
 
         // Recursively transform the results, but ensure that we don't replace the
         // same type variable recursively by setting it in the recursionMap.
-        const typeVarName = TypeVarType.getScopeName(type);
+        const typeVarName = TypeVarType.getNameWithScope(type);
         if (!recursionMap.has(typeVarName)) {
             replacementType = callbacks.transformTypeVar(type);
 
@@ -1591,7 +1591,7 @@ function _transformTypeVarsInClassType(
         typeParams.forEach((typeParam) => {
             let replacementType: Type = typeParam;
 
-            const typeParamName = TypeVarType.getScopeName(typeParam);
+            const typeParamName = TypeVarType.getNameWithScope(typeParam);
             if (!recursionMap.has(typeParamName)) {
                 replacementType = callbacks.transformTypeVar(typeParam);
                 if (replacementType !== typeParam) {

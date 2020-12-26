@@ -24,6 +24,7 @@ import {
     Type,
     TypeBase,
     TypeCategory,
+    TypeVarType,
 } from './types';
 import { doForEachSubtype, isOptionalType } from './typeUtils';
 
@@ -109,7 +110,11 @@ export function printType(
             }
         }
 
-        return aliasName;
+        // If it's a TypeVar, don't use the alias name. Instead, use the full
+        // name, which may have a scope associated with it.
+        if (type.category !== TypeCategory.TypeVar) {
+            return aliasName;
+        }
     }
 
     switch (type.category) {
@@ -320,10 +325,10 @@ export function printType(
             }
 
             if (type.details.isParamSpec) {
-                return `ParamSpec('${type.details.name}')`;
+                return `${TypeVarType.getReadableName(type)}`;
             }
 
-            return `TypeVar('${type.details.name}')`;
+            return `${TypeVarType.getReadableName(type)}`;
         }
 
         case TypeCategory.None: {
