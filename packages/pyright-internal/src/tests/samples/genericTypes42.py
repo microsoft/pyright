@@ -17,7 +17,7 @@ def func1(cls: Type[_TFoo]) -> _TFoo:
     y = cls()
 
     x = cls(1, "")
-    t1: Literal["_TFoo'func1"] = reveal_type(x)
+    t1: Literal["_TFoo@func1"] = reveal_type(x)
     return x
 
 
@@ -29,5 +29,5 @@ def func2(cls: Type[_T]) -> _T:
     y = cls(1, "")
 
     x = cls()
-    t1: Literal["_T'func2"] = reveal_type(x)
+    t1: Literal["_T@func2"] = reveal_type(x)
     return x

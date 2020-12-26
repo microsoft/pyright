@@ -1486,7 +1486,7 @@ export namespace TypeVarType {
 
     export function getReadableName(typeVarType: TypeVarType) {
         if (typeVarType.scopeName) {
-            return `${typeVarType.details.name}'${typeVarType.scopeName}`;
+            return `${typeVarType.details.name}@${typeVarType.scopeName}`;
         }
 
         return typeVarType.details.name;
