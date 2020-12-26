@@ -45,7 +45,6 @@ import {
     ImportAsNode,
     ImportFromAsNode,
     ImportFromNode,
-    IndexItemsNode,
     IndexNode,
     isExpressionNode,
     LambdaNode,
@@ -2320,15 +2319,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // of a Literal['xxx'] statement. If so, we will not treat
     // the string as a normal forward-declared type annotation.
     function isAnnotationLiteralValue(node: StringListNode): boolean {
-        if (node.parent && node.parent.nodeType === ParseNodeType.IndexItems) {
-            const indexItemsNode = node.parent;
-            if (indexItemsNode.parent && indexItemsNode.parent.nodeType === ParseNodeType.Index) {
-                const indexNode = indexItemsNode.parent;
-                const baseType = getTypeOfExpression(indexNode.baseExpression).type;
-                if (baseType && isClass(baseType)) {
-                    if (ClassType.isSpecialBuiltIn(baseType, 'Literal')) {
-                        return true;
-                    }
+        if (node.parent && node.parent.nodeType === ParseNodeType.Index) {
+            const baseType = getTypeOfExpression(node.parent.baseExpression).type;
+            if (baseType && isClass(baseType)) {
+                if (ClassType.isSpecialBuiltIn(baseType, 'Literal')) {
+                    return true;
                 }
             }
         }
@@ -4374,7 +4369,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             !baseType.typeAliasInfo.typeArguments
         ) {
             const typeParameters = baseType.typeAliasInfo.typeParameters;
-            const typeArgs = getTypeArgs(node.items, flags);
+            const typeArgs = getTypeArgs(node, flags);
 
             if (typeArgs.length > typeParameters.length) {
                 addError(
@@ -4403,7 +4398,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 addError(
                     Localizer.Diagnostic.typeNotSpecializable().format({ type: printType(baseType) }) +
                         diag.getString(),
-                    node.items
+                    node
                 );
             }
 
@@ -4427,7 +4422,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (isTypeAliasPlaceholder(baseType)) {
-            const typeArgTypes = getTypeArgs(node.items, flags).map((t) => convertToInstance(t.type));
+            const typeArgTypes = getTypeArgs(node, flags).map((t) => convertToInstance(t.type));
             const type = TypeBase.cloneForTypeAlias(
                 baseType,
                 baseType.details.recursiveTypeAliasName!,
@@ -4462,7 +4457,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 if (ClassType.isBuiltIn(subtype, 'InitVar')) {
                     // Special-case InitVar, used in data classes.
-                    const typeArgs = getTypeArgs(node.items, flags);
+                    const typeArgs = getTypeArgs(node, flags);
                     if (typeArgs.length === 1) {
                         return typeArgs[0].type;
                     } else {
@@ -4494,7 +4489,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const isAnnotatedClass = isClass(subtype) && ClassType.isBuiltIn(subtype, 'Annotated');
                 const hasCustomClassGetItem = isClass(subtype) && ClassType.hasCustomClassGetItem(subtype);
 
-                const typeArgs = getTypeArgs(node.items, adjustedFlags, isAnnotatedClass, hasCustomClassGetItem);
+                const typeArgs = getTypeArgs(node, adjustedFlags, isAnnotatedClass, hasCustomClassGetItem);
 
                 // If this is a custom __class_getitem__, there's no need to specialize the class.
                 // Just return it as is.
@@ -4539,7 +4534,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // In case we didn't walk the list items above, do so now.
         // If we have, this information will be cached.
-        node.items.items.forEach((item) => {
+        node.items.forEach((item) => {
             getTypeOfExpression(item, /* expectedType */ undefined, flags & EvaluatorFlags.AllowForwardReferences);
         });
 
@@ -4549,17 +4544,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromIndexedObject(node: IndexNode, baseType: ObjectType, usage: EvaluatorUsage): Type {
         // Handle index operations for TypedDict classes specially.
         if (ClassType.isTypedDictClass(baseType.classType)) {
-            if (node.items.items.length !== 1) {
-                addError(
-                    Localizer.Diagnostic.typeArgsMismatchOne().format({ received: node.items.items.length }),
-                    node
-                );
+            if (node.items.length !== 1) {
+                addError(Localizer.Diagnostic.typeArgsMismatchOne().format({ received: node.items.length }), node);
                 return UnknownType.create();
             }
 
             const entries = getTypedDictMembersForClass(baseType.classType);
 
-            const indexType = getTypeOfExpression(node.items.items[0]).type;
+            const indexType = getTypeOfExpression(node.items[0]).type;
             let diag = new DiagnosticAddendum();
             const resultingType = mapSubtypes(indexType, (subtype) => {
                 if (isAnyOrUnknown(subtype)) {
@@ -4669,7 +4661,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return UnknownType.create();
         }
 
-        const indexTypeList = node.items.items.map((item) => getTypeOfExpression(item).type);
+        const indexTypeList = node.items.map((item) => getTypeOfExpression(item).type);
 
         let indexType: Type;
         if (indexTypeList.length === 1) {
@@ -4681,13 +4673,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const baseTypeClass = baseType.classType;
 
             if (
-                node.items.items[0].nodeType === ParseNodeType.Number &&
-                node.items.items[0].isInteger &&
-                !node.items.items[0].isImaginary
+                node.items[0].nodeType === ParseNodeType.Number &&
+                node.items[0].isInteger &&
+                !node.items[0].isImaginary
             ) {
                 const tupleType = getSpecializedTupleType(baseTypeClass);
                 if (tupleType && tupleType.variadicTypeArguments && tupleType.variadicTypeArguments.length > 0) {
-                    const numberNode = node.items.items[0];
+                    const numberNode = node.items[0];
 
                     if (numberNode.isInteger && numberNode.value >= 0) {
                         if (
@@ -4739,7 +4731,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeArgs(
-        node: IndexItemsNode,
+        node: IndexNode,
         flags: EvaluatorFlags,
         isAnnotatedClass = false,
         hasCustomClassGetItem = false
@@ -8993,7 +8985,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // feature of Python but is instead a mypy extension described here:
     // https://mypy.readthedocs.io/en/latest/literal_types.html
     function createLiteralType(node: IndexNode, flags: EvaluatorFlags): Type {
-        if (node.items.items.length === 0) {
+        if (node.items.length === 0) {
             addError(Localizer.Diagnostic.literalEmptyArgs(), node.baseExpression);
             return UnknownType.create();
         }
@@ -9002,7 +8994,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // plus enum values.
         const literalTypes: Type[] = [];
 
-        for (const item of node.items.items) {
+        for (const item of node.items) {
             let type: Type | undefined;
 
             if (item.nodeType === ParseNodeType.StringList) {

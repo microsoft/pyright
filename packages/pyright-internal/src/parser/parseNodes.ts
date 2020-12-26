@@ -49,14 +49,13 @@ export const enum ParseNodeType {
     ImportFrom,
     ImportFromAs,
     Index,
-    IndexItems,
     Except,
     For,
     FormatString,
     Function,
+    Global,
 
-    Global, // 30
-    Lambda,
+    Lambda, // 30
     List,
     ListComprehension,
     ListComprehensionFor,
@@ -65,9 +64,9 @@ export const enum ParseNodeType {
     Module,
     ModuleName,
     Name,
+    Nonlocal,
 
-    Nonlocal, // 40
-    Number,
+    Number, // 40
     Parameter,
     Pass,
     Raise,
@@ -76,9 +75,9 @@ export const enum ParseNodeType {
     Slice,
     StatementList,
     StringList,
+    String,
 
-    String, // 50
-    Suite,
+    Suite, // 50
     Ternary,
     Tuple,
     Try,
@@ -87,9 +86,9 @@ export const enum ParseNodeType {
     Unpack,
     While,
     With,
+    WithItem,
 
-    WithItem, // 60
-    Yield,
+    Yield, // 60
     YieldFrom,
     FunctionAnnotation,
 }
@@ -1103,39 +1102,14 @@ export namespace ListComprehensionNode {
     }
 }
 
-export interface IndexItemsNode extends ParseNodeBase {
-    readonly nodeType: ParseNodeType.IndexItems;
-    items: ExpressionNode[];
-}
-
-export namespace IndexItemsNode {
-    export function create(openBracketToken: Token, closeBracketToken: Token, items: ExpressionNode[]) {
-        const node: IndexItemsNode = {
-            start: openBracketToken.start,
-            length: openBracketToken.length,
-            nodeType: ParseNodeType.IndexItems,
-            id: _nextNodeId++,
-            items,
-        };
-
-        items.forEach((item) => {
-            item.parent = node;
-        });
-
-        extendRange(node, closeBracketToken);
-
-        return node;
-    }
-}
-
 export interface IndexNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Index;
     baseExpression: ExpressionNode;
-    items: IndexItemsNode;
+    items: ExpressionNode[];
 }
 
 export namespace IndexNode {
-    export function create(baseExpression: ExpressionNode, items: IndexItemsNode) {
+    export function create(baseExpression: ExpressionNode, items: ExpressionNode[], closeBracketToken: Token) {
         const node: IndexNode = {
             start: baseExpression.start,
             length: baseExpression.length,
@@ -1146,9 +1120,11 @@ export namespace IndexNode {
         };
 
         baseExpression.parent = node;
-        items.parent = node;
+        items.forEach((item) => {
+            item.parent = node;
+        });
 
-        extendRange(node, items);
+        extendRange(node, closeBracketToken);
 
         return node;
     }
@@ -1893,7 +1869,6 @@ export type ParseNode =
     | ImportFromNode
     | ImportFromAsNode
     | IndexNode
-    | IndexItemsNode
     | ExceptNode
     | ForNode
     | FormatStringNode

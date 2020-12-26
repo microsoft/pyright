@@ -129,7 +129,7 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             return (
                 printExpression(node.baseExpression, flags) +
                 '[' +
-                node.items.items.map((item) => printExpression(item, flags)).join(', ') +
+                node.items.map((item) => printExpression(item, flags)).join(', ') +
                 ']'
             );
         }

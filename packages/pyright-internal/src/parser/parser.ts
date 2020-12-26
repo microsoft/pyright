@@ -59,7 +59,6 @@ import {
     ImportFromAsNode,
     ImportFromNode,
     ImportNode,
-    IndexItemsNode,
     IndexNode,
     LambdaNode,
     ListComprehensionForNode,
@@ -2125,8 +2124,6 @@ export class Parser {
 
         // Consume trailers.
         while (true) {
-            const nextToken = this._peekToken();
-
             // Is it a function call?
             if (this._consumeTokenIfType(TokenType.OpenParenthesis)) {
                 // Generally, function calls are not allowed within type annotations,
@@ -2199,8 +2196,7 @@ export class Parser {
                 this._isParsingIndexTrailer = wasParsingIndexTrailer;
 
                 const closingToken = this._peekToken();
-                const indexItemsNode = IndexItemsNode.create(nextToken, closingToken, indexExpressions);
-                const indexNode = IndexNode.create(atomExpression, indexItemsNode);
+                const indexNode = IndexNode.create(atomExpression, indexExpressions, closingToken);
                 extendRange(indexNode, indexNode);
 
                 if (!this._consumeTokenIfType(TokenType.CloseBracket)) {

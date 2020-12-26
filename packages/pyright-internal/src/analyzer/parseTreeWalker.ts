@@ -39,7 +39,6 @@ import {
     ImportFromAsNode,
     ImportFromNode,
     ImportNode,
-    IndexItemsNode,
     IndexNode,
     LambdaNode,
     ListComprehensionForNode,
@@ -249,13 +248,7 @@ export class ParseTreeWalker {
 
             case ParseNodeType.Index:
                 if (this.visitIndex(node)) {
-                    return [node.baseExpression, node.items];
-                }
-                break;
-
-            case ParseNodeType.IndexItems:
-                if (this.visitIndexItems(node)) {
-                    return node.items;
+                    return [node.baseExpression, ...node.items];
                 }
                 break;
 
@@ -604,10 +597,6 @@ export class ParseTreeWalker {
     }
 
     visitIndex(node: IndexNode) {
-        return true;
-    }
-
-    visitIndexItems(node: IndexItemsNode) {
         return true;
     }
 

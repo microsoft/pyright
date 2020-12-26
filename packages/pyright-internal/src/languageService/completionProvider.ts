@@ -1171,12 +1171,7 @@ export class CompletionProvider {
 
         const completionList = CompletionList.create();
 
-        if (parentNode.nodeType === ParseNodeType.IndexItems) {
-            parentNode = parentNode.parent;
-            if (!parentNode || parentNode.nodeType !== ParseNodeType.Index) {
-                return undefined;
-            }
-
+        if (parentNode.nodeType === ParseNodeType.Index) {
             const baseType = this._evaluator.getType(parentNode.baseExpression);
             if (!baseType || !isObject(baseType)) {
                 return undefined;
@@ -1242,16 +1237,11 @@ export class CompletionProvider {
     }
 
     private _getIndexStringLiteral(parseNode: ErrorNode, completionList: CompletionList) {
-        if (!parseNode.parent || parseNode.parent.nodeType !== ParseNodeType.IndexItems) {
+        if (!parseNode.parent || parseNode.parent.nodeType !== ParseNodeType.Index) {
             return;
         }
 
-        const parentNode = parseNode.parent;
-        if (!parentNode.parent || parentNode.parent.nodeType !== ParseNodeType.Index) {
-            return;
-        }
-
-        const baseType = this._evaluator.getType(parentNode.parent.baseExpression);
+        const baseType = this._evaluator.getType(parseNode.parent.baseExpression);
         if (!baseType || !isObject(baseType)) {
             return;
         }

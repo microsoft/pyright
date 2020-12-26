@@ -50,10 +50,10 @@ export function evaluateStaticBoolExpression(
         } else if (
             node.leftExpression.nodeType === ParseNodeType.Index &&
             _isSysVersionInfoExpression(node.leftExpression.baseExpression) &&
-            node.leftExpression.items.items.length === 1 &&
-            node.leftExpression.items.items[0].nodeType === ParseNodeType.Number &&
-            !node.leftExpression.items.items[0].isImaginary &&
-            node.leftExpression.items.items[0].value === 0 &&
+            node.leftExpression.items.length === 1 &&
+            node.leftExpression.items[0].nodeType === ParseNodeType.Number &&
+            !node.leftExpression.items[0].isImaginary &&
+            node.leftExpression.items[0].value === 0 &&
             node.rightExpression.nodeType === ParseNodeType.Number
         ) {
             // Handle the special case of "sys.version_info[0] >= X"
