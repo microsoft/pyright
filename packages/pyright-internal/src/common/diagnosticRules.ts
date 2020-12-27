@@ -62,4 +62,5 @@ export enum DiagnosticRule {
     reportInvalidStubStatement = 'reportInvalidStubStatement',
     reportUnsupportedDunderAll = 'reportUnsupportedDunderAll',
     reportUnusedCallResult = 'reportUnusedCallResult',
+    reportUnusedCoroutine = 'reportUnusedCoroutine',
 }

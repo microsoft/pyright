@@ -609,6 +609,17 @@
                                 "error"
                             ]
                         },
+                        "reportUnusedCoroutine": {
+                            "type": "string",
+                            "description": "Diagnostics for call expressions that return a Coroutine and whose results are not consumed.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportUnsupportedDunderAll": {
                             "type": "string",
                             "description": "Diagnostics for unsupported operations performed on __all__.",

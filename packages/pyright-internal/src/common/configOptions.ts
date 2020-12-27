@@ -236,6 +236,10 @@ export interface DiagnosticRuleSet {
     // Report cases where a call expression's return result is not
     // None and is not used in any way.
     reportUnusedCallResult: DiagnosticLevel;
+
+    // Report cases where a call expression's return result is Coroutine
+    // and is not used in any way.
+    reportUnusedCoroutine: DiagnosticLevel;
 }
 
 export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): DiagnosticRuleSet {
@@ -304,6 +308,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportInvalidStubStatement,
         DiagnosticRule.reportUnsupportedDunderAll,
         DiagnosticRule.reportUnusedCallResult,
+        DiagnosticRule.reportUnusedCoroutine,
     ];
 }
 
@@ -369,6 +374,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportInvalidStubStatement: 'none',
         reportUnsupportedDunderAll: 'none',
         reportUnusedCallResult: 'none',
+        reportUnusedCoroutine: 'none',
     };
 
     return diagSettings;
@@ -430,6 +436,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportInvalidStubStatement: 'none',
         reportUnsupportedDunderAll: 'warning',
         reportUnusedCallResult: 'none',
+        reportUnusedCoroutine: 'error',
     };
 
     return diagSettings;
@@ -491,6 +498,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportInvalidStubStatement: 'error',
         reportUnsupportedDunderAll: 'error',
         reportUnusedCallResult: 'none',
+        reportUnusedCoroutine: 'error',
     };
 
     return diagSettings;
@@ -1139,6 +1147,13 @@ export class ConfigOptions {
                 configObj.reportUnusedCallResult,
                 DiagnosticRule.reportUnusedCallResult,
                 defaultSettings.reportUnusedCallResult
+            ),
+
+            // Read the "reportUnusedCoroutine" entry.
+            reportUnusedCoroutine: this._convertDiagnosticLevel(
+                configObj.reportUnusedCoroutine,
+                DiagnosticRule.reportUnusedCoroutine,
+                defaultSettings.reportUnusedCoroutine
             ),
         };
 

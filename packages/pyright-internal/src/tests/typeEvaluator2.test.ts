@@ -1350,3 +1350,8 @@ test('UnusedCallResult1', () => {
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedCallResult1.py'], configOptions);
     TestUtils.validateResults(analysisResults, 3);
 });
+
+test('UnusedCoroutine1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedCoroutine1.py']);
+    TestUtils.validateResults(analysisResults, 2);
+});

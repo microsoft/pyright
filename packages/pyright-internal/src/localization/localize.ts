@@ -668,6 +668,7 @@ export namespace Localizer {
         export const unsupportedDunderAllOperation = () => getRawString('Diagnostic.unsupportedDunderAllOperation');
         export const unusedCallResult = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.unusedCallResult'));
+        export const unusedCoroutine = () => getRawString('Diagnostic.unusedCoroutine');
         export const varAnnotationIllegal = () => getRawString('Diagnostic.varAnnotationIllegal');
         export const walrusIllegal = () => getRawString('Diagnostic.walrusIllegal');
         export const walrusNotAllowed = () => getRawString('Diagnostic.walrusNotAllowed');

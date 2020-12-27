@@ -459,9 +459,13 @@ export class Checker extends ParseTreeWalker {
             );
         }
 
-        if (this._fileInfo.diagnosticRuleSet.reportUnusedCallResult !== 'none') {
+        if (
+            this._fileInfo.diagnosticRuleSet.reportUnusedCallResult !== 'none' ||
+            this._fileInfo.diagnosticRuleSet.reportUnusedCoroutine !== 'none'
+        ) {
             if (node.parent?.nodeType === ParseNodeType.StatementList) {
                 const returnType = this._evaluator.getType(node);
+
                 if (
                     returnType &&
                     !isNone(returnType) &&
@@ -477,6 +481,15 @@ export class Checker extends ParseTreeWalker {
                         }),
                         node
                     );
+
+                    if (isObject(returnType) && ClassType.isBuiltIn(returnType.classType, 'Coroutine')) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportUnusedCoroutine,
+                            DiagnosticRule.reportUnusedCoroutine,
+                            Localizer.Diagnostic.unusedCoroutine(),
+                            node
+                        );
+                    }
                 }
             }
         }
