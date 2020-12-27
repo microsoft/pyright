@@ -89,6 +89,18 @@ Pyright’s type-checking functionality and language features are now incorporat
 Installing both Pyright and Pylance at the same time is not recommended. If both are installed and enabled, you will see duplicate errors, hover text, and completion suggestions. 
 
 
+## Using pyright with pre-commit
+Pyright support pre-commit hooks for [pre-commit](https://github.com/pre-commit/pre-commit)
+Add this to your `.pre-commit-config.yaml`
+
+```yml
+-   repo: https://github.com/microsoft/pyright
+    rev: ''  # Use the sha / tag you want to point at
+    hooks:
+    -   id: pyright
+```
+
+
 ## Documentation
 * [Getting Started with Type Checking](/docs/getting-started.md)
 * [Type Concepts](/docs/type-concepts.md)

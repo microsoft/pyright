@@ -1,0 +1,6 @@
+- id: pyright
+  name: pyright
+  entry: pyright .
+  language: node
+  types: [python]
+  additional_dependencies: ['pyright@1.1.97']
