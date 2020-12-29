@@ -15625,7 +15625,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         Localizer.DiagnosticAddendum.typeBound().format({
                             sourceType: printType(updatedType),
                             destType: printType(destType.details.boundType),
-                            name: TypeVarType.getNameWithScope(destType),
+                            name: TypeVarType.getReadableName(destType),
                         })
                     );
                 }
