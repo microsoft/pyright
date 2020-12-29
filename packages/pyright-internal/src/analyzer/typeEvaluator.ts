@@ -375,6 +375,12 @@ export const enum MemberAccessFlags {
     // and fall back on the metaclass if it's not found. This option
     // skips the first check.
     ConsiderMetaclassOnly = 1 << 5,
+
+    // If an attribute cannot be found when looking for instance
+    // members, normally an attribute access override method
+    // (__getattr__, etc.) may provide the missing attribute type.
+    // This disables this check.
+    SkipAttributeAccessOverride = 1 << 6,
 }
 
 interface ParamAssignmentInfo {
@@ -4000,7 +4006,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // No attribute of that name was found. If this is a member access
         // through an object, see if there's an attribute access override
         // method ("__getattr__", etc.).
-        if ((flags & MemberAccessFlags.AccessClassMembersOnly) === 0) {
+        if (
+            (flags & (MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride)) ===
+            0
+        ) {
             const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage);
 
             if (generalAttrType) {
@@ -5293,7 +5302,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             '__init__',
             { method: 'get' },
             new DiagnosticAddendum(),
-            MemberAccessFlags.SkipObjectBaseClass
+            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
         );
 
         if (initMethodType && !skipConstructorCheck(initMethodType)) {
