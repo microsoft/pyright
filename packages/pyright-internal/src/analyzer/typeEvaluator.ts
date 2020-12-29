@@ -14854,13 +14854,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
                 } else {
-                    const declaredType = getDeclaredTypeOfSymbol(symbol);
+                    let declaredType = getDeclaredTypeOfSymbol(symbol);
                     if (declaredType) {
                         let srcMemberType = getTypeOfMember(memberInfo);
 
                         if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
                             if (isMemberFromMetaclass) {
-                                const boundFunction = bindFunctionToClassOrObject(
+                                const boundSrcFunction = bindFunctionToClassOrObject(
                                     srcType,
                                     srcMemberType,
                                     /* memberClass */ undefined,
@@ -14868,21 +14868,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     /* treatConstructorAsClassMember */ false,
                                     srcType
                                 );
-                                if (boundFunction) {
-                                    srcMemberType = boundFunction;
+                                if (boundSrcFunction) {
+                                    srcMemberType = boundSrcFunction;
+                                }
+
+                                if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
+                                    const boundDeclaredType = bindFunctionToClassOrObject(
+                                        srcType,
+                                        declaredType,
+                                        /* memberClass */ undefined,
+                                        /* errorNode */ undefined,
+                                        /* treatConstructorAsClassMember */ false,
+                                        srcType
+                                    );
+                                    if (boundDeclaredType) {
+                                        declaredType = boundDeclaredType;
+                                    }
                                 }
                             } else if (isClass(memberInfo.classType)) {
-                                const boundFunction = bindFunctionToClassOrObject(
+                                const boundSrcFunction = bindFunctionToClassOrObject(
                                     ObjectType.create(srcType),
                                     srcMemberType,
-                                    memberInfo.classType,
-                                    /* errorNode */ undefined,
-                                    /* treatConstructorAsClassMember */ false,
-                                    /* firstParamType */ undefined,
-                                    /* neverStripFirstParam */ true
+                                    memberInfo.classType
                                 );
-                                if (boundFunction) {
-                                    srcMemberType = boundFunction;
+                                if (boundSrcFunction) {
+                                    srcMemberType = boundSrcFunction;
+                                }
+
+                                if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
+                                    const boundDeclaredType = bindFunctionToClassOrObject(
+                                        ObjectType.create(srcType),
+                                        declaredType,
+                                        memberInfo.classType
+                                    );
+                                    if (boundDeclaredType) {
+                                        declaredType = boundDeclaredType;
+                                    }
                                 }
                             }
                         }
@@ -15014,20 +15035,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         reportErrorsUsingObjType: boolean,
         allowMetaclassForProtocols = false
     ): boolean {
-        // Is it a structural type (i.e. a protocol)? If so, we need to
-        // perform a member-by-member check.
-        if (ClassType.isProtocolClass(destType)) {
-            return canAssignClassToProtocol(
-                destType,
-                srcType,
-                diag,
-                typeVarMap,
-                flags,
-                allowMetaclassForProtocols,
-                recursionCount
-            );
-        }
-
         // Handle typed dicts. They also use a form of structural typing for type
         // checking, as defined in PEP 589.
         if (ClassType.isTypedDictClass(destType) && ClassType.isTypedDictClass(srcType)) {
@@ -15068,9 +15075,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Is it a structural type (i.e. a protocol)? If so, we need to
+        // perform a member-by-member check.
+        const inheritanceChain: InheritanceChain = [];
+        const isDerivedFrom = ClassType.isDerivedFrom(srcType, destType, inheritanceChain);
+
+        if (!isDerivedFrom && ClassType.isProtocolClass(destType)) {
+            return canAssignClassToProtocol(
+                destType,
+                srcType,
+                diag,
+                typeVarMap,
+                flags,
+                allowMetaclassForProtocols,
+                recursionCount
+            );
+        }
+
         if ((flags & CanAssignFlags.EnforceInvariance) === 0 || ClassType.isSameGenericClass(srcType, destType)) {
-            const inheritanceChain: InheritanceChain = [];
-            if (ClassType.isDerivedFrom(srcType, destType, inheritanceChain)) {
+            if (isDerivedFrom) {
                 assert(inheritanceChain.length > 0);
 
                 return canAssignClassWithTypeArgs(
@@ -17227,8 +17250,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberClass?: ClassType,
         errorNode?: ParseNode,
         treatConstructorAsClassMember = false,
-        firstParamType?: ClassType | ObjectType | TypeVarType,
-        neverStripFirstParam = false
+        firstParamType?: ClassType | ObjectType | TypeVarType
     ): FunctionType | OverloadedFunctionType | undefined {
         if (isFunction(memberType)) {
             // If the caller specified no base type, always strip the
@@ -17245,7 +17267,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberClass || baseObj.classType,
                     errorNode,
                     firstParamType || baseObj,
-                    /* stripFirstParam */ isObject(baseType) && !neverStripFirstParam
+                    /* stripFirstParam */ isObject(baseType)
                 );
             }
 
@@ -17269,7 +17291,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberClass || baseClass,
                     errorNode,
                     effectiveFirstParamType,
-                    /* stripFirstParam */ !neverStripFirstParam
+                    /* stripFirstParam */ true
                 );
             }
 
@@ -17294,8 +17316,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberClass,
                     /* errorNode */ undefined,
                     treatConstructorAsClassMember,
-                    firstParamType,
-                    neverStripFirstParam
+                    firstParamType
                 );
                 if (boundMethod) {
                     OverloadedFunctionType.addOverload(newOverloadType, boundMethod as FunctionType);
@@ -17315,8 +17336,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             memberClass,
                             errorNode,
                             treatConstructorAsClassMember,
-                            firstParamType,
-                            neverStripFirstParam
+                            firstParamType
                         );
                     });
                 }
