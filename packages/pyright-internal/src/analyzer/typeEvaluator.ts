@@ -16421,7 +16421,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !canAssignFunctionParameter(
                         destParamType,
                         srcParamType,
-                        paramIndex + 1,
+                        paramIndex,
                         diag.createAddendum(),
                         typeVarMap,
                         srcTypeVarMap,
@@ -16466,7 +16466,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     !canAssignFunctionParameter(
                                         destArgsType,
                                         srcParamType,
-                                        paramIndex + 1,
+                                        paramIndex,
                                         diag.createAddendum(),
                                         typeVarMap,
                                         srcTypeVarMap,
@@ -16499,7 +16499,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 !canAssignFunctionParameter(
                                     destParamType,
                                     srcArgsType,
-                                    paramIndex + 1,
+                                    paramIndex,
                                     diag.createAddendum(),
                                     typeVarMap,
                                     srcTypeVarMap,
@@ -16531,7 +16531,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !canAssignFunctionParameter(
                         destArgsType,
                         srcArgsType,
-                        destArgsIndex + 1,
+                        destArgsIndex,
                         diag.createAddendum(),
                         typeVarMap,
                         srcTypeVarMap,
