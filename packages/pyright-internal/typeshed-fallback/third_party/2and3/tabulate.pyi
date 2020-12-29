@@ -1,4 +1,4 @@
-from typing import Any, Callable, Container, Iterable, List, Mapping, NamedTuple, Optional, Sequence, Union
+from typing import Any, Callable, Container, Dict, Iterable, List, Mapping, NamedTuple, Optional, Sequence, Union
 
 PRESERVE_WHITESPACE: bool
 WIDE_CHARS_MODE: bool
@@ -31,7 +31,7 @@ class TableFormat(NamedTuple):
 def simple_separated_format(separator: str) -> TableFormat: ...
 def tabulate(
     tabular_data: Union[Mapping[str, Iterable[Any]], Iterable[Iterable[Any]]],
-    headers: Union[str, Sequence[str]] = ...,
+    headers: Union[str, Dict[str, str], Sequence[str]] = ...,
     tablefmt: Union[str, TableFormat] = ...,
     floatfmt: Union[str, Iterable[str]] = ...,
     numalign: Optional[str] = ...,

@@ -1,11 +1,12 @@
 from typing_extensions import Literal
 
-NO: Literal[0]
-YES: Literal[1]
-TRUE: Literal[1]
-FALSE: Literal[0]
-ON: Literal[1]
-OFF: Literal[0]
+# These are not actually bools. See #4669
+NO: bool
+YES: bool
+TRUE: bool
+FALSE: bool
+ON: bool
+OFF: bool
 N: Literal["n"]
 S: Literal["s"]
 W: Literal["w"]

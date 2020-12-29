@@ -170,7 +170,10 @@ else:
     ReadableBuffer = Union[bytes, bytearray, memoryview, array.array, mmap.mmap, buffer]
     WriteableBuffer = Union[bytearray, memoryview, array.array, mmap.mmap, buffer]
 
-# Used by type checkers for checks involving None (does not exist at runtime)
-@final
-class NoneType:
-    def __bool__(self) -> Literal[False]: ...
+if sys.version_info >= (3, 10):
+    from types import NoneType as NoneType
+else:
+    # Used by type checkers for checks involving None (does not exist at runtime)
+    @final
+    class NoneType:
+        def __bool__(self) -> Literal[False]: ...

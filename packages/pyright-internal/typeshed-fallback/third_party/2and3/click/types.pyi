@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from typing import IO, Any, Callable, Generic, Iterable, List, Optional, Tuple as _PyTuple, Type, TypeVar, Union
+from typing import IO, Any, Callable, Generic, Iterable, List, Optional, Sequence, Text, Tuple as _PyTuple, Type, TypeVar, Union
 
 from click.core import Context, Parameter, _ConvertibleType, _ParamType
 
@@ -15,10 +15,12 @@ class CompositeParamType(ParamType):
 
 class Choice(ParamType):
     choices: Iterable[str]
+    case_sensitive: bool
     def __init__(self, choices: Iterable[str], case_sensitive: bool = ...) -> None: ...
 
 class DateTime(ParamType):
-    def __init__(self, formats: Optional[List[str]] = ...) -> None: ...
+    formats: Sequence[str]
+    def __init__(self, formats: Optional[Sequence[str]] = ...) -> None: ...
     def convert(self, value: str, param: Optional[Parameter], ctx: Optional[Context]) -> datetime.datetime: ...
 
 class FloatParamType(ParamType):
@@ -26,12 +28,20 @@ class FloatParamType(ParamType):
     def convert(self, value: str, param: Optional[Parameter], ctx: Optional[Context]) -> float: ...
 
 class FloatRange(FloatParamType):
+    min: Optional[float]
+    max: Optional[float]
+    clamp: bool
     def __init__(self, min: Optional[float] = ..., max: Optional[float] = ..., clamp: bool = ...) -> None: ...
 
 class File(ParamType):
+    mode: str
+    encoding: Optional[str]
+    errors: Optional[str]
+    lazy: Optional[bool]
+    atomic: bool
     def __init__(
         self,
-        mode: str = ...,
+        mode: Text = ...,
         encoding: Optional[str] = ...,
         errors: Optional[str] = ...,
         lazy: Optional[bool] = ...,
@@ -55,11 +65,23 @@ class IntParamType(ParamType):
     def convert(self, value: str, param: Optional[Parameter], ctx: Optional[Context]) -> int: ...
 
 class IntRange(IntParamType):
+    min: Optional[int]
+    max: Optional[int]
+    clamp: bool
     def __init__(self, min: Optional[int] = ..., max: Optional[int] = ..., clamp: bool = ...) -> None: ...
 
 _PathType = TypeVar("_PathType", str, bytes)
+_PathTypeBound = Union[Type[str], Type[bytes]]
 
 class Path(ParamType):
+    exists: bool
+    file_okay: bool
+    dir_okay: bool
+    writable: bool
+    readable: bool
+    resolve_path: bool
+    allow_dash: bool
+    type: Optional[_PathTypeBound]
     def __init__(
         self,
         exists: bool = ...,

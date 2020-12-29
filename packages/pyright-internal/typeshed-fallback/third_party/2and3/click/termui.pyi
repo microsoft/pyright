@@ -63,8 +63,8 @@ def progressbar(
 def clear() -> None: ...
 def style(
     text: Text,
-    fg: Optional[str] = ...,
-    bg: Optional[str] = ...,
+    fg: Optional[Text] = ...,
+    bg: Optional[Text] = ...,
     bold: Optional[bool] = ...,
     dim: Optional[bool] = ...,
     underline: Optional[bool] = ...,

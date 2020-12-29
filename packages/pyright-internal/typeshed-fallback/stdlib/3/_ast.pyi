@@ -32,8 +32,6 @@ if sys.version_info >= (3, 8):
 
 class Module(mod):
     body: typing.List[stmt]
-    if sys.version_info >= (3, 7):
-        docstring: Optional[str]
     if sys.version_info >= (3, 8):
         type_ignores: typing.List[TypeIgnore]
 
@@ -51,8 +49,6 @@ class FunctionDef(stmt):
     body: typing.List[stmt]
     decorator_list: typing.List[expr]
     returns: Optional[expr]
-    if sys.version_info >= (3, 7):
-        docstring: Optional[str]
 
 class AsyncFunctionDef(stmt):
     name: _identifier
@@ -60,8 +56,6 @@ class AsyncFunctionDef(stmt):
     body: typing.List[stmt]
     decorator_list: typing.List[expr]
     returns: Optional[expr]
-    if sys.version_info >= (3, 7):
-        docstring: Optional[str]
 
 class ClassDef(stmt):
     name: _identifier
@@ -69,8 +63,6 @@ class ClassDef(stmt):
     keywords: typing.List[keyword]
     body: typing.List[stmt]
     decorator_list: typing.List[expr]
-    if sys.version_info >= (3, 7):
-        docstring: Optional[str]
 
 class Return(stmt):
     value: Optional[expr]

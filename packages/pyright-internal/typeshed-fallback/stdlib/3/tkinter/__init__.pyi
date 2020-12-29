@@ -4,7 +4,7 @@ from enum import Enum
 from tkinter.constants import *  # comment this out to find undefined identifier names with flake8
 from tkinter.font import _FontDescription
 from types import TracebackType
-from typing import Any, Callable, Dict, Generic, List, Optional, Protocol, Tuple, Type, TypeVar, Union, overload
+from typing import Any, Callable, Dict, Generic, List, Mapping, Optional, Protocol, Tuple, Type, TypeVar, Union, overload
 from typing_extensions import Literal, TypedDict
 
 # Using anything from tkinter.font in this file means that 'import tkinter'
@@ -637,7 +637,7 @@ class Pack:
     # replaced by **kwargs.
     def pack_configure(
         self,
-        cnf: Optional[Dict[str, Any]] = ...,
+        cnf: Optional[Mapping[str, Any]] = ...,
         *,
         after: Misc = ...,
         anchor: _Anchor = ...,
@@ -680,7 +680,7 @@ class _PlaceInfo(_InMiscNonTotal):  # empty dict if widget hasn't been placed
 class Place:
     def place_configure(
         self,
-        cnf: Optional[Dict[str, Any]] = ...,
+        cnf: Optional[Mapping[str, Any]] = ...,
         *,
         anchor: _Anchor = ...,
         bordermode: Literal["inside", "outside", "ignore"] = ...,
@@ -713,14 +713,14 @@ class _GridInfo(_InMiscNonTotal):  # empty dict if widget hasn't been gridded
     rowspan: int
     ipadx: int
     ipady: int
-    padx: int
-    pady: int
+    padx: Union[int, Tuple[int, int]]
+    pady: Union[int, Tuple[int, int]]
     sticky: str  # consists of letters 'n', 's', 'w', 'e', no repeats, may be empty
 
 class Grid:
     def grid_configure(
         self,
-        cnf: Optional[Dict[str, Any]] = ...,
+        cnf: Optional[Mapping[str, Any]] = ...,
         *,
         column: int = ...,
         columnspan: int = ...,
@@ -728,8 +728,8 @@ class Grid:
         rowspan: int = ...,
         ipadx: _ScreenUnits = ...,
         ipady: _ScreenUnits = ...,
-        padx: _ScreenUnits = ...,
-        pady: _ScreenUnits = ...,
+        padx: Union[_ScreenUnits, Tuple[_ScreenUnits, _ScreenUnits]] = ...,
+        pady: Union[_ScreenUnits, Tuple[_ScreenUnits, _ScreenUnits]] = ...,
         sticky: str = ...,  # consists of letters 'n', 's', 'w', 'e', may contain repeats, may be empty
         in_: Misc = ...,
     ) -> None: ...
@@ -886,6 +886,7 @@ class Button(Widget):
         highlightthickness: _ScreenUnits = ...,
         image: _ImageSpec = ...,
         justify: Literal["left", "center", "right"] = ...,
+        name: str = ...,
         overrelief: _Relief = ...,
         padx: _ScreenUnits = ...,
         pady: _ScreenUnits = ...,
@@ -1010,6 +1011,7 @@ class Canvas(Widget, XView, YView):
         insertofftime: int = ...,
         insertontime: int = ...,
         insertwidth: _ScreenUnits = ...,
+        name: str = ...,
         offset: Any = ...,  # undocumented
         relief: _Relief = ...,
         # Setting scrollregion to None doesn't reset it back to empty,
@@ -1212,6 +1214,7 @@ class Checkbutton(Widget):
         image: _ImageSpec = ...,
         indicatoron: bool = ...,
         justify: Literal["left", "center", "right"] = ...,
+        name: str = ...,
         offrelief: _Relief = ...,
         # The checkbutton puts a value to its variable when it's checked or
         # unchecked. We don't restrict the type of that value here, so
@@ -1369,6 +1372,7 @@ class Entry(Widget, XView):
         invalidcommand: _EntryValidateCommand = ...,
         invcmd: _EntryValidateCommand = ...,
         justify: Literal["left", "center", "right"] = ...,
+        name: str = ...,
         readonlybackground: _Color = ...,
         relief: _Relief = ...,
         selectbackground: _Color = ...,
@@ -1492,6 +1496,7 @@ class Frame(Widget):
         highlightbackground: _Color = ...,
         highlightcolor: _Color = ...,
         highlightthickness: _ScreenUnits = ...,
+        name: str = ...,
         padx: _ScreenUnits = ...,
         pady: _ScreenUnits = ...,
         relief: _Relief = ...,
@@ -1586,6 +1591,7 @@ class Label(Widget):
         highlightthickness: _ScreenUnits = ...,
         image: _ImageSpec = ...,
         justify: Literal["left", "center", "right"] = ...,
+        name: str = ...,
         padx: _ScreenUnits = ...,
         pady: _ScreenUnits = ...,
         relief: _Relief = ...,
@@ -1704,6 +1710,7 @@ class Listbox(Widget, XView, YView):
         #    >>> lb.get(0, 'end')
         #    ('foo', 'bar', 'baz')
         listvariable: Variable = ...,
+        name: str = ...,
         relief: _Relief = ...,
         selectbackground: _Color = ...,
         selectborderwidth: _ScreenUnits = ...,
@@ -1827,6 +1834,7 @@ class Menu(Widget):
         fg: _Color = ...,
         font: _FontDescription = ...,
         foreground: _Color = ...,
+        name: str = ...,
         postcommand: Union[Callable[[], Any], str] = ...,
         relief: _Relief = ...,
         selectcolor: _Color = ...,
@@ -1963,6 +1971,7 @@ class Menubutton(Widget):
         indicatoron: bool = ...,
         justify: Literal["left", "center", "right"] = ...,
         menu: Menu = ...,
+        name: str = ...,
         padx: _ScreenUnits = ...,
         pady: _ScreenUnits = ...,
         relief: _Relief = ...,
@@ -2065,6 +2074,7 @@ class Message(Widget):
         highlightcolor: _Color = ...,
         highlightthickness: _ScreenUnits = ...,
         justify: Literal["left", "center", "right"] = ...,
+        name: str = ...,
         padx: _ScreenUnits = ...,
         pady: _ScreenUnits = ...,
         relief: _Relief = ...,
@@ -2180,6 +2190,7 @@ class Radiobutton(Widget):
         image: _ImageSpec = ...,
         indicatoron: bool = ...,
         justify: Literal["left", "center", "right"] = ...,
+        name: str = ...,
         offrelief: _Relief = ...,
         overrelief: _Relief = ...,
         padx: _ScreenUnits = ...,
@@ -2318,6 +2329,7 @@ class Scale(Widget):
         highlightthickness: _ScreenUnits = ...,
         label: str = ...,
         length: _ScreenUnits = ...,
+        name: str = ...,
         orient: Literal["horizontal", "vertical"] = ...,
         relief: _Relief = ...,
         repeatdelay: int = ...,
@@ -2431,6 +2443,7 @@ class Scrollbar(Widget):
         highlightcolor: _Color = ...,
         highlightthickness: _ScreenUnits = ...,
         jump: bool = ...,
+        name: str = ...,
         orient: Literal["horizontal", "vertical"] = ...,
         relief: _Relief = ...,
         repeatdelay: int = ...,
@@ -2560,6 +2573,7 @@ class Text(Widget, XView, YView):
         insertunfocussed: Literal["none", "hollow", "solid"] = ...,
         insertwidth: _ScreenUnits = ...,
         maxundo: int = ...,
+        name: str = ...,
         padx: _ScreenUnits = ...,
         pady: _ScreenUnits = ...,
         relief: _Relief = ...,
@@ -2965,6 +2979,7 @@ class Spinbox(Widget, XView):
         invalidcommand: _EntryValidateCommand = ...,
         invcmd: _EntryValidateCommand = ...,
         justify: Literal["left", "center", "right"] = ...,
+        name: str = ...,
         readonlybackground: _Color = ...,
         relief: _Relief = ...,
         repeatdelay: int = ...,
@@ -3118,6 +3133,7 @@ class LabelFrame(Widget):
         # 'ne' and 'en' are valid labelanchors, but only 'ne' is a valid _Anchor.
         labelanchor: Literal["nw", "n", "ne", "en", "e", "es", "se", "s", "sw", "ws", "w", "wn"] = ...,
         labelwidget: Misc = ...,
+        name: str = ...,
         padx: _ScreenUnits = ...,
         pady: _ScreenUnits = ...,
         relief: _Relief = ...,
@@ -3197,6 +3213,7 @@ class PanedWindow(Widget):
         handlepad: _ScreenUnits = ...,
         handlesize: _ScreenUnits = ...,
         height: _ScreenUnits = ...,
+        name: str = ...,
         opaqueresize: bool = ...,
         orient: Literal["horizontal", "vertical"] = ...,
         proxybackground: _Color = ...,
