@@ -1,14 +1,14 @@
 # This sample tests the handling of metaclass magic methods for
 # binary operators.
 
-from typing import Literal
+from typing import Literal, Type
 
 
 class MetaFoo(type):
     def __eq__(self, a: object) -> str:
         return "hi"
 
-    def __add__(self, a: "Foo") -> int:
+    def __add__(self, a: "Type[Foo]") -> int:
         return 0
 
 

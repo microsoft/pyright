@@ -16084,15 +16084,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
             } else if (isClass(concreteSrcType)) {
+                // See if the destType is an instantiation of a Protocol
+                // class that is effectively a function.
+                const callbackType = getCallbackProtocolType(destType);
+                if (callbackType) {
+                    return canAssignType(callbackType, concreteSrcType, diag, typeVarMap, flags, recursionCount + 1);
+                }
+
                 // Determine if the metaclass can be assigned to the object.
                 const metaclass = concreteSrcType.details.effectiveMetaclass;
                 if (metaclass) {
                     if (isAnyOrUnknown(metaclass)) {
                         return true;
-                    } else if (isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
+                    } else {
                         return canAssignClass(
                             destClassType,
-                            concreteSrcType,
+                            ClassType.isProtocolClass(destClassType) ? concreteSrcType : metaclass,
                             diag,
                             typeVarMap,
                             flags,
@@ -16104,13 +16111,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             } else if (isAnyOrUnknown(concreteSrcType)) {
                 return (flags & CanAssignFlags.DisallowAssignFromAny) === 0;
-            }
-
-            // See if the destType is an instantiation of a Protocol
-            // class that is effectively a function.
-            const callbackType = getCallbackProtocolType(destType);
-            if (callbackType) {
-                destType = callbackType;
             }
         }
 
@@ -17363,7 +17363,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (
                 isTypeVar(firstParam.type) &&
                 firstParam.type.details.boundType &&
-                ClassType.isProtocolClass(memberClass)
+                isObject(firstParam.type.details.boundType) &&
+                ClassType.isProtocolClass(firstParam.type.details.boundType.classType)
             ) {
                 // Handle the protocol class specially. Some protocol classes
                 // contain references to themselves or their subclasses, so if
