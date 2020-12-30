@@ -22,7 +22,7 @@ import { OperationCanceledException, throwIfCancellationRequested } from '../com
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { isDebugMode } from '../common/core';
-import { assert, fail } from '../common/debug';
+import { assert } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
@@ -31,7 +31,6 @@ import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
     getDirectoryPath,
-    getFileExtension,
     getFileName,
     getRelativePath,
     makeDirectories,
