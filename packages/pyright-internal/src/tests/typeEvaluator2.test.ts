@@ -8,6 +8,8 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import * as assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
 import * as TestUtils from './testUtils';
@@ -782,6 +784,14 @@ test('Import12', () => {
     configOptions.diagnosticRuleSet.reportWildcardImportFromLibrary = 'none';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['import12.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0, 0);
+});
+
+test('Import14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import14.py', 'import13.py']);
+
+    assert.strictEqual(analysisResults.length, 2);
+    assert.strictEqual(analysisResults[0].errors.length, 0);
+    assert.strictEqual(analysisResults[1].errors.length, 0);
 });
 
 test('DunderAll1', () => {

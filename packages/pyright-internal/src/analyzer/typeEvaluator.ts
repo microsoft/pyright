@@ -3721,14 +3721,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         type = UnknownType.create();
                     }
                 } else {
-                    // Does the stub file export a top-level __getattr__ function?
+                    // Does the module export a top-level __getattr__ function?
                     if (usage.method === 'get') {
                         const getAttrSymbol = ModuleType.getField(baseType, '__getattr__');
                         if (getAttrSymbol) {
-                            const decls = getAttrSymbol.getDeclarations();
+                            const isModuleGetAttrSupported =
+                                fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_7 ||
+                                getAttrSymbol
+                                    .getDeclarations()
+                                    .some((decl) => decl.path.toLowerCase().endsWith('.pyi'));
 
-                            // Only honor the __getattr__ if it's in a stub file.
-                            if (decls.some((decl) => decl.path.toLowerCase().endsWith('.pyi'))) {
+                            if (isModuleGetAttrSupported) {
                                 const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
                                 if (isFunction(getAttrType)) {
                                     type = getFunctionEffectiveReturnType(getAttrType);
@@ -11687,13 +11690,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If we were able to resolve the import, report the error as
                 // an unresolved symbol.
                 if (importLookupInfo) {
+                    reportError = true;
+
                     // Handle PEP 562 support for module-level __getattr__ function,
                     // introduced in Python 3.7.
-                    if (
-                        fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_7 ||
-                        !importLookupInfo.symbolTable.get('__getattr__')
-                    ) {
-                        reportError = true;
+                    if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_7 || fileInfo.isStubFile) {
+                        const getAttrSymbol = importLookupInfo.symbolTable.get('__getattr__');
+                        if (getAttrSymbol) {
+                            const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
+                            if (isFunction(getAttrType)) {
+                                symbolType = getFunctionEffectiveReturnType(getAttrType);
+                                reportError = false;
+                            }
+                        }
                     }
                 } else if (!resolvedPath) {
                     // This corresponds to the "from . import a" form.
@@ -11710,7 +11719,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            symbolType = UnknownType.create();
+            if (!symbolType) {
+                symbolType = UnknownType.create();
+            }
         }
 
         assignTypeToNameNode(aliasNode, symbolType);
