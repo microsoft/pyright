@@ -2069,12 +2069,6 @@ export class Program {
     private _addToSourceFileListAndMap(fileInfo: SourceFileInfo) {
         const filePath = normalizePathCase(this._fs, fileInfo.sourceFile.getFilePath());
 
-        // All source files should be ".pyi" or ".py" files.
-        const fileExtension = getFileExtension(filePath).toLowerCase();
-        if (fileExtension !== '.py' && fileExtension !== '.pyi') {
-            fail(`${filePath} is not a source file`);
-        }
-
         // We should never add a file with the same path twice.
         assert(!this._sourceFileMap.has(filePath));
 
