@@ -8242,7 +8242,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !!expectedType,
                 /* expectedKeyType */ undefined,
                 /* expectedValueType */ undefined,
-                expectedTypedDictEntries
+                expectedTypedDictEntries,
+                expectedDiagAddendum
             );
 
             if (
@@ -8290,7 +8291,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             valueTypes,
             !!expectedType,
             expectedKeyType,
-            expectedValueType
+            expectedValueType,
+            undefined,
+            expectedDiagAddendum
         );
 
         const isExpectedTypeDict = isObject(expectedType) && ClassType.isBuiltIn(expectedType.classType, 'dict');
@@ -8354,7 +8357,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         limitEntryCount: boolean,
         expectedKeyType?: Type,
         expectedValueType?: Type,
-        expectedTypedDictEntries?: Map<string, TypedDictEntry>
+        expectedTypedDictEntries?: Map<string, TypedDictEntry>,
+        expectedDiagAddendum?: DiagnosticAddendum
     ) {
         // Infer the key and value types if possible.
         node.entries.forEach((entryNode, index) => {
@@ -8370,7 +8374,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 }
-                let valueType: Type | undefined;
+                
+                let valueTypeResult: TypeResult;
+                let valueType: Type;
 
                 if (
                     expectedTypedDictEntries &&
@@ -8379,13 +8385,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     keyType.classType.literalValue &&
                     expectedTypedDictEntries.has(keyType.classType.literalValue as string)
                 ) {
-                    valueType = getTypeOfExpression(
+                    valueTypeResult = getTypeOfExpression(
                         entryNode.valueExpression,
                         expectedTypedDictEntries.get(keyType.classType.literalValue as string)!.valueType
-                    ).type;
+                    );
                 } else {
-                    valueType = getTypeOfExpression(entryNode.valueExpression, expectedValueType).type;
+                    valueTypeResult = getTypeOfExpression(entryNode.valueExpression, expectedValueType);
                 }
+
+                if(expectedDiagAddendum && valueTypeResult.expectedTypeDiagAddendum) {
+                    expectedDiagAddendum.addAddendum(valueTypeResult.expectedTypeDiagAddendum)
+                }
+
+                valueType = valueTypeResult.type;
 
                 if (!limitEntryCount || index < maxEntriesToUseForInference) {
                     keyTypes.push(keyType);
