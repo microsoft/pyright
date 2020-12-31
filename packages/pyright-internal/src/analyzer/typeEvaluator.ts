@@ -129,6 +129,7 @@ import {
     FunctionType,
     FunctionTypeFlags,
     InheritanceChain,
+    isAny,
     isAnyOrUnknown,
     isClass,
     isFunction,
@@ -142,6 +143,7 @@ import {
     isTypeSame,
     isTypeVar,
     isUnbound,
+    isUnion,
     isUnionableType,
     isUnknown,
     LiteralValue,
@@ -2407,7 +2409,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function addExpectedClassDiagnostic(type: Type, node: ParseNode) {
         const fileInfo = getFileInfo(node);
         const diag = new DiagnosticAddendum();
-        if (type.category === TypeCategory.Union) {
+        if (isUnion(type)) {
             doForEachSubtype(type, (subtype) => {
                 if (!TypeBase.isInstantiable(subtype)) {
                     diag.addMessage(Localizer.DiagnosticAddendum.typeNotClass().format({ type: printType(subtype) }));
@@ -2815,7 +2817,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expandSubtype = (unexpandedType: Type) => {
             const expandedType = makeTopLevelTypeVarsConcrete(unexpandedType);
 
-            if (expandedType.category === TypeCategory.Union) {
+            if (isUnion(expandedType)) {
                 expandedType.subtypes.forEach((subtype, index) => {
                     const subtypeConstraints = expandedType.constraints ? expandedType.constraints[index] : undefined;
                     if (constraintFilter) {
@@ -2845,7 +2847,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         };
 
-        if (type.category === TypeCategory.Union) {
+        if (isUnion(type)) {
             type.subtypes.forEach((subtype) => {
                 expandSubtype(subtype);
             });
@@ -4811,7 +4813,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // to find one that matches.
         let effectiveExpectedType = expectedType;
 
-        if (expectedType && expectedType.category === TypeCategory.Union) {
+        if (expectedType && isUnion(expectedType)) {
             let matchingSubtype: Type | undefined;
 
             doForEachSubtype(expectedType, (subtype) => {
@@ -5531,7 +5533,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // If the expected type is "Any", transform it to an Any.
-        if (expectedSubtype.category === TypeCategory.Any) {
+        if (isAny(expectedSubtype)) {
             return expectedSubtype;
         }
 
@@ -5571,7 +5573,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeVarMap: TypeVarMap,
         liveTypeVarScopes: TypeVarScopeId[]
     ): boolean {
-        if (expectedType.category === TypeCategory.Any) {
+        if (isAny(expectedType)) {
             type.details.typeParameters.forEach((typeParam) => {
                 typeVarMap.setTypeVar(typeParam, expectedType, /* isNarrowable */ false);
             });
@@ -8181,7 +8183,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromDictionary(node: DictionaryNode, expectedType: Type | undefined): TypeResult {
         // If the expected type is a union, analyze for each of the subtypes
         // to find one that matches.
-        if (expectedType && expectedType.category === TypeCategory.Union) {
+        if (expectedType && isUnion(expectedType)) {
             let matchingSubtype: Type | undefined;
 
             doForEachSubtype(expectedType, (subtype) => {
@@ -8456,7 +8458,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // to find one that matches.
         let effectiveExpectedType = expectedType;
 
-        if (expectedType && expectedType.category === TypeCategory.Union) {
+        if (expectedType && isUnion(expectedType)) {
             let matchingSubtype: Type | undefined;
 
             doForEachSubtype(expectedType, (subtype) => {
@@ -8681,7 +8683,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (expectedType) {
             if (isFunction(expectedType)) {
                 expectedFunctionType = expectedType;
-            } else if (expectedType.category === TypeCategory.Union) {
+            } else if (isUnion(expectedType)) {
                 // It's not clear what we should do with a union type. For now,
                 // simply use the first function in the union.
                 expectedFunctionType = findSubtype(expectedType, (t) => isFunction(t)) as FunctionType;
@@ -9801,7 +9803,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // In some stub files, classes are conditionally defined (e.g. based
                 // on platform type). We'll assume that the conditional logic is correct
                 // and strip off the "unbound" union.
-                if (argType.category === TypeCategory.Union) {
+                if (isUnion(argType)) {
                     argType = removeUnbound(argType);
                 }
 
@@ -13256,7 +13258,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Python 3.10 supports unions within isinstance and issubclass calls.
-        if (argType.category === TypeCategory.Union) {
+        if (isUnion(argType)) {
             let isValid = true;
             const classList: ClassType[] = [];
             doForEachSubtype(argType, (subtype) => {
@@ -15828,7 +15830,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (srcType.category === TypeCategory.Union) {
+        if (isUnion(srcType)) {
             // Start by checking for an exact match. This is needed to handle unions
             // that contain recursive type aliases.
             if (isTypeSame(srcType, destType)) {
@@ -15857,7 +15859,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (destType.category === TypeCategory.Union) {
+        if (isUnion(destType)) {
             // If we need to enforce invariance, the source needs to be compatible
             // with all subtypes in the dest, unless those subtypes are subclasses
             // of other subtypes.
@@ -16810,7 +16812,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const expectedTypeArgType = typeVarMap.getTypeVar(typeParam);
 
                 if (expectedTypeArgType) {
-                    if (expectedTypeArgType.category === TypeCategory.Any || isAnyOrUnknown(typeArg)) {
+                    if (isAny(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
                         replacedTypeArg = true;
                         return expectedTypeArgType;
                     }
@@ -17063,7 +17065,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         for (const constraint of constraints) {
             if (isAnyOrUnknown(constraint)) {
                 return true;
-            } else if (effectiveSrcType.category === TypeCategory.Union) {
+            } else if (isUnion(effectiveSrcType)) {
                 // Does it match at least one of the constraints?
                 if (findSubtype(effectiveSrcType, (subtype) => isSameWithoutLiteralValue(constraint, subtype))) {
                     return true;

@@ -14,9 +14,11 @@ import {
     combineTypes,
     EnumLiteral,
     FunctionType,
+    isAny,
     isAnyOrUnknown,
     isClass,
     isObject,
+    isUnion,
     isUnknown,
     maxTypeRecursionCount,
     ObjectType,
@@ -204,7 +206,7 @@ export function printType(
             // If we're printing "Unknown" as "Any", remove redundant
             // unknowns so we don't see two Any's appear in the union.
             if ((printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0) {
-                if (subtypes.some((t) => t.category === TypeCategory.Any)) {
+                if (subtypes.some((t) => isAny(t))) {
                     subtypes = subtypes.filter((t) => !isUnknown(t));
                 }
             }
@@ -511,7 +513,7 @@ export function printFunctionParts(
             ? printType(returnType, printTypeFlags, returnTypeCallback, /* expandTypeAlias */ false, recursionCount + 1)
             : '';
 
-    if (printTypeFlags & PrintTypeFlags.PEP604 && returnType.category === TypeCategory.Union && recursionCount > 0) {
+    if (printTypeFlags & PrintTypeFlags.PEP604 && isUnion(returnType) && recursionCount > 0) {
         returnTypeString = `(${returnTypeString})`;
     }
 

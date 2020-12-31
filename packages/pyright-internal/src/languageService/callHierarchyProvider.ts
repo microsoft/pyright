@@ -21,7 +21,7 @@ import * as DeclarationUtils from '../analyzer/declarationUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { ClassType, isClass, isObject, TypeCategory } from '../analyzer/types';
+import { ClassType, isClass, isFunction, isObject } from '../analyzer/types';
 import {
     ClassMemberLookupFlags,
     doForEachSubtype,
@@ -111,7 +111,7 @@ export class CallHierarchyProvider {
                 );
                 if (initMethodMember) {
                     const initMethodType = evaluator.getTypeOfMember(initMethodMember);
-                    if (initMethodType && initMethodType.category === TypeCategory.Function) {
+                    if (initMethodType && isFunction(initMethodType)) {
                         const initDecls = initMethodMember.symbol.getDeclarations();
                         if (initDecls && initDecls.length > 0) {
                             const primaryInitDecl = initDecls[0];

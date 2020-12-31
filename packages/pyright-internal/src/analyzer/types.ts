@@ -1501,6 +1501,10 @@ export function isNone(type: Type): type is NoneType {
     return type.category === TypeCategory.None;
 }
 
+export function isAny(type: Type): type is AnyType {
+    return type.category === TypeCategory.Any;
+}
+
 export function isUnknown(type: Type): type is UnknownType {
     return type.category === TypeCategory.Unknown;
 }
@@ -1510,7 +1514,7 @@ export function isAnyOrUnknown(type: Type): type is AnyType | UnknownType {
         return true;
     }
 
-    if (type.category === TypeCategory.Union) {
+    if (isUnion(type)) {
         return type.subtypes.find((subtype) => !isAnyOrUnknown(subtype)) === undefined;
     }
 
@@ -1521,12 +1525,16 @@ export function isUnbound(type: Type): type is UnboundType {
     return type.category === TypeCategory.Unbound;
 }
 
+export function isUnion(type: Type): type is UnionType {
+    return type.category === TypeCategory.Union;
+}
+
 export function isPossiblyUnbound(type: Type): boolean {
-    if (type.category === TypeCategory.Unbound) {
+    if (isUnbound(type)) {
         return true;
     }
 
-    if (type.category === TypeCategory.Union) {
+    if (isUnion(type)) {
         return type.subtypes.find((subtype) => isPossiblyUnbound(subtype)) !== undefined;
     }
 
@@ -1798,13 +1806,13 @@ export function removeAnyFromUnion(type: Type): Type {
 // If the type is a union, remove an "unknown" type from the union,
 // returning only the known types.
 export function removeUnknownFromUnion(type: Type): Type {
-    return removeFromUnion(type, (t: Type) => t.category === TypeCategory.Unknown);
+    return removeFromUnion(type, (t: Type) => isUnknown(t));
 }
 
 // If the type is a union, remove an "unbound" type from the union,
 // returning only the known types.
 export function removeUnbound(type: Type): Type {
-    if (type.category === TypeCategory.Union) {
+    if (isUnion(type)) {
         return removeFromUnion(type, (t: Type) => isUnbound(t));
     }
 
@@ -1818,11 +1826,11 @@ export function removeUnbound(type: Type): Type {
 // If the type is a union, remove an "None" type from the union,
 // returning only the known types.
 export function removeNoneFromUnion(type: Type): Type {
-    return removeFromUnion(type, (t: Type) => t.category === TypeCategory.None);
+    return removeFromUnion(type, (t: Type) => isNone(t));
 }
 
 export function removeFromUnion(type: Type, removeFilter: (type: Type, constraints: SubtypeConstraints) => boolean) {
-    if (type.category === TypeCategory.Union) {
+    if (isUnion(type)) {
         const remainingTypes: ConstrainedSubtype[] = [];
         type.subtypes.forEach((subtype, index) => {
             const constraints = type.constraints ? type.constraints[index] : undefined;
@@ -1842,7 +1850,7 @@ export function findSubtype(
     type: Type,
     filter: (type: UnionableType | NeverType, constraints: SubtypeConstraints) => boolean
 ) {
-    if (type.category === TypeCategory.Union) {
+    if (isUnion(type)) {
         return type.subtypes.find((subtype, index) => {
             return filter(subtype, type.constraints ? type.constraints[index] : undefined);
         });
@@ -1895,7 +1903,7 @@ export function combineConstrainedTypes(subtypes: ConstrainedSubtype[], maxSubty
     // Expand all union types.
     let expandedTypes: ConstrainedSubtype[] = [];
     for (const constrainedType of subtypes) {
-        if (constrainedType.type.category === TypeCategory.Union) {
+        if (isUnion(constrainedType.type)) {
             const unionType = constrainedType.type;
             unionType.subtypes.forEach((subtype, index) => {
                 expandedTypes.push({

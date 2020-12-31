@@ -45,6 +45,7 @@ import {
     isModule,
     isNone,
     isObject,
+    isOverloadedFunction,
     isUnbound,
     isUnknown,
     ObjectType,
@@ -914,10 +915,7 @@ export class CompletionProvider {
                     getMembersForClass(subtype, symbolTable, /* includeInstanceVars */ false);
                 } else if (isModule(subtype)) {
                     getMembersForModule(subtype, symbolTable);
-                } else if (
-                    subtype.category === TypeCategory.Function ||
-                    subtype.category === TypeCategory.OverloadedFunction
-                ) {
+                } else if (isFunction(subtype) || isOverloadedFunction(subtype)) {
                     const functionClass = this._evaluator.getBuiltInType(leftExprNode, 'function');
                     if (functionClass && isClass(functionClass)) {
                         getMembersForClass(functionClass, symbolTable, /* includeInstanceVars */ true);
@@ -1604,7 +1602,7 @@ export class CompletionProvider {
                                                 ': ' +
                                                 this._evaluator.printType(propertyType, /* expandTypeAlias */ false) +
                                                 ' (property)';
-                                        } else if (functionType.category === TypeCategory.OverloadedFunction) {
+                                        } else if (isOverloadedFunction(functionType)) {
                                             typeDetail = functionType.overloads
                                                 .map(
                                                     (overload) =>
@@ -1648,9 +1646,9 @@ export class CompletionProvider {
                                 documentation = getModuleDocString(type, primaryDecl, this._sourceMapper);
                             } else if (isClass(type)) {
                                 documentation = getClassDocString(type, primaryDecl, this._sourceMapper);
-                            } else if (type.category === TypeCategory.Function) {
+                            } else if (isFunction(type)) {
                                 documentation = getFunctionDocStringFromType(type, this._sourceMapper);
-                            } else if (type.category === TypeCategory.OverloadedFunction) {
+                            } else if (isOverloadedFunction(type)) {
                                 documentation = getOverloadedFunctionDocStrings(
                                     type,
                                     primaryDecl,

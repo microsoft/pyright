@@ -29,9 +29,9 @@ import {
     isFunction,
     isModule,
     isObject,
+    isOverloadedFunction,
     Type,
     TypeBase,
-    TypeCategory,
     UnknownType,
 } from '../analyzer/types';
 import { ClassMemberLookupFlags, isProperty, lookUpClassMember } from '../analyzer/typeUtils';
@@ -324,9 +324,9 @@ export class HoverProvider {
             docStrings.push(getModuleDocString(type, resolvedDecl, sourceMapper));
         } else if (isClass(type)) {
             docStrings.push(getClassDocString(type, resolvedDecl, sourceMapper));
-        } else if (type.category === TypeCategory.Function) {
+        } else if (isFunction(type)) {
             docStrings.push(getFunctionDocStringFromType(type, sourceMapper));
-        } else if (type.category === TypeCategory.OverloadedFunction) {
+        } else if (isOverloadedFunction(type)) {
             docStrings.push(...getOverloadedFunctionDocStrings(type, resolvedDecl, sourceMapper));
         } else if (resolvedDecl?.type === DeclarationType.Function) {
             // @property functions
