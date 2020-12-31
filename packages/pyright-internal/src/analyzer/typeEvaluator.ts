@@ -8201,7 +8201,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expectedType = matchingSubtype;
         }
 
-        let expectedDiagAddendum = undefined; 
+        let expectedDiagAddendum = undefined;
         if (expectedType) {
             expectedDiagAddendum = new DiagnosticAddendum();
             const result = getTypeFromDictionaryExpected(node, expectedType, expectedDiagAddendum);
@@ -8374,9 +8374,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 }
-                
+
                 let valueTypeResult: TypeResult;
-                let valueType: Type;
 
                 if (
                     expectedTypedDictEntries &&
@@ -8393,11 +8392,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     valueTypeResult = getTypeOfExpression(entryNode.valueExpression, expectedValueType);
                 }
 
-                if(expectedDiagAddendum && valueTypeResult.expectedTypeDiagAddendum) {
-                    expectedDiagAddendum.addAddendum(valueTypeResult.expectedTypeDiagAddendum)
+                if (expectedDiagAddendum && valueTypeResult.expectedTypeDiagAddendum) {
+                    expectedDiagAddendum.addAddendum(valueTypeResult.expectedTypeDiagAddendum);
                 }
 
-                valueType = valueTypeResult.type;
+                const valueType = valueTypeResult.type;
 
                 if (!limitEntryCount || index < maxEntriesToUseForInference) {
                     keyTypes.push(keyType);
