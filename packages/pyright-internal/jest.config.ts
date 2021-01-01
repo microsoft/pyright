@@ -1,10 +1,11 @@
 /*
- * jest.config.js
+ * jest.config.ts
  *
  * Configuration for jest tests.
  */
+import type { Config } from '@jest/types';
 
-module.exports = {
+const config: Config.InitialOptions = {
     roots: ['<rootDir>/src/tests'],
     transform: {
         '^.+\\.tsx?$': 'ts-jest',
@@ -23,3 +24,4 @@ module.exports = {
         },
     },
 };
+export default config;

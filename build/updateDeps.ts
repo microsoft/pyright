@@ -1,16 +1,13 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-//@ts-check
+import yargs from 'yargs';
 
-const yargs = require('yargs');
-
-const { updateAll } = require('./lib/updateDeps');
+import updateAll from './lib/updateDeps';
 
 async function main() {
     const argv = yargs.options({
         transitive: { type: 'boolean' },
     }).argv;
 
-    await updateAll(argv.transitive, [
+    await updateAll(argv.transitive!, [
         // These packages impact compatibility with VS Code and other users;
         // ensure they remained pinned exactly.
         '@types/vscode',

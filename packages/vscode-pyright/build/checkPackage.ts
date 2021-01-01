@@ -1,8 +1,5 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-//@ts-check
-
-const fsExtra = require('fs-extra');
-const chalk = require('chalk');
+import chalk from 'chalk';
+import fsExtra from 'fs-extra';
 
 async function main() {
     const packageJson = await fsExtra.readFile('package.json', 'utf-8');

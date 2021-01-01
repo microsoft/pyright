@@ -1,28 +1,25 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-//@ts-check
-
-const fsExtra = require('fs-extra');
-const ncu = require('npm-check-updates');
-const PQueue = require('p-queue').default;
-const path = require('path');
-const util = require('util');
-const glob = util.promisify(require('glob'));
-const exec = util.promisify(require('child_process').exec);
+import { exec } from 'child_process';
+import fsExtra from 'fs-extra';
+import glob from 'glob';
+import ncu from 'npm-check-updates';
+import PQueue from 'p-queue';
+import path from 'path';
+import util from 'util';
+const asyncGlob = util.promisify(glob);
+const asyncExec = util.promisify(exec);
 
 async function findPackages() {
     const lernaFile = await fsExtra.readFile('lerna.json', 'utf-8');
 
-    /** @type {{ packages: string[] }} */
-    const lernaConfig = JSON.parse(lernaFile);
+    const lernaConfig: { packages: string[] } = JSON.parse(lernaFile);
 
-    const matches = await Promise.all(lernaConfig.packages.map((pattern) => glob(pattern + '/package.json')));
+    const matches = await Promise.all(lernaConfig.packages.map((pattern) => asyncGlob(pattern + '/package.json')));
     return ['package.json'].concat(...matches);
 }
 
 const queue = new PQueue({ concurrency: 4 });
 
-/** @type {(packageFile: string, transitive: boolean, reject?: string[]) => Promise<void>} */
-async function updatePackage(packageFile, transitive, reject = undefined) {
+async function updatePackage(packageFile: string, transitive: boolean, reject?: string[]): Promise<void> {
     packageFile = path.resolve(packageFile);
     const packagePath = path.dirname(packageFile);
     const packageName = path.basename(packagePath);
@@ -48,7 +45,7 @@ async function updatePackage(packageFile, transitive, reject = undefined) {
 
     await queue.add(async () => {
         console.log(`${packageName}: reinstalling package`);
-        await exec('npm install', {
+        await asyncExec('npm install', {
             cwd: packagePath,
             env: {
                 ...process.env,
@@ -58,12 +55,9 @@ async function updatePackage(packageFile, transitive, reject = undefined) {
     });
 }
 
-/** @type {(transitive: boolean, reject?: string[]) => Promise<void>} */
-async function updateAll(transitive, reject = undefined) {
+async function updateAll(transitive: boolean, reject?: string[]): Promise<void> {
     const packageFiles = await findPackages();
     await Promise.all(packageFiles.map((packageFile) => updatePackage(packageFile, transitive, reject)));
 }
 
-module.exports = {
-    updateAll,
-};
+export default updateAll;

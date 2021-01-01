@@ -1,15 +1,8 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-//@ts-check
+import detectIndent from 'detect-indent';
+import { readFile, writeFile } from 'fs-extra';
 
-const fsExtra = require('fs-extra');
-const detectIndent = require('detect-indent');
-
-/**
- * @param {string} [filepath]
- * @param {(obj: any) => void} [modifier]
- */
-async function modifyJsonInPlace(filepath, modifier) {
-    const input = await fsExtra.readFile(filepath, 'utf-8');
+async function modifyJsonInPlace(filepath: string, modifier: (obj: any) => void) {
+    const input = await readFile(filepath, 'utf-8');
     const indent = detectIndent(input);
     const obj = JSON.parse(input);
 
@@ -25,7 +18,7 @@ async function modifyJsonInPlace(filepath, modifier) {
         output = output.replace(/\n/g, '\r\n');
     }
 
-    await fsExtra.writeFile(filepath, output, 'utf-8');
+    await writeFile(filepath, output, 'utf-8');
 }
 
 async function main() {

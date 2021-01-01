@@ -1,22 +1,19 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-//@ts-check
-
 // Lerna doesn't do a good job preserving the indention in lock files.
 // Check that the lock files are still indented correctly, otherwise
 // the change will cause problems with merging and the updateDeps script.
 
-const detectIndent = require('detect-indent');
-const fsExtra = require('fs-extra');
-const util = require('util');
-const glob = util.promisify(require('glob'));
+import detectIndent from 'detect-indent';
+import fsExtra from 'fs-extra';
+import glob from 'glob';
+import util from 'util';
+const asyncGlob = util.promisify(glob);
 
 async function findPackageLocks() {
     const lernaFile = await fsExtra.readFile('lerna.json', 'utf-8');
 
-    /** @type {{ packages: string[] }} */
-    const lernaConfig = JSON.parse(lernaFile);
+    const lernaConfig: { packages: string[] } = JSON.parse(lernaFile);
 
-    const matches = await Promise.all(lernaConfig.packages.map((pattern) => glob(pattern + '/package-lock.json')));
+    const matches = await Promise.all(lernaConfig.packages.map((pattern) => asyncGlob(pattern + '/package-lock.json')));
     return ['package-lock.json'].concat(...matches);
 }
 
