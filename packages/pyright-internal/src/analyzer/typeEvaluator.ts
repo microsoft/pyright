@@ -8201,18 +8201,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expectedType = matchingSubtype;
         }
 
-        let expectedDiagAddendum = undefined;
+        let expectedTypeDiagAddendum = undefined;
         if (expectedType) {
-            expectedDiagAddendum = new DiagnosticAddendum();
-            const result = getTypeFromDictionaryExpected(node, expectedType, expectedDiagAddendum);
+            expectedTypeDiagAddendum = new DiagnosticAddendum();
+            const result = getTypeFromDictionaryExpected(node, expectedType, expectedTypeDiagAddendum);
             if (result) {
                 return result;
             }
         }
 
-        let result = getTypeFromDictionaryInferred(node, /* forceStrict */ !!expectedType)!;
-        result = { ...result, expectedTypeDiagAddendum: expectedDiagAddendum };
-        return result;
+        const result = getTypeFromDictionaryInferred(node, /* forceStrict */ !!expectedType)!;
+        return { ...result, expectedTypeDiagAddendum };
     }
 
     // Attempts to infer the type of a dictionary statement. If an expectedType
