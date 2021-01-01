@@ -8,6 +8,8 @@
  * arbitrarily among multiple files so they can run in parallel.
  */
 
+import * as assert from 'assert';
+
 import { ConfigOptions } from '../common/configOptions';
 import { PythonVersion } from '../common/pythonVersion';
 import * as TestUtils from './testUtils';
@@ -583,6 +585,12 @@ test('Protocol13', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Protocol14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol14.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 
@@ -778,6 +786,14 @@ test('Import12', () => {
     TestUtils.validateResults(analysisResults, 0, 0);
 });
 
+test('Import14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['import14.py', 'import13.py']);
+
+    assert.strictEqual(analysisResults.length, 2);
+    assert.strictEqual(analysisResults[0].errors.length, 0);
+    assert.strictEqual(analysisResults[1].errors.length, 0);
+});
+
 test('DunderAll1', () => {
     const configOptions = new ConfigOptions('.');
 
@@ -922,6 +938,11 @@ test('MemberAccess7', () => {
 
 test('MemberAccess8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess8.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('MemberAccess9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['memberAccess9.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
 

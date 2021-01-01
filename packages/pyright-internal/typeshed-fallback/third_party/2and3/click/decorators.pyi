@@ -57,7 +57,7 @@ def group(
     **kwargs: Any,
 ) -> Callable[[Callable[..., Any]], Group]: ...
 def argument(
-    *param_decls: str,
+    *param_decls: Text,
     cls: Type[Argument] = ...,
     # Argument
     required: Optional[bool] = ...,
@@ -74,7 +74,7 @@ def argument(
 ) -> _IdentityFunction: ...
 @overload
 def option(
-    *param_decls: str,
+    *param_decls: Text,
     cls: Type[Option] = ...,
     # Option
     show_default: Union[bool, Text] = ...,
@@ -87,7 +87,7 @@ def option(
     count: bool = ...,
     allow_from_autoenv: bool = ...,
     type: Optional[_ConvertibleType] = ...,
-    help: Optional[str] = ...,
+    help: Optional[Text] = ...,
     show_choices: bool = ...,
     # Parameter
     default: Optional[Any] = ...,

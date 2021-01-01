@@ -91,6 +91,7 @@ import {
     isOverloadedFunction,
     isTypeSame,
     isTypeVar,
+    isUnion,
     isUnknown,
     NoneType,
     ObjectType,
@@ -378,7 +379,7 @@ export class Checker extends ParseTreeWalker {
 
         this._validateFunctionTypeVarUsage(node);
 
-        if (functionTypeResult && functionTypeResult.decoratedType.category === TypeCategory.OverloadedFunction) {
+        if (functionTypeResult && isOverloadedFunction(functionTypeResult.decoratedType)) {
             const overloads = functionTypeResult.decoratedType.overloads;
             if (overloads.length > 1) {
                 this._validateOverloadConsistency(
@@ -1197,7 +1198,7 @@ export class Checker extends ParseTreeWalker {
             if (primaryDecl.type === DeclarationType.Function) {
                 const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
 
-                if (type.category === TypeCategory.Function && FunctionType.isOverloaded(type)) {
+                if (isFunction(type) && FunctionType.isOverloaded(type)) {
                     // There should never be a single overload.
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -1762,7 +1763,7 @@ export class Checker extends ParseTreeWalker {
         } else if (!isInstanceCheck && isClass(arg0Type)) {
             const remainingTypes = filterType(arg0Type);
             filteredType = finalizeFilteredTypeList(remainingTypes);
-        } else if (arg0Type.category === TypeCategory.Union) {
+        } else if (isUnion(arg0Type)) {
             let remainingTypes: Type[] = [];
             let foundAnyType = false;
 
@@ -2223,7 +2224,7 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
 
-                    if (baseClassSymbolType.category === TypeCategory.Function) {
+                    if (isFunction(baseClassSymbolType)) {
                         if (FunctionType.isFinal(baseClassSymbolType)) {
                             const decl = getLastTypedDeclaredForSymbol(symbol);
                             if (decl && decl.type === DeclarationType.Function) {
@@ -2540,7 +2541,7 @@ export class Checker extends ParseTreeWalker {
         if (enclosingFunctionNode) {
             const functionTypeResult = this._evaluator.getTypeOfFunction(enclosingFunctionNode);
             if (functionTypeResult) {
-                assert(functionTypeResult.functionType.category === TypeCategory.Function);
+                assert(isFunction(functionTypeResult.functionType));
                 const iterableType = this._evaluator.getBuiltInType(node, 'Iterable');
                 declaredYieldType = FunctionType.getSpecializedReturnType(functionTypeResult.functionType);
                 declaredGeneratorType = getDeclaredGeneratorYieldType(functionTypeResult.functionType, iterableType);

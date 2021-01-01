@@ -22,7 +22,7 @@ import { OperationCanceledException, throwIfCancellationRequested } from '../com
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface, StandardConsole } from '../common/console';
 import { isDebugMode } from '../common/core';
-import { assert, fail } from '../common/debug';
+import { assert } from '../common/debug';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileEditAction, TextEditAction } from '../common/editAction';
@@ -31,7 +31,6 @@ import { LogTracker } from '../common/logTracker';
 import {
     combinePaths,
     getDirectoryPath,
-    getFileExtension,
     getFileName,
     getRelativePath,
     makeDirectories,
@@ -2068,12 +2067,6 @@ export class Program {
 
     private _addToSourceFileListAndMap(fileInfo: SourceFileInfo) {
         const filePath = normalizePathCase(this._fs, fileInfo.sourceFile.getFilePath());
-
-        // All source files should be ".pyi" or ".py" files.
-        const fileExtension = getFileExtension(filePath).toLowerCase();
-        if (fileExtension !== '.py' && fileExtension !== '.pyi') {
-            fail(`${filePath} is not a source file`);
-        }
 
         // We should never add a file with the same path twice.
         assert(!this._sourceFileMap.has(filePath));

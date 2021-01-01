@@ -61,6 +61,7 @@ class Button(Widget):
         cursor: tkinter._Cursor = ...,
         default: Literal["normal", "active", "disabled"] = ...,
         image: tkinter._ImageSpec = ...,
+        name: str = ...,
         padding: Any = ...,  # undocumented
         state: Literal["normal", "disabled"] = ...,
         style: str = ...,
@@ -124,6 +125,7 @@ class Checkbutton(Widget):
         compound: _TtkCompound = ...,
         cursor: tkinter._Cursor = ...,
         image: tkinter._ImageSpec = ...,
+        name: str = ...,
         offvalue: Any = ...,
         onvalue: Any = ...,
         padding: Any = ...,  # undocumented
@@ -200,6 +202,7 @@ class Entry(Widget, tkinter.Entry):
         foreground: tkinter._Color = ...,
         invalidcommand: tkinter._EntryValidateCommand = ...,
         justify: Literal["left", "center", "right"] = ...,
+        name: str = ...,
         show: str = ...,
         state: Literal["normal", "disabled", "readonly"] = ...,
         style: str = ...,
@@ -301,6 +304,7 @@ class Combobox(Entry):
         height: int = ...,
         invalidcommand: tkinter._EntryValidateCommand = ...,  # undocumented
         justify: Literal["left", "center", "right"] = ...,
+        name: str = ...,
         postcommand: Union[Callable[[], Any], str] = ...,
         show: Any = ...,  # undocumented
         state: Literal["normal", "readonly", "disabled"] = ...,
@@ -386,6 +390,7 @@ class Frame(Widget):
         class_: str = ...,
         cursor: tkinter._Cursor = ...,
         height: tkinter._ScreenUnits = ...,
+        name: str = ...,
         padding: tkinter._Padding = ...,
         relief: tkinter._Relief = ...,
         style: str = ...,
@@ -452,6 +457,7 @@ class Label(Widget):
         foreground: tkinter._Color = ...,
         image: tkinter._ImageSpec = ...,
         justify: Literal["left", "center", "right"] = ...,
+        name: str = ...,
         padding: tkinter._Padding = ...,
         relief: tkinter._Relief = ...,
         state: Literal["normal", "disabled"] = ...,
@@ -523,6 +529,7 @@ class Labelframe(Widget):
         height: tkinter._ScreenUnits = ...,
         labelanchor: Literal["nw", "n", "ne", "en", "e", "es", "se", "s", "sw", "ws", "w", "wn"] = ...,
         labelwidget: tkinter.Misc = ...,
+        name: str = ...,
         padding: tkinter._Padding = ...,
         relief: tkinter._Relief = ...,  # undocumented
         style: str = ...,
@@ -585,6 +592,7 @@ class Menubutton(Widget):
         direction: Literal["above", "below", "left", "right", "flush"] = ...,
         image: tkinter._ImageSpec = ...,
         menu: tkinter.Menu = ...,
+        name: str = ...,
         padding: Any = ...,  # undocumented
         state: Literal["normal", "disabled"] = ...,
         style: str = ...,
@@ -628,6 +636,7 @@ class Notebook(Widget):
         class_: str = ...,
         cursor: tkinter._Cursor = ...,
         height: int = ...,
+        name: str = ...,
         padding: tkinter._Padding = ...,
         style: str = ...,
         takefocus: tkinter._TakeFocusValue = ...,
@@ -671,6 +680,7 @@ class Panedwindow(Widget, tkinter.PanedWindow):
         cursor: tkinter._Cursor = ...,
         # width and height for tkinter.ttk.Panedwindow are int but for tkinter.PanedWindow they are screen units
         height: int = ...,
+        name: str = ...,
         orient: Literal["vertical", "horizontal"] = ...,
         style: str = ...,
         takefocus: tkinter._TakeFocusValue = ...,
@@ -725,6 +735,7 @@ class Progressbar(Widget):
         length: tkinter._ScreenUnits = ...,
         maximum: float = ...,
         mode: Literal["determinate", "indeterminate"] = ...,
+        name: str = ...,
         orient: Literal["horizontal", "vertical"] = ...,
         phase: int = ...,  # docs say read-only but assigning int to this works
         style: str = ...,
@@ -784,6 +795,7 @@ class Radiobutton(Widget):
         compound: _TtkCompound = ...,
         cursor: tkinter._Cursor = ...,
         image: tkinter._ImageSpec = ...,
+        name: str = ...,
         padding: Any = ...,  # undocumented
         state: Literal["normal", "disabled"] = ...,
         style: str = ...,
@@ -835,6 +847,7 @@ class Scale(Widget, tkinter.Scale):
         cursor: tkinter._Cursor = ...,
         from_: float = ...,
         length: tkinter._ScreenUnits = ...,
+        name: str = ...,
         orient: Literal["horizontal", "vertical"] = ...,
         state: Any = ...,  # undocumented
         style: str = ...,
@@ -895,6 +908,7 @@ class Scrollbar(Widget, tkinter.Scrollbar):
         class_: str = ...,
         command: Union[Callable[..., Optional[Tuple[float, float]]], str] = ...,
         cursor: tkinter._Cursor = ...,
+        name: str = ...,
         orient: Literal["horizontal", "vertical"] = ...,
         style: str = ...,
         takefocus: tkinter._TakeFocusValue = ...,
@@ -937,6 +951,7 @@ class Separator(Widget):
         *,
         class_: str = ...,
         cursor: tkinter._Cursor = ...,
+        name: str = ...,
         orient: Literal["horizontal", "vertical"] = ...,
         style: str = ...,
         takefocus: tkinter._TakeFocusValue = ...,
@@ -965,6 +980,7 @@ class Sizegrip(Widget):
         *,
         class_: str = ...,
         cursor: tkinter._Cursor = ...,
+        name: str = ...,
         style: str = ...,
         takefocus: tkinter._TakeFocusValue = ...,
     ) -> None: ...
@@ -1026,6 +1042,7 @@ if sys.version_info >= (3, 7):
             increment: float = ...,
             invalidcommand: tkinter._EntryValidateCommand = ...,  # undocumented
             justify: Literal["left", "center", "right"] = ...,  # undocumented
+            name: str = ...,
             show: Any = ...,  # undocumented
             state: Literal["normal", "disabled"] = ...,
             style: str = ...,
@@ -1099,6 +1116,7 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         cursor: tkinter._Cursor = ...,
         displaycolumns: Union[str, tkinter._TkinterSequence[str], tkinter._TkinterSequence[int], Literal["#all"]] = ...,
         height: int = ...,
+        name: str = ...,
         padding: tkinter._Padding = ...,
         selectmode: Literal["extended", "browse", "none"] = ...,
         # _TkinterSequences of Literal don't actually work, using str instead.

@@ -129,6 +129,7 @@ import {
     FunctionType,
     FunctionTypeFlags,
     InheritanceChain,
+    isAny,
     isAnyOrUnknown,
     isClass,
     isFunction,
@@ -142,6 +143,7 @@ import {
     isTypeSame,
     isTypeVar,
     isUnbound,
+    isUnion,
     isUnionableType,
     isUnknown,
     LiteralValue,
@@ -375,6 +377,12 @@ export const enum MemberAccessFlags {
     // and fall back on the metaclass if it's not found. This option
     // skips the first check.
     ConsiderMetaclassOnly = 1 << 5,
+
+    // If an attribute cannot be found when looking for instance
+    // members, normally an attribute access override method
+    // (__getattr__, etc.) may provide the missing attribute type.
+    // This disables this check.
+    SkipAttributeAccessOverride = 1 << 6,
 }
 
 interface ParamAssignmentInfo {
@@ -2401,7 +2409,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function addExpectedClassDiagnostic(type: Type, node: ParseNode) {
         const fileInfo = getFileInfo(node);
         const diag = new DiagnosticAddendum();
-        if (type.category === TypeCategory.Union) {
+        if (isUnion(type)) {
             doForEachSubtype(type, (subtype) => {
                 if (!TypeBase.isInstantiable(subtype)) {
                     diag.addMessage(Localizer.DiagnosticAddendum.typeNotClass().format({ type: printType(subtype) }));
@@ -2809,7 +2817,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expandSubtype = (unexpandedType: Type) => {
             const expandedType = makeTopLevelTypeVarsConcrete(unexpandedType);
 
-            if (expandedType.category === TypeCategory.Union) {
+            if (isUnion(expandedType)) {
                 expandedType.subtypes.forEach((subtype, index) => {
                     const subtypeConstraints = expandedType.constraints ? expandedType.constraints[index] : undefined;
                     if (constraintFilter) {
@@ -2839,7 +2847,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         };
 
-        if (type.category === TypeCategory.Union) {
+        if (isUnion(type)) {
             type.subtypes.forEach((subtype) => {
                 expandSubtype(subtype);
             });
@@ -3715,14 +3723,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         type = UnknownType.create();
                     }
                 } else {
-                    // Does the stub file export a top-level __getattr__ function?
+                    // Does the module export a top-level __getattr__ function?
                     if (usage.method === 'get') {
                         const getAttrSymbol = ModuleType.getField(baseType, '__getattr__');
                         if (getAttrSymbol) {
-                            const decls = getAttrSymbol.getDeclarations();
+                            const isModuleGetAttrSupported =
+                                fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_7 ||
+                                getAttrSymbol
+                                    .getDeclarations()
+                                    .some((decl) => decl.path.toLowerCase().endsWith('.pyi'));
 
-                            // Only honor the __getattr__ if it's in a stub file.
-                            if (decls.some((decl) => decl.path.toLowerCase().endsWith('.pyi'))) {
+                            if (isModuleGetAttrSupported) {
                                 const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
                                 if (isFunction(getAttrType)) {
                                     type = getFunctionEffectiveReturnType(getAttrType);
@@ -4000,7 +4011,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // No attribute of that name was found. If this is a member access
         // through an object, see if there's an attribute access override
         // method ("__getattr__", etc.).
-        if ((flags & MemberAccessFlags.AccessClassMembersOnly) === 0) {
+        if (
+            (flags & (MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipAttributeAccessOverride)) ===
+            0
+        ) {
             const generalAttrType = applyAttributeAccessOverride(classType, errorNode, usage);
 
             if (generalAttrType) {
@@ -4799,7 +4813,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // to find one that matches.
         let effectiveExpectedType = expectedType;
 
-        if (expectedType && expectedType.category === TypeCategory.Union) {
+        if (expectedType && isUnion(expectedType)) {
             let matchingSubtype: Type | undefined;
 
             doForEachSubtype(expectedType, (subtype) => {
@@ -5293,7 +5307,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             '__init__',
             { method: 'get' },
             new DiagnosticAddendum(),
-            MemberAccessFlags.SkipObjectBaseClass
+            MemberAccessFlags.SkipObjectBaseClass | MemberAccessFlags.SkipAttributeAccessOverride
         );
 
         if (initMethodType && !skipConstructorCheck(initMethodType)) {
@@ -5519,7 +5533,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // If the expected type is "Any", transform it to an Any.
-        if (expectedSubtype.category === TypeCategory.Any) {
+        if (isAny(expectedSubtype)) {
             return expectedSubtype;
         }
 
@@ -5559,7 +5573,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         typeVarMap: TypeVarMap,
         liveTypeVarScopes: TypeVarScopeId[]
     ): boolean {
-        if (expectedType.category === TypeCategory.Any) {
+        if (isAny(expectedType)) {
             type.details.typeParameters.forEach((typeParam) => {
                 typeVarMap.setTypeVar(typeParam, expectedType, /* isNarrowable */ false);
             });
@@ -8169,7 +8183,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromDictionary(node: DictionaryNode, expectedType: Type | undefined): TypeResult {
         // If the expected type is a union, analyze for each of the subtypes
         // to find one that matches.
-        if (expectedType && expectedType.category === TypeCategory.Union) {
+        if (expectedType && isUnion(expectedType)) {
             let matchingSubtype: Type | undefined;
 
             doForEachSubtype(expectedType, (subtype) => {
@@ -8187,15 +8201,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             expectedType = matchingSubtype;
         }
 
-        const expectedDiagAddendum = new DiagnosticAddendum();
+        let expectedTypeDiagAddendum = undefined;
         if (expectedType) {
-            const result = getTypeFromDictionaryExpected(node, expectedType, expectedDiagAddendum);
+            expectedTypeDiagAddendum = new DiagnosticAddendum();
+            const result = getTypeFromDictionaryExpected(node, expectedType, expectedTypeDiagAddendum);
             if (result) {
                 return result;
             }
         }
 
-        return getTypeFromDictionaryInferred(node, /* forceStrict */ !!expectedType)!;
+        const result = getTypeFromDictionaryInferred(node, /* forceStrict */ !!expectedType)!;
+        return { ...result, expectedTypeDiagAddendum };
     }
 
     // Attempts to infer the type of a dictionary statement. If an expectedType
@@ -8225,7 +8241,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !!expectedType,
                 /* expectedKeyType */ undefined,
                 /* expectedValueType */ undefined,
-                expectedTypedDictEntries
+                expectedTypedDictEntries,
+                expectedDiagAddendum
             );
 
             if (
@@ -8273,7 +8290,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             valueTypes,
             !!expectedType,
             expectedKeyType,
-            expectedValueType
+            expectedValueType,
+            undefined,
+            expectedDiagAddendum
         );
 
         const isExpectedTypeDict = isObject(expectedType) && ClassType.isBuiltIn(expectedType.classType, 'dict');
@@ -8337,7 +8356,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         limitEntryCount: boolean,
         expectedKeyType?: Type,
         expectedValueType?: Type,
-        expectedTypedDictEntries?: Map<string, TypedDictEntry>
+        expectedTypedDictEntries?: Map<string, TypedDictEntry>,
+        expectedDiagAddendum?: DiagnosticAddendum
     ) {
         // Infer the key and value types if possible.
         node.entries.forEach((entryNode, index) => {
@@ -8353,7 +8373,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
                     }
                 }
-                let valueType: Type | undefined;
+
+                let valueTypeResult: TypeResult;
 
                 if (
                     expectedTypedDictEntries &&
@@ -8362,13 +8383,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     keyType.classType.literalValue &&
                     expectedTypedDictEntries.has(keyType.classType.literalValue as string)
                 ) {
-                    valueType = getTypeOfExpression(
+                    valueTypeResult = getTypeOfExpression(
                         entryNode.valueExpression,
                         expectedTypedDictEntries.get(keyType.classType.literalValue as string)!.valueType
-                    ).type;
+                    );
                 } else {
-                    valueType = getTypeOfExpression(entryNode.valueExpression, expectedValueType).type;
+                    valueTypeResult = getTypeOfExpression(entryNode.valueExpression, expectedValueType);
                 }
+
+                if (expectedDiagAddendum && valueTypeResult.expectedTypeDiagAddendum) {
+                    expectedDiagAddendum.addAddendum(valueTypeResult.expectedTypeDiagAddendum);
+                }
+
+                const valueType = valueTypeResult.type;
 
                 if (!limitEntryCount || index < maxEntriesToUseForInference) {
                     keyTypes.push(keyType);
@@ -8444,7 +8471,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // to find one that matches.
         let effectiveExpectedType = expectedType;
 
-        if (expectedType && expectedType.category === TypeCategory.Union) {
+        if (expectedType && isUnion(expectedType)) {
             let matchingSubtype: Type | undefined;
 
             doForEachSubtype(expectedType, (subtype) => {
@@ -8669,7 +8696,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (expectedType) {
             if (isFunction(expectedType)) {
                 expectedFunctionType = expectedType;
-            } else if (expectedType.category === TypeCategory.Union) {
+            } else if (isUnion(expectedType)) {
                 // It's not clear what we should do with a union type. For now,
                 // simply use the first function in the union.
                 expectedFunctionType = findSubtype(expectedType, (t) => isFunction(t)) as FunctionType;
@@ -9789,7 +9816,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // In some stub files, classes are conditionally defined (e.g. based
                 // on platform type). We'll assume that the conditional logic is correct
                 // and strip off the "unbound" union.
-                if (argType.category === TypeCategory.Union) {
+                if (isUnion(argType)) {
                     argType = removeUnbound(argType);
                 }
 
@@ -11678,13 +11705,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // If we were able to resolve the import, report the error as
                 // an unresolved symbol.
                 if (importLookupInfo) {
+                    reportError = true;
+
                     // Handle PEP 562 support for module-level __getattr__ function,
                     // introduced in Python 3.7.
-                    if (
-                        fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_7 ||
-                        !importLookupInfo.symbolTable.get('__getattr__')
-                    ) {
-                        reportError = true;
+                    if (fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_7 || fileInfo.isStubFile) {
+                        const getAttrSymbol = importLookupInfo.symbolTable.get('__getattr__');
+                        if (getAttrSymbol) {
+                            const getAttrType = getEffectiveTypeOfSymbol(getAttrSymbol);
+                            if (isFunction(getAttrType)) {
+                                symbolType = getFunctionEffectiveReturnType(getAttrType);
+                                reportError = false;
+                            }
+                        }
                     }
                 } else if (!resolvedPath) {
                     // This corresponds to the "from . import a" form.
@@ -11701,7 +11734,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            symbolType = UnknownType.create();
+            if (!symbolType) {
+                symbolType = UnknownType.create();
+            }
         }
 
         assignTypeToNameNode(aliasNode, symbolType);
@@ -13236,7 +13271,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Python 3.10 supports unions within isinstance and issubclass calls.
-        if (argType.category === TypeCategory.Union) {
+        if (isUnion(argType)) {
             let isValid = true;
             const classList: ClassType[] = [];
             doForEachSubtype(argType, (subtype) => {
@@ -14854,13 +14889,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
                 } else {
-                    const declaredType = getDeclaredTypeOfSymbol(symbol);
+                    let declaredType = getDeclaredTypeOfSymbol(symbol);
                     if (declaredType) {
                         let srcMemberType = getTypeOfMember(memberInfo);
 
                         if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
                             if (isMemberFromMetaclass) {
-                                const boundFunction = bindFunctionToClassOrObject(
+                                const boundSrcFunction = bindFunctionToClassOrObject(
                                     srcType,
                                     srcMemberType,
                                     /* memberClass */ undefined,
@@ -14868,21 +14903,42 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     /* treatConstructorAsClassMember */ false,
                                     srcType
                                 );
-                                if (boundFunction) {
-                                    srcMemberType = boundFunction;
+                                if (boundSrcFunction) {
+                                    srcMemberType = boundSrcFunction;
+                                }
+
+                                if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
+                                    const boundDeclaredType = bindFunctionToClassOrObject(
+                                        srcType,
+                                        declaredType,
+                                        /* memberClass */ undefined,
+                                        /* errorNode */ undefined,
+                                        /* treatConstructorAsClassMember */ false,
+                                        srcType
+                                    );
+                                    if (boundDeclaredType) {
+                                        declaredType = boundDeclaredType;
+                                    }
                                 }
                             } else if (isClass(memberInfo.classType)) {
-                                const boundFunction = bindFunctionToClassOrObject(
+                                const boundSrcFunction = bindFunctionToClassOrObject(
                                     ObjectType.create(srcType),
                                     srcMemberType,
-                                    memberInfo.classType,
-                                    /* errorNode */ undefined,
-                                    /* treatConstructorAsClassMember */ false,
-                                    /* firstParamType */ undefined,
-                                    /* neverStripFirstParam */ true
+                                    memberInfo.classType
                                 );
-                                if (boundFunction) {
-                                    srcMemberType = boundFunction;
+                                if (boundSrcFunction) {
+                                    srcMemberType = boundSrcFunction;
+                                }
+
+                                if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
+                                    const boundDeclaredType = bindFunctionToClassOrObject(
+                                        ObjectType.create(srcType),
+                                        declaredType,
+                                        memberInfo.classType
+                                    );
+                                    if (boundDeclaredType) {
+                                        declaredType = boundDeclaredType;
+                                    }
                                 }
                             }
                         }
@@ -15014,20 +15070,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         reportErrorsUsingObjType: boolean,
         allowMetaclassForProtocols = false
     ): boolean {
-        // Is it a structural type (i.e. a protocol)? If so, we need to
-        // perform a member-by-member check.
-        if (ClassType.isProtocolClass(destType)) {
-            return canAssignClassToProtocol(
-                destType,
-                srcType,
-                diag,
-                typeVarMap,
-                flags,
-                allowMetaclassForProtocols,
-                recursionCount
-            );
-        }
-
         // Handle typed dicts. They also use a form of structural typing for type
         // checking, as defined in PEP 589.
         if (ClassType.isTypedDictClass(destType) && ClassType.isTypedDictClass(srcType)) {
@@ -15068,9 +15110,25 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Is it a structural type (i.e. a protocol)? If so, we need to
+        // perform a member-by-member check.
+        const inheritanceChain: InheritanceChain = [];
+        const isDerivedFrom = ClassType.isDerivedFrom(srcType, destType, inheritanceChain);
+
+        if (!isDerivedFrom && ClassType.isProtocolClass(destType)) {
+            return canAssignClassToProtocol(
+                destType,
+                srcType,
+                diag,
+                typeVarMap,
+                flags,
+                allowMetaclassForProtocols,
+                recursionCount
+            );
+        }
+
         if ((flags & CanAssignFlags.EnforceInvariance) === 0 || ClassType.isSameGenericClass(srcType, destType)) {
-            const inheritanceChain: InheritanceChain = [];
-            if (ClassType.isDerivedFrom(srcType, destType, inheritanceChain)) {
+            if (isDerivedFrom) {
                 assert(inheritanceChain.length > 0);
 
                 return canAssignClassWithTypeArgs(
@@ -15625,7 +15683,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         Localizer.DiagnosticAddendum.typeBound().format({
                             sourceType: printType(updatedType),
                             destType: printType(destType.details.boundType),
-                            name: TypeVarType.getNameWithScope(destType),
+                            name: TypeVarType.getReadableName(destType),
                         })
                     );
                 }
@@ -15785,7 +15843,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        if (srcType.category === TypeCategory.Union) {
+        if (isUnion(srcType)) {
             // Start by checking for an exact match. This is needed to handle unions
             // that contain recursive type aliases.
             if (isTypeSame(srcType, destType)) {
@@ -15814,7 +15872,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (destType.category === TypeCategory.Union) {
+        if (isUnion(destType)) {
             // If we need to enforce invariance, the source needs to be compatible
             // with all subtypes in the dest, unless those subtypes are subclasses
             // of other subtypes.
@@ -16084,15 +16142,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     return true;
                 }
             } else if (isClass(concreteSrcType)) {
+                // See if the destType is an instantiation of a Protocol
+                // class that is effectively a function.
+                const callbackType = getCallbackProtocolType(destType);
+                if (callbackType) {
+                    return canAssignType(callbackType, concreteSrcType, diag, typeVarMap, flags, recursionCount + 1);
+                }
+
                 // Determine if the metaclass can be assigned to the object.
                 const metaclass = concreteSrcType.details.effectiveMetaclass;
                 if (metaclass) {
                     if (isAnyOrUnknown(metaclass)) {
                         return true;
-                    } else if (isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
+                    } else {
                         return canAssignClass(
                             destClassType,
-                            concreteSrcType,
+                            ClassType.isProtocolClass(destClassType) ? concreteSrcType : metaclass,
                             diag,
                             typeVarMap,
                             flags,
@@ -16104,13 +16169,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             } else if (isAnyOrUnknown(concreteSrcType)) {
                 return (flags & CanAssignFlags.DisallowAssignFromAny) === 0;
-            }
-
-            // See if the destType is an instantiation of a Protocol
-            // class that is effectively a function.
-            const callbackType = getCallbackProtocolType(destType);
-            if (callbackType) {
-                destType = callbackType;
             }
         }
 
@@ -16421,7 +16479,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !canAssignFunctionParameter(
                         destParamType,
                         srcParamType,
-                        paramIndex + 1,
+                        paramIndex,
                         diag.createAddendum(),
                         typeVarMap,
                         srcTypeVarMap,
@@ -16466,7 +16524,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     !canAssignFunctionParameter(
                                         destArgsType,
                                         srcParamType,
-                                        paramIndex + 1,
+                                        paramIndex,
                                         diag.createAddendum(),
                                         typeVarMap,
                                         srcTypeVarMap,
@@ -16499,7 +16557,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 !canAssignFunctionParameter(
                                     destParamType,
                                     srcArgsType,
-                                    paramIndex + 1,
+                                    paramIndex,
                                     diag.createAddendum(),
                                     typeVarMap,
                                     srcTypeVarMap,
@@ -16531,7 +16589,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     !canAssignFunctionParameter(
                         destArgsType,
                         srcArgsType,
-                        destArgsIndex + 1,
+                        destArgsIndex,
                         diag.createAddendum(),
                         typeVarMap,
                         srcTypeVarMap,
@@ -16767,7 +16825,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const expectedTypeArgType = typeVarMap.getTypeVar(typeParam);
 
                 if (expectedTypeArgType) {
-                    if (expectedTypeArgType.category === TypeCategory.Any || isAnyOrUnknown(typeArg)) {
+                    if (isAny(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
                         replacedTypeArg = true;
                         return expectedTypeArgType;
                     }
@@ -17020,7 +17078,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         for (const constraint of constraints) {
             if (isAnyOrUnknown(constraint)) {
                 return true;
-            } else if (effectiveSrcType.category === TypeCategory.Union) {
+            } else if (isUnion(effectiveSrcType)) {
                 // Does it match at least one of the constraints?
                 if (findSubtype(effectiveSrcType, (subtype) => isSameWithoutLiteralValue(constraint, subtype))) {
                     return true;
@@ -17227,8 +17285,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberClass?: ClassType,
         errorNode?: ParseNode,
         treatConstructorAsClassMember = false,
-        firstParamType?: ClassType | ObjectType | TypeVarType,
-        neverStripFirstParam = false
+        firstParamType?: ClassType | ObjectType | TypeVarType
     ): FunctionType | OverloadedFunctionType | undefined {
         if (isFunction(memberType)) {
             // If the caller specified no base type, always strip the
@@ -17245,7 +17302,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberClass || baseObj.classType,
                     errorNode,
                     firstParamType || baseObj,
-                    /* stripFirstParam */ isObject(baseType) && !neverStripFirstParam
+                    /* stripFirstParam */ isObject(baseType)
                 );
             }
 
@@ -17269,7 +17326,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberClass || baseClass,
                     errorNode,
                     effectiveFirstParamType,
-                    /* stripFirstParam */ !neverStripFirstParam
+                    /* stripFirstParam */ true
                 );
             }
 
@@ -17294,8 +17351,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberClass,
                     /* errorNode */ undefined,
                     treatConstructorAsClassMember,
-                    firstParamType,
-                    neverStripFirstParam
+                    firstParamType
                 );
                 if (boundMethod) {
                     OverloadedFunctionType.addOverload(newOverloadType, boundMethod as FunctionType);
@@ -17315,8 +17371,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             memberClass,
                             errorNode,
                             treatConstructorAsClassMember,
-                            firstParamType,
-                            neverStripFirstParam
+                            firstParamType
                         );
                     });
                 }
@@ -17363,7 +17418,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (
                 isTypeVar(firstParam.type) &&
                 firstParam.type.details.boundType &&
-                ClassType.isProtocolClass(memberClass)
+                isObject(firstParam.type.details.boundType) &&
+                ClassType.isProtocolClass(firstParam.type.details.boundType.classType)
             ) {
                 // Handle the protocol class specially. Some protocol classes
                 // contain references to themselves or their subclasses, so if
