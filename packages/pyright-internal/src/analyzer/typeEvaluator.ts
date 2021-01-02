@@ -257,6 +257,7 @@ interface FunctionArgument {
 }
 
 interface ValidateArgTypeParams {
+    paramCategory: ParameterCategory;
     paramType: Type;
     requiresTypeVarMatching: boolean;
     argument: FunctionArgument;
@@ -6161,7 +6162,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Build a map of parameters by name.
         const paramMap = new Map<string, ParamAssignmentInfo>();
         typeParams.forEach((param) => {
-            if (param.name) {
+            if (param.name && param.category === ParameterCategory.Simple) {
                 paramMap.set(param.name, {
                     argsNeeded: param.category === ParameterCategory.Simple && !param.hasDefault ? 1 : 0,
                     argsReceived: 0,
@@ -6325,6 +6326,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 const paramName = typeParams[paramIndex].name;
                 validateArgTypeParams.push({
+                    paramCategory: typeParams[paramIndex].category,
                     paramType,
                     requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: funcArg,
@@ -6335,7 +6337,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 trySetActive(argList[argIndex], typeParams[paramIndex]);
 
                 // Note that the parameter has received an argument.
-                if (paramName) {
+                if (paramName && typeParams[paramIndex].category === ParameterCategory.Simple) {
                     paramMap.get(paramName)!.argsReceived++;
                 }
 
@@ -6348,6 +6350,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
                 validateArgTypeParams.push({
+                    paramCategory: typeParams[paramIndex].category,
                     paramType,
                     requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: argList[argIndex],
@@ -6360,6 +6363,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             } else {
                 const paramName = typeParams[paramIndex].name;
                 validateArgTypeParams.push({
+                    paramCategory: typeParams[paramIndex].category,
                     paramType,
                     requiresTypeVarMatching: requiresSpecialization(paramType),
                     argument: argList[argIndex],
@@ -6412,6 +6416,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 const paramType = FunctionType.getEffectiveParameterType(type, paramInfoIndex);
 
                                 validateArgTypeParams.push({
+                                    paramCategory: ParameterCategory.Simple,
                                     paramType,
                                     requiresTypeVarMatching: requiresSpecialization(paramType),
                                     argument: argList[argIndex],
@@ -6427,6 +6432,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             assert(paramInfoIndex >= 0);
                             const paramType = FunctionType.getEffectiveParameterType(type, paramInfoIndex);
                             validateArgTypeParams.push({
+                                paramCategory: ParameterCategory.VarArgDictionary,
                                 paramType,
                                 requiresTypeVarMatching: requiresSpecialization(varArgDictParam.type),
                                 argument: argList[argIndex],
@@ -6489,6 +6495,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                             if (param.defaultType && requiresSpecialization(paramType)) {
                                 validateArgTypeParams.push({
+                                    paramCategory: param.category,
                                     paramType: paramType,
                                     requiresTypeVarMatching: true,
                                     argument: {
