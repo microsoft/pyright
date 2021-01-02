@@ -9433,7 +9433,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getClassFullName(node, fileInfo.moduleName, assignedName),
             fileInfo.moduleName,
             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
-            getTypeSourceId(node),
+            /* typeSourceId */ 0,
             /* declaredMetaclass */ undefined,
             /* effectiveMetaclass */ undefined
         );
@@ -9774,7 +9774,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             getClassFullName(node, fileInfo.moduleName, node.name.value),
             fileInfo.moduleName,
             classFlags,
-            getTypeSourceId(node),
+            /* typeSourceId */ 0,
             /* declaredMetaclass */ undefined,
             /* effectiveMetaclass */ undefined,
             ParseTreeUtils.getDocString(node.suite.statements)
