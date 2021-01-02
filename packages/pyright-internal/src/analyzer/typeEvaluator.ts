@@ -6610,6 +6610,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             argType = getTypeForArgument(argParam.argument);
         }
 
+        // If we're assigning to a var arg dictionary with a TypeVar type,
+        // strip literals before performing the assignment. This is used in
+        // places like a dict constructor.
+        if (argParam.paramCategory === ParameterCategory.VarArgDictionary && isTypeVar(argParam.paramType)) {
+            argType = stripLiteralValue(argType);
+        }
+
         let diag = new DiagnosticAddendum();
 
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
