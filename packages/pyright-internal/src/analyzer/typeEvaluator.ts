@@ -5361,26 +5361,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeVarMap,
                     skipUnknownArgCheck
                 );
-                if (!callResult.argumentErrors) {
-                    // Some typeshed stubs use specialized type annotations in the "self" parameter
-                    // of an overloaded __init__ method to specify which specialized type should
-                    // be constructed. Although this isn't part of the official Python spec, other
-                    // type checkers appear to honor it.
-                    if (
-                        callResult.overloadUsed &&
-                        callResult.overloadUsed.strippedFirstParamType &&
-                        isObject(callResult.overloadUsed.strippedFirstParamType) &&
-                        ClassType.isSameGenericClass(callResult.overloadUsed.strippedFirstParamType.classType, type)
-                    ) {
-                        // Populate the typeVarMap based on the first param type.
-                        canAssignType(
-                            type,
-                            callResult.overloadUsed.strippedFirstParamType.classType,
-                            new DiagnosticAddendum(),
-                            typeVarMap
-                        );
-                    }
 
+                if (!callResult.argumentErrors) {
                     returnType = applyExpectedTypeForConstructor(type, /* expectedType */ undefined, typeVarMap);
                 } else {
                     reportedErrors = true;
@@ -6136,6 +6118,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // that class's TypeVar scope ID.
         if (type.boundTypeVarScopeId) {
             typeVarMap.addSolveForScope(type.boundTypeVarScopeId);
+
+            // Some typeshed stubs use specialized type annotations in the "self" parameter
+            // of an overloaded __init__ method to specify which specialized type should
+            // be constructed. Although this isn't part of the official Python spec, other
+            // type checkers appear to honor it.
+            if (
+                type.details.name === '__init__' &&
+                FunctionType.isOverloaded(type) &&
+                type.strippedFirstParamType &&
+                type.boundToType &&
+                isObject(type.strippedFirstParamType) &&
+                isObject(type.boundToType) &&
+                ClassType.isSameGenericClass(type.strippedFirstParamType.classType, type.boundToType.classType) &&
+                type.strippedFirstParamType.classType.typeArguments
+            ) {
+                const typeParams = type.strippedFirstParamType!.classType.details.typeParameters;
+                type.strippedFirstParamType.classType.typeArguments.forEach((typeArg, index) => {
+                    if (!isTypeVar(typeArg)) {
+                        typeVarMap.setTypeVar(typeParams[index], typeArg, /* isNarrowable */ false);
+                    }
+                });
+            }
         }
 
         if (expectedType && !requiresSpecialization(expectedType) && type.details.declaredReturnType) {
@@ -17471,7 +17475,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const specializedFunction = applySolvedTypeVars(memberType, typeVarMap) as FunctionType;
 
-        return FunctionType.clone(specializedFunction, stripFirstParam, getTypeVarScopeId(baseType));
+        return FunctionType.clone(specializedFunction, stripFirstParam, baseType, getTypeVarScopeId(baseType));
     }
 
     function printObjectTypeForClass(type: ClassType): string {

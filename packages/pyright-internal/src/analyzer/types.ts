@@ -832,6 +832,11 @@ export interface FunctionType extends TypeBase {
     // (specialized) type of that stripped parameter.
     strippedFirstParamType?: Type;
 
+    // If this is a bound function where the first parameter
+    // was stripped from the original unbound function,
+    // the class or object to which the function was bound.
+    boundToType?: ClassType | ObjectType;
+
     // The type var scope for the class that the function was bound to
     boundTypeVarScopeId?: TypeVarScopeId;
 }
@@ -888,6 +893,7 @@ export namespace FunctionType {
     export function clone(
         type: FunctionType,
         stripFirstParam = false,
+        boundToType?: ClassType | ObjectType,
         boundTypeVarScopeId?: TypeVarScopeId
     ): FunctionType {
         const newFunction = create(
@@ -905,12 +911,17 @@ export namespace FunctionType {
                 type.details.parameters.length > 0 &&
                 type.details.parameters[0].category === ParameterCategory.Simple
             ) {
-                // Stash away the effective type of the first parameter.
-                newFunction.strippedFirstParamType = getEffectiveParameterType(type, 0);
+                if (type.details.parameters.length > 0 && !type.details.parameters[0].isTypeInferred) {
+                    // Stash away the effective type of the first parameter if it
+                    // wasn't synthesized.
+                    newFunction.strippedFirstParamType = getEffectiveParameterType(type, 0);
+                }
                 newFunction.details.parameters = type.details.parameters.slice(1);
             } else {
                 stripFirstParam = false;
             }
+
+            newFunction.boundToType = boundToType;
 
             // If we strip off the first parameter, this is no longer an
             // instance method or class method.
