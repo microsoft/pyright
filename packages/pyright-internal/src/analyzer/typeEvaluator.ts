@@ -15794,7 +15794,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (flags & CanAssignFlags.SkipSolveTypeVars) {
                 if (isTypeVar(srcType)) {
-                    return true;
+                    return canAssignType(
+                        makeTopLevelTypeVarsConcrete(destType),
+                        makeTopLevelTypeVarsConcrete(srcType),
+                        new DiagnosticAddendum(),
+                        /* typeVarMap */ undefined,
+                        flags,
+                        recursionCount + 1
+                    );
                 }
             } else if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0) {
                 return assignTypeToTypeVar(
