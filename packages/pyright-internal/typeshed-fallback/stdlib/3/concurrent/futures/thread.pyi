@@ -15,9 +15,9 @@ _S = TypeVar("_S")
 
 class ThreadPoolExecutor(Executor):
     if sys.version_info >= (3, 7):
-        _work_queue: queue.SimpleQueue
+        _work_queue: queue.SimpleQueue[Any]
     else:
-        _work_queue: queue.Queue
+        _work_queue: queue.Queue[Any]
     if sys.version_info >= (3, 7):
         def __init__(
             self,

@@ -11,12 +11,8 @@ if sys.version_info >= (3, 9):
 
 _P = TypeVar("_P", bound=PurePath)
 
-if sys.version_info >= (3, 6):
-    _PurePathBase = os.PathLike[str]
-    _PathLike = os.PathLike[str]
-else:
-    _PurePathBase = object
-    _PathLike = PurePath
+_PurePathBase = os.PathLike[str]
+_PathLike = os.PathLike[str]
 
 class PurePath(_PurePathBase):
     parts: Tuple[str, ...]

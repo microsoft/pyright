@@ -1,6 +1,6 @@
 from abc import ABCMeta
 from enum import Enum
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from cryptography.hazmat.backends.interfaces import (
     DERSerializationBackend,
@@ -17,19 +17,19 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPubl
 
 def load_pem_private_key(
     data: bytes, password: Optional[bytes], backend: Optional[PEMSerializationBackend] = ...
-) -> Union[RSAPrivateKey, DSAPrivateKey, DHPrivateKey, EllipticCurvePrivateKey]: ...
+) -> Any: ...  # actually Union[RSAPrivateKey, DSAPrivateKey, DHPrivateKey, EllipticCurvePrivateKey]
 def load_pem_public_key(
     data: bytes, backend: Optional[PEMSerializationBackend] = ...
-) -> Union[RSAPublicKey, DSAPublicKey, DHPublicKey, EllipticCurvePublicKey]: ...
+) -> Any: ...  # actually Union[RSAPublicKey, DSAPublicKey, DHPublicKey, EllipticCurvePublicKey]
 def load_der_private_key(
     data: bytes, password: Optional[bytes], backend: Optional[DERSerializationBackend] = ...
-) -> Union[RSAPrivateKey, DSAPrivateKey, DHPrivateKey, EllipticCurvePrivateKey]: ...
+) -> Any: ...  # actually Union[RSAPrivateKey, DSAPrivateKey, DHPrivateKey, EllipticCurvePrivateKey]
 def load_der_public_key(
     data: bytes, backend: Optional[DERSerializationBackend] = ...
-) -> Union[RSAPublicKey, DSAPublicKey, DHPublicKey, EllipticCurvePublicKey]: ...
+) -> Any: ...  # actually Union[RSAPublicKey, DSAPublicKey, DHPublicKey, EllipticCurvePublicKey]
 def load_ssh_public_key(
     data: bytes, backend: Union[RSABackend, DSABackend, EllipticCurveBackend, None]
-) -> Union[RSAPublicKey, DSAPublicKey, DHPublicKey, EllipticCurvePublicKey, Ed25519PublicKey]: ...
+) -> Any: ...  # actually Union[RSAPublicKey, DSAPublicKey, DHPublicKey, EllipticCurvePublicKey, Ed25519PublicKey]
 
 class Encoding(Enum):
     PEM: str
