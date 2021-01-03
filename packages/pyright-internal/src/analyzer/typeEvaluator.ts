@@ -14865,6 +14865,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         allowMetaclassForProtocols: boolean,
         recursionCount: number
     ): boolean {
+        if (recursionCount > maxTypeRecursionCount) {
+            return true;
+        }
+
         const destClassFields = destType.details.fields;
 
         // Some protocol definitions include recursive references to themselves.
@@ -15141,7 +15145,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeVarMap,
                 flags,
                 allowMetaclassForProtocols,
-                recursionCount
+                recursionCount + 1
             );
         }
 
