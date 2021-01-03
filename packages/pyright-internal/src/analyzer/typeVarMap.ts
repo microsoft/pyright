@@ -71,6 +71,12 @@ export class TypeVarMap {
             newTypeVarMap.setParamSpec(value.paramSpec, value.type);
         });
 
+        if (this._variadicTypeVarMap) {
+            this._variadicTypeVarMap.forEach((value) => {
+                newTypeVarMap.setVariadicTypeVar(value.typeVar, value.types);
+            });
+        }
+
         newTypeVarMap._isLocked = this._isLocked;
 
         return newTypeVarMap;
@@ -80,6 +86,7 @@ export class TypeVarMap {
     copyFromClone(clone: TypeVarMap) {
         this._typeVarMap = clone._typeVarMap;
         this._paramSpecMap = clone._paramSpecMap;
+        this._variadicTypeVarMap = clone._variadicTypeVarMap;
         this._isLocked = clone._isLocked;
     }
 
