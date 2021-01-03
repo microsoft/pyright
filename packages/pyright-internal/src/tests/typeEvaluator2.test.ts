@@ -522,7 +522,7 @@ test('Protocol2', () => {
 test('Protocol3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol3.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Protocol4', () => {
@@ -587,6 +587,12 @@ test('Protocol13', () => {
 
 test('Protocol14', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol14.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Protocol15', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol15.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });

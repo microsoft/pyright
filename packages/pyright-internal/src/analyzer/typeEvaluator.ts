@@ -14966,7 +14966,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         }
 
                         const subDiag = diag.createAddendum();
+
+                        // Properties require special processing.
                         if (
+                            isObject(declaredType) &&
+                            ClassType.isPropertyClass(declaredType.classType) &&
+                            isObject(srcMemberType) &&
+                            ClassType.isPropertyClass(srcMemberType.classType)
+                        ) {
+                            if (
+                                !canAssignPropertyToProtocol(
+                                    declaredType.classType,
+                                    srcMemberType.classType,
+                                    srcType,
+                                    subDiag.createAddendum(),
+                                    genericDestTypeVarMap,
+                                    recursionCount + 1
+                                )
+                            ) {
+                                subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                                typesAreConsistent = false;
+                            }
+                        } else if (
                             !canAssignType(
                                 declaredType,
                                 srcMemberType,
@@ -15036,6 +15057,73 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typesAreConsistent;
     }
 
+    function canAssignPropertyToProtocol(
+        destPropertyType: ClassType,
+        srcPropertyType: ClassType,
+        srcClass: ClassType,
+        diag: DiagnosticAddendum,
+        typeVarMap?: TypeVarMap,
+        recursionCount = 0
+    ): boolean {
+        const objectToBind = ObjectType.create(srcClass);
+        let isAssignable = true;
+        const accessors: { name: string; missingDiagMsg: () => string; incompatibleDiagMsg: () => string }[] = [
+            {
+                name: 'fget',
+                missingDiagMsg: Localizer.DiagnosticAddendum.missingGetter,
+                incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleGetter,
+            },
+            {
+                name: 'fset',
+                missingDiagMsg: Localizer.DiagnosticAddendum.missingSetter,
+                incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleSetter,
+            },
+            {
+                name: 'fdel',
+                missingDiagMsg: Localizer.DiagnosticAddendum.missingDeleter,
+                incompatibleDiagMsg: Localizer.DiagnosticAddendum.incompatibleDeleter,
+            },
+        ];
+
+        accessors.forEach((accessorInfo) => {
+            const destAccessSymbol = destPropertyType.details.fields.get(accessorInfo.name);
+            const destAccessType = destAccessSymbol ? getDeclaredTypeOfSymbol(destAccessSymbol) : undefined;
+
+            if (destAccessType && isFunction(destAccessType)) {
+                const srcAccessSymbol = srcPropertyType.details.fields.get(accessorInfo.name);
+                const srcAccessType = srcAccessSymbol ? getDeclaredTypeOfSymbol(srcAccessSymbol) : undefined;
+
+                if (!srcAccessType || !isFunction(srcAccessType)) {
+                    diag.addMessage(accessorInfo.missingDiagMsg());
+                    isAssignable = false;
+                    return;
+                }
+
+                const boundDestAccessType = bindFunctionToClassOrObject(objectToBind, destAccessType);
+                const boundSrcAccessType = bindFunctionToClassOrObject(objectToBind, srcAccessType);
+
+                if (
+                    !boundDestAccessType ||
+                    !boundSrcAccessType ||
+                    !canAssignType(
+                        boundDestAccessType,
+                        boundSrcAccessType,
+                        diag.createAddendum(),
+                        typeVarMap,
+                        CanAssignFlags.Default,
+                        recursionCount + 1
+                    )
+                ) {
+                    diag.addMessage('getter type is incompatible');
+                    isAssignable = false;
+                    return;
+                }
+            }
+        });
+
+        return isAssignable;
+    }
+
     function canAssignTypedDict(
         destType: ClassType,
         srcType: ClassType,
@@ -15096,32 +15184,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // checking, as defined in PEP 589.
         if (ClassType.isTypedDictClass(destType) && ClassType.isTypedDictClass(srcType)) {
             return canAssignTypedDict(destType, srcType, diag, recursionCount);
-        }
-
-        // Handle property classes. They are special because each property
-        // class has a different source ID, so they wouldn't otherwise match.
-        // We need to see if the return types of the properties match.
-        if (ClassType.isPropertyClass(destType) && ClassType.isPropertyClass(srcType)) {
-            let typesAreConsistent = true;
-
-            const fgetDestReturnType = getGetterTypeFromProperty(destType, /* inferTypeIfNeeded */ true);
-            const fgetSrcReturnType = getGetterTypeFromProperty(srcType, /* inferTypeIfNeeded */ true);
-            if (fgetDestReturnType && fgetSrcReturnType) {
-                if (
-                    !canAssignType(
-                        fgetDestReturnType,
-                        fgetSrcReturnType,
-                        diag,
-                        /* typeVarMap */ undefined,
-                        CanAssignFlags.Default,
-                        recursionCount + 1
-                    )
-                ) {
-                    typesAreConsistent = false;
-                }
-            }
-
-            return typesAreConsistent;
         }
 
         // Handle special-case type promotions.

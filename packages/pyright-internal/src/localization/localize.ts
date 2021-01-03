@@ -709,6 +709,9 @@ export namespace Localizer {
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('DiagnosticAddendum.functionTooFewParams')
             );
+        export const incompatibleGetter = () => getRawString('DiagnosticAddendum.incompatibleGetter');
+        export const incompatibleSetter = () => getRawString('DiagnosticAddendum.incompatibleSetter');
+        export const incompatibleDeleter = () => getRawString('DiagnosticAddendum.incompatibleDeleter');
         export const functionTooManyParams = () =>
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('DiagnosticAddendum.functionTooManyParams')
@@ -735,6 +738,9 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberTypeMismatch'));
         export const memberUnknown = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.memberUnknown'));
+        export const missingGetter = () => getRawString('DiagnosticAddendum.missingGetter');
+        export const missingSetter = () => getRawString('DiagnosticAddendum.missingSetter');
+        export const missingDeleter = () => getRawString('DiagnosticAddendum.missingDeleter');
         export const namedParamMissingInDest = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.namedParamMissingInDest'));
         export const namedParamMissingInSource = () =>

@@ -1585,6 +1585,7 @@ export class CompletionProvider {
                                     typeDetail = name + ': ' + this._evaluator.printType(type, expandTypeAlias);
                                     break;
                                 }
+
                                 case DeclarationType.Function: {
                                     const functionType =
                                         detail.boundObject && isFunction(type)
@@ -1619,6 +1620,7 @@ export class CompletionProvider {
                                     }
                                     break;
                                 }
+
                                 case DeclarationType.Class:
                                 case DeclarationType.SpecialBuiltInClass: {
                                     typeDetail = 'class ' + name + '()';
