@@ -22,6 +22,7 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 * [PEP 604](https://www.python.org/dev/peps/pep-0604/) complementary syntax for unions
 * [PEP 612](https://www.python.org/dev/peps/pep-0612/) parameter specification variables
 * [PEP 613](https://www.python.org/dev/peps/pep-0613/) explicit type aliases
+* [PEP 647](https://www.python.org/dev/peps/pep-0647/) user-defined type guards
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 
