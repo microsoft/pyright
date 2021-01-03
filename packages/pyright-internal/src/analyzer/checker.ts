@@ -121,6 +121,7 @@ import {
     transformPossibleRecursiveTypeAlias,
     transformTypeObjectToClass,
 } from './typeUtils';
+import { TypeVarMap } from './typeVarMap';
 
 export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
@@ -944,7 +945,7 @@ export class Checker extends ParseTreeWalker {
                         returnType,
                         prevReturnType,
                         new DiagnosticAddendum(),
-                        /* typeVarMap */ undefined,
+                        new TypeVarMap(),
                         CanAssignFlags.SkipSolveTypeVars
                     )
                 ) {
