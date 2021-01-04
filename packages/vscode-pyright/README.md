@@ -16,6 +16,7 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 * [PEP 561](https://www.python.org/dev/peps/pep-0561/) distributing and packaging type information
 * [PEP 563](https://www.python.org/dev/peps/pep-0563/) postponed evaluation of annotations
 * [PEP 585](https://www.python.org/dev/peps/pep-0585/) type hinting generics in standard collections
+* [PEP 586](https://www.python.org/dev/peps/pep-0586/) literal types
 * [PEP 589](https://www.python.org/dev/peps/pep-0589/) typed dictionaries
 * [PEP 591](https://www.python.org/dev/peps/pep-0591/) final qualifier
 * [PEP 593](https://www.python.org/dev/peps/pep-0593/) flexible variable annotations
