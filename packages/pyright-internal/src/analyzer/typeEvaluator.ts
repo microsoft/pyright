@@ -3324,7 +3324,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
                                 DiagnosticRule.reportMissingTypeArgument,
                                 Localizer.Diagnostic.typeArgsMissingForClass().format({
-                                    name: type.details.name,
+                                    name: type.aliasName || type.details.name,
                                 }),
                                 node
                             );
@@ -4360,7 +4360,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.classNotRuntimeSubscriptable().format({
-                            name: baseTypeResult.type.details.name,
+                            name: baseTypeResult.type.aliasName || baseTypeResult.type.details.name,
                         }),
                         node.baseExpression
                     );
@@ -5479,7 +5479,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.constructorNoArgs().format({ type: type.details.name }),
+                    Localizer.Diagnostic.constructorNoArgs().format({ type: type.aliasName || type.details.name }),
                     errorNode
                 );
             }
@@ -9272,7 +9272,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (typeArgs && typeArgTypes.length > paramLimit) {
                 addError(
                     Localizer.Diagnostic.typeArgsTooMany().format({
-                        name: classType.details.name,
+                        name: classType.aliasName || classType.details.name,
                         expected: paramLimit,
                         received: typeArgTypes.length,
                     }),
@@ -13752,7 +13752,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.typeArgsTooMany().format({
-                            name: classType.details.name,
+                            name: classType.aliasName || classType.details.name,
                             expected: typeParameters.length,
                             received: typeArgCount,
                         }),
@@ -13767,7 +13767,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
                 DiagnosticRule.reportMissingTypeArgument,
                 Localizer.Diagnostic.typeArgsTooFew().format({
-                    name: classType.details.name,
+                    name: classType.aliasName || classType.details.name,
                     expected: typeParameters.length,
                     received: typeArgCount,
                 }),
