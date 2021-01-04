@@ -69,7 +69,7 @@ export function evaluateStaticBoolExpression(
             // Handle the special case of "sys.platform != 'X'"
             const comparisonPlatform = node.rightExpression.strings.map((s) => s.value).join('');
             const expectedPlatformName = _getExpectedPlatformNameFromPlatform(execEnv);
-            return _evaluateStringBinaryOperation(node.operator, expectedPlatformName || '', comparisonPlatform);
+            return _evaluateStringBinaryOperation(node.operator, expectedPlatformName, comparisonPlatform);
         } else if (
             _isOsNameInfoExpression(node.leftExpression) &&
             node.rightExpression.nodeType === ParseNodeType.StringList

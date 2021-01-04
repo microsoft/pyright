@@ -423,7 +423,7 @@
       "examples": [
         "Linux"
       ],
-      "pattern": "^(Linux|Windows|Darwin)$"
+      "pattern": "^(Linux|Windows|Darwin|All)$"
     },
     "venvPath": {
       "$id": "#/properties/venvPath",
@@ -497,7 +497,7 @@
             "examples": [
               "Linux"
             ],
-            "pattern": "^(Linux|Windows|Darwin)$"
+            "pattern": "^(Linux|Windows|Darwin|All)$"
           },
           "venv": {
             "$id": "#/properties/venv",
