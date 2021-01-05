@@ -630,6 +630,8 @@ export class Checker extends ParseTreeWalker {
                 const diagAddendum = new DiagnosticAddendum();
 
                 doForEachSubtype(exceptionType, (subtype) => {
+                    subtype = this._evaluator.makeTopLevelTypeVarsConcrete(subtype);
+
                     if (!isAnyOrUnknown(subtype) && !isNone(subtype)) {
                         if (isObject(subtype)) {
                             if (
