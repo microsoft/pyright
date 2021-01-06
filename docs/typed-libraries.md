@@ -246,7 +246,7 @@ def complex_decorator(*, mode: str) -> Callable[[_F], _F]:
    ...
 ```
 
-Decorators that mutate the signature of the decorated function present challenges for type annotations. The ParamSpec and Concatenate mechanisms described in [PEP 612](https://www.python.org/dev/peps/pep-0612/) provide some help here, but these are available only in Python 3.10 and newer. More complex signature mutations may require type annotations that erase the original signature, thus blinding type checkers and other tools that provide signature assistance. As such, library authors are discouraged from creating decorators that mutate function signatures in this manner.
+Decorators that mutate the signature of the decorated function present challenges for type annotations. The `ParamSpec` and `Concatenate` mechanisms described in [PEP 612](https://www.python.org/dev/peps/pep-0612/) provide some help here, but these are available only in Python 3.10 and newer. More complex signature mutations may require type annotations that erase the original signature, thus blinding type checkers and other tools that provide signature assistance. As such, library authors are discouraged from creating decorators that mutate function signatures in this manner.
 
 ### Generic Classes and Functions
 Classes and functions that can operate in a generic manner on various types should declare themselves as generic using the mechanisms described in [PEP 484](https://www.python.org/dev/peps/pep-0484/). This includes the use of `TypeVar` symbols. Typically, a `TypeVar` should be private to the file that declares it, and should therefore begin with an underscore.

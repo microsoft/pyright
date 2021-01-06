@@ -54,7 +54,7 @@ def func(a: Optional[Union[str, List[str]]):
 
 In this example, the type evaluator knows that parameter a is either None, str, or List[str]. Within the first `if` clause, a is constrained to be a str. Within the `elif` clause, it is constrained to be a List[str], and within the `else` clause, it has to be None (by process of elimination). The type checker would therefore flag the final line as an error if the log method could not accept None as a parameter.
 
-Narrowing is also applied values are assigned to a variable.
+Narrowing is also applied when values are assigned to a variable.
 
 ```python
 def func(b: Optional[Union[str, List[str]]]):
