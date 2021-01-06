@@ -3337,7 +3337,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // If this is an object that contains a Type[X], transform it
                     // into class X.
                     type = getClassFromPotentialTypeObject(type);
-                } else if (
+                }
+
+                if (
                     (flags & EvaluatorFlags.ExpectingType) !== 0 &&
                     type.typeAliasInfo &&
                     type.typeAliasInfo.typeParameters &&
