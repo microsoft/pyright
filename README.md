@@ -113,7 +113,7 @@ Pyright provides support for Python 3.0 and newer. There is currently no plan to
 
 
 ## Community
-Do you have questions about Pyright or Python type annotations in general? Post your questions in this [gitter channel](https://gitter.im/microsoft-pyright/community).
+Do you have questions about Pyright or Python type annotations in general? Post your questions in [the discussion section](https://github.com/microsoft/pyright/discussions).
 
 
 ## FAQ
