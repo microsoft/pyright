@@ -21,6 +21,7 @@ import {
     MemberAccessNode,
     NameNode,
     ParseNodeType,
+    SuiteNode,
 } from '../parser/parseNodes';
 
 export enum FlowFlags {
@@ -119,6 +120,7 @@ export interface FlowPreFinallyGate extends FlowNode {
 
 export interface FlowPostFinally extends FlowNode {
     antecedent: FlowNode;
+    finallyNode: SuiteNode;
     preFinallyGate: FlowPreFinallyGate;
 }
 

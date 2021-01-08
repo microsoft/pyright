@@ -12799,17 +12799,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         const wasGateClosed = postFinallyFlowNode.preFinallyGate.isGateClosed;
                         try {
                             postFinallyFlowNode.preFinallyGate.isGateClosed = true;
-                            const flowTypeResult = getTypeFromFlowNode(
-                                postFinallyFlowNode.antecedent,
-                                reference,
-                                targetSymbolId,
-                                initialType
-                            );
+                            let flowTypeResult: FlowNodeTypeResult | undefined;
+
+                            // Use speculative mode for the remainder of the finally suite
+                            // because the final types within this parse node block should be
+                            // evaluated when the gate is open.
+                            useSpeculativeMode(postFinallyFlowNode.finallyNode, () => {
+                                flowTypeResult = getTypeFromFlowNode(
+                                    postFinallyFlowNode.antecedent,
+                                    reference,
+                                    targetSymbolId,
+                                    initialType
+                                );
+                            });
 
                             // If the type is incomplete, don't write back to the cache.
-                            return flowTypeResult.isIncomplete
-                                ? flowTypeResult
-                                : setCacheEntry(curFlowNode, flowTypeResult.type, /* isIncomplete */ false);
+                            return flowTypeResult!.isIncomplete
+                                ? flowTypeResult!
+                                : setCacheEntry(curFlowNode, flowTypeResult!.type, /* isIncomplete */ false);
                         } finally {
                             postFinallyFlowNode.preFinallyGate.isGateClosed = wasGateClosed;
                         }

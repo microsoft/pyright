@@ -1226,6 +1226,7 @@ export class Binder extends ParseTreeWalker {
             const postFinallyNode: FlowPostFinally = {
                 flags: FlowFlags.PostFinally,
                 id: getUniqueFlowNodeId(),
+                finallyNode: node.finallySuite,
                 antecedent: this._currentFlowNode,
                 preFinallyGate,
             };
