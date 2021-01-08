@@ -31,6 +31,7 @@ import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import {
     getClassDocString,
     getFunctionDocStringFromDeclaration,
+    getFunctionDocStringFromDeclarations,
     getFunctionDocStringFromType,
     getModuleDocString,
     getOverloadedFunctionDocStrings,
@@ -1659,6 +1660,13 @@ export class CompletionProvider {
                             } else if (primaryDecl.type === DeclarationType.Function) {
                                 // @property functions
                                 documentation = getFunctionDocStringFromDeclaration(primaryDecl, this._sourceMapper);
+                                if (documentation === undefined) {
+                                    // if the setter was undocumented check the getter
+                                    documentation = getFunctionDocStringFromDeclarations(
+                                        symbol.getDeclarations(),
+                                        this._sourceMapper
+                                    );
+                                }
                             }
 
                             if (this._format === MarkupKind.Markdown) {
