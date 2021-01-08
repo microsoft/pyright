@@ -1279,6 +1279,12 @@ test('Decorator4', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Decorator5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator5.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('FunctionAnnotation1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['functionAnnotation1.py']);
 

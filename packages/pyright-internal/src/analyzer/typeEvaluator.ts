@@ -1163,7 +1163,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             },
         ];
 
-        return (
+        const returnType =
             validateCallArguments(
                 node.expression,
                 argList,
@@ -1171,8 +1171,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 /* typeVarMap */ undefined,
                 /* skipUnknownArgCheck */ true,
                 /* expectedType */ undefined
-            ).returnType || UnknownType.create()
-        );
+            ).returnType || UnknownType.create();
+
+        // If the return type is a function that has no annotations
+        // and just *args and **kwargs parameters, assume that it
+        // preserves the type of the input function.
+        if (isFunction(returnType) && !returnType.details.declaredReturnType) {
+            if (
+                !returnType.details.parameters.some((param, index) => {
+                    // Don't allow * or / separators or params with declared types.
+                    if (!param.name || param.hasDeclaredType) {
+                        return true;
+                    }
+
+                    // Allow *args or **kwargs parameters.
+                    if (param.category !== ParameterCategory.Simple) {
+                        return false;
+                    }
+
+                    // Allow inferred "self" or "cls" parameters.
+                    return index !== 0 || !param.isTypeInferred;
+                })
+            ) {
+                return functionOrClassType;
+            }
+        }
+
+        return returnType;
     }
 
     // Gets a member type from an object and if it's a function binds
