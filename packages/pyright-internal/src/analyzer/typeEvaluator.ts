@@ -624,6 +624,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     const isReachableRecursionMap = new Map<number, true>();
     const functionRecursionMap = new Map<number, true>();
     const callIsNoReturnCache = new Map<number, boolean>();
+    const isExceptionContextManagerCache = new Map<number, boolean>();
     const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
     const typeCache: TypeCache = new Map<number, CachedType>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
@@ -12237,32 +12238,41 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // called during code flow, so it can't rely on full type evaluation. It
     // makes some simplifying assumptions that work in most cases.
     function isExceptionContextManager(node: ExpressionNode, isAsync: boolean) {
+        // See if this information is cached already.
+        if (isExceptionContextManagerCache.has(node.id)) {
+            return isExceptionContextManagerCache.get(node.id);
+        }
+
+        // Initially set to false to avoid infinite recursion.
+        isExceptionContextManagerCache.set(node.id, false);
+
+        let cmSwallowsExceptions = false;
+
         // We assume that the context manager is instantiated through a call.
-        if (node.nodeType !== ParseNodeType.Call) {
-            return false;
+        if (node.nodeType === ParseNodeType.Call) {
+            const callType = getDeclaredCallBaseType(node.leftExpression);
+            if (callType && isClass(callType)) {
+                const exitMethodName = isAsync ? '__aexit__' : '__exit__';
+                const exitType = getTypeFromObjectMember(
+                    node.leftExpression,
+                    ObjectType.create(callType),
+                    exitMethodName,
+                    { method: 'get' },
+                    new DiagnosticAddendum(),
+                    MemberAccessFlags.None
+                );
+
+                if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
+                    const returnType = exitType.details.declaredReturnType;
+                    cmSwallowsExceptions = isObject(returnType) && ClassType.isBuiltIn(returnType.classType, 'bool');
+                }
+            }
         }
 
-        const callType = getDeclaredCallBaseType(node.leftExpression);
-        if (!callType || !isClass(callType)) {
-            return false;
-        }
+        // Cache the value for next time.
+        callIsNoReturnCache.set(node.id, cmSwallowsExceptions);
 
-        const exitMethodName = isAsync ? '__aexit__' : '__exit__';
-        const exitType = getTypeFromObjectMember(
-            node.leftExpression,
-            ObjectType.create(callType),
-            exitMethodName,
-            { method: 'get' },
-            new DiagnosticAddendum(),
-            MemberAccessFlags.None
-        );
-
-        if (!exitType || !isFunction(exitType) || !exitType.details.declaredReturnType) {
-            return false;
-        }
-
-        const returnType = exitType.details.declaredReturnType;
-        return isObject(returnType) && ClassType.isBuiltIn(returnType.classType, 'bool');
+        return cmSwallowsExceptions;
     }
 
     // Performs a cursory analysis to determine whether a call never returns
