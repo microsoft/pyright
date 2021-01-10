@@ -14945,9 +14945,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destClassFields.forEach((symbol, name) => {
             if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
                 let isMemberFromMetaclass = false;
-                let memberInfo = lookUpClassMember(srcType, name);
+                let memberInfo: ClassMember | undefined;
+
+                // Look up in the metaclass first if allowed.
                 if (
-                    !memberInfo &&
                     allowMetaclassForProtocols &&
                     srcType.details.effectiveMetaclass &&
                     isClass(srcType.details.effectiveMetaclass)
@@ -14955,6 +14956,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberInfo = lookUpClassMember(srcType.details.effectiveMetaclass, name);
                     srcClassTypeVarMap.addSolveForScope(getTypeVarScopeId(srcType.details.effectiveMetaclass));
                     isMemberFromMetaclass = true;
+                }
+
+                if (!memberInfo) {
+                    memberInfo = lookUpClassMember(srcType, name);
                 }
 
                 if (!memberInfo) {
@@ -15249,7 +15254,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const inheritanceChain: InheritanceChain = [];
         const isDerivedFrom = ClassType.isDerivedFrom(srcType, destType, inheritanceChain);
 
-        if (!isDerivedFrom && ClassType.isProtocolClass(destType)) {
+        // Use the slow path for protocols if the dest doesn't explicitly
+        // derive from the source. We also need to use this path if we're
+        // testing to see if the metaclass matches the protocol.
+        if (ClassType.isProtocolClass(destType) && (!isDerivedFrom || allowMetaclassForProtocols)) {
             return canAssignClassToProtocol(
                 destType,
                 srcType,
