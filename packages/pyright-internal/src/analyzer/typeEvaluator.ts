@@ -14090,7 +14090,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         ) {
             let baseType = getType(node.parent.leftExpression);
             if (baseType) {
-                baseType = makeTopLevelTypeVarsConcrete(baseType);
+                baseType = transformTypeObjectToClass(makeTopLevelTypeVarsConcrete(baseType));
                 const memberName = node.parent.memberName.value;
                 doForEachSubtype(baseType, (subtype) => {
                     let symbol: Symbol | undefined;
