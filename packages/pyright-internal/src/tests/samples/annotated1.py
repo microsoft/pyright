@@ -19,7 +19,7 @@ SignedChar = Annotated[int, struct2.ctype("b")]
 
 class Student(struct2.Packed):
     name: Annotated[str, struct2.ctype("<10s")]
-    serialnum: UnsignedShort
+    serial_num: UnsignedShort
     school: SignedChar
 
 
@@ -30,7 +30,7 @@ def ValueRange(a: int, b: int):
 T1 = Annotated[int, ValueRange(-10, 5)]
 T2 = Annotated[T1, ValueRange(-20, 3)]
 
-a: Annotated[Annotated[int]] = 3
+a: Annotated[Annotated[int, "hi"], "hi"] = 3
 b: T2 = 5
 
 TypeWithStringArg = Annotated["int", "this string should not be parsed"]
@@ -38,3 +38,12 @@ TypeWithStringArg = Annotated["int", "this string should not be parsed"]
 
 def func2(a: TypeWithStringArg):
     return 3
+
+
+# This should generate an error because the first type argument
+# is not a valid type.
+c: Annotated["this", "should generate an error"]
+
+# This should generate an error because all Annotated types should
+# include at least two type arguments.
+d: Annotated[int]

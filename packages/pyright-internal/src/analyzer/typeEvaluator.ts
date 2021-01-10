@@ -9233,7 +9233,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
-        if (!typeArgs || typeArgs.length < 1) {
+        if (!typeArgs || typeArgs.length < 2) {
             addError(Localizer.Diagnostic.annotatedTypeArgMissing(), errorNode);
             return AnyType.create();
         }
