@@ -14647,7 +14647,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     try {
                         const type = getTypeForDeclaration(decl);
 
-                        if (popSymbolResolution(symbol)) {
+                        // If there was recursion detected, don't use this declaration.
+                        // The exception is it's a class declaration because getTypeOfClass
+                        // handles recursion by populating a partially-created class type
+                        // in the type cache. This exception is required to handle the
+                        // circular dependency between the "type" and "object" classes in
+                        // builtins.pyi (since "object" is a "type" and "type" is an "object").
+                        if (popSymbolResolution(symbol) || decl.type === DeclarationType.Class) {
                             return type;
                         }
                     } catch (e) {
