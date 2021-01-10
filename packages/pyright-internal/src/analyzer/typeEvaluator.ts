@@ -15668,7 +15668,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     constrainedType = srcType;
                 }
             } else {
-                // Find the narrowest constrained types that are compatible.
+                // Find the narrowest constrained type that is compatible.
                 constrainedType = mapSubtypes(concreteSrcType, (srcSubtype) => {
                     let constrainedSubtype: Type | undefined;
 
@@ -15688,7 +15688,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
             }
 
-            if (!constrainedType) {
+            // If there was no constrained type that was assignable
+            // or there were multiple constrained types that were assignable,
+            // it's an error.
+            if (!constrainedType || (isUnion(constrainedType) && !constrainedType.constraints)) {
                 diag.addMessage(
                     Localizer.DiagnosticAddendum.typeConstraint().format({
                         type: printType(srcType),
@@ -15718,8 +15721,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
             } else {
-                // Assign the type to the type var. If the source is a TypeVar, don't
-                // specialize it to one of the constrained types. Leave it generic.
+                // Assign the type to the type var.
                 if (!typeVarMap.isLocked() && isTypeVarInScope) {
                     typeVarMap.setTypeVar(destType, constrainedType, /* isNarrowable */ false);
                 }

@@ -2,22 +2,28 @@
 
 import pathlib
 import shutil
-from typing import TypeVar
+from typing import AnyStr, Sequence, TypeVar, Union
+
 
 class Foo:
     pass
 
+
 class Bar(Foo):
     pass
+
 
 X = TypeVar("X", Foo, str)
 B = TypeVar("B", bound=Foo)
 
+
 def test1(x: X) -> X:
     return x
 
+
 def test2(x: B) -> B:
     return x
+
 
 # This should generate an error because test1(Bar())
 # should evaluate to type Foo, not Bar.
@@ -34,3 +40,12 @@ bb2: Foo = test2(Bar())
 data_dir = pathlib.Path("/tmp")
 archive_path = data_dir / "hello"
 shutil.rmtree(archive_path)
+
+
+def func1(a: AnyStr, b: AnyStr) -> None:
+    ...
+
+
+def func2(a: Union[str, bytes], b: Union[str, bytes]):
+    # This should generate two errors
+    func1(a, b)
