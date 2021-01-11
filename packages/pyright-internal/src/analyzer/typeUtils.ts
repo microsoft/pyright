@@ -118,6 +118,9 @@ export const enum CanAssignFlags {
 
     // For function types, skip the return type check.
     SkipFunctionReturnTypeCheck = 1 << 5,
+
+    // Allow bool values to be assigned to TypeGuard[x] types.
+    AllowBoolTypeGuard = 1 << 6,
 }
 
 interface TypeVarTransformer {

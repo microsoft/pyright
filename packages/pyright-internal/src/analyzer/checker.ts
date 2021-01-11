@@ -556,7 +556,15 @@ export class Checker extends ParseTreeWalker {
                 } else {
                     const diagAddendum = new DiagnosticAddendum();
 
-                    if (!this._evaluator.canAssignType(declaredReturnType, returnType, diagAddendum)) {
+                    if (
+                        !this._evaluator.canAssignType(
+                            declaredReturnType,
+                            returnType,
+                            diagAddendum,
+                            /* typeVarMap */ undefined,
+                            CanAssignFlags.AllowBoolTypeGuard
+                        )
+                    ) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,

@@ -9583,7 +9583,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             Annotated: { alias: '', module: 'builtins' },
             TypeAlias: { alias: '', module: 'builtins' },
             Concatenate: { alias: '', module: 'builtins' },
-            TypeGuard: { alias: 'bool', module: 'builtins' },
+            TypeGuard: { alias: '', module: 'builtins' },
         };
 
         const aliasMapEntry = specialTypes[assignedName];
@@ -16003,7 +16003,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // We don't want to propagate this flag to any nested calls to
         // canAssignType.
         const canNarrowType = (flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0;
-        flags &= ~CanAssignFlags.AllowTypeVarNarrowing;
+        const allowBoolTypeGuard = flags & CanAssignFlags.AllowBoolTypeGuard;
+        flags &= ~(CanAssignFlags.AllowTypeVarNarrowing | CanAssignFlags.AllowBoolTypeGuard);
 
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
@@ -16357,6 +16358,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // types are assignable to "type".
                 if (TypeBase.isInstantiable(srcType)) {
                     return true;
+                }
+            } else if (ClassType.isBuiltIn(destClassType, 'TypeGuard')) {
+                // All the source to be a "bool".
+                if (allowBoolTypeGuard) {
+                    if (isObject(srcType) && ClassType.isBuiltIn(srcType.classType, 'bool')) {
+                        return true;
+                    }
                 }
             }
 
