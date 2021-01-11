@@ -1381,6 +1381,7 @@ export interface TypeVarDetails {
 
     // Internally created (e.g. for pseudo-generic classes)
     isSynthesized: boolean;
+    isSynthesizedSelfCls?: boolean;
     synthesizedIndex?: number;
 
     // Used for recursive type aliases.
@@ -1408,12 +1409,12 @@ export interface TypeVarType extends TypeBase {
 }
 
 export namespace TypeVarType {
-    export function createInstance(name: string, isParamSpec: boolean, isSynthesized = false) {
-        return create(name, isParamSpec, isSynthesized, TypeFlags.Instance);
+    export function createInstance(name: string) {
+        return create(name, /* isParamSpec */ false, TypeFlags.Instance);
     }
 
-    export function createInstantiable(name: string, isParamSpec: boolean, isSynthesized = false) {
-        return create(name, isParamSpec, isSynthesized, TypeFlags.Instantiable);
+    export function createInstantiable(name: string, isParamSpec = false) {
+        return create(name, isParamSpec, TypeFlags.Instantiable);
     }
 
     export function cloneAsInstance(type: TypeVarType) {
@@ -1444,7 +1445,7 @@ export namespace TypeVarType {
         return `${name}.${scopeId}`;
     }
 
-    function create(name: string, isParamSpec: boolean, isSynthesized: boolean, typeFlags: TypeFlags) {
+    function create(name: string, isParamSpec: boolean, typeFlags: TypeFlags) {
         const newTypeVarType: TypeVarType = {
             category: TypeCategory.TypeVar,
             details: {
@@ -1452,7 +1453,7 @@ export namespace TypeVarType {
                 constraints: [],
                 variance: Variance.Invariant,
                 isParamSpec,
-                isSynthesized,
+                isSynthesized: false,
             },
             flags: typeFlags,
         };

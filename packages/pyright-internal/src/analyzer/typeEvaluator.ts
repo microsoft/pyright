@@ -2141,11 +2141,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 hasDeclaredType: true,
             };
             const typeVarScopeId = getScopeIdForNode(node);
-            let defaultTypeVar = TypeVarType.createInstance(
-                `__${classType.details.name}_default`,
-                /* isParamSpec */ false,
-                /* isSynthesized */ true
-            );
+            let defaultTypeVar = TypeVarType.createInstance(`__${classType.details.name}_default`);
+            defaultTypeVar.details.isSynthesized = true;
             defaultTypeVar = TypeVarType.cloneForScopeId(defaultTypeVar, typeVarScopeId, classType.details.name);
 
             const createGetMethod = (keyType: Type, valueType: Type) => {
@@ -5675,11 +5672,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Create a generic version of the expected type.
         const expectedTypeScopeId = getTypeVarScopeId(expectedType.classType);
         const synthExpectedTypeArgs = ClassType.getTypeParameters(expectedType.classType).map((_, index) => {
-            const typeVar = TypeVarType.createInstance(
-                `__dest${index}`,
-                /* isParamSpec */ false,
-                /* isSynthesized */ true
-            );
+            const typeVar = TypeVarType.createInstance(`__dest${index}`);
+            typeVar.details.isSynthesized = true;
             typeVar.scopeId = expectedTypeScopeId;
             return typeVar;
         });
@@ -5691,11 +5685,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // For each type param in the target type, create a placeholder type variable.
         const typeArgs = ClassType.getTypeParameters(type).map((_, index) => {
-            const typeVar = TypeVarType.createInstance(
-                `__source${index}`,
-                /* isParamSpec */ false,
-                /* isSynthesized */ true
-            );
+            const typeVar = TypeVarType.createInstance(`__source${index}`);
+            typeVar.details.isSynthesized = true;
             typeVar.details.synthesizedIndex = index;
             return typeVar;
         });
@@ -8693,11 +8684,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Synthesize a temporary bound type var. We will attempt to assign all list
         // entries to this type var, possibly narrowing the type in the process.
-        const targetTypeVar = TypeVarType.createInstance(
-            '__typeArg',
-            /* isParamSpec */ false,
-            /* isSynthesized */ true
-        );
+        const targetTypeVar = TypeVarType.createInstance('__typeArg');
+        targetTypeVar.details.isSynthesized = true;
         targetTypeVar.details.boundType = expectedType;
 
         // Use a dummy scope ID. It needs to be a non-empty string.
@@ -9700,11 +9688,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // evaluating it. This allows us to handle recursive definitions.
                 let typeAliasTypeVar: TypeVarType | undefined;
                 if (typeAliasNameNode) {
-                    typeAliasTypeVar = TypeVarType.createInstantiable(
-                        `__type_alias_${typeAliasNameNode.value}`,
-                        /* isParamSpec */ false,
-                        /* isSynthesized */ true
-                    );
+                    typeAliasTypeVar = TypeVarType.createInstantiable(`__type_alias_${typeAliasNameNode.value}`);
+                    typeAliasTypeVar.details.isSynthesized = true;
                     typeAliasTypeVar.details.recursiveTypeAliasName = typeAliasNameNode.value;
                     const scopeId = getScopeIdForNode(typeAliasNameNode);
                     typeAliasTypeVar.details.recursiveTypeAliasScopeId = scopeId;
@@ -10159,11 +10144,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             // Create a type parameter for each simple, named parameter
                             // in the __init__ method.
                             classType.details.typeParameters = genericParams.map((param) => {
-                                const typeVar = TypeVarType.createInstance(
-                                    `__type_of_${param.name!.value}`,
-                                    /* isParamSpec */ false,
-                                    /* isSynthesized */ true
-                                );
+                                const typeVar = TypeVarType.createInstance(`__type_of_${param.name!.value}`);
+                                typeVar.details.isSynthesized = true;
                                 typeVar.scopeId = getScopeIdForNode(initDeclNode);
                                 typeVar.details.boundType = UnknownType.create();
                                 return TypeVarType.cloneForScopeId(typeVar, getScopeIdForNode(node), node.name.value);
@@ -10718,11 +10700,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // For class methods, the cls parameter is allowed to skip the
                     // abstract class test because the caller is possibly passing
                     // in a non-abstract subclass.
-                    const clsType = TypeVarType.createInstantiable(
-                        `__type_of_cls_${containingClassType.details.name}`,
-                        /* isParamSpec */ false,
-                        /* isSynthesized */ true
-                    );
+                    const clsType = TypeVarType.createInstantiable(`__type_of_cls_${containingClassType.details.name}`);
+                    clsType.details.isSynthesized = true;
+                    clsType.details.isSynthesizedSelfCls = true;
                     const scopeId = getScopeIdForNode(functionNode);
                     clsType.nameWithScope = TypeVarType.makeNameWithScope(clsType.details.name, scopeId);
                     clsType.scopeId = scopeId;
@@ -10733,12 +10713,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     );
                     return clsType;
                 } else if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
-                    const selfType = TypeVarType.createInstance(
-                        `__type_of_self_${containingClassType.details.name}`,
-                        /* isParamSpec */ false,
-                        /* isSynthesized */ true
-                    );
+                    const selfType = TypeVarType.createInstance(`__type_of_self_${containingClassType.details.name}`);
                     const scopeId = getScopeIdForNode(functionNode);
+                    selfType.details.isSynthesized = true;
+                    selfType.details.isSynthesizedSelfCls = true;
                     selfType.nameWithScope = TypeVarType.makeNameWithScope(selfType.details.name, scopeId);
                     selfType.scopeId = scopeId;
 
