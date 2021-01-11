@@ -14400,11 +14400,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // its associated loader actions.
             const moduleType = ModuleType.create(resolvedDecl.moduleName);
             if (resolvedDecl.symbolName && resolvedDecl.submoduleFallback) {
-                return applyLoaderActionsToModuleType(
-                    moduleType,
-                    resolvedDecl.submoduleFallback,
-                    importLookup
-                );
+                return applyLoaderActionsToModuleType(moduleType, resolvedDecl.submoduleFallback, importLookup);
             } else {
                 return applyLoaderActionsToModuleType(moduleType, resolvedDecl, importLookup);
             }
