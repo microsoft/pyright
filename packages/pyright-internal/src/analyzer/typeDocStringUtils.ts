@@ -8,7 +8,13 @@
  * the source file.
  */
 
-import { ClassDeclaration, DeclarationBase, DeclarationType, FunctionDeclaration } from '../analyzer/declaration';
+import {
+    ClassDeclaration,
+    Declaration,
+    DeclarationBase,
+    DeclarationType,
+    FunctionDeclaration,
+} from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { ClassType, FunctionType, ModuleType, OverloadedFunctionType } from '../analyzer/types';
@@ -79,6 +85,21 @@ export function getFunctionDocStringFromDeclaration(resolvedDecl: FunctionDeclar
     if (!docString && isStubFile(resolvedDecl.path)) {
         const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
         docString = _getFunctionOrClassDeclDocString(implDecls);
+    }
+    return docString;
+}
+
+export function getFunctionDocStringFromDeclarations(declarations: Declaration[], sourceMapper: SourceMapper) {
+    let docString = undefined;
+    if (declarations?.length > 0) {
+        for (const decl of declarations) {
+            if (decl.type === DeclarationType.Function) {
+                docString = getFunctionDocStringFromDeclaration(decl, sourceMapper);
+            }
+            if (docString) {
+                break;
+            }
+        }
     }
     return docString;
 }
