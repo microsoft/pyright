@@ -1209,8 +1209,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         errorNode: ExpressionNode,
         objectType: ObjectType,
         memberName: string,
-        usage: EvaluatorUsage,
-        diag: DiagnosticAddendum,
+        usage: EvaluatorUsage = { method: 'get' },
+        diag: DiagnosticAddendum = new DiagnosticAddendum(),
         memberAccessFlags = MemberAccessFlags.None,
         bindToType?: ClassType | ObjectType | TypeVarType
     ): Type | undefined {
@@ -4708,14 +4708,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             magicMethodName = '__delitem__';
         }
 
-        const itemMethodType = getTypeFromObjectMember(
-            node,
-            baseType,
-            magicMethodName,
-            { method: 'get' },
-            new DiagnosticAddendum(),
-            MemberAccessFlags.None
-        );
+        const itemMethodType = getTypeFromObjectMember(node, baseType, magicMethodName);
 
         if (!itemMethodType) {
             const fileInfo = getFileInfo(node);
@@ -6105,14 +6098,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case TypeCategory.Object: {
-                    const memberType = getTypeFromObjectMember(
-                        errorNode,
-                        concreteSubtype,
-                        '__call__',
-                        { method: 'get' },
-                        new DiagnosticAddendum(),
-                        MemberAccessFlags.None
-                    );
+                    const memberType = getTypeFromObjectMember(errorNode, concreteSubtype, '__call__');
 
                     if (memberType && (isFunction(memberType) || isOverloadedFunction(memberType))) {
                         const functionResult = validateCallArguments(
@@ -8120,13 +8106,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             let magicMethodType: Type | undefined;
 
             if (isObject(subtype)) {
-                magicMethodType = getTypeFromObjectMember(
-                    errorNode,
-                    subtype,
-                    magicMethodName,
-                    { method: 'get' },
-                    new DiagnosticAddendum()
-                );
+                magicMethodType = getTypeFromObjectMember(errorNode, subtype, magicMethodName);
             } else {
                 magicMethodType = getTypeFromClassMember(
                     errorNode,
@@ -11629,8 +11609,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     subtype,
                     enterMethodName,
                     { method: 'get' },
-                    diag,
-                    MemberAccessFlags.None
+                    diag
                 );
 
                 if (enterType) {
@@ -11655,8 +11634,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         subtype,
                         '__aenter__',
                         { method: 'get' },
-                        diag,
-                        MemberAccessFlags.None
+                        diag
                     );
                     if (memberType) {
                         additionalHelp.addMessage(Localizer.DiagnosticAddendum.asyncHelp());
@@ -11692,8 +11670,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     subtype,
                     exitMethodName,
                     { method: 'get' },
-                    diag,
-                    MemberAccessFlags.None
+                    diag
                 );
 
                 if (exitType) {
@@ -12308,10 +12285,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const exitType = getTypeFromObjectMember(
                     node.leftExpression,
                     ObjectType.create(callType),
-                    exitMethodName,
-                    { method: 'get' },
-                    new DiagnosticAddendum(),
-                    MemberAccessFlags.None
+                    exitMethodName
                 );
 
                 if (exitType && isFunction(exitType) && exitType.details.declaredReturnType) {
@@ -13686,14 +13660,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
 
                     // See if the object is callable.
-                    const callMemberType = getTypeFromObjectMember(
-                        errorNode,
-                        subtype,
-                        '__call__',
-                        { method: 'get' },
-                        new DiagnosticAddendum(),
-                        MemberAccessFlags.None
-                    );
+                    const callMemberType = getTypeFromObjectMember(errorNode, subtype, '__call__');
                     if (!callMemberType) {
                         return isPositiveTest ? undefined : subtype;
                     } else {
