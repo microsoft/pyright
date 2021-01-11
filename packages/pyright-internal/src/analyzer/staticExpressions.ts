@@ -17,11 +17,17 @@ import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 export function evaluateStaticBoolExpression(
     node: ExpressionNode,
     execEnv: ExecutionEnvironment,
-    typingImportAliases?: string[]
+    typingImportAliases?: string[],
+    sysImportAliases?: string[]
 ): boolean | undefined {
     if (node.nodeType === ParseNodeType.UnaryOperation) {
         if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
-            const value = evaluateStaticBoolLikeExpression(node.expression, execEnv);
+            const value = evaluateStaticBoolLikeExpression(
+                node.expression,
+                execEnv,
+                typingImportAliases,
+                sysImportAliases
+            );
             if (value !== undefined) {
                 return !value;
             }
@@ -29,8 +35,18 @@ export function evaluateStaticBoolExpression(
     } else if (node.nodeType === ParseNodeType.BinaryOperation) {
         // Is it an OR or AND expression?
         if (node.operator === OperatorType.Or || node.operator === OperatorType.And) {
-            const leftValue = evaluateStaticBoolExpression(node.leftExpression, execEnv);
-            const rightValue = evaluateStaticBoolExpression(node.rightExpression, execEnv);
+            const leftValue = evaluateStaticBoolExpression(
+                node.leftExpression,
+                execEnv,
+                typingImportAliases,
+                sysImportAliases
+            );
+            const rightValue = evaluateStaticBoolExpression(
+                node.rightExpression,
+                execEnv,
+                typingImportAliases,
+                sysImportAliases
+            );
 
             if (leftValue === undefined || rightValue === undefined) {
                 return undefined;
@@ -43,13 +59,16 @@ export function evaluateStaticBoolExpression(
             }
         }
 
-        if (_isSysVersionInfoExpression(node.leftExpression) && node.rightExpression.nodeType === ParseNodeType.Tuple) {
+        if (
+            _isSysVersionInfoExpression(node.leftExpression, sysImportAliases) &&
+            node.rightExpression.nodeType === ParseNodeType.Tuple
+        ) {
             // Handle the special case of "sys.version_info >= (3, x)"
             const comparisonVersion = _convertTupleToVersion(node.rightExpression);
             return _evaluateNumericBinaryOperation(node.operator, execEnv.pythonVersion, comparisonVersion);
         } else if (
             node.leftExpression.nodeType === ParseNodeType.Index &&
-            _isSysVersionInfoExpression(node.leftExpression.baseExpression) &&
+            _isSysVersionInfoExpression(node.leftExpression.baseExpression, sysImportAliases) &&
             node.leftExpression.items.length === 1 &&
             node.leftExpression.items[0].nodeType === ParseNodeType.Number &&
             !node.leftExpression.items[0].isImaginary &&
@@ -63,7 +82,7 @@ export function evaluateStaticBoolExpression(
                 node.rightExpression.value
             );
         } else if (
-            _isSysPlatformInfoExpression(node.leftExpression) &&
+            _isSysPlatformInfoExpression(node.leftExpression, sysImportAliases) &&
             node.rightExpression.nodeType === ParseNodeType.StringList
         ) {
             // Handle the special case of "sys.platform != 'X'"
@@ -110,7 +129,8 @@ export function evaluateStaticBoolExpression(
 export function evaluateStaticBoolLikeExpression(
     node: ExpressionNode,
     execEnv: ExecutionEnvironment,
-    typingImportAliases?: string[]
+    typingImportAliases?: string[],
+    sysImportAliases?: string[]
 ): boolean | undefined {
     if (node.nodeType === ParseNodeType.Constant) {
         if (node.constType === KeywordType.None) {
@@ -118,7 +138,7 @@ export function evaluateStaticBoolLikeExpression(
         }
     }
 
-    return evaluateStaticBoolExpression(node, execEnv, typingImportAliases);
+    return evaluateStaticBoolExpression(node, execEnv, typingImportAliases, sysImportAliases);
 }
 
 function _convertTupleToVersion(node: TupleNode): number | undefined {
@@ -183,28 +203,24 @@ function _evaluateStringBinaryOperation(
     return undefined;
 }
 
-function _isSysVersionInfoExpression(node: ExpressionNode): boolean {
+function _isSysVersionInfoExpression(node: ExpressionNode, sysImportAliases: string[] = ['sys']): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
-        if (
-            node.leftExpression.nodeType === ParseNodeType.Name &&
-            node.leftExpression.value === 'sys' &&
-            node.memberName.value === 'version_info'
-        ) {
-            return true;
+        if (node.leftExpression.nodeType === ParseNodeType.Name && node.memberName.value === 'version_info') {
+            if (sysImportAliases.some((alias) => alias === (node.leftExpression as NameNode).value)) {
+                return true;
+            }
         }
     }
 
     return false;
 }
 
-function _isSysPlatformInfoExpression(node: ExpressionNode): boolean {
+function _isSysPlatformInfoExpression(node: ExpressionNode, sysImportAliases: string[] = ['sys']): boolean {
     if (node.nodeType === ParseNodeType.MemberAccess) {
-        if (
-            node.leftExpression.nodeType === ParseNodeType.Name &&
-            node.leftExpression.value === 'sys' &&
-            node.memberName.value === 'platform'
-        ) {
-            return true;
+        if (node.leftExpression.nodeType === ParseNodeType.Name && node.memberName.value === 'platform') {
+            if (sysImportAliases.some((alias) => alias === (node.leftExpression as NameNode).value)) {
+                return true;
+            }
         }
     }
 

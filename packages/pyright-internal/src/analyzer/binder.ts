@@ -180,6 +180,9 @@ export class Binder extends ParseTreeWalker {
     // Aliases of "typing" and "typing_extensions".
     private _typingImportAliases: string[] = [];
 
+    // Aliases of "sys".
+    private _sysImportAliases: string[] = [];
+
     // Map of imports of specific symbols imported from "typing" and "typing_extensions"
     // and the names they alias to.
     private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
@@ -971,7 +974,8 @@ export class Binder extends ParseTreeWalker {
         const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             node.testExpression,
             this._fileInfo.executionEnvironment,
-            this._typingImportAliases
+            this._typingImportAliases,
+            this._sysImportAliases
         );
 
         this._bindConditional(node.testExpression, thenLabel, elseLabel);
@@ -1006,7 +1010,8 @@ export class Binder extends ParseTreeWalker {
         const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             node.testExpression,
             this._fileInfo.executionEnvironment,
-            this._typingImportAliases
+            this._typingImportAliases,
+            this._sysImportAliases
         );
 
         const preLoopLabel = this._createLoopLabel();
@@ -1387,6 +1392,8 @@ export class Binder extends ParseTreeWalker {
             if (node.module.nameParts.length === 1) {
                 if (firstNamePartValue === 'typing' || firstNamePartValue === 'typing_extensions') {
                     this._typingImportAliases.push(node.alias?.value || firstNamePartValue);
+                } else if (firstNamePartValue === 'sys') {
+                    this._sysImportAliases.push(node.alias?.value || firstNamePartValue);
                 }
             }
         }
@@ -2045,7 +2052,8 @@ export class Binder extends ParseTreeWalker {
         const staticValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             expression,
             this._fileInfo.executionEnvironment,
-            this._typingImportAliases
+            this._typingImportAliases,
+            this._sysImportAliases
         );
         if (
             (staticValue === true && flags & FlowFlags.FalseCondition) ||
