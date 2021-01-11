@@ -14399,16 +14399,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Build a module type that corresponds to the declaration and
             // its associated loader actions.
             const moduleType = ModuleType.create(resolvedDecl.moduleName);
-            if (resolvedDecl.symbolName) {
-                if (resolvedDecl.submoduleFallback) {
-                    return applyLoaderActionsToModuleType(
-                        moduleType,
-                        resolvedDecl.symbolName && resolvedDecl.submoduleFallback
-                            ? resolvedDecl.submoduleFallback
-                            : resolvedDecl,
-                        importLookup
-                    );
-                }
+            if (resolvedDecl.symbolName && resolvedDecl.submoduleFallback) {
+                return applyLoaderActionsToModuleType(
+                    moduleType,
+                    resolvedDecl.submoduleFallback,
+                    importLookup
+                );
             } else {
                 return applyLoaderActionsToModuleType(moduleType, resolvedDecl, importLookup);
             }

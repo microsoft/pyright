@@ -12,6 +12,7 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
+import { DeclarationType } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
@@ -47,8 +48,20 @@ export class DefinitionProvider {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             if (declarations) {
                 declarations.forEach((decl) => {
-                    const resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+                    let resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
                     if (resolvedDecl && resolvedDecl.path) {
+                        // If the resolved decl is still an alias, it means it
+                        // resolved to a module. We need to apply loader actions
+                        // to determine its path.
+                        if (
+                            resolvedDecl.type === DeclarationType.Alias &&
+                            resolvedDecl.symbolName &&
+                            resolvedDecl.submoduleFallback &&
+                            resolvedDecl.submoduleFallback.path
+                        ) {
+                            resolvedDecl = resolvedDecl.submoduleFallback;
+                        }
+
                         this._addIfUnique(definitions, {
                             path: resolvedDecl.path,
                             range: resolvedDecl.range,
