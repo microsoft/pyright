@@ -15147,6 +15147,120 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return typesAreConsistent;
     }
 
+    function canAssignModuleToProtocol(
+        destType: ClassType,
+        srcType: ModuleType,
+        diag: DiagnosticAddendum,
+        typeVarMap: TypeVarMap | undefined,
+        flags: CanAssignFlags,
+        recursionCount: number
+    ): boolean {
+        if (recursionCount > maxTypeRecursionCount) {
+            return true;
+        }
+
+        let typesAreConsistent = true;
+        const destClassFields = destType.details.fields;
+
+        // Strip the type arguments off the dest protocol if they are provided.
+        const genericDestType = ClassType.cloneForSpecialization(
+            destType,
+            undefined,
+            /* isTypeArgumentExplicit */ false
+        );
+        const genericDestTypeVarMap = new TypeVarMap(getTypeVarScopeId(destType));
+
+        destClassFields.forEach((symbol, name) => {
+            if (symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
+                const memberSymbol = srcType.fields.get(name);
+
+                if (!memberSymbol) {
+                    diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
+                    typesAreConsistent = false;
+                } else {
+                    let declaredType = getDeclaredTypeOfSymbol(symbol);
+                    if (declaredType) {
+                        const srcMemberType = getEffectiveTypeOfSymbol(memberSymbol);
+
+                        if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
+                            if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
+                                const boundDeclaredType = bindFunctionToClassOrObject(
+                                    ObjectType.create(destType),
+                                    declaredType,
+                                    destType
+                                );
+                                if (boundDeclaredType) {
+                                    declaredType = boundDeclaredType;
+                                }
+                            }
+                        }
+
+                        const subDiag = diag.createAddendum();
+
+                        if (
+                            !canAssignType(
+                                declaredType,
+                                srcMemberType,
+                                subDiag.createAddendum(),
+                                genericDestTypeVarMap,
+                                CanAssignFlags.Default,
+                                recursionCount + 1
+                            )
+                        ) {
+                            subDiag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
+                            typesAreConsistent = false;
+                        }
+                    }
+                }
+            }
+        });
+
+        // Now handle base classes of the dest protocol.
+        destType.details.baseClasses.forEach((baseClass) => {
+            if (
+                isClass(baseClass) &&
+                !ClassType.isBuiltIn(baseClass, 'object') &&
+                !ClassType.isBuiltIn(baseClass, 'Protocol')
+            ) {
+                const specializedBaseClass = specializeForBaseClass(destType, baseClass);
+                if (
+                    !canAssignModuleToProtocol(
+                        specializedBaseClass,
+                        srcType,
+                        diag.createAddendum(),
+                        typeVarMap,
+                        flags,
+                        recursionCount + 1
+                    )
+                ) {
+                    typesAreConsistent = false;
+                }
+            }
+        });
+
+        // If the dest protocol has type parameters, make sure the source type arguments match.
+        if (typesAreConsistent && destType.details.typeParameters.length > 0 && destType.typeArguments) {
+            // Create a specialized version of the protocol defined by the dest and
+            // make sure the resulting type args can be assigned.
+            const specializedSrcProtocol = applySolvedTypeVars(genericDestType, genericDestTypeVarMap) as ClassType;
+
+            if (
+                !verifyTypeArgumentsAssignable(
+                    destType,
+                    specializedSrcProtocol,
+                    diag,
+                    typeVarMap,
+                    flags,
+                    recursionCount
+                )
+            ) {
+                typesAreConsistent = false;
+            }
+        }
+
+        return typesAreConsistent;
+    }
+
     function canAssignPropertyToProtocol(
         destPropertyType: ClassType,
         srcPropertyType: ClassType,
@@ -16326,6 +16440,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Is the destination the built-in "ModuleType"?
                 if (ClassType.isBuiltIn(destClassType, 'ModuleType')) {
                     return true;
+                }
+
+                if (ClassType.isProtocolClass(destType.classType)) {
+                    return canAssignModuleToProtocol(
+                        destType.classType,
+                        concreteSrcType,
+                        diag,
+                        typeVarMap,
+                        flags,
+                        recursionCount + 1
+                    );
                 }
             } else if (isClass(concreteSrcType)) {
                 // See if the destType is an instantiation of a Protocol
