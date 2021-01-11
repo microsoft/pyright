@@ -138,7 +138,7 @@ export class PackageTypeVerifier {
                 );
             } else {
                 const pyTypedInfo = getPyTypedInfo(this._fileSystem, report.rootDirectory);
-                if (!pyTypedInfo.isPyTypedPresent) {
+                if (!pyTypedInfo) {
                     report.diagnostics.push(
                         new Diagnostic(DiagnosticCategory.Error, 'No py.typed file found', getEmptyRange())
                     );

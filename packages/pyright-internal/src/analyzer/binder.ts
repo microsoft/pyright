@@ -293,7 +293,7 @@ export class Binder extends ParseTreeWalker {
         if (
             !importResult.isStubFile &&
             importResult.importType === ImportType.ThirdParty &&
-            !importResult.isPyTypedPresent
+            !importResult.pyTypedInfo
         ) {
             const diagnostic = this._addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportMissingTypeStubs,

@@ -7,6 +7,8 @@
  * Interface that describes the output of the import resolver.
  */
 
+import { PyTypedInfo } from './pyTypedUtils';
+
 export const enum ImportType {
     BuiltIn,
     ThirdParty,
@@ -85,7 +87,7 @@ export interface ImportResult {
 
     // Is there a "py.typed" file (as described in PEP 561) present in
     // the package that was used to resolve the import?
-    isPyTypedPresent?: boolean;
+    pyTypedInfo?: PyTypedInfo;
 
     // The directory of the package, if found.
     packageDirectory?: string;

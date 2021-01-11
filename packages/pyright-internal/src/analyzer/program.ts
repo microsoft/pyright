@@ -1854,7 +1854,7 @@ export class Program {
 
         let thirdPartyImportAllowed =
             this._configOptions.useLibraryCodeForTypes ||
-            (importResult.importType === ImportType.ThirdParty && !!importResult.isPyTypedPresent) ||
+            (importResult.importType === ImportType.ThirdParty && !!importResult) ||
             (importResult.importType === ImportType.Local && importer.isThirdPartyPyTypedPresent);
 
         if (
@@ -1916,7 +1916,7 @@ export class Program {
 
             if (importResult.importType === ImportType.ThirdParty) {
                 isThirdPartyImport = true;
-                if (importResult.isPyTypedPresent) {
+                if (importResult) {
                     isPyTypedPresent = true;
                 }
             } else if (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local) {

@@ -501,6 +501,7 @@ export class ImportResolver {
         let isNativeLib = false;
         let implicitImports: ImplicitImport[] = [];
         let packageDirectory: string | undefined;
+        let pyTypedInfo: PyTypedInfo | undefined;
 
         // Handle the "from . import XXX" case.
         if (moduleDescriptor.nameParts.length === 0) {
@@ -540,13 +541,6 @@ export class ImportResolver {
                         packageDirectory = dirPath;
                     }
 
-                    if (!isLastPart) {
-                        // We are not at the last part, and we found a directory,
-                        // so continue to look for the next part.
-                        resolvedPaths.push('');
-                        continue;
-                    }
-
                     // See if we can find an __init__.py[i] in this directory.
                     const fileNameWithoutExtension = '__init__';
                     const pyFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.py');
@@ -564,6 +558,21 @@ export class ImportResolver {
                         importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
                         resolvedPaths.push(pyFilePath);
                         foundInit = true;
+                    }
+
+                    if (foundInit && !pyTypedInfo) {
+                        pyTypedInfo = getPyTypedInfo(this.fileSystem, dirPath);
+                    }
+
+                    if (!isLastPart) {
+                        // We are not at the last part, and we found a directory,
+                        // so continue to look for the next part.
+                        if (!foundInit) {
+                            resolvedPaths.push('');
+                            isNamespacePackage = true;
+                            pyTypedInfo = undefined;
+                        }
+                        continue;
                     }
 
                     if (foundInit) {
@@ -652,6 +661,7 @@ export class ImportResolver {
             isStubFile,
             isNativeLib,
             implicitImports,
+            pyTypedInfo,
             filteredImplicitImports: implicitImports,
             packageDirectory,
         };
@@ -874,14 +884,9 @@ export class ImportResolver {
             for (const searchPath of pythonSearchPaths) {
                 importFailureInfo.push(`Looking in python search path '${searchPath}'`);
 
-                // Is there a "py.typed" file present?
-                const dirPath = combinePaths(searchPath, moduleDescriptor.nameParts[0]);
-                let pyTypedInfo: PyTypedInfo | undefined;
                 let thirdPartyImport: ImportResult | undefined;
 
                 if (allowPyi) {
-                    pyTypedInfo = getPyTypedInfo(this.fileSystem, dirPath + stubsSuffix);
-
                     // Look for packaged stubs first. PEP 561 indicates that package authors can ship
                     // their stubs separately from their package implementation by appending the string
                     // '-stubs' to its top - level directory name. We'll look there first.
@@ -902,9 +907,7 @@ export class ImportResolver {
                     // Either we didn't look for a packaged stub or we looked but didn't find one.
                     // If there was a packaged stub directory, we can stop searching unless
                     // it happened to be marked as "partially typed".
-                    if (!thirdPartyImport?.packageDirectory || pyTypedInfo?.isPartiallyTyped) {
-                        pyTypedInfo = getPyTypedInfo(this.fileSystem, dirPath);
-
+                    if (!thirdPartyImport?.packageDirectory || thirdPartyImport.pyTypedInfo?.isPartiallyTyped) {
                         thirdPartyImport = this.resolveAbsoluteImport(
                             searchPath,
                             execEnv,
@@ -921,7 +924,6 @@ export class ImportResolver {
 
                 if (thirdPartyImport) {
                     thirdPartyImport.importType = ImportType.ThirdParty;
-                    thirdPartyImport.isPyTypedPresent = pyTypedInfo?.isPyTypedPresent;
 
                     if (thirdPartyImport.isImportFound && thirdPartyImport.isStubFile) {
                         return thirdPartyImport;
