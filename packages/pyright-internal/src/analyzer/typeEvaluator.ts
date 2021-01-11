@@ -4774,6 +4774,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             },
         ];
 
+        // If the object supports "__index__" magic method, convert it to an int.
+        if (isObject(indexType)) {
+            const indexMethod = getTypeFromObjectMember(node, indexType, '__index__');
+
+            if (indexMethod) {
+                const intType = getBuiltInObject(node, 'int');
+                if (isObject(intType)) {
+                    argList[0].type = intType;
+                }
+            }
+        }
+
         if (usage.method === 'set') {
             argList.push({
                 argumentCategory: ArgumentCategory.Simple,

@@ -1228,3 +1228,9 @@ test('TypePromotions1', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('Index1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['index1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
