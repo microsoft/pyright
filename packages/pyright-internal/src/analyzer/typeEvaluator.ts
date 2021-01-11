@@ -4767,24 +4767,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        const argList: FunctionArgument[] = [
+        let argList: FunctionArgument[] = [
             {
                 argumentCategory: ArgumentCategory.Simple,
                 type: indexType,
             },
         ];
-
-        // If the object supports "__index__" magic method, convert it to an int.
-        if (isObject(indexType)) {
-            const indexMethod = getTypeFromObjectMember(node, indexType, '__index__');
-
-            if (indexMethod) {
-                const intType = getBuiltInObject(node, 'int');
-                if (isObject(intType)) {
-                    argList[0].type = intType;
-                }
-            }
-        }
 
         if (usage.method === 'set') {
             argList.push({
@@ -4793,13 +4781,54 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        const callResult = validateCallArguments(
+        let callResult: CallResult | undefined;
+
+        // Speculatively attempt the call. We may need to replace the index
+        // type with 'int', and we don't want to emit errors before we know
+        // which type to use.
+        useSpeculativeMode(node, () => {
+            callResult = validateCallArguments(
+                node,
+                argList,
+                itemMethodType,
+                new TypeVarMap(getTypeVarScopeId(itemMethodType))
+            );
+
+            if (callResult.argumentErrors) {
+                // If the object supports "__index__" magic method, convert
+                // the index it to an int and try again.
+                if (isObject(indexType)) {
+                    const altArgList = [...argList];
+                    altArgList[0] = { ...altArgList[0] };
+                    const indexMethod = getTypeFromObjectMember(node, indexType, '__index__');
+
+                    if (indexMethod) {
+                        const intType = getBuiltInObject(node, 'int');
+                        if (isObject(intType)) {
+                            altArgList[0].type = intType;
+                        }
+                    }
+
+                    callResult = validateCallArguments(
+                        node,
+                        altArgList,
+                        itemMethodType,
+                        new TypeVarMap(getTypeVarScopeId(itemMethodType))
+                    );
+
+                    // We were successful, so replace the arg list.
+                    if (!callResult.argumentErrors) {
+                        argList = altArgList;
+                    }
+                }
+            }
+        });
+
+        callResult = validateCallArguments(
             node,
             argList,
             itemMethodType,
-            new TypeVarMap(getTypeVarScopeId(itemMethodType)),
-            /* skipUnknownArgCheck */ false,
-            /* expectedType */ undefined
+            new TypeVarMap(getTypeVarScopeId(itemMethodType))
         );
 
         return callResult.returnType || UnknownType.create();
