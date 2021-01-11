@@ -3455,7 +3455,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // defined by an enclosing scope (either a class or function).
         if (isTypeVar(type)) {
             if (TypeBase.isInstantiable(type) && !isTypeAliasPlaceholder(type)) {
-                type = findScopedTypeVar(node, type);
+                const scopedTypeVarInfo = findScopedTypeVar(node, type);
+                type = scopedTypeVarInfo.type;
+
                 if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0 && type.scopeId !== undefined) {
                     if (!type.details.isSynthesized && !type.details.isParamSpec) {
                         addDiagnostic(
@@ -3467,19 +3469,32 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 } else if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
                     if (type.scopeId === undefined) {
-                        const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
-                        if (enclosingScope) {
-                            type = TypeVarType.cloneForScopeId(
-                                type,
-                                getScopeIdForNode(enclosingScope),
-                                enclosingScope.name.value
-                            );
+                        if (!scopedTypeVarInfo.foundInterveningClass) {
+                            const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
+                            if (enclosingScope) {
+                                type = TypeVarType.cloneForScopeId(
+                                    type,
+                                    getScopeIdForNode(enclosingScope),
+                                    enclosingScope.name.value
+                                );
+                            } else {
+                                fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
+                            }
                         } else {
-                            fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
+                            addDiagnostic(
+                                getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.typeVarUsedByOuterScope().format({ name: type.details.name }),
+                                node
+                            );
                         }
                     }
                 } else if ((flags & EvaluatorFlags.DisallowTypeVarsWithoutScopeId) !== 0) {
-                    if (type.scopeId === undefined && !type.details.isSynthesized && !type.details.isParamSpec) {
+                    if (
+                        (type.scopeId === undefined || scopedTypeVarInfo.foundInterveningClass) &&
+                        !type.details.isSynthesized &&
+                        !type.details.isParamSpec
+                    ) {
                         addDiagnostic(
                             getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -3523,8 +3538,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     // Walks up the parse tree to find a function, class, or type alias
     // assignment that provides the context for a type variable.
-    function findScopedTypeVar(node: NameNode, type: TypeVarType): TypeVarType {
+    function findScopedTypeVar(
+        node: NameNode,
+        type: TypeVarType
+    ): { type: TypeVarType; foundInterveningClass: boolean } {
         let curNode: ParseNode | undefined = node;
+        let nestedClassCount = 0;
 
         assert(TypeBase.isInstantiable(type));
 
@@ -3541,6 +3560,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (classTypeInfo) {
                     typeVarsForScope = classTypeInfo.classType.details.typeParameters;
                 }
+
+                nestedClassCount++;
             } else if (curNode.nodeType === ParseNodeType.Function) {
                 const functionTypeInfo = getTypeOfFunction(curNode);
                 if (functionTypeInfo) {
@@ -3559,7 +3580,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const match = typeVarsForScope.find((typeVar) => typeVar.details.name === type.details.name);
 
                 if (match && match.scopeId) {
-                    return convertToInstantiable(match) as TypeVarType;
+                    return {
+                        type: nestedClassCount > 1 ? type : (convertToInstantiable(match) as TypeVarType),
+                        foundInterveningClass: nestedClassCount > 1,
+                    };
                 }
             }
 
@@ -3580,11 +3604,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     leftType.details.recursiveTypeAliasScopeId &&
                     leftType.details.recursiveTypeAliasName
                 ) {
-                    return TypeVarType.cloneForScopeId(
-                        type,
-                        leftType.details.recursiveTypeAliasScopeId,
-                        leftType.details.recursiveTypeAliasName
-                    );
+                    return {
+                        type: TypeVarType.cloneForScopeId(
+                            type,
+                            leftType.details.recursiveTypeAliasScopeId,
+                            leftType.details.recursiveTypeAliasName
+                        ),
+                        foundInterveningClass: false,
+                    };
                 }
             }
 
@@ -3592,7 +3619,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Return the original type.
-        return type;
+        return { type, foundInterveningClass: false };
     }
 
     function getTypeFromMemberAccess(node: MemberAccessNode, flags: EvaluatorFlags): TypeResult {

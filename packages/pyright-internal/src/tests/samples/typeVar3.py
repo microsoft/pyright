@@ -18,12 +18,30 @@ class OuterClass(Generic[_T]):
         ...
 
     class InnerClass2(Generic[_S]):
+        my_var1: _S
+
+        # This should generate an error because _T
+        # is already in use in the outer class.
         my_var2: _T
+
+    class InnerClass3:
+        # This should generate an error.
+        x: List[_T]
+
+        # This should generate two errors (one for each "_T").
+        def f(self, x: _T, y: _S, z: _S) -> _T:
+            ...
+
+        def g(self) -> None:
+            # This should generate an error.
+            y: List[_T]
 
 
 def func1(a: _T) -> Optional[_T]:
+    my_var1: _T
+
     # This should generate an error
-    my_var: _S
+    my_var2: _S
 
     # This should generate an error because _T
     # is already in use.
