@@ -327,7 +327,8 @@ export class Checker extends ParseTreeWalker {
                     if (
                         isTypeVar(paramType) &&
                         paramType.details.variance === Variance.Covariant &&
-                        !paramType.details.isSynthesized
+                        !paramType.details.isSynthesized &&
+                        functionTypeResult.functionType.details.name !== '__init__'
                     ) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
