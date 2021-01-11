@@ -72,7 +72,7 @@ export function includeAliasDeclarationInIndex(
 
     if (wildcardUsed) {
         // if "import *" is used, resolve the alias to see whether we should include it.
-        const resolved = resolveAliasDeclaration(importLookup, declaration, true);
+        const resolved = resolveAliasDeclaration(importLookup, declaration, /* resolveLocalNames */ true);
         if (!resolved) {
             return false;
         }
@@ -93,7 +93,7 @@ export function getIndexAliasData(
         return undefined;
     }
 
-    const resolved = resolveAliasDeclaration(importLookup, declaration, true);
+    const resolved = resolveAliasDeclaration(importLookup, declaration, /* resolveLocalNames */ true);
     const nameValue = resolved ? getNameFromDeclaration(resolved) : undefined;
     if (!nameValue || resolved!.path.length <= 0) {
         return undefined;

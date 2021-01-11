@@ -216,7 +216,7 @@ export class DocumentHighlightProvider {
 
             const resolvedDeclarations: Declaration[] = [];
             declarations.forEach((decl) => {
-                const resolvedDecl = evaluator.resolveAliasDeclaration(decl, true);
+                const resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
                 if (resolvedDecl) {
                     resolvedDeclarations.push(resolvedDecl);
                 }
