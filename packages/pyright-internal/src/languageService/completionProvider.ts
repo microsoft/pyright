@@ -626,9 +626,18 @@ export class CompletionProvider {
             }
 
             case ErrorExpressionCategory.MissingExpression:
-            case ErrorExpressionCategory.MissingIndexOrSlice:
             case ErrorExpressionCategory.MissingDecoratorCallName: {
                 return this._getExpressionCompletions(node, priorWord, priorText, postText);
+            }
+
+            case ErrorExpressionCategory.MissingIndexOrSlice: {
+                let completionResults = this._getStringLiteralCompletions(node, priorWord, priorText, postText);
+
+                if (!completionResults || !completionResults.completionList) {
+                    completionResults = this._getExpressionCompletions(node, priorWord, priorText, postText);
+                }
+
+                return completionResults;
             }
 
             case ErrorExpressionCategory.MissingMemberAccessName: {
@@ -1153,19 +1162,26 @@ export class CompletionProvider {
     }
 
     private _getStringLiteralCompletions(
-        parseNode: StringNode,
+        parseNode: StringNode | ErrorNode,
         priorWord: string,
         priorText: string,
         postText: string
     ): CompletionResults | undefined {
         let parentNode: ParseNode | undefined = parseNode.parent;
-        if (!parentNode || parentNode.nodeType !== ParseNodeType.StringList || parentNode.strings.length > 1) {
+
+        if (!parentNode) {
             return undefined;
         }
 
-        parentNode = parentNode.parent;
-        if (!parentNode) {
-            return undefined;
+        if (parentNode.nodeType !== ParseNodeType.Index) {
+            if (parentNode.nodeType !== ParseNodeType.StringList || parentNode.strings.length > 1) {
+                return undefined;
+            }
+
+            parentNode = parentNode.parent;
+            if (!parentNode) {
+                return undefined;
+            }
         }
 
         const completionList = CompletionList.create();
