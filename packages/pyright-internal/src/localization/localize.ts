@@ -206,6 +206,7 @@ export namespace Localizer {
         export const breakOutsideLoop = () => getRawString('Diagnostic.breakOutsideLoop');
         export const callableExtraArgs = () => getRawString('Diagnostic.callableExtraArgs');
         export const callableFirstArg = () => getRawString('Diagnostic.callableFirstArg');
+        export const callableSecondArg = () => getRawString('Diagnostic.callableSecondArg');
         export const classMethodClsParam = () => getRawString('Diagnostic.classMethodClsParam');
         export const classNotRuntimeSubscriptable = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.classNotRuntimeSubscriptable'));

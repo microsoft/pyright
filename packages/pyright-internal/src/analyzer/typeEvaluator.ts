@@ -9039,6 +9039,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
             functionType.details.declaredReturnType = convertToInstance(typeArg1Type);
         } else {
+            const fileInfo = getFileInfo(errorNode);
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
+                DiagnosticRule.reportMissingTypeArgument,
+                Localizer.Diagnostic.callableSecondArg(),
+                errorNode
+            );
+
             functionType.details.declaredReturnType = UnknownType.create();
         }
 

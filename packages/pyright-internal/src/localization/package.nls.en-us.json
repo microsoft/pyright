@@ -34,6 +34,7 @@
         "breakOutsideLoop": "\"break\" can be used only within a loop",
         "callableExtraArgs": "Expected only two type arguments to \"Callable\"",
         "callableFirstArg": "Expected parameter type list or \"...\"",
+        "callableSecondArg": "Expected return type as second type argument for \"Callable\"",
         "classDecoratorTypeUnknown": "Untyped class decorator obscures type of class; ignoring decorator",
         "classGetItemClsParam": "__class_getitem__ override should take a \"cls\" parameter",
         "classMethodClsParam": "Class methods should take a \"cls\" parameter",
