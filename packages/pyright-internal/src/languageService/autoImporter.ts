@@ -766,7 +766,7 @@ function convertSymbolKindToCompletionItemKind(kind: SymbolKind) {
             return CompletionItemKind.Variable;
 
         case SymbolKind.String:
-            return CompletionItemKind.Text;
+            return CompletionItemKind.Constant;
 
         case SymbolKind.Number:
         case SymbolKind.Boolean:

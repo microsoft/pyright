@@ -1290,7 +1290,7 @@ export class CompletionProvider {
             const valueWithQuotes = `${quoteCharacter}${value}${quoteCharacter}`;
             const completionItem = CompletionItem.create(valueWithQuotes);
 
-            completionItem.kind = CompletionItemKind.Text;
+            completionItem.kind = CompletionItemKind.Constant;
             completionItem.sortText = this._makeSortText(SortCategory.LiteralValue, valueWithQuotes);
             let rangeStartCol = this._position.character;
             if (priorString !== undefined) {

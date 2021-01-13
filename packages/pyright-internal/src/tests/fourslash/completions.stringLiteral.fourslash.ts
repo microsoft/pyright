@@ -30,12 +30,12 @@
             completions: [
                 {
                     label: '"name"',
-                    kind: Consts.CompletionItemKind.Text,
+                    kind: Consts.CompletionItemKind.Constant,
                     textEdit: { range: marker2Range, newText: '"name"' },
                 },
                 {
                     label: '"age"',
-                    kind: Consts.CompletionItemKind.Text,
+                    kind: Consts.CompletionItemKind.Constant,
                     textEdit: { range: marker2Range, newText: '"age"' },
                 },
             ],
@@ -44,12 +44,12 @@
             completions: [
                 {
                     label: '"hello"',
-                    kind: Consts.CompletionItemKind.Text,
+                    kind: Consts.CompletionItemKind.Constant,
                     textEdit: { range: marker3Range, newText: '"hello"' },
                 },
                 {
                     label: '"hallo"',
-                    kind: Consts.CompletionItemKind.Text,
+                    kind: Consts.CompletionItemKind.Constant,
                     textEdit: { range: marker3Range, newText: '"hallo"' },
                 },
             ],
