@@ -2141,7 +2141,12 @@ export class Checker extends ParseTreeWalker {
     private _validateFinalMemberOverrides(classType: ClassType) {
         classType.details.fields.forEach((localSymbol, name) => {
             const parentSymbol = lookUpClassMember(classType, name, ClassMemberLookupFlags.SkipOriginalClass);
-            if (parentSymbol && isClass(parentSymbol.classType) && isFinalVariable(parentSymbol.symbol)) {
+            if (
+                parentSymbol &&
+                isClass(parentSymbol.classType) &&
+                isFinalVariable(parentSymbol.symbol) &&
+                !SymbolNameUtils.isPrivateName(name)
+            ) {
                 const decl = localSymbol.getDeclarations()[0];
                 this._evaluator.addError(
                     Localizer.Diagnostic.finalRedeclarationBySubclass().format({

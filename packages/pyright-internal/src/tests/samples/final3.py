@@ -43,6 +43,9 @@ class Foo:
 
     member6: Final[int]
 
+    _member7: Final = 6
+    __member8: Final = 6
+
     def __init__(self):
         # This should generate an error because a Final
         # member outside of a stub file or a class body
@@ -74,6 +77,13 @@ class Bar(Foo):
     # This should generate an error because we are overriding
     # a member that is marked Final in the parent class.
     member1 = 5
+
+    # This should generate an error because we are overriding
+    # a member that is marked Final in the parent class.
+    _member7: Final = 6
+
+    # This should not generate an error because it's private.
+    __member8: Final = 6
 
     def __init__(self):
         # This should generate an error because we are overriding
