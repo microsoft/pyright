@@ -27,7 +27,7 @@ In many existing type stubs (such as those found in typeshed), default parameter
 ## Library Interface
 [PEP 561](https://www.python.org/dev/peps/pep-0561/) indicates that a “py.typed” marker file must be included in the package if the author wishes to support type checking of their code.
 
-If a “py.typed” module is present, a type checker will treat all modules within that package (i.e. all files that end in “.py” or “.pyi”) as importable unless the file name begins with an underscore. These modules comprise the supported interace for the library.
+If a “py.typed” module is present, a type checker will treat all modules within that package (i.e. all files that end in “.py” or “.pyi”) as importable unless the file name begins with an underscore. These modules comprise the supported interface for the library.
 
 Each module exposes a set of symbols. Some of these symbols are considered “private” — implementation details that are not part of the library’s interface. Type checkers like pyright use the following rules to determine which symbols are visible outside of the package.
 
@@ -81,7 +81,7 @@ Type annotations can be omitted in a few specific cases where the type is obviou
 ### Examples of known and unknown types
 ```python
 
-# Variable with unknown
+# Variable with unknown type
 a = [3, 4, 5]
 
 # Variable with known type
@@ -224,7 +224,7 @@ def create_user(age: int, *, dob: Optional[date] = None):
 ```
 
 ### Annotating Decorators
-Decorators modify the behavior of a class or a function. Providing annotations for decorators is straightforward if the decorator retrains the original signature of the decorated function.
+Decorators modify the behavior of a class or a function. Providing annotations for decorators is straightforward if the decorator retains the original signature of the decorated function.
 
 ```python
 _F = TypeVar("_F", bound=Callable[..., Any])
@@ -323,9 +323,9 @@ If your library runs only on newer versions of Python, you are encouraged to use
 
 NamedTuple (introduced in Python 3.5 and described in [PEP 484](https://www.python.org/dev/peps/pep-0484/)) is preferred over namedtuple. 
 
-Data classes (introduced in Python 3.7 and described in [PEP 557](https://www.python.org/dev/peps/pep-0557/)) is a preferred over untyped dictionaries. The NamedTuple form of data classes is supported in Python 3.6.
+Data classes (introduced in Python 3.7 and described in [PEP 557](https://www.python.org/dev/peps/pep-0557/)) is preferred over untyped dictionaries. The NamedTuple form of data classes is supported in Python 3.6.
 
-TypedDict (introduced in Python 3.8 and described in [PEP 589](https://www.python.org/dev/peps/pep-0589/)) is a preferred over untyped dictionaries.
+TypedDict (introduced in Python 3.8 and described in [PEP 589](https://www.python.org/dev/peps/pep-0589/)) is preferred over untyped dictionaries.
 
 
 ## Compatibility with Older Python Versions
