@@ -2172,12 +2172,7 @@ export class Checker extends ParseTreeWalker {
 
     private _validateBaseClassOverrides(classType: ClassType) {
         classType.details.fields.forEach((symbol, name) => {
-            // Don't check magic functions or private symbols.
-            if (
-                !symbol.isClassMember() ||
-                SymbolNameUtils.isDunderName(name) ||
-                SymbolNameUtils.isPrivateOrProtectedName(name)
-            ) {
+            if (!symbol.isClassMember()) {
                 return;
             }
 
@@ -2211,6 +2206,7 @@ export class Checker extends ParseTreeWalker {
             if (isFunction(baseClassSymbolType) || isOverloadedFunction(baseClassSymbolType)) {
                 const diagAddendum = new DiagnosticAddendum();
                 let overrideFunction: FunctionType | undefined;
+
                 if (isFunction(typeOfSymbol)) {
                     overrideFunction = typeOfSymbol;
                 } else if (isOverloadedFunction(typeOfSymbol)) {
@@ -2219,32 +2215,36 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 if (overrideFunction) {
-                    if (!this._evaluator.canOverrideMethod(baseClassSymbolType, overrideFunction, diagAddendum)) {
-                        const decl = overrideFunction.details.declaration;
-                        if (decl && decl.type === DeclarationType.Function) {
-                            const diag = this._evaluator.addDiagnostic(
-                                this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
-                                DiagnosticRule.reportIncompatibleMethodOverride,
-                                Localizer.Diagnostic.incompatibleMethodOverride().format({
-                                    name,
-                                    className: baseClassAndSymbol.classType.details.name,
-                                }) + diagAddendum.getString(),
-                                decl.node.name
-                            );
-
-                            const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
-                            if (diag && origDecl) {
-                                diag.addRelatedInfo(
-                                    Localizer.DiagnosticAddendum.overriddenMethod(),
-                                    origDecl.path,
-                                    origDecl.range
+                    // Don't check magic functions or private symbols.
+                    if (!SymbolNameUtils.isDunderName(name) && !SymbolNameUtils.isPrivateOrProtectedName(name)) {
+                        if (!this._evaluator.canOverrideMethod(baseClassSymbolType, overrideFunction, diagAddendum)) {
+                            const decl = overrideFunction.details.declaration;
+                            if (decl && decl.type === DeclarationType.Function) {
+                                const diag = this._evaluator.addDiagnostic(
+                                    this._fileInfo.diagnosticRuleSet.reportIncompatibleMethodOverride,
+                                    DiagnosticRule.reportIncompatibleMethodOverride,
+                                    Localizer.Diagnostic.incompatibleMethodOverride().format({
+                                        name,
+                                        className: baseClassAndSymbol.classType.details.name,
+                                    }) + diagAddendum.getString(),
+                                    decl.node.name
                                 );
+
+                                const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+                                if (diag && origDecl) {
+                                    diag.addRelatedInfo(
+                                        Localizer.DiagnosticAddendum.overriddenMethod(),
+                                        origDecl.path,
+                                        origDecl.range
+                                    );
+                                }
                             }
                         }
                     }
 
                     if (isFunction(baseClassSymbolType)) {
-                        if (FunctionType.isFinal(baseClassSymbolType)) {
+                        // Private names (starting with double underscore) are exempt from this check.
+                        if (!SymbolNameUtils.isPrivateName(name) && FunctionType.isFinal(baseClassSymbolType)) {
                             const decl = getLastTypedDeclaredForSymbol(symbol);
                             if (decl && decl.type === DeclarationType.Function) {
                                 const diag = this._evaluator.addError(
