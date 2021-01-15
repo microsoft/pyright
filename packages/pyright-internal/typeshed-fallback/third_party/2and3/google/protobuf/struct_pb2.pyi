@@ -27,6 +27,7 @@ from google.protobuf.message import (
 )
 
 from typing import (
+    Any,
     Iterable as typing___Iterable,
     Mapping as typing___Mapping,
     NewType as typing___NewType,
@@ -50,7 +51,11 @@ DESCRIPTOR: google___protobuf___descriptor___FileDescriptor = ...
 
 NullValueValue = typing___NewType('NullValueValue', builtin___int)
 type___NullValueValue = NullValueValue
-NullValue: _NullValue
+
+# We temporary set this to Any to simplify mypy-protobuf migration,
+# replace with `NullValue: _NullValue` after mypy-protobuf 1.24 is out.
+NullValue = Any
+
 class _NullValue(google___protobuf___internal___enum_type_wrapper____EnumTypeWrapper[NullValueValue]):
     DESCRIPTOR: google___protobuf___descriptor___EnumDescriptor = ...
     NULL_VALUE = typing___cast(NullValueValue, 0)

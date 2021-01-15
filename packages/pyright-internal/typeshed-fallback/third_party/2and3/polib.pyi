@@ -69,7 +69,7 @@ class MOFile(_BaseFile):
 class _BaseEntry(object):
     msgid: Text
     msgstr: Text
-    msgid_plural: List[Text]
+    msgid_plural: Text
     msgstr_plural: List[Text]
     msgctxt: Text
     obsolete: bool

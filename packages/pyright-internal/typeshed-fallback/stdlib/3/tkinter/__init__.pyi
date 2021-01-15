@@ -1,10 +1,26 @@
 import _tkinter
 import sys
+from _typeshed import AnyPath
 from enum import Enum
 from tkinter.constants import *  # comment this out to find undefined identifier names with flake8
 from tkinter.font import _FontDescription
 from types import TracebackType
-from typing import Any, Callable, Dict, Generic, List, Mapping, Optional, Protocol, Tuple, Type, TypeVar, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Mapping,
+    Optional,
+    Protocol,
+    Sequence,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    overload,
+)
 from typing_extensions import Literal, TypedDict
 
 # Using anything from tkinter.font in this file means that 'import tkinter'
@@ -12,9 +28,9 @@ from typing_extensions import Literal, TypedDict
 # unfortunately not much can be done about it. https://github.com/python/typeshed/pull/4346
 
 TclError = _tkinter.TclError
-wantobjects: Any
-TkVersion: Any
-TclVersion: Any
+wantobjects: int
+TkVersion: float
+TclVersion: float
 READABLE = _tkinter.READABLE
 WRITABLE = _tkinter.WRITABLE
 EXCEPTION = _tkinter.EXCEPTION
@@ -22,7 +38,6 @@ EXCEPTION = _tkinter.EXCEPTION
 # Quick guide for figuring out which widget class to choose:
 #   - Misc: any widget (don't use BaseWidget because Tk doesn't inherit from BaseWidget)
 #   - Widget: anything that is meant to be put into another widget with e.g. pack or grid
-#   - Wm: a toplevel window, Tk or Toplevel
 #
 # Instructions for figuring out the correct type of each widget option:
 #  - See discussion on #4363.
@@ -83,6 +98,7 @@ EXCEPTION = _tkinter.EXCEPTION
 #    _tkinter.TclError: unknown font style "deque(['bold'])"
 _T = TypeVar("_T")
 _TkinterSequence = Union[List[_T], Tuple[_T, ...]]
+_TkinterSequence2D = Union[List[List[_T]], List[Tuple[_T, ...]], Tuple[List[_T], ...], Tuple[Tuple[_T, ...], ...]]
 
 # Some widgets have an option named -compound that accepts different values
 # than the _Compound defined here. Many other options have similar things.
@@ -212,7 +228,7 @@ class BooleanVar(Variable):
     initialize = set
     def get(self) -> bool: ...
 
-def mainloop(n: int = ...): ...
+def mainloop(n: int = ...) -> None: ...
 
 getint: Any
 getdouble: Any
@@ -223,29 +239,29 @@ class Misc:
     master: Optional[Misc]
     tk: _tkinter.TkappType
     children: Dict[str, Widget]
-    def destroy(self): ...
-    def deletecommand(self, name): ...
+    def destroy(self) -> None: ...
+    def deletecommand(self, name: str) -> None: ...
     def tk_strictMotif(self, boolean: Optional[Any] = ...): ...
     def tk_bisque(self): ...
     def tk_setPalette(self, *args, **kw): ...
-    def wait_variable(self, name: Union[str, Variable] = ...): ...
-    waitvar: Any
-    def wait_window(self, window: Optional[Any] = ...): ...
-    def wait_visibility(self, window: Optional[Any] = ...): ...
+    def wait_variable(self, name: Union[str, Variable] = ...) -> None: ...
+    waitvar = wait_variable
+    def wait_window(self, window: Optional[Misc] = ...) -> None: ...
+    def wait_visibility(self, window: Optional[Misc] = ...) -> None: ...
     def setvar(self, name: str = ..., value: str = ...): ...
     def getvar(self, name: str = ...): ...
     def getint(self, s): ...
     def getdouble(self, s): ...
     def getboolean(self, s): ...
-    def focus_set(self): ...
-    focus: Any
-    def focus_force(self): ...
-    def focus_get(self): ...
-    def focus_displayof(self): ...
-    def focus_lastfor(self): ...
-    def tk_focusFollowsMouse(self): ...
-    def tk_focusNext(self): ...
-    def tk_focusPrev(self): ...
+    def focus_set(self) -> None: ...
+    focus = focus_set
+    def focus_force(self) -> None: ...
+    def focus_get(self) -> Optional[Misc]: ...
+    def focus_displayof(self) -> Optional[Misc]: ...
+    def focus_lastfor(self) -> Optional[Misc]: ...
+    def tk_focusFollowsMouse(self) -> None: ...
+    def tk_focusNext(self) -> Optional[Misc]: ...
+    def tk_focusPrev(self) -> Optional[Misc]: ...
     @overload
     def after(self, ms: int, func: None = ...) -> None: ...
     @overload
@@ -253,10 +269,10 @@ class Misc:
     # after_idle is essentially partialmethod(after, "idle")
     def after_idle(self, func: Callable[..., Any], *args: Any) -> str: ...
     def after_cancel(self, id: str) -> None: ...
-    def bell(self, displayof: int = ...): ...
-    def clipboard_get(self, **kw): ...
-    def clipboard_clear(self, **kw): ...
-    def clipboard_append(self, string, **kw): ...
+    def bell(self, displayof: Union[Literal[0], Misc, None] = ...): ...
+    def clipboard_get(self, *, displayof: Misc = ..., type: str = ...) -> str: ...
+    def clipboard_clear(self, *, displayof: Misc = ...) -> None: ...
+    def clipboard_append(self, string: str, *, displayof: Misc = ..., format: str = ..., type: str = ...): ...
     def grab_current(self): ...
     def grab_release(self): ...
     def grab_set(self): ...
@@ -274,49 +290,49 @@ class Misc:
     def send(self, interp, cmd, *args): ...
     def lower(self, belowThis: Optional[Any] = ...): ...
     def tkraise(self, aboveThis: Optional[Any] = ...): ...
-    lift: Any
-    def winfo_atom(self, name, displayof: int = ...): ...
-    def winfo_atomname(self, id, displayof: int = ...): ...
-    def winfo_cells(self): ...
-    def winfo_children(self): ...
-    def winfo_class(self): ...
-    def winfo_colormapfull(self): ...
-    def winfo_containing(self, rootX, rootY, displayof: int = ...): ...
-    def winfo_depth(self): ...
-    def winfo_exists(self): ...
+    lift = tkraise
+    def winfo_atom(self, name: str, displayof: Union[Literal[0], Misc, None] = ...): ...
+    def winfo_atomname(self, id: int, displayof: Union[Literal[0], Misc, None] = ...): ...
+    def winfo_cells(self) -> int: ...
+    def winfo_children(self) -> List[Widget]: ...  # Widget because it can't be Toplevel or Tk
+    def winfo_class(self) -> str: ...
+    def winfo_colormapfull(self) -> bool: ...
+    def winfo_containing(self, rootX: int, rootY: int, displayof: Union[Literal[0], Misc, None] = ...) -> Optional[Misc]: ...
+    def winfo_depth(self) -> int: ...
+    def winfo_exists(self) -> bool: ...
     def winfo_fpixels(self, number: _ScreenUnits) -> float: ...
-    def winfo_geometry(self): ...
+    def winfo_geometry(self) -> str: ...
     def winfo_height(self) -> int: ...
-    def winfo_id(self): ...
-    def winfo_interps(self, displayof: int = ...): ...
-    def winfo_ismapped(self): ...
-    def winfo_manager(self): ...
-    def winfo_name(self): ...
-    def winfo_parent(self): ...
-    def winfo_pathname(self, id, displayof: int = ...): ...
+    def winfo_id(self) -> int: ...
+    def winfo_interps(self, displayof: Union[Literal[0], Misc, None] = ...) -> Tuple[str, ...]: ...
+    def winfo_ismapped(self) -> bool: ...
+    def winfo_manager(self) -> str: ...
+    def winfo_name(self) -> str: ...
+    def winfo_parent(self) -> str: ...  # return value needs nametowidget()
+    def winfo_pathname(self, id: int, displayof: Union[Literal[0], Misc, None] = ...): ...
     def winfo_pixels(self, number: _ScreenUnits) -> int: ...
     def winfo_pointerx(self) -> int: ...
     def winfo_pointerxy(self) -> Tuple[int, int]: ...
     def winfo_pointery(self) -> int: ...
     def winfo_reqheight(self) -> int: ...
     def winfo_reqwidth(self) -> int: ...
-    def winfo_rgb(self, color): ...
+    def winfo_rgb(self, color: _Color) -> Tuple[int, int, int]: ...
     def winfo_rootx(self) -> int: ...
     def winfo_rooty(self) -> int: ...
-    def winfo_screen(self): ...
-    def winfo_screencells(self): ...
-    def winfo_screendepth(self): ...
+    def winfo_screen(self) -> str: ...
+    def winfo_screencells(self) -> int: ...
+    def winfo_screendepth(self) -> int: ...
     def winfo_screenheight(self) -> int: ...
     def winfo_screenmmheight(self) -> int: ...
     def winfo_screenmmwidth(self) -> int: ...
-    def winfo_screenvisual(self): ...
+    def winfo_screenvisual(self) -> str: ...
     def winfo_screenwidth(self) -> int: ...
-    def winfo_server(self): ...
-    def winfo_toplevel(self): ...
-    def winfo_viewable(self): ...
-    def winfo_visual(self): ...
-    def winfo_visualid(self): ...
-    def winfo_visualsavailable(self, includeids: int = ...): ...
+    def winfo_server(self) -> str: ...
+    def winfo_toplevel(self) -> Union[Tk, Toplevel]: ...
+    def winfo_viewable(self) -> bool: ...
+    def winfo_visual(self) -> str: ...
+    def winfo_visualid(self) -> str: ...
+    def winfo_visualsavailable(self, includeids: int = ...) -> List[Tuple[str, int]]: ...
     def winfo_vrootheight(self) -> int: ...
     def winfo_vrootwidth(self) -> int: ...
     def winfo_vrootx(self) -> int: ...
@@ -324,8 +340,8 @@ class Misc:
     def winfo_width(self) -> int: ...
     def winfo_x(self) -> int: ...
     def winfo_y(self) -> int: ...
-    def update(self): ...
-    def update_idletasks(self): ...
+    def update(self) -> None: ...
+    def update_idletasks(self) -> None: ...
     def bindtags(self, tagList: Optional[Any] = ...): ...
     # bind with isinstance(func, str) doesn't return anything, but all other
     # binds do. The default value of func is not str.
@@ -368,10 +384,12 @@ class Misc:
     def unbind(self, sequence: str, funcid: Optional[str] = ...) -> None: ...
     def unbind_all(self, sequence: str) -> None: ...
     def unbind_class(self, className: str, sequence: str) -> None: ...
-    def mainloop(self, n: int = ...): ...
+    def mainloop(self, n: int = ...) -> None: ...
     def quit(self): ...
-    def nametowidget(self, name): ...
-    register: Any
+    def nametowidget(self, name: Union[str, Misc, _tkinter.Tcl_Obj]) -> Any: ...
+    def register(
+        self, func: Callable[..., Any], subst: Optional[Callable[..., Sequence[Any]]] = ..., needcleanup: int = ...
+    ) -> str: ...
     def keys(self) -> List[str]: ...
     @overload
     def pack_propagate(self, flag: bool) -> Optional[bool]: ...
@@ -405,15 +423,49 @@ class Misc:
     def grid_slaves(self, row: Optional[int] = ..., column: Optional[int] = ...) -> List[Widget]: ...
     def place_slaves(self) -> List[Widget]: ...
     slaves = pack_slaves
-    def event_add(self, virtual, *sequences): ...
-    def event_delete(self, virtual, *sequences): ...
-    def event_generate(self, sequence, **kw): ...
-    def event_info(self, virtual: Optional[Any] = ...): ...
-    def image_names(self): ...
-    def image_types(self): ...
-    # See #4363
+    def event_add(self, virtual: str, *sequences: str) -> None: ...
+    def event_delete(self, virtual: str, *sequences: str) -> None: ...
+    def event_generate(
+        self,
+        sequence: str,
+        *,
+        above: Union[Misc, int] = ...,
+        borderwidth: _ScreenUnits = ...,
+        button: int = ...,
+        count: int = ...,
+        data: Any = ...,  # anything with usable str() value
+        delta: int = ...,
+        detail: str = ...,
+        focus: bool = ...,
+        height: _ScreenUnits = ...,
+        keycode: int = ...,
+        keysym: str = ...,
+        mode: str = ...,
+        override: bool = ...,
+        place: Literal["PlaceOnTop", "PlaceOnBottom"] = ...,
+        root: Union[Misc, int] = ...,
+        rootx: _ScreenUnits = ...,
+        rooty: _ScreenUnits = ...,
+        sendevent: bool = ...,
+        serial: int = ...,
+        state: Union[int, str] = ...,
+        subwindow: Union[Misc, int] = ...,
+        time: int = ...,
+        warp: bool = ...,
+        width: _ScreenUnits = ...,
+        when: Literal["now", "tail", "head", "mark"] = ...,
+        x: _ScreenUnits = ...,
+        y: _ScreenUnits = ...,
+    ) -> None: ...
+    def event_info(self, virtual: Optional[str] = ...) -> Tuple[str, ...]: ...
+    def image_names(self) -> Tuple[str, ...]: ...
+    def image_types(self) -> Tuple[str, ...]: ...
+    # See #4363 and #4891
     def __setitem__(self, key: str, value: Any) -> None: ...
     def __getitem__(self, key: str) -> Any: ...
+    def cget(self, key: str) -> Any: ...
+    def configure(self, cnf: Any = ...) -> Any: ...
+    # TODO: config is an alias of configure, but adding that here creates lots of mypy errors
 
 class CallWrapper:
     func: Any
@@ -433,32 +485,45 @@ class YView:
     def yview_scroll(self, number, what): ...
 
 class Wm:
+    @overload
+    def wm_aspect(self, minNumer: int, minDenom: int, maxNumer: int, maxDenom: int) -> None: ...
+    @overload
     def wm_aspect(
-        self,
-        minNumer: Optional[Any] = ...,
-        minDenom: Optional[Any] = ...,
-        maxNumer: Optional[Any] = ...,
-        maxDenom: Optional[Any] = ...,
-    ): ...
-    aspect: Any
-    def wm_attributes(self, *args): ...
-    attributes: Any
-    def wm_client(self, name: Optional[Any] = ...): ...
-    client: Any
-    def wm_colormapwindows(self, *wlist): ...
-    colormapwindows: Any
-    def wm_command(self, value: Optional[Any] = ...): ...
-    command: Any
-    def wm_deiconify(self): ...
-    deiconify: Any
+        self, minNumer: None = ..., minDenom: None = ..., maxNumer: None = ..., maxDenom: None = ...
+    ) -> Optional[Tuple[int, int, int, int]]: ...
+    aspect = wm_aspect
+    @overload
+    def wm_attributes(self) -> Tuple[Any, ...]: ...
+    @overload
+    def wm_attributes(self, __option: str) -> Any: ...
+    @overload
+    def wm_attributes(self, __option: str, __value: Any, *__other_option_value_pairs: Any) -> None: ...
+    attributes = wm_attributes
+    def wm_client(self, name: Optional[str] = ...) -> str: ...
+    client = wm_client
+    @overload
+    def wm_colormapwindows(self) -> List[Misc]: ...
+    @overload
+    def wm_colormapwindows(self, __wlist: _TkinterSequence[Misc]) -> None: ...
+    @overload
+    def wm_colormapwindows(self, __first_wlist_item: Misc, *other_wlist_items: Misc) -> None: ...
+    colormapwindows = wm_colormapwindows
+    def wm_command(self, value: Optional[str] = ...) -> str: ...
+    command = wm_command
+    # Some of these always return empty string, but return type is set to None to prevent accidentally using it
+    def wm_deiconify(self) -> None: ...
+    deiconify = wm_deiconify
     def wm_focusmodel(self, model: Optional[Any] = ...): ...
-    focusmodel: Any
-    def wm_forget(self, window): ...
-    forget: Any
+    focusmodel = wm_focusmodel
+    def wm_forget(self, window: Wm) -> None: ...
+    forget = wm_forget
     def wm_frame(self): ...
-    frame: Any
-    def wm_geometry(self, newGeometry: Optional[Any] = ...): ...
-    geometry: Any
+    frame = wm_frame
+    @overload
+    def wm_geometry(self, newGeometry: None = ...) -> str: ...
+    @overload
+    def wm_geometry(self, newGeometry: str) -> None: ...
+    geometry = wm_geometry
     def wm_grid(
         self,
         baseWidth: Optional[Any] = ...,
@@ -466,72 +531,73 @@ class Wm:
         widthInc: Optional[Any] = ...,
         heightInc: Optional[Any] = ...,
     ): ...
-    grid: Any
+    grid = wm_grid
     def wm_group(self, pathName: Optional[Any] = ...): ...
-    group: Any
+    group = wm_group
     def wm_iconbitmap(self, bitmap: Optional[Any] = ..., default: Optional[Any] = ...): ...
-    iconbitmap: Any
-    def wm_iconify(self): ...
-    iconify: Any
+    iconbitmap = wm_iconbitmap
+    def wm_iconify(self) -> None: ...
+    iconify = wm_iconify
     def wm_iconmask(self, bitmap: Optional[Any] = ...): ...
-    iconmask: Any
+    iconmask = wm_iconmask
     def wm_iconname(self, newName: Optional[Any] = ...): ...
-    iconname: Any
-    def wm_iconphoto(self, default: bool = ..., *args): ...
-    iconphoto: Any
+    iconname = wm_iconname
+    def wm_iconphoto(self, default: bool, __image1: Image, *args: Image) -> None: ...
+    iconphoto = wm_iconphoto
     def wm_iconposition(self, x: Optional[Any] = ..., y: Optional[Any] = ...): ...
-    iconposition: Any
+    iconposition = wm_iconposition
     def wm_iconwindow(self, pathName: Optional[Any] = ...): ...
-    iconwindow: Any
+    iconwindow = wm_iconwindow
     def wm_manage(self, widget): ...
-    manage: Any
-    def wm_maxsize(self, width: Optional[Any] = ..., height: Optional[Any] = ...): ...
-    maxsize: Any
-    def wm_minsize(self, width: Optional[Any] = ..., height: Optional[Any] = ...): ...
-    minsize: Any
-    def wm_overrideredirect(self, boolean: Optional[Any] = ...): ...
-    overrideredirect: Any
+    manage = wm_manage
+    @overload
+    def wm_maxsize(self, width: None = ..., height: None = ...) -> Tuple[int, int]: ...
+    @overload
+    def wm_maxsize(self, width: int, height: int) -> None: ...
+    maxsize = wm_maxsize
+    @overload
+    def wm_minsize(self, width: None = ..., height: None = ...) -> Tuple[int, int]: ...
+    @overload
+    def wm_minsize(self, width: int, height: int) -> None: ...
+    minsize = wm_minsize
+    @overload
+    def wm_overrideredirect(self, boolean: None = ...) -> Optional[bool]: ...  # returns True or None
+    @overload
+    def wm_overrideredirect(self, boolean: bool) -> None: ...
+    overrideredirect = wm_overrideredirect
     def wm_positionfrom(self, who: Optional[Any] = ...): ...
-    positionfrom: Any
-    def wm_protocol(self, name: Optional[Any] = ..., func: Optional[Any] = ...): ...
-    protocol: Any
-    def wm_resizable(self, width: Optional[Any] = ..., height: Optional[Any] = ...): ...
-    resizable: Any
+    positionfrom = wm_positionfrom
+    @overload
+    def wm_protocol(self, name: str, func: Union[Callable[[], Any], str]) -> None: ...
+    @overload
+    def wm_protocol(self, name: str, func: None = ...) -> str: ...
+    @overload
+    def wm_protocol(self, name: None = ..., func: None = ...) -> Tuple[str, ...]: ...
+    protocol = wm_protocol
+    @overload
+    def wm_resizable(self, width: None = ..., height: None = ...) -> Tuple[bool, bool]: ...
+    @overload
+    def wm_resizable(self, width: bool, height: bool) -> None: ...
+    resizable = wm_resizable
     def wm_sizefrom(self, who: Optional[Any] = ...): ...
-    sizefrom: Any
-    def wm_state(self, newstate: Optional[Any] = ...): ...
-    state: Any
-    def wm_title(self, string: Optional[Any] = ...): ...
-    title: Any
-    def wm_transient(self, master: Optional[Any] = ...): ...
-    transient: Any
-    def wm_withdraw(self): ...
-    withdraw: Any
-
-_TkOptionName = Literal[
-    "background",
-    "bd",
-    "bg",
-    "border",
-    "borderwidth",
-    "class",
-    "colormap",
-    "container",
-    "cursor",
-    "height",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "menu",
-    "padx",
-    "pady",
-    "relief",
-    "screen",  # can't be changed after creating widget
-    "takefocus",
-    "use",
-    "visual",
-    "width",
-]
+    sizefrom = wm_sizefrom
+    @overload
+    def wm_state(self, newstate: None = ...) -> str: ...
+    @overload
+    def wm_state(self, newstate: str) -> None: ...
+    state = wm_state
+    @overload
+    def wm_title(self, string: None = ...) -> str: ...
+    @overload
+    def wm_title(self, string: str) -> None: ...
+    title = wm_title
+    @overload
+    def wm_transient(self, master: None = ...) -> _tkinter.Tcl_Obj: ...
+    @overload
+    def wm_transient(self, master: Union[Wm, _tkinter.Tcl_Obj]) -> None: ...
+    transient = wm_transient
+    def wm_withdraw(self) -> None: ...
+    withdraw = wm_withdraw
 
 class _ExceptionReportingCallback(Protocol):
     def __call__(self, __exc: Type[BaseException], __val: BaseException, __tb: TracebackType) -> Any: ...
@@ -549,7 +615,7 @@ class Tk(Misc, Wm):
     ) -> None: ...
     @overload
     def configure(
-        self: Union[Tk, Toplevel],
+        self,
         cnf: Optional[Dict[str, Any]] = ...,
         *,
         background: _Color = ...,
@@ -570,9 +636,8 @@ class Tk(Misc, Wm):
         width: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _TkOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _TkOptionName) -> Any: ...
     def loadtk(self) -> None: ...  # differs from _tkinter.TkappType.loadtk
     def destroy(self) -> None: ...
     def readprofile(self, baseName: str, className: str) -> None: ...
@@ -619,7 +684,7 @@ _InMiscNonTotal = TypedDict("_InMiscNonTotal", {"in": Misc}, total=False)
 class _PackInfo(_InMiscTotal):
     # 'before' and 'after' never appear in _PackInfo
     anchor: _Anchor
-    expand: Literal[0, 1]
+    expand: bool
     fill: Literal["none", "x", "y", "both"]
     side: Literal["left", "right", "top", "bottom"]
     # Paddings come out as int or tuple of int, even though any _ScreenUnits
@@ -765,7 +830,7 @@ class BaseWidget(Misc):
     master: Misc
     widgetName: Any
     def __init__(self, master, widgetName, cnf=..., kw=..., extra=...): ...
-    def destroy(self): ...
+    def destroy(self) -> None: ...
 
 # This class represents any widget except Toplevel or Tk.
 class Widget(BaseWidget, Pack, Place, Grid):
@@ -785,6 +850,9 @@ class Widget(BaseWidget, Pack, Place, Grid):
     def bind(self, *, func: str, add: Optional[bool] = ...) -> None: ...
 
 class Toplevel(BaseWidget, Wm):
+    # Toplevel and Tk have the same options because they correspond to the same
+    # Tcl/Tk toplevel widget. For some reason, config and configure must be
+    # copy/pasted here instead of aliasing as 'config = Tk.config'.
     def __init__(
         self,
         master: Optional[Misc] = ...,
@@ -807,56 +875,37 @@ class Toplevel(BaseWidget, Wm):
         padx: _ScreenUnits = ...,
         pady: _ScreenUnits = ...,
         relief: _Relief = ...,
-        screen: str = ...,
+        screen: str = ...,  # can't be changed after creating widget
         takefocus: _TakeFocusValue = ...,
         use: int = ...,
         visual: Union[str, Tuple[str, int]] = ...,
         width: _ScreenUnits = ...,
     ) -> None: ...
-    # Toplevel and Tk have the same options because they correspond to the same
-    # Tcl/Tk toplevel widget.
-    configure = Tk.configure
-    config = Tk.config
-    cget = Tk.cget
-
-_ButtonOptionName = Literal[
-    "activebackground",
-    "activeforeground",
-    "anchor",
-    "background",
-    "bd",  # same as borderwidth
-    "bg",  # same as background
-    "bitmap",
-    "border",  # same as borderwidth
-    "borderwidth",
-    "command",
-    "compound",
-    "cursor",
-    "default",
-    "disabledforeground",
-    "fg",  # same as foreground
-    "font",
-    "foreground",
-    "height",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "image",
-    "justify",
-    "overrelief",
-    "padx",
-    "pady",
-    "relief",
-    "repeatdelay",
-    "repeatinterval",
-    "state",
-    "takefocus",
-    "text",
-    "textvariable",
-    "underline",
-    "width",
-    "wraplength",
-]
+    @overload
+    def configure(
+        self,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        background: _Color = ...,
+        bd: _ScreenUnits = ...,
+        bg: _Color = ...,
+        border: _ScreenUnits = ...,
+        borderwidth: _ScreenUnits = ...,
+        cursor: _Cursor = ...,
+        height: _ScreenUnits = ...,
+        highlightbackground: _Color = ...,
+        highlightcolor: _Color = ...,
+        highlightthickness: _ScreenUnits = ...,
+        menu: Menu = ...,
+        padx: _ScreenUnits = ...,
+        pady: _ScreenUnits = ...,
+        relief: _Relief = ...,
+        takefocus: _TakeFocusValue = ...,
+        width: _ScreenUnits = ...,
+    ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
+    @overload
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
+    config = configure
 
 class Button(Widget):
     def __init__(
@@ -868,17 +917,17 @@ class Button(Widget):
         activeforeground: _Color = ...,
         anchor: _Anchor = ...,
         background: _Color = ...,
-        bd: _ScreenUnits = ...,
-        bg: _Color = ...,
+        bd: _ScreenUnits = ...,  # same as borderwidth
+        bg: _Color = ...,  # same as background
         bitmap: _Bitmap = ...,
-        border: _ScreenUnits = ...,
+        border: _ScreenUnits = ...,  # same as borderwidth
         borderwidth: _ScreenUnits = ...,
         command: _ButtonCommand = ...,
         compound: _Compound = ...,
         cursor: _Cursor = ...,
         default: Literal["normal", "active", "disabled"] = ...,
         disabledforeground: _Color = ...,
-        fg: _Color = ...,
+        fg: _Color = ...,  # same as foreground
         font: _FontDescription = ...,
         foreground: _Color = ...,
         # width and height must be int for buttons containing just text, but
@@ -950,44 +999,10 @@ class Button(Widget):
         wraplength: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _ButtonOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _ButtonOptionName) -> Any: ...
     def flash(self): ...
     def invoke(self): ...
-
-_CanvasOptionName = Literal[
-    "background",
-    "bd",
-    "bg",
-    "border",
-    "borderwidth",
-    "closeenough",
-    "confine",
-    "cursor",
-    "height",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "insertbackground",
-    "insertborderwidth",
-    "insertofftime",
-    "insertontime",
-    "insertwidth",
-    "offset",
-    "relief",
-    "scrollregion",
-    "selectbackground",
-    "selectborderwidth",
-    "selectforeground",
-    "state",
-    "takefocus",
-    "width",
-    "xscrollcommand",
-    "xscrollincrement",
-    "yscrollcommand",
-    "yscrollincrement",
-]
 
 class Canvas(Widget, XView, YView):
     def __init__(
@@ -1069,9 +1084,8 @@ class Canvas(Widget, XView, YView):
         yscrollincrement: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _CanvasOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _CanvasOptionName) -> Any: ...
     def addtag(self, *args): ...
     def addtag_above(self, newtag, tagOrId): ...
     def addtag_all(self, newtag): ...
@@ -1142,51 +1156,6 @@ class Canvas(Widget, XView, YView):
     def select_item(self): ...
     def select_to(self, tagOrId, index): ...
     def type(self, tagOrId): ...
-
-_CheckbuttonOptionName = Literal[
-    "activebackground",
-    "activeforeground",
-    "anchor",
-    "background",
-    "bd",
-    "bg",
-    "bitmap",
-    "border",
-    "borderwidth",
-    "command",
-    "compound",
-    "cursor",
-    "disabledforeground",
-    "fg",
-    "font",
-    "foreground",
-    "height",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "image",
-    "indicatoron",
-    "justify",
-    "offrelief",
-    "offvalue",
-    "onvalue",
-    "overrelief",
-    "padx",
-    "pady",
-    "relief",
-    "selectcolor",
-    "selectimage",
-    "state",
-    "takefocus",
-    "text",
-    "textvariable",
-    "tristateimage",
-    "tristatevalue",
-    "underline",
-    "variable",
-    "width",
-    "wraplength",
-]
 
 class Checkbutton(Widget):
     def __init__(
@@ -1297,54 +1266,13 @@ class Checkbutton(Widget):
         wraplength: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _CheckbuttonOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _CheckbuttonOptionName) -> Any: ...
     def deselect(self): ...
     def flash(self): ...
     def invoke(self): ...
     def select(self): ...
     def toggle(self): ...
-
-_EntryOptionName = Literal[
-    "background",
-    "bd",
-    "bg",
-    "border",
-    "borderwidth",
-    "cursor",
-    "disabledbackground",
-    "disabledforeground",
-    "exportselection",
-    "fg",
-    "font",
-    "foreground",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "insertbackground",
-    "insertborderwidth",
-    "insertofftime",
-    "insertontime",
-    "insertwidth",
-    "invalidcommand",
-    "invcmd",  # same as invalidcommand
-    "justify",
-    "readonlybackground",
-    "relief",
-    "selectbackground",
-    "selectborderwidth",
-    "selectforeground",
-    "show",
-    "state",
-    "takefocus",
-    "textvariable",
-    "validate",
-    "validatecommand",
-    "vcmd",  # same as validatecommand
-    "width",
-    "xscrollcommand",
-]
 
 class Entry(Widget, XView):
     def __init__(
@@ -1373,7 +1301,7 @@ class Entry(Widget, XView):
         insertontime: int = ...,
         insertwidth: _ScreenUnits = ...,
         invalidcommand: _EntryValidateCommand = ...,
-        invcmd: _EntryValidateCommand = ...,
+        invcmd: _EntryValidateCommand = ...,  # same as invalidcommand
         justify: Literal["left", "center", "right"] = ...,
         name: str = ...,
         readonlybackground: _Color = ...,
@@ -1387,7 +1315,7 @@ class Entry(Widget, XView):
         textvariable: Variable = ...,
         validate: Literal["none", "focus", "focusin", "focusout", "key", "all"] = ...,
         validatecommand: _EntryValidateCommand = ...,
-        vcmd: _EntryValidateCommand = ...,
+        vcmd: _EntryValidateCommand = ...,  # same as validatecommand
         width: int = ...,
         xscrollcommand: _XYScrollCommand = ...,
     ) -> None: ...
@@ -1435,9 +1363,8 @@ class Entry(Widget, XView):
         xscrollcommand: _XYScrollCommand = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _EntryOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _EntryOptionName) -> Any: ...
     def delete(self, first, last: Optional[Any] = ...): ...
     def get(self): ...
     def icursor(self, index): ...
@@ -1457,28 +1384,6 @@ class Entry(Widget, XView):
     select_range: Any
     def selection_to(self, index): ...
     select_to: Any
-
-_FrameOptionName = Literal[
-    "background",
-    "bd",
-    "bg",
-    "border",
-    "borderwidth",
-    "class",
-    "colormap",
-    "container",
-    "cursor",
-    "height",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "padx",
-    "pady",
-    "relief",
-    "takefocus",
-    "visual",
-    "width",
-]
 
 class Frame(Widget):
     def __init__(
@@ -1529,43 +1434,8 @@ class Frame(Widget):
         width: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _FrameOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _FrameOptionName) -> Any: ...
-
-_LabelOptionName = Literal[
-    "activebackground",
-    "activeforeground",
-    "anchor",
-    "background",
-    "bd",
-    "bg",
-    "bitmap",
-    "border",
-    "borderwidth",
-    "compound",
-    "cursor",
-    "disabledforeground",
-    "fg",
-    "font",
-    "foreground",
-    "height",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "image",
-    "justify",
-    "padx",
-    "pady",
-    "relief",
-    "state",
-    "takefocus",
-    "text",
-    "textvariable",
-    "underline",
-    "width",
-    "wraplength",
-]
 
 class Label(Widget):
     def __init__(
@@ -1644,41 +1514,8 @@ class Label(Widget):
         wraplength: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _LabelOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _LabelOptionName) -> Any: ...
-
-_ListboxOptionName = Literal[
-    "activestyle",
-    "background",
-    "bd",
-    "bg",
-    "border",
-    "borderwidth",
-    "cursor",
-    "disabledforeground",
-    "exportselection",
-    "fg",
-    "font",
-    "foreground",
-    "height",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "justify",
-    "listvariable",
-    "relief",
-    "selectbackground",
-    "selectborderwidth",
-    "selectforeground",
-    "selectmode",
-    "setgrid",
-    "state",
-    "takefocus",
-    "width",
-    "xscrollcommand",
-    "yscrollcommand",
-]
 
 class Listbox(Widget, XView, YView):
     def __init__(
@@ -1767,9 +1604,8 @@ class Listbox(Widget, XView, YView):
         yscrollcommand: _XYScrollCommand = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _ListboxOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _ListboxOptionName) -> Any: ...
     def activate(self, index): ...
     def bbox(self, index): ...
     def curselection(self): ...
@@ -1794,29 +1630,7 @@ class Listbox(Widget, XView, YView):
     def itemconfigure(self, index, cnf: Optional[Any] = ..., **kw): ...
     itemconfig: Any
 
-_MenuOptionName = Literal[
-    "activebackground",
-    "activeborderwidth",
-    "activeforeground",
-    "background",
-    "bd",
-    "bg",
-    "border",
-    "borderwidth",
-    "cursor",
-    "disabledforeground",
-    "fg",
-    "font",
-    "foreground",
-    "postcommand",
-    "relief",
-    "selectcolor",
-    "takefocus",
-    "tearoff",
-    "tearoffcommand",
-    "title",
-    "type",
-]
+_MenuIndex = Union[str, int]
 
 class Menu(Widget):
     def __init__(
@@ -1878,23 +1692,202 @@ class Menu(Widget):
         type: Literal["menubar", "tearoff", "normal"] = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _MenuOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _MenuOptionName) -> Any: ...
-    def tk_popup(self, x: int, y: int, entry: Union[str, int] = ...): ...
+    def tk_popup(self, x: int, y: int, entry: _MenuIndex = ...): ...
     def activate(self, index): ...
     def add(self, itemType, cnf=..., **kw): ...
-    def add_cascade(self, cnf=..., **kw): ...
-    def add_checkbutton(self, cnf=..., **kw): ...
-    def add_command(self, cnf=..., **kw): ...
-    def add_radiobutton(self, cnf=..., **kw): ...
-    def add_separator(self, cnf=..., **kw): ...
     def insert(self, index, itemType, cnf=..., **kw): ...
-    def insert_cascade(self, index, cnf=..., **kw): ...
-    def insert_checkbutton(self, index, cnf=..., **kw): ...
-    def insert_command(self, index, cnf=..., **kw): ...
-    def insert_radiobutton(self, index, cnf=..., **kw): ...
-    def insert_separator(self, index, cnf=..., **kw): ...
+    def add_cascade(
+        self,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        accelerator: str = ...,
+        activebackground: _Color = ...,
+        activeforeground: _Color = ...,
+        background: _Color = ...,
+        bitmap: _Bitmap = ...,
+        columnbreak: int = ...,
+        command: Union[Callable[[], Any], str] = ...,
+        compound: _Compound = ...,
+        font: _FontDescription = ...,
+        foreground: _Color = ...,
+        hidemargin: bool = ...,
+        image: _ImageSpec = ...,
+        label: str = ...,
+        menu: Menu = ...,
+        state: Literal["normal", "active", "disabled"] = ...,
+        underline: int = ...,
+    ) -> None: ...
+    def add_checkbutton(
+        self,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        accelerator: str = ...,
+        activebackground: _Color = ...,
+        activeforeground: _Color = ...,
+        background: _Color = ...,
+        bitmap: _Bitmap = ...,
+        columnbreak: int = ...,
+        command: Union[Callable[[], Any], str] = ...,
+        compound: _Compound = ...,
+        font: _FontDescription = ...,
+        foreground: _Color = ...,
+        hidemargin: bool = ...,
+        image: _ImageSpec = ...,
+        indicatoron: bool = ...,
+        label: str = ...,
+        offvalue: Any = ...,
+        onvalue: Any = ...,
+        selectcolor: _Color = ...,
+        selectimage: _ImageSpec = ...,
+        state: Literal["normal", "active", "disabled"] = ...,
+        underline: int = ...,
+        variable: Variable = ...,
+    ) -> None: ...
+    def add_command(
+        self,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        accelerator: str = ...,
+        activebackground: _Color = ...,
+        activeforeground: _Color = ...,
+        background: _Color = ...,
+        bitmap: _Bitmap = ...,
+        columnbreak: int = ...,
+        command: Union[Callable[[], Any], str] = ...,
+        compound: _Compound = ...,
+        font: _FontDescription = ...,
+        foreground: _Color = ...,
+        hidemargin: bool = ...,
+        image: _ImageSpec = ...,
+        label: str = ...,
+        state: Literal["normal", "active", "disabled"] = ...,
+        underline: int = ...,
+    ) -> None: ...
+    def add_radiobutton(
+        self,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        accelerator: str = ...,
+        activebackground: _Color = ...,
+        activeforeground: _Color = ...,
+        background: _Color = ...,
+        bitmap: _Bitmap = ...,
+        columnbreak: int = ...,
+        command: Union[Callable[[], Any], str] = ...,
+        compound: _Compound = ...,
+        font: _FontDescription = ...,
+        foreground: _Color = ...,
+        hidemargin: bool = ...,
+        image: _ImageSpec = ...,
+        indicatoron: bool = ...,
+        label: str = ...,
+        selectcolor: _Color = ...,
+        selectimage: _ImageSpec = ...,
+        state: Literal["normal", "active", "disabled"] = ...,
+        underline: int = ...,
+        value: Any = ...,
+        variable: Variable = ...,
+    ) -> None: ...
+    def add_separator(self, cnf: Optional[Dict[str, Any]] = ..., *, background: _Color = ...) -> None: ...
+    def insert_cascade(
+        self,
+        index: _MenuIndex,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        accelerator: str = ...,
+        activebackground: _Color = ...,
+        activeforeground: _Color = ...,
+        background: _Color = ...,
+        bitmap: _Bitmap = ...,
+        columnbreak: int = ...,
+        command: Union[Callable[[], Any], str] = ...,
+        compound: _Compound = ...,
+        font: _FontDescription = ...,
+        foreground: _Color = ...,
+        hidemargin: bool = ...,
+        image: _ImageSpec = ...,
+        label: str = ...,
+        menu: Menu = ...,
+        state: Literal["normal", "active", "disabled"] = ...,
+        underline: int = ...,
+    ) -> None: ...
+    def insert_checkbutton(
+        self,
+        index: _MenuIndex,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        accelerator: str = ...,
+        activebackground: _Color = ...,
+        activeforeground: _Color = ...,
+        background: _Color = ...,
+        bitmap: _Bitmap = ...,
+        columnbreak: int = ...,
+        command: Union[Callable[[], Any], str] = ...,
+        compound: _Compound = ...,
+        font: _FontDescription = ...,
+        foreground: _Color = ...,
+        hidemargin: bool = ...,
+        image: _ImageSpec = ...,
+        indicatoron: bool = ...,
+        label: str = ...,
+        offvalue: Any = ...,
+        onvalue: Any = ...,
+        selectcolor: _Color = ...,
+        selectimage: _ImageSpec = ...,
+        state: Literal["normal", "active", "disabled"] = ...,
+        underline: int = ...,
+        variable: Variable = ...,
+    ) -> None: ...
+    def insert_command(
+        self,
+        index: _MenuIndex,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        accelerator: str = ...,
+        activebackground: _Color = ...,
+        activeforeground: _Color = ...,
+        background: _Color = ...,
+        bitmap: _Bitmap = ...,
+        columnbreak: int = ...,
+        command: Union[Callable[[], Any], str] = ...,
+        compound: _Compound = ...,
+        font: _FontDescription = ...,
+        foreground: _Color = ...,
+        hidemargin: bool = ...,
+        image: _ImageSpec = ...,
+        label: str = ...,
+        state: Literal["normal", "active", "disabled"] = ...,
+        underline: int = ...,
+    ) -> None: ...
+    def insert_radiobutton(
+        self,
+        index: _MenuIndex,
+        cnf: Optional[Dict[str, Any]] = ...,
+        *,
+        accelerator: str = ...,
+        activebackground: _Color = ...,
+        activeforeground: _Color = ...,
+        background: _Color = ...,
+        bitmap: _Bitmap = ...,
+        columnbreak: int = ...,
+        command: Union[Callable[[], Any], str] = ...,
+        compound: _Compound = ...,
+        font: _FontDescription = ...,
+        foreground: _Color = ...,
+        hidemargin: bool = ...,
+        image: _ImageSpec = ...,
+        indicatoron: bool = ...,
+        label: str = ...,
+        selectcolor: _Color = ...,
+        selectimage: _ImageSpec = ...,
+        state: Literal["normal", "active", "disabled"] = ...,
+        underline: int = ...,
+        value: Any = ...,
+        variable: Variable = ...,
+    ) -> None: ...
+    def insert_separator(self, index: _MenuIndex, cnf: Optional[Dict[str, Any]] = ..., *, background: _Color = ...) -> None: ...
     def delete(self, index1, index2: Optional[Any] = ...): ...
     def entrycget(self, index, option): ...
     def entryconfigure(self, index, cnf: Optional[Any] = ..., **kw): ...
@@ -1906,43 +1899,6 @@ class Menu(Widget):
     def unpost(self): ...
     def xposition(self, index): ...
     def yposition(self, index): ...
-
-_MenubuttonOptionName = Literal[
-    "activebackground",
-    "activeforeground",
-    "anchor",
-    "background",
-    "bd",
-    "bg",
-    "bitmap",
-    "border",
-    "borderwidth",
-    "compound",
-    "cursor",
-    "direction",
-    "disabledforeground",
-    "fg",
-    "font",
-    "foreground",
-    "height",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "image",
-    "indicatoron",
-    "justify",
-    "menu",
-    "padx",
-    "pady",
-    "relief",
-    "state",
-    "takefocus",
-    "text",
-    "textvariable",
-    "underline",
-    "width",
-    "wraplength",
-]
 
 class Menubutton(Widget):
     def __init__(
@@ -2027,34 +1983,8 @@ class Menubutton(Widget):
         wraplength: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _MenubuttonOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _MenubuttonOptionName) -> Any: ...
-
-_MessageOptionName = Literal[
-    "anchor",
-    "aspect",
-    "background",
-    "bd",
-    "bg",
-    "border",
-    "borderwidth",
-    "cursor",
-    "fg",
-    "font",
-    "foreground",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "justify",
-    "padx",
-    "pady",
-    "relief",
-    "takefocus",
-    "text",
-    "textvariable",
-    "width",
-]
 
 class Message(Widget):
     def __init__(
@@ -2116,53 +2046,8 @@ class Message(Widget):
         width: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _MessageOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _MessageOptionName) -> Any: ...
-
-_RadiobuttonOptionName = Literal[
-    "activebackground",
-    "activeforeground",
-    "anchor",
-    "background",
-    "bd",
-    "bg",
-    "bitmap",
-    "border",
-    "borderwidth",
-    "command",
-    "compound",
-    "cursor",
-    "disabledforeground",
-    "fg",
-    "font",
-    "foreground",
-    "height",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "image",
-    "indicatoron",
-    "justify",
-    "offrelief",
-    "overrelief",
-    "padx",
-    "pady",
-    "relief",
-    "selectcolor",
-    "selectimage",
-    "state",
-    "takefocus",
-    "text",
-    "textvariable",
-    "tristateimage",
-    "tristatevalue",
-    "underline",
-    "value",
-    "variable",
-    "width",
-    "wraplength",
-]
 
 class Radiobutton(Widget):
     def __init__(
@@ -2261,50 +2146,12 @@ class Radiobutton(Widget):
         wraplength: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _RadiobuttonOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _RadiobuttonOptionName) -> Any: ...
     def deselect(self): ...
     def flash(self): ...
     def invoke(self): ...
     def select(self): ...
-
-_ScaleOptionName = Literal[
-    "activebackground",
-    "background",
-    "bd",
-    "bg",
-    "bigincrement",
-    "border",
-    "borderwidth",
-    "command",
-    "cursor",
-    "digits",
-    "fg",
-    "font",
-    "foreground",
-    "from",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "label",
-    "length",
-    "orient",
-    "relief",
-    "repeatdelay",
-    "repeatinterval",
-    "resolution",
-    "showvalue",
-    "sliderlength",
-    "sliderrelief",
-    "state",
-    "takefocus",
-    "tickinterval",
-    "to",
-    "troughcolor",
-    "variable",
-    "width",
-]
 
 class Scale(Widget):
     def __init__(
@@ -2390,37 +2237,12 @@ class Scale(Widget):
         width: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _ScaleOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _ScaleOptionName) -> Any: ...
     def get(self): ...
     def set(self, value): ...
     def coords(self, value: Optional[Any] = ...): ...
     def identify(self, x, y): ...
-
-_ScrollbarOptionName = Literal[
-    "activebackground",
-    "activerelief",
-    "background",
-    "bd",
-    "bg",
-    "border",
-    "borderwidth",
-    "command",
-    "cursor",
-    "elementborderwidth",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "jump",
-    "orient",
-    "relief",
-    "repeatdelay",
-    "repeatinterval",
-    "takefocus",
-    "troughcolor",
-    "width",
-]
 
 class Scrollbar(Widget):
     def __init__(
@@ -2483,9 +2305,8 @@ class Scrollbar(Widget):
         width: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _ScrollbarOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _ScrollbarOptionName) -> Any: ...
     def activate(self, index: Optional[Any] = ...): ...
     def delta(self, deltax, deltay): ...
     def fraction(self, x, y): ...
@@ -2494,53 +2315,6 @@ class Scrollbar(Widget):
     def set(self, first, last): ...
 
 _TextIndex = Union[_tkinter.Tcl_Obj, str, float]
-_TextOptionName = Literal[
-    "autoseparators",
-    "background",
-    "bd",
-    "bg",
-    "blockcursor",
-    "border",
-    "borderwidth",
-    "cursor",
-    "endline",
-    "exportselection",
-    "fg",
-    "font",
-    "foreground",
-    "height",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "inactiveselectbackground",
-    "insertbackground",
-    "insertborderwidth",
-    "insertofftime",
-    "insertontime",
-    "insertunfocussed",
-    "insertwidth",
-    "maxundo",
-    "padx",
-    "pady",
-    "relief",
-    "selectbackground",
-    "selectborderwidth",
-    "selectforeground",
-    "setgrid",
-    "spacing1",
-    "spacing2",
-    "spacing3",
-    "startline",
-    "state",
-    "tabs",
-    "tabstyle",
-    "takefocus",
-    "undo",
-    "width",
-    "wrap",
-    "xscrollcommand",
-    "yscrollcommand",
-]
 
 class Text(Widget, XView, YView):
     def __init__(
@@ -2651,9 +2425,8 @@ class Text(Widget, XView, YView):
         yscrollcommand: _XYScrollCommand = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _TextOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _TextOptionName) -> Any: ...
     def bbox(self, index: _TextIndex) -> Optional[Tuple[int, int, int, int]]: ...  # type: ignore
     def compare(self, index1: _TextIndex, op: Literal["<", "<=", "==", ">=", ">", "!="], index2: _TextIndex) -> bool: ...
     def count(self, index1, index2, *args): ...  # TODO
@@ -2721,7 +2494,7 @@ class Text(Widget, XView, YView):
     def image_create(self, index, cnf=..., **kw): ...
     def image_names(self): ...
     def index(self, index: _TextIndex) -> str: ...
-    def insert(self, index: _TextIndex, chars: str, *args: Union[_TextIndex, str, _TkinterSequence[str]]) -> None: ...
+    def insert(self, index: _TextIndex, chars: str, *args: Union[str, _TkinterSequence[str]]) -> None: ...
     @overload
     def mark_gravity(self, markName: str, direction: None = ...) -> Literal["left", "right"]: ...
     @overload
@@ -2734,9 +2507,7 @@ class Text(Widget, XView, YView):
     # **kw of peer_create is same as the kwargs of Text.__init__
     def peer_create(self, newPathName: Union[str, Text], cnf: Dict[str, Any] = ..., **kw: Any) -> None: ...
     def peer_names(self) -> Tuple[_tkinter.Tcl_Obj, ...]: ...
-    def replace(
-        self, index1: _TextIndex, index2: _TextIndex, chars: str, *args: Union[_TextIndex, str, _TkinterSequence[str]]
-    ) -> None: ...
+    def replace(self, index1: _TextIndex, index2: _TextIndex, chars: str, *args: Union[str, _TkinterSequence[str]]) -> None: ...
     def scan_mark(self, x: int, y: int) -> None: ...
     def scan_dragto(self, x: int, y: int) -> None: ...
     def search(
@@ -2850,7 +2621,6 @@ class OptionMenu(Menubutton):
 
 class _Image(Protocol):
     tk: _tkinter.TkappType
-    def __del__(self) -> None: ...
     def height(self) -> int: ...
     def width(self) -> int: ...
 
@@ -2863,85 +2633,71 @@ class Image:
     def __del__(self): ...
     def __setitem__(self, key, value): ...
     def __getitem__(self, key): ...
-    def configure(self, **kw): ...
+    configure: Any
     config: Any
-    def height(self): ...
+    def height(self) -> int: ...
     def type(self): ...
-    def width(self): ...
+    def width(self) -> int: ...
 
 class PhotoImage(Image):
-    def __init__(self, name: Optional[Any] = ..., cnf=..., master: Optional[Any] = ..., **kw): ...
-    def blank(self): ...
-    def cget(self, option): ...
-    def __getitem__(self, key): ...
-    def copy(self): ...
-    def zoom(self, x, y: str = ...): ...
-    def subsample(self, x, y: str = ...): ...
-    def get(self, x, y): ...
-    def put(self, data, to: Optional[Any] = ...): ...
-    def write(self, filename, format: Optional[Any] = ..., from_coords: Optional[Any] = ...): ...
+    def __init__(
+        self,
+        name: Optional[str] = ...,
+        cnf: Dict[str, Any] = ...,
+        master: Optional[Union[Misc, _tkinter.TkappType]] = ...,
+        *,
+        data: str = ...,  # not same as data argument of put()
+        format: str = ...,
+        file: AnyPath = ...,
+        gamma: float = ...,
+        height: int = ...,
+        palette: Union[int, str] = ...,
+        width: int = ...,
+    ) -> None: ...
+    def configure(
+        self,
+        *,
+        data: str = ...,
+        format: str = ...,
+        file: AnyPath = ...,
+        gamma: float = ...,
+        height: int = ...,
+        palette: Union[int, str] = ...,
+        width: int = ...,
+    ) -> None: ...
+    config = configure
+    def blank(self) -> None: ...
+    def cget(self, option: str) -> str: ...
+    def __getitem__(self, key: str) -> str: ...  # always string: image['height'] can be '0'
+    def copy(self) -> PhotoImage: ...
+    def zoom(self, x: int, y: Union[int, Literal[""]] = ...) -> PhotoImage: ...
+    def subsample(self, x: int, y: Union[int, Literal[""]] = ...) -> PhotoImage: ...
+    def get(self, x: int, y: int) -> Tuple[int, int, int]: ...
+    def put(
+        self, data: Union[str, _TkinterSequence[str], _TkinterSequence2D[_Color]], to: Optional[Tuple[int, int]] = ...
+    ) -> None: ...
+    def write(self, filename: AnyPath, format: Optional[str] = ..., from_coords: Optional[Tuple[int, int]] = ...) -> None: ...
     if sys.version_info >= (3, 8):
         def transparency_get(self, x: int, y: int) -> bool: ...
         def transparency_set(self, x: int, y: int, boolean: bool) -> None: ...
 
 class BitmapImage(Image):
-    def __init__(self, name: Optional[Any] = ..., cnf=..., master: Optional[Any] = ..., **kw): ...
+    def __init__(
+        self,
+        name: Optional[Any] = ...,
+        cnf: Dict[str, Any] = ...,
+        master: Optional[Union[Misc, _tkinter.TkappType]] = ...,
+        *,
+        background: _Color = ...,
+        data: str = ...,
+        file: AnyPath = ...,
+        foreground: _Color = ...,
+        maskdata: str = ...,
+        maskfile: AnyPath = ...,
+    ) -> None: ...
 
-def image_names(): ...
-def image_types(): ...
-
-_SpinboxOptionName = Literal[
-    "activebackground",
-    "background",
-    "bd",
-    "bg",
-    "border",
-    "borderwidth",
-    "buttonbackground",
-    "buttoncursor",
-    "buttondownrelief",
-    "buttonuprelief",
-    "command",
-    "cursor",
-    "disabledbackground",
-    "disabledforeground",
-    "exportselection",
-    "fg",
-    "font",
-    "foreground",
-    "format",
-    "from",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "increment",
-    "insertbackground",
-    "insertborderwidth",
-    "insertofftime",
-    "insertontime",
-    "insertwidth",
-    "invalidcommand",
-    "invcmd",
-    "justify",
-    "readonlybackground",
-    "relief",
-    "repeatdelay",
-    "repeatinterval",
-    "selectbackground",
-    "selectborderwidth",
-    "selectforeground",
-    "state",
-    "takefocus",
-    "textvariable",
-    "to",
-    "validate",
-    "validatecommand",
-    "vcmd",
-    "values",
-    "width",
-    "wrap",
-    "xscrollcommand",
-]
+def image_names() -> Tuple[str, ...]: ...
+def image_types() -> Tuple[str, ...]: ...
 
 class Spinbox(Widget, XView):
     def __init__(
@@ -3059,9 +2815,8 @@ class Spinbox(Widget, XView):
         xscrollcommand: _XYScrollCommand = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _SpinboxOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _SpinboxOptionName) -> Any: ...
     def bbox(self, index): ...
     def delete(self, first, last: Optional[Any] = ...): ...
     def get(self): ...
@@ -3082,34 +2837,6 @@ class Spinbox(Widget, XView):
         def selection_present(self) -> None: ...
         def selection_range(self, start: int, end: int) -> None: ...
         def selection_to(self, index: int) -> None: ...
-
-_LabelFrameOptionName = Literal[
-    "background",
-    "bd",
-    "bg",
-    "border",
-    "borderwidth",
-    "class",
-    "colormap",
-    "container",
-    "cursor",
-    "fg",
-    "font",
-    "foreground",
-    "height",
-    "highlightbackground",
-    "highlightcolor",
-    "highlightthickness",
-    "labelanchor",
-    "labelwidget",
-    "padx",
-    "pady",
-    "relief",
-    "takefocus",
-    "text",
-    "visual",
-    "width",
-]
 
 class LabelFrame(Widget):
     def __init__(
@@ -3173,33 +2900,8 @@ class LabelFrame(Widget):
         width: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _LabelFrameOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _LabelFrameOptionName) -> Any: ...
-
-_PanedWindowOptionName = Literal[
-    "background",
-    "bd",
-    "bg",
-    "border",
-    "borderwidth",
-    "cursor",
-    "handlepad",
-    "handlesize",
-    "height",
-    "opaqueresize",
-    "orient",
-    "proxybackground",
-    "proxyborderwidth",
-    "proxyrelief",
-    "relief",
-    "sashcursor",
-    "sashpad",
-    "sashrelief",
-    "sashwidth",
-    "showhandle",
-    "width",
-]
 
 class PanedWindow(Widget):
     def __init__(
@@ -3258,9 +2960,8 @@ class PanedWindow(Widget):
         width: _ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _PanedWindowOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _PanedWindowOptionName) -> Any: ...
     def add(self, child, **kw): ...
     def remove(self, child): ...
     forget: Any

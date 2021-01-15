@@ -33,23 +33,6 @@ class Widget(tkinter.Widget):
     def instate(self, statespec, callback: Optional[Any] = ..., *args, **kw): ...
     def state(self, statespec: Optional[Any] = ...): ...
 
-_ButtonOptionName = Literal[
-    "class",
-    "command",
-    "compound",
-    "cursor",
-    "default",
-    "image",
-    "padding",
-    "state",
-    "style",
-    "takefocus",
-    "text",
-    "textvariable",
-    "underline",
-    "width",
-]
-
 class Button(Widget):
     def __init__(
         self,
@@ -91,29 +74,9 @@ class Button(Widget):
         width: Union[int, Literal[""]] = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _ButtonOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _ButtonOptionName) -> Any: ...
     def invoke(self): ...
-
-_CheckbuttonOptionName = Literal[
-    "class",
-    "command",
-    "compound",
-    "cursor",
-    "image",
-    "offvalue",
-    "onvalue",
-    "padding",
-    "state",
-    "style",
-    "takefocus",
-    "text",
-    "textvariable",
-    "underline",
-    "variable",
-    "width",
-]
 
 class Checkbutton(Widget):
     def __init__(
@@ -163,30 +126,9 @@ class Checkbutton(Widget):
         width: Union[int, Literal[""]] = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _CheckbuttonOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _CheckbuttonOptionName) -> Any: ...
     def invoke(self): ...
-
-_EntryOptionName = Literal[
-    "background",
-    "class",
-    "cursor",
-    "exportselection",
-    "font",
-    "foreground",
-    "invalidcommand",
-    "justify",
-    "show",
-    "state",
-    "style",
-    "takefocus",
-    "textvariable",
-    "validate",
-    "validatecommand",
-    "width",
-    "xscrollcommand",
-]
 
 class Entry(Widget, tkinter.Entry):
     def __init__(
@@ -236,7 +178,7 @@ class Entry(Widget, tkinter.Entry):
         xscrollcommand: tkinter._XYScrollCommand = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _EntryOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     # config must be copy/pasted, otherwise ttk.Entry().config is mypy error (don't know why)
     @overload  # type: ignore
     def config(
@@ -261,34 +203,10 @@ class Entry(Widget, tkinter.Entry):
         xscrollcommand: tkinter._XYScrollCommand = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def config(self, cnf: _EntryOptionName) -> Tuple[str, str, str, Any, Any]: ...
-    def cget(self, key: _EntryOptionName) -> Any: ...  # type: ignore
+    def config(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     def bbox(self, index): ...
     def identify(self, x, y): ...
     def validate(self): ...
-
-_ComboboxOptionName = Literal[
-    "background",
-    "class",
-    "cursor",
-    "exportselection",
-    "font",
-    "foreground",
-    "height",
-    "invalidcommand",
-    "justify",
-    "postcommand",
-    "show",
-    "state",
-    "style",
-    "takefocus",
-    "textvariable",
-    "validate",
-    "validatecommand",
-    "values",
-    "width",
-    "xscrollcommand",
-]
 
 class Combobox(Entry):
     def __init__(
@@ -343,7 +261,7 @@ class Combobox(Entry):
         xscrollcommand: tkinter._XYScrollCommand = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _ComboboxOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     # config must be copy/pasted, otherwise ttk.Combobox().config is mypy error (don't know why)
     @overload  # type: ignore
     def config(
@@ -371,14 +289,9 @@ class Combobox(Entry):
         xscrollcommand: tkinter._XYScrollCommand = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def config(self, cnf: _ComboboxOptionName) -> Tuple[str, str, str, Any, Any]: ...
-    def cget(self, key: _ComboboxOptionName) -> Any: ...  # type: ignore
+    def config(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     def current(self, newindex: Optional[Any] = ...): ...
     def set(self, value): ...
-
-_FrameOptionName = Literal[
-    "border", "borderwidth", "class", "cursor", "height", "padding", "relief", "style", "takefocus", "width"
-]
 
 class Frame(Widget):
     def __init__(
@@ -413,33 +326,8 @@ class Frame(Widget):
         width: tkinter._ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _FrameOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _FrameOptionName) -> Any: ...
-
-_LabelOptionName = Literal[
-    "anchor",
-    "background",
-    "border",
-    "borderwidth",
-    "class",
-    "compound",
-    "cursor",
-    "font",
-    "foreground",
-    "image",
-    "justify",
-    "padding",
-    "relief",
-    "state",
-    "style",
-    "takefocus",
-    "text",
-    "textvariable",
-    "underline",
-    "width",
-    "wraplength",
-]
 
 class Label(Widget):
     def __init__(
@@ -496,26 +384,8 @@ class Label(Widget):
         wraplength: tkinter._ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _LabelOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _LabelOptionName) -> Any: ...
-
-_LabelframeOptionName = Literal[
-    "border",
-    "borderwidth",
-    "class",
-    "cursor",
-    "height",
-    "labelanchor",
-    "labelwidget",
-    "padding",
-    "relief",
-    "style",
-    "takefocus",
-    "text",
-    "underline",
-    "width",
-]
 
 class Labelframe(Widget):
     def __init__(
@@ -558,28 +428,10 @@ class Labelframe(Widget):
         width: tkinter._ScreenUnits = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _LabelframeOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _LabelframeOptionName) -> Any: ...
 
 LabelFrame = Labelframe
-
-_MenubuttonOptionName = Literal[
-    "class",
-    "compound",
-    "cursor",
-    "direction",
-    "image",
-    "menu",
-    "padding",
-    "state",
-    "style",
-    "takefocus",
-    "text",
-    "textvariable",
-    "underline",
-    "width",
-]
 
 class Menubutton(Widget):
     def __init__(
@@ -622,11 +474,8 @@ class Menubutton(Widget):
         width: Union[int, Literal[""]] = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _MenubuttonOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _MenubuttonOptionName) -> Any: ...
-
-_NotebookOptionName = Literal["class", "cursor", "height", "padding", "style", "takefocus", "width"]
 
 class Notebook(Widget):
     def __init__(
@@ -655,9 +504,8 @@ class Notebook(Widget):
         width: int = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _NotebookOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _NotebookOptionName) -> Any: ...
     def add(self, child, **kw): ...
     def forget(self, tab_id): ...
     def hide(self, tab_id): ...
@@ -668,8 +516,6 @@ class Notebook(Widget):
     def tab(self, tab_id, option: Optional[Any] = ..., **kw): ...
     def tabs(self): ...
     def enable_traversal(self): ...
-
-_PanedwindowOptionName = Literal["class", "cursor", "height", "orient", "style", "takefocus", "width"]
 
 class Panedwindow(Widget, tkinter.PanedWindow):
     def __init__(
@@ -698,7 +544,7 @@ class Panedwindow(Widget, tkinter.PanedWindow):
         width: int = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _PanedwindowOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     # config must be copy/pasted, otherwise ttk.Panedwindow().config is mypy error (don't know why)
     @overload  # type: ignore
     def config(
@@ -712,18 +558,13 @@ class Panedwindow(Widget, tkinter.PanedWindow):
         width: int = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def config(self, cnf: _PanedwindowOptionName) -> Tuple[str, str, str, Any, Any]: ...
-    def cget(self, key: _PanedwindowOptionName) -> Any: ...  # type: ignore
+    def config(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     forget: Any
     def insert(self, pos, child, **kw): ...
     def pane(self, pane, option: Optional[Any] = ..., **kw): ...
     def sashpos(self, index, newpos: Optional[Any] = ...): ...
 
 PanedWindow = Panedwindow
-
-_ProgressbarOptionName = Literal[
-    "class", "cursor", "length", "maximum", "mode", "orient", "phase", "style", "takefocus", "value", "variable"
-]
 
 class Progressbar(Widget):
     def __init__(
@@ -760,30 +601,11 @@ class Progressbar(Widget):
         variable: tkinter.DoubleVar = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _ProgressbarOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _ProgressbarOptionName) -> Any: ...
     def start(self, interval: Optional[Any] = ...): ...
     def step(self, amount: Optional[Any] = ...): ...
     def stop(self): ...
-
-_RadiobuttonOptionName = Literal[
-    "class",
-    "command",
-    "compound",
-    "cursor",
-    "image",
-    "padding",
-    "state",
-    "style",
-    "takefocus",
-    "text",
-    "textvariable",
-    "underline",
-    "value",
-    "variable",
-    "width",
-]
 
 class Radiobutton(Widget):
     def __init__(
@@ -828,14 +650,9 @@ class Radiobutton(Widget):
         width: Union[int, Literal[""]] = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _RadiobuttonOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _RadiobuttonOptionName) -> Any: ...
     def invoke(self): ...
-
-_ScaleOptionName = Literal[
-    "class", "command", "cursor", "from", "length", "orient", "state", "style", "takefocus", "to", "value", "variable"
-]
 
 class Scale(Widget, tkinter.Scale):
     def __init__(
@@ -874,7 +691,7 @@ class Scale(Widget, tkinter.Scale):
         variable: tkinter.DoubleVar = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _ScaleOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     # config must be copy/pasted, otherwise ttk.Scale().config is mypy error (don't know why)
     @overload  # type: ignore
     def config(
@@ -894,11 +711,8 @@ class Scale(Widget, tkinter.Scale):
         variable: tkinter.DoubleVar = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def config(self, cnf: _ScaleOptionName) -> Tuple[str, str, str, Any, Any]: ...
-    def cget(self, key: _ScaleOptionName) -> Any: ...  # type: ignore
+    def config(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     def get(self, x: Optional[Any] = ..., y: Optional[Any] = ...): ...
-
-_ScrollbarOptionName = Literal["class", "command", "cursor", "orient", "style", "takefocus"]
 
 class Scrollbar(Widget, tkinter.Scrollbar):
     def __init__(
@@ -925,7 +739,7 @@ class Scrollbar(Widget, tkinter.Scrollbar):
         takefocus: tkinter._TakeFocusValue = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _ScrollbarOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     # config must be copy/pasted, otherwise ttk.Scrollbar().config is mypy error (don't know why)
     @overload  # type: ignore
     def config(
@@ -939,10 +753,7 @@ class Scrollbar(Widget, tkinter.Scrollbar):
         takefocus: tkinter._TakeFocusValue = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def config(self, cnf: _ScrollbarOptionName) -> Tuple[str, str, str, Any, Any]: ...
-    def cget(self, key: _ScrollbarOptionName) -> Any: ...  # type: ignore
-
-_SeparatorOptionName = Literal["class", "cursor", "orient", "style", "takefocus"]
+    def config(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
 
 class Separator(Widget):
     def __init__(
@@ -967,11 +778,8 @@ class Separator(Widget):
         takefocus: tkinter._TakeFocusValue = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _SeparatorOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _SeparatorOptionName) -> Any: ...
-
-_SizegripOptionName = Literal["class", "cursor", "style", "takefocus"]
 
 class Sizegrip(Widget):
     def __init__(
@@ -994,37 +802,10 @@ class Sizegrip(Widget):
         takefocus: tkinter._TakeFocusValue = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _SizegripOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _SizegripOptionName) -> Any: ...
 
 if sys.version_info >= (3, 7):
-    _SpinboxOptionName = Literal[
-        "background",
-        "class",
-        "command",
-        "cursor",
-        "exportselection",
-        "font",
-        "foreground",
-        "format",
-        "from",
-        "increment",
-        "invalidcommand",
-        "justify",
-        "show",
-        "state",
-        "style",
-        "takefocus",
-        "textvariable",
-        "to",
-        "validate",
-        "validatecommand",
-        "values",
-        "width",
-        "wrap",
-        "xscrollcommand",
-    ]
     class Spinbox(Entry):
         def __init__(
             self,
@@ -1086,25 +867,9 @@ if sys.version_info >= (3, 7):
             xscrollcommand: tkinter._XYScrollCommand = ...,
         ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
         @overload
-        def configure(self, cnf: _SpinboxOptionName) -> Tuple[str, str, str, Any, Any]: ...
+        def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
         config = configure  # type: ignore
-        def cget(self, key: _SpinboxOptionName) -> Any: ...  # type: ignore
         def set(self, value: Any) -> None: ...
-
-_TreeviewOptionName = Literal[
-    "class",
-    "columns",
-    "cursor",
-    "displaycolumns",
-    "height",
-    "padding",
-    "selectmode",
-    "show",
-    "style",
-    "takefocus",
-    "xscrollcommand",
-    "yscrollcommand",
-]
 
 class Treeview(Widget, tkinter.XView, tkinter.YView):
     def __init__(
@@ -1147,9 +912,8 @@ class Treeview(Widget, tkinter.XView, tkinter.YView):
         yscrollcommand: tkinter._XYScrollCommand = ...,
     ) -> Optional[Dict[str, Tuple[str, str, str, Any, Any]]]: ...
     @overload
-    def configure(self, cnf: _TreeviewOptionName) -> Tuple[str, str, str, Any, Any]: ...
+    def configure(self, cnf: str) -> Tuple[str, str, str, Any, Any]: ...
     config = configure
-    def cget(self, key: _TreeviewOptionName) -> Any: ...
     def bbox(self, item, column: Optional[Any] = ...): ...  # type: ignore
     def get_children(self, item: Optional[Any] = ...): ...
     def set_children(self, item, *newchildren): ...
