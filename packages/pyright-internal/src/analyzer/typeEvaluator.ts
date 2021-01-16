@@ -12318,7 +12318,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Cache the value for next time.
-        callIsNoReturnCache.set(node.id, cmSwallowsExceptions);
+        isExceptionContextManagerCache.set(node.id, cmSwallowsExceptions);
 
         return cmSwallowsExceptions;
     }

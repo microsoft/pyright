@@ -5,7 +5,7 @@
 from contextlib import suppress
 
 
-def test() -> None:
+def test1() -> None:
     class A:
         b: str
 
@@ -26,3 +26,13 @@ def test() -> None:
     # This should not generate an error because
     # the code is unreachable.
     return 3
+
+
+def test2() -> None:
+    some_dict = dict()
+    some_string = "HELLO"
+
+    with suppress(KeyError):
+        print(some_dict["missing_key"])
+
+    print(some_string.lower())
