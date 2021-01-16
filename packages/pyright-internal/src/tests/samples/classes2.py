@@ -64,6 +64,11 @@ class ParentClass:
     def my_method16(self, a: int) -> int:
         return 1
 
+    def _protected_method1(self, a: int):
+        return 1
+
+    def __private_method1(self, a: int):
+        return 1
 
 class ChildClass(ParentClass):
     # This should generate an error because the type of 'a' doesn't match.
@@ -127,6 +132,13 @@ class ChildClass(ParentClass):
     # method with a class.
     class my_method16:
         pass
+
+    # This should generate an error.
+    def _protected_method1(self):
+        return 1
+
+    def __private_method1(self):
+        return 1
 
 
 class A:

@@ -2216,7 +2216,7 @@ export class Checker extends ParseTreeWalker {
 
                 if (overrideFunction) {
                     // Don't check magic functions or private symbols.
-                    if (!SymbolNameUtils.isDunderName(name) && !SymbolNameUtils.isPrivateOrProtectedName(name)) {
+                    if (!SymbolNameUtils.isDunderName(name) && !SymbolNameUtils.isPrivateName(name)) {
                         if (!this._evaluator.canOverrideMethod(baseClassSymbolType, overrideFunction, diagAddendum)) {
                             const decl = overrideFunction.details.declaration;
                             if (decl && decl.type === DeclarationType.Function) {
