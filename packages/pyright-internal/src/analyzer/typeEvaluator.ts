@@ -1288,6 +1288,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     unboundMethodType,
                     /* memberClass */ undefined,
                     /* errorNode */ undefined,
+                    /* recursionCount */ undefined,
                     treatConstructorAsClassMember
                 );
 
@@ -1622,6 +1623,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 setItemType,
                                 isClass(setItemMember.classType) ? setItemMember.classType : undefined,
                                 expression,
+                                /* recursionCount */ undefined,
                                 /* treatConstructorAsClassMember */ false
                             );
                             if (boundFunction && isFunction(boundFunction)) {
@@ -3254,6 +3256,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 memberType,
                 classMember && isClass(classMember.classType) ? classMember.classType : undefined,
                 errorNode,
+                /* recursionCount */ undefined,
                 /* treatConstructorAsClassMember */ false,
                 /* firstParamType */ bindToClass
             );
@@ -4264,6 +4267,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         subtype,
                         memberInfo && isClass(memberInfo.classType) ? memberInfo.classType : undefined,
                         errorNode,
+                        /* recursionCount */ undefined,
                         treatConstructorAsClassMember,
                         bindToType
                     );
@@ -14985,6 +14989,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     srcMemberType,
                                     /* memberClass */ undefined,
                                     /* errorNode */ undefined,
+                                    recursionCount + 1,
                                     /* treatConstructorAsClassMember */ false,
                                     srcType
                                 );
@@ -14998,6 +15003,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                         declaredType,
                                         /* memberClass */ undefined,
                                         /* errorNode */ undefined,
+                                        recursionCount + 1,
                                         /* treatConstructorAsClassMember */ false,
                                         srcType
                                     );
@@ -15019,7 +15025,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     const boundDeclaredType = bindFunctionToClassOrObject(
                                         ObjectType.create(srcType),
                                         declaredType,
-                                        memberInfo.classType
+                                        memberInfo.classType,
+                                        /* errorNode */ undefined,
+                                        recursionCount + 1
                                     );
                                     if (boundDeclaredType) {
                                         declaredType = boundDeclaredType;
@@ -17576,6 +17584,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberType: FunctionType | OverloadedFunctionType,
         memberClass?: ClassType,
         errorNode?: ParseNode,
+        recursionCount = 0,
         treatConstructorAsClassMember = false,
         firstParamType?: ClassType | ObjectType | TypeVarType
     ): FunctionType | OverloadedFunctionType | undefined {
@@ -17593,6 +17602,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberType,
                     memberClass || baseObj.classType,
                     errorNode,
+                    recursionCount + 1,
                     firstParamType || baseObj,
                     /* stripFirstParam */ isObject(baseType)
                 );
@@ -17617,6 +17627,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberType,
                     memberClass || baseClass,
                     errorNode,
+                    recursionCount + 1,
                     effectiveFirstParamType,
                     /* stripFirstParam */ true
                 );
@@ -17630,6 +17641,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     memberType,
                     memberClass || baseClass,
                     errorNode,
+                    recursionCount + 1,
                     /* effectiveFirstParamType */ undefined,
                     /* stripFirstParam */ false
                 );
@@ -17642,6 +17654,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     overload,
                     memberClass,
                     /* errorNode */ undefined,
+                    recursionCount + 1,
                     treatConstructorAsClassMember,
                     firstParamType
                 );
@@ -17662,6 +17675,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             overload,
                             memberClass,
                             errorNode,
+                            recursionCount + 1,
                             treatConstructorAsClassMember,
                             firstParamType
                         );
@@ -17687,6 +17701,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         memberType: FunctionType,
         memberClass: ClassType,
         errorNode: ParseNode | undefined,
+        recursionCount: number,
         firstParamType: ClassType | ObjectType | TypeVarType | undefined,
         stripFirstParam = true
     ): FunctionType | undefined {
@@ -17720,7 +17735,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (!typeVarMap.isLocked()) {
                     typeVarMap.setTypeVar(firstParam.type, nonLiteralFirstParamType, /* isNarrowable */ false);
                 }
-            } else if (!canAssignType(firstParam.type, nonLiteralFirstParamType, diag, typeVarMap)) {
+            } else if (
+                !canAssignType(
+                    firstParam.type,
+                    nonLiteralFirstParamType,
+                    diag,
+                    typeVarMap,
+                    /* flags */ undefined,
+                    recursionCount + 1
+                )
+            ) {
                 if (firstParam.name && !firstParam.isNameSynthesized && firstParam.hasDeclaredType) {
                     if (errorNode) {
                         addDiagnostic(
