@@ -735,6 +735,7 @@ export class Binder extends ParseTreeWalker {
         const evaluationNode = ParseTreeUtils.getEvaluationNodeForAssignmentExpression(node);
         if (!evaluationNode) {
             this._addError(Localizer.Diagnostic.assignmentExprContext(), node);
+            this.walk(node.name);
         } else {
             // Bind the name to the containing scope. This special logic is required
             // because of the behavior defined in PEP 572. Targets of assignment
@@ -761,9 +762,8 @@ export class Binder extends ParseTreeWalker {
 
             this._bindNameToScope(containerScope, node.name.value);
             this._addInferredTypeAssignmentForVariable(node.name, node.rightExpression);
+            this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ true, /* unbound */ false);
         }
-
-        this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ true, /* unbound */ false);
 
         return false;
     }

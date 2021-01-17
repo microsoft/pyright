@@ -46,3 +46,8 @@ Foo.do_something = patch2
 
 # This should generate an error because of a param count mismatch
 Foo.do_something = patch1
+
+class Class1:
+    # This should generate an error because assignment expressions
+    # can't be used within a class.
+    [(j := i) for i in range(5)]
