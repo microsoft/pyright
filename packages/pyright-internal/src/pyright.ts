@@ -66,6 +66,7 @@ interface PyrightPublicModuleReport {
 interface PyrightPublicSymbolReport {
     name: string;
     fullName: string;
+    alternateNames?: string[];
     symbolType: string;
 }
 
@@ -383,6 +384,11 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
                 fullName: symbol.fullName,
                 symbolType: PackageTypeVerifier.getSymbolTypeString(symbol.symbolType),
             };
+
+            const alternateNames = completenessReport.alternateSymbolNames.get(symbol.fullName);
+            if (alternateNames) {
+                jsonSymbol.alternateNames = alternateNames;
+            }
 
             jsonModule.symbols.push(jsonSymbol);
         });
