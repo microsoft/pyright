@@ -100,7 +100,7 @@ import {
 } from './declaration';
 import { isExplicitTypeAliasDeclaration, isPossibleTypeAliasDeclaration } from './declarationUtils';
 import * as ParseTreeUtils from './parseTreeUtils';
-import { ScopeType } from './scope';
+import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
@@ -3403,8 +3403,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             setSymbolAccessed(fileInfo, symbol, node);
         } else {
-            // Handle the special case of "reveal_type".
-            if (name !== 'reveal_type') {
+            // Handle the special case of "reveal_type" and "reveal_locals".
+            if (name !== 'reveal_type' && name !== 'reveal_locals') {
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportUndefinedVariable,
                     DiagnosticRule.reportUndefinedVariable,
@@ -5156,19 +5156,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 node.arguments[0].name === undefined
             ) {
                 // Handle the special-case "reveal_type" call.
-                const type = getTypeOfExpression(node.arguments[0].valueExpression).type;
-                const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
-                const typeString = printType(type);
-                addInformation(`Type of "${exprString}" is "${typeString}"`, node.arguments[0]);
-
-                // Return a literal string with the type. We can use this in unit tests
-                // to validate the exact type.
-                const strType = getBuiltInType(node, 'str');
-                if (isClass(strType)) {
-                    returnResult.type = ObjectType.create(ClassType.cloneWithLiteral(strType, typeString));
-                } else {
-                    returnResult.type = AnyType.create();
-                }
+                returnResult.type = getTypeFromRevealType(node);
+            } else if (
+                isAnyOrUnknown(baseTypeResult.type) &&
+                node.leftExpression.nodeType === ParseNodeType.Name &&
+                node.leftExpression.value === 'reveal_locals' &&
+                node.arguments.length === 0
+            ) {
+                // Handle the special-case "reveal_locals" call.
+                returnResult.type = getTypeFromRevealLocals(node);
             } else {
                 returnResult.type =
                     validateCallArguments(
@@ -5192,6 +5188,63 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
 
         return returnResult;
+    }
+
+    function getTypeFromRevealType(node: CallNode) {
+        const type = getTypeOfExpression(node.arguments[0].valueExpression).type;
+        const exprString = ParseTreeUtils.printExpression(node.arguments[0].valueExpression);
+        const typeString = printType(type);
+        addInformation(
+            Localizer.DiagnosticAddendum.typeOfSymbol().format({ name: exprString, type: typeString }),
+            node.arguments[0]
+        );
+
+        // Return a literal string with the type. We can use this in unit tests
+        // to validate the exact type.
+        const strType = getBuiltInType(node, 'str');
+        if (isClass(strType)) {
+            return ObjectType.create(ClassType.cloneWithLiteral(strType, typeString));
+        }
+
+        return AnyType.create();
+    }
+
+    function getTypeFromRevealLocals(node: CallNode) {
+        let curNode: ParseNode | undefined = node;
+        let scope: Scope | undefined;
+
+        while (curNode) {
+            scope = ScopeUtils.getScopeForNode(curNode);
+
+            // Stop when we get a valid scope that's not a list comprehension
+            // scope. That includes lambdas, functions, classes, and modules.
+            if (scope && scope.type !== ScopeType.ListComprehension) {
+                break;
+            }
+
+            curNode = curNode.parent;
+        }
+
+        const infoMessages: string[] = [];
+
+        if (scope) {
+            scope.symbolTable.forEach((symbol, name) => {
+                if (!symbol.isIgnoredForProtocolMatch()) {
+                    const typeOfSymbol = getEffectiveTypeOfSymbol(symbol);
+                    infoMessages.push(
+                        Localizer.DiagnosticAddendum.typeOfSymbol().format({ name, type: printType(typeOfSymbol) })
+                    );
+                }
+            });
+        }
+
+        if (infoMessages.length > 0) {
+            addInformation(infoMessages.join('\n'), node);
+        } else {
+            addInformation(Localizer.Diagnostic.revealLocalsNone(), node);
+        }
+
+        return NoneType.createInstance();
     }
 
     function getTypeFromSuperCall(node: CallNode): TypeResult {

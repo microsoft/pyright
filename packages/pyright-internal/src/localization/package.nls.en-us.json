@@ -243,6 +243,7 @@
         "returnTypeMismatch": "Expression of type \"{exprType}\" cannot be assigned to return type \"{returnType}\"",
         "returnTypeUnknown": "Return type is unknown",
         "returnTypePartiallyUnknown": "Return type, \"{returnType}\", is partially unknown",
+        "revealLocalsNone": "No locals in this scope",
         "setterGetterTypeMismatch": "Property setter value type is not assignable to the getter return type",
         "singleOverload": "\"{name}\" is marked as overload, but additional overloads are missing",
         "staticClsSelfParam": "Static methods should not take a \"self\" or \"cls\" parameter",
