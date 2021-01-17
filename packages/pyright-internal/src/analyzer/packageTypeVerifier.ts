@@ -697,7 +697,12 @@ export class PackageTypeVerifier {
                                 typeStack
                             )
                         ) {
-                            subDiag.addMessage(`Type partially unknown for parameter "${param.name}"`);
+                            subDiag.addMessage(
+                                `Type "${this._program.printType(
+                                    param.type,
+                                    /* expandTypeAlias */ false
+                                )}" partially unknown for parameter "${param.name}"`
+                            );
                             isKnown = false;
                         }
                     }
@@ -717,7 +722,12 @@ export class PackageTypeVerifier {
                             typeStack
                         )
                     ) {
-                        subDiag.addMessage(`Return type partially unknown`);
+                        subDiag.addMessage(
+                            `Return type "${this._program.printType(
+                                type.details.declaredReturnType,
+                                /* expandTypeAlias */ false
+                            )}" partially unknown`
+                        );
                         isKnown = false;
                     }
                 } else {
