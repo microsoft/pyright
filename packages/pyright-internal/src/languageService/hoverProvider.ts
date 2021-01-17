@@ -166,7 +166,7 @@ export class HoverProvider {
                 if (type && TypeBase.isInstantiable(type)) {
                     const typeAliasInfo = getTypeAliasInfo(type);
                     if (typeAliasInfo) {
-                        if (typeAliasInfo.aliasName === typeNode.value) {
+                        if (typeAliasInfo.name === typeNode.value) {
                             expandTypeAlias = true;
                         }
 

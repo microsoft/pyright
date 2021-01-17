@@ -1850,9 +1850,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const newType = FunctionType.createInstance(
             '__new__',
             '',
+            '',
             FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
         );
-        const initType = FunctionType.createInstance('__init__', '', FunctionTypeFlags.SynthesizedMethod);
+        const initType = FunctionType.createInstance('__init__', '', '', FunctionTypeFlags.SynthesizedMethod);
 
         FunctionType.addParameter(newType, {
             category: ParameterCategory.Simple,
@@ -2037,7 +2038,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const synthesizeComparisonMethod = (operator: string, paramType: Type) => {
-            const operatorMethod = FunctionType.createInstance(operator, '', FunctionTypeFlags.SynthesizedMethod);
+            const operatorMethod = FunctionType.createInstance(operator, '', '', FunctionTypeFlags.SynthesizedMethod);
             FunctionType.addParameter(operatorMethod, selfParam);
             FunctionType.addParameter(operatorMethod, {
                 category: ParameterCategory.Simple,
@@ -2089,6 +2090,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const newType = FunctionType.createInstance(
             '__new__',
             '',
+            '',
             FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
         );
         FunctionType.addParameter(newType, {
@@ -2101,7 +2103,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         newType.details.declaredReturnType = ObjectType.create(classType);
 
         // Synthesize an __init__ method.
-        const initType = FunctionType.createInstance('__init__', '', FunctionTypeFlags.SynthesizedMethod);
+        const initType = FunctionType.createInstance('__init__', '', '', FunctionTypeFlags.SynthesizedMethod);
         FunctionType.addParameter(initType, {
             category: ParameterCategory.Simple,
             name: 'self',
@@ -2151,6 +2153,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const getOverload = FunctionType.createInstance(
                     'get',
                     '',
+                    '',
                     FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
                 );
                 FunctionType.addParameter(getOverload, selfParam);
@@ -2182,6 +2185,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const popOverload1 = FunctionType.createInstance(
                     'pop',
                     '',
+                    '',
                     FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
                 );
                 FunctionType.addParameter(popOverload1, selfParam);
@@ -2190,6 +2194,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 const popOverload2 = FunctionType.createInstance(
                     'pop',
+                    '',
                     '',
                     FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
                 );
@@ -2210,6 +2215,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const createSetDefaultMethod = (keyType: Type, valueType: Type, isEntryRequired = false) => {
                 const setDefaultOverload = FunctionType.createInstance(
                     'setdefault',
+                    '',
                     '',
                     FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
                 );
@@ -2237,6 +2243,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const createDelItemMethod = (keyType: Type) => {
                 const delItemOverload = FunctionType.createInstance(
                     'delitem',
+                    '',
                     '',
                     FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
                 );
@@ -3371,7 +3378,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
                         DiagnosticRule.reportMissingTypeArgument,
                         Localizer.Diagnostic.typeArgsMissingForAlias().format({
-                            name: type.typeAliasInfo.aliasName,
+                            name: type.typeAliasInfo.name,
                         }),
                         node
                     );
@@ -4477,7 +4484,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 type = TypeBase.cloneForTypeAlias(
                     type,
-                    baseType.typeAliasInfo.aliasName,
+                    baseType.typeAliasInfo.name,
+                    baseType.typeAliasInfo.fullName,
                     baseType.typeAliasInfo.typeVarScopeId,
                     baseType.typeAliasInfo.typeParameters,
                     typeArgs
@@ -4492,6 +4500,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const type = TypeBase.cloneForTypeAlias(
                 baseType,
                 baseType.details.recursiveTypeAliasName!,
+                '',
                 baseType.details.recursiveTypeAliasScopeId!,
                 undefined,
                 typeArgTypes
@@ -7004,6 +7013,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return nameParts.reverse().join('.');
     }
 
+    function getFunctionFullName(functionNode: ParseNode, moduleName: string, functionName: string): string {
+        const nameParts: string[] = [functionName];
+
+        let curNode: ParseNode | undefined = functionNode;
+
+        // Walk the parse tree looking for classes or functions.
+        while (curNode) {
+            curNode = ParseTreeUtils.getEnclosingClassOrFunction(curNode);
+            if (curNode) {
+                nameParts.push(curNode.name.value);
+            }
+        }
+
+        nameParts.push(moduleName);
+
+        return nameParts.reverse().join('.');
+    }
+
     // Creates a new custom enum class with named values.
     function createEnumType(
         errorNode: ExpressionNode,
@@ -7134,7 +7161,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 computeMroLinearization(classType);
 
                 // Synthesize an __init__ method that accepts only the specified type.
-                const initType = FunctionType.createInstance('__init__', '', FunctionTypeFlags.SynthesizedMethod);
+                const initType = FunctionType.createInstance('__init__', '', '', FunctionTypeFlags.SynthesizedMethod);
                 FunctionType.addParameter(initType, {
                     category: ParameterCategory.Simple,
                     name: 'self',
@@ -7153,6 +7180,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Synthesize a trivial __new__ method.
                 const newType = FunctionType.createInstance(
                     '__new__',
+                    '',
                     '',
                     FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
                 );
@@ -7430,6 +7458,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const constructorType = FunctionType.createInstance(
             '__new__',
             '',
+            '',
             FunctionTypeFlags.ConstructorMethod | FunctionTypeFlags.SynthesizedMethod
         );
         constructorType.details.declaredReturnType = ObjectType.create(classType);
@@ -7611,6 +7640,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const initType = FunctionType.createInstance(
             '__init__',
             '',
+            '',
             FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.SkipConstructorCheck
         );
         FunctionType.addParameter(initType, selfParameter);
@@ -7620,8 +7650,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         classFields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, constructorType));
         classFields.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
 
-        const keysItemType = FunctionType.createInstance('keys', '', FunctionTypeFlags.SynthesizedMethod);
-        const itemsItemType = FunctionType.createInstance('items', '', FunctionTypeFlags.SynthesizedMethod);
+        const keysItemType = FunctionType.createInstance('keys', '', '', FunctionTypeFlags.SynthesizedMethod);
+        const itemsItemType = FunctionType.createInstance('items', '', '', FunctionTypeFlags.SynthesizedMethod);
         keysItemType.details.declaredReturnType = getBuiltInObject(errorNode, 'list', [
             getBuiltInObject(errorNode, 'str'),
         ]);
@@ -7629,7 +7659,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         classFields.set('keys', Symbol.createWithType(SymbolFlags.InstanceMember, keysItemType));
         classFields.set('items', Symbol.createWithType(SymbolFlags.InstanceMember, itemsItemType));
 
-        const lenType = FunctionType.createInstance('__len__', '', FunctionTypeFlags.SynthesizedMethod);
+        const lenType = FunctionType.createInstance('__len__', '', '', FunctionTypeFlags.SynthesizedMethod);
         lenType.details.declaredReturnType = getBuiltInObject(errorNode, 'int');
         FunctionType.addParameter(lenType, selfParameter);
         classFields.set('__len__', Symbol.createWithType(SymbolFlags.ClassMember, lenType));
@@ -7637,6 +7667,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (addGenericGetAttribute) {
             const getAttribType = FunctionType.createInstance(
                 '__getattribute__',
+                '',
                 '',
                 FunctionTypeFlags.SynthesizedMethod
             );
@@ -8821,7 +8852,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypeFromLambda(node: LambdaNode, expectedType: Type | undefined): TypeResult {
-        const functionType = FunctionType.createInstance('', '', FunctionTypeFlags.None);
+        const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.None);
 
         // Pre-cache the newly-created function type.
         writeTypeCache(node, functionType);
@@ -9014,7 +9045,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // either an ellipsis or a list of parameter types. The second parameter, if
     // present, should specify the return type.
     function createCallableType(typeArgs: TypeResult[] | undefined, errorNode: ParseNode): FunctionType {
-        const functionType = FunctionType.createInstantiable('', '', FunctionTypeFlags.None);
+        const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.None);
         functionType.details.declaredReturnType = AnyType.create();
 
         const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(errorNode);
@@ -9542,9 +9573,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Don't include any synthesized type variables.
         typeParameters = typeParameters.filter((typeVar) => !typeVar.details.isSynthesized);
 
+        const fileInfo = getFileInfo(name);
+
         return TypeBase.cloneForTypeAlias(
             type,
             name.value,
+            `${fileInfo.moduleName}.${name.value}`,
             getScopeIdForNode(name),
             typeParameters.length > 0 ? typeParameters : undefined
         );
@@ -10466,6 +10500,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const functionType = FunctionType.createInstance(
             node.name.value,
+            getFunctionFullName(node, fileInfo.moduleName, node.name.value),
             fileInfo.moduleName,
             functionFlags,
             ParseTreeUtils.getDocString(node.suite.statements)
@@ -11019,6 +11054,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const getFunction1 = FunctionType.createInstance(
             '__get__',
             '',
+            '',
             FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
         );
         getFunction1.details.parameters.push({
@@ -11046,6 +11082,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const getFunction2 = FunctionType.createInstance(
             '__get__',
+            '',
             '',
             FunctionTypeFlags.SynthesizedMethod | FunctionTypeFlags.Overloaded
         );
@@ -11090,7 +11127,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Fill in the getter, setter and deleter methods.
         ['getter', 'setter', 'deleter'].forEach((accessorName) => {
-            const accessorFunction = FunctionType.createInstance(accessorName, '', FunctionTypeFlags.SynthesizedMethod);
+            const accessorFunction = FunctionType.createInstance(
+                accessorName,
+                '',
+                '',
+                FunctionTypeFlags.SynthesizedMethod
+            );
             accessorFunction.details.parameters.push({
                 category: ParameterCategory.Simple,
                 name: 'self',
@@ -11171,7 +11213,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         fields.set('fset', fsetSymbol);
 
         // Fill in the __set__ method.
-        const setFunction = FunctionType.createInstance('__set__', '', FunctionTypeFlags.SynthesizedMethod);
+        const setFunction = FunctionType.createInstance('__set__', '', '', FunctionTypeFlags.SynthesizedMethod);
         setFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
@@ -11241,7 +11283,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         fields.set('fdel', fdelSymbol);
 
         // Fill in the __delete__ method.
-        const delFunction = FunctionType.createInstance('__delete__', '', FunctionTypeFlags.SynthesizedMethod);
+        const delFunction = FunctionType.createInstance('__delete__', '', '', FunctionTypeFlags.SynthesizedMethod);
         delFunction.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'self',
@@ -16576,6 +16618,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Synthesize a function that represents the constructor for this class.
                 const constructorFunction = FunctionType.createInstance(
                     '__init__',
+                    '',
                     '',
                     FunctionTypeFlags.StaticMethod |
                         FunctionTypeFlags.ConstructorMethod |

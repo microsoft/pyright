@@ -65,7 +65,7 @@ export function printType(
     // If this is a type alias, use its name rather than the type
     // it represents.
     if (type.typeAliasInfo && !expandTypeAlias) {
-        let aliasName = type.typeAliasInfo.aliasName;
+        let aliasName = type.typeAliasInfo.name;
 
         // If there is a type arguments array, it's a specialized type alias.
         if (type.typeAliasInfo.typeArguments) {

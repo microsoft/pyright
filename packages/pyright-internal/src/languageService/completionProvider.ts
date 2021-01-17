@@ -1594,7 +1594,7 @@ export class CompletionProvider {
                                     if (type && TypeBase.isInstantiable(type)) {
                                         const typeAliasInfo = getTypeAliasInfo(type);
                                         if (typeAliasInfo) {
-                                            if (typeAliasInfo.aliasName === name) {
+                                            if (typeAliasInfo.name === name) {
                                                 expandTypeAlias = true;
                                             }
                                         }

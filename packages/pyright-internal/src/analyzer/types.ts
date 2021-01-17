@@ -94,7 +94,8 @@ export const maxTypeRecursionCount = 16;
 export type InheritanceChain = (ClassType | UnknownType)[];
 
 interface TypeAliasInfo {
-    aliasName: string;
+    name: string;
+    fullName: string;
     typeParameters?: TypeVarType[];
     typeArguments?: Type[];
     typeVarScopeId: TypeVarScopeId;
@@ -118,6 +119,7 @@ export namespace TypeBase {
     export function cloneForTypeAlias(
         type: Type,
         name: string,
+        fullName: string,
         typeVarScopeId: TypeVarScopeId,
         typeParams?: TypeVarType[],
         typeArgs?: Type[]
@@ -125,7 +127,8 @@ export namespace TypeBase {
         const typeClone = { ...type };
 
         typeClone.typeAliasInfo = {
-            aliasName: name,
+            name,
+            fullName,
             typeParameters: typeParams,
             typeArguments: typeArgs,
             typeVarScopeId,
@@ -769,6 +772,7 @@ export const enum FunctionTypeFlags {
 
 interface FunctionDetails {
     name: string;
+    fullName: string;
     moduleName: string;
     flags: FunctionTypeFlags;
     parameters: FunctionParameter[];
@@ -824,24 +828,27 @@ export interface ParamSpecEntry {
 export namespace FunctionType {
     export function createInstance(
         name: string,
+        fullName: string,
         moduleName: string,
         functionFlags: FunctionTypeFlags,
         docString?: string
     ) {
-        return create(name, moduleName, functionFlags, TypeFlags.Instance, docString);
+        return create(name, fullName, moduleName, functionFlags, TypeFlags.Instance, docString);
     }
 
     export function createInstantiable(
         name: string,
+        fullName: string,
         moduleName: string,
         functionFlags: FunctionTypeFlags,
         docString?: string
     ) {
-        return create(name, moduleName, functionFlags, TypeFlags.Instantiable, docString);
+        return create(name, fullName, moduleName, functionFlags, TypeFlags.Instantiable, docString);
     }
 
     function create(
         name: string,
+        fullName: string,
         moduleName: string,
         functionFlags: FunctionTypeFlags,
         typeFlags: TypeFlags,
@@ -851,6 +858,7 @@ export namespace FunctionType {
             category: TypeCategory.Function,
             details: {
                 name,
+                fullName,
                 moduleName,
                 flags: functionFlags,
                 parameters: [],
@@ -871,6 +879,7 @@ export namespace FunctionType {
     ): FunctionType {
         const newFunction = create(
             type.details.name,
+            type.details.fullName,
             type.details.moduleName,
             type.details.flags,
             type.flags,
@@ -947,6 +956,7 @@ export namespace FunctionType {
     ): FunctionType {
         const newFunction = create(
             type.details.name,
+            type.details.fullName,
             type.details.moduleName,
             type.details.flags,
             type.flags,
@@ -968,6 +978,7 @@ export namespace FunctionType {
     export function cloneForParamSpec(type: FunctionType, paramTypes: ParamSpecEntry[] | undefined) {
         const newFunction = create(
             type.details.name,
+            type.details.fullName,
             type.details.moduleName,
             type.details.flags,
             type.flags,

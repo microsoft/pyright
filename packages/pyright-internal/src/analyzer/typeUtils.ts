@@ -224,6 +224,38 @@ export function derivesFromAnyOrUnknown(type: Type): boolean {
     return anyOrUnknown;
 }
 
+export function getFullNameOfType(type: Type): string | undefined {
+    if (type.typeAliasInfo?.fullName) {
+        return type.typeAliasInfo.fullName;
+    }
+
+    switch (type.category) {
+        case TypeCategory.Any:
+        case TypeCategory.Unknown:
+            return 'typing.Any';
+
+        case TypeCategory.None:
+            return 'builtins.None';
+
+        case TypeCategory.Class:
+            return type.details.fullName;
+
+        case TypeCategory.Object:
+            return type.classType.details.fullName;
+
+        case TypeCategory.Function:
+            return type.details.fullName;
+
+        case TypeCategory.Module:
+            return type.moduleName;
+
+        case TypeCategory.OverloadedFunction:
+            return type.overloads[0].details.fullName;
+    }
+
+    return undefined;
+}
+
 export function stripLiteralValue(type: Type): Type {
     if (isObject(type)) {
         if (type.classType.literalValue !== undefined) {
@@ -319,7 +351,7 @@ export function isTypeAliasRecursive(typeAliasPlaceholder: TypeVarType, type: Ty
         return (
             isUnbound(type) &&
             type.typeAliasInfo &&
-            type.typeAliasInfo.aliasName === typeAliasPlaceholder.details.recursiveTypeAliasName
+            type.typeAliasInfo.name === typeAliasPlaceholder.details.recursiveTypeAliasName
         );
     }
 
@@ -1240,7 +1272,8 @@ export function convertToInstance(type: Type): Type {
     if (type.typeAliasInfo && type !== result) {
         result = TypeBase.cloneForTypeAlias(
             result,
-            type.typeAliasInfo.aliasName,
+            type.typeAliasInfo.name,
+            type.typeAliasInfo.fullName,
             type.typeAliasInfo.typeVarScopeId,
             type.typeAliasInfo.typeParameters,
             type.typeAliasInfo.typeArguments
@@ -1283,7 +1316,8 @@ export function convertToInstantiable(type: Type): Type {
     if (type.typeAliasInfo && type !== result) {
         result = TypeBase.cloneForTypeAlias(
             result,
-            type.typeAliasInfo.aliasName,
+            type.typeAliasInfo.name,
+            type.typeAliasInfo.fullName,
             type.typeAliasInfo.typeVarScopeId,
             type.typeAliasInfo.typeParameters,
             type.typeAliasInfo.typeArguments
@@ -1473,7 +1507,8 @@ export function _transformTypeVars(
             if (requiresUpdate) {
                 return TypeBase.cloneForTypeAlias(
                     type,
-                    type.typeAliasInfo.aliasName,
+                    type.typeAliasInfo.name,
+                    type.typeAliasInfo.fullName,
                     type.typeAliasInfo.typeVarScopeId,
                     type.typeAliasInfo.typeParameters,
                     typeArgs
