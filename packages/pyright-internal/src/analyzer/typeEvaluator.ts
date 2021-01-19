@@ -8374,17 +8374,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 expectedDiagAddendum
             );
 
+            const destTypeVarMap = new TypeVarMap(getTypeVarScopeId(expectedType.classType));
             if (
-                ClassType.isTypedDictClass(expectedType.classType) &&
-                canAssignToTypedDict(expectedType.classType, keyTypes, valueTypes, expectedDiagAddendum)
+                !canAssignToTypedDict(
+                    expectedType.classType,
+                    keyTypes,
+                    valueTypes,
+                    expectedDiagAddendum,
+                    destTypeVarMap
+                )
             ) {
-                return {
-                    type: expectedType,
-                    node,
-                };
+                return undefined;
             }
 
-            return undefined;
+            const specializedDest = applySolvedTypeVars(expectedType.classType, destTypeVarMap) as ClassType;
+            return {
+                type: ObjectType.create(specializedDest),
+                node,
+            };
         }
 
         const builtInDict = getBuiltInObject(node, 'dict');
@@ -15348,6 +15355,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         destType: ClassType,
         srcType: ClassType,
         diag: DiagnosticAddendum,
+        typeVarMap: TypeVarMap | undefined,
+        flags: CanAssignFlags,
         recursionCount: number
     ) {
         let typesAreConsistent = true;
@@ -15380,7 +15389,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typesAreConsistent = false;
                 }
 
-                if (!isTypeSame(destEntry.valueType, srcEntry.valueType, recursionCount + 1)) {
+                if (
+                    !canAssignType(
+                        destEntry.valueType,
+                        srcEntry.valueType,
+                        new DiagnosticAddendum(),
+                        typeVarMap,
+                        flags,
+                        recursionCount + 1
+                    )
+                ) {
                     diag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
                     typesAreConsistent = false;
                 }
@@ -15403,7 +15421,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Handle typed dicts. They also use a form of structural typing for type
         // checking, as defined in PEP 589.
         if (ClassType.isTypedDictClass(destType) && ClassType.isTypedDictClass(srcType)) {
-            return canAssignTypedDict(destType, srcType, diag, recursionCount);
+            return canAssignTypedDict(destType, srcType, diag, typeVarMap, flags, recursionCount);
         }
 
         // Handle special-case type promotions.
@@ -17492,7 +17510,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         classType: ClassType,
         keyTypes: Type[],
         valueTypes: Type[],
-        diagAddendum: DiagnosticAddendum
+        diagAddendum: DiagnosticAddendum,
+        typeVarMap: TypeVarMap
     ): boolean {
         assert(ClassType.isTypedDictClass(classType));
         assert(keyTypes.length === valueTypes.length);
@@ -17524,11 +17543,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else {
                     // Can we assign the value to the declared type?
                     const assignDiag = new DiagnosticAddendum();
-                    if (!canAssignType(symbolEntry.valueType, valueTypes[index], assignDiag)) {
+
+                    let valueType = valueTypes[index];
+                    if (isTypeVar(symbolEntry.valueType)) {
+                        valueType = stripLiteralValue(valueType);
+                    }
+
+                    getTypeVarArgumentsRecursive(symbolEntry.valueType).forEach((typeVar) => {
+                        typeVarMap.addSolveForScope(getTypeVarScopeId(typeVar));
+                    });
+
+                    if (!canAssignType(symbolEntry.valueType, valueType, assignDiag, typeVarMap)) {
                         diagAddendum.addMessage(
                             Localizer.DiagnosticAddendum.typedDictFieldTypeMismatch().format({
                                 name: keyType.classType.literalValue as string,
-                                type: printType(valueTypes[index]),
+                                type: printType(valueType),
                             })
                         );
                         isMatch = false;
@@ -17559,10 +17588,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getTypedDictMembersForClass(classType: ClassType) {
+        const typeVarMap = buildTypeVarMapFromSpecializedClass(classType, false);
+
         // Were the entries already calculated and cached?
         if (!classType.details.typedDictEntries) {
             const entries = new Map<string, TypedDictEntry>();
-            getTypedDictMembersForClassRecursive(classType, entries);
+            getTypedDictMembersForClassRecursive(classType, typeVarMap, entries);
 
             // Cache the entries for next time.
             classType.details.typedDictEntries = entries;
@@ -17571,7 +17602,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Create a copy of the entries so the caller can mutate them.
         const entries = new Map<string, TypedDictEntry>();
         classType.details.typedDictEntries!.forEach((value, key) => {
-            entries.set(key, { ...value });
+            entries.set(key, { ...value, valueType: applySolvedTypeVars(value.valueType, typeVarMap) });
         });
 
         return entries;
@@ -17579,6 +17610,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypedDictMembersForClassRecursive(
         classType: ClassType,
+        typeVarMap: TypeVarMap,
         keyMap: Map<string, TypedDictEntry>,
         recursionCount = 0
     ) {
@@ -17589,7 +17621,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         classType.details.baseClasses.forEach((baseClassType) => {
             if (isClass(baseClassType) && ClassType.isTypedDictClass(baseClassType)) {
-                getTypedDictMembersForClassRecursive(baseClassType, keyMap, recursionCount + 1);
+                const typeVarMap = buildTypeVarMapFromSpecializedClass(baseClassType, false);
+                getTypedDictMembersForClassRecursive(baseClassType, typeVarMap, keyMap, recursionCount + 1);
             }
         });
 
@@ -17599,8 +17632,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Only variables (not functions, classes, etc.) are considered.
                 const lastDecl = getLastTypedDeclaredForSymbol(symbol);
                 if (lastDecl && lastDecl.type === DeclarationType.Variable) {
+                    const valueType = getDeclaredTypeOfSymbol(symbol) || UnknownType.create();
                     keyMap.set(name, {
-                        valueType: getDeclaredTypeOfSymbol(symbol) || UnknownType.create(),
+                        valueType: applySolvedTypeVars(valueType, typeVarMap),
                         isRequired: !ClassType.isCanOmitDictValues(classType),
                         isProvided: false,
                     });
