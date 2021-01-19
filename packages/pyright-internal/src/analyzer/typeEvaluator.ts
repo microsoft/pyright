@@ -11044,7 +11044,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeMetaclass = getBuiltInType(decoratorNode, 'type');
         const propertyClass = ClassType.create(
             className,
-            getClassFullName(decoratorNode, fileInfo.moduleName, className),
+            getClassFullName(decoratorNode, fileInfo.moduleName, `__property_${fget.details.name}`),
             fileInfo.moduleName,
             ClassTypeFlags.PropertyClass,
             typeSourceId,
