@@ -4520,13 +4520,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const type = mapSubtypes(baseType, (subtype) => {
             subtype = getClassFromPotentialTypeObject(subtype);
-            subtype = makeTopLevelTypeVarsConcrete(subtype);
+            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
-            if (isAnyOrUnknown(subtype)) {
-                return subtype;
+            if (isAnyOrUnknown(concreteSubtype)) {
+                return concreteSubtype;
             }
 
-            if (isClass(subtype)) {
+            if (flags & EvaluatorFlags.ExpectingType) {
+                if (isTypeVar(subtype)) {
+                    addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeVarNotSubscriptable().format({ type: printType(subtype) }),
+                        node.baseExpression
+                    );
+
+                    // Evaluate the index expressions as though they are type arguments for error-reporting.
+                    getTypeArgs(node, flags, /* isAnnotatedClass */ false, /* hasCustomClassGetItem */ false);
+
+                    return UnknownType.create();
+                }
+            }
+
+            if (isClass(concreteSubtype)) {
                 // Setting the value of an indexed class will always result
                 // in an exception.
                 if (usage.method === 'set') {
@@ -4535,12 +4551,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     addError(Localizer.Diagnostic.genericClassDeleted(), node.baseExpression);
                 }
 
-                if (ClassType.isSpecialBuiltIn(subtype, 'Literal')) {
+                if (ClassType.isSpecialBuiltIn(concreteSubtype, 'Literal')) {
                     // Special-case Literal types.
                     return createLiteralType(node, flags);
                 }
 
-                if (ClassType.isBuiltIn(subtype, 'InitVar')) {
+                if (ClassType.isBuiltIn(concreteSubtype, 'InitVar')) {
                     // Special-case InitVar, used in data classes.
                     const typeArgs = getTypeArgs(node, flags);
                     if (typeArgs.length === 1) {
@@ -4554,46 +4570,47 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     }
                 }
 
-                if (ClassType.isEnumClass(subtype)) {
+                if (ClassType.isEnumClass(concreteSubtype)) {
                     // Special-case Enum types.
                     // TODO - validate that there's only one index entry
                     // that is a str type.
                     // TODO - validate that literal strings are referencing
                     // a known enum member.
-                    return ObjectType.create(subtype);
+                    return ObjectType.create(concreteSubtype);
                 }
 
                 // Handle the case where the base type allows for a variable number
                 // of type arguments. We need to perform special processing of the
                 // type args in this case to permit empty tuples.
                 let adjustedFlags = flags;
-                if (isClass(subtype) && ClassType.isVariadicTypeParam(subtype)) {
+                if (isClass(concreteSubtype) && ClassType.isVariadicTypeParam(concreteSubtype)) {
                     adjustedFlags |= EvaluatorFlags.AllowEmptyTupleAsType;
                 }
 
-                const isAnnotatedClass = isClass(subtype) && ClassType.isBuiltIn(subtype, 'Annotated');
-                const hasCustomClassGetItem = isClass(subtype) && ClassType.hasCustomClassGetItem(subtype);
+                const isAnnotatedClass = isClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'Annotated');
+                const hasCustomClassGetItem =
+                    isClass(concreteSubtype) && ClassType.hasCustomClassGetItem(concreteSubtype);
 
                 const typeArgs = getTypeArgs(node, adjustedFlags, isAnnotatedClass, hasCustomClassGetItem);
 
                 // If this is a custom __class_getitem__, there's no need to specialize the class.
                 // Just return it as is.
                 if (hasCustomClassGetItem) {
-                    return subtype;
+                    return concreteSubtype;
                 }
 
-                return createSpecializedClassType(subtype, typeArgs, flags, node);
+                return createSpecializedClassType(concreteSubtype, typeArgs, flags, node);
             }
 
-            if (isObject(subtype)) {
-                return getTypeFromIndexedObject(node, subtype, usage);
+            if (isObject(concreteSubtype)) {
+                return getTypeFromIndexedObject(node, concreteSubtype, usage);
             }
 
-            if (isNever(subtype)) {
+            if (isNever(concreteSubtype)) {
                 return UnknownType.create();
             }
 
-            if (isNone(subtype)) {
+            if (isNone(concreteSubtype)) {
                 addDiagnostic(
                     getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
                     DiagnosticRule.reportOptionalSubscript,
@@ -4604,12 +4621,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return UnknownType.create();
             }
 
-            if (!isUnbound(subtype)) {
+            if (!isUnbound(concreteSubtype)) {
                 const fileInfo = getFileInfo(node);
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.typeNotSubscriptable().format({ type: printType(subtype) }),
+                    Localizer.Diagnostic.typeNotSubscriptable().format({ type: printType(concreteSubtype) }),
                     node.baseExpression
                 );
             }
