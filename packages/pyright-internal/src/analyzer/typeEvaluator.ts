@@ -335,6 +335,9 @@ export const enum EvaluatorFlags {
     // associated with an outer scope should be associated with
     // the containing function's scope.
     AssociateTypeVarsWithCurrentScope = 1 << 13,
+
+    // Do not emit an error if the symbol is potentially unbound
+    SkipUnboundCheck = 1 << 14,
 }
 
 interface EvaluatorUsage {
@@ -3126,7 +3129,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             case ParseNodeType.Name: {
                 // Get the type to evaluate whether it's bound
                 // and to mark it accessed.
-                getTypeOfExpression(node);
+                getTypeOfExpression(node, /* expectedType */ undefined, EvaluatorFlags.SkipUnboundCheck);
                 break;
             }
 
@@ -3136,7 +3139,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     node,
                     baseTypeResult,
                     { method: 'del' },
-                    EvaluatorFlags.None
+                    EvaluatorFlags.SkipUnboundCheck
                 );
                 writeTypeCache(node.memberName, memberType.type);
                 writeTypeCache(node, memberType.type);
@@ -3149,7 +3152,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     undefined,
                     EvaluatorFlags.DoNotSpecialize
                 );
-                getTypeFromIndexWithBaseType(node, baseTypeResult.type, { method: 'del' }, EvaluatorFlags.None);
+                getTypeFromIndexWithBaseType(
+                    node,
+                    baseTypeResult.type,
+                    { method: 'del' },
+                    EvaluatorFlags.SkipUnboundCheck
+                );
                 writeTypeCache(node, UnboundType.create());
                 break;
             }
@@ -3159,7 +3167,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // type information is cached for the completion handler.
                 suppressDiagnostics(() => {
                     if (node.child) {
-                        getTypeOfExpression(node.child);
+                        getTypeOfExpression(node.child, /* expectedType */ undefined, EvaluatorFlags.SkipUnboundCheck);
                     }
                 });
                 break;
@@ -3391,20 +3399,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // but within a reachable statement (e.g. if False and <name>) then avoid
             // reporting an unbound error.
             if (!isIncomplete && !AnalyzerNodeInfo.isCodeUnreachable(node)) {
-                if (isUnbound(type)) {
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportUnboundVariable,
-                        DiagnosticRule.reportUnboundVariable,
-                        Localizer.Diagnostic.symbolIsUnbound().format({ name }),
-                        node
-                    );
-                } else if (isPossiblyUnbound(type)) {
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportUnboundVariable,
-                        DiagnosticRule.reportUnboundVariable,
-                        Localizer.Diagnostic.symbolIsPossiblyUnbound().format({ name }),
-                        node
-                    );
+                if ((flags & EvaluatorFlags.SkipUnboundCheck) === 0) {
+                    if (isUnbound(type)) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                            DiagnosticRule.reportUnboundVariable,
+                            Localizer.Diagnostic.symbolIsUnbound().format({ name }),
+                            node
+                        );
+                    } else if (isPossiblyUnbound(type)) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportUnboundVariable,
+                            DiagnosticRule.reportUnboundVariable,
+                            Localizer.Diagnostic.symbolIsPossiblyUnbound().format({ name }),
+                            node
+                        );
+                    }
                 }
             }
 
