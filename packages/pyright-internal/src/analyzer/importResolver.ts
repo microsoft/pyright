@@ -984,6 +984,11 @@ export class ImportResolver {
                 return newImport;
             }
 
+            // Prefer traditional over namespace imports.
+            if (bestImportSoFar.isNamespacePackage && !newImport.isNamespacePackage) {
+                return newImport;
+            }
+
             // All else equal, prefer shorter resolution paths.
             if (bestImportSoFar.resolvedPaths.length > newImport.resolvedPaths.length) {
                 return newImport;
