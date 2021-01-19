@@ -9001,6 +9001,31 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type: getBuiltInObject(node, 'slice'), node };
     }
 
+    // Verifies that a type argument's type is not disallowed.
+    function validateTypeArg(argResult: TypeResult): boolean {
+        if (argResult.typeList) {
+            addError(Localizer.Diagnostic.typeArgListNotAllowed(), argResult.node);
+            return false;
+        }
+
+        if (isEllipsisType(argResult.type)) {
+            addError(Localizer.Diagnostic.ellipsisContext(), argResult.node);
+            return false;
+        }
+
+        if (isModule(argResult.type)) {
+            addError(Localizer.Diagnostic.moduleContext(), argResult.node);
+            return false;
+        }
+
+        if (isParamSpecType(argResult.type)) {
+            addError(Localizer.Diagnostic.paramSpecContext(), argResult.node);
+            return false;
+        }
+
+        return true;
+    }
+
     // Converts the type parameters for a Callable type. It should
     // have zero to two parameters. The first parameter, if present, should be
     // either an ellipsis or a list of parameter types. The second parameter, if
@@ -9018,13 +9043,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (typeArgs[0].typeList) {
                 typeArgs[0].typeList.forEach((entry, index) => {
                     let entryType = entry.type;
-                    if (isEllipsisType(entry.type)) {
-                        addError(Localizer.Diagnostic.ellipsisContext(), entry.node);
-                    } else if (isModule(entry.type)) {
-                        addError(Localizer.Diagnostic.moduleContext(), entry.node);
-                        entryType = UnknownType.create();
-                    } else if (isParamSpecType(entry.type)) {
-                        addError(Localizer.Diagnostic.paramSpecContext(), entry.node);
+                    if (!validateTypeArg(entry)) {
                         entryType = UnknownType.create();
                     }
 
@@ -9072,13 +9091,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (typeArgs && typeArgs.length > 1) {
             let typeArg1Type = typeArgs[1].type;
-            if (isEllipsisType(typeArg1Type)) {
-                addError(Localizer.Diagnostic.ellipsisContext(), typeArgs[1].node);
-            } else if (isModule(typeArg1Type)) {
-                addError(Localizer.Diagnostic.moduleContext(), typeArgs[1].node);
-                typeArg1Type = UnknownType.create();
-            } else if (isParamSpecType(typeArg1Type)) {
-                addError(Localizer.Diagnostic.paramSpecContext(), typeArgs[1].node);
+            if (!validateTypeArg(typeArgs[1])) {
                 typeArg1Type = UnknownType.create();
             }
             functionType.details.declaredReturnType = convertToInstance(typeArg1Type);
@@ -9109,13 +9122,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         let typeArg0Type = typeArgs[0].type;
-        if (isEllipsisType(typeArg0Type)) {
-            addError(Localizer.Diagnostic.ellipsisContext(), typeArgs[0].node);
-        } else if (isModule(typeArg0Type)) {
-            addError(Localizer.Diagnostic.moduleContext(), typeArgs[0].node);
-            typeArg0Type = UnknownType.create();
-        } else if (isParamSpecType(typeArg0Type)) {
-            addError(Localizer.Diagnostic.paramSpecContext(), typeArgs[0].node);
+        if (!validateTypeArg(typeArgs[0])) {
             typeArg0Type = UnknownType.create();
         } else if (!TypeBase.isInstantiable(typeArg0Type)) {
             addExpectedClassDiagnostic(typeArg0Type, typeArgs[0].node);
@@ -9261,14 +9268,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let typeArg: Type;
         if (typeArgs && typeArgs.length > 0) {
             typeArg = typeArgs[0].type;
-
-            if (isEllipsisType(typeArg)) {
-                addError(Localizer.Diagnostic.ellipsisContext(), typeArgs[0].node);
-            } else if (isModule(typeArg)) {
-                addError(Localizer.Diagnostic.moduleContext(), typeArgs[0].node);
-                typeArg = UnknownType.create();
-            } else if (isParamSpecType(typeArg)) {
-                addError(Localizer.Diagnostic.paramSpecContext(), typeArgs[0].node);
+            if (!validateTypeArg(typeArgs[0])) {
                 typeArg = UnknownType.create();
             }
         } else {
@@ -9327,13 +9327,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         let typeArg0Type = typeArgs[0].type;
-        if (isEllipsisType(typeArg0Type)) {
-            addError(Localizer.Diagnostic.ellipsisContext(), typeArgs[0].node);
-        } else if (isModule(typeArg0Type)) {
-            addError(Localizer.Diagnostic.moduleContext(), typeArgs[0].node);
-            typeArg0Type = UnknownType.create();
-        } else if (isParamSpecType(typeArg0Type)) {
-            addError(Localizer.Diagnostic.paramSpecContext(), typeArgs[1].node);
+        if (!validateTypeArg(typeArgs[0])) {
             typeArg0Type = UnknownType.create();
         }
 
@@ -9360,10 +9354,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     } else if (typeArgs!.length !== 2 || index !== 1) {
                         addError(Localizer.Diagnostic.ellipsisSecondArg(), typeArg.node);
                     }
-                } else if (isModule(typeArg.type)) {
-                    addError(Localizer.Diagnostic.moduleContext(), typeArg.node);
-                } else if (!allowParamSpec && isParamSpecType(typeArg.type)) {
-                    addError(Localizer.Diagnostic.paramSpecContext(), typeArg.node);
+                } else if (!allowParamSpec || !isParamSpecType(typeArg.type)) {
+                    validateTypeArg(typeArg);
                 }
             });
 
@@ -9426,13 +9418,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let typeArgType = typeArg.type;
 
                 // Verify that we didn't receive any inappropriate ellipses.
-                if (isEllipsisType(typeArgType)) {
-                    addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
-                } else if (isModule(typeArgType)) {
-                    addError(Localizer.Diagnostic.moduleContext(), typeArg.node);
-                    typeArgType = UnknownType.create();
-                } else if (isParamSpecType(typeArgType)) {
-                    addError(Localizer.Diagnostic.paramSpecContext(), typeArg.node);
+                if (!validateTypeArg(typeArg)) {
                     typeArgType = UnknownType.create();
                 } else if (!TypeBase.isInstantiable(typeArgType)) {
                     addExpectedClassDiagnostic(typeArgType, typeArg.node);
@@ -13897,14 +13883,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (typeArgs) {
             typeArgs.forEach((typeArg) => {
-                // Verify that we didn't receive any inappropriate ellipses or modules.
-                if (isEllipsisType(typeArg.type)) {
-                    addError(Localizer.Diagnostic.ellipsisContext(), typeArg.node);
-                } else if (isModule(typeArg.type)) {
-                    addError(Localizer.Diagnostic.moduleContext(), typeArg.node);
-                } else if (isParamSpecType(typeArg.type)) {
-                    addError(Localizer.Diagnostic.paramSpecContext(), typeArg.node);
-                }
+                validateTypeArg(typeArg);
             });
         }
 

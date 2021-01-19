@@ -267,6 +267,7 @@
         "typeAliasIsRecursive": "Type alias \"{name}\" cannot use itself in its definition",
         "typeAliasNotInModule": "A TypeAlias can be defined only within a module scope",
         "typeAliasRedeclared": "\"{name}\" is declared as a TypeAlias and can be assigned only once",
+        "typeArgListNotAllowed": "List expression not allowed for this type argument",
         "typeArgsExpectingNone": "Expected no type arguments",
         "typeArgsMismatchOne": "Expected one type argument but received {received}",
         "typeArgsMissingForAlias": "Expected type arguments for generic type alias \"{name}\"",
