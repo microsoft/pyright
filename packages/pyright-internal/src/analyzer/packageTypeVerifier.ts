@@ -181,7 +181,7 @@ export class PackageTypeVerifier {
                     // to report diagnostics many times for types that include public types.
                     const publicSymbolMap = new Map<string, string>();
                     publicModules.forEach((moduleName) => {
-                        this._getPublicSymbolsForModule(moduleName, publicSymbolMap, report);
+                        this._getPublicSymbolsForModule(moduleName, publicSymbolMap, report.alternateSymbolNames);
                     });
 
                     publicModules.forEach((moduleName) => {
@@ -246,7 +246,11 @@ export class PackageTypeVerifier {
         return this._importResolver.resolveImport('', this._execEnv, moduleDescriptor);
     }
 
-    private _getPublicSymbolsForModule(moduleName: string, symbolMap: PublicSymbolMap, report: PackageTypeReport) {
+    private _getPublicSymbolsForModule(
+        moduleName: string,
+        symbolMap: PublicSymbolMap,
+        alternateSymbolNames: AlternateSymbolNameMap
+    ) {
         const importResult = this._resolveImport(moduleName);
 
         if (importResult.isImportFound) {
@@ -266,7 +270,7 @@ export class PackageTypeVerifier {
 
                 this._getPublicSymbolsInSymbolTable(
                     symbolMap,
-                    report,
+                    alternateSymbolNames,
                     module,
                     module.name,
                     moduleScope.symbolTable,
@@ -278,7 +282,7 @@ export class PackageTypeVerifier {
 
     private _getPublicSymbolsInSymbolTable(
         symbolMap: PublicSymbolMap,
-        report: PackageTypeReport,
+        alternateSymbolNames: AlternateSymbolNameMap,
         module: PackageModule,
         scopeName: string,
         symbolTable: SymbolTable,
@@ -306,7 +310,7 @@ export class PackageTypeVerifier {
                             if (isClass(symbolType)) {
                                 this._getPublicSymbolsInSymbolTable(
                                     symbolMap,
-                                    report,
+                                    alternateSymbolNames,
                                     module,
                                     fullName,
                                     symbolType.details.fields,
@@ -321,7 +325,7 @@ export class PackageTypeVerifier {
                     if (importDecl && importDecl.type === DeclarationType.Alias) {
                         const typeName = getFullNameOfType(this._program.getTypeForSymbol(symbol));
                         if (typeName) {
-                            this._addAlternateSymbolName(report.alternateSymbolNames, typeName, fullName);
+                            this._addAlternateSymbolName(alternateSymbolNames, typeName, fullName);
                         }
                     }
                 }
