@@ -24,6 +24,7 @@ import { Declaration, DeclarationType, FunctionDeclaration } from '../analyzer/d
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
@@ -1091,10 +1092,20 @@ export class CompletionProvider {
     ) {
         // If we're within the argument list of a call, add parameter names.
         const offset = convertPositionToOffset(this._position, this._parseResults.tokenizerOutput.lines)!;
-        const signatureInfo = this._evaluator.getCallSignatureInfo(
+        const callInfo = getCallNodeAndActiveParameterIndex(
             parseNode,
             offset,
             this._parseResults.tokenizerOutput.tokens
+        );
+
+        if (!callInfo) {
+            return;
+        }
+
+        const signatureInfo = this._evaluator.getCallSignatureInfo(
+            callInfo.callNode,
+            callInfo.activeIndex,
+            callInfo.activeOrFake
         );
 
         if (signatureInfo) {
