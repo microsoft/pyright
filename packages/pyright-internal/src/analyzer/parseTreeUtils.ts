@@ -15,6 +15,7 @@ import { TextRangeCollection } from '../common/textRangeCollection';
 import {
     ArgumentCategory,
     AssignmentExpressionNode,
+    CallNode,
     ClassNode,
     EvaluationScopeNode,
     ExecutionScopeNode,
@@ -31,7 +32,7 @@ import {
     SuiteNode,
     TypeAnnotationNode,
 } from '../parser/parseNodes';
-import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
 import { decodeDocString } from './docStringUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
@@ -1091,5 +1092,107 @@ export class NameNodeWalker extends ParseTreeWalker {
     visitName(node: NameNode) {
         this._callback(node);
         return true;
+    }
+}
+
+export function getCallNodeAndActiveParameterIndex(
+    node: ParseNode,
+    insertionOffset: number,
+    tokens: TextRangeCollection<Token>
+) {
+    // Find the call node that contains the specified node.
+    let curNode: ParseNode | undefined = node;
+    let callNode: CallNode | undefined;
+    while (curNode !== undefined) {
+        if (curNode.nodeType === ParseNodeType.Call) {
+            callNode = curNode;
+            break;
+        }
+        curNode = curNode.parent;
+    }
+
+    if (!callNode || !callNode.arguments) {
+        return undefined;
+    }
+
+    const index = tokens.getItemAtPosition(callNode.leftExpression.start);
+    if (index >= 0 && index + 1 < tokens.count) {
+        const token = tokens.getItemAt(index + 1);
+        if (token.type === TokenType.OpenParenthesis && insertionOffset < TextRange.getEnd(token)) {
+            // position must be after '('
+            return undefined;
+        }
+    }
+
+    const endPosition = TextRange.getEnd(callNode);
+    if (insertionOffset > endPosition) {
+        return undefined;
+    }
+
+    const tokenAtEnd = getTokenAt(tokens, endPosition - 1);
+    if (insertionOffset === endPosition && tokenAtEnd?.type === TokenType.CloseParenthesis) {
+        return undefined;
+    }
+
+    let addedActive = false;
+    let activeIndex = -1;
+    let activeOrFake = false;
+    callNode.arguments.forEach((arg, index) => {
+        if (addedActive) {
+            return;
+        }
+
+        // Calculate the argument's bounds including whitespace and colons.
+        let start = arg.start;
+        const startTokenIndex = tokens.getItemAtPosition(start);
+        if (startTokenIndex >= 0) {
+            start = TextRange.getEnd(tokens.getItemAt(startTokenIndex - 1));
+        }
+
+        let end = TextRange.getEnd(arg);
+        const endTokenIndex = tokens.getItemAtPosition(end);
+        if (endTokenIndex >= 0) {
+            // Find the true end of the argument by searching for the
+            // terminating comma or parenthesis.
+            for (let i = endTokenIndex; i < tokens.count; i++) {
+                const tok = tokens.getItemAt(i);
+
+                switch (tok.type) {
+                    case TokenType.Comma:
+                    case TokenType.CloseParenthesis:
+                        break;
+                    default:
+                        continue;
+                }
+
+                end = TextRange.getEnd(tok);
+                break;
+            }
+        }
+
+        if (insertionOffset < end) {
+            activeIndex = index;
+            activeOrFake = insertionOffset >= start;
+            addedActive = true;
+        }
+    });
+
+    if (!addedActive) {
+        activeIndex = callNode.arguments.length + 1;
+    }
+
+    return {
+        callNode,
+        activeIndex,
+        activeOrFake,
+    };
+
+    function getTokenAt(tokens: TextRangeCollection<Token>, position: number) {
+        const index = tokens.getItemAtPosition(position);
+        if (index < 0) {
+            return undefined;
+        }
+
+        return tokens.getItemAt(index);
     }
 }

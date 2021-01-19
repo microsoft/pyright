@@ -14,6 +14,7 @@ import { CancellationToken, MarkupContent, MarkupKind } from 'vscode-languageser
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluator';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
@@ -77,7 +78,16 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        const callSignatureInfo = evaluator.getCallSignatureInfo(node, offset, parseResults.tokenizerOutput.tokens);
+        const callInfo = getCallNodeAndActiveParameterIndex(node, offset, parseResults.tokenizerOutput.tokens);
+        if (!callInfo) {
+            return;
+        }
+
+        const callSignatureInfo = evaluator.getCallSignatureInfo(
+            callInfo.callNode,
+            callInfo.activeIndex,
+            callInfo.activeOrFake
+        );
         if (!callSignatureInfo) {
             return undefined;
         }

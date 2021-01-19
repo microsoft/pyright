@@ -25,7 +25,6 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { getEmptyRange, TextRange } from '../common/textRange';
-import { TextRangeCollection } from '../common/textRangeCollection';
 import { Localizer } from '../localization/localize';
 import {
     ArgumentCategory,
@@ -69,7 +68,7 @@ import {
     YieldNode,
 } from '../parser/parseNodes';
 import { ParseOptions, Parser } from '../parser/parser';
-import { KeywordType, OperatorType, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
+import { KeywordType, OperatorType, StringTokenFlags } from '../parser/tokenizerTypes';
 import * as DeclarationUtils from './aliasDeclarationUtils';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -520,11 +519,7 @@ export interface TypeEvaluator {
         baseType: ClassType | ObjectType | undefined,
         memberType: FunctionType | OverloadedFunctionType
     ) => FunctionType | OverloadedFunctionType | undefined;
-    getCallSignatureInfo: (
-        node: ParseNode,
-        insertionOffset: number,
-        tokens: TextRangeCollection<Token>
-    ) => CallSignatureInfo | undefined;
+    getCallSignatureInfo: (node: CallNode, activeIndex: number, activeOrFake: boolean) => CallSignatureInfo | undefined;
     getTypeAnnotationForParameter: (node: FunctionNode, paramIndex: number) => ExpressionNode | undefined;
 
     canAssignType: (
@@ -1338,38 +1333,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // the specified node. It also returns the index of the argument
     // that contains the node.
     function getCallSignatureInfo(
-        node: ParseNode,
-        insertionOffset: number,
-        tokens: TextRangeCollection<Token>
+        callNode: CallNode,
+        activeIndex: number,
+        activeOrFake: boolean
     ): CallSignatureInfo | undefined {
-        // Find the call node that contains the specified node.
-        let curNode: ParseNode | undefined = node;
-        let callNode: CallNode | undefined;
-        while (curNode !== undefined) {
-            if (curNode.nodeType === ParseNodeType.Call) {
-                callNode = curNode;
-                break;
-            }
-            curNode = curNode.parent;
-        }
-
-        if (!callNode || !callNode.arguments) {
-            return undefined;
-        }
-
-        const index = tokens.getItemAtPosition(callNode.leftExpression.start);
-        if (index >= 0 && index + 1 < tokens.count) {
-            const token = tokens.getItemAt(index + 1);
-            if (token.type === TokenType.OpenParenthesis && insertionOffset < TextRange.getEnd(token)) {
-                // position must be after '('
-                return undefined;
-            }
-        }
-
-        if (insertionOffset >= TextRange.getEnd(callNode)) {
-            return undefined;
-        }
-
         const exprNode = callNode.leftExpression;
         const callType = getType(exprNode);
         if (callType === undefined) {
@@ -1377,7 +1344,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const argList: FunctionArgument[] = [];
-        let addedActive = false;
         let previousCategory = ArgumentCategory.Simple;
 
         // Empty arguments do not enter the AST as nodes, but instead are left blank.
@@ -1392,45 +1358,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         }
 
-        callNode.arguments.forEach((arg) => {
+        callNode.arguments.forEach((arg, index) => {
             let active = false;
-
-            if (!addedActive) {
-                // Calculate the argument's bounds including whitespace and colons.
-                let start = arg.start;
-                const startTokenIndex = tokens.getItemAtPosition(start);
-                if (startTokenIndex >= 0) {
-                    start = TextRange.getEnd(tokens.getItemAt(startTokenIndex - 1));
-                }
-
-                let end = TextRange.getEnd(arg);
-                const endTokenIndex = tokens.getItemAtPosition(end);
-                if (endTokenIndex >= 0) {
-                    // Find the true end of the argument by searching for the
-                    // terminating comma or parenthesis.
-                    for (let i = endTokenIndex; i < tokens.count; i++) {
-                        const tok = tokens.getItemAt(i);
-
-                        switch (tok.type) {
-                            case TokenType.Comma:
-                            case TokenType.CloseParenthesis:
-                                break;
-                            default:
-                                continue;
-                        }
-
-                        end = TextRange.getEnd(tok);
-                        break;
-                    }
-                }
-
-                if (insertionOffset < end) {
-                    if (insertionOffset >= start) {
-                        active = true;
-                    } else {
-                        addFakeArg();
-                    }
-                    addedActive = true;
+            if (index === activeIndex) {
+                if (activeOrFake) {
+                    active = true;
+                } else {
+                    addFakeArg();
                 }
             }
 
@@ -1444,7 +1378,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             });
         });
 
-        if (!addedActive) {
+        if (callNode.arguments.length < activeIndex) {
             addFakeArg();
         }
 
