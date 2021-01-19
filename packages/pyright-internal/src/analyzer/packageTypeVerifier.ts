@@ -117,10 +117,11 @@ export class PackageTypeVerifier {
 
     verify(packageName: string): PackageTypeReport {
         const trimmedPackageName = packageName.trim();
+        const packageNameParts = trimmedPackageName.split('.');
 
         const report: PackageTypeReport = {
-            packageName: trimmedPackageName,
-            rootDirectory: this._getDirectoryForPackage(trimmedPackageName),
+            packageName: packageNameParts[0],
+            rootDirectory: this._getDirectoryForPackage(packageNameParts[0]),
             pyTypedPath: undefined,
             symbolCount: 0,
             unknownTypeCount: 0,
@@ -133,7 +134,7 @@ export class PackageTypeVerifier {
         };
 
         try {
-            if (!trimmedPackageName || trimmedPackageName.includes('.')) {
+            if (!trimmedPackageName) {
                 report.diagnostics.push(
                     new Diagnostic(
                         DiagnosticCategory.Error,
@@ -158,7 +159,22 @@ export class PackageTypeVerifier {
                 } else {
                     report.pyTypedPath = pyTypedInfo.pyTypedPath;
 
-                    const publicModules = this._getListOfPublicModules(report.rootDirectory, trimmedPackageName);
+                    const publicModules = this._getListOfPublicModules(
+                        report.rootDirectory,
+                        packageNameParts[0],
+                        trimmedPackageName
+                    );
+
+                    // If the filter eliminated all modules, report an error.
+                    if (publicModules.length === 0) {
+                        report.diagnostics.push(
+                            new Diagnostic(
+                                DiagnosticCategory.Error,
+                                `Module "${trimmedPackageName}" cannot be resolved`,
+                                getEmptyRange()
+                            )
+                        );
+                    }
 
                     // Build a map of all public symbols exported by this package. We'll
                     // use this map to determine which diagnostics to report. We don't want
@@ -378,14 +394,18 @@ export class PackageTypeVerifier {
 
     // Scans the directory structure for a list of public modules
     // within the package.
-    private _getListOfPublicModules(rootPath: string, packageName: string): string[] {
-        const publicModules: string[] = [];
+    private _getListOfPublicModules(rootPath: string, packageName: string, moduleFilter: string): string[] {
+        let publicModules: string[] = [];
         this._addPublicModulesRecursive(rootPath, packageName, publicModules);
 
         // Make sure modules are unique. There may be duplicates if a ".py" and ".pyi"
         // exist for some modules.
         const uniqueModules: string[] = [];
         const moduleMap = new Map<string, string>();
+
+        // Apply the filter to limit to only specified submodules.
+        publicModules = publicModules.filter((module) => module.startsWith(moduleFilter));
+
         publicModules.forEach((module) => {
             if (!moduleMap.has(module)) {
                 uniqueModules.push(module);
