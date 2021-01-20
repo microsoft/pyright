@@ -4349,10 +4349,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // If this is meant to be a type and the base expression is a string expression,
-        // emit an error because this will generate a runtime exception.
+        // emit an error because this will generate a runtime exception in Python versions
+        // less than 3.10.
         if (flags & EvaluatorFlags.ExpectingType) {
             if (node.baseExpression.nodeType === ParseNodeType.StringList) {
-                addError(Localizer.Diagnostic.stringNotSubscriptable(), node.baseExpression);
+                const fileInfo = getFileInfo(node);
+                if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_10) {
+                    addError(Localizer.Diagnostic.stringNotSubscriptable(), node.baseExpression);
+                }
             }
         }
 
