@@ -4348,6 +4348,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             };
         }
 
+        // If this is meant to be a type and the base expression is a string expression,
+        // emit an error because this will generate a runtime exception.
+        if (flags & EvaluatorFlags.ExpectingType) {
+            if (node.baseExpression.nodeType === ParseNodeType.StringList) {
+                addError(
+                    Localizer.Diagnostic.stringNotSubscriptable(),
+                    node.baseExpression);
+            }
+        }
+
         // Check for builtin classes that will generate runtime exceptions if subscripted.
         if ((flags & EvaluatorFlags.AllowForwardReferences) === 0) {
             const fileInfo = getFileInfo(node);

@@ -3,6 +3,7 @@
 
 from typing import Optional
 
+
 class ClassA:
     # This should generate an error because ClassA
     # is not yet defined at the time it's used.
@@ -26,9 +27,10 @@ class ClassB(ClassA):
     def func4(self) -> Optional["ClassC"]:
         return None
 
+    # This should generate an error.
+    def func5(self) -> "Optional"[int]:
+        return None
+
 
 class ClassC:
     pass
-
-
-

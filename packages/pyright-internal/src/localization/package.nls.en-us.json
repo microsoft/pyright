@@ -248,6 +248,7 @@
         "singleOverload": "\"{name}\" is marked as overload, but additional overloads are missing",
         "staticClsSelfParam": "Static methods should not take a \"self\" or \"cls\" parameter",
         "stringNonAsciiBytes": "Non-ASCII character not allowed in bytes string literal",
+        "stringNotSubscriptable": "String expression cannot be subscripted in type annotation; enclose entire annotation in quotes",
         "stringUnsupportedEscape": "Unsupported escape sequence in string literal",
         "stringUnterminated": "String literal is unterminated",
         "stubFileMissing": "Stub file not found for \"{importName}\"",
