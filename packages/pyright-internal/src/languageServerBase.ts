@@ -167,6 +167,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _hasWindowProgressCapability = false;
     protected _hoverContentFormat: MarkupKind = MarkupKind.PlainText;
     protected _completionDocFormat: MarkupKind = MarkupKind.PlainText;
+    protected _completionSupportsSnippet = false;
     protected _signatureDocFormat: MarkupKind = MarkupKind.PlainText;
     protected _supportsUnnecessaryDiagnosticTag = false;
     protected _defaultClientConfig: any;
@@ -663,7 +664,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 workspace.serviceInstance.resolveCompletionItem(
                     completionItemData.filePath,
                     params,
-                    this._completionDocFormat,
+                    this.getCompletionOptions(),
                     token
                 );
             }
@@ -893,7 +894,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             filePath,
             position,
             workspacePath,
-            this._completionDocFormat,
+            this.getCompletionOptions(),
             undefined,
             token
         );
@@ -903,6 +904,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._workspaceMap.forEach((workspace) => {
             this.updateSettingsForWorkspace(workspace).ignoreErrors();
         });
+    }
+
+    protected getCompletionOptions() {
+        return { format: this._completionDocFormat, snippet: this._completionSupportsSnippet };
     }
 
     protected initialize(
@@ -927,6 +932,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this._completionDocFormat = this._getCompatibleMarkupKind(
             capabilities.textDocument?.completion?.completionItem?.documentationFormat
         );
+        this._completionSupportsSnippet = !!capabilities.textDocument?.completion?.completionItem?.snippetSupport;
         this._signatureDocFormat = this._getCompatibleMarkupKind(
             capabilities.textDocument?.signatureHelp?.signatureInformation?.documentationFormat
         );

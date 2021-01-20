@@ -50,7 +50,7 @@ import {
     ModuleSymbolMap,
 } from '../languageService/autoImporter';
 import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
-import { AbbreviationMap, CompletionResults } from '../languageService/completionProvider';
+import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
 import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
@@ -1358,7 +1358,7 @@ export class Program {
         filePath: string,
         position: Position,
         workspacePath: string,
-        format: MarkupKind,
+        options: CompletionOptions,
         nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
@@ -1382,7 +1382,7 @@ export class Program {
                         this._importResolver,
                         this._lookUpImport,
                         this._evaluator!,
-                        format,
+                        options,
                         this._createSourceMapper(execEnv, /* mapCompiled */ true),
                         nameMap,
                         libraryMap,
@@ -1422,7 +1422,7 @@ export class Program {
     resolveCompletionItem(
         filePath: string,
         completionItem: CompletionItem,
-        format: MarkupKind,
+        options: CompletionOptions,
         token: CancellationToken
     ) {
         return this._runEvaluatorWithCancellationToken(token, () => {
@@ -1439,7 +1439,7 @@ export class Program {
                 this._importResolver,
                 this._lookUpImport,
                 this._evaluator!,
-                format,
+                options,
                 this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 completionItem,
                 token
