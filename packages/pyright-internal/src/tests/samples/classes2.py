@@ -64,6 +64,15 @@ class ParentClass:
     def my_method16(self, a: int) -> int:
         return 1
 
+    def my_method17(self, a: str, b: int, c: float, d: bool) -> None:
+        ...
+
+    def my_method18(self, a: str, b: int, c: float, d: bool) -> None:
+        ...
+
+    def my_method19(self, a: str, b: int, c: float, d: bool) -> None:
+        ...
+
     def _protected_method1(self, a: int):
         return 1
 
@@ -132,6 +141,16 @@ class ChildClass(ParentClass):
     # method with a class.
     class my_method16:
         pass
+
+    def my_method17(self, *args: object, **kwargs: object) -> None:
+        ...
+
+    def my_method18(self, a: str, *args: object, **kwargs: object) -> None:
+        ...
+
+    # This should generate an error because b param doesn't match a in name.
+    def my_method19(self, b: str, *args: object, **kwargs: object) -> None:
+        ...
 
     # This should generate an error.
     def _protected_method1(self):

@@ -4352,9 +4352,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // emit an error because this will generate a runtime exception.
         if (flags & EvaluatorFlags.ExpectingType) {
             if (node.baseExpression.nodeType === ParseNodeType.StringList) {
-                addError(
-                    Localizer.Diagnostic.stringNotSubscriptable(),
-                    node.baseExpression);
+                addError(Localizer.Diagnostic.stringNotSubscriptable(), node.baseExpression);
             }
         }
 
@@ -17256,15 +17254,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         let canOverride = true;
         const baseParams = baseMethod.details.parameters;
         const overrideParams = overrideMethod.details.parameters;
+        const overrideArgsParam = overrideParams.find(
+            (param) => param.category === ParameterCategory.VarArgList && !!param.name
+        );
+        const overrideKwargsParam = overrideParams.find(
+            (param) => param.category === ParameterCategory.VarArgDictionary && !!param.name
+        );
 
         // Verify that the param count matches exactly or that the override
         // adds only params that preserve the original signature.
         let foundParamCountMismatch = false;
         if (overrideParams.length < baseParams.length) {
-            foundParamCountMismatch = true;
+            if (!overrideArgsParam || !overrideKwargsParam) {
+                foundParamCountMismatch = true;
+            }
         } else if (overrideParams.length > baseParams.length) {
             // Verify that all of the override parameters that extend the
-            // signature are either *vars, **kwargs or parameters with
+            // signature are either *args, **kwargs or parameters with
             // default values.
 
             for (let i = baseParams.length; i < overrideParams.length; i++) {
@@ -17305,14 +17311,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 baseParam.category === ParameterCategory.Simple &&
                 baseParam.name !== overrideParam.name
             ) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.overrideParamName().format({
-                        index: i + 1,
-                        baseName: baseParam.name || '*',
-                        overrideName: overrideParam.name || '*',
-                    })
-                );
-                canOverride = false;
+                if (overrideParam.category === ParameterCategory.Simple) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.overrideParamName().format({
+                            index: i + 1,
+                            baseName: baseParam.name || '*',
+                            overrideName: overrideParam.name || '*',
+                        })
+                    );
+                    canOverride = false;
+                }
             } else {
                 const baseParamType = FunctionType.getEffectiveParameterType(baseMethod, i);
                 const overrideParamType = FunctionType.getEffectiveParameterType(overrideMethod, i);
