@@ -33,7 +33,7 @@ import { DocumentRange, getEmptyRange, Position, TextRange } from '../common/tex
 import { TextRangeCollection } from '../common/textRangeCollection';
 import { timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/autoImporter';
-import { AbbreviationMap, CompletionResults } from '../languageService/completionProvider';
+import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
 import { CompletionItemData, CompletionProvider } from '../languageService/completionProvider';
 import { DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
@@ -795,7 +795,7 @@ export class SourceFile {
         importResolver: ImportResolver,
         importLookup: ImportLookup,
         evaluator: TypeEvaluator,
-        format: MarkupKind,
+        options: CompletionOptions,
         sourceMapper: SourceMapper,
         nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
@@ -824,7 +824,7 @@ export class SourceFile {
             configOptions,
             importLookup,
             evaluator,
-            format,
+            options,
             sourceMapper,
             {
                 nameMap,
@@ -842,7 +842,7 @@ export class SourceFile {
         importResolver: ImportResolver,
         importLookup: ImportLookup,
         evaluator: TypeEvaluator,
-        format: MarkupKind,
+        options: CompletionOptions,
         sourceMapper: SourceMapper,
         completionItem: CompletionItem,
         token: CancellationToken
@@ -863,7 +863,7 @@ export class SourceFile {
             configOptions,
             importLookup,
             evaluator,
-            format,
+            options,
             sourceMapper,
             undefined,
             token

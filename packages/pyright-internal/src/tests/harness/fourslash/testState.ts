@@ -841,7 +841,7 @@ export class TestState {
                 filePath,
                 completionPosition,
                 this.workspace.rootPath,
-                docFormat,
+                { format: docFormat, snippet: true },
                 abbrMap ? new Map<string, AbbreviationInfo>(Object.entries(abbrMap)) : undefined,
                 CancellationToken.None
             );
@@ -877,7 +877,12 @@ export class TestState {
 
                         if (expected.documentation !== undefined) {
                             if (actual.documentation === undefined) {
-                                this.program.resolveCompletionItem(filePath, actual, docFormat, CancellationToken.None);
+                                this.program.resolveCompletionItem(
+                                    filePath,
+                                    actual,
+                                    { format: docFormat, snippet: true },
+                                    CancellationToken.None
+                                );
                             }
 
                             if (MarkupContent.is(actual.documentation)) {

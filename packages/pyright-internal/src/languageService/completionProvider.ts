@@ -13,6 +13,7 @@ import {
     CompletionItem,
     CompletionItemKind,
     CompletionList,
+    InsertTextFormat,
     MarkupKind,
     Range,
     TextEdit,
@@ -207,6 +208,11 @@ export interface CompletionResults {
     memberAccessInfo?: MemberAccessInfo;
 }
 
+export interface CompletionOptions {
+    format: MarkupKind;
+    snippet: boolean;
+}
+
 export type AbbreviationMap = Map<string, AbbreviationInfo>;
 
 export interface AutoImportMaps {
@@ -221,6 +227,7 @@ interface RecentCompletionInfo {
 }
 
 interface Edits {
+    format?: InsertTextFormat;
     textEdit?: TextEdit;
     additionalTextEdits?: TextEditAction[];
 }
@@ -265,7 +272,7 @@ export class CompletionProvider {
         private _configOptions: ConfigOptions,
         private _importLookup: ImportLookup,
         private _evaluator: TypeEvaluator,
-        private _format: MarkupKind,
+        private _options: CompletionOptions,
         private _sourceMapper: SourceMapper,
         private _autoImportMaps: AutoImportMaps | undefined,
         private _cancellationToken: CancellationToken
@@ -793,7 +800,7 @@ export class CompletionProvider {
                     }
 
                     const methodSignature = this._printMethodSignature(decl.node) + ':';
-                    const methodBody = this._printOverriddenMethodBody(declaredType, decl);
+                    const methodBody = this._printOverriddenMethodBody(classResults.classType, declaredType, decl);
                     const textEdit = this._createReplaceEdits(
                         priorWord,
                         partialName,
@@ -803,7 +810,10 @@ export class CompletionProvider {
                     this._addSymbol(name, symbol, partialName.value, completionList, {
                         // method signature already contains ()
                         funcParensDisabled: true,
-                        edits: { textEdit },
+                        edits: {
+                            format: this._options.snippet ? InsertTextFormat.Snippet : undefined,
+                            textEdit,
+                        },
                     });
                 }
             }
@@ -867,11 +877,20 @@ export class CompletionProvider {
         return methodSignature;
     }
 
-    private _printOverriddenMethodBody(declaredType: FunctionType, decl: FunctionDeclaration) {
+    private _printOverriddenMethodBody(classType: ClassType, declaredType: FunctionType, decl: FunctionDeclaration) {
         let sb = '    ';
 
+        if (
+            classType.details.baseClasses.length === 1 &&
+            classType.details.baseClasses[0].category === TypeCategory.Class &&
+            classType.details.baseClasses[0].details.fullName === 'builtins.object'
+        ) {
+            sb += this._options.snippet ? '${0:pass}' : 'pass';
+            return sb;
+        }
+
         if (decl.node.parameters.length === 0) {
-            sb += 'pass';
+            sb += this._options.snippet ? '${0:pass}' : 'pass';
             return sb;
         }
 
@@ -1696,7 +1715,7 @@ export class CompletionProvider {
                                 }
                             }
 
-                            if (this._format === MarkupKind.Markdown) {
+                            if (this._options.format === MarkupKind.Markdown) {
                                 let markdownString = '```python\n' + typeDetail + '\n```\n';
 
                                 if (documentation) {
@@ -1708,7 +1727,7 @@ export class CompletionProvider {
                                     kind: MarkupKind.Markdown,
                                     value: markdownString,
                                 };
-                            } else if (this._format === MarkupKind.PlainText) {
+                            } else if (this._options.format === MarkupKind.PlainText) {
                                 let plainTextString = typeDetail + '\n';
 
                                 if (documentation) {
@@ -1721,7 +1740,7 @@ export class CompletionProvider {
                                     value: plainTextString,
                                 };
                             } else {
-                                fail(`Unsupported markup type: ${this._format}`);
+                                fail(`Unsupported markup type: ${this._options.format}`);
                             }
                         }
                     }
@@ -1762,12 +1781,12 @@ export class CompletionProvider {
             autoImportText = `${autoImportText} as ${importAlias}`;
         }
 
-        if (this._format === MarkupKind.Markdown) {
+        if (this._options.format === MarkupKind.Markdown) {
             return `\`\`\`\n${autoImportText}\n\`\`\``;
-        } else if (this._format === MarkupKind.PlainText) {
+        } else if (this._options.format === MarkupKind.PlainText) {
             return autoImportText;
         } else {
-            fail(`Unsupported markup type: ${this._format}`);
+            fail(`Unsupported markup type: ${this._options.format}`);
         }
     }
 
@@ -1818,7 +1837,7 @@ export class CompletionProvider {
 
         completionItemData.symbolLabel = name;
 
-        if (this._format === MarkupKind.Markdown) {
+        if (this._options.format === MarkupKind.Markdown) {
             let markdownString = '';
 
             if (detail?.autoImportText) {
@@ -1842,7 +1861,7 @@ export class CompletionProvider {
                     value: markdownString,
                 };
             }
-        } else if (this._format === MarkupKind.PlainText) {
+        } else if (this._options.format === MarkupKind.PlainText) {
             let plainTextString = '';
 
             if (detail?.autoImportText) {
@@ -1866,7 +1885,11 @@ export class CompletionProvider {
                 };
             }
         } else {
-            fail(`Unsupported markup type: ${this._format}`);
+            fail(`Unsupported markup type: ${this._options.format}`);
+        }
+
+        if (detail?.edits?.format) {
+            completionItem.insertTextFormat = detail.edits.format;
         }
 
         if (detail?.edits?.textEdit) {

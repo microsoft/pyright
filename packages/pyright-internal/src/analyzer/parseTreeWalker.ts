@@ -212,7 +212,7 @@ export class ParseTreeWalker {
 
             case ParseNodeType.Error:
                 if (this.visitError(node)) {
-                    return [node.child];
+                    return [node.child, ...(node.decorators ?? [])];
                 }
                 break;
 

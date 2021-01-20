@@ -46,7 +46,7 @@ import {
 } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
-import { AbbreviationMap, CompletionResults } from '../languageService/completionProvider';
+import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
 import { IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback } from '../languageService/referencesProvider';
@@ -295,7 +295,7 @@ export class AnalyzerService {
         filePath: string,
         position: Position,
         workspacePath: string,
-        format: MarkupKind,
+        options: CompletionOptions,
         nameMap: AbbreviationMap | undefined,
         token: CancellationToken
     ): Promise<CompletionResults | undefined> {
@@ -303,7 +303,7 @@ export class AnalyzerService {
             filePath,
             position,
             workspacePath,
-            format,
+            options,
             nameMap,
             this._backgroundAnalysisProgram.getIndexing(filePath),
             token
@@ -317,10 +317,10 @@ export class AnalyzerService {
     resolveCompletionItem(
         filePath: string,
         completionItem: CompletionItem,
-        format: MarkupKind,
+        options: CompletionOptions,
         token: CancellationToken
     ) {
-        this._program.resolveCompletionItem(filePath, completionItem, format, token);
+        this._program.resolveCompletionItem(filePath, completionItem, options, token);
     }
 
     performQuickAction(
