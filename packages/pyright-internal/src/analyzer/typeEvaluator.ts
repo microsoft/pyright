@@ -16509,7 +16509,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isFunction(destType)) {
             let srcFunction: FunctionType | undefined;
-            const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
+            let concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
+
+            if (isObject(concreteSrcType)) {
+                const callMember = lookUpObjectMember(concreteSrcType, '__call__');
+                if (callMember) {
+                    const memberType = getTypeOfMember(callMember);
+                    if (isFunction(memberType) || isOverloadedFunction(memberType)) {
+                        const boundMethod = bindFunctionToClassOrObject(concreteSrcType, memberType);
+                        if (boundMethod) {
+                            concreteSrcType = boundMethod;
+                        }
+                    }
+                }
+            }
 
             if (isOverloadedFunction(concreteSrcType)) {
                 // Overloads are not compatible with ParamSpec.
@@ -16543,17 +16556,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 srcFunction = overloads[overloadIndex];
             } else if (isFunction(concreteSrcType)) {
                 srcFunction = concreteSrcType;
-            } else if (isObject(concreteSrcType)) {
-                const callMember = lookUpObjectMember(concreteSrcType, '__call__');
-                if (callMember) {
-                    const memberType = getTypeOfMember(callMember);
-                    if (isFunction(memberType)) {
-                        const boundMethod = bindFunctionToClassOrObject(concreteSrcType, memberType);
-                        if (boundMethod) {
-                            srcFunction = boundMethod as FunctionType;
-                        }
-                    }
-                }
             } else if (isClass(concreteSrcType)) {
                 // Synthesize a function that represents the constructor for this class.
                 const constructorFunction = FunctionType.createInstance(
