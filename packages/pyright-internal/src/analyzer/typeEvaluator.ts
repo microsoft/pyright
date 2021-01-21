@@ -3677,6 +3677,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case TypeCategory.TypeVar: {
+                if (flags & EvaluatorFlags.ExpectingType) {
+                    addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeVarNoMember().format({ type: printType(baseType), name: memberName }),
+                        node.leftExpression
+                    );
+
+                    return { type: UnknownType.create(), node };
+                }
+
                 if (baseType.details.isParamSpec) {
                     if (memberName === 'args' || memberName === 'kwargs') {
                         return { type: AnyType.create(), node };
@@ -3685,7 +3696,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
                         Localizer.Diagnostic.paramSpecUnknownMember().format({ name: memberName }),
-                        node.memberName
+                        node
                     );
                     return { type: UnknownType.create(), node };
                 }
