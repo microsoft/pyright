@@ -1512,6 +1512,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const symbolWithScope = lookUpSymbolRecursive(expression, expression.value, /* honorCodeFlow */ true);
                 if (symbolWithScope) {
                     symbol = symbolWithScope.symbol;
+
+                    // Handle the case where the symbol is a class-level variable
+                    // where the type isn't declared in this class but is in
+                    // a parent class.
+                    if (
+                        getDeclaredTypeOfSymbol(symbol) === undefined &&
+                        symbolWithScope.scope.type === ScopeType.Class
+                    ) {
+                        const enclosingClass = ParseTreeUtils.getEnclosingClassOrFunction(expression);
+                        if (enclosingClass && enclosingClass.nodeType === ParseNodeType.Class) {
+                            const classTypeInfo = getTypeOfClass(enclosingClass);
+                            if (classTypeInfo) {
+                                const classMemberInfo = lookUpClassMember(
+                                    classTypeInfo.classType,
+                                    expression.value,
+                                    ClassMemberLookupFlags.SkipInstanceVariables |
+                                        ClassMemberLookupFlags.DeclaredTypesOnly
+                                );
+                                if (classMemberInfo) {
+                                    symbol = classMemberInfo.symbol;
+                                }
+                            }
+                        }
+                    }
                 }
                 break;
             }
