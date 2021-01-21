@@ -162,6 +162,7 @@
         "listInAnnotation": "List expression not allowed in type annotation",
         "literalUnsupportedType": "Type arguments for \"Literal\" must be None, a literal value (int, bool, str, or bytes), or an enum value",
         "literalEmptyArgs": "Expected one or more type arguments after \"Literal\"",
+        "literalNotCallable": "Literal type cannot be instantiated",
         "memberAccess": "Cannot access member \"{name}\" for type \"{type}\"",
         "memberDelete": "Cannot delete member \"{name}\" for type \"{type}\"",
         "memberSet": "Cannot assign member \"{name}\" for type \"{type}\"",

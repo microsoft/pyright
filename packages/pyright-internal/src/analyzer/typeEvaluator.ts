@@ -3018,7 +3018,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                 doForEachSubtype(exceptionType, (subtype) => {
                     if (!isAnyOrUnknown(subtype)) {
-                        if (isClass(subtype)) {
+                        if (isClass(subtype) && subtype.literalValue === undefined) {
                             if (!derivesFromClassRecursive(subtype, baseExceptionType, /* ignoreUnknown */ false)) {
                                 diagAddendum.addMessage(
                                     Localizer.Diagnostic.exceptionTypeIncorrect().format({
@@ -5987,6 +5987,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 }
 
                 case TypeCategory.Class: {
+                    if (concreteSubtype.literalValue !== undefined) {
+                        addDiagnostic(
+                            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.literalNotCallable(),
+                            errorNode
+                        );
+                        argumentErrors = true;
+                        return UnknownType.create();
+                    }
+
                     if (ClassType.isBuiltIn(concreteSubtype)) {
                         const className = concreteSubtype.aliasName || concreteSubtype.details.name;
 
@@ -16611,7 +16622,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 srcFunction = overloads[overloadIndex];
             } else if (isFunction(concreteSrcType)) {
                 srcFunction = concreteSrcType;
-            } else if (isClass(concreteSrcType)) {
+            } else if (isClass(concreteSrcType) && concreteSrcType.literalValue === undefined) {
                 // Synthesize a function that represents the constructor for this class.
                 const constructorFunction = FunctionType.createInstance(
                     '__init__',
