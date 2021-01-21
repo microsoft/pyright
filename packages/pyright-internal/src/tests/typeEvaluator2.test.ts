@@ -110,6 +110,12 @@ test('NewType3', () => {
     TestUtils.validateResults(analysisResults, 4);
 });
 
+test('NewType4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['newType4.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});
+
 test('isInstance1', () => {
     // This test requires Python 3.10 because it uses PEP 604 notation for unions.
     const configOptions = new ConfigOptions('.');

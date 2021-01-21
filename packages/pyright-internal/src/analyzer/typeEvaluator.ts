@@ -7154,6 +7154,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const baseClass = getTypeForArgumentExpectingType(argList[1], getFileInfo(errorNode));
 
             if (isClass(baseClass)) {
+                if (ClassType.isProtocolClass(baseClass)) {
+                    addError(Localizer.Diagnostic.newTypeProtocolClass(), argList[1].node || errorNode);
+                } else if (baseClass.literalValue !== undefined) {
+                    addError(Localizer.Diagnostic.newTypeLiteral(), argList[1].node || errorNode);
+                }
+
                 const classFlags =
                     baseClass.details.flags & ~(ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn);
                 const classType = ClassType.create(
@@ -7202,6 +7208,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 newType.details.declaredReturnType = ObjectType.create(classType);
                 classType.details.fields.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
                 return classType;
+            } else if (!isAnyOrUnknown(baseClass)) {
+                addError(Localizer.Diagnostic.newTypeNotAClass(), argList[1].node || errorNode);
             }
         }
 
