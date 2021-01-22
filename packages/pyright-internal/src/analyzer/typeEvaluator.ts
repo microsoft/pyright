@@ -15903,6 +15903,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 constrainedType = mapSubtypes(concreteSrcType, (srcSubtype) => {
                     let constrainedSubtype: Type | undefined;
 
+                    if (isAnyOrUnknown(srcSubtype)) {
+                        return srcSubtype;
+                    }
+
                     destType.details.constraints.forEach((t) => {
                         if (canAssignType(t, srcSubtype, new DiagnosticAddendum())) {
                             if (!constrainedSubtype || canAssignType(constrainedSubtype, t, new DiagnosticAddendum())) {
