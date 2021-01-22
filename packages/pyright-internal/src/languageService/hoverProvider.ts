@@ -85,7 +85,31 @@ export class HoverProvider {
         if (node.nodeType === ParseNodeType.Name) {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             if (declarations && declarations.length > 0) {
-                this._addResultsForDeclaration(format, sourceMapper, results.parts, declarations[0], node, evaluator);
+                // In most cases, it's best to treat the first declaration as the
+                // "primary". This works well for properties that have setters
+                // which often have doc strings on the getter but not the setter.
+                // The one case where using the first declaration doesn't work as
+                // well is the case where an import statement within an __init__.py
+                // file uses the form "from .A import A". In this case, if we use
+                // the first declaration, it will show up as a module rather than
+                // the imported symbol type.
+                let primaryDeclaration = declarations[0];
+                if (
+                    primaryDeclaration.type === DeclarationType.Alias &&
+                    declarations.length > 1 &&
+                    declarations[1].type !== DeclarationType.Alias
+                ) {
+                    primaryDeclaration = declarations[1];
+                }
+
+                this._addResultsForDeclaration(
+                    format,
+                    sourceMapper,
+                    results.parts,
+                    primaryDeclaration,
+                    node,
+                    evaluator
+                );
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
