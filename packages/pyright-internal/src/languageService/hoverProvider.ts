@@ -85,7 +85,14 @@ export class HoverProvider {
         if (node.nodeType === ParseNodeType.Name) {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             if (declarations && declarations.length > 0) {
-                this._addResultsForDeclaration(format, sourceMapper, results.parts, declarations[0], node, evaluator);
+                this._addResultsForDeclaration(
+                    format,
+                    sourceMapper,
+                    results.parts,
+                    declarations[declarations.length - 1],
+                    node,
+                    evaluator
+                );
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
