@@ -14701,6 +14701,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 }
                             }
                             typesToCombine.push(type);
+                        } else {
+                            isIncomplete = true;
                         }
                     } catch (e) {
                         // Clean up the stack before rethrowing.
