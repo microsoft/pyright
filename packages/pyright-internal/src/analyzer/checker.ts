@@ -1287,9 +1287,35 @@ export class Checker extends ParseTreeWalker {
         let otherDecls = symbol.getDeclarations().filter((decl) => decl !== primaryDecl);
 
         // If it's a function, we can skip any other declarations
-        // that are overloads.
+        // that are overloads or property setters/deleters.
         if (primaryDecl.type === DeclarationType.Function) {
-            otherDecls = otherDecls.filter((decl) => decl.type !== DeclarationType.Function);
+            const primaryDeclTypeInfo = this._evaluator.getTypeOfFunction(primaryDecl.node);
+            const isPrimaryProperty =
+                primaryDeclTypeInfo &&
+                isObject(primaryDeclTypeInfo.decoratedType) &&
+                ClassType.isPropertyClass(primaryDeclTypeInfo.decoratedType.classType);
+
+            otherDecls = otherDecls.filter((decl) => {
+                if (decl.type !== DeclarationType.Function) {
+                    return true;
+                }
+
+                const funcTypeInfo = this._evaluator.getTypeOfFunction(decl.node);
+                if (!funcTypeInfo) {
+                    return true;
+                }
+
+                // Is it a property?
+                if (
+                    isPrimaryProperty &&
+                    isObject(funcTypeInfo.decoratedType) &&
+                    ClassType.isPropertyClass(funcTypeInfo.decoratedType.classType)
+                ) {
+                    return false;
+                }
+
+                return !FunctionType.isOverloaded(funcTypeInfo.functionType);
+            });
         }
 
         // If there are no other declarations to consider, we're done.
@@ -1348,7 +1374,9 @@ export class Checker extends ParseTreeWalker {
                 const diag = this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.obscuredFunctionDeclaration().format({ name }),
+                    otherDecl.isMethod
+                        ? Localizer.Diagnostic.obscuredMethodDeclaration().format({ name })
+                        : Localizer.Diagnostic.obscuredFunctionDeclaration().format({ name }),
                     otherDecl.node.name
                 );
                 addPrimaryDeclInfo(diag);

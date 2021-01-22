@@ -54,7 +54,7 @@ def func7(a: Tuple) -> Tuple[()]:
     return ()
 
 
-def func7(a: tuple):
+def func7_1(a: tuple):
     a.index("1")
 
 
@@ -83,7 +83,7 @@ func9((2, 3, 4))
 func9((2,))
 
 # Tests for tuple assignments with unpack expressions.
-def func10() -> int:
+def func10_1() -> int:
     a = (3, 4, 5)
 
     c, *d = a

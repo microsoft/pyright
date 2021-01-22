@@ -5,7 +5,8 @@ from typing import Union
 
 condition: bool = True
 
-def foo(a: Union[str, int]) -> int:
+
+def foo1(a: Union[str, int]) -> int:
 
     if condition:
         # This should generate an error because
@@ -17,7 +18,7 @@ def foo(a: Union[str, int]) -> int:
     return a
 
 
-def foo(a: Union[str, int]) -> int:
+def foo2(a: Union[str, int]) -> int:
     # Test the form of "assert" that includes a message string.
     assert isinstance(a, int), "Message"
     return a

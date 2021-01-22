@@ -22,7 +22,7 @@ def func1c(
     return ""
 
 
-def func1c(
+def func1d(
     a,  # type: int
     b,  # type: Foo
 ):
@@ -30,7 +30,7 @@ def func1c(
     return ""
 
 
-def func1c(
+def func1e(
     a,  # type: int
     b,  # type: str
 ):
@@ -39,7 +39,7 @@ def func1c(
 
 
 # This should generate an error because a is unannotated.
-def func1d(a):
+def func1f(a):
     # type: (...) -> str
     return ""
 

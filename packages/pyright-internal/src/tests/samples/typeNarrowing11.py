@@ -42,7 +42,7 @@ def func3(a: bool):
         must_be_false(a)
 
 
-def func3(a: bool):
+def func4(a: bool):
     if not a:
         must_be_false(a)
     else:
@@ -54,7 +54,7 @@ class MyEnum(Enum):
     ONE = 1
 
 
-def func4(x: Union[MyEnum, str]):
+def func5(x: Union[MyEnum, str]):
     if x is MyEnum.ZERO:
         t1: Literal["Literal[MyEnum.ZERO]"] = reveal_type(x)
     elif x is MyEnum.ONE:

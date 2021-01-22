@@ -1,5 +1,6 @@
 # This sample tests the reportSelfClsParameterName setting.
 
+
 def foo():
     pass
 
@@ -14,7 +15,7 @@ class Class1:
     # is enabled because "self" is misspelled.
     def foo2(seeeelf):
         return 4
-    
+
     # This should generate an error or warning if the setting
     # is enabled because "self" is misspelled.
     def foo3(cls):
@@ -27,7 +28,7 @@ class Class1:
     @classmethod
     # This should generate an error or warning if the setting
     # is enabled because "cls" is expected.
-    def foo4(self):
+    def foo5(self):
         return 4
 
 
@@ -36,4 +37,3 @@ class Metaclass(type):
     # from type and is assumed to be a metaclass.
     def foo1(cls):
         return 3
-

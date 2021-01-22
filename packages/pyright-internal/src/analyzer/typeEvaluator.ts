@@ -10767,7 +10767,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         for (let i = node.decorators.length - 1; i >= 0; i--) {
             const decorator = node.decorators[i];
 
-            const newDecoratedType = applyFunctionDecorator(decoratedType, decorator, node);
+            const newDecoratedType = applyFunctionDecorator(decoratedType, functionType, decorator, node);
             if (containsUnknown(newDecoratedType)) {
                 // Report this error only on the first unknown type.
                 if (!foundUnknown) {
@@ -10938,6 +10938,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // decorator function described by the decoratorNode.
     function applyFunctionDecorator(
         inputFunctionType: Type,
+        undecoratedType: FunctionType,
         decoratorNode: DecoratorNode,
         functionNode: FunctionNode
     ): Type {
@@ -10956,6 +10957,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (isClass(decoratorType) && ClassType.isSpecialBuiltIn(decoratorType, 'overload')) {
             if (isFunction(inputFunctionType)) {
                 inputFunctionType.details.flags |= FunctionTypeFlags.Overloaded;
+                undecoratedType.details.flags |= FunctionTypeFlags.Overloaded;
                 return inputFunctionType;
             }
         }
