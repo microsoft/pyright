@@ -50,6 +50,11 @@ export class DefinitionProvider {
                 declarations.forEach((decl) => {
                     let resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
                     if (resolvedDecl && resolvedDecl.path) {
+                        // If the decl is an unresolved import, skip it.
+                        if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.isUnresolved) {
+                            return;
+                        }
+
                         // If the resolved decl is still an alias, it means it
                         // resolved to a module. We need to apply loader actions
                         // to determine its path.

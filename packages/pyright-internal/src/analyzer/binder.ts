@@ -1920,6 +1920,7 @@ export class Binder extends ParseTreeWalker {
                 range: getEmptyRange(),
                 usesLocalName: !!importAlias,
                 moduleName: '',
+                isUnresolved: true,
             };
             symbol.addDeclaration(newDecl);
         }

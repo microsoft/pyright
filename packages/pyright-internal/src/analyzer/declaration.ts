@@ -155,6 +155,9 @@ export interface AliasDeclaration extends DeclarationBase {
     // module loader. This can be recursive (e.g. in the case of
     // an "import a.b.c.d" statement).
     implicitImports?: Map<string, ModuleLoaderActions>;
+
+    // Is this a dummy entry for an unresolved import?
+    isUnresolved?: boolean;
 }
 
 // This interface represents a set of actions that the python loader
