@@ -13,6 +13,9 @@ class ParentClass:
     var6: int
     var7: List[float]
     var8: List[int]
+    
+    _var1: int
+    __var1: int
 
 
 class Subclass(ParentClass):
@@ -42,3 +45,9 @@ class Subclass(ParentClass):
     # This should generate an error because floats are not allowed
     # in a List[int].
     var8 = [3.3, 45.6, 5.9]
+
+    # This should generate an error
+    _var1: str
+
+    # This should not generate an error because it's a private name
+    __var1: str

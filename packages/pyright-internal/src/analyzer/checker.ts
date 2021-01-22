@@ -2204,6 +2204,13 @@ export class Checker extends ParseTreeWalker {
                 return;
             }
 
+            // Private symbols do not need to match in type since their
+            // names are mangled, and subclasses can't access the value in
+            // the parent class.
+            if (SymbolNameUtils.isPrivateName(name)) {
+                return;
+            }
+
             // Get the symbol type defined in this class.
             const typeOfSymbol = this._evaluator.getEffectiveTypeOfSymbol(symbol);
 
