@@ -31,7 +31,7 @@ import { ConsoleInterface, log, LogLevel, StandardConsole } from '../common/cons
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
-import { FileSystem, FileWatcher, ignoredWatchEventFunction } from '../common/fileSystem';
+import { FileSystem, FileWatcher, ignoredWatchEventFunction, Stats } from '../common/fileSystem';
 import {
     combinePaths,
     FileSpec,
@@ -706,9 +706,9 @@ export class AnalyzerService {
     // This is called after a new type stub has been created. It allows
     // us to invalidate caches and force reanalysis of files that potentially
     // are affected by the appearance of a new type stub.
-    invalidateAndForceReanalysis() {
+    invalidateAndForceReanalysis(rebuildLibraryIndexing = true) {
         // Mark all files with one or more errors dirty.
-        this._backgroundAnalysisProgram.invalidateAndForceReanalysis();
+        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(rebuildLibraryIndexing);
     }
 
     // Forces the service to stop all analysis, discard all its caches,
@@ -1057,8 +1057,19 @@ export class AnalyzerService {
                         this._console.info(`SourceFile: Received fs event '${event}' for path '${path}'`);
                     }
 
+                    let stats: Stats | undefined;
+                    try {
+                        stats = this._fs.statSync(path);
+                    } catch {
+                        stats = undefined;
+                    }
+
+                    if (stats && stats.isFile() && !path.endsWith('py') && !path.endsWith('pyi')) {
+                        return;
+                    }
+
                     // Delete comes in as a change event, so try to distinguish here.
-                    if (event === 'change' && this._fs.existsSync(path)) {
+                    if (event === 'change' && stats) {
                         this._backgroundAnalysisProgram.markFilesDirty([path], false);
                         this._scheduleReanalysis(false);
                     } else {
@@ -1079,7 +1090,7 @@ export class AnalyzerService {
                         if (!isTemporaryFile) {
                             // Added/deleted/renamed files impact imports,
                             // clear the import resolver cache and reanalyze everything.
-                            this.invalidateAndForceReanalysis();
+                            this.invalidateAndForceReanalysis(false);
                             this._scheduleReanalysis(true);
                         }
                     }

@@ -374,7 +374,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
 
         // For any non-workspace paths, use the node file watcher.
-        let nodeWatchers: fs.FSWatcher[];
+        let nodeWatchers: FileWatcher[];
 
         try {
             nodeWatchers = nonWorkspacePaths.map((path) => {
@@ -838,7 +838,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                             };
                         }),
                         {
-                            globPattern: '**/*.{py,pyi}',
+                            globPattern: '**',
                             kind: WatchKind.Create | WatchKind.Change | WatchKind.Delete,
                         },
                     ],

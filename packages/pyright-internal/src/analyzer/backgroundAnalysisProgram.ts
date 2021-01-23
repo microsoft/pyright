@@ -195,8 +195,10 @@ export class BackgroundAnalysisProgram {
         return this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
     }
 
-    invalidateAndForceReanalysis() {
-        this.refreshIndexing();
+    invalidateAndForceReanalysis(rebuildLibraryIndexing: boolean) {
+        if (rebuildLibraryIndexing) {
+            this.refreshIndexing();
+        }
 
         this._backgroundAnalysis?.invalidateAndForceReanalysis();
 
