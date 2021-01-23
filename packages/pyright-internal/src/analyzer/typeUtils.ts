@@ -1049,7 +1049,11 @@ export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeCo
     }
 
     const typeVarMap = buildTypeVarMap(typeParameters, typeArguments, getTypeVarScopeId(classType));
-    if (ClassType.isVariadicTypeParam(classType) && classType.variadicTypeArguments && typeParameters.length >= 1) {
+    if (
+        ClassType.isPseudoVariadicTypeParam(classType) &&
+        classType.variadicTypeArguments &&
+        typeParameters.length >= 1
+    ) {
         typeVarMap.setVariadicTypeVar(typeParameters[0], classType.variadicTypeArguments);
     }
 
@@ -1646,7 +1650,7 @@ function _transformTypeVarsInClassType(
         });
     }
 
-    if (ClassType.isVariadicTypeParam(classType)) {
+    if (ClassType.isPseudoVariadicTypeParam(classType)) {
         if (classType.variadicTypeArguments) {
             newVariadicTypeArgs = classType.variadicTypeArguments.map((oldTypeArgType) => {
                 const newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);

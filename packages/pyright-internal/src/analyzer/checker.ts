@@ -1666,7 +1666,7 @@ export class Checker extends ParseTreeWalker {
         let isValidType = true;
         if (
             isObject(arg1Type) &&
-            ClassType.isVariadicTypeParam(arg1Type.classType) &&
+            ClassType.isPseudoVariadicTypeParam(arg1Type.classType) &&
             arg1Type.classType.variadicTypeArguments
         ) {
             isValidType = !arg1Type.classType.variadicTypeArguments.some(

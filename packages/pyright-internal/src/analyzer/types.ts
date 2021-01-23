@@ -302,10 +302,10 @@ export const enum ClassTypeFlags {
     // semantics.
     HasCustomClassGetItem = 1 << 18,
 
-    // This class uses a variadic type arguments, so the number of
-    // arguments is variable. Currently, the only class that supports
+    // This class uses a variadic type parameter even though it is not
+    // declared as such. Currently, the only class that supports
     // this is tuple.
-    VariadicTypeParameter = 1 << 19,
+    PseudoVariadicTypeParameter = 1 << 19,
 
     // The class has a metaclass of EnumMet or derives from
     // a class that has this metaclass.
@@ -554,8 +554,8 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.HasCustomClassGetItem);
     }
 
-    export function isVariadicTypeParam(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.VariadicTypeParameter);
+    export function isPseudoVariadicTypeParam(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.PseudoVariadicTypeParameter);
     }
 
     export function getTypeParameters(classType: ClassType) {

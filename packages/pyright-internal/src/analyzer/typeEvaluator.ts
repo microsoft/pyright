@@ -1076,7 +1076,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!TypeBase.isInstantiable(resultType)) {
                 const isEmptyVariadic =
                     isObject(resultType) &&
-                    ClassType.isVariadicTypeParam(resultType.classType) &&
+                    ClassType.isPseudoVariadicTypeParam(resultType.classType) &&
                     resultType.classType.variadicTypeArguments?.length === 0;
 
                 if ((flags & EvaluatorFlags.AllowEmptyTupleAsType) === 0 || !isEmptyVariadic) {
@@ -4564,7 +4564,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // of type arguments. We need to perform special processing of the
                 // type args in this case to permit empty tuples.
                 let adjustedFlags = flags;
-                if (isClass(concreteSubtype) && ClassType.isVariadicTypeParam(concreteSubtype)) {
+                if (isClass(concreteSubtype) && ClassType.isPseudoVariadicTypeParam(concreteSubtype)) {
                     adjustedFlags |= EvaluatorFlags.AllowEmptyTupleAsType;
                 }
 
@@ -5585,7 +5585,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     // the homogenous arbitrary-length form.
                                     if (
                                         isObject(newReturnType) &&
-                                        ClassType.isVariadicTypeParam(newReturnType.classType) &&
+                                        ClassType.isPseudoVariadicTypeParam(newReturnType.classType) &&
                                         newReturnType.classType.variadicTypeArguments &&
                                         newReturnType.classType.variadicTypeArguments.length === 1
                                     ) {
@@ -6696,7 +6696,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const passCount = Math.min(typeVarMatchingCount, 2);
                 for (let i = 0; i < passCount; i++) {
                     useSpeculativeMode(errorNode, () => {
-                        // suppressDiagnostics(() => {
                         validateArgTypeParams.forEach((argParam) => {
                             if (argParam.requiresTypeVarMatching) {
                                 validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck);
@@ -9409,7 +9408,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         paramLimit?: number,
         allowParamSpec = false
     ): Type {
-        const isVariadicTypeParam = ClassType.isVariadicTypeParam(classType);
+        const isVariadicTypeParam = ClassType.isPseudoVariadicTypeParam(classType);
 
         if (typeArgs) {
             // Verify that we didn't receive any inappropriate ellipses or modules.
@@ -9933,7 +9932,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (node.name.value === 'tuple') {
-                classFlags |= ClassTypeFlags.VariadicTypeParameter;
+                classFlags |= ClassTypeFlags.PseudoVariadicTypeParameter;
             }
         }
 
@@ -13912,7 +13911,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (typeArgs && typeArgCount > typeParameters.length) {
-            if (!ClassType.isPartiallyConstructed(classType)) {
+            if (!ClassType.isPartiallyConstructed(classType) && !ClassType.isPseudoVariadicTypeParam(classType)) {
                 const fileInfo = getFileInfo(errorNode);
                 if (typeParameters.length === 0) {
                     addDiagnostic(
@@ -15582,7 +15581,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (ancestorIndex === 0 && ClassType.isBuiltIn(destType)) {
                 // Handle built-in types that support arbitrary numbers
                 // of type parameters like Tuple.
-                if (ClassType.isVariadicTypeParam(destType)) {
+                if (ClassType.isPseudoVariadicTypeParam(destType)) {
                     if (destType.variadicTypeArguments && curSrcType.variadicTypeArguments) {
                         const destTypeArgs = destType.variadicTypeArguments;
                         let destArgCount = destTypeArgs.length;
@@ -15695,7 +15694,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (
-                ClassType.isVariadicTypeParam(curSrcType) &&
+                ClassType.isPseudoVariadicTypeParam(curSrcType) &&
                 curSrcType.variadicTypeArguments &&
                 destType.details.typeParameters.length >= 1
             ) {
@@ -15743,7 +15742,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (ClassType.isVariadicTypeParam(destType)) {
+        if (ClassType.isPseudoVariadicTypeParam(destType)) {
             destTypeArgs = destType.variadicTypeArguments || [];
             srcTypeArgs = srcType.variadicTypeArguments;
         } else {

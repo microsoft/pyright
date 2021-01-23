@@ -412,7 +412,7 @@ export function printObjectTypeForClass(
                         ']';
                 }
             } else {
-                if (ClassType.isVariadicTypeParam(type)) {
+                if (ClassType.isPseudoVariadicTypeParam(type)) {
                     objName += '[()]';
                 }
             }
