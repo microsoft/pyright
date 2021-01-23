@@ -16,6 +16,7 @@ import {
     AnyType,
     ClassType,
     combineConstrainedTypes,
+    combineTypes,
     ConstrainedSubtype,
     EnumLiteral,
     findSubtype,
@@ -32,6 +33,7 @@ import {
     isUnbound,
     isUnion,
     isUnknown,
+    isVariadicTypeVar,
     maxTypeRecursionCount,
     ModuleType,
     NeverType,
@@ -572,14 +574,6 @@ export function isNoReturnType(type: Type): boolean {
 
 export function removeNoReturnFromUnion(type: Type): Type {
     return removeFromUnion(type, (subtype) => isNoReturnType(subtype));
-}
-
-export function isParamSpecType(type: Type): boolean {
-    if (!isTypeVar(type)) {
-        return false;
-    }
-
-    return type.details.isParamSpec;
 }
 
 export function isProperty(type: Type): type is ObjectType {
@@ -1543,7 +1537,29 @@ export function _transformTypeVars(
 
     if (isUnion(type)) {
         return mapSubtypes(type, (subtype) => {
-            return _transformTypeVars(subtype, callbacks, recursionMap, recursionLevel + 1);
+            let transformedType = _transformTypeVars(subtype, callbacks, recursionMap, recursionLevel + 1);
+
+            // If we're transforming a variadic type variable within a union,
+            // combine the individual types within the variadic type variable.
+            if (isVariadicTypeVar(subtype) && !isVariadicTypeVar(transformedType)) {
+                const subtypesToCombine: Type[] = [];
+                doForEachSubtype(transformedType, (transformedSubtype) => {
+                    if (
+                        isObject(transformedSubtype) &&
+                        isTupleClass(transformedSubtype.classType) &&
+                        transformedSubtype.classType.tupleTypeArguments &&
+                        transformedSubtype.classType.isTupleForUnpackedVariadicTypeVar
+                    ) {
+                        subtypesToCombine.push(...transformedSubtype.classType.tupleTypeArguments);
+                    } else {
+                        subtypesToCombine.push(transformedSubtype);
+                    }
+                });
+
+                transformedType = combineTypes(subtypesToCombine);
+            }
+
+            return transformedType;
         });
     }
 
@@ -1647,12 +1663,23 @@ function _transformTypeVarsInClassType(
 
     if (ClassType.isTupleClass(classType)) {
         if (classType.tupleTypeArguments) {
-            newVariadicTypeArgs = classType.tupleTypeArguments.map((oldTypeArgType) => {
+            newVariadicTypeArgs = [];
+            classType.tupleTypeArguments.forEach((oldTypeArgType) => {
                 const newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);
                 if (newTypeArgType !== oldTypeArgType) {
                     specializationNeeded = true;
                 }
-                return newTypeArgType;
+
+                if (
+                    isVariadicTypeVar(oldTypeArgType) &&
+                    isObject(newTypeArgType) &&
+                    isTupleClass(newTypeArgType.classType) &&
+                    newTypeArgType.classType.tupleTypeArguments
+                ) {
+                    newVariadicTypeArgs!.push(...newTypeArgType.classType.tupleTypeArguments);
+                } else {
+                    newVariadicTypeArgs!.push(newTypeArgType);
+                }
             });
         } else if (typeParams.length > 0) {
             newVariadicTypeArgs = callbacks.transformVariadicTypeVar(typeParams[0]);

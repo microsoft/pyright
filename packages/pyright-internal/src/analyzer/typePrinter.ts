@@ -20,6 +20,7 @@ import {
     isObject,
     isUnion,
     isUnknown,
+    isVariadicTypeVar,
     maxTypeRecursionCount,
     ObjectType,
     removeNoneFromUnion,
@@ -330,7 +331,12 @@ export function printType(
                 return `${TypeVarType.getReadableName(type)}`;
             }
 
-            const typeVarName = TypeVarType.getReadableName(type);
+            let typeVarName = TypeVarType.getReadableName(type);
+
+            if (type.isVariadicUnpacked) {
+                typeVarName = `*${typeVarName}`;
+            }
+
             if (TypeBase.isInstantiable(type)) {
                 return `Type[${typeVarName}]`;
             }
@@ -392,38 +398,65 @@ export function printObjectTypeForClass(
     // If this is a pseudo-generic class, don't display the type arguments
     // or type parameters because it will confuse users.
     if (!ClassType.isPseudoGenericClass(type)) {
+        const typeParams = ClassType.getTypeParameters(type);
+        const lastTypeParam = typeParams.length > 0 ? typeParams[typeParams.length - 1] : undefined;
+        const isVariadic = lastTypeParam ? lastTypeParam.details.isVariadic : false;
+
         // If there is a type arguments array, it's a specialized class.
         const typeArgs = type.tupleTypeArguments || type.typeArguments;
         if (typeArgs) {
             // Handle Tuple[()] as a special case.
             if (typeArgs.length > 0) {
-                if (
-                    (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
-                    typeArgs.some((typeArg) => !isAnyOrUnknown(typeArg))
-                ) {
-                    objName +=
-                        '[' +
-                        typeArgs
-                            .map((typeArg) => {
-                                return printType(
-                                    typeArg,
-                                    printTypeFlags,
-                                    returnTypeCallback,
-                                    /* expandTypeAlias */ false,
-                                    recursionCount + 1
-                                );
-                            })
-                            .join(', ') +
-                        ']';
+                const typeArgStrings: string[] = [];
+                const isAllAny = true;
+
+                typeArgs.forEach((typeArg, index) => {
+                    const typeParam = index < typeParams.length ? typeParams[index] : undefined;
+                    if (
+                        typeParam &&
+                        typeParam.details.isVariadic &&
+                        isObject(typeArg) &&
+                        ClassType.isBuiltIn(typeArg.classType, 'tuple') &&
+                        typeArg.classType.tupleTypeArguments
+                    ) {
+                        // Expand the tuple type that maps to the variadic type parameter.
+                        if (typeArg.classType.tupleTypeArguments.length === 0) {
+                            typeArgStrings.push('()');
+                        } else {
+                            typeArgStrings.push(
+                                ...typeArg.classType.tupleTypeArguments!.map((typeArg) =>
+                                    printType(
+                                        typeArg,
+                                        printTypeFlags,
+                                        returnTypeCallback,
+                                        /* expandTypeAlias */ false,
+                                        recursionCount + 1
+                                    )
+                                )
+                            );
+                        }
+                    } else {
+                        typeArgStrings.push(
+                            printType(
+                                typeArg,
+                                printTypeFlags,
+                                returnTypeCallback,
+                                /* expandTypeAlias */ false,
+                                recursionCount + 1
+                            )
+                        );
+                    }
+                });
+
+                if ((printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 || !isAllAny) {
+                    objName += '[' + typeArgStrings.join(', ') + ']';
                 }
             } else {
-                if (ClassType.isTupleClass(type)) {
+                if (ClassType.isTupleClass(type) || isVariadic) {
                     objName += '[()]';
                 }
             }
         } else {
-            const typeParams = ClassType.getTypeParameters(type);
-
             if (typeParams.length > 0) {
                 if (
                     (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
@@ -458,7 +491,34 @@ export function printFunctionParts(
 
     recursionCount = 0
 ): [string[], string] {
-    const paramTypeStrings = type.details.parameters.map((param, index) => {
+    const paramTypeStrings: string[] = [];
+    type.details.parameters.forEach((param, index) => {
+        // Handle specialized variadic type parameters specially.
+        if (
+            index === type.details.parameters.length - 1 &&
+            param.category === ParameterCategory.VarArgList &&
+            isVariadicTypeVar(param.type)
+        ) {
+            const specializedParamType = FunctionType.getEffectiveParameterType(type, index);
+            if (
+                isObject(specializedParamType) &&
+                ClassType.isBuiltIn(specializedParamType.classType, 'tuple') &&
+                specializedParamType.classType.tupleTypeArguments
+            ) {
+                specializedParamType.classType.tupleTypeArguments.forEach((paramType, paramIndex) => {
+                    const paramString = `p${(index + paramIndex).toString()}: ${printType(
+                        paramType,
+                        printTypeFlags,
+                        returnTypeCallback,
+                        /* expandTypeAlias */ false,
+                        recursionCount + 1
+                    )}`;
+                    paramTypeStrings.push(paramString);
+                });
+                return;
+            }
+        }
+
         let paramString = '';
         if (param.category === ParameterCategory.VarArgList) {
             paramString += '*';
@@ -509,7 +569,7 @@ export function printFunctionParts(
             }
         }
 
-        return paramString;
+        paramTypeStrings.push(paramString);
     });
 
     const returnType = returnTypeCallback(type);

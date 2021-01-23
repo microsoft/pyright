@@ -345,6 +345,11 @@ export interface ClassType extends TypeBase {
     // based on the variadic arguments.
     tupleTypeArguments?: Type[];
 
+    // We sometimes package multiple types into a tuple internally
+    // for matching against a variadic type variable. We need to be
+    // able to distinguish this case from normal tuples.
+    isTupleForUnpackedVariadicTypeVar?: boolean;
+
     // If type arguments are present, were they explicit (i.e.
     // provided explicitly in the code)?
     isTypeArgumentExplicit?: boolean;
@@ -1389,6 +1394,7 @@ export interface TypeVarDetails {
     boundType?: Type;
     variance: Variance;
     isParamSpec: boolean;
+    isVariadic: boolean;
 
     // Internally created (e.g. for pseudo-generic classes)
     isSynthesized: boolean;
@@ -1417,6 +1423,9 @@ export interface TypeVarType extends TypeBase {
 
     // String formatted as <name>.<scopeId>.
     nameWithScope?: string;
+
+    // Is this variadic TypeVar unpacked (i.e. Unpack or * operator applied)?
+    isVariadicUnpacked?: boolean;
 }
 
 export namespace TypeVarType {
@@ -1452,6 +1461,20 @@ export namespace TypeVarType {
         return newInstance;
     }
 
+    export function cloneForUnpacked(type: TypeVarType) {
+        assert(type.details.isVariadic);
+        const newInstance: TypeVarType = { ...type };
+        newInstance.isVariadicUnpacked = true;
+        return newInstance;
+    }
+
+    export function cloneForPacked(type: TypeVarType) {
+        assert(type.details.isVariadic);
+        const newInstance: TypeVarType = { ...type };
+        newInstance.isVariadicUnpacked = false;
+        return newInstance;
+    }
+
     export function makeNameWithScope(name: string, scopeId: string) {
         return `${name}.${scopeId}`;
     }
@@ -1464,6 +1487,7 @@ export namespace TypeVarType {
                 constraints: [],
                 variance: Variance.Invariant,
                 isParamSpec,
+                isVariadic: false,
                 isSynthesized: false,
             },
             flags: typeFlags,
@@ -1551,6 +1575,21 @@ export function isModule(type: Type): type is ModuleType {
 
 export function isTypeVar(type: Type): type is TypeVarType {
     return type.category === TypeCategory.TypeVar;
+}
+
+export function isVariadicTypeVar(type: Type): type is TypeVarType {
+    return type.category === TypeCategory.TypeVar && type.details.isVariadic;
+}
+
+export function isUnpackedVariadicTypeVar(type: Type): boolean {
+    if (isUnion(type) && type.subtypes.length === 1) {
+        type = type.subtypes[0];
+    }
+    return type.category === TypeCategory.TypeVar && type.details.isVariadic && !!type.isVariadicUnpacked;
+}
+
+export function isParamSpec(type: Type): type is TypeVarType {
+    return type.category === TypeCategory.TypeVar && type.details.isParamSpec;
 }
 
 export function isFunction(type: Type): type is FunctionType {
@@ -1892,7 +1931,7 @@ export function combineConstrainedTypes(subtypes: ConstrainedSubtype[], maxSubty
     }
 
     // Handle the common case where there is only one type.
-    if (subtypes.length === 1 && !subtypes[0].constraints) {
+    if (subtypes.length === 1 && !subtypes[0].constraints && !isUnpackedVariadicTypeVar(subtypes[0].type)) {
         return subtypes[0].type;
     }
 
@@ -1958,8 +1997,13 @@ export function combineConstrainedTypes(subtypes: ConstrainedSubtype[], maxSubty
         return AnyType.create();
     }
 
-    // If only one type remains and there are no constraints, convert it from a union to a simple type.
-    if (newUnionType.subtypes.length === 1 && !newUnionType.constraints) {
+    // If only one type remains and there are no constraints and no variadic
+    // type var, convert it from a union to a simple type.
+    if (
+        newUnionType.subtypes.length === 1 &&
+        !newUnionType.constraints &&
+        !isUnpackedVariadicTypeVar(newUnionType.subtypes[0])
+    ) {
         return newUnionType.subtypes[0];
     }
 

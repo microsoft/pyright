@@ -2956,6 +2956,7 @@ export class Binder extends ParseTreeWalker {
             OrderedDict: true,
             Concatenate: true,
             TypeGuard: true,
+            Unpack: true,
         };
 
         const assignedName = assignedNameNode.value;
