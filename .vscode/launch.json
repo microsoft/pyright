@@ -10,7 +10,7 @@
             "preLaunchTask": "npm: build:cli:dev",
             "args": [
                 "--verifytypes",
-                "aiohttp",
+                "pandas.core.reshape.concat",
             ],
             "internalConsoleOptions": "openOnSessionStart",
             "outFiles": [

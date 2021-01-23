@@ -113,7 +113,7 @@ export class DiagnosticAddendum {
     }
 
     getString(maxDepth = defaultMaxDepth, maxLineCount = defaultMaxLineCount): string {
-        let lines = this._getLinesRecursive(maxDepth);
+        let lines = this._getLinesRecursive(maxDepth, maxLineCount);
 
         if (lines.length > maxLineCount) {
             lines = lines.slice(0, maxLineCount);
@@ -155,15 +155,21 @@ export class DiagnosticAddendum {
         return messageCount;
     }
 
-    private _getLinesRecursive(maxDepth: number, recursionCount = 0): string[] {
+    private _getLinesRecursive(maxDepth: number, maxLineCount: number, recursionCount = 0): string[] {
         if (maxDepth <= 0 || recursionCount > maxRecursionCount) {
             return [];
         }
 
-        const childLines: string[] = [];
+        let childLines: string[] = [];
         for (const addendum of this._childAddenda) {
             const maxDepthRemaining = this._messages.length > 0 ? maxDepth - 1 : maxDepth;
-            childLines.push(...addendum._getLinesRecursive(maxDepthRemaining, recursionCount + 1));
+            childLines.push(...addendum._getLinesRecursive(maxDepthRemaining, maxLineCount, recursionCount + 1));
+
+            // If the number of lines exceeds our max line count, don't bother adding more.
+            if (childLines.length >= maxLineCount) {
+                childLines = childLines.slice(0, maxLineCount);
+                break;
+            }
         }
 
         // Prepend indentation for readability. Skip if there are no
