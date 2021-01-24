@@ -468,6 +468,8 @@ export namespace Localizer {
         export const paramSpecContext = () => getRawString('Diagnostic.paramSpecContext');
         export const paramSpecIllegal = () => getRawString('Diagnostic.paramSpecIllegal');
         export const paramSpecFirstArg = () => getRawString('Diagnostic.paramSpecFirstArg');
+        export const paramSpecNotBound = () =>
+            new ParameterizedString<{ type: string }>(getRawString('Diagnostic.paramSpecNotBound'));
         export const paramSpecUnknownArg = () => getRawString('Diagnostic.paramSpecUnknownArg');
         export const paramSpecUnknownMember = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecUnknownMember'));

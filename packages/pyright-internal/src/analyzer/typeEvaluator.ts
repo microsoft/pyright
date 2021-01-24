@@ -3440,7 +3440,27 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 } else if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
                     if (type.scopeId === undefined) {
                         if (!scopedTypeVarInfo.foundInterveningClass) {
-                            const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
+                            let enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
+
+                            // Handle P.args and P.kwargs as a special case for inner functions.
+                            if (
+                                enclosingScope &&
+                                node.parent?.nodeType === ParseNodeType.MemberAccess &&
+                                node.parent.leftExpression === node
+                            ) {
+                                if (
+                                    node.parent.memberName.value === 'args' ||
+                                    node.parent.memberName.value === 'kwargs'
+                                ) {
+                                    const outerFunctionScope = ParseTreeUtils.getEnclosingClassOrFunction(
+                                        enclosingScope
+                                    );
+                                    if (outerFunctionScope?.nodeType === ParseNodeType.Function) {
+                                        enclosingScope = outerFunctionScope;
+                                    }
+                                }
+                            }
+
                             if (enclosingScope) {
                                 type = TypeVarType.cloneForScopeId(
                                     type,
@@ -6362,9 +6382,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             positionalParamCount = varArgDictParamIndex;
         }
 
-        // Is this an inner-scoped function that uses the *args and **kwargs
+        // Is this an function that uses the *args and **kwargs
         // from a param spec? If so, we need to treat all positional parameters
         // prior to the *args as positional-only according to PEP 612.
+        let paramSpecArgList: FunctionArgument[] | undefined;
+        let paramSpecTarget: TypeVarType | undefined;
+
         if (varArgListParamIndex >= 0 && varArgDictParamIndex >= 0) {
             const varArgListParam = typeParams[varArgListParamIndex];
             const varArgDictParam = typeParams[varArgDictParamIndex];
@@ -6374,13 +6397,28 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 varArgListParam.typeAnnotation &&
                 varArgListParam.typeAnnotation.nodeType === ParseNodeType.MemberAccess &&
                 varArgListParam.typeAnnotation.memberName.value === 'args' &&
+                varArgListParam.typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
                 varArgDictParam.name &&
                 varArgDictParam.hasDeclaredType &&
                 varArgDictParam.typeAnnotation &&
                 varArgDictParam.typeAnnotation.nodeType === ParseNodeType.MemberAccess &&
-                varArgDictParam.typeAnnotation.memberName.value === 'kwargs'
+                varArgDictParam.typeAnnotation.memberName.value === 'kwargs' &&
+                varArgDictParam.typeAnnotation.leftExpression.nodeType === ParseNodeType.Name &&
+                varArgListParam.typeAnnotation.leftExpression.value ===
+                    varArgDictParam.typeAnnotation.leftExpression.value
             ) {
-                positionalOnlyIndex = varArgListParamIndex;
+                const baseType = getTypeOfExpression(varArgListParam.typeAnnotation.leftExpression).type;
+                if (isTypeVar(baseType) && baseType.details.isParamSpec) {
+                    // Does this function define the param spec, or is it an inner
+                    // function nested within another function that defines the param
+                    // spec? We need to handle these two cases differently.
+                    if (baseType.scopeId === type.details.typeVarScopeId) {
+                        paramSpecArgList = [];
+                        paramSpecTarget = baseType;
+                    } else {
+                        positionalOnlyIndex = varArgListParamIndex;
+                    }
+                }
             }
         }
 
@@ -6552,14 +6590,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     paramIndex++;
                 }
             } else if (typeParams[paramIndex].category === ParameterCategory.VarArgList) {
-                validateArgTypeParams.push({
-                    paramCategory: typeParams[paramIndex].category,
-                    paramType,
-                    requiresTypeVarMatching: requiresSpecialization(paramType),
-                    argument: argList[argIndex],
-                    errorNode: argList[argIndex].valueExpression || errorNode,
-                    paramName: typeParams[paramIndex].name,
-                });
+                if (paramSpecArgList) {
+                    paramSpecArgList.push(argList[argIndex]);
+                } else {
+                    validateArgTypeParams.push({
+                        paramCategory: typeParams[paramIndex].category,
+                        paramType,
+                        requiresTypeVarMatching: requiresSpecialization(paramType),
+                        argument: argList[argIndex],
+                        errorNode: argList[argIndex].valueExpression || errorNode,
+                        paramName: typeParams[paramIndex].name,
+                    });
+                }
                 trySetActive(argList[argIndex], typeParams[paramIndex]);
 
                 argIndex++;
@@ -6651,19 +6693,20 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                 trySetActive(argList[argIndex], typeParams[paramInfoIndex]);
                             }
                         } else if (varArgDictParam) {
-                            const paramInfoIndex = typeParams.findIndex(
-                                (param) => param.category === ParameterCategory.VarArgDictionary
-                            );
-                            assert(paramInfoIndex >= 0);
-                            const paramType = FunctionType.getEffectiveParameterType(type, paramInfoIndex);
-                            validateArgTypeParams.push({
-                                paramCategory: ParameterCategory.VarArgDictionary,
-                                paramType,
-                                requiresTypeVarMatching: requiresSpecialization(varArgDictParam.type),
-                                argument: argList[argIndex],
-                                errorNode: argList[argIndex].valueExpression || errorNode,
-                                paramName: paramNameValue,
-                            });
+                            assert(varArgDictParamIndex >= 0);
+                            if (paramSpecArgList) {
+                                paramSpecArgList.push(argList[argIndex]);
+                            } else {
+                                const paramType = FunctionType.getEffectiveParameterType(type, varArgDictParamIndex);
+                                validateArgTypeParams.push({
+                                    paramCategory: ParameterCategory.VarArgDictionary,
+                                    paramType,
+                                    requiresTypeVarMatching: requiresSpecialization(varArgDictParam.type),
+                                    argument: argList[argIndex],
+                                    errorNode: argList[argIndex].valueExpression || errorNode,
+                                    paramName: paramNameValue,
+                                });
+                            }
                             trySetActive(argList[argIndex], varArgDictParam);
                         } else {
                             addDiagnostic(
@@ -6809,12 +6852,136 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
+        // Handle the assignment of additional arguments that map to a param spec.
+        if (!reportedArgError && paramSpecArgList && paramSpecTarget) {
+            if (!validateFunctionArgumentsForParamSpec(errorNode, paramSpecArgList, paramSpecTarget, typeVarMap)) {
+                reportedArgError = true;
+            }
+        }
+
         // Calculate the return type. If there was an error matching arguments to
         // parameters, don't bother attempting to infer the return type.
         const returnType = getFunctionEffectiveReturnType(type, validateArgTypeParams, !reportedArgError);
         const specializedReturnType = applySolvedTypeVars(returnType, typeVarMap);
 
         return { argumentErrors: reportedArgError, returnType: specializedReturnType, activeParam };
+    }
+
+    // Determines whether the specified argument list satisfies the function
+    // signature bound to the specified ParamSpec. Return value indicates success.
+    function validateFunctionArgumentsForParamSpec(
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        paramSpec: TypeVarType,
+        typeVarMap: TypeVarMap
+    ): boolean {
+        const paramSpecValue = typeVarMap.getParamSpec(paramSpec);
+
+        if (!paramSpecValue) {
+            addDiagnostic(
+                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.paramSpecNotBound().format({ type: printType(paramSpec) }),
+                argList[0]?.valueExpression || errorNode
+            );
+            return false;
+        }
+
+        let reportedArgError = false;
+
+        // Build a map of all named parameters.
+        const paramMap = new Map<string, ParamSpecEntry>();
+        paramSpecValue.forEach((param) => {
+            if (param.name) {
+                paramMap.set(param.name, param);
+            }
+        });
+
+        let positionalIndex = 0;
+        argList.forEach((arg) => {
+            if (arg.argumentCategory === ArgumentCategory.Simple) {
+                let paramType: Type | undefined;
+
+                if (arg.name) {
+                    const paramInfo = paramMap.get(arg.name.value);
+                    if (paramInfo) {
+                        paramType = paramInfo.type;
+                        paramMap.delete(arg.name.value);
+                    } else {
+                        addDiagnostic(
+                            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.paramNameMissing().format({ name: arg.name.value }),
+                            arg.valueExpression || errorNode
+                        );
+                        reportedArgError = true;
+                    }
+                } else {
+                    if (positionalIndex < paramSpecValue.length) {
+                        const paramInfo = paramSpecValue[positionalIndex];
+                        paramType = paramInfo.type;
+                        if (paramInfo.name) {
+                            paramMap.delete(paramInfo.name);
+                        }
+                    } else {
+                        addDiagnostic(
+                            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            paramSpecValue.length === 1
+                                ? Localizer.Diagnostic.argPositionalExpectedOne()
+                                : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                      expected: paramSpecValue.length,
+                                  }),
+                            arg.valueExpression || errorNode
+                        );
+                        reportedArgError = true;
+                    }
+
+                    positionalIndex++;
+                }
+
+                if (paramType) {
+                    if (
+                        !validateArgType(
+                            {
+                                paramCategory: ParameterCategory.Simple,
+                                paramType,
+                                requiresTypeVarMatching: false,
+                                argument: arg,
+                                errorNode: arg.valueExpression || errorNode,
+                            },
+                            typeVarMap,
+                            /* functionName */ '',
+                            /* skipUnknownArgCheck */ false
+                        )
+                    ) {
+                        reportedArgError = true;
+                    }
+                }
+            } else {
+                // TODO - handle *args and **kwargs
+            }
+        });
+
+        // Report any missing parameters.
+        if (!reportedArgError) {
+            const unassignedParams = [...paramMap.keys()];
+
+            if (unassignedParams.length > 0) {
+                const missingParamNames = unassignedParams.map((p) => `"${p}"`).join(', ');
+                addDiagnostic(
+                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    unassignedParams.length === 1
+                        ? Localizer.Diagnostic.argMissingForParam().format({ name: missingParamNames })
+                        : Localizer.Diagnostic.argMissingForParams().format({ names: missingParamNames }),
+                    errorNode
+                );
+                reportedArgError = true;
+            }
+        }
+
+        return !reportedArgError;
     }
 
     function validateArgType(

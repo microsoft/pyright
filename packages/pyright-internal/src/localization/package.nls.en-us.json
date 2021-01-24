@@ -221,6 +221,7 @@
         "paramSpecContext": "ParamSpec not allowed in this context",
         "paramSpecIllegal": "ParamSpec requires Python 3.10 or newer",
         "paramSpecFirstArg": "Expected name of ParamSpec as first argument",
+        "paramSpecNotBound": "Param spec \"{type}\" has no bound value",
         "paramSpecUnknownArg": "ParamSpec does not support more than one argument",
         "paramSpecUnknownMember": "\"{name}\" is not a known member of ParamSpec",
         "paramSpecUnknownParam": "\"{name}\" is unknown parameter to ParamSpec",
