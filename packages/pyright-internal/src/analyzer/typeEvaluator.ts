@@ -6626,6 +6626,18 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             );
                             reportedArgError = true;
                         }
+                    } else if (argList[argIndex].argumentCategory === ArgumentCategory.Simple) {
+                        const adjustedCount = positionalParamCount;
+                        const fileInfo = getFileInfo(errorNode);
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            adjustedCount === 1
+                                ? Localizer.Diagnostic.argPositionalExpectedOne()
+                                : Localizer.Diagnostic.argPositionalExpectedCount().format({ expected: adjustedCount }),
+                            argList[argIndex].valueExpression || errorNode
+                        );
+                        reportedArgError = true;
                     }
                 }
 
