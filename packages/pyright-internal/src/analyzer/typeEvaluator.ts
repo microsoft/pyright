@@ -6333,16 +6333,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             (param) => param.category === ParameterCategory.VarArgList && !param.name
         );
 
+        const varArgListParamIndex = typeParams.findIndex((param) => param.category === ParameterCategory.VarArgList);
+        const varArgDictParamIndex = typeParams.findIndex(
+            (param) => param.category === ParameterCategory.VarArgDictionary
+        );
+
         // Is there a positional-only "/" parameter? If so, it separates the
         // positional-only from positional or keyword parameters.
-        const positionalOnlyIndex = typeParams.findIndex(
+        let positionalOnlyIndex = typeParams.findIndex(
             (param) => param.category === ParameterCategory.Simple && !param.name
         );
 
         // Is there a var-arg (named "*") parameter? If so, it is the last of
         // the positional parameters.
         if (positionalParamCount < 0) {
-            positionalParamCount = typeParams.findIndex((param) => param.category === ParameterCategory.VarArgList);
+            positionalParamCount = varArgListParamIndex;
             if (positionalParamCount >= 0) {
                 positionalParamCount++;
             }
@@ -6351,9 +6356,29 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Is there a keyword var-arg ("**") parameter? If so, it's not included
         // in the list of positional parameters.
         if (positionalParamCount < 0) {
-            positionalParamCount = typeParams.findIndex(
-                (param) => param.category === ParameterCategory.VarArgDictionary
-            );
+            positionalParamCount = varArgDictParamIndex;
+        }
+
+        // Is this an inner-scoped function that uses the *args and **kwargs
+        // from a param spec? If so, we need to treat all positional parameters
+        // prior to the *args as positional-only according to PEP 612.
+        if (varArgListParamIndex >= 0 && varArgDictParamIndex >= 0) {
+            const varArgListParam = typeParams[varArgListParamIndex];
+            const varArgDictParam = typeParams[varArgDictParamIndex];
+            if (
+                varArgListParam.name &&
+                varArgListParam.hasDeclaredType &&
+                varArgListParam.typeAnnotation &&
+                varArgListParam.typeAnnotation.nodeType === ParseNodeType.MemberAccess &&
+                varArgListParam.typeAnnotation.memberName.value === 'args' &&
+                varArgDictParam.name &&
+                varArgDictParam.hasDeclaredType &&
+                varArgDictParam.typeAnnotation &&
+                varArgDictParam.typeAnnotation.nodeType === ParseNodeType.MemberAccess &&
+                varArgDictParam.typeAnnotation.memberName.value === 'kwargs'
+            ) {
+                positionalOnlyIndex = varArgListParamIndex;
+            }
         }
 
         // If we didn't see any special cases, then all parameters are positional.
@@ -10724,6 +10749,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 defaultValueExpression: param.defaultValue,
                 defaultType: defaultValueType,
                 type: paramType || UnknownType.create(),
+                typeAnnotationExpression: paramTypeNode,
                 hasDeclaredType: !!paramTypeNode,
             };
 

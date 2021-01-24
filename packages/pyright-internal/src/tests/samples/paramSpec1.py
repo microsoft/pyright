@@ -32,32 +32,3 @@ f: Callable[[TParams], int]
 # This should generate an error.
 g: Tuple[TParams]
 
-
-def add(f: Callable[TParams, int]) -> Callable[Concatenate[str, TParams], None]:
-    def func1(
-        s: str, *args: TParams.args, **kwargs: TParams.kwargs
-    ) -> None:  # Accepted
-        pass
-
-    # Parameter 's' and 't' should generate an error according to PEP 612
-    def func2(
-        *args: TParams.args, s: str, t: int, **kwargs: TParams.kwargs
-    ) -> None:  # Rejected
-        pass
-
-    return func1  # Accepted
-
-
-def remove(f: Callable[Concatenate[int, TParams], int]) -> Callable[TParams, None]:
-    def foo(*args: TParams.args, **kwargs: TParams.kwargs) -> None:
-        f(1, *args, **kwargs)  # Accepted
-
-        # Should generate an error because positional parameter
-        # after *args is not allowed.
-        f(*args, 1, **kwargs)  # Rejected
-
-        # Should generate an error because positional parameter
-        # is missing.
-        f(*args, **kwargs)  # Rejected
-
-    return foo

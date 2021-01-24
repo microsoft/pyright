@@ -707,6 +707,7 @@ export interface FunctionParameter {
     defaultValueExpression?: ExpressionNode;
     defaultType?: Type;
     hasDeclaredType?: boolean;
+    typeAnnotation?: ExpressionNode;
     type: Type;
 }
 
