@@ -2680,8 +2680,7 @@ export class Binder extends ParseTreeWalker {
                     // "ClassVar" maps to the typing module symbol by this name.
                     const isClassVar =
                         typeAnnotation.nodeType === ParseNodeType.Index &&
-                        typeAnnotation.baseExpression.nodeType === ParseNodeType.Name &&
-                        typeAnnotation.baseExpression.value === 'ClassVar';
+                        this._isTypingAnnotation(typeAnnotation.baseExpression, 'ClassVar');
 
                     if (isClassVar) {
                         symbolWithScope.symbol.setIsClassVar();
