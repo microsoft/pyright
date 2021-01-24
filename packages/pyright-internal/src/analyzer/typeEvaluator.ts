@@ -6421,7 +6421,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         DiagnosticRule.reportGeneralTypeIssues,
                         positionalParamCount === 1
                             ? Localizer.Diagnostic.argPositionalExpectedOne()
-                            : Localizer.Diagnostic.argPositionalExpectedCount().format({ expected: positionalParamCount }),
+                            : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                  expected: positionalParamCount,
+                              }),
                         argList[argIndex].valueExpression || errorNode
                     );
                     reportedArgError = true;
@@ -6449,7 +6451,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         DiagnosticRule.reportGeneralTypeIssues,
                         positionalParamCount === 1
                             ? Localizer.Diagnostic.argPositionalExpectedOne()
-                            : Localizer.Diagnostic.argPositionalExpectedCount().format({ expected: positionalParamCount }),
+                            : Localizer.Diagnostic.argPositionalExpectedCount().format({
+                                  expected: positionalParamCount,
+                              }),
                         argList[argIndex].valueExpression || errorNode
                     );
                     reportedArgError = true;
