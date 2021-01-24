@@ -6545,8 +6545,30 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Now consume any named parameters.
             while (argIndex < argList.length) {
                 if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedDictionary) {
-                    // Mark the arg as accessed.
-                    getTypeForArgument(argList[argIndex]);
+                    // Verify that the type used in this expression is a mapping.
+                    const argType = getTypeForArgument(argList[argIndex]);
+                    const mappingType = getTypingType(errorNode, 'Mapping');
+                    const strObjType = getBuiltInObject(errorNode, 'str');
+
+                    if (mappingType && isClass(mappingType) && strObjType && isObject(strObjType)) {
+                        const strMapObject = ObjectType.create(
+                            ClassType.cloneForSpecialization(
+                                mappingType,
+                                [strObjType, AnyType.create()],
+                                /* isTypeArgumentExplicit */ true
+                            )
+                        );
+                        const diag = new DiagnosticAddendum();
+                        if (!canAssignType(strMapObject, argType, diag)) {
+                            addDiagnostic(
+                                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.unpackedDictArgumentNotMapping() + diag.getString(),
+                                argList[argIndex].valueExpression || errorNode
+                            );
+                            reportedArgError = true;
+                        }
+                    }
                     foundUnpackedDictionaryArg = true;
                 } else {
                     // Protect against the case where a non-named argument appears after

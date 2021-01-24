@@ -673,6 +673,7 @@ export namespace Localizer {
             new ParameterizedString<{ testType: string; classType: string }>(
                 getRawString('Diagnostic.unnecessaryIsSubclassNever')
             );
+        export const unpackedDictArgumentNotMapping = () => getRawString('Diagnostic.unpackedDictArgumentNotMapping');
         export const unpackIllegalInComprehension = () => getRawString('Diagnostic.unpackIllegalInComprehension');
         export const unpackInDict = () => getRawString('Diagnostic.unpackInDict');
         export const unpackInSet = () => getRawString('Diagnostic.unpackInSet');

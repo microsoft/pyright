@@ -503,7 +503,7 @@ test('Function7', () => {
 test('Function8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function8.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Function9', () => {
