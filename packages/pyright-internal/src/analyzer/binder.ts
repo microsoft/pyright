@@ -1402,7 +1402,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitImportFrom(node: ImportFromNode): boolean {
-        const typingSymbolsOfInterest = ['Final', 'TypeAlias'];
+        const typingSymbolsOfInterest = ['Final', 'TypeAlias', 'ClassVar'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
         let resolvedPath = '';

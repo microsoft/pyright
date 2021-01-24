@@ -1,11 +1,11 @@
 # This sample tests the type checker's handling of ClassVar
 # used within a Protocol, as specified in PEP 544.
 
-from typing import ClassVar, Protocol
+import typing as t
 
-class Proto(Protocol):
-    var1: ClassVar[str]
-    var2: ClassVar[str]
+class Proto(t.Protocol):
+    var1: t.ClassVar[str]
+    var2: t.ClassVar[str]
 
 class ProtoImpl:
     var1 = ""
