@@ -6416,14 +6416,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             if (paramIndex >= positionalParamCount) {
                 if (!foundUnpackedListArg || argList[argIndex].argumentCategory !== ArgumentCategory.UnpackedList) {
-                    const adjustedCount = positionalParamCount;
-                    const fileInfo = getFileInfo(errorNode);
                     addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        adjustedCount === 1
+                        positionalParamCount === 1
                             ? Localizer.Diagnostic.argPositionalExpectedOne()
-                            : Localizer.Diagnostic.argPositionalExpectedCount().format({ expected: adjustedCount }),
+                            : Localizer.Diagnostic.argPositionalExpectedCount().format({ expected: positionalParamCount }),
                         argList[argIndex].valueExpression || errorNode
                     );
                     reportedArgError = true;

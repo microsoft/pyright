@@ -106,7 +106,7 @@
         "expectedMemberName": "Expected member name after \".\"",
         "expectedModuleName": "Expected module name",
         "expectedNameAfterAs": "Expected symbol name after \"as\"",
-        "expectedNamedArgument": "Keyword argument must follow \"*\"",
+        "expectedNamedParameter": "Keyword parameter must follow \"*\"",
         "expectedNewlineOrSemicolon": "Statements must be separated by newlines or semicolons",
         "expectedOpenParen": "Expected \"(\"",
         "expectedParamName": "Expected parameter name",

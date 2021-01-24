@@ -290,7 +290,7 @@ export namespace Localizer {
         export const expectedMemberName = () => getRawString('Diagnostic.expectedMemberName');
         export const expectedModuleName = () => getRawString('Diagnostic.expectedModuleName');
         export const expectedNameAfterAs = () => getRawString('Diagnostic.expectedNameAfterAs');
-        export const expectedNamedArgument = () => getRawString('Diagnostic.expectedNamedArgument');
+        export const expectedNamedParameter = () => getRawString('Diagnostic.expectedNamedParameter');
         export const expectedNewlineOrSemicolon = () => getRawString('Diagnostic.expectedNewlineOrSemicolon');
         export const expectedOpenParen = () => getRawString('Diagnostic.expectedOpenParen');
         export const expectedParamName = () => getRawString('Diagnostic.expectedParamName');

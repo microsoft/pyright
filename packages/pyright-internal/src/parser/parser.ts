@@ -905,7 +905,7 @@ export class Parser {
         if (paramList.length > 0) {
             const lastParam = paramList[paramList.length - 1];
             if (lastParam.category === ParameterCategory.VarArgList && !lastParam.name) {
-                this._addError(Localizer.Diagnostic.expectedNamedArgument(), lastParam);
+                this._addError(Localizer.Diagnostic.expectedNamedParameter(), lastParam);
             }
         }
 
