@@ -6439,6 +6439,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 let listElementType: Type;
                 let advanceToNextArg = false;
 
+                // Handle the case where *args is being passed to a function defined
+                // with a ParamSpec and a Concatenate operator. PEP 612 indicates that
+                // all positional parameters specified in the Concatenate must be
+                // filled explicitly.
+                if (type.details.paramSpec && paramIndex < positionalParamCount) {
+                    addDiagnostic(
+                        getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        positionalParamCount === 1
+                            ? Localizer.Diagnostic.argPositionalExpectedOne()
+                            : Localizer.Diagnostic.argPositionalExpectedCount().format({ expected: positionalParamCount }),
+                        argList[argIndex].valueExpression || errorNode
+                    );
+                    reportedArgError = true;
+                }
+
                 // If this is a tuple with specified element types, use those
                 // specified types rather than using the more generic iterator
                 // type which will be a union of all element types.
