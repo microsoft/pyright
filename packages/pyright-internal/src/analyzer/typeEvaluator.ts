@@ -10749,7 +10749,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 defaultValueExpression: param.defaultValue,
                 defaultType: defaultValueType,
                 type: paramType || UnknownType.create(),
-                typeAnnotationExpression: paramTypeNode,
+                typeAnnotation: paramTypeNode,
                 hasDeclaredType: !!paramTypeNode,
             };
 
