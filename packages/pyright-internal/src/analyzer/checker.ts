@@ -240,8 +240,40 @@ export class Checker extends ParseTreeWalker {
         const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
 
         if (functionTypeResult) {
+            // Track whether we have seen a *args: P.args parameter. Named
+            // parameters after this need to be flagged as an error.
+            let sawParamSpecArgs = false;
+
             // Report any unknown parameter types.
             node.parameters.forEach((param, index) => {
+                if (param.name) {
+                    // Determine whether this is a P.args parameter.
+                    if (param.category === ParameterCategory.VarArgList) {
+                        const annotationExpr = param.typeAnnotation || param.typeAnnotationComment;
+                        if (
+                            annotationExpr &&
+                            annotationExpr.nodeType === ParseNodeType.MemberAccess &&
+                            annotationExpr.memberName.value === 'args'
+                        ) {
+                            const baseType = this._evaluator.getType(annotationExpr.leftExpression);
+                            if (baseType && isTypeVar(baseType) && baseType.details.isParamSpec) {
+                                sawParamSpecArgs = true;
+                            }
+                        }
+                    } else if (param.category === ParameterCategory.VarArgDictionary) {
+                        sawParamSpecArgs = false;
+                    }
+                }
+
+                if (param.name && param.category === ParameterCategory.Simple && sawParamSpecArgs) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.namedParamAfterParamSpecArgs().format({ name: param.name.value }),
+                        param.name
+                    );
+                }
+
                 // Allow unknown param types if the param is named '_'.
                 if (param.name && param.name.value !== '_') {
                     const paramType = functionTypeResult.functionType.details.parameters[index].type;

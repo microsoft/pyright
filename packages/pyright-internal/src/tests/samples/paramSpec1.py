@@ -1,6 +1,6 @@
 # This sample tests error conditions for ParamSpec (PEP 612).
 
-from typing import Callable, List, ParamSpec, Tuple, cast
+from typing import Callable, Concatenate, List, ParamSpec, Tuple, cast
 
 
 TParams = ParamSpec("TParams")
@@ -31,3 +31,18 @@ f: Callable[[TParams], int]
 
 # This should generate an error.
 g: Tuple[TParams]
+
+
+def add(f: Callable[TParams, int]) -> Callable[Concatenate[str, TParams], None]:
+    def func1(
+        s: str, *args: TParams.args, **kwargs: TParams.kwargs
+    ) -> None:  # Accepted
+        pass
+
+    # Parameter 's' and 't' should generate an error according to PEP 612
+    def func2(
+        *args: TParams.args, s: str, t: int, **kwargs: TParams.kwargs
+    ) -> None:  # Rejected
+        pass
+
+    return func1  # Accepted

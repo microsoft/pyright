@@ -400,6 +400,8 @@ export namespace Localizer {
         export const moduleUnknownMember = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.moduleUnknownMember'));
         export const namedExceptAfterCatchAll = () => getRawString('Diagnostic.namedExceptAfterCatchAll');
+        export const namedParamAfterParamSpecArgs = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.namedParamAfterParamSpecArgs'));
         export const namedTupleEmptyName = () => getRawString('Diagnostic.namedTupleEmptyName');
         export const namedTupleFirstArg = () => getRawString('Diagnostic.namedTupleFirstArg');
         export const namedTupleNameString = () => getRawString('Diagnostic.namedTupleNameString');
