@@ -3595,7 +3595,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromMemberAccess(node: MemberAccessNode, flags: EvaluatorFlags): TypeResult {
         const baseTypeFlags =
             EvaluatorFlags.DoNotSpecialize |
-            (flags & (EvaluatorFlags.ExpectingType | EvaluatorFlags.AllowForwardReferences));
+            (flags &
+                (EvaluatorFlags.ExpectingType |
+                    EvaluatorFlags.AllowForwardReferences |
+                    EvaluatorFlags.AssociateTypeVarsWithCurrentScope));
         const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, baseTypeFlags);
 
         if (baseTypeResult.isIncomplete || isTypeAliasPlaceholder(baseTypeResult.type)) {
