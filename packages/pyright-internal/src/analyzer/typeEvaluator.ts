@@ -5505,6 +5505,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // one or more analyzes with no errors, use those results.
             if (expectedType) {
                 returnType = mapSubtypes(expectedType, (expectedSubType) => {
+                    expectedSubType = transformPossibleRecursiveTypeAlias(expectedSubType);
                     const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
                     if (
                         populateTypeVarMapBasedOnExpectedType(
