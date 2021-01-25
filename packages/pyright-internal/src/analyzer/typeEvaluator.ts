@@ -7092,20 +7092,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const simplifiedType = removeUnbound(argType);
             const fileInfo = getFileInfo(argParam.errorNode);
 
-            const diagAddendum = new DiagnosticAddendum();
-            if (argParam.paramName) {
-                diagAddendum.addMessage(
-                    (functionName
-                        ? Localizer.DiagnosticAddendum.argParamFunction().format({
-                              paramName: argParam.paramName,
-                              functionName,
-                          })
-                        : Localizer.DiagnosticAddendum.argParam().format({ paramName: argParam.paramName })) +
+            const getDiagAddendum = () => {
+                const diagAddendum = new DiagnosticAddendum();
+                if (argParam.paramName) {
+                    diagAddendum.addMessage(
+                        (functionName
+                            ? Localizer.DiagnosticAddendum.argParamFunction().format({
+                                paramName: argParam.paramName,
+                                functionName,
+                            })
+                            : Localizer.DiagnosticAddendum.argParam().format({ paramName: argParam.paramName })) +
                         diagAddendum.getString()
-                );
-            }
+                    );
+                }
+                return diagAddendum;
+            };
 
             if (isUnknown(simplifiedType)) {
+                const diagAddendum = getDiagAddendum();
                 addDiagnostic(
                     fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
                     DiagnosticRule.reportUnknownArgumentType,
@@ -7121,6 +7125,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // the error because it's likely that the partially-unknown type
                 // arose due to bidirectional type matching.
                 if (!isPartlyUnknown(argParam.paramType) && !isClass(simplifiedType)) {
+                    const diagAddendum = getDiagAddendum();
                     diagAddendum.addMessage(
                         Localizer.DiagnosticAddendum.argumentType().format({
                             type: printType(simplifiedType, /* expandTypeAlias */ true),
