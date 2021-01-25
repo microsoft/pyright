@@ -7098,11 +7098,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     diagAddendum.addMessage(
                         (functionName
                             ? Localizer.DiagnosticAddendum.argParamFunction().format({
-                                paramName: argParam.paramName,
-                                functionName,
-                            })
+                                  paramName: argParam.paramName,
+                                  functionName,
+                              })
                             : Localizer.DiagnosticAddendum.argParam().format({ paramName: argParam.paramName })) +
-                        diagAddendum.getString()
+                            diagAddendum.getString()
                     );
                 }
                 return diagAddendum;
