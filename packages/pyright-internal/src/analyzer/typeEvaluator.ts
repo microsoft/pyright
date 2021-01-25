@@ -14225,7 +14225,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     expected: typeParameters.length,
                     received: typeArgCount,
                 }),
-                typeArgs[0].node.parent!
+                typeArgs.length > 0 ? typeArgs[0].node.parent! : errorNode
             );
         }
 
