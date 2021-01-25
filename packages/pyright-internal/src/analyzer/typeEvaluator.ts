@@ -675,7 +675,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return cachedType as Type;
     }
 
-    function writeTypeCache(node: ParseNode, type: Type, expectedType?: Type) {
+    function writeTypeCache(node: ParseNode, type: Type, expectedType?: Type, allowSpeculativeCaching = false) {
         // Should we use a temporary cache associated with a contextual
         // analysis of a function, contextualized based on call-site argument types?
         const typeCacheToUse =
@@ -688,10 +688,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If the entry is located within a part of the parse tree that is currently being
         // "speculatively" evaluated, track it so we delete the cached entry when we leave
         // this speculative context.
-        const speculativeNode = speculativeTypeTracker.getSpeculativeRootNode();
-        if (speculativeNode && ParseTreeUtils.isNodeContainedWithin(node, speculativeNode)) {
+        if (speculativeTypeTracker.isSpeculative(node)) {
             speculativeTypeTracker.trackEntry(typeCacheToUse, node.id);
-            if (expectedType) {
+            if (allowSpeculativeCaching) {
                 speculativeTypeTracker.addSpeculativeType(node, type, expectedType);
             }
         }
@@ -798,7 +797,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const cachedType = readTypeCache(node);
         if (cachedType) {
             return { type: cachedType, node };
-        } else if (expectedType) {
+        } else {
             // Is it cached in the speculative type cache?
             const speculativeCachedType = speculativeTypeTracker.getSpeculativeType(node, expectedType);
             if (speculativeCachedType) {
@@ -811,7 +810,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // will be thrown at this point.
         checkForCancellation();
 
-        expectedType = transformPossibleRecursiveTypeAlias(expectedType);
+        const expectedTypeAlt = transformPossibleRecursiveTypeAlias(expectedType);
 
         // If we haven't already fetched some core type definition from the
         // _typeshed stub, do so here. It would be better to fetch this when it's
@@ -835,6 +834,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             case ParseNodeType.MemberAccess: {
                 typeResult = getTypeFromMemberAccess(node, flags);
+
+                // Cache the type information in the member name node as well.
+                if (!typeResult.isIncomplete && !isTypeAliasPlaceholder(typeResult.type)) {
+                    writeTypeCache(
+                        node.memberName,
+                        typeResult.type,
+                        /* expectedType */ undefined,
+                        /* allowSpeculativeCaching */ true
+                    );
+                }
                 break;
             }
 
@@ -844,12 +853,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Call: {
-                typeResult = getTypeFromCall(node, expectedType);
+                typeResult = getTypeFromCall(node, expectedTypeAlt);
                 break;
             }
 
             case ParseNodeType.Tuple: {
-                typeResult = getTypeFromTuple(node, expectedType);
+                typeResult = getTypeFromTuple(node, expectedTypeAlt);
                 break;
             }
 
@@ -953,24 +962,24 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.UnaryOperation: {
-                typeResult = getTypeFromUnaryOperation(node, expectedType);
+                typeResult = getTypeFromUnaryOperation(node, expectedTypeAlt);
                 break;
             }
 
             case ParseNodeType.BinaryOperation: {
-                typeResult = getTypeFromBinaryOperation(node, expectedType, flags);
+                typeResult = getTypeFromBinaryOperation(node, expectedTypeAlt, flags);
                 break;
             }
 
             case ParseNodeType.AugmentedAssignment: {
-                const type = getTypeFromAugmentedAssignment(node, expectedType);
+                const type = getTypeFromAugmentedAssignment(node, expectedTypeAlt);
                 assignTypeToExpression(node.destExpression, type, node.rightExpression);
                 typeResult = { type, node };
                 break;
             }
 
             case ParseNodeType.List: {
-                typeResult = getTypeFromList(node, expectedType);
+                typeResult = getTypeFromList(node, expectedTypeAlt);
                 break;
             }
 
@@ -989,7 +998,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Ternary: {
-                typeResult = getTypeFromTernary(node, flags, expectedType);
+                typeResult = getTypeFromTernary(node, flags, expectedTypeAlt);
                 break;
             }
 
@@ -999,17 +1008,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Dictionary: {
-                typeResult = getTypeFromDictionary(node, expectedType);
+                typeResult = getTypeFromDictionary(node, expectedTypeAlt);
                 break;
             }
 
             case ParseNodeType.Lambda: {
-                typeResult = getTypeFromLambda(node, expectedType);
+                typeResult = getTypeFromLambda(node, expectedTypeAlt);
                 break;
             }
 
             case ParseNodeType.Set: {
-                typeResult = getTypeFromSet(node, expectedType);
+                typeResult = getTypeFromSet(node, expectedTypeAlt);
                 break;
             }
 
@@ -1036,7 +1045,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Unpack: {
-                const iterType = getTypeOfExpression(node.expression, expectedType).type;
+                const iterType = getTypeOfExpression(node.expression, expectedTypeAlt).type;
                 const type = getTypeFromIterable(iterType, /* isAsync */ false, node);
                 typeResult = { type, unpackedType: iterType, node };
                 break;
@@ -1089,7 +1098,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // a resolution cycle. The cache will be updated when the stack unwinds
         // and the type is fully evaluated.
         if (!typeResult.isIncomplete && !isTypeAliasPlaceholder(typeResult.type)) {
-            writeTypeCache(node, typeResult.type, expectedType);
+            writeTypeCache(node, typeResult.type, expectedType, /* allowSpeculativeCaching */ true);
         }
 
         return typeResult;
@@ -2367,7 +2376,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function isDiagnosticSuppressedForNode(node: ParseNode) {
-        return isDiagnosticSuppressed || isSpeculativeMode(node) || incompleteTypeTracker.isUndoTrackingEnabled();
+        return (
+            isDiagnosticSuppressed ||
+            speculativeTypeTracker.isSpeculative(node) ||
+            incompleteTypeTracker.isUndoTrackingEnabled()
+        );
     }
 
     function addDiagnostic(diagLevel: DiagnosticLevel, rule: string, message: string, node: ParseNode) {
@@ -3145,7 +3158,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function setSymbolAccessed(fileInfo: AnalyzerFileInfo, symbol: Symbol, node: ParseNode) {
-        if (!isSpeculativeMode(node) && !incompleteTypeTracker.isUndoTrackingEnabled()) {
+        if (!speculativeTypeTracker.isSpeculative(node) && !incompleteTypeTracker.isUndoTrackingEnabled()) {
             fileInfo.accessedSymbolMap.set(symbol.id, true);
         }
     }
@@ -3668,9 +3681,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 memberTypeResult.type = codeFlowType;
             }
         }
-
-        // Cache the type information in the member name node as well.
-        writeTypeCache(node.memberName, memberTypeResult.type);
 
         return memberTypeResult;
     }
@@ -5222,7 +5232,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         // Touch all of the args so they're marked accessed even if there were errors.
         argList.forEach((arg) => {
-            if (arg.valueExpression && !isSpeculativeMode(arg.valueExpression)) {
+            if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
                 getTypeForArgument(arg);
             }
         });
@@ -5638,7 +5648,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // here to mark symbols as referenced and report expression-level errors.
         if (!validatedTypes) {
             argList.forEach((arg) => {
-                if (arg.valueExpression && !isSpeculativeMode(arg.valueExpression)) {
+                if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
                     getTypeOfExpression(arg.valueExpression);
                 }
             });
@@ -5848,7 +5858,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 case TypeCategory.Any: {
                     // Touch all of the args so they're marked accessed.
                     argList.forEach((arg) => {
-                        if (arg.valueExpression && !isSpeculativeMode(arg.valueExpression)) {
+                        if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
                             getTypeForArgument(arg);
                         }
                     });
@@ -5955,13 +5965,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             return convertToInstance(castToType);
                         }
 
-                        const effectiveTypeVar = typeVarMap || new TypeVarMap(getTypeVarScopeId(concreteSubtype));
-                        effectiveTypeVar.addSolveForScope(getTypeVarScopeId(functionType));
+                        const effectiveTypeVarMap = typeVarMap || new TypeVarMap(getTypeVarScopeId(concreteSubtype));
+                        effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(functionType));
                         const functionResult = validateFunctionArguments(
                             errorNode,
                             argList,
                             functionType,
-                            effectiveTypeVar,
+                            effectiveTypeVarMap,
                             skipUnknownArgCheck,
                             expectedType
                         );
@@ -6801,7 +6811,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // If we're in speculative mode and an arg/param mismatch has already been reported, don't
         // bother doing the extra work here. This occurs frequently when attempting to find the
         // correct overload.
-        if (!reportedArgError || !isSpeculativeMode(undefined)) {
+        if (!reportedArgError || !speculativeTypeTracker.isSpeculative(undefined)) {
             // Run through all args and validate them against their matched parameter.
             // We'll do two passes. The first one will match any type arguments. The second
             // will perform the actual validation. We can skip the first pass if there
@@ -6843,7 +6853,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // ensure that referenced symbols are not reported as unaccessed.
             if (!incompleteTypeTracker.isUndoTrackingEnabled()) {
                 argList.forEach((arg) => {
-                    if (arg.valueExpression && !isSpeculativeMode(arg.valueExpression)) {
+                    if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
                         if (!validateArgTypeParams.some((validatedArg) => validatedArg.argument === arg)) {
                             getTypeOfExpression(arg.valueExpression);
                         }
@@ -7006,7 +7016,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             argType = exprType.type;
             expectedTypeDiag = exprType.expectedTypeDiagAddendum;
 
-            if (argParam.argument && argParam.argument.name && !isSpeculativeMode(argParam.errorNode)) {
+            if (
+                argParam.argument &&
+                argParam.argument.name &&
+                !speculativeTypeTracker.isSpeculative(argParam.errorNode)
+            ) {
                 writeTypeCache(argParam.argument.name, expectedType || argType);
             }
         } else {
@@ -9182,7 +9196,21 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expectedReturnType = expectedFunctionType
             ? getFunctionEffectiveReturnType(expectedFunctionType)
             : undefined;
-        functionType.inferredReturnType = getTypeOfExpression(node.expression, expectedReturnType).type;
+
+        // If we're speculatively evaluating the lambda, create another speculative
+        // evaluation scope for the return expression and do not allow retention
+        // of the cached types.
+        if (speculativeTypeTracker.isSpeculative()) {
+            useSpeculativeMode(
+                node.expression,
+                () => {
+                    functionType.inferredReturnType = getTypeOfExpression(node.expression, expectedReturnType).type;
+                },
+                /* allowCacheRetention */ false
+            );
+        } else {
+            functionType.inferredReturnType = getTypeOfExpression(node.expression, expectedReturnType).type;
+        }
 
         return { type: functionType, node };
     }
@@ -9270,7 +9298,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // Evaluate the test expression to validate it and mark symbols
                 // as referenced. Don't bother doing this if we're in speculative
                 // mode because it doesn't affect the element type.
-                if (!isSpeculativeMode(comprehension.testExpression)) {
+                if (!speculativeTypeTracker.isSpeculative(comprehension.testExpression)) {
                     getTypeOfExpression(comprehension.testExpression);
                 }
             }
@@ -14354,25 +14382,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // Disables recording of errors and warnings and disables
     // any caching of types, under the assumption that we're
     // performing speculative evaluations.
-    function useSpeculativeMode<T>(speculativeNode: ParseNode, callback: () => T) {
-        speculativeTypeTracker.enterSpeculativeContext(speculativeNode);
+    function useSpeculativeMode<T>(speculativeNode: ParseNode, callback: () => T, allowCacheRetention = true) {
+        speculativeTypeTracker.enterSpeculativeContext(speculativeNode, allowCacheRetention);
 
         try {
             return callback();
         } finally {
             speculativeTypeTracker.leaveSpeculativeContext();
         }
-    }
-
-    // Determines whether the specified node is within a part of the parse tree that
-    // is being "speculatively" evaluated. If so, it should not be written to the type
-    // cache, and diagnostics should not be reported for it.
-    function isSpeculativeMode(node: ParseNode | undefined) {
-        const speculativeRootNode = speculativeTypeTracker.getSpeculativeRootNode();
-        if (!speculativeRootNode) {
-            return false;
-        }
-        return node === undefined || ParseTreeUtils.isNodeContainedWithin(node, speculativeRootNode);
     }
 
     function disableSpeculativeMode(callback: () => void) {
