@@ -1,2 +1,7 @@
 # Copied from the root directory during publish.
 README.md
+pyright/pyright*
+*.egg-info
+.eggs
+build
+__pycache__/
