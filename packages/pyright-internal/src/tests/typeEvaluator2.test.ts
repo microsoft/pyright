@@ -889,6 +889,11 @@ test('CallSite2', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('FString1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['fstring1.py']);
+    TestUtils.validateResults(analysisResults, 5, 1);
+});
+
 test('FString2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['fstring2.py']);
     TestUtils.validateResults(analysisResults, 0);

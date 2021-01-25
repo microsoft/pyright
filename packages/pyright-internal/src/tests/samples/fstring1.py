@@ -58,3 +58,6 @@ h = f"List: { 2 + 3, 'hi' + ' there'}"
 # Test f-string with unpack operator.
 my_dict = {"a": "A", "b": "B"}
 i = f"{*my_dict.keys(),}"
+
+# f-string with empty expression should generate error.
+j = f"{}"
