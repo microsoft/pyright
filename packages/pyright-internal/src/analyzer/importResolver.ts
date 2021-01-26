@@ -96,6 +96,7 @@ export class ImportResolver {
             importName,
             isRelative: false,
             isImportFound: false,
+            isPartlyResolved: false,
             isNamespacePackage: false,
             isStubPackage: false,
             importFailureInfo,
@@ -642,6 +643,7 @@ export class ImportResolver {
         }
 
         let importFound: boolean;
+        const isPartlyResolved = resolvedPaths.length > 0 && resolvedPaths.length < moduleDescriptor.nameParts.length;
         if (allowPartial) {
             importFound = resolvedPaths.length > 0;
         } else {
@@ -654,6 +656,7 @@ export class ImportResolver {
             isNamespacePackage,
             isStubPackage,
             isImportFound: importFound,
+            isPartlyResolved,
             importFailureInfo,
             importType: ImportType.Local,
             resolvedPaths,
@@ -874,10 +877,6 @@ export class ImportResolver {
             bestResultSoFar = this._pickBestImport(bestResultSoFar, localImport);
         }
 
-        if (bestResultSoFar?.isImportFound) {
-            return bestResultSoFar;
-        }
-
         // Look for the import in the list of third-party packages.
         const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
         if (pythonSearchPaths.length > 0) {
@@ -993,6 +992,10 @@ export class ImportResolver {
             if (bestImportSoFar.resolvedPaths.length > newImport.resolvedPaths.length) {
                 return newImport;
             }
+        } else if (newImport.isPartlyResolved && !newImport.isNamespacePackage) {
+            // Always prefer a traditional over namespace import even
+            // if the traditional import is only partly resolved.
+            return newImport;
         }
 
         return bestImportSoFar;
