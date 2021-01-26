@@ -13724,9 +13724,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // that accepts a single class, and a more complex form that accepts a tuple
     // of classes. This method determines which form and returns a list of classes
     // or undefined.
-    function getIsInstanceClassTypes(argType: Type): ClassType[] | undefined {
-        argType = makeTopLevelTypeVarsConcrete(transformTypeObjectToClass(argType));
-        if (isClass(argType)) {
+    function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType)[] | undefined {
+        argType = transformTypeObjectToClass(argType);
+
+        if (isClass(argType) || (isTypeVar(argType) && TypeBase.isInstantiable(argType))) {
             return [argType];
         }
 
@@ -13734,10 +13735,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const objClass = argType.classType;
             if (isTupleClass(objClass) && objClass.variadicTypeArguments) {
                 let foundNonClassType = false;
-                const classTypeList: ClassType[] = [];
+                const classTypeList: (ClassType | TypeVarType)[] = [];
                 objClass.variadicTypeArguments.forEach((typeArg) => {
-                    typeArg = makeTopLevelTypeVarsConcrete(transformTypeObjectToClass(typeArg));
-                    if (isClass(typeArg)) {
+                    typeArg = transformTypeObjectToClass(typeArg);
+                    if (isClass(typeArg) || (isTypeVar(typeArg) && TypeBase.isInstantiable(typeArg))) {
                         classTypeList.push(typeArg);
                     } else {
                         foundNonClassType = true;
@@ -13753,9 +13754,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Python 3.10 supports unions within isinstance and issubclass calls.
         if (isUnion(argType)) {
             let isValid = true;
-            const classList: ClassType[] = [];
+            const classList: (ClassType | TypeVarType)[] = [];
             doForEachSubtype(argType, (subtype) => {
-                if (isClass(subtype)) {
+                if (isClass(subtype) || (isTypeVar(subtype) && TypeBase.isInstantiable(subtype))) {
                     classList.push(subtype);
                 } else {
                     isValid = false;
@@ -13777,7 +13778,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // we can conclude that x must be constrained to "Cow".
     function narrowTypeForIsInstance(
         type: Type,
-        classTypeList: ClassType[],
+        classTypeList: (ClassType | TypeVarType)[],
         isInstanceCheck: boolean,
         isPositiveTest: boolean
     ): Type {
@@ -13791,44 +13792,57 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Filters the varType by the parameters of the isinstance
         // and returns the list of types the varType could be after
         // applying the filter.
-        const filterType = (varType: ClassType, negativeFallbackType: Type): Type[] => {
+        const filterType = (varType: ClassType, unexpandedType: Type, negativeFallbackType: Type): Type[] => {
             const filteredTypes: Type[] = [];
 
             let foundSuperclass = false;
             let isClassRelationshipIndeterminate = false;
 
             for (const filterType of classTypeList) {
-                // Handle the special case where the variable type is a TypedDict and
-                // we're filtering against 'dict'. TypedDict isn't derived from dict,
-                // but at runtime, isinstance returns True.
-                const filterIsSuperclass =
-                    ClassType.isDerivedFrom(varType, filterType) ||
-                    (ClassType.isBuiltIn(filterType, 'dict') && ClassType.isTypedDictClass(varType));
-                const filterIsSubclass = ClassType.isDerivedFrom(filterType, varType);
+                const concreteFilterType = makeTopLevelTypeVarsConcrete(filterType);
 
-                if (filterIsSuperclass) {
-                    foundSuperclass = true;
-                }
+                if (isClass(concreteFilterType)) {
+                    // Handle the special case where the variable type is a TypedDict and
+                    // we're filtering against 'dict'. TypedDict isn't derived from dict,
+                    // but at runtime, isinstance returns True.
+                    const filterIsSuperclass =
+                        ClassType.isDerivedFrom(varType, concreteFilterType) ||
+                        (ClassType.isBuiltIn(concreteFilterType, 'dict') && ClassType.isTypedDictClass(varType));
+                    const filterIsSubclass = ClassType.isDerivedFrom(concreteFilterType, varType);
 
-                // Normally, a type should never be both a subclass or a superclass.
-                // This can happen if either of the class types derives from a
-                // class whose type is unknown (e.g. an import failed). We'll
-                // note this case specially so we don't do any narrowing, which
-                // will generate false positives.
-                if (filterIsSubclass && filterIsSuperclass && !ClassType.isSameGenericClass(varType, filterType)) {
-                    isClassRelationshipIndeterminate = true;
-                }
-
-                if (isPositiveTest) {
                     if (filterIsSuperclass) {
-                        // If the variable type is a subclass of the isinstance
-                        // filter, we haven't learned anything new about the
-                        // variable type.
-                        filteredTypes.push(varType);
-                    } else if (filterIsSubclass) {
-                        // If the variable type is a superclass of the isinstance
-                        // filter, we can narrow the type to the subclass.
-                        filteredTypes.push(filterType);
+                        foundSuperclass = true;
+                    }
+
+                    // Normally, a type should never be both a subclass or a superclass.
+                    // This can happen if either of the class types derives from a
+                    // class whose type is unknown (e.g. an import failed). We'll
+                    // note this case specially so we don't do any narrowing, which
+                    // will generate false positives.
+                    if (
+                        filterIsSubclass &&
+                        filterIsSuperclass &&
+                        !ClassType.isSameGenericClass(varType, concreteFilterType)
+                    ) {
+                        isClassRelationshipIndeterminate = true;
+                    }
+
+                    if (isPositiveTest) {
+                        if (filterIsSuperclass) {
+                            // If the variable type is a subclass of the isinstance filter,
+                            // we haven't learned anything new about the variable type.
+                            // For TypeVars (those that have no constraints), we'll use the
+                            // unexpanded type to preserve the TypeVar.
+                            if (isTypeVar(unexpandedType) && unexpandedType.details.constraints.length === 0) {
+                                filteredTypes.push(unexpandedType);
+                            } else {
+                                filteredTypes.push(varType);
+                            }
+                        } else if (filterIsSubclass) {
+                            // If the variable type is a superclass of the isinstance
+                            // filter, we can narrow the type to the subclass.
+                            filteredTypes.push(filterType);
+                        }
                     }
                 }
             }
@@ -13866,9 +13880,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const negativeFallback = constraints ? subtype : unexpandedSubtype;
 
                 if (isInstanceCheck && isObject(subtype)) {
-                    return combineTypes(filterType(subtype.classType, negativeFallback));
+                    return combineTypes(
+                        filterType(subtype.classType, convertToInstance(unexpandedSubtype), negativeFallback)
+                    );
                 } else if (!isInstanceCheck && isClass(subtype)) {
-                    return combineTypes(filterType(subtype, negativeFallback));
+                    return combineTypes(filterType(subtype, unexpandedSubtype, negativeFallback));
                 } else if (
                     !isInstanceCheck &&
                     isObject(subtype) &&
@@ -13876,14 +13892,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     objectType &&
                     isObject(objectType)
                 ) {
-                    return combineTypes(filterType(objectType.classType, negativeFallback));
+                    return combineTypes(
+                        filterType(objectType.classType, convertToInstantiable(unexpandedSubtype), negativeFallback)
+                    );
                 } else if (isPositiveTest && isAnyOrUnknown(subtype)) {
                     // If this is a positive test and the effective type is Any or
                     // Unknown, we can assume that the type matches one of the
                     // specified types.
                     if (isInstanceCheck) {
                         anyOrUnknownSubstitutions.push(
-                            combineTypes(classTypeList.map((classType) => ObjectType.create(classType)))
+                            combineTypes(classTypeList.map((classType) => convertToInstance(classType)))
                         );
                     } else {
                         anyOrUnknownSubstitutions.push(combineTypes(classTypeList));
