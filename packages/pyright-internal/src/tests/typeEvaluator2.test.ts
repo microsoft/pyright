@@ -161,8 +161,8 @@ test('isInstance7', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('isInstance8', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance8.py']);
+test('isInstance9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance9.py']);
 
     TestUtils.validateResults(analysisResults, 0);
 });
