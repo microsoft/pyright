@@ -9441,11 +9441,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeArg1Type = UnknownType.create();
             }
             functionType.details.declaredReturnType = convertToInstance(typeArg1Type);
-        } else {
+        } else if (typeArgs) {
             const fileInfo = getFileInfo(errorNode);
             addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
-                DiagnosticRule.reportMissingTypeArgument,
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.callableSecondArg(),
                 errorNode
             );
@@ -14219,8 +14219,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else if (typeArgs && typeArgCount < typeParameters.length) {
             const fileInfo = getFileInfo(errorNode);
             addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportMissingTypeArgument,
-                DiagnosticRule.reportMissingTypeArgument,
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
                 Localizer.Diagnostic.typeArgsTooFew().format({
                     name: classType.aliasName || classType.details.name,
                     expected: typeParameters.length,

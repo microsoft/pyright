@@ -424,7 +424,7 @@ test('GenericTypes33', () => {
 
     // By default, reportMissingTypeArgument is disabled.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes33.py']);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportMissingTypeArgument = 'error';

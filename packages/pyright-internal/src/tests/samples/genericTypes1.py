@@ -9,5 +9,4 @@ Dict[str, int] = {}
 
 # This should generate an error because deletion
 # of generic types isn't allowed.
-del Dict[str]
-
+del Dict[str, int]

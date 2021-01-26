@@ -33,6 +33,7 @@ class Class3(Generic[_T1, _T2]):
     pass
 
 
-# This should generate an error when reportMissingTypeArgument is enabled
-# because this class requires two type arguments.
+# This should generate an error regardless of whether reportMissingTypeArgument
+# is enabled because this class requires two type arguments and this will
+# generate a runtime exception.
 a = Class3[int]
