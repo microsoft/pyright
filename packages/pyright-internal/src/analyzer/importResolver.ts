@@ -28,7 +28,6 @@ import {
     stripFileExtension,
     stripTrailingDirectorySeparator,
 } from '../common/pathUtils';
-import { getPythonVersionStrings } from '../common/pythonVersion';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import * as StringUtils from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
@@ -69,6 +68,7 @@ export class ImportResolver {
     private _cachedImportResults = new Map<string, CachedImportResults>();
     private _cachedTypeshedStdLibPath: string | undefined;
     private _cachedTypeshedThirdPartyPath: string | undefined;
+    private _cachedTypeshedThirdPartyPackagePaths: Map<string, string> | undefined;
 
     readonly fileSystem: FileSystem;
 
@@ -251,7 +251,7 @@ export class ImportResolver {
             // We get the relative path(s) of the stub to its import root(s),
             // in theory there can be more than one, then look for source
             // files in all the import roots using the same relative path(s).
-            const importRootPaths = this.getImportRoots(execEnv, /* useTypeshedVersionedFolders */ true);
+            const importRootPaths = this.getImportRoots(execEnv);
 
             const relativeStubPaths: string[] = [];
             for (const importRootPath of importRootPaths) {
@@ -319,9 +319,9 @@ export class ImportResolver {
         const importFailureInfo: string[] = [];
 
         // Is this a stdlib typeshed path?
-        const stdLibTypeshedPath = this._getTypeshedPath(true, execEnv, importFailureInfo);
+        const stdLibTypeshedPath = this._getTypeshedPath(/* isStdLib */ true, execEnv, importFailureInfo);
         if (stdLibTypeshedPath) {
-            moduleName = this._getModuleNameFromPath(stdLibTypeshedPath, filePath, true);
+            moduleName = this._getModuleNameFromPath(stdLibTypeshedPath, filePath);
             if (moduleName) {
                 return { moduleName, importType, isLocalTypingsFile };
             }
@@ -357,9 +357,13 @@ export class ImportResolver {
         }
 
         // Check for a typeshed file.
-        const thirdPartyTypeshedPath = this._getTypeshedPath(false, execEnv, importFailureInfo);
+        const thirdPartyTypeshedPath = this._getTypeshedPath(/* isStdLib */ false, execEnv, importFailureInfo);
         if (thirdPartyTypeshedPath) {
-            const candidateModuleName = this._getModuleNameFromPath(thirdPartyTypeshedPath, filePath, true);
+            const candidateModuleName = this._getModuleNameFromPath(
+                thirdPartyTypeshedPath,
+                filePath,
+                /* stripTopContainerDir */ true
+            );
 
             // Does this candidate look better than the previous best module name?
             // We'll always try to use the shortest version.
@@ -404,26 +408,16 @@ export class ImportResolver {
 
     getTypeshedStdLibPath(execEnv: ExecutionEnvironment) {
         const unused: string[] = [];
-        return this._getTypeshedPath(true, execEnv, unused);
+        return this._getTypeshedPath(/* isStdLib */ true, execEnv, unused);
     }
 
-    getImportRoots(execEnv: ExecutionEnvironment, useTypeshedVersionedFolders: boolean) {
+    getImportRoots(execEnv: ExecutionEnvironment) {
         const importFailureInfo: string[] = [];
         const roots = [];
 
-        const versionFolders = getPythonVersionStrings(execEnv.pythonVersion);
-        const stdTypeshed = this._getTypeshedPath(true, execEnv, importFailureInfo);
+        const stdTypeshed = this._getTypeshedPath(/* isStdLib */ true, execEnv, importFailureInfo);
         if (stdTypeshed) {
-            if (useTypeshedVersionedFolders) {
-                for (const version of versionFolders) {
-                    const path = combinePaths(stdTypeshed, version);
-                    if (this.fileSystem.existsSync(path)) {
-                        roots.push(path);
-                    }
-                }
-            } else {
-                roots.push(stdTypeshed);
-            }
+            roots.push(stdTypeshed);
         }
 
         roots.push(execEnv.root);
@@ -433,18 +427,9 @@ export class ImportResolver {
             roots.push(this._configOptions.stubPath);
         }
 
-        const typeshedPath = this._getTypeshedPath(false, execEnv, importFailureInfo);
+        const typeshedPath = this._getTypeshedPath(/* isStdLib */ false, execEnv, importFailureInfo);
         if (typeshedPath) {
-            if (useTypeshedVersionedFolders) {
-                for (const version of versionFolders) {
-                    const path = combinePaths(typeshedPath, version);
-                    if (this.fileSystem.existsSync(path)) {
-                        roots.push(path);
-                    }
-                }
-            } else {
-                roots.push(typeshedPath);
-            }
+            roots.push(typeshedPath);
         }
 
         const typeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);
@@ -1043,30 +1028,64 @@ export class ImportResolver {
             } path`
         );
 
-        const typeshedPath = this._getTypeshedPath(isStdLib, execEnv, importFailureInfo);
-        if (!typeshedPath) {
-            return undefined;
+        let typeshedPath = this._getTypeshedPath(isStdLib, execEnv, importFailureInfo);
+
+        if (!isStdLib) {
+            if (!this._cachedTypeshedThirdPartyPackagePaths) {
+                this._buildTypeshedThirdPartyPackageMap(typeshedPath);
+            }
+
+            const firstNamePart = moduleDescriptor.nameParts.length > 0 ? moduleDescriptor.nameParts[0] : '';
+            const packageDir = this._cachedTypeshedThirdPartyPackagePaths!.get(firstNamePart);
+            typeshedPath = packageDir;
         }
 
-        for (const pythonVersionString of getPythonVersionStrings(execEnv.pythonVersion)) {
-            const testPath = combinePaths(typeshedPath, pythonVersionString);
-            if (this.fileSystem.existsSync(testPath)) {
-                const importInfo = this.resolveAbsoluteImport(
-                    testPath,
-                    execEnv,
-                    moduleDescriptor,
-                    importName,
-                    importFailureInfo
-                );
-                if (importInfo.isImportFound) {
-                    importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
-                    return importInfo;
-                }
+        if (typeshedPath && this.fileSystem.existsSync(typeshedPath)) {
+            const importInfo = this.resolveAbsoluteImport(
+                typeshedPath,
+                execEnv,
+                moduleDescriptor,
+                importName,
+                importFailureInfo
+            );
+            if (importInfo.isImportFound) {
+                importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
+                return importInfo;
             }
         }
 
         importFailureInfo.push(`Typeshed path not found`);
         return undefined;
+    }
+
+    // Populates a cache of third-party packages found within the typeshed
+    // directory. They are organized such that top-level directories contain
+    // the pypi-registered name of the package and an inner directory contains
+    // the name of the package as it is referenced by import statements. These
+    // don't always match.
+    private _buildTypeshedThirdPartyPackageMap(thirdPartyDir: string | undefined) {
+        this._cachedTypeshedThirdPartyPackagePaths = new Map<string, string>();
+
+        if (thirdPartyDir) {
+            this.fileSystem.readdirEntriesSync(thirdPartyDir).forEach((outerEntry) => {
+                if (outerEntry.isDirectory()) {
+                    const innerDirPath = combinePaths(thirdPartyDir, outerEntry.name);
+
+                    this.fileSystem.readdirEntriesSync(innerDirPath).forEach((innerEntry) => {
+                        if (innerEntry.isDirectory()) {
+                            this._cachedTypeshedThirdPartyPackagePaths!.set(innerEntry.name, innerDirPath);
+                        } else if (innerEntry.isFile()) {
+                            if (innerEntry.name.endsWith('.pyi')) {
+                                this._cachedTypeshedThirdPartyPackagePaths!.set(
+                                    stripFileExtension(innerEntry.name),
+                                    innerDirPath
+                                );
+                            }
+                        }
+                    });
+                }
+            });
+        }
     }
 
     private _getCompletionSuggestionsTypeshedPath(
@@ -1082,11 +1101,8 @@ export class ImportResolver {
             return;
         }
 
-        for (const pythonVersionString of getPythonVersionStrings(execEnv.pythonVersion)) {
-            const testPath = combinePaths(typeshedPath, pythonVersionString);
-            if (this.fileSystem.existsSync(testPath)) {
-                this._getCompletionSuggestionsAbsolute(testPath, moduleDescriptor, suggestions, similarityLimit);
-            }
+        if (this.fileSystem.existsSync(typeshedPath)) {
+            this._getCompletionSuggestionsAbsolute(typeshedPath, moduleDescriptor, suggestions, similarityLimit);
         }
     }
 

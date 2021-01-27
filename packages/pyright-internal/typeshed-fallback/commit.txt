@@ -1,2 +1,4 @@
-c893857f4671e454d558c3fcaf1a502548669873
+16ae4c61201cd8b96b8b22cdfb2ab9e89ba5bcf2
+
+# Plus fixed a few regressions in functools.pyi
 

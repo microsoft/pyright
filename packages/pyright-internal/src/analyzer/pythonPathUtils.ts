@@ -30,7 +30,7 @@ interface PythonPathResult {
 const cachedSearchPaths = new Map<string, PythonPathResult>();
 
 export const stdLibFolderName = 'stdlib';
-export const thirdPartyFolderName = 'third_party';
+export const thirdPartyFolderName = 'stubs';
 
 export function getTypeShedFallbackPath(fs: FileSystem) {
     let moduleDirectory = fs.getModulePath();
