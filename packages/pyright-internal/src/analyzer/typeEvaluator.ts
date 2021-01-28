@@ -5231,11 +5231,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         // Touch all of the args so they're marked accessed even if there were errors.
-        argList.forEach((arg) => {
-            if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
-                getTypeForArgument(arg);
-            }
-        });
+        // We skip this if it's a TypeVar() call in the typing.pyi module because
+        // this results in a cyclical type resolution problem whereby we try to
+        // retrieve the str class, which inherits from Sequence, which inherits from
+        // Iterable, which uses a TypeVar. Without this, Iterable and Sequence classes
+        // have invalid type parameters.
+        const isCyclicalTypeVarCall =
+            isClass(baseTypeResult.type) &&
+            ClassType.isBuiltIn(baseTypeResult.type, 'TypeVar') &&
+            getFileInfo(node).isTypingStubFile;
+
+        if (!isCyclicalTypeVarCall) {
+            argList.forEach((arg, index) => {
+                if (arg.node!.valueExpression.nodeType !== ParseNodeType.StringList) {
+                    getTypeForArgument(arg);
+                }
+            });
+        }
 
         return returnResult;
     }
