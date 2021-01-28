@@ -37,6 +37,6 @@ _T = TypeVar("_T", bound=CustomClass)
 
 def func(cls: Type[_T], val: _T):
     if issubclass(cls, CustomClass):
-        t1: Literal["Type[CustomClass]"] = reveal_type(cls)
+        t1: Literal["Type[_T@func]"] = reveal_type(cls)
     else:
         t2: Literal["Never"] = reveal_type(cls)

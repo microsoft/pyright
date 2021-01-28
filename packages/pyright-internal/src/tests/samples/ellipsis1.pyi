@@ -1,12 +1,9 @@
 # This sample tests cases where the ellipsis operator can
 # and cannot be used.
 
-from typing import (
-    Callable, Dict, Generic, Optional,
-    Tuple, TypeVar, Union
-)
+from typing import Any, Callable, Dict, Generic, Optional, Tuple, TypeVar, Union
 
-_T1 = TypeVar('_T1')
+_T1 = TypeVar("_T1")
 
 class MyGenericClass1(Generic[_T1]):
     pass
@@ -28,11 +25,11 @@ a: Tuple[int, ...]
 # in this context.
 b: Tuple[..., int]
 
-c: Callable[...]
+c: Callable[..., Any]
 
 # This should generate an error because ... cannot be used
 # in this context.
-d: Callable[[...]]
+d: Callable[[...], Any]
 
 # This should generate an error because ... cannot be used
 # in this context.
@@ -49,4 +46,3 @@ g: Union[int, str, ...]
 # This should generate an error because ... cannot be used
 # in this context.
 h: Optional[...]
-

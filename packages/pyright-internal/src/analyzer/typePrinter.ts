@@ -330,7 +330,12 @@ export function printType(
                 return `${TypeVarType.getReadableName(type)}`;
             }
 
-            return `${TypeVarType.getReadableName(type)}`;
+            const typeVarName = TypeVarType.getReadableName(type);
+            if (TypeBase.isInstantiable(type)) {
+                return `Type[${typeVarName}]`;
+            }
+
+            return typeVarName;
         }
 
         case TypeCategory.None: {

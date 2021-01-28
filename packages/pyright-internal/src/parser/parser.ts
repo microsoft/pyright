@@ -248,6 +248,9 @@ export class Parser {
             if (exprListResult.parseError) {
                 parseTree = exprListResult.parseError;
             } else {
+                if (exprListResult.list.length === 0) {
+                    this._addError(Localizer.Diagnostic.expectedExpr(), this._peekToken());
+                }
                 parseTree = this._makeExpressionOrTuple(exprListResult, /* enclosedInParens */ false);
             }
         }

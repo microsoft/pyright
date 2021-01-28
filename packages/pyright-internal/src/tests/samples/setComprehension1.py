@@ -4,7 +4,7 @@ from typing import Generator, Set
 
 a = [1, 2, 3, 4]
 
-def func1() -> Generator[int]:
+def func1() -> Generator[int, None, None]:
     b = (elem for elem in a)
     return b
 

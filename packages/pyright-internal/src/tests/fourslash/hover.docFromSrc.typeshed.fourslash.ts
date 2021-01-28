@@ -1,12 +1,12 @@
 /// <reference path="fourslash.ts" />
 
-// @filename: requests/__init__.py
+// @filename: requests/__init__.pyi
 // @library: true
 //// from .api import head
 
-// @filename: requests/api.py
+// @filename: requests/api.pyi
 // @library: true
-//// def head(url, **kwargs):
+//// def head(url, **kwargs) -> None:
 ////     r"""Sends a <HEAD> request."""
 ////     pass
 
@@ -16,6 +16,5 @@
 //// print(requests.[|/*marker*/head|](''))
 
 helper.verifyHover('markdown', {
-    marker:
-        '```python\n(function) head: (url: str | bytes, **kwargs: Unknown) -> Response\n```\nSends a &lt;HEAD&gt; request.',
+    marker: '```python\n(function) head: (url: Unknown, **kwargs: Unknown) -> None\n```\nSends a &lt;HEAD&gt; request.',
 });

@@ -161,6 +161,12 @@ test('isInstance7', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('isInstance9', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['isinstance9.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Unbound1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unbound1.py']);
 
@@ -424,7 +430,7 @@ test('GenericTypes33', () => {
 
     // By default, reportMissingTypeArgument is disabled.
     let analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes33.py']);
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 
     // Turn on errors.
     configOptions.diagnosticRuleSet.reportMissingTypeArgument = 'error';
@@ -887,6 +893,11 @@ test('InferredTypes1', () => {
 test('CallSite2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callSite2.py']);
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('FString1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['fstring1.py']);
+    TestUtils.validateResults(analysisResults, 5, 1);
 });
 
 test('FString2', () => {
