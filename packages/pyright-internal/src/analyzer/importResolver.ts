@@ -69,6 +69,7 @@ export class ImportResolver {
     private _cachedTypeshedStdLibPath: string | undefined;
     private _cachedTypeshedThirdPartyPath: string | undefined;
     private _cachedTypeshedThirdPartyPackagePaths: Map<string, string> | undefined;
+    private _cachedTypeshedThirdPartyPackageRoots: string[] | undefined;
 
     readonly fileSystem: FileSystem;
 
@@ -319,7 +320,7 @@ export class ImportResolver {
         const importFailureInfo: string[] = [];
 
         // Is this a stdlib typeshed path?
-        const stdLibTypeshedPath = this._getTypeshedPath(/* isStdLib */ true, execEnv, importFailureInfo);
+        const stdLibTypeshedPath = this._getStdlibTypeshedPath(execEnv, importFailureInfo);
         if (stdLibTypeshedPath) {
             moduleName = this._getModuleNameFromPath(stdLibTypeshedPath, filePath);
             if (moduleName) {
@@ -357,7 +358,7 @@ export class ImportResolver {
         }
 
         // Check for a typeshed file.
-        const thirdPartyTypeshedPath = this._getTypeshedPath(/* isStdLib */ false, execEnv, importFailureInfo);
+        const thirdPartyTypeshedPath = this._getThirdPartyTypeshedPath(execEnv, importFailureInfo);
         if (thirdPartyTypeshedPath) {
             const candidateModuleName = this._getModuleNameFromPath(
                 thirdPartyTypeshedPath,
@@ -408,14 +409,14 @@ export class ImportResolver {
 
     getTypeshedStdLibPath(execEnv: ExecutionEnvironment) {
         const unused: string[] = [];
-        return this._getTypeshedPath(/* isStdLib */ true, execEnv, unused);
+        return this._getStdlibTypeshedPath(execEnv, unused);
     }
 
     getImportRoots(execEnv: ExecutionEnvironment) {
         const importFailureInfo: string[] = [];
         const roots = [];
 
-        const stdTypeshed = this._getTypeshedPath(/* isStdLib */ true, execEnv, importFailureInfo);
+        const stdTypeshed = this._getStdlibTypeshedPath(execEnv, importFailureInfo);
         if (stdTypeshed) {
             roots.push(stdTypeshed);
         }
@@ -427,10 +428,8 @@ export class ImportResolver {
             roots.push(this._configOptions.stubPath);
         }
 
-        const typeshedPath = this._getTypeshedPath(/* isStdLib */ false, execEnv, importFailureInfo);
-        if (typeshedPath) {
-            roots.push(typeshedPath);
-        }
+        const thirdPartyPaths = this._getThirdPartyTypeshedPackagePaths(execEnv, importFailureInfo);
+        roots.push(...thirdPartyPaths);
 
         const typeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);
         if (typeshedPathEx) {
@@ -1028,17 +1027,9 @@ export class ImportResolver {
             } path`
         );
 
-        let typeshedPath = this._getTypeshedPath(isStdLib, execEnv, importFailureInfo);
-
-        if (!isStdLib) {
-            if (!this._cachedTypeshedThirdPartyPackagePaths) {
-                this._buildTypeshedThirdPartyPackageMap(typeshedPath);
-            }
-
-            const firstNamePart = moduleDescriptor.nameParts.length > 0 ? moduleDescriptor.nameParts[0] : '';
-            const packageDir = this._cachedTypeshedThirdPartyPackagePaths!.get(firstNamePart);
-            typeshedPath = packageDir;
-        }
+        const typeshedPath = isStdLib
+            ? this._getStdlibTypeshedPath(execEnv, importFailureInfo)
+            : this._getThirdPartyTypeshedPackagePath(moduleDescriptor, execEnv, importFailureInfo);
 
         if (typeshedPath && this.fileSystem.existsSync(typeshedPath)) {
             const importInfo = this.resolveAbsoluteImport(
@@ -1072,6 +1063,10 @@ export class ImportResolver {
                     const innerDirPath = combinePaths(thirdPartyDir, outerEntry.name);
 
                     this.fileSystem.readdirEntriesSync(innerDirPath).forEach((innerEntry) => {
+                        if (innerEntry.name === '@python2') {
+                            return;
+                        }
+
                         if (innerEntry.isDirectory()) {
                             this._cachedTypeshedThirdPartyPackagePaths!.set(innerEntry.name, innerDirPath);
                         } else if (innerEntry.isFile()) {
@@ -1086,6 +1081,10 @@ export class ImportResolver {
                 }
             });
         }
+
+        this._cachedTypeshedThirdPartyPackageRoots = [
+            ...new Set(this._cachedTypeshedThirdPartyPackagePaths.values()),
+        ].sort();
     }
 
     private _getCompletionSuggestionsTypeshedPath(
@@ -1096,7 +1095,11 @@ export class ImportResolver {
         similarityLimit: number
     ) {
         const importFailureInfo: string[] = [];
-        const typeshedPath = this._getTypeshedPath(isStdLib, execEnv, importFailureInfo);
+
+        const typeshedPath = isStdLib
+            ? this._getStdlibTypeshedPath(execEnv, importFailureInfo)
+            : this._getThirdPartyTypeshedPackagePath(moduleDescriptor, execEnv, importFailureInfo);
+
         if (!typeshedPath) {
             return;
         }
@@ -1106,7 +1109,40 @@ export class ImportResolver {
         }
     }
 
-    private _getTypeshedPath(isStdLib: boolean, execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
+    private _getStdlibTypeshedPath(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
+        return this._getTypeshedSubdirectory(/* isStdLib */ true, execEnv, importFailureInfo);
+    }
+
+    private _getThirdPartyTypeshedPath(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
+        return this._getTypeshedSubdirectory(/* isStdLib */ false, execEnv, importFailureInfo);
+    }
+
+    private _getThirdPartyTypeshedPackagePath(
+        moduleDescriptor: ImportedModuleDescriptor,
+        execEnv: ExecutionEnvironment,
+        importFailureInfo: string[]
+    ) {
+        const typeshedPath = this._getThirdPartyTypeshedPath(execEnv, importFailureInfo);
+
+        if (!this._cachedTypeshedThirdPartyPackagePaths) {
+            this._buildTypeshedThirdPartyPackageMap(typeshedPath);
+        }
+
+        const firstNamePart = moduleDescriptor.nameParts.length > 0 ? moduleDescriptor.nameParts[0] : '';
+        return this._cachedTypeshedThirdPartyPackagePaths!.get(firstNamePart);
+    }
+
+    private _getThirdPartyTypeshedPackagePaths(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
+        const typeshedPath = this._getThirdPartyTypeshedPath(execEnv, importFailureInfo);
+
+        if (!this._cachedTypeshedThirdPartyPackagePaths) {
+            this._buildTypeshedThirdPartyPackageMap(typeshedPath);
+        }
+
+        return this._cachedTypeshedThirdPartyPackageRoots!;
+    }
+
+    private _getTypeshedSubdirectory(isStdLib: boolean, execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
         // See if we have it cached.
         if (isStdLib) {
             if (this._cachedTypeshedStdLibPath !== undefined) {
