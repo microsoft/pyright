@@ -976,7 +976,7 @@ export class ImportResolver {
             if (bestImportSoFar.resolvedPaths.length > newImport.resolvedPaths.length) {
                 return newImport;
             }
-        } else if (newImport.isPartlyResolved && !newImport.isNamespacePackage) {
+        } else if (newImport.isPartlyResolved && bestImportSoFar.isNamespacePackage && !newImport.isNamespacePackage) {
             // Always prefer a traditional over namespace import even
             // if the traditional import is only partly resolved.
             return newImport;
