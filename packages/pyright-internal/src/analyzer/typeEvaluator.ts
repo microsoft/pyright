@@ -6896,15 +6896,35 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (paramSpecArgList) {
                                 paramSpecArgList.push(argList[argIndex]);
                             } else {
-                                const paramType = FunctionType.getEffectiveParameterType(type, varArgDictParamIndex);
-                                validateArgTypeParams.push({
-                                    paramCategory: ParameterCategory.VarArgDictionary,
-                                    paramType,
-                                    requiresTypeVarMatching: requiresSpecialization(varArgDictParam.type),
-                                    argument: argList[argIndex],
-                                    errorNode: argList[argIndex].valueExpression || errorNode,
-                                    paramName: paramNameValue,
-                                });
+                                let paramInfo = paramMap.get(paramNameValue);
+                                if (paramInfo && paramInfo.argsReceived > 0) {
+                                    addDiagnostic(
+                                        getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        Localizer.Diagnostic.paramAlreadyAssigned().format({ name: paramNameValue }),
+                                        paramName
+                                    );
+                                    reportedArgError = true;
+                                } else {
+                                    const paramType = FunctionType.getEffectiveParameterType(
+                                        type,
+                                        varArgDictParamIndex
+                                    );
+                                    validateArgTypeParams.push({
+                                        paramCategory: ParameterCategory.VarArgDictionary,
+                                        paramType,
+                                        requiresTypeVarMatching: requiresSpecialization(varArgDictParam.type),
+                                        argument: argList[argIndex],
+                                        errorNode: argList[argIndex].valueExpression || errorNode,
+                                        paramName: paramNameValue,
+                                    });
+
+                                    // Remember that this parameter has already received a value.
+                                    if (!paramInfo) {
+                                        paramInfo = { argsNeeded: 1, argsReceived: 1 };
+                                    }
+                                    paramMap.set(paramNameValue, paramInfo);
+                                }
                             }
                             trySetActive(argList[argIndex], varArgDictParam);
                         } else {

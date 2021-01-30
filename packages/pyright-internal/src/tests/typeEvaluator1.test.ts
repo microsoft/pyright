@@ -459,7 +459,7 @@ test('Function1', () => {
 test('Function2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['function2.py']);
 
-    TestUtils.validateResults(analysisResults, 6);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Function3', () => {

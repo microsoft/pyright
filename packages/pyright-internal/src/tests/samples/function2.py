@@ -53,3 +53,8 @@ tuple1 = (2, 3)
 func4(*tuple1)
 func5(*tuple1)
 
+# This should generate an error because a is assigned twice.
+func2(a="", a="")
+
+# This should generate an error because c is assigned twice.
+func2("", c=4, d=5, c=5)
