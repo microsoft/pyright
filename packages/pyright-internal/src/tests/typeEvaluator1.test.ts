@@ -683,7 +683,7 @@ test('Properties7', () => {
 test('Properties8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties8.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('Properties9', () => {
@@ -696,6 +696,12 @@ test('Properties10', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties10.py']);
 
     TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Properties11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties11.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Operators1', () => {

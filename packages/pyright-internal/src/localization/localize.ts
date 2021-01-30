@@ -497,7 +497,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.privateUsedOutsideOfModule'));
         export const propertyOverridden = () =>
             new ParameterizedString<{ name: string; className: string }>(getRawString('Diagnostic.propertyOverridden'));
-        export const propertyStaticOrClassMethod = () => getRawString('Diagnostic.propertyStaticOrClassMethod');
+        export const propertyStaticMethod = () => getRawString('Diagnostic.propertyStaticMethod');
         export const protectedUsedOutsideOfClass = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.protectedUsedOutsideOfClass'));
         export const protocolBaseClass = () =>

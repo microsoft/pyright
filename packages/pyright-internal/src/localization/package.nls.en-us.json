@@ -238,7 +238,7 @@
         "privateUsedOutsideOfClass": "\"{name}\" is private and used outside of the class in which it is declared",
         "privateUsedOutsideOfModule": "\"{name}\" is private and used outside of the module in which it is declared",
         "propertyOverridden": "\"{name}\" incorrectly overrides property of same name in class \"{className}\"",
-        "propertyStaticOrClassMethod": "Static and class methods not allowed for property getter, setter or deleter",
+        "propertyStaticMethod": "Static methods not allowed for property getter, setter or deleter",
         "protectedUsedOutsideOfClass": "\"{name}\" is protected and used outside of the class in which it is declared",
         "protocolBaseClass": "Protocol class \"{classType}\" cannot derive from non-protocol class \"{baseType}\"",
         "protocolIllegal": "Use of \"Protocol\" requires Python 3.7 or newer",

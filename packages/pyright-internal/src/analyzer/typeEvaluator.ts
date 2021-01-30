@@ -1187,6 +1187,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
         const decoratorTypeResult = getTypeOfExpression(node.expression);
 
+        // Special-case the combination of a classmethod decorator applied
+        // to a property. This is allowed in Python 3.9, but it's not reflected
+        // in the builtins.pyi stub for classmethod.
+        if (
+            isClass(decoratorTypeResult.type) &&
+            ClassType.isBuiltIn(decoratorTypeResult.type, 'classmethod') &&
+            isProperty(functionOrClassType)
+        ) {
+            return functionOrClassType;
+        }
+
         const argList = [
             {
                 argumentCategory: ArgumentCategory.Simple,
@@ -11706,11 +11717,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function validatePropertyMethod(method: FunctionType, errorNode: ParseNode) {
-        if (FunctionType.isStaticMethod(method) || FunctionType.isClassMethod(method)) {
+        if (FunctionType.isStaticMethod(method)) {
             addDiagnostic(
                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
-                Localizer.Diagnostic.propertyStaticOrClassMethod(),
+                Localizer.Diagnostic.propertyStaticMethod(),
                 errorNode
             );
         }
@@ -11769,7 +11780,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             hasDefault: true,
             defaultType: AnyType.create(),
         });
-        getFunction1.details.declaredReturnType = propertyObject;
+        getFunction1.details.declaredReturnType = FunctionType.isClassMethod(fget)
+            ? fget.details.declaredReturnType
+            : propertyObject;
         getFunction1.details.declaration = fget.details.declaration;
 
         const getFunction2 = FunctionType.createInstance(
@@ -11795,7 +11808,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         getFunction2.details.parameters.push({
             category: ParameterCategory.Simple,
             name: 'obj',
-            type: objType,
+            type: FunctionType.isClassMethod(fget) ? convertToInstance(objType) : objType,
             hasDeclaredType: true,
         });
         getFunction2.details.parameters.push({
