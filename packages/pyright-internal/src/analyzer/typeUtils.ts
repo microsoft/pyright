@@ -414,13 +414,12 @@ export function canBeFalsy(type: Type, recursionLevel = 0): boolean {
 
         case TypeCategory.Object: {
             // Handle tuples specially.
-            if (isTupleClass(type.classType) && type.classType.variadicTypeArguments) {
-                if (type.classType.variadicTypeArguments.length === 0) {
+            if (isTupleClass(type.classType) && type.classType.tupleTypeArguments) {
+                if (type.classType.tupleTypeArguments.length === 0) {
                     return true;
                 }
 
-                const lastTypeArg =
-                    type.classType.variadicTypeArguments[type.classType.variadicTypeArguments.length - 1];
+                const lastTypeArg = type.classType.tupleTypeArguments[type.classType.tupleTypeArguments.length - 1];
                 if (isEllipsisType(lastTypeArg)) {
                     return true;
                 }
@@ -477,7 +476,7 @@ export function canBeTruthy(type: Type, recursionLevel = 0): boolean {
         case TypeCategory.Object: {
             // Check for Tuple[()] (an empty tuple).
             if (isTupleClass(type.classType)) {
-                if (type.classType.variadicTypeArguments && type.classType.variadicTypeArguments.length === 0) {
+                if (type.classType.tupleTypeArguments && type.classType.tupleTypeArguments.length === 0) {
                     return false;
                 }
             }
@@ -980,8 +979,8 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
                     setTypeArgumentsRecursive(typeArg, srcType, typeVarMap, recursionCount + 1);
                 });
             }
-            if (destType.variadicTypeArguments) {
-                destType.variadicTypeArguments.forEach((typeArg) => {
+            if (destType.tupleTypeArguments) {
+                destType.tupleTypeArguments.forEach((typeArg) => {
                     setTypeArgumentsRecursive(typeArg, srcType, typeVarMap, recursionCount + 1);
                 });
             }
@@ -1049,12 +1048,8 @@ export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeCo
     }
 
     const typeVarMap = buildTypeVarMap(typeParameters, typeArguments, getTypeVarScopeId(classType));
-    if (
-        ClassType.isPseudoVariadicTypeParam(classType) &&
-        classType.variadicTypeArguments &&
-        typeParameters.length >= 1
-    ) {
-        typeVarMap.setVariadicTypeVar(typeParameters[0], classType.variadicTypeArguments);
+    if (ClassType.isTupleClass(classType) && classType.tupleTypeArguments && typeParameters.length >= 1) {
+        typeVarMap.setVariadicTypeVar(typeParameters[0], classType.tupleTypeArguments);
     }
 
     return typeVarMap;
@@ -1650,9 +1645,9 @@ function _transformTypeVarsInClassType(
         });
     }
 
-    if (ClassType.isPseudoVariadicTypeParam(classType)) {
-        if (classType.variadicTypeArguments) {
-            newVariadicTypeArgs = classType.variadicTypeArguments.map((oldTypeArgType) => {
+    if (ClassType.isTupleClass(classType)) {
+        if (classType.tupleTypeArguments) {
+            newVariadicTypeArgs = classType.tupleTypeArguments.map((oldTypeArgType) => {
                 const newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);
                 if (newTypeArgType !== oldTypeArgType) {
                     specializationNeeded = true;

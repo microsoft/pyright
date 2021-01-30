@@ -735,10 +735,9 @@ export class Checker extends ParseTreeWalker {
         //   assert (x > 3, "bad value x")
         const type = this._evaluator.getType(node.testExpression);
         if (type && isObject(type)) {
-            if (isTupleClass(type.classType) && type.classType.variadicTypeArguments) {
-                if (type.classType.variadicTypeArguments.length > 0) {
-                    const lastTypeArg =
-                        type.classType.variadicTypeArguments[type.classType.variadicTypeArguments.length - 1];
+            if (isTupleClass(type.classType) && type.classType.tupleTypeArguments) {
+                if (type.classType.tupleTypeArguments.length > 0) {
+                    const lastTypeArg = type.classType.tupleTypeArguments[type.classType.tupleTypeArguments.length - 1];
                     if (!isEllipsisType(lastTypeArg)) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
@@ -1696,12 +1695,8 @@ export class Checker extends ParseTreeWalker {
         };
 
         let isValidType = true;
-        if (
-            isObject(arg1Type) &&
-            ClassType.isPseudoVariadicTypeParam(arg1Type.classType) &&
-            arg1Type.classType.variadicTypeArguments
-        ) {
-            isValidType = !arg1Type.classType.variadicTypeArguments.some(
+        if (isObject(arg1Type) && ClassType.isTupleClass(arg1Type.classType) && arg1Type.classType.tupleTypeArguments) {
+            isValidType = !arg1Type.classType.tupleTypeArguments.some(
                 (typeArg) => !isSupportedTypeForIsInstance(typeArg)
             );
         } else {
@@ -1758,8 +1753,8 @@ export class Checker extends ParseTreeWalker {
             // The isinstance and issubclass call supports a variation where the second
             // parameter is a tuple of classes.
             const objClass = arg1Type.classType;
-            if (isTupleClass(objClass) && objClass.variadicTypeArguments) {
-                objClass.variadicTypeArguments.forEach((typeArg) => {
+            if (isTupleClass(objClass) && objClass.tupleTypeArguments) {
+                objClass.tupleTypeArguments.forEach((typeArg) => {
                     if (isClass(typeArg)) {
                         classTypeList.push(typeArg);
                     } else {

@@ -302,10 +302,9 @@ export const enum ClassTypeFlags {
     // semantics.
     HasCustomClassGetItem = 1 << 18,
 
-    // This class uses a variadic type parameter even though it is not
-    // declared as such. Currently, the only class that supports
-    // this is tuple.
-    PseudoVariadicTypeParameter = 1 << 19,
+    // The tuple class uses a variadic type parameter and requires
+    // special-case handling of its type arguments.
+    TupleClass = 1 << 19,
 
     // The class has a metaclass of EnumMet or derives from
     // a class that has this metaclass.
@@ -340,11 +339,11 @@ export interface ClassType extends TypeBase {
     // some or all of the type parameters.
     typeArguments?: Type[];
 
-    // For a few classes (e.g., tuple), the class definition calls for a single
-    // type parameter but the spec allows the programmer to provide variadic
-    // type arguments. To make these compatible, we need to derive a single
-    // typeArgument value based on the variadic arguments.
-    variadicTypeArguments?: Type[];
+    // For tuples, the class definition calls for a single type parameter but
+    // the spec allows the programmer to provide variadic type arguments.
+    // To make these compatible, we need to derive a single typeArgument value
+    // based on the variadic arguments.
+    tupleTypeArguments?: Type[];
 
     // If type arguments are present, were they explicit (i.e.
     // provided explicitly in the code)?
@@ -401,7 +400,7 @@ export namespace ClassType {
         typeArguments: Type[] | undefined,
         isTypeArgumentExplicit: boolean,
         skipAbstractClassTest = false,
-        variadicTypeArguments?: Type[]
+        tupleTypeArguments?: Type[]
     ): ClassType {
         const newClassType = { ...classType };
 
@@ -412,8 +411,8 @@ export namespace ClassType {
 
         newClassType.isTypeArgumentExplicit = isTypeArgumentExplicit;
         newClassType.skipAbstractClassTest = skipAbstractClassTest;
-        newClassType.variadicTypeArguments = variadicTypeArguments
-            ? variadicTypeArguments.map((t) => (isNever(t) ? UnknownType.create() : t))
+        newClassType.tupleTypeArguments = tupleTypeArguments
+            ? tupleTypeArguments.map((t) => (isNever(t) ? UnknownType.create() : t))
             : undefined;
 
         return newClassType;
@@ -554,8 +553,8 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.HasCustomClassGetItem);
     }
 
-    export function isPseudoVariadicTypeParam(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.PseudoVariadicTypeParameter);
+    export function isTupleClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.TupleClass);
     }
 
     export function getTypeParameters(classType: ClassType) {
@@ -1612,13 +1611,13 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 }
             }
 
-            const type1VariadicTypeArgs = type1.variadicTypeArguments || [];
-            const type2VariadicTypeArgs = classType2.variadicTypeArguments || [];
-            if (type1VariadicTypeArgs.length !== type2VariadicTypeArgs.length) {
+            const type1TupleTypeArgs = type1.tupleTypeArguments || [];
+            const type2TupleTypeArgs = classType2.tupleTypeArguments || [];
+            if (type1TupleTypeArgs.length !== type2TupleTypeArgs.length) {
                 return false;
             }
-            for (let i = 0; i < type1VariadicTypeArgs.length; i++) {
-                if (!isTypeSame(type1VariadicTypeArgs[i], type2VariadicTypeArgs[i], recursionCount + 1)) {
+            for (let i = 0; i < type1TupleTypeArgs.length; i++) {
+                if (!isTypeSame(type1TupleTypeArgs[i], type2TupleTypeArgs[i], recursionCount + 1)) {
                     return false;
                 }
             }

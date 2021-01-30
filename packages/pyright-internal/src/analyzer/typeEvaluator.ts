@@ -1085,8 +1085,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (!TypeBase.isInstantiable(resultType)) {
                 const isEmptyVariadic =
                     isObject(resultType) &&
-                    ClassType.isPseudoVariadicTypeParam(resultType.classType) &&
-                    resultType.classType.variadicTypeArguments?.length === 0;
+                    ClassType.isTupleClass(resultType.classType) &&
+                    resultType.classType.tupleTypeArguments?.length === 0;
 
                 if ((flags & EvaluatorFlags.AllowEmptyTupleAsType) === 0 || !isEmptyVariadic) {
                     addExpectedClassDiagnostic(typeResult.type, node);
@@ -2684,8 +2684,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         doForEachSubtype(type, (subtype, index, constraints) => {
             // Is this subtype a tuple?
             const tupleType = getSpecializedTupleType(subtype);
-            if (tupleType && tupleType.variadicTypeArguments) {
-                const sourceEntryTypes = tupleType.variadicTypeArguments;
+            if (tupleType && tupleType.tupleTypeArguments) {
+                const sourceEntryTypes = tupleType.tupleTypeArguments;
                 const sourceEntryCount = sourceEntryTypes.length;
 
                 // Is this a homogenous tuple of indeterminate length?
@@ -4597,7 +4597,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // of type arguments. We need to perform special processing of the
                 // type args in this case to permit empty tuples.
                 let adjustedFlags = flags;
-                if (isClass(concreteSubtype) && ClassType.isPseudoVariadicTypeParam(concreteSubtype)) {
+                if (isClass(concreteSubtype) && ClassType.isTupleClass(concreteSubtype)) {
                     adjustedFlags |= EvaluatorFlags.AllowEmptyTupleAsType;
                 }
 
@@ -4787,17 +4787,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !node.items[0].isImaginary
             ) {
                 const tupleType = getSpecializedTupleType(baseTypeClass);
-                if (tupleType && tupleType.variadicTypeArguments && tupleType.variadicTypeArguments.length > 0) {
+                if (tupleType && tupleType.tupleTypeArguments && tupleType.tupleTypeArguments.length > 0) {
                     const numberNode = node.items[0];
 
                     if (numberNode.isInteger && numberNode.value >= 0) {
                         if (
-                            tupleType.variadicTypeArguments.length === 2 &&
-                            isEllipsisType(tupleType.variadicTypeArguments[1])
+                            tupleType.tupleTypeArguments.length === 2 &&
+                            isEllipsisType(tupleType.tupleTypeArguments[1])
                         ) {
-                            return tupleType.variadicTypeArguments[0];
-                        } else if (numberNode.value < tupleType.variadicTypeArguments.length) {
-                            return tupleType.variadicTypeArguments[numberNode.value];
+                            return tupleType.tupleTypeArguments[0];
+                        } else if (numberNode.value < tupleType.tupleTypeArguments.length) {
+                            return tupleType.tupleTypeArguments[numberNode.value];
                         }
                     }
                 }
@@ -4807,7 +4807,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // isn't used in most cases, but it is supported by the language.
             const builtInTupleType = getBuiltInType(node, 'tuple');
             if (isClass(builtInTupleType)) {
-                indexType = convertToInstance(specializeVariadicGenericClass(builtInTupleType, indexTypeList));
+                indexType = convertToInstance(specializeTupleClass(builtInTupleType, indexTypeList));
             } else {
                 indexType = UnknownType.create();
             }
@@ -4991,22 +4991,22 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Build an array of expected types.
         const expectedTypes: Type[] = [];
 
-        if (isTupleClass(expectedType.classType) && expectedType.classType.variadicTypeArguments) {
+        if (isTupleClass(expectedType.classType) && expectedType.classType.tupleTypeArguments) {
             // Is this a homogeneous tuple of indeterminate length? If so,
             // match the number of expected types to the number of entries
             // in the tuple expression.
             if (
-                expectedType.classType.variadicTypeArguments.length === 2 &&
-                isEllipsisType(expectedType.classType.variadicTypeArguments[1])
+                expectedType.classType.tupleTypeArguments.length === 2 &&
+                isEllipsisType(expectedType.classType.tupleTypeArguments[1])
             ) {
                 const homogenousType = transformPossibleRecursiveTypeAlias(
-                    expectedType.classType.variadicTypeArguments[0]
+                    expectedType.classType.tupleTypeArguments[0]
                 );
                 for (let i = 0; i < node.expressions.length; i++) {
                     expectedTypes.push(homogenousType);
                 }
             } else {
-                expectedType.classType.variadicTypeArguments.forEach((typeArg) => {
+                expectedType.classType.tupleTypeArguments.forEach((typeArg) => {
                     expectedTypes.push(transformPossibleRecursiveTypeAlias(typeArg));
                 });
             }
@@ -5041,7 +5041,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expectedTypesContainLiterals = expectedTypes.some((type) => isLiteralType(type));
 
         const type = convertToInstance(
-            specializeVariadicGenericClass(
+            specializeTupleClass(
                 builtInTuple.classType,
                 buildTupleTypesList(entryTypeResults),
                 /* isTypeArgumentExplicit */ true,
@@ -5060,9 +5060,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return { type: UnknownType.create(), node };
         }
 
-        const type = convertToInstance(
-            specializeVariadicGenericClass(builtInTupleType, buildTupleTypesList(entryTypeResults))
-        );
+        const type = convertToInstance(specializeTupleClass(builtInTupleType, buildTupleTypesList(entryTypeResults)));
 
         return { type, node };
     }
@@ -5076,7 +5074,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 // but some other iterator (e.g. a List), we won't know the number of
                 // items, so we'll need to leave the Tuple open-ended.
                 if (isObject(typeResult.unpackedType) && isTupleClass(typeResult.unpackedType.classType)) {
-                    const typeArgs = typeResult.unpackedType.classType.variadicTypeArguments;
+                    const typeArgs = typeResult.unpackedType.classType.tupleTypeArguments;
 
                     // If the Tuple wasn't specialized or has a "..." type parameter, we can't
                     // make any determination about its contents.
@@ -5100,11 +5098,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return tupleTypes;
     }
 
-    // Generic classes that accept a variable number of type arguments (currently
-    // only tuple) require special handling. This method computes the "effective"
-    // type argument. If stripLiterals is true, literal values are
-    // stripped when computing the effective type args.
-    function specializeVariadicGenericClass(
+    // Tuples require special handling for specialization. This method computes
+    // the "effective" type argument, which is a union of the variadic type
+    // arguments. If stripLiterals is true, literal values are stripped when
+    // computing the effective type args.
+    function specializeTupleClass(
         classType: ClassType,
         typeArgs: Type[],
         isTypeArgumentExplicit = true,
@@ -5151,7 +5149,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return;
         }
 
-        const updatedTupleClass = specializeVariadicGenericClass(typedTupleClass, typeArgs, isTypeArgumentExplicit);
+        const updatedTupleClass = specializeTupleClass(typedTupleClass, typeArgs, isTypeArgumentExplicit);
 
         // Create a copy of the NamedTuple class that overrides the normal MRO
         // entries with a version of Tuple that is specialized appropriately.
@@ -5631,13 +5629,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                                     // the homogenous arbitrary-length form.
                                     if (
                                         isObject(newReturnType) &&
-                                        ClassType.isPseudoVariadicTypeParam(newReturnType.classType) &&
-                                        newReturnType.classType.variadicTypeArguments &&
-                                        newReturnType.classType.variadicTypeArguments.length === 1
+                                        ClassType.isTupleClass(newReturnType.classType) &&
+                                        newReturnType.classType.tupleTypeArguments &&
+                                        newReturnType.classType.tupleTypeArguments.length === 1
                                     ) {
                                         newReturnType = ObjectType.create(
-                                            specializeVariadicGenericClass(newReturnType.classType, [
-                                                newReturnType.classType.variadicTypeArguments[0],
+                                            specializeTupleClass(newReturnType.classType, [
+                                                newReturnType.classType.tupleTypeArguments[0],
                                                 AnyType.create(/* isEllipsis */ true),
                                             ])
                                         );
@@ -6554,13 +6552,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (
                     isObject(argType) &&
                     isTupleClass(argType.classType) &&
-                    argType.classType.variadicTypeArguments &&
-                    argType.classType.variadicTypeArguments.length > 0 &&
+                    argType.classType.tupleTypeArguments &&
+                    argType.classType.tupleTypeArguments.length > 0 &&
                     !isEllipsisType(
-                        argType.classType.variadicTypeArguments[argType.classType.variadicTypeArguments.length - 1]
+                        argType.classType.tupleTypeArguments[argType.classType.tupleTypeArguments.length - 1]
                     )
                 ) {
-                    listElementType = argType.classType.variadicTypeArguments[unpackedArgIndex];
+                    listElementType = argType.classType.tupleTypeArguments[unpackedArgIndex];
 
                     // Determine if there are any more unpacked list arguments after
                     // this one. If not, we'll clear this flag because this unpacked
@@ -6571,7 +6569,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         ) !== undefined;
 
                     unpackedArgIndex++;
-                    if (unpackedArgIndex >= argType.classType.variadicTypeArguments.length) {
+                    if (unpackedArgIndex >= argType.classType.tupleTypeArguments.length) {
                         unpackedArgIndex = 0;
                         advanceToNextArg = true;
                     }
@@ -7518,7 +7516,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (
             !isObject(arg1Type) ||
             !isTupleClass(arg1Type.classType) ||
-            arg1Type.classType.variadicTypeArguments === undefined
+            arg1Type.classType.tupleTypeArguments === undefined
         ) {
             return undefined;
         }
@@ -7532,7 +7530,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             /* declaredMetaclass */ undefined,
             arg1Type.classType.details.effectiveMetaclass
         );
-        arg1Type.classType.variadicTypeArguments.forEach((baseClass) => {
+        arg1Type.classType.tupleTypeArguments.forEach((baseClass) => {
             if (isClass(baseClass) || isAnyOrUnknown(baseClass)) {
                 classType.details.baseClasses.push(baseClass);
             } else {
@@ -8918,7 +8916,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 if (isObject(dictEntryType)) {
                     const classType = dictEntryType.classType;
                     if (isTupleClass(classType)) {
-                        const typeArgs = classType.variadicTypeArguments;
+                        const typeArgs = classType.tupleTypeArguments;
                         if (typeArgs && typeArgs.length === 2) {
                             if (!limitEntryCount || index < maxEntriesToUseForInference) {
                                 keyTypes.push(typeArgs[0]);
@@ -9330,7 +9328,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
             type = getBuiltInType(node, 'tuple');
             if (isClass(type)) {
-                type = convertToInstance(specializeVariadicGenericClass(type, [keyType, valueType]));
+                type = convertToInstance(specializeTupleClass(type, [keyType, valueType]));
             }
         } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
             // The parser should have reported an error in this case because it's not allowed.
@@ -9701,7 +9699,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         paramLimit?: number,
         allowParamSpec = false
     ): Type {
-        const isVariadicTypeParam = ClassType.isPseudoVariadicTypeParam(classType);
+        const isVariadicTypeParam = ClassType.isTupleClass(classType);
 
         if (typeArgs) {
             // Verify that we didn't receive any inappropriate ellipses or modules.
@@ -9723,8 +9721,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     typeArgs.length === 1 &&
                     isObject(typeArgs[0].type) &&
                     isTupleClass(typeArgs[0].type.classType) &&
-                    typeArgs[0].type.classType.variadicTypeArguments &&
-                    typeArgs[0].type.classType.variadicTypeArguments.length === 0
+                    typeArgs[0].type.classType.tupleTypeArguments &&
+                    typeArgs[0].type.classType.tupleTypeArguments.length === 0
                 ) {
                     typeArgs = [];
                 }
@@ -9761,7 +9759,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 typeArgTypes.push(AnyType.create(true));
             }
 
-            return specializeVariadicGenericClass(classType, typeArgTypes, typeArgs !== undefined);
+            return specializeTupleClass(classType, typeArgTypes, typeArgs !== undefined);
         }
 
         return ClassType.cloneForSpecialization(classType, typeArgTypes, typeArgs !== undefined);
@@ -10225,7 +10223,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (node.name.value === 'tuple') {
-                classFlags |= ClassTypeFlags.PseudoVariadicTypeParameter;
+                classFlags |= ClassTypeFlags.TupleClass;
             }
         }
 
@@ -11984,8 +11982,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // If more than one type was specified for the exception, we'll receive
             // a specialized tuple object here.
             const tupleType = getSpecializedTupleType(subType);
-            if (tupleType && tupleType.variadicTypeArguments) {
-                const entryTypes = tupleType.variadicTypeArguments.map((t) => {
+            if (tupleType && tupleType.tupleTypeArguments) {
+                const entryTypes = tupleType.tupleTypeArguments.map((t) => {
                     return getExceptionType(t, node.typeExpression!);
                 });
                 return combineTypes(entryTypes);
@@ -13745,10 +13743,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         if (isObject(argType)) {
             const objClass = argType.classType;
-            if (isTupleClass(objClass) && objClass.variadicTypeArguments) {
+            if (isTupleClass(objClass) && objClass.tupleTypeArguments) {
                 let foundNonClassType = false;
                 const classTypeList: (ClassType | TypeVarType)[] = [];
-                objClass.variadicTypeArguments.forEach((typeArg) => {
+                objClass.tupleTypeArguments.forEach((typeArg) => {
                     typeArg = transformTypeObjectToClass(typeArg);
                     if (isClass(typeArg) || (isTypeVar(typeArg) && TypeBase.isInstantiable(typeArg))) {
                         classTypeList.push(typeArg);
@@ -14223,7 +14221,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (typeArgs && typeArgCount > typeParameters.length) {
-            if (!ClassType.isPartiallyConstructed(classType) && !ClassType.isPseudoVariadicTypeParam(classType)) {
+            if (!ClassType.isPartiallyConstructed(classType) && !ClassType.isTupleClass(classType)) {
                 const fileInfo = getFileInfo(errorNode);
                 if (typeParameters.length === 0) {
                     addDiagnostic(
@@ -15882,16 +15880,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (ancestorIndex === 0 && ClassType.isBuiltIn(destType)) {
                 // Handle built-in types that support arbitrary numbers
                 // of type parameters like Tuple.
-                if (ClassType.isPseudoVariadicTypeParam(destType)) {
-                    if (destType.variadicTypeArguments && curSrcType.variadicTypeArguments) {
-                        const destTypeArgs = destType.variadicTypeArguments;
+                if (ClassType.isTupleClass(destType)) {
+                    if (destType.tupleTypeArguments && curSrcType.tupleTypeArguments) {
+                        const destTypeArgs = destType.tupleTypeArguments;
                         let destArgCount = destTypeArgs.length;
                         const isDestHomogenousType = destArgCount === 2 && isEllipsisType(destTypeArgs[1]);
                         if (isDestHomogenousType) {
                             destArgCount = 1;
                         }
 
-                        const srcTypeArgs = curSrcType.variadicTypeArguments;
+                        const srcTypeArgs = curSrcType.tupleTypeArguments;
                         let srcArgCount = srcTypeArgs.length;
                         const isSrcHomogeneousType = srcArgCount === 2 && isEllipsisType(srcTypeArgs[1]);
                         if (isSrcHomogeneousType) {
@@ -15995,11 +15993,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             if (
-                ClassType.isPseudoVariadicTypeParam(curSrcType) &&
-                curSrcType.variadicTypeArguments &&
+                ClassType.isTupleClass(curSrcType) &&
+                curSrcType.tupleTypeArguments &&
                 destType.details.typeParameters.length >= 1
             ) {
-                typeVarMap.setVariadicTypeVar(destType.details.typeParameters[0], curSrcType.variadicTypeArguments);
+                typeVarMap.setVariadicTypeVar(destType.details.typeParameters[0], curSrcType.tupleTypeArguments);
             }
         }
 
@@ -16043,9 +16041,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return true;
         }
 
-        if (ClassType.isPseudoVariadicTypeParam(destType)) {
-            destTypeArgs = destType.variadicTypeArguments || [];
-            srcTypeArgs = srcType.variadicTypeArguments;
+        if (ClassType.isTupleClass(destType)) {
+            destTypeArgs = destType.tupleTypeArguments || [];
+            srcTypeArgs = srcType.tupleTypeArguments;
         } else {
             destTypeArgs = destType.typeArguments!;
             srcTypeArgs = srcType.typeArguments;

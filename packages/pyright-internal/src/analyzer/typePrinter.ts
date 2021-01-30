@@ -393,7 +393,7 @@ export function printObjectTypeForClass(
     // or type parameters because it will confuse users.
     if (!ClassType.isPseudoGenericClass(type)) {
         // If there is a type arguments array, it's a specialized class.
-        const typeArgs = type.variadicTypeArguments || type.typeArguments;
+        const typeArgs = type.tupleTypeArguments || type.typeArguments;
         if (typeArgs) {
             // Handle Tuple[()] as a special case.
             if (typeArgs.length > 0) {
@@ -417,7 +417,7 @@ export function printObjectTypeForClass(
                         ']';
                 }
             } else {
-                if (ClassType.isPseudoVariadicTypeParam(type)) {
+                if (ClassType.isTupleClass(type)) {
                     objName += '[()]';
                 }
             }
