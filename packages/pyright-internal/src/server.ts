@@ -203,7 +203,7 @@ class PyrightServer extends LanguageServerBase {
     }
 
     protected createProgressReporter(): ProgressReporter {
-        // The old progress notifications are kept for backwards compatiblity with
+        // The old progress notifications are kept for backwards compatibility with
         // clients that do not support work done progress.
 
         let workDoneProgress: Promise<WorkDoneProgressServerReporter> | undefined;
