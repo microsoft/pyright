@@ -29,7 +29,7 @@ import {
     TypeCategory,
     TypeVarType,
 } from './types';
-import { doForEachSubtype, isOptionalType } from './typeUtils';
+import { doForEachSubtype, isOptionalType, isTupleClass } from './typeUtils';
 
 const singleTickRegEx = /'/g;
 const tripleTickRegEx = /'''/g;
@@ -67,48 +67,79 @@ export function printType(
     // it represents.
     if (type.typeAliasInfo && !expandTypeAlias) {
         let aliasName = type.typeAliasInfo.name;
+        const typeParams = type.typeAliasInfo.typeParameters;
 
-        // If there is a type arguments array, it's a specialized type alias.
-        if (type.typeAliasInfo.typeArguments) {
-            if (
-                (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
-                type.typeAliasInfo.typeArguments.some((typeArg) => !isAnyOrUnknown(typeArg))
-            ) {
-                aliasName +=
-                    '[' +
-                    type.typeAliasInfo.typeArguments
-                        .map((typeArg) => {
-                            return printType(
-                                typeArg,
-                                printTypeFlags,
-                                returnTypeCallback,
-                                /* expandTypeAlias */ false,
-                                recursionCount + 1
-                            );
-                        })
-                        .join(', ') +
-                    ']';
-            }
-        } else {
-            if (type.typeAliasInfo.typeParameters) {
+        if (typeParams) {
+            let argumentStrings: string[] | undefined;
+
+            // If there is a type arguments array, it's a specialized type alias.
+            if (type.typeAliasInfo.typeArguments) {
                 if (
                     (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
-                    type.typeAliasInfo.typeParameters.some((typeParam) => !isAnyOrUnknown(typeParam))
+                    type.typeAliasInfo.typeArguments.some((typeArg) => !isAnyOrUnknown(typeArg))
                 ) {
-                    aliasName +=
-                        '[' +
-                        type.typeAliasInfo.typeParameters
-                            .map((typeParam) => {
-                                return printType(
-                                    typeParam,
+                    argumentStrings = [];
+                    type.typeAliasInfo.typeArguments.forEach((typeArg, index) => {
+                        // Which type parameter does this map to?
+                        const typeParam =
+                            index < typeParams.length ? typeParams[index] : typeParams[typeParams.length - 1];
+
+                        // If this type argument maps to a variadic type parameter, unpack it.
+                        if (
+                            isVariadicTypeVar(typeParam) &&
+                            isObject(typeArg) &&
+                            isTupleClass(typeArg.classType) &&
+                            typeArg.classType.tupleTypeArguments
+                        ) {
+                            typeArg.classType.tupleTypeArguments.forEach((tupleTypeArg) => {
+                                argumentStrings!.push(
+                                    printType(
+                                        tupleTypeArg,
+                                        printTypeFlags,
+                                        returnTypeCallback,
+                                        /* expandTypeAlias */ false,
+                                        recursionCount + 1
+                                    )
+                                );
+                            });
+                        } else {
+                            argumentStrings!.push(
+                                printType(
+                                    typeArg,
                                     printTypeFlags,
                                     returnTypeCallback,
                                     /* expandTypeAlias */ false,
                                     recursionCount + 1
-                                );
-                            })
-                            .join(', ') +
-                        ']';
+                                )
+                            );
+                        }
+                    });
+                }
+            } else {
+                if (
+                    (printTypeFlags & PrintTypeFlags.OmitTypeArgumentsIfAny) === 0 ||
+                    typeParams.some((typeParam) => !isAnyOrUnknown(typeParam))
+                ) {
+                    argumentStrings = [];
+                    typeParams.forEach((typeParam) => {
+                        argumentStrings!.push(
+                            printType(
+                                typeParam,
+                                printTypeFlags,
+                                returnTypeCallback,
+                                /* expandTypeAlias */ false,
+                                recursionCount + 1
+                            )
+                        );
+                    });
+                }
+            }
+
+            if (argumentStrings) {
+                if (argumentStrings.length === 0) {
+                    aliasName += `[()]`;
+                } else {
+                    aliasName += `[${argumentStrings.join(', ')}]`;
                 }
             }
         }

@@ -3,7 +3,7 @@
 
 # pyright: reportMissingModuleSource=false, reportMissingTypeArgument=true
 
-from typing import Dict, Generic, Literal, Optional, TypeVar, Union
+from typing import Dict, Generic, Literal, Optional, Tuple, TypeVar, Union
 from typing_extensions import TypeVarTuple, Unpack
 
 _Xs = TypeVarTuple("_Xs")
@@ -62,3 +62,13 @@ z2 = func1(Array(3, 4.3, "hi", 3j))
 
 z3 = func1(Array(3.5, 4))
 t_z3: Literal["float"] = reveal_type(z3)
+
+Alias5 = Tuple[int, Unpack[_Xs]]
+
+
+def func2(x: Alias5[float, bool], y: Alias5[()], z: Alias5[()]):
+    t_x: Literal["Alias5[float, bool]"] = reveal_type(x)
+
+    t_y: Literal["Alias5[()]"] = reveal_type(y)
+
+    t_z: Literal["Alias5[()]"] = reveal_type(z)
