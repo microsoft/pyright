@@ -66,9 +66,11 @@ t_z3: Literal["float"] = reveal_type(z3)
 Alias5 = Tuple[int, Unpack[_Xs]]
 
 
-def func2(x: Alias5[float, bool], y: Alias5[()], z: Alias5[()]):
+# The type annotation for y will generate an error if
+# reportMissingTypeArgument is enabled.
+def func2(x: Alias5[float, bool], y: Alias5, z: Alias5[()]):
     t_x: Literal["Alias5[float, bool]"] = reveal_type(x)
 
-    t_y: Literal["Alias5[()]"] = reveal_type(y)
+    t_y: Literal["Alias5[*_Xs@Alias5]"] = reveal_type(y)
 
     t_z: Literal["Alias5[()]"] = reveal_type(z)
