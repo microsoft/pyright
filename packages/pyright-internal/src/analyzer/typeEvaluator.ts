@@ -3748,7 +3748,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type = baseType;
                 break;
             }
-                
+
             case TypeCategory.Never: {
                 type = UnknownType.create();
                 break;
