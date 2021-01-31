@@ -3748,6 +3748,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type = baseType;
                 break;
             }
+                
+            case TypeCategory.Never: {
+                type = UnknownType.create();
+                break;
+            }
 
             case TypeCategory.Class: {
                 type = getTypeFromClassMember(node.memberName, baseType, memberName, usage, diag);
