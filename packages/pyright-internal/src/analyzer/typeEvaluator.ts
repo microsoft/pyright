@@ -8434,7 +8434,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const expectedOperandType =
             node.operator === OperatorType.Or || node.operator === OperatorType.And ? expectedType : undefined;
         let leftType = getTypeOfExpression(leftExpression, expectedOperandType, flags).type;
-        let rightType = getTypeOfExpression(rightExpression, expectedOperandType, flags).type;
+
+        // If there is no expected type, use the type of the left operand. This
+        // allows us to infer a better type for expressions like `x or []`.
+        let rightType = getTypeOfExpression(rightExpression, expectedOperandType || leftType, flags).type;
 
         // Is this a "|" operator used in a context where it is supposed to be
         // interpreted as a union operator?
