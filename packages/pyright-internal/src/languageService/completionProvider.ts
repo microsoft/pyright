@@ -1203,7 +1203,7 @@ export class CompletionProvider {
             return undefined;
         }
 
-        if (parentNode.nodeType !== ParseNodeType.Index) {
+        if (parentNode.nodeType !== ParseNodeType.Argument) {
             if (parentNode.nodeType !== ParseNodeType.StringList || parentNode.strings.length > 1) {
                 return undefined;
             }
@@ -1216,8 +1216,8 @@ export class CompletionProvider {
 
         const completionList = CompletionList.create();
 
-        if (parentNode.nodeType === ParseNodeType.Index) {
-            const baseType = this._evaluator.getType(parentNode.baseExpression);
+        if (parentNode.nodeType === ParseNodeType.Argument && parentNode.parent?.nodeType === ParseNodeType.Index) {
+            const baseType = this._evaluator.getType(parentNode.parent.baseExpression);
             if (!baseType || !isObject(baseType)) {
                 return undefined;
             }

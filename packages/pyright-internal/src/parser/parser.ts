@@ -2199,7 +2199,25 @@ export class Parser {
                 this._isParsingIndexTrailer = wasParsingIndexTrailer;
 
                 const closingToken = this._peekToken();
-                const indexNode = IndexNode.create(atomExpression, indexExpressions, closingToken);
+                const argNodes = indexExpressions.list.map((indexExpr) =>
+                    ArgumentNode.create(/* startToken */ undefined, indexExpr, ArgumentCategory.Simple)
+                );
+                if (indexExpressions.parseError) {
+                    argNodes.push(
+                        ArgumentNode.create(
+                            /* startToken */ undefined,
+                            indexExpressions.parseError,
+                            ArgumentCategory.Simple
+                        )
+                    );
+                }
+
+                const indexNode = IndexNode.create(
+                    atomExpression,
+                    argNodes,
+                    indexExpressions.trailingComma,
+                    closingToken
+                );
                 extendRange(indexNode, indexNode);
 
                 if (!this._consumeTokenIfType(TokenType.CloseBracket)) {
@@ -2237,7 +2255,7 @@ export class Parser {
     }
 
     // subscriptlist: subscript (',' subscript)* [',']
-    private _parseSubscriptList(): ExpressionNode[] {
+    private _parseSubscriptList(): ExpressionListResult {
         const listResult = this._parseExpressionListGeneric(
             () => this._parseSubscript(),
             () => {
@@ -2250,20 +2268,17 @@ export class Parser {
             }
         );
 
-        if (listResult.parseError) {
-            return [listResult.parseError];
-        }
-
-        if (listResult.list.length === 0) {
-            return [
+        if (!listResult.parseError && listResult.list.length === 0) {
+            listResult.list.push(
                 this._handleExpressionParseError(
                     ErrorExpressionCategory.MissingIndexOrSlice,
-                    Localizer.Diagnostic.expectedSliceIndex()
-                ),
-            ];
+                    Localizer.Diagnostic.expectedSliceIndex(),
+                    /* childNode */ undefined,
+                    [TokenType.CloseBracket]
+                )
+            );
         }
-
-        return listResult.list;
+        return listResult;
     }
 
     // subscript: test | [test] ':' [test] [sliceop]
@@ -2276,10 +2291,6 @@ export class Parser {
 
         while (true) {
             const nextTokenType = this._peekTokenType();
-            if (nextTokenType === TokenType.CloseBracket || nextTokenType === TokenType.Comma) {
-                break;
-            }
-
             if (nextTokenType !== TokenType.Colon) {
                 sliceExpressions[sliceIndex] = this._parseTestExpression(false);
             }
@@ -2293,6 +2304,7 @@ export class Parser {
 
         // If this was a simple expression with no colons return it.
         if (!sawColon) {
+            // This should
             return sliceExpressions[0]!;
         }
 
@@ -2503,11 +2515,16 @@ export class Parser {
     private _handleExpressionParseError(
         category: ErrorExpressionCategory,
         errorMsg: string,
-        childNode?: ExpressionNode
+        childNode?: ExpressionNode,
+        additionalStopTokens?: TokenType[]
     ): ErrorNode {
         this._addError(errorMsg, this._peekToken());
         const expr = ErrorNode.create(this._peekToken(), category, childNode);
-        this._consumeTokensUntilType([TokenType.NewLine]);
+        const stopTokens = [TokenType.NewLine];
+        if (additionalStopTokens) {
+            stopTokens.push(...additionalStopTokens);
+        }
+        this._consumeTokensUntilType(stopTokens);
         return expr;
     }
 

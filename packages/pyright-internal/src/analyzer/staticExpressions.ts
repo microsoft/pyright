@@ -9,7 +9,7 @@
  */
 
 import { ExecutionEnvironment, PythonPlatform } from '../common/configOptions';
-import { ExpressionNode, NameNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
+import { ArgumentCategory, ExpressionNode, NameNode, NumberNode, ParseNodeType, TupleNode } from '../parser/parseNodes';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 
 // Returns undefined if the expression cannot be evaluated
@@ -70,9 +70,12 @@ export function evaluateStaticBoolExpression(
             node.leftExpression.nodeType === ParseNodeType.Index &&
             _isSysVersionInfoExpression(node.leftExpression.baseExpression, sysImportAliases) &&
             node.leftExpression.items.length === 1 &&
-            node.leftExpression.items[0].nodeType === ParseNodeType.Number &&
-            !node.leftExpression.items[0].isImaginary &&
-            node.leftExpression.items[0].value === 0 &&
+            !node.leftExpression.trailingComma &&
+            !node.leftExpression.items[0].name &&
+            node.leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
+            node.leftExpression.items[0].valueExpression.nodeType === ParseNodeType.Number &&
+            !node.leftExpression.items[0].valueExpression.isImaginary &&
+            node.leftExpression.items[0].valueExpression.value === 0 &&
             node.rightExpression.nodeType === ParseNodeType.Number
         ) {
             // Handle the special case of "sys.version_info[0] >= X"

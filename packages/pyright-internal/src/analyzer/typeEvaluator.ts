@@ -4765,7 +4765,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // In case we didn't walk the list items above, do so now.
         // If we have, this information will be cached.
         node.items.forEach((item) => {
-            getTypeOfExpression(item, /* expectedType */ undefined, flags & EvaluatorFlags.AllowForwardReferences);
+            getTypeOfExpression(
+                item.valueExpression,
+                /* expectedType */ undefined,
+                flags & EvaluatorFlags.AllowForwardReferences
+            );
         });
 
         return { type, node };
@@ -4779,9 +4783,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return UnknownType.create();
             }
 
+            if (node.trailingComma) {
+                // TODO - handle PEP 637 variants
+            }
+
+            if (node.items[0].name) {
+                // TODO - handle PEP 637 variants
+            }
+
             const entries = getTypedDictMembersForClass(baseType.classType);
 
-            const indexType = getTypeOfExpression(node.items[0]).type;
+            const indexType = getTypeOfExpression(node.items[0].valueExpression).type;
             let diag = new DiagnosticAddendum();
             const resultingType = mapSubtypes(indexType, (subtype) => {
                 if (isAnyOrUnknown(subtype)) {
@@ -4884,39 +4896,41 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return UnknownType.create();
         }
 
-        const indexTypeList = node.items.map((item) => getTypeOfExpression(item).type);
+        const indexTypeList = node.items.map((item) => getTypeOfExpression(item.valueExpression).type);
 
-        let indexType: Type;
-        if (indexTypeList.length === 1) {
-            indexType = indexTypeList[0];
-
+        let indexType = indexTypeList[0];
+        if (
+            indexTypeList.length === 1 &&
+            !node.trailingComma &&
+            node.items[0].argumentCategory === ArgumentCategory.Simple &&
+            !node.items[0].name
+        ) {
             // Handle the special case where the object is a Tuple and
             // the index is a constant number. In such case, we can determine
             // the exact type by indexing into the tuple type array.
             const baseTypeClass = baseType.classType;
+            const index0Expr = node.items[0].valueExpression;
 
-            if (
-                node.items[0].nodeType === ParseNodeType.Number &&
-                node.items[0].isInteger &&
-                !node.items[0].isImaginary
-            ) {
+            if (index0Expr.nodeType === ParseNodeType.Number && index0Expr.isInteger && !index0Expr.isImaginary) {
                 const tupleType = getSpecializedTupleType(baseTypeClass);
                 if (tupleType && tupleType.tupleTypeArguments && tupleType.tupleTypeArguments.length > 0) {
-                    const numberNode = node.items[0];
-
-                    if (numberNode.isInteger && numberNode.value >= 0) {
+                    if (index0Expr.isInteger && index0Expr.value >= 0) {
                         if (
                             tupleType.tupleTypeArguments.length === 2 &&
                             isEllipsisType(tupleType.tupleTypeArguments[1])
                         ) {
                             return tupleType.tupleTypeArguments[0];
-                        } else if (numberNode.value < tupleType.tupleTypeArguments.length) {
-                            return tupleType.tupleTypeArguments[numberNode.value];
+                        } else if (index0Expr.value < tupleType.tupleTypeArguments.length) {
+                            return tupleType.tupleTypeArguments[index0Expr.value];
                         }
                     }
                 }
             }
-        } else {
+        }
+
+        // TODO - need to handle PEP 637 rules
+
+        if (indexTypeList.length > 1 || node.trailingComma) {
             // Handle the case where the index expression is a tuple. This
             // isn't used in most cases, but it is supported by the language.
             if (tupleType && isClass(tupleType)) {
@@ -5001,7 +5015,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     ): TypeResult[] {
         const typeArgs: TypeResult[] = [];
         const adjFlags = flags & ~(EvaluatorFlags.ParamSpecDisallowed | EvaluatorFlags.TypeVarTupleDisallowed);
-        let items = node.items;
+
+        // TODO - need to handle PEP 637 variants.
+        let items = node.items.map((arg) => arg.valueExpression);
 
         // A single (non-empty) tuple is treated the same as a list of items in the index.
         if (items.length === 1 && items[0].nodeType === ParseNodeType.Tuple && items[0].expressions.length > 0) {
@@ -9843,37 +9859,47 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         for (const item of node.items) {
             let type: Type | undefined;
+            const itemExpr = item.valueExpression;
 
-            if (item.nodeType === ParseNodeType.StringList) {
-                const isBytes = (item.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
-                const value = item.strings.map((s) => s.value).join('');
+            if (item.argumentCategory !== ArgumentCategory.Simple) {
+                // TODO - support 637, issue error in this case
+            } else if (item.name) {
+                // TODO - support 637, issue error in this case
+            }
+
+            if (itemExpr.nodeType === ParseNodeType.StringList) {
+                const isBytes = (itemExpr.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
+                const value = itemExpr.strings.map((s) => s.value).join('');
                 if (isBytes) {
                     type = cloneBuiltinClassWithLiteral(node, 'bytes', value);
                 } else {
                     type = cloneBuiltinClassWithLiteral(node, 'str', value);
                 }
-            } else if (item.nodeType === ParseNodeType.Number) {
-                if (!item.isImaginary && item.isInteger) {
-                    type = cloneBuiltinClassWithLiteral(node, 'int', item.value);
+            } else if (itemExpr.nodeType === ParseNodeType.Number) {
+                if (!itemExpr.isImaginary && itemExpr.isInteger) {
+                    type = cloneBuiltinClassWithLiteral(node, 'int', itemExpr.value);
                 }
-            } else if (item.nodeType === ParseNodeType.Constant) {
-                if (item.constType === KeywordType.True) {
+            } else if (itemExpr.nodeType === ParseNodeType.Constant) {
+                if (itemExpr.constType === KeywordType.True) {
                     type = cloneBuiltinClassWithLiteral(node, 'bool', true);
-                } else if (item.constType === KeywordType.False) {
+                } else if (itemExpr.constType === KeywordType.False) {
                     type = cloneBuiltinClassWithLiteral(node, 'bool', false);
-                } else if (item.constType === KeywordType.None) {
+                } else if (itemExpr.constType === KeywordType.None) {
                     type = NoneType.createType();
                 }
-            } else if (item.nodeType === ParseNodeType.UnaryOperation && item.operator === OperatorType.Subtract) {
-                if (item.expression.nodeType === ParseNodeType.Number) {
-                    if (!item.expression.isImaginary && item.expression.isInteger) {
-                        type = cloneBuiltinClassWithLiteral(node, 'int', -item.expression.value);
+            } else if (
+                itemExpr.nodeType === ParseNodeType.UnaryOperation &&
+                itemExpr.operator === OperatorType.Subtract
+            ) {
+                if (itemExpr.expression.nodeType === ParseNodeType.Number) {
+                    if (!itemExpr.expression.isImaginary && itemExpr.expression.isInteger) {
+                        type = cloneBuiltinClassWithLiteral(node, 'int', -itemExpr.expression.value);
                     }
                 }
             }
 
             if (!type) {
-                const exprType = getTypeOfExpression(item);
+                const exprType = getTypeOfExpression(itemExpr);
 
                 // Is this an enum type?
                 if (

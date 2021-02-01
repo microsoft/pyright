@@ -2807,9 +2807,14 @@ export class Binder extends ParseTreeWalker {
             } else if (typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
                 // Recursively call to see if the base expression is "Final".
                 const finalInfo = this._isAnnotationFinal(typeAnnotation.baseExpression);
-                if (finalInfo.isFinal) {
+                if (
+                    finalInfo.isFinal &&
+                    typeAnnotation.items[0].argumentCategory === ArgumentCategory.Simple &&
+                    !typeAnnotation.items[0].name &&
+                    !typeAnnotation.trailingComma
+                ) {
                     isFinal = true;
-                    finalTypeNode = typeAnnotation.items[0];
+                    finalTypeNode = typeAnnotation.items[0].valueExpression;
                 }
             }
         }

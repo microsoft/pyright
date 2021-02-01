@@ -801,7 +801,7 @@ test('Tuples6', () => {
 test('Tuples7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples7.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('Tuples8', () => {
