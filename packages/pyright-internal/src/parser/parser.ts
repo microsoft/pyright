@@ -2291,6 +2291,10 @@ export class Parser {
 
         while (true) {
             const nextTokenType = this._peekTokenType();
+            if (nextTokenType === TokenType.CloseBracket || nextTokenType === TokenType.Comma) {
+                break;
+            }
+
             if (nextTokenType !== TokenType.Colon) {
                 sliceExpressions[sliceIndex] = this._parseTestExpression(false);
             }
@@ -2304,7 +2308,6 @@ export class Parser {
 
         // If this was a simple expression with no colons return it.
         if (!sawColon) {
-            // This should
             return sliceExpressions[0]!;
         }
 
