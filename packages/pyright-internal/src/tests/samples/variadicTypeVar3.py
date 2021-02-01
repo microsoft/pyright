@@ -13,7 +13,12 @@ _Xs = TypeVarTuple("_Xs")
 
 class Array(Generic[Unpack[_Xs]]):
     def __init__(self, *args: Unpack[_Xs]) -> None:
+        self.x: Tuple[*_Xs] = args
         t1: Literal["tuple[*_Xs@Array]"] = reveal_type(args)
+
+    # This should generate an error because _Xs is not unpacked.
+    def foo(self, *args: _Xs) -> None:
+        ...
 
 
 def linearize(value: Array[Unpack[_Xs]]) -> Sequence[Union[Unpack[_Xs]]]:

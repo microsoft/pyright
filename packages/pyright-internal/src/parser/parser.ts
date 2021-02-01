@@ -121,6 +121,11 @@ interface ExpressionListResult {
     parseError?: ErrorNode;
 }
 
+interface SubscriptListResult {
+    list: ArgumentNode[];
+    trailingComma: boolean;
+}
+
 export class ParseOptions {
     constructor() {
         this.isStubFile = false;
@@ -240,7 +245,7 @@ export class Parser {
 
         let parseTree: ExpressionNode | undefined;
         if (parseTextMode === ParseTextMode.VariableAnnotation) {
-            parseTree = this._parseTypeAnnotation(/* allowUnionNotation */ false);
+            parseTree = this._parseTypeAnnotation();
         } else if (parseTextMode === ParseTextMode.FunctionAnnotation) {
             parseTree = this._parseFunctionTypeAnnotation();
         } else {
@@ -2194,28 +2199,16 @@ export class Parser {
                 }
 
                 this._isParsingIndexTrailer = true;
-                const indexExpressions = this._parseSubscriptList();
+                const subscriptList = this._parseSubscriptList();
                 this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
                 this._isParsingIndexTrailer = wasParsingIndexTrailer;
 
                 const closingToken = this._peekToken();
-                const argNodes = indexExpressions.list.map((indexExpr) =>
-                    ArgumentNode.create(/* startToken */ undefined, indexExpr, ArgumentCategory.Simple)
-                );
-                if (indexExpressions.parseError) {
-                    argNodes.push(
-                        ArgumentNode.create(
-                            /* startToken */ undefined,
-                            indexExpressions.parseError,
-                            ArgumentCategory.Simple
-                        )
-                    );
-                }
 
                 const indexNode = IndexNode.create(
                     atomExpression,
-                    argNodes,
-                    indexExpressions.trailingComma,
+                    subscriptList.list,
+                    subscriptList.trailingComma,
                     closingToken
                 );
                 extendRange(indexNode, indexNode);
@@ -2255,35 +2248,92 @@ export class Parser {
     }
 
     // subscriptlist: subscript (',' subscript)* [',']
-    private _parseSubscriptList(): ExpressionListResult {
-        const listResult = this._parseExpressionListGeneric(
-            () => this._parseSubscript(),
-            () => {
-                // Override the normal terminal check to exclude colons,
-                // which are a valid way to start subscription expressions.
-                if (this._peekTokenType() === TokenType.Colon) {
-                    return false;
-                }
-                return this._isNextTokenNeverExpression();
-            }
-        );
+    private _parseSubscriptList(): SubscriptListResult {
+        const argList: ArgumentNode[] = [];
+        let sawKeywordArg = false;
+        let trailingComma = false;
 
-        if (!listResult.parseError && listResult.list.length === 0) {
-            listResult.list.push(
-                this._handleExpressionParseError(
-                    ErrorExpressionCategory.MissingIndexOrSlice,
-                    Localizer.Diagnostic.expectedSliceIndex(),
-                    /* childNode */ undefined,
-                    [TokenType.CloseBracket]
-                )
-            );
+        while (true) {
+            const firstToken = this._peekToken();
+
+            if (firstToken.type !== TokenType.Colon && this._isNextTokenNeverExpression()) {
+                break;
+            }
+
+            let argType = ArgumentCategory.Simple;
+            if (this._consumeTokenIfOperator(OperatorType.Multiply)) {
+                argType = ArgumentCategory.UnpackedList;
+            } else if (this._consumeTokenIfOperator(OperatorType.Power)) {
+                argType = ArgumentCategory.UnpackedDictionary;
+            }
+
+            let valueExpr = this._parsePossibleSlice();
+            let nameIdentifier: IdentifierToken | undefined;
+
+            // Is this a keyword argument?
+            if (argType === ArgumentCategory.Simple) {
+                if (this._consumeTokenIfOperator(OperatorType.Assign)) {
+                    const nameExpr = valueExpr;
+                    valueExpr = this._parsePossibleSlice();
+
+                    if (nameExpr.nodeType === ParseNodeType.Name) {
+                        nameIdentifier = nameExpr.token;
+                    } else {
+                        this._addError(Localizer.Diagnostic.expectedParamName(), nameExpr);
+                    }
+                }
+            }
+
+            const argNode = ArgumentNode.create(firstToken, valueExpr, argType);
+            if (nameIdentifier) {
+                argNode.name = NameNode.create(nameIdentifier);
+                argNode.name.parent = argNode;
+            }
+
+            if (argNode.name) {
+                sawKeywordArg = true;
+            } else if (sawKeywordArg && argNode.argumentCategory === ArgumentCategory.Simple) {
+                this._addError(Localizer.Diagnostic.positionArgAfterNamedArg(), argNode);
+            }
+            argList.push(argNode);
+
+            if (!this._parseOptions.isStubFile && this._getLanguageVersion() < PythonVersion.V3_10) {
+                if (argNode.name) {
+                    this._addError(Localizer.Diagnostic.keywordSubscriptIllegal(), argNode.name);
+                }
+                if (argType !== ArgumentCategory.Simple) {
+                    this._addError(Localizer.Diagnostic.unpackedSubscriptIllegal(), argNode);
+                }
+            }
+
+            if (!this._consumeTokenIfType(TokenType.Comma)) {
+                trailingComma = false;
+                break;
+            }
+
+            trailingComma = true;
         }
-        return listResult;
+
+        // An empty subscript list is illegal.
+        if (argList.length === 0) {
+            const errorNode = this._handleExpressionParseError(
+                ErrorExpressionCategory.MissingIndexOrSlice,
+                Localizer.Diagnostic.expectedSliceIndex(),
+                /* childNode */ undefined,
+                [TokenType.CloseBracket]
+            );
+            argList.push(ArgumentNode.create(this._peekToken(), errorNode, ArgumentCategory.Simple));
+        }
+
+        return {
+            list: argList,
+            trailingComma,
+        };
     }
 
     // subscript: test | [test] ':' [test] [sliceop]
     // sliceop: ':' [test]
-    private _parseSubscript(): ExpressionNode {
+    private _parsePossibleSlice(): ExpressionNode {
         const firstToken = this._peekToken();
         const sliceExpressions: (ExpressionNode | undefined)[] = [undefined, undefined, undefined];
         let sliceIndex = 0;
@@ -2992,12 +3042,18 @@ export class Parser {
         return FunctionAnnotationNode.create(openParenToken, isParamListEllipsis, paramAnnotations, returnType);
     }
 
-    private _parseTypeAnnotation(allowUnionNotation = true): ExpressionNode {
+    private _parseTypeAnnotation(): ExpressionNode {
         // Temporary set a flag that indicates we're parsing a type annotation.
         const wasParsingTypeAnnotation = this._isParsingTypeAnnotation;
         this._isParsingTypeAnnotation = true;
 
-        const result = this._parseTestExpression(/* allowAssignmentExpression */ false);
+        // Allow unpack operators.
+        const startToken = this._peekToken();
+        const isUnpack = this._consumeTokenIfOperator(OperatorType.Multiply);
+        let result = this._parseTestExpression(/* allowAssignmentExpression */ false);
+        if (isUnpack) {
+            result = UnpackNode.create(startToken, result);
+        }
 
         this._isParsingTypeAnnotation = wasParsingTypeAnnotation;
 

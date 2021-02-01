@@ -1051,9 +1051,17 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParseNodeType.Unpack: {
-                const iterType = getTypeOfExpression(node.expression, expectedTypeAlt).type;
-                const type = getTypeFromIterable(iterType, /* isAsync */ false, node);
-                typeResult = { type, unpackedType: iterType, node };
+                const iterType = getTypeOfExpression(node.expression, expectedTypeAlt, flags).type;
+                if (
+                    (flags & EvaluatorFlags.TypeVarTupleDisallowed) === 0 &&
+                    isVariadicTypeVar(iterType) &&
+                    !iterType.isVariadicUnpacked
+                ) {
+                    typeResult = { type: TypeVarType.cloneForUnpacked(iterType), node };
+                } else {
+                    const type = getTypeFromIterable(iterType, /* isAsync */ false, node);
+                    typeResult = { type, unpackedType: iterType, node };
+                }
                 break;
             }
 
@@ -4775,99 +4783,26 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return { type, node };
     }
 
+    function makeTupleObject(entryTypes: Type[], isUnspecifiedLength = false) {
+        if (tupleType && isClass(tupleType)) {
+            if (isUnspecifiedLength) {
+                return convertToInstance(
+                    specializeTupleClass(tupleType, [combineTypes(entryTypes), AnyType.create(/* isEllipsis */ true)])
+                );
+            }
+            return convertToInstance(specializeTupleClass(tupleType, entryTypes));
+        }
+
+        return UnknownType.create();
+    }
+
     function getTypeFromIndexedObject(node: IndexNode, baseType: ObjectType, usage: EvaluatorUsage): Type {
         // Handle index operations for TypedDict classes specially.
         if (ClassType.isTypedDictClass(baseType.classType)) {
-            if (node.items.length !== 1) {
-                addError(Localizer.Diagnostic.typeArgsMismatchOne().format({ received: node.items.length }), node);
-                return UnknownType.create();
+            const typeFromTypedDict = getTypeFromIndexedTypedDict(node, baseType, usage);
+            if (typeFromTypedDict) {
+                return typeFromTypedDict;
             }
-
-            if (node.trailingComma) {
-                // TODO - handle PEP 637 variants
-            }
-
-            if (node.items[0].name) {
-                // TODO - handle PEP 637 variants
-            }
-
-            const entries = getTypedDictMembersForClass(baseType.classType);
-
-            const indexType = getTypeOfExpression(node.items[0].valueExpression).type;
-            let diag = new DiagnosticAddendum();
-            const resultingType = mapSubtypes(indexType, (subtype) => {
-                if (isAnyOrUnknown(subtype)) {
-                    return subtype;
-                }
-
-                if (isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'str')) {
-                    if (subtype.classType.literalValue === undefined) {
-                        // If it's a plain str with no literal value, we can't
-                        // make any determination about the resulting type.
-                        return UnknownType.create();
-                    }
-
-                    // Look up the entry in the typed dict to get its type.
-                    const entryName = subtype.classType.literalValue as string;
-                    const entry = entries.get(entryName);
-                    if (!entry) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.keyUndefined().format({
-                                name: entryName,
-                                type: printType(baseType),
-                            })
-                        );
-                        return UnknownType.create();
-                    }
-
-                    if (usage.method === 'set') {
-                        canAssignType(entry.valueType, usage.setType!, diag);
-                    } else if (usage.method === 'del' && entry.isRequired) {
-                        const fileInfo = getFileInfo(node);
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.keyRequiredDeleted().format({ name: entryName }),
-                            node
-                        );
-                    }
-
-                    return entry.valueType;
-                }
-
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeNotStringLiteral().format({ type: printType(subtype) })
-                );
-                return UnknownType.create();
-            });
-
-            // If we have an "expected type" diagnostic addendum (used for assignments),
-            // use that rather than the local diagnostic information because it will
-            // be more informative.
-            if (usage.setExpectedTypeDiag) {
-                diag = usage.setExpectedTypeDiag;
-            }
-
-            if (!diag.isEmpty()) {
-                let typedDictDiag: string;
-                if (usage.method === 'set') {
-                    typedDictDiag = Localizer.Diagnostic.typedDictSet();
-                } else if (usage.method === 'del') {
-                    typedDictDiag = Localizer.Diagnostic.typedDictDelete();
-                } else {
-                    typedDictDiag = Localizer.Diagnostic.typedDictAccess();
-                }
-
-                const fileInfo = getFileInfo(node);
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    typedDictDiag + diag.getString(),
-                    node
-                );
-            }
-
-            return resultingType;
         }
 
         let magicMethodName: string;
@@ -4896,18 +4831,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return UnknownType.create();
         }
 
-        const indexTypeList = node.items.map((item) => getTypeOfExpression(item.valueExpression).type);
-
-        let indexType = indexTypeList[0];
+        // Handle the special case where the object is a Tuple and
+        // the index is a constant number. In such case, we can determine
+        // the exact type by indexing into the tuple type array.
         if (
-            indexTypeList.length === 1 &&
+            node.items.length === 1 &&
             !node.trailingComma &&
-            node.items[0].argumentCategory === ArgumentCategory.Simple &&
-            !node.items[0].name
+            !node.items[0].name &&
+            node.items[0].argumentCategory === ArgumentCategory.Simple
         ) {
-            // Handle the special case where the object is a Tuple and
-            // the index is a constant number. In such case, we can determine
-            // the exact type by indexing into the tuple type array.
             const baseTypeClass = baseType.classType;
             const index0Expr = node.items[0].valueExpression;
 
@@ -4928,22 +4860,48 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
         }
 
-        // TODO - need to handle PEP 637 rules
+        // Follow PEP 637 rules for positional and keyword arguments.
+        const positionalArgs = node.items.filter(
+            (item) => item.argumentCategory === ArgumentCategory.Simple && !item.name
+        );
+        const unpackedListArgs = node.items.filter((item) => item.argumentCategory === ArgumentCategory.UnpackedList);
 
-        if (indexTypeList.length > 1 || node.trailingComma) {
-            // Handle the case where the index expression is a tuple. This
-            // isn't used in most cases, but it is supported by the language.
-            if (tupleType && isClass(tupleType)) {
-                indexType = convertToInstance(specializeTupleClass(tupleType, indexTypeList));
-            } else {
-                indexType = UnknownType.create();
-            }
+        const keywordArgs = node.items.filter(
+            (item) => item.argumentCategory === ArgumentCategory.Simple && !!item.name
+        );
+        const unpackedDictArgs = node.items.filter(
+            (item) => item.argumentCategory === ArgumentCategory.UnpackedDictionary
+        );
+
+        let positionalIndexType: Type;
+        if (positionalArgs.length === 1 && unpackedListArgs.length === 0 && !node.trailingComma) {
+            // Handle the common case where there is a single positional argument.
+            positionalIndexType = getTypeOfExpression(positionalArgs[0].valueExpression).type;
+        } else if (positionalArgs.length === 0 && unpackedListArgs.length === 0) {
+            // Handle the case where there are no positionals provided but there are keywords.
+            positionalIndexType =
+                tupleType && isClass(tupleType)
+                    ? convertToInstance(specializeTupleClass(tupleType, []))
+                    : UnknownType.create();
+        } else {
+            // Package up all of the positionals into a tuple.
+            const tupleEntries: Type[] = [];
+            positionalArgs.forEach((arg) => {
+                tupleEntries.push(getTypeOfExpression(arg.valueExpression).type);
+            });
+            unpackedListArgs.forEach((arg) => {
+                const exprType = getTypeOfExpression(arg.valueExpression).type;
+                const iterableType = getTypeFromIterable(exprType, /* isAsync */ false, arg);
+                tupleEntries.push(iterableType);
+            });
+
+            positionalIndexType = makeTupleObject(tupleEntries, unpackedListArgs.length > 0);
         }
 
         let argList: FunctionArgument[] = [
             {
                 argumentCategory: ArgumentCategory.Simple,
-                type: indexType,
+                type: positionalIndexType,
             },
         ];
 
@@ -4953,6 +4911,23 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 type: usage.setType || AnyType.create(),
             });
         }
+
+        keywordArgs.forEach((arg) => {
+            argList.push({
+                argumentCategory: ArgumentCategory.Simple,
+                valueExpression: arg.valueExpression,
+                node: arg,
+                name: arg.name,
+            });
+        });
+
+        unpackedDictArgs.forEach((arg) => {
+            argList.push({
+                argumentCategory: ArgumentCategory.UnpackedDictionary,
+                valueExpression: arg.valueExpression,
+                node: arg,
+            });
+        });
 
         let callResult: CallResult | undefined;
 
@@ -4970,10 +4945,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (callResult.argumentErrors) {
                 // If the object supports "__index__" magic method, convert
                 // the index it to an int and try again.
-                if (isObject(indexType)) {
+                if (isObject(positionalIndexType) && keywordArgs.length === 0 && unpackedDictArgs.length === 0) {
                     const altArgList = [...argList];
                     altArgList[0] = { ...altArgList[0] };
-                    const indexMethod = getTypeFromObjectMember(node, indexType, '__index__');
+                    const indexMethod = getTypeFromObjectMember(node, positionalIndexType, '__index__');
 
                     if (indexMethod) {
                         const intType = getBuiltInObject(node, 'int');
@@ -5007,6 +4982,94 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return callResult.returnType || UnknownType.create();
     }
 
+    function getTypeFromIndexedTypedDict(node: IndexNode, baseType: ObjectType, usage: EvaluatorUsage) {
+        if (node.items.length !== 1) {
+            addError(Localizer.Diagnostic.typeArgsMismatchOne().format({ received: node.items.length }), node);
+            return UnknownType.create();
+        }
+
+        // Look for subscript types that are not supported by TypedDict.
+        if (node.trailingComma || node.items[0].name || node.items[0].argumentCategory !== ArgumentCategory.Simple) {
+            return undefined;
+        }
+
+        const entries = getTypedDictMembersForClass(baseType.classType);
+
+        const indexType = getTypeOfExpression(node.items[0].valueExpression).type;
+        let diag = new DiagnosticAddendum();
+        const resultingType = mapSubtypes(indexType, (subtype) => {
+            if (isAnyOrUnknown(subtype)) {
+                return subtype;
+            }
+
+            if (isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'str')) {
+                if (subtype.classType.literalValue === undefined) {
+                    // If it's a plain str with no literal value, we can't
+                    // make any determination about the resulting type.
+                    return UnknownType.create();
+                }
+
+                // Look up the entry in the typed dict to get its type.
+                const entryName = subtype.classType.literalValue as string;
+                const entry = entries.get(entryName);
+                if (!entry) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.keyUndefined().format({
+                            name: entryName,
+                            type: printType(baseType),
+                        })
+                    );
+                    return UnknownType.create();
+                }
+
+                if (usage.method === 'set') {
+                    canAssignType(entry.valueType, usage.setType!, diag);
+                } else if (usage.method === 'del' && entry.isRequired) {
+                    const fileInfo = getFileInfo(node);
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.keyRequiredDeleted().format({ name: entryName }),
+                        node
+                    );
+                }
+
+                return entry.valueType;
+            }
+
+            diag.addMessage(Localizer.DiagnosticAddendum.typeNotStringLiteral().format({ type: printType(subtype) }));
+            return UnknownType.create();
+        });
+
+        // If we have an "expected type" diagnostic addendum (used for assignments),
+        // use that rather than the local diagnostic information because it will
+        // be more informative.
+        if (usage.setExpectedTypeDiag) {
+            diag = usage.setExpectedTypeDiag;
+        }
+
+        if (!diag.isEmpty()) {
+            let typedDictDiag: string;
+            if (usage.method === 'set') {
+                typedDictDiag = Localizer.Diagnostic.typedDictSet();
+            } else if (usage.method === 'del') {
+                typedDictDiag = Localizer.Diagnostic.typedDictDelete();
+            } else {
+                typedDictDiag = Localizer.Diagnostic.typedDictAccess();
+            }
+
+            const fileInfo = getFileInfo(node);
+            addDiagnostic(
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                typedDictDiag + diag.getString(),
+                node
+            );
+        }
+
+        return resultingType;
+    }
+
     function getTypeArgs(
         node: IndexNode,
         flags: EvaluatorFlags,
@@ -5016,32 +5079,62 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         const typeArgs: TypeResult[] = [];
         const adjFlags = flags & ~(EvaluatorFlags.ParamSpecDisallowed | EvaluatorFlags.TypeVarTupleDisallowed);
 
-        // TODO - need to handle PEP 637 variants.
-        let items = node.items.map((arg) => arg.valueExpression);
+        // Create a local function that validates a single type argument.
+        const getTypeArgTypeResult = (expr: ExpressionNode, argIndex: number) => {
+            let typeResult: TypeResult;
 
-        // A single (non-empty) tuple is treated the same as a list of items in the index.
-        if (items.length === 1 && items[0].nodeType === ParseNodeType.Tuple && items[0].expressions.length > 0) {
-            items = items[0].expressions;
-        }
-
-        items.forEach((expr, index) => {
             // If it's a custom __class_getitem__, none of the arguments should be
             // treated as types. If it's an Annotated[a, b, c], only the first index
             // should be treated as a type. The others can be regular (non-type) objects.
-            if (hasCustomClassGetItem || (isAnnotatedClass && index > 0)) {
-                typeArgs.push(
-                    getTypeOfExpression(
-                        expr,
-                        /* expectedType */ undefined,
-                        EvaluatorFlags.ParamSpecDisallowed |
-                            EvaluatorFlags.TypeVarTupleDisallowed |
-                            EvaluatorFlags.DoNotSpecialize
-                    )
+            if (hasCustomClassGetItem || (isAnnotatedClass && argIndex > 0)) {
+                typeResult = getTypeOfExpression(
+                    expr,
+                    /* expectedType */ undefined,
+                    EvaluatorFlags.ParamSpecDisallowed |
+                        EvaluatorFlags.TypeVarTupleDisallowed |
+                        EvaluatorFlags.DoNotSpecialize
                 );
             } else {
-                typeArgs.push(getTypeArg(expr, adjFlags));
+                typeResult = getTypeArg(expr, adjFlags);
             }
-        });
+            return typeResult;
+        };
+
+        // A single (non-empty) tuple is treated the same as a list of items in the index.
+        if (
+            node.items.length === 1 &&
+            !node.trailingComma &&
+            !node.items[0].name &&
+            node.items[0].valueExpression.nodeType === ParseNodeType.Tuple &&
+            node.items[0].valueExpression.expressions.length > 0
+        ) {
+            node.items[0].valueExpression.expressions.forEach((item, index) => {
+                typeArgs.push(getTypeArgTypeResult(item, index));
+            });
+        } else {
+            node.items.forEach((arg, index) => {
+                const typeResult = getTypeArgTypeResult(arg.valueExpression, index);
+
+                if (arg.argumentCategory !== ArgumentCategory.Simple) {
+                    if (
+                        arg.argumentCategory === ArgumentCategory.UnpackedList &&
+                        isVariadicTypeVar(typeResult.type) &&
+                        !typeResult.type.isVariadicUnpacked
+                    ) {
+                        typeResult.type = TypeVarType.cloneForUnpacked(typeResult.type);
+                    } else {
+                        addError(Localizer.Diagnostic.unpackedArgInTypeArgument(), arg.valueExpression);
+                        typeResult.type = UnknownType.create();
+                    }
+                }
+
+                if (arg.name) {
+                    addError(Localizer.Diagnostic.keywordArgInTypeArgument(), arg.valueExpression);
+                }
+
+                typeArgs.push(typeResult);
+            });
+        }
 
         return typeArgs;
     }
@@ -5076,10 +5169,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     function getTypeFromTuple(node: TupleNode, expectedType: Type | undefined, flags: EvaluatorFlags): TypeResult {
         if ((flags & EvaluatorFlags.ExpectingType) !== 0 && node.expressions.length === 0 && !expectedType) {
-            if (tupleType && isClass(tupleType)) {
-                const emptyTuple = convertToInstance(specializeTupleClass(tupleType, []));
-                return { type: emptyTuple, node, isEmptyTupleShorthand: true };
-            }
+            return { type: makeTupleObject([]), node, isEmptyTupleShorthand: true };
         }
 
         // If the expected type is a union, recursively call for each of the subtypes
@@ -6141,20 +6231,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // in speculative mode because it's very expensive, and we're going to
                     // suppress the diagnostic anyway.
                     if (!isDiagnosticSuppressedForNode(errorNode)) {
-                        const exprString = ParseTreeUtils.printExpression(errorNode);
+                        const functionName = concreteSubtype.overloads[0].details.name || '<anonymous function>';
                         const diagAddendum = new DiagnosticAddendum();
                         const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
-
-                        if (errorNode.nodeType !== ParseNodeType.Call && concreteSubtype.overloads[0].details.name) {
-                            // If the expression isn't an explicit call, it is probably an implicit
-                            // call to a magic method. Provide additional information in this case
-                            // to make it clear that a call was being evaluated.
-                            diagAddendum.addMessage(
-                                Localizer.DiagnosticAddendum.overloadCallName().format({
-                                    name: concreteSubtype.overloads[0].details.name,
-                                })
-                            );
-                        }
 
                         diagAddendum.addMessage(
                             Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
@@ -6162,7 +6241,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.noOverload().format({ expression: exprString }) +
+                            Localizer.Diagnostic.noOverload().format({ name: functionName }) +
                                 diagAddendum.getString(),
                             errorNode
                         );
@@ -9648,9 +9727,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const keyType = stripLiteralValue(getTypeOfExpression(node.expression.keyExpression).type);
             const valueType = stripLiteralValue(getTypeOfExpression(node.expression.valueExpression).type);
 
-            if (tupleType && isClass(tupleType)) {
-                type = convertToInstance(specializeTupleClass(tupleType, [keyType, valueType]));
-            }
+            type = makeTupleObject([keyType, valueType]);
         } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
             // The parser should have reported an error in this case because it's not allowed.
             getTypeOfExpression(node.expression.expandExpression);
@@ -9862,12 +9939,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             const itemExpr = item.valueExpression;
 
             if (item.argumentCategory !== ArgumentCategory.Simple) {
-                // TODO - support 637, issue error in this case
+                addError(Localizer.Diagnostic.unpackedArgInTypeArgument(), itemExpr);
+                type = UnknownType.create();
             } else if (item.name) {
-                // TODO - support 637, issue error in this case
-            }
-
-            if (itemExpr.nodeType === ParseNodeType.StringList) {
+                addError(Localizer.Diagnostic.keywordArgInTypeArgument(), itemExpr);
+                type = UnknownType.create();
+            } else if (itemExpr.nodeType === ParseNodeType.StringList) {
                 const isBytes = (itemExpr.strings[0].token.flags & StringTokenFlags.Bytes) !== 0;
                 const value = itemExpr.strings.map((s) => s.value).join('');
                 if (isBytes) {
@@ -11310,6 +11387,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     /* associateTypeVarsWithScope */ true,
                     /* allowTypeVarType */ param.category === ParameterCategory.VarArgList
                 );
+
+                if (isVariadicTypeVar(annotatedType) && !annotatedType.isVariadicUnpacked) {
+                    addError(Localizer.Diagnostic.typeVarTupleContext(), paramTypeNode);
+                    annotatedType = UnknownType.create();
+                }
             }
 
             if (!annotatedType && addGenericParamTypes) {
