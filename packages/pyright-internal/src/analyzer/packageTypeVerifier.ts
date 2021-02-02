@@ -70,6 +70,7 @@ export type AlternateSymbolNameMap = Map<string, string[]>;
 
 export interface PackageTypeReport {
     packageName: string;
+    ignoreUnknownTypesFromImports: boolean;
     rootDirectory: string | undefined;
     pyTypedPath: string | undefined;
     symbolCount: number;
@@ -115,12 +116,13 @@ export class PackageTypeVerifier {
         this._program = new Program(this._importResolver, this._configOptions);
     }
 
-    verify(packageName: string): PackageTypeReport {
+    verify(packageName: string, ignoreUnknownTypesFromImports = false): PackageTypeReport {
         const trimmedPackageName = packageName.trim();
         const packageNameParts = trimmedPackageName.split('.');
 
         const report: PackageTypeReport = {
             packageName: packageNameParts[0],
+            ignoreUnknownTypesFromImports,
             rootDirectory: this._getDirectoryForPackage(packageNameParts[0]),
             pyTypedPath: undefined,
             symbolCount: 0,
@@ -460,6 +462,11 @@ export class PackageTypeVerifier {
         return !!name.match(/[a-z_]+/);
     }
 
+    private _shouldIgnoreType(report: PackageTypeReport, fullTypeName: string) {
+        // If we're ignoring unknown types from other packages, see if we should skip.
+        return report.ignoreUnknownTypesFromImports && !fullTypeName.startsWith(report.packageName);
+    }
+
     private _verifySymbolsInSymbolTable(
         report: PackageTypeReport,
         module: PackageModule,
@@ -469,6 +476,10 @@ export class PackageTypeVerifier {
         publicSymbolMap: PublicSymbolMap,
         currentSymbol: string
     ) {
+        if (this._shouldIgnoreType(report, scopeName)) {
+            return;
+        }
+
         symbolTable.forEach((symbol, name) => {
             if (
                 !isPrivateOrProtectedName(name) &&
@@ -501,7 +512,16 @@ export class PackageTypeVerifier {
                         }
                     } else {
                         const diag = new DiagnosticAddendum();
-                        if (!this._validateTypeIsCompletelyKnown(symbolType, diag, publicSymbolMap, fullName, [])) {
+                        if (
+                            !this._validateTypeIsCompletelyKnown(
+                                report,
+                                symbolType,
+                                diag,
+                                publicSymbolMap,
+                                fullName,
+                                []
+                            )
+                        ) {
                             errorMessage =
                                 `Type partially unknown for ${packageSymbolTypeText} "${fullName}"` +
                                 diag.getString(diagnosticMaxDepth, diagnosticMaxLineCount);
@@ -621,6 +641,7 @@ export class PackageTypeVerifier {
     // If the type contains a reference to a module or a class, determines
     // whether all of the types used by that module or class are known.
     private _validateTypeIsCompletelyKnown(
+        report: PackageTypeReport,
         type: Type,
         diag: DiagnosticAddendum,
         publicSymbolMap: PublicSymbolMap,
@@ -647,6 +668,7 @@ export class PackageTypeVerifier {
 
             case TypeCategory.Object: {
                 return this._validateTypeIsCompletelyKnown(
+                    report,
                     type.classType,
                     diag,
                     publicSymbolMap,
@@ -660,6 +682,7 @@ export class PackageTypeVerifier {
                 for (const overload of type.overloads) {
                     if (
                         !this._validateTypeIsCompletelyKnown(
+                            report,
                             overload,
                             diag.createAddendum(),
                             publicSymbolMap,
@@ -679,6 +702,7 @@ export class PackageTypeVerifier {
                 doForEachSubtype(type, (subtype) => {
                     if (
                         !this._validateTypeIsCompletelyKnown(
+                            report,
                             subtype,
                             diag.createAddendum(),
                             publicSymbolMap,
@@ -695,6 +719,10 @@ export class PackageTypeVerifier {
 
             case TypeCategory.Function: {
                 let isKnown = true;
+
+                if (this._shouldIgnoreType(report, type.details.fullName)) {
+                    return true;
+                }
 
                 type.details.parameters.forEach((param) => {
                     // Skip nameless parameters like "*" and "/".
@@ -714,6 +742,7 @@ export class PackageTypeVerifier {
                             isKnown = false;
                         } else if (
                             !this._validateTypeIsCompletelyKnown(
+                                report,
                                 param.type,
                                 subDiag.createAddendum(),
                                 publicSymbolMap,
@@ -739,6 +768,7 @@ export class PackageTypeVerifier {
                         isKnown = false;
                     } else if (
                         !this._validateTypeIsCompletelyKnown(
+                            report,
                             type.details.declaredReturnType,
                             subDiag.createAddendum(),
                             publicSymbolMap,
@@ -767,7 +797,12 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.Class: {
+                if (this._shouldIgnoreType(report, type.details.fullName)) {
+                    return true;
+                }
+
                 const typeInfo = this._validateClassTypeIsCompletelyKnown(
+                    report,
                     type,
                     publicSymbolMap,
                     currentSymbol,
@@ -808,7 +843,11 @@ export class PackageTypeVerifier {
             }
 
             case TypeCategory.Module: {
-                const typeInfo = this._validateModuleTypeIsCompletelyKnown(type, publicSymbolMap, typeStack);
+                if (this._shouldIgnoreType(report, type.moduleName)) {
+                    return true;
+                }
+
+                const typeInfo = this._validateModuleTypeIsCompletelyKnown(report, type, publicSymbolMap, typeStack);
 
                 if (!typeInfo.isFullyKnown) {
                     diag.addAddendum(typeInfo.diag);
@@ -820,6 +859,7 @@ export class PackageTypeVerifier {
     }
 
     private _validateClassTypeIsCompletelyKnown(
+        report: PackageTypeReport,
         type: ClassType,
         publicSymbolMap: PublicSymbolMap,
         currentSymbol: string,
@@ -889,6 +929,7 @@ export class PackageTypeVerifier {
                                     diag.addAddendum(symbolDiag);
                                 } else if (
                                     !this._validateTypeIsCompletelyKnown(
+                                        report,
                                         symbolType,
                                         symbolDiag.createAddendum(),
                                         publicSymbolMap,
@@ -920,6 +961,7 @@ export class PackageTypeVerifier {
 
                         if (isClass(mroType)) {
                             const mroClassInfo = this._validateClassTypeIsCompletelyKnown(
+                                report,
                                 mroType,
                                 publicSymbolMap,
                                 currentSymbol,
@@ -977,6 +1019,7 @@ export class PackageTypeVerifier {
                             isKnown = false;
                         } else if (!ClassType.isBuiltIn(type.details.effectiveMetaclass)) {
                             const metaclassInfo = this._validateClassTypeIsCompletelyKnown(
+                                report,
                                 type.details.effectiveMetaclass,
                                 publicSymbolMap,
                                 currentSymbol,
@@ -1015,6 +1058,7 @@ export class PackageTypeVerifier {
                             isKnown = false;
                         } else if (!ClassType.isBuiltIn(baseClass)) {
                             const classInfo = this._validateClassTypeIsCompletelyKnown(
+                                report,
                                 baseClass,
                                 publicSymbolMap,
                                 currentSymbol,
@@ -1075,6 +1119,7 @@ export class PackageTypeVerifier {
                         typeInfo!.isFullyKnown = false;
                     } else if (
                         !this._validateTypeIsCompletelyKnown(
+                            report,
                             typeArg,
                             typeArgDiag,
                             publicSymbolMap,
@@ -1094,6 +1139,7 @@ export class PackageTypeVerifier {
     }
 
     private _validateModuleTypeIsCompletelyKnown(
+        report: PackageTypeReport,
         type: ModuleType,
         publicSymbolMap: PublicSymbolMap,
         typeStack: string[]
@@ -1134,6 +1180,7 @@ export class PackageTypeVerifier {
                     isKnown = false;
                 } else if (
                     !this._validateTypeIsCompletelyKnown(
+                        report,
                         symbolType,
                         symbolDiag.createAddendum(),
                         publicSymbolMap,
