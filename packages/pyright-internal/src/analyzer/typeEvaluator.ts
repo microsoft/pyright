@@ -12144,6 +12144,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             // Find this function's declaration.
             const declIndex = decls.findIndex((decl) => decl === functionDecl);
             if (declIndex > 0) {
+                // Evaluate all of the previous function declarations. They will
+                // be cached. We do it in this order to avoid a stack overflow due
+                // to recursion if there is a large number (1000's) of overloads.
+                for (let i = 0; i < declIndex; i++) {
+                    const decl = decls[i];
+                    if (decl.type === DeclarationType.Function) {
+                        getTypeOfFunction(decl.node);
+                    }
+                }
+
                 const overloadedTypes: FunctionType[] = [];
 
                 // Look at the previous declaration's type.

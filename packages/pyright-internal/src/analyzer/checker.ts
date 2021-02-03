@@ -418,11 +418,18 @@ export class Checker extends ParseTreeWalker {
         if (functionTypeResult && isOverloadedFunction(functionTypeResult.decoratedType)) {
             const overloads = functionTypeResult.decoratedType.overloads;
             if (overloads.length > 1) {
-                this._validateOverloadConsistency(
-                    node,
-                    overloads[overloads.length - 1],
-                    overloads.slice(0, overloads.length - 1)
-                );
+                const maxOverloadConsistencyCheckLength = 100;
+
+                // The check is n^2 in time, so if the number of overloads
+                // is very large (which can happen for some generated code),
+                // skip this check to avoid quadratic analysis time.
+                if (overloads.length < maxOverloadConsistencyCheckLength) {
+                    this._validateOverloadConsistency(
+                        node,
+                        overloads[overloads.length - 1],
+                        overloads.slice(0, overloads.length - 1)
+                    );
+                }
             }
         }
 
