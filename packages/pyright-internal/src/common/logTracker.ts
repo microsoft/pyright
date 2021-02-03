@@ -19,7 +19,7 @@ export class LogTracker {
 
     constructor(private _console: ConsoleInterface | undefined, private _prefix: string) {}
 
-    log<T>(title: string, callback: (state: LogState) => T) {
+    log<T>(title: string, callback: (state: LogState) => T, minimalDuration = -1) {
         // If no console is given, don't do anything.
         if (this._console === undefined) {
             return callback(this._dummyState);
@@ -44,12 +44,16 @@ export class LogTracker {
         try {
             return callback(state);
         } finally {
-            this._printPreviousTitles();
-
-            this._indentation = current;
             const msDuration = duration.getDurationInMilliseconds();
+            this._indentation = current;
 
-            if (!state.isSuppressed()) {
+            // if we already printed our header (by nested calls), then it can't be skipped.
+            if (this._previousTitles.length > 0 && (state.isSuppressed() || msDuration <= minimalDuration)) {
+                // Get rid of myself so we don't even show header.
+                this._previousTitles.pop();
+            } else {
+                this._printPreviousTitles();
+
                 this._console.log(`[${this._prefix}] ${this._indentation}${title}${state.get()} (${msDuration}ms)`);
 
                 // If the operation took really long, log it as "info" so it is more visible.
