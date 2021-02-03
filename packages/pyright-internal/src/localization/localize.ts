@@ -179,6 +179,9 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.argMissingForParam'));
         export const argMissingForParams = () =>
             new ParameterizedString<{ names: string }>(getRawString('Diagnostic.argMissingForParams'));
+        export const argMorePositionalExpectedCount = () =>
+            new ParameterizedString<{ expected: number }>(getRawString('Diagnostic.argMorePositionalExpectedCount'));
+        export const argMorePositionalExpectedOne = () => getRawString('Diagnostic.argMorePositionalExpectedOne');
         export const argPositional = () => getRawString('Diagnostic.argPositional');
         export const argPositionalExpectedCount = () =>
             new ParameterizedString<{ expected: number }>(getRawString('Diagnostic.argPositionalExpectedCount'));
@@ -368,6 +371,8 @@ export namespace Localizer {
         export const keyRequiredDeleted = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.keyRequiredDeleted'));
         export const keyValueInSet = () => getRawString('Diagnostic.keyValueInSet');
+        export const keywordArgInTypeArgument = () => getRawString('Diagnostic.keywordArgInTypeArgument');
+        export const keywordSubscriptIllegal = () => getRawString('Diagnostic.keywordSubscriptIllegal');
         export const lambdaReturnTypeUnknown = () => getRawString('Diagnostic.lambdaReturnTypeUnknown');
         export const lambdaReturnTypePartiallyUnknown = () =>
             new ParameterizedString<{ returnType: string }>(
@@ -430,7 +435,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.nonLocalRedefinition'));
         export const nonLocalInModule = () => getRawString('Diagnostic.nonLocalInModule');
         export const noOverload = () =>
-            new ParameterizedString<{ expression: string }>(getRawString('Diagnostic.noOverload'));
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.noOverload'));
         export const noReturnContainsReturn = () => getRawString('Diagnostic.noReturnContainsReturn');
         export const noReturnContainsYield = () => getRawString('Diagnostic.noReturnContainsYield');
         export const noReturnReturnsNone = () => getRawString('Diagnostic.noReturnReturnsNone');
@@ -494,7 +499,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.privateUsedOutsideOfModule'));
         export const propertyOverridden = () =>
             new ParameterizedString<{ name: string; className: string }>(getRawString('Diagnostic.propertyOverridden'));
-        export const propertyStaticOrClassMethod = () => getRawString('Diagnostic.propertyStaticOrClassMethod');
+        export const propertyStaticMethod = () => getRawString('Diagnostic.propertyStaticMethod');
         export const protectedUsedOutsideOfClass = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.protectedUsedOutsideOfClass'));
         export const protocolBaseClass = () =>
@@ -637,6 +642,7 @@ export namespace Localizer {
         export const typeVarNotUsedByOuterScope = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarNotUsedByOuterScope'));
         export const typeVarSingleConstraint = () => getRawString('Diagnostic.typeVarSingleConstraint');
+        export const typeVarTupleContext = () => getRawString('Diagnostic.typeVarTupleContext');
         export const typeVarUnknownParam = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarUnknownParam'));
         export const typeVarUsedByOuterScope = () =>
@@ -677,7 +683,16 @@ export namespace Localizer {
             new ParameterizedString<{ testType: string; classType: string }>(
                 getRawString('Diagnostic.unnecessaryIsSubclassNever')
             );
+        export const unpackArgCount = () => getRawString('Diagnostic.unpackArgCount');
+        export const unpackedArgInTypeArgument = () => getRawString('Diagnostic.unpackedArgInTypeArgument');
+        export const unpackedArgWithVariadicParam = () => getRawString('Diagnostic.unpackedArgWithVariadicParam');
         export const unpackedDictArgumentNotMapping = () => getRawString('Diagnostic.unpackedDictArgumentNotMapping');
+        export const unpackedSubscriptIllegal = () => getRawString('Diagnostic.unpackedSubscriptIllegal');
+        export const unpackedTypeVarTupleExpected = () =>
+            new ParameterizedString<{ name1: string; name2: string }>(
+                getRawString('Diagnostic.unpackedTypeVarTupleExpected')
+            );
+        export const unpackExpectedTypeVarTuple = () => getRawString('Diagnostic.unpackExpectedTypeVarTuple');
         export const unpackIllegalInComprehension = () => getRawString('Diagnostic.unpackIllegalInComprehension');
         export const unpackInDict = () => getRawString('Diagnostic.unpackInDict');
         export const unpackInSet = () => getRawString('Diagnostic.unpackInSet');
@@ -689,6 +704,12 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.unusedCallResult'));
         export const unusedCoroutine = () => getRawString('Diagnostic.unusedCoroutine');
         export const varAnnotationIllegal = () => getRawString('Diagnostic.varAnnotationIllegal');
+        export const variadicTypeParamNotAtEnd = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.variadicTypeParamNotAtEnd'));
+        export const variadicTypeParamTooManyAlias = () =>
+            new ParameterizedString<{ names: string }>(getRawString('Diagnostic.variadicTypeParamTooManyAlias'));
+        export const variadicTypeParamTooManyClass = () =>
+            new ParameterizedString<{ names: string }>(getRawString('Diagnostic.variadicTypeParamTooManyClass'));
         export const walrusIllegal = () => getRawString('Diagnostic.walrusIllegal');
         export const walrusNotAllowed = () => getRawString('Diagnostic.walrusNotAllowed');
         export const wildcardInFunction = () => getRawString('Diagnostic.wildcardInFunction');
@@ -700,6 +721,7 @@ export namespace Localizer {
             new ParameterizedString<{ exprType: string; yieldType: string }>(
                 getRawString('Diagnostic.yieldTypeMismatch')
             );
+        export const zeroLengthTupleNotAllowed = () => getRawString('Diagnostic.zeroLengthTupleNotAllowed');
     }
 
     export namespace DiagnosticAddendum {
@@ -711,6 +733,8 @@ export namespace Localizer {
             );
         export const argsParamMissing = () =>
             new ParameterizedString<{ paramName: string }>(getRawString('DiagnosticAddendum.argsParamMissing'));
+        export const argsParamWithVariadic = () =>
+            new ParameterizedString<{ paramName: string }>(getRawString('DiagnosticAddendum.argsParamWithVariadic'));
         export const argumentType = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.argumentType'));
         export const argumentTypes = () =>
@@ -770,8 +794,6 @@ export namespace Localizer {
             );
         export const noOverloadAssignable = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.noOverloadAssignable'));
-        export const overloadCallName = () =>
-            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overloadCallName'));
         export const overloadNotAssignable = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overloadNotAssignable'));
         export const overriddenMethod = () => getRawString('DiagnosticAddendum.overriddenMethod');

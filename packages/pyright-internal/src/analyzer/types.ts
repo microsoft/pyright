@@ -302,10 +302,9 @@ export const enum ClassTypeFlags {
     // semantics.
     HasCustomClassGetItem = 1 << 18,
 
-    // This class uses a variadic type parameter even though it is not
-    // declared as such. Currently, the only class that supports
-    // this is tuple.
-    PseudoVariadicTypeParameter = 1 << 19,
+    // The tuple class uses a variadic type parameter and requires
+    // special-case handling of its type arguments.
+    TupleClass = 1 << 19,
 
     // The class has a metaclass of EnumMet or derives from
     // a class that has this metaclass.
@@ -340,11 +339,16 @@ export interface ClassType extends TypeBase {
     // some or all of the type parameters.
     typeArguments?: Type[];
 
-    // For a few classes (e.g., tuple), the class definition calls for a single
-    // type parameter but the spec allows the programmer to provide variadic
-    // type arguments. To make these compatible, we need to derive a single
-    // typeArgument value based on the variadic arguments.
-    variadicTypeArguments?: Type[];
+    // For tuples, the class definition calls for a single type parameter but
+    // the spec allows the programmer to provide variadic type arguments.
+    // To make these compatible, we need to derive a single typeArgument value
+    // based on the variadic arguments.
+    tupleTypeArguments?: Type[];
+
+    // We sometimes package multiple types into a tuple internally
+    // for matching against a variadic type variable. We need to be
+    // able to distinguish this case from normal tuples.
+    isTupleForUnpackedVariadicTypeVar?: boolean;
 
     // If type arguments are present, were they explicit (i.e.
     // provided explicitly in the code)?
@@ -401,7 +405,7 @@ export namespace ClassType {
         typeArguments: Type[] | undefined,
         isTypeArgumentExplicit: boolean,
         skipAbstractClassTest = false,
-        variadicTypeArguments?: Type[]
+        tupleTypeArguments?: Type[]
     ): ClassType {
         const newClassType = { ...classType };
 
@@ -412,8 +416,8 @@ export namespace ClassType {
 
         newClassType.isTypeArgumentExplicit = isTypeArgumentExplicit;
         newClassType.skipAbstractClassTest = skipAbstractClassTest;
-        newClassType.variadicTypeArguments = variadicTypeArguments
-            ? variadicTypeArguments.map((t) => (isNever(t) ? UnknownType.create() : t))
+        newClassType.tupleTypeArguments = tupleTypeArguments
+            ? tupleTypeArguments.map((t) => (isNever(t) ? UnknownType.create() : t))
             : undefined;
 
         return newClassType;
@@ -554,8 +558,8 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.HasCustomClassGetItem);
     }
 
-    export function isPseudoVariadicTypeParam(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.PseudoVariadicTypeParameter);
+    export function isTupleClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.TupleClass);
     }
 
     export function getTypeParameters(classType: ClassType) {
@@ -1390,6 +1394,7 @@ export interface TypeVarDetails {
     boundType?: Type;
     variance: Variance;
     isParamSpec: boolean;
+    isVariadic: boolean;
 
     // Internally created (e.g. for pseudo-generic classes)
     isSynthesized: boolean;
@@ -1418,6 +1423,9 @@ export interface TypeVarType extends TypeBase {
 
     // String formatted as <name>.<scopeId>.
     nameWithScope?: string;
+
+    // Is this variadic TypeVar unpacked (i.e. Unpack or * operator applied)?
+    isVariadicUnpacked?: boolean;
 }
 
 export namespace TypeVarType {
@@ -1453,6 +1461,20 @@ export namespace TypeVarType {
         return newInstance;
     }
 
+    export function cloneForUnpacked(type: TypeVarType) {
+        assert(type.details.isVariadic);
+        const newInstance: TypeVarType = { ...type };
+        newInstance.isVariadicUnpacked = true;
+        return newInstance;
+    }
+
+    export function cloneForPacked(type: TypeVarType) {
+        assert(type.details.isVariadic);
+        const newInstance: TypeVarType = { ...type };
+        newInstance.isVariadicUnpacked = false;
+        return newInstance;
+    }
+
     export function makeNameWithScope(name: string, scopeId: string) {
         return `${name}.${scopeId}`;
     }
@@ -1465,6 +1487,7 @@ export namespace TypeVarType {
                 constraints: [],
                 variance: Variance.Invariant,
                 isParamSpec,
+                isVariadic: false,
                 isSynthesized: false,
             },
             flags: typeFlags,
@@ -1554,6 +1577,21 @@ export function isTypeVar(type: Type): type is TypeVarType {
     return type.category === TypeCategory.TypeVar;
 }
 
+export function isVariadicTypeVar(type: Type): type is TypeVarType {
+    return type.category === TypeCategory.TypeVar && type.details.isVariadic;
+}
+
+export function isUnpackedVariadicTypeVar(type: Type): boolean {
+    if (isUnion(type) && type.subtypes.length === 1) {
+        type = type.subtypes[0];
+    }
+    return type.category === TypeCategory.TypeVar && type.details.isVariadic && !!type.isVariadicUnpacked;
+}
+
+export function isParamSpec(type: Type): type is TypeVarType {
+    return type.category === TypeCategory.TypeVar && type.details.isParamSpec;
+}
+
 export function isFunction(type: Type): type is FunctionType {
     return type.category === TypeCategory.Function;
 }
@@ -1612,13 +1650,13 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 }
             }
 
-            const type1VariadicTypeArgs = type1.variadicTypeArguments || [];
-            const type2VariadicTypeArgs = classType2.variadicTypeArguments || [];
-            if (type1VariadicTypeArgs.length !== type2VariadicTypeArgs.length) {
+            const type1TupleTypeArgs = type1.tupleTypeArguments || [];
+            const type2TupleTypeArgs = classType2.tupleTypeArguments || [];
+            if (type1TupleTypeArgs.length !== type2TupleTypeArgs.length) {
                 return false;
             }
-            for (let i = 0; i < type1VariadicTypeArgs.length; i++) {
-                if (!isTypeSame(type1VariadicTypeArgs[i], type2VariadicTypeArgs[i], recursionCount + 1)) {
+            for (let i = 0; i < type1TupleTypeArgs.length; i++) {
+                if (!isTypeSame(type1TupleTypeArgs[i], type2TupleTypeArgs[i], recursionCount + 1)) {
                     return false;
                 }
             }
@@ -1893,7 +1931,7 @@ export function combineConstrainedTypes(subtypes: ConstrainedSubtype[], maxSubty
     }
 
     // Handle the common case where there is only one type.
-    if (subtypes.length === 1 && !subtypes[0].constraints) {
+    if (subtypes.length === 1 && !subtypes[0].constraints && !isUnpackedVariadicTypeVar(subtypes[0].type)) {
         return subtypes[0].type;
     }
 
@@ -1959,8 +1997,13 @@ export function combineConstrainedTypes(subtypes: ConstrainedSubtype[], maxSubty
         return AnyType.create();
     }
 
-    // If only one type remains and there are no constraints, convert it from a union to a simple type.
-    if (newUnionType.subtypes.length === 1 && !newUnionType.constraints) {
+    // If only one type remains and there are no constraints and no variadic
+    // type var, convert it from a union to a simple type.
+    if (
+        newUnionType.subtypes.length === 1 &&
+        !newUnionType.constraints &&
+        !isUnpackedVariadicTypeVar(newUnionType.subtypes[0])
+    ) {
         return newUnionType.subtypes[0];
     }
 

@@ -16,6 +16,7 @@ import {
     AnyType,
     ClassType,
     combineConstrainedTypes,
+    combineTypes,
     ConstrainedSubtype,
     EnumLiteral,
     findSubtype,
@@ -32,6 +33,7 @@ import {
     isUnbound,
     isUnion,
     isUnknown,
+    isVariadicTypeVar,
     maxTypeRecursionCount,
     ModuleType,
     NeverType,
@@ -414,13 +416,12 @@ export function canBeFalsy(type: Type, recursionLevel = 0): boolean {
 
         case TypeCategory.Object: {
             // Handle tuples specially.
-            if (isTupleClass(type.classType) && type.classType.variadicTypeArguments) {
-                if (type.classType.variadicTypeArguments.length === 0) {
+            if (isTupleClass(type.classType) && type.classType.tupleTypeArguments) {
+                if (type.classType.tupleTypeArguments.length === 0) {
                     return true;
                 }
 
-                const lastTypeArg =
-                    type.classType.variadicTypeArguments[type.classType.variadicTypeArguments.length - 1];
+                const lastTypeArg = type.classType.tupleTypeArguments[type.classType.tupleTypeArguments.length - 1];
                 if (isEllipsisType(lastTypeArg)) {
                     return true;
                 }
@@ -477,7 +478,7 @@ export function canBeTruthy(type: Type, recursionLevel = 0): boolean {
         case TypeCategory.Object: {
             // Check for Tuple[()] (an empty tuple).
             if (isTupleClass(type.classType)) {
-                if (type.classType.variadicTypeArguments && type.classType.variadicTypeArguments.length === 0) {
+                if (type.classType.tupleTypeArguments && type.classType.tupleTypeArguments.length === 0) {
                     return false;
                 }
             }
@@ -573,14 +574,6 @@ export function isNoReturnType(type: Type): boolean {
 
 export function removeNoReturnFromUnion(type: Type): Type {
     return removeFromUnion(type, (subtype) => isNoReturnType(subtype));
-}
-
-export function isParamSpecType(type: Type): boolean {
-    if (!isTypeVar(type)) {
-        return false;
-    }
-
-    return type.details.isParamSpec;
 }
 
 export function isProperty(type: Type): type is ObjectType {
@@ -980,8 +973,8 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
                     setTypeArgumentsRecursive(typeArg, srcType, typeVarMap, recursionCount + 1);
                 });
             }
-            if (destType.variadicTypeArguments) {
-                destType.variadicTypeArguments.forEach((typeArg) => {
+            if (destType.tupleTypeArguments) {
+                destType.tupleTypeArguments.forEach((typeArg) => {
                     setTypeArgumentsRecursive(typeArg, srcType, typeVarMap, recursionCount + 1);
                 });
             }
@@ -1049,12 +1042,8 @@ export function buildTypeVarMapFromSpecializedClass(classType: ClassType, makeCo
     }
 
     const typeVarMap = buildTypeVarMap(typeParameters, typeArguments, getTypeVarScopeId(classType));
-    if (
-        ClassType.isPseudoVariadicTypeParam(classType) &&
-        classType.variadicTypeArguments &&
-        typeParameters.length >= 1
-    ) {
-        typeVarMap.setVariadicTypeVar(typeParameters[0], classType.variadicTypeArguments);
+    if (ClassType.isTupleClass(classType) && classType.tupleTypeArguments && typeParameters.length >= 1) {
+        typeVarMap.setVariadicTypeVar(typeParameters[0], classType.tupleTypeArguments);
     }
 
     return typeVarMap;
@@ -1548,7 +1537,29 @@ export function _transformTypeVars(
 
     if (isUnion(type)) {
         return mapSubtypes(type, (subtype) => {
-            return _transformTypeVars(subtype, callbacks, recursionMap, recursionLevel + 1);
+            let transformedType = _transformTypeVars(subtype, callbacks, recursionMap, recursionLevel + 1);
+
+            // If we're transforming a variadic type variable within a union,
+            // combine the individual types within the variadic type variable.
+            if (isVariadicTypeVar(subtype) && !isVariadicTypeVar(transformedType)) {
+                const subtypesToCombine: Type[] = [];
+                doForEachSubtype(transformedType, (transformedSubtype) => {
+                    if (
+                        isObject(transformedSubtype) &&
+                        isTupleClass(transformedSubtype.classType) &&
+                        transformedSubtype.classType.tupleTypeArguments &&
+                        transformedSubtype.classType.isTupleForUnpackedVariadicTypeVar
+                    ) {
+                        subtypesToCombine.push(...transformedSubtype.classType.tupleTypeArguments);
+                    } else {
+                        subtypesToCombine.push(transformedSubtype);
+                    }
+                });
+
+                transformedType = combineTypes(subtypesToCombine);
+            }
+
+            return transformedType;
         });
     }
 
@@ -1650,14 +1661,25 @@ function _transformTypeVarsInClassType(
         });
     }
 
-    if (ClassType.isPseudoVariadicTypeParam(classType)) {
-        if (classType.variadicTypeArguments) {
-            newVariadicTypeArgs = classType.variadicTypeArguments.map((oldTypeArgType) => {
+    if (ClassType.isTupleClass(classType)) {
+        if (classType.tupleTypeArguments) {
+            newVariadicTypeArgs = [];
+            classType.tupleTypeArguments.forEach((oldTypeArgType) => {
                 const newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);
                 if (newTypeArgType !== oldTypeArgType) {
                     specializationNeeded = true;
                 }
-                return newTypeArgType;
+
+                if (
+                    isVariadicTypeVar(oldTypeArgType) &&
+                    isObject(newTypeArgType) &&
+                    isTupleClass(newTypeArgType.classType) &&
+                    newTypeArgType.classType.tupleTypeArguments
+                ) {
+                    newVariadicTypeArgs!.push(...newTypeArgType.classType.tupleTypeArguments);
+                } else {
+                    newVariadicTypeArgs!.push(newTypeArgType);
+                }
             });
         } else if (typeParams.length > 0) {
             newVariadicTypeArgs = callbacks.transformVariadicTypeVar(typeParams[0]);

@@ -111,9 +111,16 @@ export class SignatureHelpProvider {
         const parameters: ParamInfo[] = [];
         const functionDocString = functionType.details.docString;
         let label = '(';
+        const params = functionType.details.parameters;
 
         stringParts[0].forEach((paramString: string, paramIndex) => {
-            const paramName = functionType.details.parameters[paramIndex].name || '';
+            let paramName = '';
+            if (paramIndex < params.length) {
+                paramName = params[paramIndex].name || '';
+            } else if (params.length > 0) {
+                paramName = params[params.length - 1].name || '';
+            }
+
             parameters.push({
                 startOffset: label.length,
                 endOffset: label.length + paramString.length,
@@ -131,7 +138,7 @@ export class SignatureHelpProvider {
 
         let activeParameter: number | undefined;
         if (signature.activeParam) {
-            activeParameter = functionType.details.parameters.indexOf(signature.activeParam);
+            activeParameter = params.indexOf(signature.activeParam);
             if (activeParameter === -1) {
                 activeParameter = undefined;
             }

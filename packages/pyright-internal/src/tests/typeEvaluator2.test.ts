@@ -1285,6 +1285,12 @@ test('TryExcept4', () => {
     TestUtils.validateResults(analysisResults, 2);
 });
 
+test('TryExcept5', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tryExcept5.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Decorator1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['decorator1.py']);
 
@@ -1353,6 +1359,25 @@ test('Subscript1', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['subscript1.py'], configOptions);
     TestUtils.validateResults(analysisResults39, 0);
+});
+
+test('Subscript2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['subscript2.py']);
+    TestUtils.validateResults(analysisResults, 5);
+});
+
+test('Subscript3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    // Analyze with Python 3.9 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['subscript3.py'], configOptions);
+    TestUtils.validateResults(analysisResults39, 31);
+
+    // Analyze with Python 3.10 settings.
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults310 = TestUtils.typeAnalyzeSampleFiles(['subscript3.py'], configOptions);
+    TestUtils.validateResults(analysisResults310, 12);
 });
 
 test('InitSubclass1', () => {

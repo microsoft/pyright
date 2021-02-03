@@ -1105,11 +1105,17 @@ export namespace ListComprehensionNode {
 export interface IndexNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Index;
     baseExpression: ExpressionNode;
-    items: ExpressionNode[];
+    items: ArgumentNode[];
+    trailingComma: boolean;
 }
 
 export namespace IndexNode {
-    export function create(baseExpression: ExpressionNode, items: ExpressionNode[], closeBracketToken: Token) {
+    export function create(
+        baseExpression: ExpressionNode,
+        items: ArgumentNode[],
+        trailingComma: boolean,
+        closeBracketToken: Token
+    ) {
         const node: IndexNode = {
             start: baseExpression.start,
             length: baseExpression.length,
@@ -1117,6 +1123,7 @@ export namespace IndexNode {
             id: _nextNodeId++,
             baseExpression,
             items,
+            trailingComma,
         };
 
         baseExpression.parent = node;
@@ -1536,10 +1543,14 @@ export interface ArgumentNode extends ParseNodeBase {
 }
 
 export namespace ArgumentNode {
-    export function create(startToken: Token, valueExpression: ExpressionNode, argCategory: ArgumentCategory) {
+    export function create(
+        startToken: Token | undefined,
+        valueExpression: ExpressionNode,
+        argCategory: ArgumentCategory
+    ) {
         const node: ArgumentNode = {
-            start: startToken.start,
-            length: startToken.length,
+            start: startToken ? startToken.start : valueExpression.start,
+            length: startToken ? startToken.length : valueExpression.length,
             nodeType: ParseNodeType.Argument,
             id: _nextNodeId++,
             valueExpression,

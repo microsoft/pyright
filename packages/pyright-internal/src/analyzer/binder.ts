@@ -882,6 +882,7 @@ export class Binder extends ParseTreeWalker {
         this._currentFlowNode = preForLabel;
         this._addAntecedent(preElseLabel, this._currentFlowNode);
         this._createAssignmentTargetFlowNodes(node.targetExpression, /* walkTargets */ true, /* unbound */ false);
+        this._addAntecedent(postForLabel, this._currentFlowNode!);
 
         this._bindLoopStatement(preForLabel, postForLabel, () => {
             this.walk(node.forSuite);
@@ -891,8 +892,17 @@ export class Binder extends ParseTreeWalker {
         this._currentFlowNode = this._finishFlowLabel(preElseLabel);
         if (node.elseSuite) {
             this.walk(node.elseSuite);
+
+            // This antecedent should properly be added regardless
+            // of whether an "else" suite is present because a for
+            // loop can execute 0 times, in which case the target
+            // expression will not receive any values, leaving symbols
+            // potentially unbound after the for statement. However,
+            // we received many complains from users about false
+            // positive errors about unbound variables. So we'll add
+            // this antecedent only if an else suite is present.
+            this._addAntecedent(postForLabel, this._currentFlowNode);
         }
-        this._addAntecedent(postForLabel, this._currentFlowNode);
 
         this._currentFlowNode = this._finishFlowLabel(postForLabel);
 
@@ -2014,9 +2024,9 @@ export class Binder extends ParseTreeWalker {
             return Binder._unreachableFlowNode;
         }
 
-        // If there was only one antecedent, there's no need
-        // for a label to exist.
-        if (node.antecedents.length === 1) {
+        // If there was only one antecedent and this is a simple
+        // branch label, there's no need for a label to exist.
+        if (node.antecedents.length === 1 && node.flags === FlowFlags.BranchLabel) {
             return node.antecedents[0];
         }
 
@@ -2281,6 +2291,10 @@ export class Binder extends ParseTreeWalker {
         }
 
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+
+        if (!this._isCodeUnreachable()) {
+            this._addExceptTargets(this._currentFlowNode!);
+        }
     }
 
     private _createAssignmentAliasFlowNode(targetSymbolId: number, aliasSymbolId: number) {
@@ -2372,10 +2386,17 @@ export class Binder extends ParseTreeWalker {
     private _addExceptTargets(flowNode: FlowNode) {
         // If there are any except targets, then we're in a try block, and we
         // have to assume that an exception can be raised after every assignment.
-        if (this._currentExceptTargets) {
+        if (this._currentExceptTargets && this._currentExceptTargets.length > 0) {
             this._currentExceptTargets.forEach((label) => {
                 this._addAntecedent(label, flowNode);
             });
+        }
+
+        // Add a path directly to the most recent finally target as well, since
+        // an exception that's not caught by any of the exception targets will
+        // execute the finally clause directly.
+        if (this._finallyTargets.length > 0) {
+            this._addAntecedent(this._finallyTargets[this._finallyTargets.length - 1], flowNode);
         }
     }
 
@@ -2786,9 +2807,14 @@ export class Binder extends ParseTreeWalker {
             } else if (typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
                 // Recursively call to see if the base expression is "Final".
                 const finalInfo = this._isAnnotationFinal(typeAnnotation.baseExpression);
-                if (finalInfo.isFinal) {
+                if (
+                    finalInfo.isFinal &&
+                    typeAnnotation.items[0].argumentCategory === ArgumentCategory.Simple &&
+                    !typeAnnotation.items[0].name &&
+                    !typeAnnotation.trailingComma
+                ) {
                     isFinal = true;
-                    finalTypeNode = typeAnnotation.items[0];
+                    finalTypeNode = typeAnnotation.items[0].valueExpression;
                 }
             }
         }
@@ -2945,6 +2971,7 @@ export class Binder extends ParseTreeWalker {
             OrderedDict: true,
             Concatenate: true,
             TypeGuard: true,
+            Unpack: true,
         };
 
         const assignedName = assignedNameNode.value;

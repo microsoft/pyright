@@ -14,6 +14,7 @@ import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
 import {
     ArgumentCategory,
+    ArgumentNode,
     AssignmentExpressionNode,
     CallNode,
     ClassNode,
@@ -93,6 +94,20 @@ export function findNodeByOffset(node: ParseNode, offset: number): ParseNode | u
     return node;
 }
 
+export function printArgument(node: ArgumentNode, flags: PrintExpressionFlags) {
+    let argStr = '';
+    if (node.argumentCategory === ArgumentCategory.UnpackedList) {
+        argStr = '*';
+    } else if (node.argumentCategory === ArgumentCategory.UnpackedDictionary) {
+        argStr = '**';
+    }
+    if (node.name) {
+        argStr += node.name.value + '=';
+    }
+    argStr += printExpression(node.valueExpression, flags);
+    return argStr;
+}
+
 export function printExpression(node: ExpressionNode, flags = PrintExpressionFlags.None): string {
     switch (node.nodeType) {
         case ParseNodeType.Name: {
@@ -107,32 +122,19 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
             return (
                 printExpression(node.leftExpression, flags) +
                 '(' +
-                node.arguments
-                    .map((arg) => {
-                        let argStr = '';
-                        if (arg.argumentCategory === ArgumentCategory.UnpackedList) {
-                            argStr = '*';
-                        } else if (arg.argumentCategory === ArgumentCategory.UnpackedDictionary) {
-                            argStr = '**';
-                        }
-                        if (arg.name) {
-                            argStr += arg.name.value + '=';
-                        }
-                        argStr += printExpression(arg.valueExpression, flags);
-                        return argStr;
-                    })
-                    .join(', ') +
+                node.arguments.map((arg) => printArgument(arg, flags)).join(', ') +
                 ')'
             );
         }
 
         case ParseNodeType.Index: {
-            return (
-                printExpression(node.baseExpression, flags) +
+            return printExpression(node.baseExpression, flags) +
                 '[' +
-                node.items.map((item) => printExpression(item, flags)).join(', ') +
-                ']'
-            );
+                node.items.map((item) => printArgument(item, flags)).join(', ') +
+                ']' +
+                node.trailingComma
+                ? ','
+                : '';
         }
 
         case ParseNodeType.UnaryOperation: {

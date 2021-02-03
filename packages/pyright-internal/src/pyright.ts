@@ -47,6 +47,7 @@ interface PyrightJsonResults {
 
 interface PyrightTypeCompletenessReport {
     packageName: string;
+    ignoreUnknownTypesFromImports: boolean;
     packageRootDirectory?: string;
     pyTypedPath?: string;
     symbolCount: number;
@@ -307,7 +308,17 @@ function verifyPackageTypes(
 ): never {
     try {
         const verifier = new PackageTypeVerifier(realFileSystem);
-        const report = verifier.verify(packageName);
+
+        // If the package name ends with a bang, we'll take that
+        // to mean that the caller wants to ignore unknown types from imports
+        // outside of the package.
+        let ignoreUnknownTypesFromImports = false;
+        if (packageName.endsWith('!')) {
+            ignoreUnknownTypesFromImports = true;
+            packageName = packageName.substr(0, packageName.length - 1);
+        }
+
+        const report = verifier.verify(packageName, ignoreUnknownTypesFromImports);
         const jsonReport = buildTypeCompletenessReport(packageName, report);
 
         if (outputJson) {
@@ -360,6 +371,7 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
 
     report.typeCompleteness = {
         packageName,
+        ignoreUnknownTypesFromImports: completenessReport.ignoreUnknownTypesFromImports,
         packageRootDirectory: completenessReport.rootDirectory,
         pyTypedPath: completenessReport.pyTypedPath,
         symbolCount: completenessReport.symbolCount,
@@ -450,6 +462,9 @@ function printTypeCompletenessReportText(results: PyrightJsonResults, verboseOut
     console.log('');
     console.log(`Public symbols: ${completenessReport.symbolCount}`);
     console.log(`  Symbols with unknown type: ${completenessReport.unknownTypeCount}`);
+    if (completenessReport.ignoreUnknownTypesFromImports) {
+        console.log(`    (Ignoring unknown types imported from other packages)`);
+    }
     console.log(`  Functions with missing docstring: ${completenessReport.missingFunctionDocStringCount}`);
     console.log(`  Functions with missing default param: ${completenessReport.missingDefaultParamCount}`);
     console.log(`  Classes with missing docstring: ${completenessReport.missingClassDocStringCount}`);

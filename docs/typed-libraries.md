@@ -210,13 +210,13 @@ In type theory, when comparing two types that are related to each other, the “
 
 In general, a function input parameter should be annotated with the widest possible type supported by the implementation. For example, if the implementation requires the caller to provide an iterable collection of strings, the parameter should be annotated as `Iterable[str]`, not as `List[str]`. The latter type is narrower than necessary, so if a user attempts to pass a tuple of strings (which is supported by the implementation), a type checker will complain about a type incompatibility.
 
-As a specific application of the “use the widest type possible” rule, libraries should generally use immutable forms of container types instead of mutable forms (unless the function needs to modify the container). Use `Sequence` rather than `List`, `Mapping` rather than `Dict`, etc. Immutable containers allow for more flexibility because their type parameters are covariant rather than invariant. A parameter that is typed as `Sequence[Union[str, int]]` can accept a `List[int]`, `Sequence[str]`, and a `Sequence[int]`. But a parameter typed as `List[Union[str, int]]` is much more restrictive and accepts only a `List[Union[str, int]]` or `Sequence[Union[str, int]]`.
+As a specific application of the “use the widest type possible” rule, libraries should generally use immutable forms of container types instead of mutable forms (unless the function needs to modify the container). Use `Sequence` rather than `List`, `Mapping` rather than `Dict`, etc. Immutable containers allow for more flexibility because their type parameters are covariant rather than invariant. A parameter that is typed as `Sequence[Union[str, int]]` can accept a `List[int]`, `Sequence[str]`, and a `Sequence[int]`. But a parameter typed as `List[Union[str, int]]` is much more restrictive and accepts only a `List[Union[str, int]]`.
 
 ### Overloads
 If a function or method can return multiple different types and those types can be determined based on the presence or types of certain parameters, use the `@overload` mechanism defined in [PEP 484](https://www.python.org/dev/peps/pep-0484/#id45). When overloads are used within a “.py” file, they must appear prior to the function implementation, which should not have an `@overload` decorator. 
 
-### Name-only Parameters
-If a function or method is intended to take parameters that are specified only by name, use the name-only indicator.
+### Keyword-only Parameters
+If a function or method is intended to take parameters that are specified only by name, use the keyword-only separator ("*").
 
 ```python
 def create_user(age: int, *, dob: Optional[date] = None):
@@ -321,11 +321,11 @@ LATEST_VERSION: Final[Tuple[int, int]] = (4, 5)
 ### Typed Dictionaries, Data Classes, and Named Tuples
 If your library runs only on newer versions of Python, you are encouraged to use some of the new type-friendly classes.
 
-NamedTuple (introduced in Python 3.5 and described in [PEP 484](https://www.python.org/dev/peps/pep-0484/)) is preferred over namedtuple. 
+NamedTuple (described in [PEP 484](https://www.python.org/dev/peps/pep-0484/)) is preferred over namedtuple.
 
-Data classes (introduced in Python 3.7 and described in [PEP 557](https://www.python.org/dev/peps/pep-0557/)) is preferred over untyped dictionaries. The NamedTuple form of data classes is supported in Python 3.6.
+Data classes (described in [PEP 557](https://www.python.org/dev/peps/pep-0557/)) is preferred over untyped dictionaries.
 
-TypedDict (introduced in Python 3.8 and described in [PEP 589](https://www.python.org/dev/peps/pep-0589/)) is preferred over untyped dictionaries.
+TypedDict (described in [PEP 589](https://www.python.org/dev/peps/pep-0589/)) is preferred over untyped dictionaries.
 
 
 ## Compatibility with Older Python Versions
