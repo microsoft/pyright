@@ -637,7 +637,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     let initializedBasicTypes = false;
     let noneType: Type | undefined;
     let objectType: Type | undefined;
-    let tupleType: Type | undefined;
+    let typeClassType: Type | undefined;
+    let tupleClassType: Type | undefined;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: TypeCache | undefined;
@@ -824,7 +825,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!initializedBasicTypes) {
             noneType = getTypeshedType(node, 'NoneType') || AnyType.create();
             objectType = getBuiltInObject(node, 'object') || AnyType.create();
-            tupleType = getBuiltInType(node, 'tuple');
+            typeClassType = getBuiltInType(node, 'type') || AnyType.create();
+            tupleClassType = getBuiltInType(node, 'tuple') || AnyType.create();
 
             initializedBasicTypes = true;
         }
@@ -1144,7 +1146,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (fileInfo.isTypingStubFile || fileInfo.isTypingExtensionsStubFile) {
             const specialType = handleTypingStubTypeAnnotation(node);
             if (specialType) {
-                writeTypeCache(node, specialType);
                 return specialType;
             }
         }
@@ -4520,7 +4521,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         // Do we need to adjust the type arguments to map to a variadic type
         // param at the end of the list?
         if (lastTypeParam && lastTypeParam.details.isVariadic && typeArgs.length >= typeParameters.length) {
-            if (tupleType && isClass(tupleType)) {
+            if (tupleClassType && isClass(tupleClassType)) {
                 const variadicTypeResults = typeArgs.slice(typeParameters.length - 1);
 
                 // If the type args consist of a lone variadic type variable, don't wrap it in a tuple.
@@ -4536,7 +4537,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // at the end of the type parameter list.
                     const tupleObject = convertToInstance(
                         specializeTupleClass(
-                            tupleType,
+                            tupleClassType,
                             variadicTypes,
                             /* isTypeArgumentExplicit */ true,
                             /* stripLiterals */ true,
@@ -4784,13 +4785,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function makeTupleObject(entryTypes: Type[], isUnspecifiedLength = false) {
-        if (tupleType && isClass(tupleType)) {
+        if (tupleClassType && isClass(tupleClassType)) {
             if (isUnspecifiedLength) {
                 return convertToInstance(
-                    specializeTupleClass(tupleType, [combineTypes(entryTypes), AnyType.create(/* isEllipsis */ true)])
+                    specializeTupleClass(tupleClassType, [
+                        combineTypes(entryTypes),
+                        AnyType.create(/* isEllipsis */ true),
+                    ])
                 );
             }
-            return convertToInstance(specializeTupleClass(tupleType, entryTypes));
+            return convertToInstance(specializeTupleClass(tupleClassType, entryTypes));
         }
 
         return UnknownType.create();
@@ -4880,8 +4884,8 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         } else if (positionalArgs.length === 0 && unpackedListArgs.length === 0) {
             // Handle the case where there are no positionals provided but there are keywords.
             positionalIndexType =
-                tupleType && isClass(tupleType)
-                    ? convertToInstance(specializeTupleClass(tupleType, []))
+                tupleClassType && isClass(tupleClassType)
+                    ? convertToInstance(specializeTupleClass(tupleClassType, []))
                     : UnknownType.create();
         } else {
             // Package up all of the positionals into a tuple.
@@ -5210,7 +5214,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             return undefined;
         }
 
-        if (!tupleType || !isClass(tupleType)) {
+        if (!tupleClassType || !isClass(tupleClassType)) {
             return undefined;
         }
 
@@ -5237,10 +5241,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 });
             }
         } else {
-            const tupleTypeVarMap = new TypeVarMap(getTypeVarScopeId(tupleType));
+            const tupleTypeVarMap = new TypeVarMap(getTypeVarScopeId(tupleClassType));
             if (
                 !populateTypeVarMapBasedOnExpectedType(
-                    tupleType,
+                    tupleClassType,
                     expectedType,
                     tupleTypeVarMap,
                     getTypeVarScopesForNode(node)
@@ -5249,7 +5253,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 return undefined;
             }
 
-            const specializedTuple = applySolvedTypeVars(tupleType, tupleTypeVarMap) as ClassType;
+            const specializedTuple = applySolvedTypeVars(tupleClassType, tupleTypeVarMap) as ClassType;
             if (!specializedTuple.typeArguments || specializedTuple.typeArguments.length !== 1) {
                 return undefined;
             }
@@ -5268,7 +5272,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const type = convertToInstance(
             specializeTupleClass(
-                tupleType,
+                tupleClassType,
                 buildTupleTypesList(entryTypeResults),
                 /* isTypeArgumentExplicit */ true,
                 /* stripLiterals */ !expectedTypesContainLiterals
@@ -5281,11 +5285,11 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     function getTypeFromTupleInferred(node: TupleNode): TypeResult {
         const entryTypeResults = node.expressions.map((expr) => getTypeOfExpression(expr));
 
-        if (!tupleType || !isClass(tupleType)) {
+        if (!tupleClassType || !isClass(tupleClassType)) {
             return { type: UnknownType.create(), node };
         }
 
-        const type = convertToInstance(specializeTupleClass(tupleType, buildTupleTypesList(entryTypeResults)));
+        const type = convertToInstance(specializeTupleClass(tupleClassType, buildTupleTypesList(entryTypeResults)));
 
         return { type, node };
     }
@@ -7143,13 +7147,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // variadic (*args). These are not allowed because we don't know
                     // their length.
 
-                    if (tupleType && isClass(tupleType)) {
+                    if (tupleClassType && isClass(tupleClassType)) {
                         const tupleTypeArgs = variadicArgs.map((argParam) =>
                             stripLiteralValue(getTypeForArgument(argParam.argument))
                         );
                         const specializedTuple = ObjectType.create(
                             specializeTupleClass(
-                                tupleType,
+                                tupleClassType,
                                 tupleTypeArgs,
                                 /* isTypeArgumentExplicit */ true,
                                 /* stripLiterals */ true,
@@ -10452,7 +10456,14 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
         const aliasMapEntry = specialTypes[assignedName];
         if (aliasMapEntry) {
-            return createSpecialBuiltInClass(node, assignedName, aliasMapEntry);
+            const cachedType = readTypeCache(node);
+            if (cachedType) {
+                assert(isClass(cachedType));
+                return cachedType as ClassType;
+            }
+            const specialType = createSpecialBuiltInClass(node, assignedName, aliasMapEntry);
+            writeTypeCache(node, specialType);
+            return specialType;
         }
 
         return undefined;
@@ -10956,7 +10967,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         if (!effectiveMetaclass || isClass(effectiveMetaclass)) {
             for (const baseClass of classType.details.baseClasses) {
                 if (isClass(baseClass)) {
-                    const baseClassMeta = baseClass.details.effectiveMetaclass;
+                    const baseClassMeta = baseClass.details.effectiveMetaclass || typeClassType;
                     if (baseClassMeta && isClass(baseClassMeta)) {
                         // Make sure there is no metaclass conflict.
                         if (!effectiveMetaclass) {
@@ -11640,7 +11651,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             }
 
             case ParameterCategory.VarArgList: {
-                if (tupleType && isClass(tupleType)) {
+                if (tupleClassType && isClass(tupleClassType)) {
                     let tupleTypeArgs: Type[];
                     let isForVariadic = false;
 
@@ -11655,7 +11666,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                     return ObjectType.create(
                         specializeTupleClass(
-                            tupleType,
+                            tupleClassType,
                             tupleTypeArgs,
                             /* isTypeArgumentExplicit */ true,
                             /* stripLiterals */ true,
@@ -15534,7 +15545,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     try {
                         let type = getInferredTypeOfDeclaration(decl);
 
-                        if (popSymbolResolution(symbol)) {
+                        if (!popSymbolResolution(symbol)) {
                             isIncomplete = true;
                         }
 
@@ -16490,12 +16501,12 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
                                 if (isDestVariadic && i >= destArgCount - 1) {
                                     destTypeArgType = destTypeArgs[destArgCount - 1];
-                                    if (tupleType && isClass(tupleType)) {
+                                    if (tupleClassType && isClass(tupleClassType)) {
                                         // Package up the remaining type arguments into a tuple object.
                                         const remainingSrcTypeArgs = srcTypeArgs.slice(i);
                                         srcTypeArgType = convertToInstance(
                                             specializeTupleClass(
-                                                tupleType,
+                                                tupleClassType,
                                                 remainingSrcTypeArgs,
                                                 /* isTypeArgumentExplicit */ true,
                                                 /* stripLiterals */ true,
@@ -16793,10 +16804,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 !!srcType.classType.isTupleForUnpackedVariadicTypeVar;
             if (!isVariadicTypeVar(srcType) && !isVariadicTuple) {
                 // Package up the type into a tuple.
-                if (tupleType && isClass(tupleType)) {
+                if (tupleClassType && isClass(tupleClassType)) {
                     srcType = convertToInstance(
                         specializeTupleClass(
-                            tupleType,
+                            tupleClassType,
                             [srcType],
                             /* isTypeArgumentExplicit */ true,
                             /* stripLiterals */ true,
@@ -17885,10 +17896,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // variable to a variadic type variable.
                     srcPositionalsType = remainingSrcPositionals[0];
                 } else {
-                    if (tupleType && isClass(tupleType)) {
+                    if (tupleClassType && isClass(tupleClassType)) {
                         srcPositionalsType = convertToInstance(
                             specializeTupleClass(
-                                tupleType,
+                                tupleClassType,
                                 remainingSrcPositionals,
                                 /* isTypeArgumentExplicit */ true,
                                 /* stripLiterals */ true,
