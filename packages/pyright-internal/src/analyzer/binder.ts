@@ -1184,6 +1184,13 @@ export class Binder extends ParseTreeWalker {
             this._addAntecedent(preFinallyLabel, preFinallyGate);
         }
 
+        // Add the finally target as an exception target unless there is
+        // a "bare" except clause that accepts all exception types.
+        const hasBareExceptClause = node.exceptClauses.some((except) => !except.typeExpression);
+        if (!hasBareExceptClause) {
+            curExceptTargets.push(preFinallyReturnOrRaiseLabel);
+        }
+
         // An exception may be generated before the first flow node
         // added by the try block, so all of the exception targets
         // must have the pre-try flow node as an antecedent.
@@ -2386,17 +2393,10 @@ export class Binder extends ParseTreeWalker {
     private _addExceptTargets(flowNode: FlowNode) {
         // If there are any except targets, then we're in a try block, and we
         // have to assume that an exception can be raised after every assignment.
-        if (this._currentExceptTargets && this._currentExceptTargets.length > 0) {
+        if (this._currentExceptTargets) {
             this._currentExceptTargets.forEach((label) => {
                 this._addAntecedent(label, flowNode);
             });
-        }
-
-        // Add a path directly to the most recent finally target as well, since
-        // an exception that's not caught by any of the exception targets will
-        // execute the finally clause directly.
-        if (this._finallyTargets.length > 0) {
-            this._addAntecedent(this._finallyTargets[this._finallyTargets.length - 1], flowNode);
         }
     }
 
