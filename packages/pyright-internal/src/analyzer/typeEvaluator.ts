@@ -13302,10 +13302,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (functionType && !FunctionType.isAsync(functionType)) {
                 if (functionType.details.declaredReturnType) {
                     callIsNoReturn = isNoReturnType(functionType.details.declaredReturnType);
-                } else if (functionType.inferredReturnType) {
-                    // If the inferred return type has already been lazily
-                    // evaluated, use it.
-                    callIsNoReturn = isNoReturnType(functionType.inferredReturnType);
                 } else if (functionType.details.declaration) {
                     // If the function has yield expressions, it's a generator, and
                     // we'll assume the yield statements are reachable. Also, don't
@@ -13316,7 +13312,47 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         !FunctionType.isStubDefinition(functionType) &&
                         !FunctionType.isPyTypedDefinition(functionType)
                     ) {
-                        callIsNoReturn = !isAfterNodeReachable(functionType.details.declaration.node);
+                        // Check specifically for a common idiom where the only statement
+                        // (other than a possible docstring) is a "raise NotImplementedError".
+                        const functionStatements = functionType.details.declaration.node.suite.statements;
+
+                        let foundRaiseNotImplemented = false;
+                        for (const statement of functionStatements) {
+                            if (
+                                statement.nodeType !== ParseNodeType.StatementList ||
+                                statement.statements.length !== 1
+                            ) {
+                                break;
+                            }
+
+                            const simpleStatement = statement.statements[0];
+                            if (simpleStatement.nodeType === ParseNodeType.StringList) {
+                                continue;
+                            }
+
+                            if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.typeExpression) {
+                                // Check for "raise NotImplementedError" or "raise NotImplementedError()"
+                                const isNotImplementedName = (node: ParseNode) => {
+                                    return (
+                                        node?.nodeType === ParseNodeType.Name && node.value === 'NotImplementedError'
+                                    );
+                                };
+
+                                if (isNotImplementedName(simpleStatement.typeExpression)) {
+                                    foundRaiseNotImplemented = true;
+                                } else if (
+                                    simpleStatement.typeExpression.nodeType === ParseNodeType.Call &&
+                                    isNotImplementedName(simpleStatement.typeExpression.leftExpression)
+                                ) {
+                                    foundRaiseNotImplemented = true;
+                                }
+                            }
+
+                            break;
+                        }
+
+                        callIsNoReturn =
+                            !foundRaiseNotImplemented && !isAfterNodeReachable(functionType.details.declaration.node);
                     }
                 }
             }
