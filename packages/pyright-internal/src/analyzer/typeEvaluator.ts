@@ -4497,9 +4497,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 const minPythonVersion = nonSubscriptableBuiltinTypes[baseTypeResult.type.details.fullName];
                 if (minPythonVersion !== undefined && fileInfo.executionEnvironment.pythonVersion < minPythonVersion) {
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
+                    addError(
                         Localizer.Diagnostic.classNotRuntimeSubscriptable().format({
                             name: baseTypeResult.type.aliasName || baseTypeResult.type.details.name,
                         }),
