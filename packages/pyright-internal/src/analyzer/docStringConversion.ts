@@ -51,11 +51,16 @@ const CrLfRegExp = /\r?\n/;
 const NonWhitespaceRegExp = /\S/;
 const TildaHeaderRegExp = /^\s*~~~+$/;
 const PlusHeaderRegExp = /^\s*\+\+\++$/;
+const LeadingDashListRegExp = /^(\s*)-\s/;
+const LeadingAsteriskListRegExp = /^(\s*)\*\s/;
+const LeadingNumberListRegExp = /^(\s*)\d+\.\s/;
 const LeadingAsteriskRegExp = /^(\s+\* )(.*)$/;
 const SpaceDotDotRegExp = /^\s*\.\. /;
 const DirectiveLikeRegExp = /^\s*\.\.\s+(\w+)::\s*(.*)$/;
 const DoctestRegExp = / *>>> /;
 const DirectivesExtraNewlineRegExp = /^\s*:(param|arg|type|return|rtype|raise|except|var|ivar|cvar|copyright|license)/;
+const epyDocFieldTokensRegExp = /^[.\s\t]+(@\w+)/; // cv2 has leading '.' http://epydoc.sourceforge.net/manual-epytext.html
+const epyDocCv2FixRegExp = /^(\.\s{3})|^(\.)/;
 
 const PotentialHeaders: RegExpReplacement[] = [
     { exp: /^\s*=+(\s+=+)+$/, replacement: '=' },
@@ -111,6 +116,12 @@ class DocStringConverter {
     }
 
     convert(): string {
+        const isEpyDoc = this._lines.some((v) => epyDocFieldTokensRegExp.exec(v));
+        if (isEpyDoc) {
+            // fixup cv2 leading '.'
+            this._lines = this._lines.map((v) => v.replace(epyDocCv2FixRegExp, ''));
+        }
+
         while (this._currentLineOrUndefined() !== undefined) {
             const before = this._state;
             const beforeLine = this._lineNum;
@@ -151,6 +162,10 @@ class DocStringConverter {
 
     private _currentIndent(): number {
         return _countLeadingSpaces(this._currentLine());
+    }
+
+    private _prevIndent(): number {
+        return _countLeadingSpaces(this._lineAt(this._lineNum - 1) ?? '');
     }
 
     private _lineAt(i: number): string | undefined {
@@ -211,10 +226,55 @@ class DocStringConverter {
             return;
         }
 
-        // TODO: Push into Google/Numpy style list parser.
+        if (this._beginList()) {
+            return;
+        }
 
-        this._appendTextLine(this._escapeHtml(this._currentLine()));
+        if (this._beginFieldList()) {
+            return;
+        }
+
+        const line = this.formatPlainTextIndent(this._currentLine());
+
+        this._appendTextLine(this._escapeHtml(line));
         this._eatLine();
+    }
+
+    private formatPlainTextIndent(line: string) {
+        const prev = this._lineAt(this._lineNum - 1);
+        const prevIndent = this._prevIndent();
+        const currIndent = this._currentIndent();
+
+        if (
+            currIndent > prevIndent &&
+            !_isUndefinedOrWhitespace(prev) &&
+            !this._builder.endsWith('\\\n') &&
+            !this._builder.endsWith('\n\n') &&
+            !_isHeader(prev)
+        ) {
+            this._builder = this._builder.slice(0, -1) + '\\\n';
+        }
+
+        if (
+            prevIndent > currIndent &&
+            !_isUndefinedOrWhitespace(prev) &&
+            !this._builder.endsWith('\\\n') &&
+            !this._builder.endsWith('\n\n')
+        ) {
+            this._builder = this._builder.slice(0, -1) + '\\\n';
+        }
+
+        if (prevIndent === 0 || this._builder.endsWith('\\\n') || this._builder.endsWith('\n\n')) {
+            line = this._convertIndent(line);
+        } else {
+            line = line.trimStart();
+        }
+        return line;
+    }
+
+    private _convertIndent(line: string) {
+        line = line.replace(/^([ \t]+)(.+)$/g, (_match, g1, g2) => '&nbsp;'.repeat(g1.length) + g2);
+        return line;
     }
 
     private _escapeHtml(line: string): string {
@@ -227,12 +287,6 @@ class DocStringConverter {
 
     private _appendTextLine(line: string): void {
         line = this._preprocessTextLine(line);
-
-        // Attempt to put directives lines into their own paragraphs.
-        // This should be removed once proper list-like parsing is written.
-        if (!this._insideInlineCode && DirectivesExtraNewlineRegExp.test(line)) {
-            this._appendLine();
-        }
 
         const parts = line.split('`');
 
@@ -464,6 +518,125 @@ class DocStringConverter {
         return true;
     }
 
+    // https://docutils.sourceforge.io/docs/ref/rst/restructuredtext.html#field-lists
+    // Python doesn't have a single standard for param documentation. There are four
+    // popular styles.
+    //
+    // 1. Epytext:
+    //      @param param1: description
+    // 2. reST:
+    //      :param param1: description
+    // 3. Google (variant 1):
+    //      Args:
+    //          param1: description
+    // 4. Google (variant 2):
+    //      Args:
+    //          param1 (type): description
+    private _beginFieldList(): boolean {
+        if (this._insideInlineCode) {
+            return false;
+        }
+
+        let line = this._currentLine();
+
+        // Handle epyDocs
+        if (line.startsWith('@')) {
+            this._appendLine();
+            this._appendTextLine(this._escapeHtml(line));
+            this._eatLine();
+            return true;
+        }
+
+        // catch-all for styles except reST
+        const hasOddNumColons =
+            !line?.endsWith(':') && !line?.endsWith('::') && (line.match(/:/g)?.length ?? 0) % 2 === 1; // odd number of colons
+
+        // reSt params. Attempt to put directives lines into their own paragraphs.
+        const restDirective = DirectivesExtraNewlineRegExp.test(line); //line.match(/^\s*:param/);
+
+        if (hasOddNumColons || restDirective) {
+            const prev = this._lineAt(this._lineNum - 1);
+            // Force a line break, if previous line doesn't already have a break or is blank
+            if (!this._builder.endsWith(`\\\n`) && !this._builder.endsWith(`\n\n`) && !_isHeader(prev)) {
+                this._builder = this._builder.slice(0, -1) + '\\\n';
+            }
+
+            // force indent for fields
+            line = this._convertIndent(line);
+            this._appendTextLine(this._escapeHtml(line));
+            this._eatLine();
+            return true;
+        }
+
+        return false;
+    }
+
+    private _beginList(): boolean {
+        if (this._insideInlineCode) {
+            return false;
+        }
+
+        let line = this._currentLine();
+        const dashMatch = LeadingDashListRegExp.exec(line);
+        if (dashMatch?.length === 2) {
+            // Prevent list item from being see as code, by halving leading spaces
+            if (dashMatch[1].length >= 4) {
+                line = ' '.repeat(dashMatch[1].length / 2) + line.trimLeft();
+            }
+
+            this._appendTextLine(line);
+            this._eatLine();
+
+            if (this._state !== this._parseList) {
+                this._pushAndSetState(this._parseList);
+            }
+            return true;
+        }
+
+        const asteriskMatch = LeadingAsteriskListRegExp.exec(line);
+        if (asteriskMatch?.length === 2) {
+            if (asteriskMatch[1].length === 0) {
+                line = line = ' ' + line;
+            } else if (asteriskMatch[1].length >= 4) {
+                // Prevent list item from being see as code, by halving leading spaces
+                line = ' '.repeat(asteriskMatch[1].length / 2) + line.trimLeft();
+            }
+
+            this._appendTextLine(line);
+            this._eatLine();
+            if (this._state !== this._parseList) {
+                this._pushAndSetState(this._parseList);
+            }
+            return true;
+        }
+
+        const leadingNumberList = LeadingNumberListRegExp.exec(line);
+        if (leadingNumberList?.length === 2) {
+            this._appendTextLine(line);
+            this._eatLine();
+            return true;
+        }
+
+        return false;
+    }
+
+    private _parseList(): void {
+        if (_isUndefinedOrWhitespace(this._currentLineOrUndefined()) || this._currentLineIsOutsideBlock()) {
+            this._popState();
+            return;
+        }
+
+        // Check for the start of a new list item
+        const isMultiLineItem = !this._beginList();
+
+        // Remove leading spaces so that multiline items get appear in a single block
+        if (isMultiLineItem) {
+            const line = this._currentLine().trimStart();
+            this._appendTextLine(this._escapeHtml(line));
+            this._eatLine();
+        }
+    }
+
     private _parseDirective(): void {
         // http://docutils.sourceforge.net/docs/ref/rst/restructuredtext.html#directives
 
@@ -575,4 +748,8 @@ function _countLeadingSpaces(s: string): number {
 
 function _isUndefinedOrWhitespace(s: string | undefined): boolean {
     return s === undefined || !NonWhitespaceRegExp.test(s);
+}
+
+function _isHeader(line: string | undefined): boolean {
+    return line !== undefined && (line.match(/^\s*[#`~=-]{3,}/)?.length ?? 0) > 0;
 }

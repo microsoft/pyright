@@ -32,21 +32,20 @@ export class TimingStat {
     callCount = 0;
     isTiming = false;
 
-    timeOperation(callback: () => void) {
+    timeOperation<T>(callback: () => T): T {
         this.callCount++;
 
         // Handle reentrancy.
         if (this.isTiming) {
-            callback();
+            return callback();
         } else {
             this.isTiming = true;
             const duration = new Duration();
-            callback();
-            const elapsedTime = duration.getDurationInMilliseconds();
-            this.totalTime += elapsedTime;
+            const result = callback();
+            this.totalTime += duration.getDurationInMilliseconds();
             this.isTiming = false;
 
-            return elapsedTime;
+            return result;
         }
     }
 
@@ -79,6 +78,7 @@ export class TimingStats {
     cycleDetectionTime = new TimingStat();
     bindTime = new TimingStat();
     typeCheckerTime = new TimingStat();
+    typeEvaluationTime = new TimingStat();
 
     printSummary(console: ConsoleInterface) {
         console.info(`Completed in ${this.totalDuration.getDurationInSeconds()}sec`);

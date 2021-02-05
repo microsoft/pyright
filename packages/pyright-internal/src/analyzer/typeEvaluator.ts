@@ -4497,9 +4497,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             ) {
                 const minPythonVersion = nonSubscriptableBuiltinTypes[baseTypeResult.type.details.fullName];
                 if (minPythonVersion !== undefined && fileInfo.executionEnvironment.pythonVersion < minPythonVersion) {
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
+                    addError(
                         Localizer.Diagnostic.classNotRuntimeSubscriptable().format({
                             name: baseTypeResult.type.aliasName || baseTypeResult.type.details.name,
                         }),
@@ -6194,7 +6192,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     if (functionType) {
                         if (functionType.details.builtInName === 'cast' && argList.length === 2) {
                             // Verify that the cast is necessary.
-                            const castToType = getTypeForArgumentExpectingType(argList[0], getFileInfo(errorNode));
+                            const castToType = getTypeForArgumentExpectingType(argList[0]);
                             const castFromType = getTypeForArgument(argList[1]);
                             if (isClass(castToType) && isObject(castFromType)) {
                                 if (isTypeSame(castToType, castFromType.classType)) {
@@ -7550,7 +7548,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             argList[i].valueExpression || errorNode
                         );
                     } else {
-                        const argType = getTypeForArgumentExpectingType(argList[i], getFileInfo(errorNode));
+                        const argType = getTypeForArgumentExpectingType(argList[i]);
                         if (requiresSpecialization(argType)) {
                             addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                         }
@@ -7587,7 +7585,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         argList[i].valueExpression || errorNode
                     );
                 } else {
-                    const argType = getTypeForArgumentExpectingType(argList[i], getFileInfo(errorNode));
+                    const argType = getTypeForArgumentExpectingType(argList[i]);
                     if (requiresSpecialization(argType)) {
                         addError(Localizer.Diagnostic.typeVarGeneric(), argList[i].valueExpression || errorNode);
                     }
@@ -7838,7 +7836,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         if (argList.length >= 2) {
-            const baseClass = getTypeForArgumentExpectingType(argList[1], getFileInfo(errorNode));
+            const baseClass = getTypeForArgumentExpectingType(argList[1]);
 
             if (isClass(baseClass)) {
                 if (ClassType.isProtocolClass(baseClass)) {
@@ -8031,7 +8029,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     entryMap.set(entryName, true);
 
                     // Cache the annotation type.
-                    getTypeOfAnnotation(entry.valueExpression, /* allowFinal */ true);
+                    getTypeForExpressionExpectingType(entry.valueExpression, /* allowFinal */ true);
 
                     const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                     const declaration: VariableDeclaration = {
@@ -8065,8 +8063,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // Record names in a map to detect duplicates.
                     entryMap.set(entry.name.value, true);
 
-                    // Cache the annotation type.
-                    getTypeOfAnnotation(entry.valueExpression, /* allowFinal */ true);
+                    // Evaluate the type with specific evaluation flags. The
+                    // type will be cached for later.
+                    getTypeForExpressionExpectingType(entry.valueExpression, /* allowFinal */ true);
 
                     const newSymbol = new Symbol(SymbolFlags.InstanceMember);
                     const fileInfo = getFileInfo(errorNode);
@@ -8252,17 +8251,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                             if (entry.nodeType === ParseNodeType.Tuple && entry.expressions.length === 2) {
                                 entryNameNode = entry.expressions[0];
                                 entryTypeNode = entry.expressions[1];
-                                const entryTypeInfo = getTypeOfExpression(
-                                    entryTypeNode,
-                                    undefined,
-                                    EvaluatorFlags.ExpectingType |
-                                        EvaluatorFlags.EvaluateStringLiteralAsType |
-                                        EvaluatorFlags.ParamSpecDisallowed |
-                                        EvaluatorFlags.TypeVarTupleDisallowed
-                                );
-                                if (entryTypeInfo) {
-                                    entryType = convertToInstance(entryTypeInfo.type);
-                                }
+                                entryType = convertToInstance(getTypeForExpressionExpectingType(entryTypeNode));
                             } else {
                                 addError(Localizer.Diagnostic.namedTupleNameType(), entry);
                             }
@@ -13302,10 +13291,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
             if (functionType && !FunctionType.isAsync(functionType)) {
                 if (functionType.details.declaredReturnType) {
                     callIsNoReturn = isNoReturnType(functionType.details.declaredReturnType);
-                } else if (functionType.inferredReturnType) {
-                    // If the inferred return type has already been lazily
-                    // evaluated, use it.
-                    callIsNoReturn = isNoReturnType(functionType.inferredReturnType);
                 } else if (functionType.details.declaration) {
                     // If the function has yield expressions, it's a generator, and
                     // we'll assume the yield statements are reachable. Also, don't
@@ -13316,7 +13301,47 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                         !FunctionType.isStubDefinition(functionType) &&
                         !FunctionType.isPyTypedDefinition(functionType)
                     ) {
-                        callIsNoReturn = !isAfterNodeReachable(functionType.details.declaration.node);
+                        // Check specifically for a common idiom where the only statement
+                        // (other than a possible docstring) is a "raise NotImplementedError".
+                        const functionStatements = functionType.details.declaration.node.suite.statements;
+
+                        let foundRaiseNotImplemented = false;
+                        for (const statement of functionStatements) {
+                            if (
+                                statement.nodeType !== ParseNodeType.StatementList ||
+                                statement.statements.length !== 1
+                            ) {
+                                break;
+                            }
+
+                            const simpleStatement = statement.statements[0];
+                            if (simpleStatement.nodeType === ParseNodeType.StringList) {
+                                continue;
+                            }
+
+                            if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.typeExpression) {
+                                // Check for "raise NotImplementedError" or "raise NotImplementedError()"
+                                const isNotImplementedName = (node: ParseNode) => {
+                                    return (
+                                        node?.nodeType === ParseNodeType.Name && node.value === 'NotImplementedError'
+                                    );
+                                };
+
+                                if (isNotImplementedName(simpleStatement.typeExpression)) {
+                                    foundRaiseNotImplemented = true;
+                                } else if (
+                                    simpleStatement.typeExpression.nodeType === ParseNodeType.Call &&
+                                    isNotImplementedName(simpleStatement.typeExpression.leftExpression)
+                                ) {
+                                    foundRaiseNotImplemented = true;
+                                }
+                            }
+
+                            break;
+                        }
+
+                        callIsNoReturn =
+                            !foundRaiseNotImplemented && !isAfterNodeReachable(functionType.details.declaration.node);
                     }
                 }
             }
@@ -14192,13 +14217,7 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const arg0Expr = testExpression.arguments[0].valueExpression;
                     const arg1Expr = testExpression.arguments[1].valueExpression;
                     if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                        const arg1Type = getTypeOfExpression(
-                            arg1Expr,
-                            undefined,
-                            EvaluatorFlags.EvaluateStringLiteralAsType |
-                                EvaluatorFlags.ParamSpecDisallowed |
-                                EvaluatorFlags.TypeVarTupleDisallowed
-                        ).type;
+                        const arg1Type = getTypeForExpressionExpectingType(arg1Expr);
                         const classTypeList = getIsInstanceClassTypes(arg1Type);
                         if (classTypeList) {
                             return (type: Type) => {
@@ -14875,24 +14894,33 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     // used in cases where the argument is expected to be a type
     // and therefore follows the normal rules of types (e.g. they
     // can be forward-declared in stubs, etc.).
-    function getTypeForArgumentExpectingType(arg: FunctionArgument, fileInfo: AnalyzerFileInfo): Type {
+    function getTypeForArgumentExpectingType(arg: FunctionArgument): Type {
         if (arg.type) {
             return arg.type;
         }
 
+        // If there was no defined type provided, there should always
+        // be a value expression from which we can retrieve the type.
+        return getTypeForExpressionExpectingType(arg.valueExpression!);
+    }
+
+    function getTypeForExpressionExpectingType(node: ExpressionNode, allowFinal = false) {
         let flags =
             EvaluatorFlags.ExpectingType |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.ParamSpecDisallowed |
             EvaluatorFlags.TypeVarTupleDisallowed;
 
+        const fileInfo = getFileInfo(node);
         if (fileInfo.isStubFile) {
             flags |= EvaluatorFlags.AllowForwardReferences;
         }
 
-        // If there was no defined type provided, there should always
-        // be a value expression from which we can retrieve the type.
-        return getTypeOfExpression(arg.valueExpression!, undefined, flags).type;
+        if (!allowFinal) {
+            flags |= EvaluatorFlags.FinalDisallowed;
+        }
+
+        return getTypeOfExpression(node, undefined, flags).type;
     }
 
     function getBuiltInType(node: ParseNode, name: string): Type {

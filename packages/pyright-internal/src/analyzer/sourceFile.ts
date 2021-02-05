@@ -513,7 +513,8 @@ export class SourceFile {
             let fileContents = this.getFileContents();
             if (fileContents === undefined) {
                 try {
-                    const elapsedTime = timingStats.readFileTime.timeOperation(() => {
+                    const startTime = timingStats.readFileTime.totalTime;
+                    timingStats.readFileTime.timeOperation(() => {
                         // Read the file's contents.
                         fileContents = content ?? this.fileSystem.readFileSync(this._filePath, 'utf8');
 
@@ -521,7 +522,7 @@ export class SourceFile {
                         this._lastFileContentLength = fileContents.length;
                         this._lastFileContentHash = StringUtils.hashString(fileContents);
                     });
-                    logState.add(`fs read ${elapsedTime}ms`);
+                    logState.add(`fs read ${timingStats.readFileTime.totalTime - startTime}ms`);
                 } catch (error) {
                     diagSink.addError(`Source file could not be read`, getEmptyRange());
                     fileContents = '';

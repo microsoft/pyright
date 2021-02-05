@@ -1057,6 +1057,11 @@ export class AnalyzerService {
                         this._console.info(`SourceFile: Received fs event '${event}' for path '${path}'`);
                     }
 
+                    // Wholesale ignore events that appear to be from tmp file modification.
+                    if (path.endsWith('.tmp')) {
+                        return;
+                    }
+
                     let stats: Stats | undefined;
                     try {
                         stats = this._fs.statSync(path);
@@ -1064,14 +1069,14 @@ export class AnalyzerService {
                         stats = undefined;
                     }
 
-                    if (stats && stats.isFile() && !path.endsWith('py') && !path.endsWith('pyi')) {
+                    if (stats && stats.isFile() && !path.endsWith('.py') && !path.endsWith('.pyi')) {
                         return;
                     }
 
                     // Delete comes in as a change event, so try to distinguish here.
                     if (event === 'change' && stats) {
-                        this._backgroundAnalysisProgram.markFilesDirty([path], false);
-                        this._scheduleReanalysis(false);
+                        this._backgroundAnalysisProgram.markFilesDirty([path], /* evenIfContentsAreSame */ false);
+                        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
                     } else {
                         // Determine if this is an add or delete event related to a temporary
                         // file. Some tools (like auto-formatters) create temporary files
@@ -1090,8 +1095,8 @@ export class AnalyzerService {
                         if (!isTemporaryFile) {
                             // Added/deleted/renamed files impact imports,
                             // clear the import resolver cache and reanalyze everything.
-                            this.invalidateAndForceReanalysis(false);
-                            this._scheduleReanalysis(true);
+                            this.invalidateAndForceReanalysis(/* rebuildLibraryIndexing */ false);
+                            this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
                         }
                     }
                 });

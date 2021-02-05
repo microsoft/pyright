@@ -67,7 +67,8 @@ import { SourceFile } from './sourceFile';
 import { SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
-import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
+import { TypeEvaluator } from './typeEvaluator';
+import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { Type } from './types';
 import { TypeStubWriter } from './typeStubWriter';
@@ -662,7 +663,7 @@ export class Program {
     }
 
     private _createNewEvaluator() {
-        this._evaluator = createTypeEvaluator(this._lookUpImport, {
+        this._evaluator = createTypeEvaluatorWithTracker(this._lookUpImport, {
             disableInferenceForPyTypedSources: this._configOptions.disableInferenceForPyTypedSources,
             printTypeFlags: Program._getPrintTypeFlags(this._configOptions),
         });
