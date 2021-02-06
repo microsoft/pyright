@@ -12688,6 +12688,16 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         }
 
         const aliasNode = node.alias || node.name;
+        const fileInfo = getFileInfo(node);
+
+        // If this is a redundant form of an import, assume it is an intentional
+        // export and mark the symbol as accessed.
+        if (node.alias?.value === node.name.value) {
+            const symbolInScope = lookUpSymbolRecursive(node, node.name.value, /* honorCodeFlow */ true);
+            if (symbolInScope) {
+                setSymbolAccessed(fileInfo, symbolInScope.symbol, node);
+            }
+        }
 
         let symbolType = getAliasedSymbolTypeForName(node, aliasNode.value);
         if (!symbolType) {
@@ -12700,7 +12710,6 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                 const resolvedPath = importInfo.resolvedPaths[importInfo.resolvedPaths.length - 1];
 
                 const importLookupInfo = importLookup(resolvedPath);
-                const fileInfo = getFileInfo(node);
                 let reportError = false;
 
                 // If we were able to resolve the import, report the error as
