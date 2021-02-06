@@ -966,10 +966,16 @@ test('Loops6', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
-test('ForLoops1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoops1.py']);
+test('ForLoop1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoop1.py']);
 
     TestUtils.validateResults(analysisResults, 2);
+});
+
+test('ForLoop2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['forLoop2.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('ListComprehension1', () => {

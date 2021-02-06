@@ -271,7 +271,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportSelfClsParameterName                | "none"     | "warning"  | "error"    |
 | reportImplicitStringConcatenation         | "none"     | "none"     | "none"     |
 | reportUndefinedVariable                   | "warning"  | "error"    | "error"    |
-| reportUnboundVariable                     | "warning"  | "error"    | "error"    |
+| reportUnboundVariable                     | "none"     | "error"    | "error"    |
 | reportInvalidStubStatement                | "none"     | "none"     | "error"    |
 | reportUnsupportedDunderAll                | "none"     | "warning"  | "error"    |
 | reportUnusedCallResult                    | "none"     | "none"     | "none"     |

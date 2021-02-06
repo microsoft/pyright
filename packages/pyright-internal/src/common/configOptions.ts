@@ -369,7 +369,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportAssertAlwaysTrue: 'none',
         reportSelfClsParameterName: 'none',
         reportImplicitStringConcatenation: 'none',
-        reportUnboundVariable: 'warning',
+        reportUnboundVariable: 'none',
         reportUndefinedVariable: 'warning',
         reportInvalidStubStatement: 'none',
         reportUnsupportedDunderAll: 'none',
