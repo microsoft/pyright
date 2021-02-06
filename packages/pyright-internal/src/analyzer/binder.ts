@@ -882,7 +882,6 @@ export class Binder extends ParseTreeWalker {
         this._currentFlowNode = preForLabel;
         this._addAntecedent(preElseLabel, this._currentFlowNode);
         this._createAssignmentTargetFlowNodes(node.targetExpression, /* walkTargets */ true, /* unbound */ false);
-        this._addAntecedent(postForLabel, this._currentFlowNode!);
 
         this._bindLoopStatement(preForLabel, postForLabel, () => {
             this.walk(node.forSuite);
@@ -892,17 +891,8 @@ export class Binder extends ParseTreeWalker {
         this._currentFlowNode = this._finishFlowLabel(preElseLabel);
         if (node.elseSuite) {
             this.walk(node.elseSuite);
-
-            // This antecedent should properly be added regardless
-            // of whether an "else" suite is present because a for
-            // loop can execute 0 times, in which case the target
-            // expression will not receive any values, leaving symbols
-            // potentially unbound after the for statement. However,
-            // we received many complains from users about false
-            // positive errors about unbound variables. So we'll add
-            // this antecedent only if an else suite is present.
-            this._addAntecedent(postForLabel, this._currentFlowNode);
         }
+        this._addAntecedent(postForLabel, this._currentFlowNode);
 
         this._currentFlowNode = this._finishFlowLabel(postForLabel);
 
