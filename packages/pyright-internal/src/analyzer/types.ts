@@ -998,16 +998,19 @@ export namespace FunctionType {
         delete newFunction.details.paramSpec;
 
         if (paramTypes) {
-            newFunction.details.parameters = paramTypes.map((specEntry, index) => {
-                return {
-                    category: specEntry.category,
-                    name: specEntry.name,
-                    hasDefault: specEntry.hasDefault,
-                    isNameSynthesized: false,
-                    hasDeclaredType: true,
-                    type: specEntry.type,
-                };
-            });
+            newFunction.details.parameters = [
+                ...type.details.parameters,
+                ...paramTypes.map((specEntry) => {
+                    return {
+                        category: specEntry.category,
+                        name: specEntry.name,
+                        hasDefault: specEntry.hasDefault,
+                        isNameSynthesized: false,
+                        hasDeclaredType: true,
+                        type: specEntry.type,
+                    };
+                }),
+            ];
         }
 
         return newFunction;
