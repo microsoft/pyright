@@ -559,13 +559,7 @@ export function isLiteralType(type: Type, allowLiteralUnions = true): boolean {
 }
 
 export function isEllipsisType(type: Type): boolean {
-    // Ellipses are translated into both a special form of "Any" or
-    // a distinct class depending on the context.
-    if (isAny(type) && type.isEllipsis) {
-        return true;
-    }
-
-    return isClass(type) && ClassType.isBuiltIn(type, 'ellipsis');
+    return isAny(type) && type.isEllipsis;
 }
 
 export function isNoReturnType(type: Type): boolean {
