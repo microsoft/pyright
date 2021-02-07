@@ -14226,7 +14226,13 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     const arg0Expr = testExpression.arguments[0].valueExpression;
                     const arg1Expr = testExpression.arguments[1].valueExpression;
                     if (ParseTreeUtils.isMatchingExpression(reference, arg0Expr)) {
-                        const arg1Type = getTypeForExpressionExpectingType(arg1Expr);
+                        const arg1Type = getTypeOfExpression(
+                            arg1Expr,
+                            undefined,
+                            EvaluatorFlags.EvaluateStringLiteralAsType |
+                                EvaluatorFlags.ParamSpecDisallowed |
+                                EvaluatorFlags.TypeVarTupleDisallowed
+                        ).type;
                         const classTypeList = getIsInstanceClassTypes(arg1Type);
                         if (classTypeList) {
                             return (type: Type) => {
