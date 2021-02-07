@@ -14,12 +14,10 @@ import {
     combineTypes,
     EnumLiteral,
     FunctionType,
-    isAny,
     isAnyOrUnknown,
     isClass,
     isObject,
     isUnion,
-    isUnknown,
     isVariadicTypeVar,
     maxTypeRecursionCount,
     ObjectType,
@@ -48,6 +46,10 @@ export const enum PrintTypeFlags {
 
     // Print Union and Optional in PEP 604 format.
     PEP604 = 1 << 3,
+
+    // Include a parentheses around a union if there's more than
+    // one subtype.
+    ParenthesizeUnion = 1 << 4,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -59,6 +61,9 @@ export function printType(
     expandTypeAlias = false,
     recursionCount = 0
 ): string {
+    const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
+    printTypeFlags &= ~PrintTypeFlags.ParenthesizeUnion;
+
     if (recursionCount >= maxTypeRecursionCount) {
         return '...';
     }
@@ -321,7 +326,11 @@ export function printType(
             }
 
             if (printTypeFlags & PrintTypeFlags.PEP604) {
-                return dedupedSubtypeStrings.join(' | ');
+                const unionString = dedupedSubtypeStrings.join(' | ');
+                if (parenthesizeUnion) {
+                    return `(${unionString})`;
+                }
+                return unionString;
             }
 
             return `Union[${dedupedSubtypeStrings.join(', ')}]`;
@@ -609,7 +618,13 @@ export function printFunctionParts(
     const returnType = returnTypeCallback(type);
     let returnTypeString =
         recursionCount < maxTypeRecursionCount
-            ? printType(returnType, printTypeFlags, returnTypeCallback, /* expandTypeAlias */ false, recursionCount + 1)
+            ? printType(
+                  returnType,
+                  printTypeFlags | PrintTypeFlags.ParenthesizeUnion,
+                  returnTypeCallback,
+                  /* expandTypeAlias */ false,
+                  recursionCount + 1
+              )
             : '';
 
     if (printTypeFlags & PrintTypeFlags.PEP604 && isUnion(returnType) && recursionCount > 0) {
