@@ -235,14 +235,6 @@ export function printType(
                 subtypes.push(subtype);
             });
 
-            // If we're printing "Unknown" as "Any", remove redundant
-            // unknowns so we don't see two Any's appear in the union.
-            if ((printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0) {
-                if (subtypes.some((t) => isAny(t))) {
-                    subtypes = subtypes.filter((t) => !isUnknown(t));
-                }
-            }
-
             // If one or more subtypes are pseudo-generic, remove any other pseudo-generics
             // of the same type because we don't print type arguments for pseudo-generic
             // types, and we'll end up displaying seemingly-duplicated types.
@@ -313,15 +305,26 @@ export function printType(
                 }
             }
 
-            if (subtypeStrings.length === 1) {
-                return subtypeStrings[0];
+            // Remove any duplicates, which can happen if we're replacing
+            // Unknown with Any or are hiding type arguments.
+            const redundancyMap = new Map<string, string>();
+            const dedupedSubtypeStrings: string[] = [];
+            subtypeStrings.forEach((subtype) => {
+                if (!redundancyMap.has(subtype)) {
+                    dedupedSubtypeStrings.push(subtype);
+                    redundancyMap.set(subtype, subtype);
+                }
+            });
+
+            if (dedupedSubtypeStrings.length === 1) {
+                return dedupedSubtypeStrings[0];
             }
 
             if (printTypeFlags & PrintTypeFlags.PEP604) {
-                return subtypeStrings.join(' | ');
+                return dedupedSubtypeStrings.join(' | ');
             }
 
-            return `Union[${subtypeStrings.join(', ')}]`;
+            return `Union[${dedupedSubtypeStrings.join(', ')}]`;
         }
 
         case TypeCategory.TypeVar: {
