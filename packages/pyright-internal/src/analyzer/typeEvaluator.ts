@@ -14393,8 +14393,9 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
                     // we're filtering against 'dict'. TypedDict isn't derived from dict,
                     // but at runtime, isinstance returns True.
                     const filterIsSuperclass =
-                        ClassType.isDerivedFrom(varType, concreteFilterType) ||
-                        (ClassType.isBuiltIn(concreteFilterType, 'dict') && ClassType.isTypedDictClass(varType));
+                        !isTypeVar(filterType) &&
+                        (ClassType.isDerivedFrom(varType, concreteFilterType) ||
+                            (ClassType.isBuiltIn(concreteFilterType, 'dict') && ClassType.isTypedDictClass(varType)));
                     const filterIsSubclass = ClassType.isDerivedFrom(concreteFilterType, varType);
 
                     if (filterIsSuperclass) {
