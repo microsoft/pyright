@@ -22,5 +22,5 @@ def func2(klass: Type[T], obj: Union[T, int]) -> T:
     return obj
 
 
-v2 = func1(str, 3)
+v2 = func2(str, 3)
 t_v2: Literal["str"] = reveal_type(v2)
