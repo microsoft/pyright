@@ -1458,7 +1458,7 @@ test('UnusedCallResult1', () => {
     // Enable it as an error.
     configOptions.diagnosticRuleSet.reportUnusedCallResult = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['unusedCallResult1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 4);
 });
 
 test('UnusedCoroutine1', () => {
