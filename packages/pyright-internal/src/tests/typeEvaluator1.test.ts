@@ -1316,3 +1316,43 @@ test('VariadicTypeVar8', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar8.py'], configOptions);
     TestUtils.validateResults(analysisResults, 4);
 });
+
+test('Match1', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match1.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 10);
+});
+
+test('Match2', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match2.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Match3', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match3.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Match4', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match4.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
+
+test('Match5', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});

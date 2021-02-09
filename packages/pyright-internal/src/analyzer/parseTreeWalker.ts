@@ -18,6 +18,7 @@ import {
     BinaryOperationNode,
     BreakNode,
     CallNode,
+    CaseNode,
     ClassNode,
     ConstantNode,
     ContinueNode,
@@ -45,6 +46,7 @@ import {
     ListComprehensionIfNode,
     ListComprehensionNode,
     ListNode,
+    MatchNode,
     MemberAccessNode,
     ModuleNameNode,
     ModuleNode,
@@ -56,6 +58,16 @@ import {
     ParseNodeArray,
     ParseNodeType,
     PassNode,
+    PatternAsNode,
+    PatternCaptureNode,
+    PatternClassArgumentNode,
+    PatternClassNode,
+    PatternLiteralNode,
+    PatternMappingExpandEntryNode,
+    PatternMappingKeyEntryNode,
+    PatternMappingNode,
+    PatternSequenceNode,
+    PatternValueNode,
     RaiseNode,
     ReturnNode,
     SetNode,
@@ -153,6 +165,12 @@ export class ParseTreeWalker {
             case ParseNodeType.Call:
                 if (this.visitCall(node)) {
                     return [node.leftExpression, ...node.arguments];
+                }
+                break;
+
+            case ParseNodeType.Case:
+                if (this.visitCase(node)) {
+                    return [node.pattern, node.guardExpression, node.suite];
                 }
                 break;
 
@@ -331,6 +349,12 @@ export class ParseTreeWalker {
                 }
                 break;
 
+            case ParseNodeType.Match:
+                if (this.visitMatch(node)) {
+                    return [node.subjectExpression, ...node.cases];
+                }
+                break;
+
             case ParseNodeType.MemberAccess:
                 if (this.visitMemberAccess(node)) {
                     return [node.leftExpression, node.memberName];
@@ -376,6 +400,66 @@ export class ParseTreeWalker {
             case ParseNodeType.Pass:
                 if (this.visitPass(node)) {
                     return [];
+                }
+                break;
+
+            case ParseNodeType.PatternCapture:
+                if (this.visitPatternCapture(node)) {
+                    return [node.target];
+                }
+                break;
+
+            case ParseNodeType.PatternClass:
+                if (this.visitPatternClass(node)) {
+                    return [node.className, ...node.arguments];
+                }
+                break;
+
+            case ParseNodeType.PatternClassArgument:
+                if (this.visitPatternClassArgument(node)) {
+                    return [node.name, node.pattern];
+                }
+                break;
+
+            case ParseNodeType.PatternAs:
+                if (this.visitPatternAs(node)) {
+                    return [...node.orPatterns, node.target];
+                }
+                break;
+
+            case ParseNodeType.PatternLiteral:
+                if (this.visitPatternLiteral(node)) {
+                    return [node.expression];
+                }
+                break;
+
+            case ParseNodeType.PatternMapping:
+                if (this.visitPatternMapping(node)) {
+                    return [...node.entries];
+                }
+                break;
+
+            case ParseNodeType.PatternMappingKeyEntry:
+                if (this.visitPatternMappingKeyEntry(node)) {
+                    return [node.keyPattern, node.valuePattern];
+                }
+                break;
+
+            case ParseNodeType.PatternMappingExpandEntry:
+                if (this.visitPatternMappingExpandEntry(node)) {
+                    return [node.target];
+                }
+                break;
+
+            case ParseNodeType.PatternSequence:
+                if (this.visitPatternSequence(node)) {
+                    return [...node.entries];
+                }
+                break;
+
+            case ParseNodeType.PatternValue:
+                if (this.visitPatternValue(node)) {
+                    return [node.expression];
                 }
                 break;
 
@@ -532,6 +616,10 @@ export class ParseTreeWalker {
         return true;
     }
 
+    visitCase(node: CaseNode) {
+        return true;
+    }
+
     visitClass(node: ClassNode) {
         return true;
     }
@@ -644,6 +732,10 @@ export class ParseTreeWalker {
         return true;
     }
 
+    visitMatch(node: MatchNode) {
+        return true;
+    }
+
     visitMemberAccess(node: MemberAccessNode) {
         return true;
     }
@@ -673,6 +765,46 @@ export class ParseTreeWalker {
     }
 
     visitPass(node: PassNode) {
+        return true;
+    }
+
+    visitPatternCapture(node: PatternCaptureNode) {
+        return true;
+    }
+
+    visitPatternClass(node: PatternClassNode) {
+        return true;
+    }
+
+    visitPatternClassArgument(node: PatternClassArgumentNode) {
+        return true;
+    }
+
+    visitPatternAs(node: PatternAsNode) {
+        return true;
+    }
+
+    visitPatternLiteral(node: PatternLiteralNode) {
+        return true;
+    }
+
+    visitPatternMappingExpandEntry(node: PatternMappingExpandEntryNode) {
+        return true;
+    }
+
+    visitPatternSequence(node: PatternSequenceNode) {
+        return true;
+    }
+
+    visitPatternValue(node: PatternValueNode) {
+        return true;
+    }
+
+    visitPatternMappingKeyEntry(node: PatternMappingKeyEntryNode) {
+        return true;
+    }
+
+    visitPatternMapping(node: PatternMappingNode) {
         return true;
     }
 

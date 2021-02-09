@@ -49,6 +49,7 @@ import {
     ImportFromNode,
     LambdaNode,
     ListComprehensionNode,
+    MatchNode,
     MemberAccessNode,
     ModuleNameNode,
     ModuleNode,
@@ -56,6 +57,9 @@ import {
     NonlocalNode,
     ParseNode,
     ParseNodeType,
+    PatternAsNode,
+    PatternCaptureNode,
+    PatternMappingExpandEntryNode,
     RaiseNode,
     ReturnNode,
     StatementNode,
@@ -1778,6 +1782,120 @@ export class Binder extends ParseTreeWalker {
         });
 
         return false;
+    }
+
+    visitMatch(node: MatchNode) {
+        // Evaluate the subject expression.
+        this.walk(node.subjectExpression);
+
+        const postMatchLabel = this._createBranchLabel();
+
+        // Model the match statement as a series of if/elif clauses
+        // each of which tests for the specified pattern (and optionally
+        // for the guard condition).
+        node.cases.forEach((caseStatement) => {
+            const postCaseLabel = this._createBranchLabel();
+            const preGuardLabel = this._createBranchLabel();
+            const preSuiteLabel = this._createBranchLabel();
+
+            // Evaluate the pattern.
+            this._addAntecedent(preGuardLabel, this._currentFlowNode!);
+
+            const isWildcardPattern =
+                caseStatement.pattern.nodeType === ParseNodeType.PatternAs &&
+                caseStatement.pattern.orPatterns.length === 1 &&
+                caseStatement.pattern.orPatterns[0].nodeType === ParseNodeType.PatternCapture &&
+                caseStatement.pattern.orPatterns[0].isWildcard;
+
+            if (!isWildcardPattern) {
+                this._addAntecedent(postCaseLabel, this._currentFlowNode!);
+            }
+
+            this._currentFlowNode = this._finishFlowLabel(preGuardLabel);
+
+            // Bind the pattern.
+            this.walk(caseStatement.pattern);
+
+            // Apply the guard expression.
+            if (caseStatement.guardExpression) {
+                this._bindConditional(caseStatement.guardExpression, preSuiteLabel, postCaseLabel);
+            } else {
+                this._addAntecedent(preSuiteLabel, this._currentFlowNode);
+            }
+
+            this._currentFlowNode = this._finishFlowLabel(preSuiteLabel);
+
+            // Bind the body of the case statement.
+            this.walk(caseStatement.suite);
+            this._addAntecedent(postMatchLabel, this._currentFlowNode);
+
+            this._currentFlowNode = this._finishFlowLabel(postCaseLabel);
+        });
+
+        this._addAntecedent(postMatchLabel, this._currentFlowNode!);
+        this._currentFlowNode = this._finishFlowLabel(postMatchLabel);
+
+        return false;
+    }
+
+    visitPatternAs(node: PatternAsNode) {
+        if (node.target) {
+            const symbol = this._bindNameToScope(this._currentScope, node.target.value);
+            this._createAssignmentTargetFlowNodes(node.target, /* walkTargets */ false, /* unbound */ false);
+
+            if (symbol) {
+                const declaration: VariableDeclaration = {
+                    type: DeclarationType.Variable,
+                    node: node.target,
+                    isConstant: isConstantName(node.target.value),
+                    inferredTypeSource: node,
+                    path: this._fileInfo.filePath,
+                    range: convertOffsetsToRange(
+                        node.target.start,
+                        TextRange.getEnd(node.target),
+                        this._fileInfo.lines
+                    ),
+                    moduleName: this._fileInfo.moduleName,
+                };
+                symbol.addDeclaration(declaration);
+            }
+        }
+
+        return true;
+    }
+
+    visitPatternCapture(node: PatternCaptureNode) {
+        if (!node.isWildcard) {
+            this._addPatternCaptureTarget(node.target);
+        }
+
+        return true;
+    }
+
+    visitPatternMappingExpandEntry(node: PatternMappingExpandEntryNode) {
+        if (node.target.value !== '_') {
+            this._addPatternCaptureTarget(node.target);
+        }
+
+        return true;
+    }
+
+    private _addPatternCaptureTarget(target: NameNode) {
+        const symbol = this._bindNameToScope(this._currentScope, target.value);
+        this._createAssignmentTargetFlowNodes(target, /* walkTargets */ false, /* unbound */ false);
+
+        if (symbol) {
+            const declaration: VariableDeclaration = {
+                type: DeclarationType.Variable,
+                node: target,
+                isConstant: isConstantName(target.value),
+                inferredTypeSource: target.parent,
+                path: this._fileInfo.filePath,
+                range: convertOffsetsToRange(target.start, TextRange.getEnd(target), this._fileInfo.lines),
+                moduleName: this._fileInfo.moduleName,
+            };
+            symbol.addDeclaration(declaration);
+        }
     }
 
     private _useExceptTargets(targets: FlowLabel[], callback: () => void) {

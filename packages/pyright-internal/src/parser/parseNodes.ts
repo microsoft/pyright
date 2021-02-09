@@ -91,6 +91,19 @@ export const enum ParseNodeType {
     Yield, // 60
     YieldFrom,
     FunctionAnnotation,
+    Match,
+    Case,
+    PatternSequence,
+    PatternAs,
+    PatternLiteral,
+    PatternClass,
+    PatternCapture,
+
+    PatternMapping, // 70
+    PatternMappingKeyEntry,
+    PatternMappingExpandEntry,
+    PatternValue,
+    PatternClassArgument,
 }
 
 export const enum ErrorExpressionCategory {
@@ -105,6 +118,7 @@ export const enum ErrorExpressionCategory {
     MissingTupleCloseParen,
     MissingListCloseBracket,
     MissingFunctionParameterList,
+    MissingPattern,
 }
 
 export interface ParseNodeBase extends TextRange {
@@ -614,6 +628,7 @@ export type StatementNode =
     | ClassNode
     | WithNode
     | StatementListNode
+    | MatchNode
     | ErrorNode;
 
 export type SmallStatementNode =
@@ -1853,6 +1868,358 @@ export namespace RaiseNode {
     }
 }
 
+export interface MatchNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.Match;
+    subjectExpression: ExpressionNode;
+    cases: CaseNode[];
+}
+
+export namespace MatchNode {
+    export function create(matchToken: TextRange, subjectExpression: ExpressionNode) {
+        const node: MatchNode = {
+            start: matchToken.start,
+            length: matchToken.length,
+            nodeType: ParseNodeType.Match,
+            id: _nextNodeId++,
+            subjectExpression,
+            cases: [],
+        };
+
+        subjectExpression.parent = node;
+
+        extendRange(node, subjectExpression);
+
+        return node;
+    }
+}
+
+export interface CaseNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.Case;
+    pattern: PatternAtomNode;
+    guardExpression?: ExpressionNode;
+    suite: SuiteNode;
+}
+
+export namespace CaseNode {
+    export function create(
+        caseToken: TextRange,
+        pattern: PatternAtomNode,
+        guardExpression: ExpressionNode | undefined,
+        suite: SuiteNode
+    ) {
+        const node: CaseNode = {
+            start: caseToken.start,
+            length: caseToken.length,
+            nodeType: ParseNodeType.Case,
+            id: _nextNodeId++,
+            pattern,
+            guardExpression,
+            suite,
+        };
+
+        extendRange(node, suite);
+
+        pattern.parent = node;
+        suite.parent = node;
+
+        if (guardExpression) {
+            guardExpression.parent = node;
+        }
+
+        return node;
+    }
+}
+
+export interface PatternSequenceNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.PatternSequence;
+    entries: PatternAsNode[];
+    starEntryIndex: number | undefined;
+}
+
+export namespace PatternSequenceNode {
+    export function create(firstToken: TextRange, entries: PatternAsNode[]) {
+        const starEntryIndex = entries.findIndex(
+            (entry) =>
+                entry.orPatterns.length === 1 &&
+                entry.orPatterns[0].nodeType === ParseNodeType.PatternCapture &&
+                entry.orPatterns[0].isStar
+        );
+
+        const node: PatternSequenceNode = {
+            start: firstToken.start,
+            length: firstToken.length,
+            nodeType: ParseNodeType.PatternSequence,
+            id: _nextNodeId++,
+            entries,
+            starEntryIndex: starEntryIndex >= 0 ? starEntryIndex : undefined,
+        };
+
+        if (entries.length > 0) {
+            extendRange(node, entries[entries.length - 1]);
+        }
+
+        entries.forEach((entry) => {
+            entry.parent = node;
+        });
+
+        return node;
+    }
+}
+
+export interface PatternAsNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.PatternAs;
+    orPatterns: PatternAtomNode[];
+    target?: NameNode;
+}
+
+export namespace PatternAsNode {
+    export function create(orPatterns: PatternAtomNode[], target?: NameNode) {
+        const node: PatternAsNode = {
+            start: orPatterns[0].start,
+            length: orPatterns[0].length,
+            nodeType: ParseNodeType.PatternAs,
+            id: _nextNodeId++,
+            orPatterns,
+            target,
+        };
+
+        if (orPatterns.length > 1) {
+            extendRange(node, orPatterns[orPatterns.length - 1]);
+        }
+
+        orPatterns.forEach((pattern) => {
+            pattern.parent = node;
+        });
+
+        if (target) {
+            extendRange(node, target);
+            target.parent = node;
+        }
+
+        return node;
+    }
+}
+
+export interface PatternLiteralNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.PatternLiteral;
+    expression: ExpressionNode;
+}
+
+export namespace PatternLiteralNode {
+    export function create(expression: ExpressionNode) {
+        const node: PatternLiteralNode = {
+            start: expression.start,
+            length: expression.length,
+            nodeType: ParseNodeType.PatternLiteral,
+            id: _nextNodeId++,
+            expression,
+        };
+
+        expression.parent = node;
+
+        return node;
+    }
+}
+
+export interface PatternClassNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.PatternClass;
+    className: NameNode | MemberAccessNode;
+    arguments: PatternClassArgumentNode[];
+}
+
+export namespace PatternClassNode {
+    export function create(className: NameNode | MemberAccessNode, args: PatternClassArgumentNode[]) {
+        const node: PatternClassNode = {
+            start: className.start,
+            length: className.length,
+            nodeType: ParseNodeType.PatternClass,
+            id: _nextNodeId++,
+            className,
+            arguments: args,
+        };
+
+        className.parent = node;
+        args.forEach((arg) => {
+            arg.parent = node;
+        });
+
+        if (args.length > 0) {
+            extendRange(node, args[args.length - 1]);
+        }
+
+        return node;
+    }
+}
+
+export interface PatternClassArgumentNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.PatternClassArgument;
+    name?: NameNode;
+    pattern: PatternAsNode;
+}
+
+export namespace PatternClassArgumentNode {
+    export function create(pattern: PatternAsNode, name?: NameNode) {
+        const node: PatternClassArgumentNode = {
+            start: pattern.start,
+            length: pattern.length,
+            nodeType: ParseNodeType.PatternClassArgument,
+            id: _nextNodeId++,
+            pattern,
+            name,
+        };
+
+        pattern.parent = node;
+
+        if (name) {
+            extendRange(node, name);
+            name.parent = node;
+        }
+
+        return node;
+    }
+}
+
+export interface PatternCaptureNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.PatternCapture;
+    target: NameNode;
+    isStar: boolean;
+    isWildcard: boolean;
+}
+
+export namespace PatternCaptureNode {
+    export function create(target: NameNode, starToken?: TextRange) {
+        const node: PatternCaptureNode = {
+            start: target.start,
+            length: target.length,
+            nodeType: ParseNodeType.PatternCapture,
+            id: _nextNodeId++,
+            target,
+            isStar: starToken !== undefined,
+            isWildcard: target.value === '_',
+        };
+
+        target.parent = node;
+
+        if (starToken) {
+            extendRange(node, starToken);
+        }
+
+        return node;
+    }
+}
+
+export interface PatternMappingNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.PatternMapping;
+    entries: PatternMappingEntryNode[];
+}
+
+export namespace PatternMappingNode {
+    export function create(startToken: TextRange, entries: PatternMappingEntryNode[]) {
+        const node: PatternMappingNode = {
+            start: startToken.start,
+            length: startToken.length,
+            nodeType: ParseNodeType.PatternMapping,
+            id: _nextNodeId++,
+            entries,
+        };
+
+        if (entries.length > 0) {
+            extendRange(node, entries[entries.length - 1]);
+        }
+
+        entries.forEach((entry) => {
+            entry.parent = node;
+        });
+
+        return node;
+    }
+}
+
+export type PatternMappingEntryNode = PatternMappingKeyEntryNode | PatternMappingExpandEntryNode;
+
+export interface PatternMappingKeyEntryNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.PatternMappingKeyEntry;
+    keyPattern: PatternLiteralNode | PatternValueNode | ErrorNode;
+    valuePattern: PatternAsNode | ErrorNode;
+}
+
+export namespace PatternMappingKeyEntryNode {
+    export function create(
+        keyPattern: PatternLiteralNode | PatternValueNode | ErrorNode,
+        valuePattern: PatternAsNode | ErrorNode
+    ) {
+        const node: PatternMappingKeyEntryNode = {
+            start: keyPattern.start,
+            length: keyPattern.length,
+            nodeType: ParseNodeType.PatternMappingKeyEntry,
+            id: _nextNodeId++,
+            keyPattern,
+            valuePattern,
+        };
+
+        keyPattern.parent = node;
+        valuePattern.parent = node;
+
+        extendRange(node, valuePattern);
+
+        return node;
+    }
+}
+
+export interface PatternMappingExpandEntryNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.PatternMappingExpandEntry;
+    target: NameNode;
+}
+
+export namespace PatternMappingExpandEntryNode {
+    export function create(starStarToken: TextRange, target: NameNode) {
+        const node: PatternMappingExpandEntryNode = {
+            start: starStarToken.start,
+            length: starStarToken.length,
+            nodeType: ParseNodeType.PatternMappingExpandEntry,
+            id: _nextNodeId++,
+            target,
+        };
+
+        target.parent = node;
+
+        extendRange(node, target);
+
+        return node;
+    }
+}
+
+export interface PatternValueNode extends ParseNodeBase {
+    readonly nodeType: ParseNodeType.PatternValue;
+    expression: MemberAccessNode;
+}
+
+export namespace PatternValueNode {
+    export function create(expression: MemberAccessNode) {
+        const node: PatternValueNode = {
+            start: expression.start,
+            length: expression.length,
+            nodeType: ParseNodeType.PatternValue,
+            id: _nextNodeId++,
+            expression,
+        };
+
+        expression.parent = node;
+
+        return node;
+    }
+}
+
+export type PatternAtomNode =
+    | PatternSequenceNode
+    | PatternLiteralNode
+    | PatternClassNode
+    | PatternAsNode
+    | PatternCaptureNode
+    | PatternMappingNode
+    | PatternValueNode
+    | ErrorNode;
+
 export type ParseNode =
     | ErrorNode
     | ArgumentNode
@@ -1864,6 +2231,7 @@ export type ParseNode =
     | BinaryOperationNode
     | BreakNode
     | CallNode
+    | CaseNode
     | ClassNode
     | ConstantNode
     | ContinueNode
@@ -1891,6 +2259,7 @@ export type ParseNode =
     | ListComprehensionNode
     | ListComprehensionForNode
     | ListComprehensionIfNode
+    | MatchNode
     | MemberAccessNode
     | ModuleNameNode
     | ModuleNode
@@ -1899,6 +2268,16 @@ export type ParseNode =
     | NumberNode
     | ParameterNode
     | PassNode
+    | PatternAsNode
+    | PatternClassNode
+    | PatternClassArgumentNode
+    | PatternCaptureNode
+    | PatternLiteralNode
+    | PatternMappingExpandEntryNode
+    | PatternMappingKeyEntryNode
+    | PatternMappingNode
+    | PatternSequenceNode
+    | PatternValueNode
     | RaiseNode
     | ReturnNode
     | SetNode

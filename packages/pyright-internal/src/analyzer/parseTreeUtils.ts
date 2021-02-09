@@ -1389,6 +1389,42 @@ export function printParseNodeType(type: ParseNodeType) {
 
         case ParseNodeType.FunctionAnnotation:
             return 'FunctionAnnotation';
+
+        case ParseNodeType.Match:
+            return 'Match';
+
+        case ParseNodeType.Case:
+            return 'Case';
+
+        case ParseNodeType.PatternSequence:
+            return 'PatternSequence';
+
+        case ParseNodeType.PatternAs:
+            return 'PatternAs';
+
+        case ParseNodeType.PatternLiteral:
+            return 'PatternLiteral';
+
+        case ParseNodeType.PatternClass:
+            return 'PatternClass';
+
+        case ParseNodeType.PatternCapture:
+            return 'PatternCapture';
+
+        case ParseNodeType.PatternMapping:
+            return 'PatternMapping';
+
+        case ParseNodeType.PatternMappingKeyEntry:
+            return 'PatternMappingKeyEntry';
+
+        case ParseNodeType.PatternMappingExpandEntry:
+            return 'PatternMappingExpandEntry';
+
+        case ParseNodeType.PatternValue:
+            return 'PatternValue';
+
+        case ParseNodeType.PatternClassArgument:
+            return 'PatternClassArgument';
     }
 
     assertNever(type);

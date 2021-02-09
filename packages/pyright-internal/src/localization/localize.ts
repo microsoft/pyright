@@ -252,6 +252,10 @@ export namespace Localizer {
         export const duplicateNameOnly = () => getRawString('Diagnostic.duplicateNameOnly');
         export const duplicateParam = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.duplicateParam'));
+        export const duplicateCapturePatternTarget = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.duplicateCapturePatternTarget'));
+        export const duplicateStarPattern = () => getRawString('Diagnostic.duplicateStarPattern');
+        export const duplicateStarStarPattern = () => getRawString('Diagnostic.duplicateStarStarPattern');
         export const duplicatePositionOnly = () => getRawString('Diagnostic.duplicatePositionOnly');
         export const duplicateUnpack = () => getRawString('Diagnostic.duplicateUnpack');
         export const ellipsisContext = () => getRawString('Diagnostic.ellipsisContext');
@@ -268,11 +272,13 @@ export namespace Localizer {
         export const expectedAssignRightHandExpr = () => getRawString('Diagnostic.expectedAssignRightHandExpr');
         export const expectedBinaryRightHandExpr = () => getRawString('Diagnostic.expectedBinaryRightHandExpr');
         export const expectedBoolLiteral = () => getRawString('Diagnostic.expectedBoolLiteral');
+        export const expectedCase = () => getRawString('Diagnostic.expectedCase');
         export const expectedClassName = () => getRawString('Diagnostic.expectedClassName');
         export const expectedCloseBracket = () => getRawString('Diagnostic.expectedCloseBracket');
         export const expectedCloseBrace = () => getRawString('Diagnostic.expectedCloseBrace');
         export const expectedCloseParen = () => getRawString('Diagnostic.expectedCloseParen');
         export const expectedColon = () => getRawString('Diagnostic.expectedColon');
+        export const expectedComplexNumberLiteral = () => getRawString('Diagnostic.expectedComplexNumberLiteral');
         export const expectedDecoratorExpr = () => getRawString('Diagnostic.expectedDecoratorExpr');
         export const expectedDecoratorName = () => getRawString('Diagnostic.expectedDecoratorName');
         export const expectedDecoratorNewline = () => getRawString('Diagnostic.expectedDecoratorNewline');
@@ -294,9 +300,12 @@ export namespace Localizer {
         export const expectedModuleName = () => getRawString('Diagnostic.expectedModuleName');
         export const expectedNameAfterAs = () => getRawString('Diagnostic.expectedNameAfterAs');
         export const expectedNamedParameter = () => getRawString('Diagnostic.expectedNamedParameter');
+        export const expectedNewline = () => getRawString('Diagnostic.expectedNewline');
         export const expectedNewlineOrSemicolon = () => getRawString('Diagnostic.expectedNewlineOrSemicolon');
         export const expectedOpenParen = () => getRawString('Diagnostic.expectedOpenParen');
         export const expectedParamName = () => getRawString('Diagnostic.expectedParamName');
+        export const expectedPatternExpr = () => getRawString('Diagnostic.expectedPatternExpr');
+        export const expectedPatternValue = () => getRawString('Diagnostic.expectedPatternValue');
         export const expectedReturnExpr = () => getRawString('Diagnostic.expectedReturnExpr');
         export const expectedSliceIndex = () => getRawString('Diagnostic.expectedSliceIndex');
         export const expectedTypeNotString = () => getRawString('Diagnostic.expectedTypeNotString');
@@ -320,6 +329,7 @@ export namespace Localizer {
         export const formatStringBrace = () => getRawString('Diagnostic.formatStringBrace');
         export const formatStringBytes = () => getRawString('Diagnostic.formatStringBytes');
         export const formatStringEscape = () => getRawString('Diagnostic.formatStringEscape');
+        export const formatStringInPattern = () => getRawString('Diagnostic.formatStringInPattern');
         export const formatStringIllegal = () => getRawString('Diagnostic.formatStringIllegal');
         export const formatStringUnicode = () => getRawString('Diagnostic.formatStringUnicode');
         export const formatStringUnterminated = () => getRawString('Diagnostic.formatStringUnterminated');
@@ -382,6 +392,7 @@ export namespace Localizer {
         export const literalUnsupportedType = () => getRawString('Diagnostic.literalUnsupportedType');
         export const literalEmptyArgs = () => getRawString('Diagnostic.literalEmptyArgs');
         export const literalNotCallable = () => getRawString('Diagnostic.literalNotCallable');
+        export const matchIncompatible = () => getRawString('Diagnostic.matchIncompatible');
         export const memberAccess = () =>
             new ParameterizedString<{ name: string; type: string }>(getRawString('Diagnostic.memberAccess'));
         export const memberDelete = () =>
@@ -526,8 +537,11 @@ export namespace Localizer {
             new ParameterizedString<{ returnType: string }>(getRawString('Diagnostic.returnTypePartiallyUnknown'));
         export const revealLocalsNone = () => getRawString('Diagnostic.revealLocalsNone');
         export const setterGetterTypeMismatch = () => getRawString('Diagnostic.setterGetterTypeMismatch');
+        export const starPatternInAsPattern = () => getRawString('Diagnostic.starPatternInAsPattern');
+        export const starPatternInOrPattern = () => getRawString('Diagnostic.starPatternInOrPattern');
         export const singleOverload = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.singleOverload'));
+        export const starStarWildcardNotAllowed = () => getRawString('Diagnostic.starStarWildcardNotAllowed');
         export const staticClsSelfParam = () => getRawString('Diagnostic.staticClsSelfParam');
         export const stringNonAsciiBytes = () => getRawString('Diagnostic.stringNonAsciiBytes');
         export const stringNotSubscriptable = () => getRawString('Diagnostic.stringNotSubscriptable');
@@ -722,6 +736,7 @@ export namespace Localizer {
             new ParameterizedString<{ exprType: string; yieldType: string }>(
                 getRawString('Diagnostic.yieldTypeMismatch')
             );
+        export const zeroCaseStatementsFound = () => getRawString('Diagnostic.zeroCaseStatementsFound');
         export const zeroLengthTupleNotAllowed = () => getRawString('Diagnostic.zeroLengthTupleNotAllowed');
     }
 

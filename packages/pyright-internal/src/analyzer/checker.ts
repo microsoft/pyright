@@ -27,6 +27,7 @@ import {
     AwaitNode,
     BinaryOperationNode,
     CallNode,
+    CaseNode,
     ClassNode,
     DelNode,
     ErrorNode,
@@ -42,6 +43,7 @@ import {
     isExpressionNode,
     LambdaNode,
     ListComprehensionNode,
+    MatchNode,
     MemberAccessNode,
     ModuleNode,
     NameNode,
@@ -917,6 +919,20 @@ export class Checker extends ParseTreeWalker {
 
     visitTypeAnnotation(node: TypeAnnotationNode): boolean {
         this._evaluator.getType(node.typeAnnotation);
+        return true;
+    }
+
+    visitMatch(node: MatchNode): boolean {
+        this._evaluator.getType(node.subjectExpression);
+        return true;
+    }
+
+    visitCase(node: CaseNode): boolean {
+        if (node.guardExpression) {
+            this._evaluator.getType(node.guardExpression);
+        }
+
+        this._evaluator.evaluateTypesForStatement(node.pattern);
         return true;
     }
 
