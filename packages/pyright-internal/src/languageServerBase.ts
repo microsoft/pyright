@@ -194,7 +194,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     readonly console: ConsoleInterface;
 
     constructor(private _serverOptions: ServerOptions) {
+        // Stash the base directory into a global variable.
+        // This must happen before fs.getModulePath().
+        (global as any).__rootDirectory = _serverOptions.rootDirectory;
+
         this.console = new ConsoleWithLogLevel(this._connection.console);
+        this.console.info(`Server root directory: ${_serverOptions.rootDirectory}`);
 
         this.console.info(
             `${_serverOptions.productName} language server ${
@@ -211,10 +216,6 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         if (moduleDirectory) {
             this.fs.chdir(moduleDirectory);
         }
-
-        // Stash the base directory into a global variable.
-        (global as any).__rootDirectory = _serverOptions.rootDirectory;
-        this.console.info(`Server root directory: ${_serverOptions.rootDirectory}`);
 
         // Create workspace map.
         this._workspaceMap = new WorkspaceMap(this);
