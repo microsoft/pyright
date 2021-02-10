@@ -24,6 +24,7 @@ import {
     AssignmentExpressionNode,
     AssignmentNode,
     AugmentedAssignmentNode,
+    AwaitNode,
     BinaryOperationNode,
     CallNode,
     ClassNode,
@@ -510,13 +511,7 @@ export class Checker extends ParseTreeWalker {
             if (node.parent?.nodeType === ParseNodeType.StatementList) {
                 const returnType = this._evaluator.getType(node);
 
-                if (
-                    returnType &&
-                    !isNone(returnType) &&
-                    !isNoReturnType(returnType) &&
-                    !isNever(returnType) &&
-                    !isAnyOrUnknown(returnType)
-                ) {
+                if (returnType && this._isTypeValidForUnusedValueTest(returnType)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportUnusedCallResult,
                         DiagnosticRule.reportUnusedCallResult,
@@ -534,6 +529,30 @@ export class Checker extends ParseTreeWalker {
                             node
                         );
                     }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    visitAwait(node: AwaitNode) {
+        if (this._fileInfo.diagnosticRuleSet.reportUnusedCallResult !== 'none') {
+            if (
+                node.parent?.nodeType === ParseNodeType.StatementList &&
+                node.expression.nodeType === ParseNodeType.Call
+            ) {
+                const returnType = this._evaluator.getType(node);
+
+                if (returnType && this._isTypeValidForUnusedValueTest(returnType)) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportUnusedCallResult,
+                        DiagnosticRule.reportUnusedCallResult,
+                        Localizer.Diagnostic.unusedCallResult().format({
+                            type: this._evaluator.printType(returnType, /* expandTypeAlias */ false),
+                        }),
+                        node
+                    );
                 }
             }
         }
@@ -910,6 +929,12 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    // Determines whether the specified type is one that should trigger
+    // an "unused" value diagnostic.
+    private _isTypeValidForUnusedValueTest(type: Type) {
+        return !isNone(type) && !isNoReturnType(type) && !isNever(type) && !isAnyOrUnknown(type);
     }
 
     // Verifies that each local type variable is used more than once.
