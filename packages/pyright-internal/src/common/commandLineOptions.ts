@@ -106,4 +106,10 @@ export class CommandLineOptions {
 
     // Use indexing.
     indexing?: boolean;
+
+    // Use type evaluator call tracking
+    logTypeEvaluationTime = false;
+
+    // Minimum threshold for type eval logging
+    typeEvaluationTimeThreshold = 50;
 }

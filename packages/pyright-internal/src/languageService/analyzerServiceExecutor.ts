@@ -46,6 +46,8 @@ function getEffectiveCommandLineOptions(
     commandLineOptions.typeCheckingMode = serverSettings.typeCheckingMode;
     commandLineOptions.autoImportCompletions = serverSettings.autoImportCompletions;
     commandLineOptions.indexing = serverSettings.indexing;
+    commandLineOptions.logTypeEvaluationTime = serverSettings.logTypeEvaluationTime ?? false;
+    commandLineOptions.typeEvaluationTimeThreshold = serverSettings.typeEvaluationTimeThreshold ?? 50;
 
     if (!trackFiles) {
         commandLineOptions.watchForSourceChanges = false;

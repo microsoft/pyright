@@ -22,6 +22,7 @@ import { DiagnosticLevel } from '../common/configOptions';
 import { assert, fail } from '../common/debug';
 import { AddMissingOptionalToParamAction, Diagnostic, DiagnosticAddendum } from '../common/diagnostic';
 import { DiagnosticRule } from '../common/diagnosticRules';
+import { LogTracker } from '../common/logTracker';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import { PythonVersion } from '../common/pythonVersion';
 import { getEmptyRange, TextRange } from '../common/textRange';
@@ -105,6 +106,7 @@ import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
+import { PrintableType, TracePrinter } from './tracePrinter';
 import {
     CachedType,
     IncompleteType,
@@ -619,9 +621,16 @@ const maxSubtypesForInferredType = 64;
 export interface EvaluatorOptions {
     disableInferenceForPyTypedSources: boolean;
     printTypeFlags: TypePrinter.PrintTypeFlags;
+    logCalls: boolean;
+    minimumLoggingThreshold: number;
 }
 
-export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions: EvaluatorOptions): TypeEvaluator {
+export function createTypeEvaluator(
+    importLookup: ImportLookup,
+    evaluatorOptions: EvaluatorOptions,
+    logger: LogTracker,
+    printer?: TracePrinter
+): TypeEvaluator {
     const symbolResolutionStack: SymbolResolutionStackEntry[] = [];
     const isReachableRecursionMap = new Map<number, true>();
     const functionRecursionMap = new Map<number, true>();
@@ -642,6 +651,19 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: TypeCache | undefined;
+
+    function run<T>(title: string, callback: () => T, o: PrintableType): T {
+        return evaluatorOptions.logCalls
+            ? logger.log(
+                  title,
+                  (s) => {
+                      s.add(printer?.print(o));
+                      return callback();
+                  },
+                  evaluatorOptions.minimumLoggingThreshold
+              )
+            : callback();
+    }
 
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T {
         try {
@@ -798,7 +820,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         });
     }
 
-    function getTypeOfExpression(node: ExpressionNode, expectedType?: Type, flags = EvaluatorFlags.None): TypeResult {
+    function getTypeOfExpression(node: ExpressionNode, expectedType?: Type, flags = EvaluatorFlags.None) {
+        return run('getTypeOfExpression', () => getTypeOfExpressionInternal(node, expectedType, flags), node);
+    }
+
+    function getTypeOfExpressionInternal(
+        node: ExpressionNode,
+        expectedType?: Type,
+        flags = EvaluatorFlags.None
+    ): TypeResult {
         // Is this type already cached?
         const cachedType = readTypeCache(node);
         if (cachedType) {
@@ -15528,7 +15558,15 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
         return getEffectiveTypeOfSymbolForUsage(symbol).type;
     }
 
-    function getEffectiveTypeOfSymbolForUsage(
+    function getEffectiveTypeOfSymbolForUsage(symbol: Symbol, usageNode?: NameNode, useLastDecl = false) {
+        return run(
+            'getEffectiveTypeOfSymbolForUsage',
+            () => getEffectiveTypeOfSymbolForUsageInternal(symbol, usageNode, useLastDecl),
+            symbol
+        );
+    }
+
+    function getEffectiveTypeOfSymbolForUsageInternal(
         symbol: Symbol,
         usageNode?: NameNode,
         useLastDecl = false
@@ -15742,6 +15780,10 @@ export function createTypeEvaluator(importLookup: ImportLookup, evaluatorOptions
     }
 
     function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
+        return run('getFunctionInferredReturnType', () => getFunctionInferredReturnTypeInternal(type, args), type);
+    }
+
+    function getFunctionInferredReturnTypeInternal(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
 
         // Don't attempt to infer the return type for a stub file or a py.typed module.

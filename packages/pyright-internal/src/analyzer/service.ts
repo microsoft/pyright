@@ -47,6 +47,7 @@ import {
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
 import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
+import { DefinitionFilter } from '../languageService/definitionProvider';
 import { IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback } from '../languageService/referencesProvider';
@@ -242,9 +243,10 @@ export class AnalyzerService {
     getDefinitionForPosition(
         filePath: string,
         position: Position,
+        filter: DefinitionFilter,
         token: CancellationToken
     ): DocumentRange[] | undefined {
-        return this._program.getDefinitionsForPosition(filePath, position, token);
+        return this._program.getDefinitionsForPosition(filePath, position, filter, token);
     }
 
     reportReferencesForPosition(
@@ -567,6 +569,8 @@ export class AnalyzerService {
         configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
         configOptions.autoImportCompletions = !!commandLineOptions.autoImportCompletions;
         configOptions.indexing = !!commandLineOptions.indexing;
+        configOptions.logTypeEvaluationTime = !!commandLineOptions.logTypeEvaluationTime;
+        configOptions.typeEvaluationTimeThreshold = commandLineOptions.typeEvaluationTimeThreshold;
 
         // If useLibraryCodeForTypes was not specified in the config, allow the settings
         // or command line to override it.
@@ -1049,12 +1053,12 @@ export class AnalyzerService {
 
                 const isIgnored = ignoredWatchEventFunction(fileList);
                 this._sourceFileWatcher = this._fs.createFileSystemWatcher(fileList, (event, path) => {
-                    if (isIgnored(path)) {
-                        return;
-                    }
-
                     if (this._verboseOutput) {
                         this._console.info(`SourceFile: Received fs event '${event}' for path '${path}'`);
+                    }
+
+                    if (isIgnored(path)) {
+                        return;
                     }
 
                     // Wholesale ignore events that appear to be from tmp file modification.
@@ -1140,12 +1144,12 @@ export class AnalyzerService {
                 }
                 const isIgnored = ignoredWatchEventFunction(watchList);
                 this._libraryFileWatcher = this._fs.createFileSystemWatcher(watchList, (event, path) => {
-                    if (isIgnored(path)) {
-                        return;
-                    }
-
                     if (this._verboseOutput) {
                         this._console.info(`LibraryFile: Received fs event '${event}' for path '${path}'}'`);
+                    }
+
+                    if (isIgnored(path)) {
+                        return;
                     }
 
                     this._scheduleLibraryAnalysis();

@@ -574,6 +574,12 @@ export class ConfigOptions {
     // Use indexing.
     indexing = false;
 
+    // Use type evaluator call tracking
+    logTypeEvaluationTime = false;
+
+    // Minimum threshold for type eval logging
+    typeEvaluationTimeThreshold = 50;
+
     // Avoid using type inference for files within packages that claim
     // to contain type annotations?
     disableInferenceForPyTypedSources = true;
@@ -1291,6 +1297,24 @@ export class ConfigOptions {
                 console.error(`Config "indexing" field must be true or false.`);
             } else {
                 this.indexing = configObj.indexing;
+            }
+        }
+
+        // Read the "logTypeEvaluationTime" setting.
+        if (configObj.logTypeEvaluationTime !== undefined) {
+            if (typeof configObj.logTypeEvaluationTime !== 'boolean') {
+                console.error(`Config "logTypeEvaluationTime" field must be true or false.`);
+            } else {
+                this.logTypeEvaluationTime = configObj.logTypeEvaluationTime;
+            }
+        }
+
+        // Read the "typeEvaluationTimeThreshold" setting.
+        if (configObj.typeEvaluationTimeThreshold !== undefined) {
+            if (typeof configObj.typeEvaluationTimeThreshold !== 'number') {
+                console.error(`Config "typeEvaluationTimeThreshold" field must be a number.`);
+            } else {
+                this.typeEvaluationTimeThreshold = configObj.typeEvaluationTimeThreshold;
             }
         }
     }

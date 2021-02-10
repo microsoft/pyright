@@ -7,7 +7,7 @@
  */
 
 import { ConsoleInterface, LogLevel } from './console';
-import { Duration } from './timing';
+import { Duration, timingStats } from './timing';
 
 // Consider an operation "long running" if it goes longer than this.
 const durationThresholdForInfoInMs = 2000;
@@ -19,7 +19,7 @@ export class LogTracker {
 
     constructor(private _console: ConsoleInterface | undefined, private _prefix: string) {}
 
-    log<T>(title: string, callback: (state: LogState) => T, minimalDuration = -1) {
+    log<T>(title: string, callback: (state: LogState) => T, minimalDuration = -1, logParsingPerf = false) {
         // If no console is given, don't do anything.
         if (this._console === undefined) {
             return callback(this._dummyState);
@@ -33,8 +33,6 @@ export class LogTracker {
 
         // Since this is only used when LogLevel.Log or LogLevel.Info is set or BG,
         // we don't care much about extra logging cost.
-        const duration = new Duration();
-
         const current = this._indentation;
         this._previousTitles.push(`${current}${title} ...`);
 
@@ -44,7 +42,7 @@ export class LogTracker {
         try {
             return callback(state);
         } finally {
-            const msDuration = duration.getDurationInMilliseconds();
+            const msDuration = state.duration;
             this._indentation = current;
 
             // if we already printed our header (by nested calls), then it can't be skipped.
@@ -54,7 +52,22 @@ export class LogTracker {
             } else {
                 this._printPreviousTitles();
 
-                this._console.log(`[${this._prefix}] ${this._indentation}${title}${state.get()} (${msDuration}ms)`);
+                let output = `[${this._prefix}] ${this._indentation}${title}${state.get()} (${msDuration}ms)`;
+
+                // Report parsing related perf info only if they occurred.
+                if (
+                    logParsingPerf &&
+                    state.fileReadTotal +
+                        state.tokenizeTotal +
+                        state.parsingTotal +
+                        state.resolveImportsTotal +
+                        state.bindingTotal >
+                        0
+                ) {
+                    output += ` [f:${state.fileReadTotal}, t:${state.tokenizeTotal}, p:${state.parsingTotal}, i:${state.resolveImportsTotal}, b:${state.bindingTotal}]`;
+                }
+
+                this._console.log(output);
 
                 // If the operation took really long, log it as "info" so it is more visible.
                 if (msDuration >= durationThresholdForInfoInMs) {
@@ -81,7 +94,7 @@ export class LogTracker {
 }
 
 export interface LogState {
-    add(_addendum: string): void;
+    add(addendum: string | undefined): void;
     suppress(): void;
 }
 
@@ -89,8 +102,41 @@ class State {
     private _addendum: string | undefined;
     private _suppress: boolean | undefined;
 
-    add(_addendum: string) {
-        this._addendum = _addendum;
+    private _start = new Duration();
+    private _startFile = timingStats.readFileTime.totalTime;
+    private _startToken = timingStats.tokenizeFileTime.totalTime;
+    private _startParse = timingStats.parseFileTime.totalTime;
+    private _startImport = timingStats.resolveImportsTime.totalTime;
+    private _startBind = timingStats.bindTime.totalTime;
+
+    get duration() {
+        return this._start.getDurationInMilliseconds();
+    }
+
+    get fileReadTotal() {
+        return timingStats.readFileTime.totalTime - this._startFile;
+    }
+
+    get tokenizeTotal() {
+        return timingStats.tokenizeFileTime.totalTime - this._startToken;
+    }
+
+    get parsingTotal() {
+        return timingStats.parseFileTime.totalTime - this._startParse;
+    }
+
+    get resolveImportsTotal() {
+        return timingStats.resolveImportsTime.totalTime - this._startImport;
+    }
+
+    get bindingTotal() {
+        return timingStats.bindTime.totalTime - this._startBind;
+    }
+
+    add(addendum: string | undefined) {
+        if (addendum) {
+            this._addendum = addendum;
+        }
     }
 
     get() {

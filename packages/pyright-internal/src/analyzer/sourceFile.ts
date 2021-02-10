@@ -35,7 +35,7 @@ import { timingStats } from '../common/timing';
 import { ModuleSymbolMap } from '../languageService/autoImporter';
 import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
 import { CompletionItemData, CompletionProvider } from '../languageService/completionProvider';
-import { DefinitionProvider } from '../languageService/definitionProvider';
+import { DefinitionFilter, DefinitionProvider } from '../languageService/definitionProvider';
 import { DocumentHighlightProvider } from '../languageService/documentHighlightProvider';
 import { DocumentSymbolProvider, IndexOptions, IndexResults } from '../languageService/documentSymbolProvider';
 import { HoverProvider, HoverResults } from '../languageService/hoverProvider';
@@ -650,6 +650,7 @@ export class SourceFile {
     getDefinitionsForPosition(
         sourceMapper: SourceMapper,
         position: Position,
+        filter: DefinitionFilter,
         evaluator: TypeEvaluator,
         token: CancellationToken
     ): DocumentRange[] | undefined {
@@ -662,6 +663,7 @@ export class SourceFile {
             sourceMapper,
             this._parseResults,
             position,
+            filter,
             evaluator,
             token
         );

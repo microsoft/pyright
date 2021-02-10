@@ -7,7 +7,7 @@
  * Utility routines for traversing a parse tree.
  */
 
-import { fail } from '../common/debug';
+import { assertNever, fail } from '../common/debug';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
@@ -1197,4 +1197,199 @@ export function getCallNodeAndActiveParameterIndex(
 
         return tokens.getItemAt(index);
     }
+}
+
+export function printParseNodeType(type: ParseNodeType) {
+    switch (type) {
+        case ParseNodeType.Error:
+            return 'Error';
+
+        case ParseNodeType.Argument:
+            return 'Argument';
+
+        case ParseNodeType.Assert:
+            return 'Assert';
+
+        case ParseNodeType.Assignment:
+            return 'Assignment';
+
+        case ParseNodeType.AssignmentExpression:
+            return 'AssignmentExpression';
+
+        case ParseNodeType.AugmentedAssignment:
+            return 'AugmentedAssignment';
+
+        case ParseNodeType.Await:
+            return 'Await';
+
+        case ParseNodeType.BinaryOperation:
+            return 'BinaryOperation';
+
+        case ParseNodeType.Break:
+            return 'Break';
+
+        case ParseNodeType.Call:
+            return 'Call';
+
+        case ParseNodeType.Class:
+            return 'Class';
+
+        case ParseNodeType.Constant:
+            return 'Constant';
+
+        case ParseNodeType.Continue:
+            return 'Continue';
+
+        case ParseNodeType.Decorator:
+            return 'Decorator';
+
+        case ParseNodeType.Del:
+            return 'Del';
+
+        case ParseNodeType.Dictionary:
+            return 'Dictionary';
+
+        case ParseNodeType.DictionaryExpandEntry:
+            return 'DictionaryExpandEntry';
+
+        case ParseNodeType.DictionaryKeyEntry:
+            return 'DictionaryKeyEntry';
+
+        case ParseNodeType.Ellipsis:
+            return 'Ellipsis';
+
+        case ParseNodeType.If:
+            return 'If';
+
+        case ParseNodeType.Import:
+            return 'Import';
+
+        case ParseNodeType.ImportAs:
+            return 'ImportAs';
+
+        case ParseNodeType.ImportFrom:
+            return 'ImportFrom';
+
+        case ParseNodeType.ImportFromAs:
+            return 'ImportFromAs';
+
+        case ParseNodeType.Index:
+            return 'Index';
+
+        case ParseNodeType.Except:
+            return 'Except';
+
+        case ParseNodeType.For:
+            return 'For';
+
+        case ParseNodeType.FormatString:
+            return 'FormatString';
+
+        case ParseNodeType.Function:
+            return 'Function';
+
+        case ParseNodeType.Global:
+            return 'Global';
+
+        case ParseNodeType.Lambda:
+            return 'Lambda';
+
+        case ParseNodeType.List:
+            return 'List';
+
+        case ParseNodeType.ListComprehension:
+            return 'ListComprehension';
+
+        case ParseNodeType.ListComprehensionFor:
+            return 'ListComprehensionFor';
+
+        case ParseNodeType.ListComprehensionIf:
+            return 'ListComprehensionIf';
+
+        case ParseNodeType.MemberAccess:
+            return 'MemberAccess';
+
+        case ParseNodeType.Module:
+            return 'Module';
+
+        case ParseNodeType.ModuleName:
+            return 'ModuleName';
+
+        case ParseNodeType.Name:
+            return 'Name';
+
+        case ParseNodeType.Nonlocal:
+            return 'Nonlocal';
+
+        case ParseNodeType.Number:
+            return 'Number';
+
+        case ParseNodeType.Parameter:
+            return 'Parameter';
+
+        case ParseNodeType.Pass:
+            return 'Pass';
+
+        case ParseNodeType.Raise:
+            return 'Raise';
+
+        case ParseNodeType.Return:
+            return 'Return';
+
+        case ParseNodeType.Set:
+            return 'Set';
+
+        case ParseNodeType.Slice:
+            return 'Slice';
+
+        case ParseNodeType.StatementList:
+            return 'StatementList';
+
+        case ParseNodeType.StringList:
+            return 'StringList';
+
+        case ParseNodeType.String:
+            return 'String';
+
+        case ParseNodeType.Suite:
+            return 'Suite';
+
+        case ParseNodeType.Ternary:
+            return 'Ternary';
+
+        case ParseNodeType.Tuple:
+            return 'Tuple';
+
+        case ParseNodeType.Try:
+            return 'Try';
+
+        case ParseNodeType.TypeAnnotation:
+            return 'TypeAnnotation';
+
+        case ParseNodeType.UnaryOperation:
+            return 'UnaryOperation';
+
+        case ParseNodeType.Unpack:
+            return 'Unpack';
+
+        case ParseNodeType.While:
+            return 'While';
+
+        case ParseNodeType.With:
+            return 'With';
+
+        case ParseNodeType.WithItem:
+            return 'WithItem';
+
+        case ParseNodeType.Yield:
+            return 'Yield';
+
+        case ParseNodeType.YieldFrom:
+            return 'YieldFrom';
+
+        case ParseNodeType.FunctionAnnotation:
+            return 'FunctionAnnotation';
+    }
+
+    assertNever(type);
 }
