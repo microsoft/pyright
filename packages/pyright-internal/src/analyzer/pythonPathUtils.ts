@@ -141,6 +141,15 @@ function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo
     }
 }
 
+const extractSys = [
+    'import os, os.path, sys',
+    'normalize = lambda p: os.path.normcase(os.path.normpath(p))',
+    'cwd = normalize(os.getcwd())',
+    'sys.path[:] = (p for p in sys.path if p != "" and normalize(p) != cwd)',
+    'import json',
+    'json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
+].join('; ');
+
 function getPathResultFromInterpreter(
     fs: FileSystem,
     interpreter: string,
@@ -152,10 +161,7 @@ function getPathResultFromInterpreter(
     };
 
     try {
-        const commandLineArgs: string[] = [
-            '-c',
-            'import sys, json; json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
-        ];
+        const commandLineArgs: string[] = ['-c', extractSys];
 
         importFailureInfo.push(`Executing interpreter: '${interpreter}'`);
         const execOutput = child_process.execFileSync(interpreter, commandLineArgs, { encoding: 'utf8' });
