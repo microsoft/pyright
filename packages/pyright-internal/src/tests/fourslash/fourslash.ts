@@ -140,6 +140,8 @@ declare namespace _ {
 
     type MarkupKind = 'markdown' | 'plaintext';
 
+    type DefinitionFilter = 'all' | 'preferSource' | 'preferStubs';
+
     interface Fourslash {
         getDocumentHighlightKind(m?: Marker): DocumentHighlightKind | undefined;
 
@@ -228,11 +230,14 @@ declare namespace _ {
                 references: DocumentHighlight[];
             };
         }): void;
-        verifyFindDefinitions(map: {
-            [marker: string]: {
-                definitions: DocumentRange[];
-            };
-        }): void;
+        verifyFindDefinitions(
+            map: {
+                [marker: string]: {
+                    definitions: DocumentRange[];
+                };
+            },
+            filter?: DefinitionFilter
+        ): void;
         verifyRename(map: {
             [marker: string]: {
                 newName: string;

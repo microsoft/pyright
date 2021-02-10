@@ -219,23 +219,17 @@ class RealFileSystem implements FileSystem {
     }
 }
 
-class ChokidarFileWatcherProvider implements FileWatcherProvider {
+export class ChokidarFileWatcherProvider implements FileWatcherProvider {
     constructor(private _console: ConsoleInterface) {}
 
     createFileWatcher(paths: string[], listener: FileWatcherEventHandler): FileWatcher {
         return this._createFileSystemWatcher(paths).on('all', listener);
     }
 
-    createReadStream(path: string): fs.ReadStream {
-        return fs.createReadStream(path);
-    }
-    createWriteStream(path: string): fs.WriteStream {
-        return fs.createWriteStream(path);
-    }
-
     private _createFileSystemWatcher(paths: string[]): chokidar.FSWatcher {
         // The following options are copied from VS Code source base. It also
         // uses chokidar for its file watching.
+        // https://github.com/microsoft/vscode/blob/master/src/vs/platform/files/node/watcher/unix/chokidarWatcherService.ts
         const watcherOptions: chokidar.WatchOptions = {
             ignoreInitial: true,
             ignorePermissionErrors: true,

@@ -11,7 +11,6 @@
 
 import './common/extensions';
 
-import * as fs from 'fs';
 import {
     CancellationToken,
     CancellationTokenSource,
@@ -41,6 +40,7 @@ import {
     SignatureHelpTriggerKind,
     SignatureInformation,
     SymbolInformation,
+    TextDocumentPositionParams,
     TextDocumentSyncKind,
     WatchKind,
     WorkDoneProgressReporter,
@@ -68,6 +68,7 @@ import { Diagnostic as AnalyzerDiagnostic, DiagnosticCategory } from './common/d
 import { DiagnosticRule } from './common/diagnosticRules';
 import { LanguageServiceExtension } from './common/extensibility';
 import {
+    ChokidarFileWatcherProvider,
     createFromRealFileSystem,
     FileSystem,
     FileWatcher,
@@ -80,6 +81,7 @@ import { convertWorkspaceEdits } from './common/textEditUtils';
 import { DocumentRange, Position } from './common/textRange';
 import { AnalyzerServiceExecutor } from './languageService/analyzerServiceExecutor';
 import { CompletionItemData, CompletionResults } from './languageService/completionProvider';
+import { DefinitionFilter } from './languageService/definitionProvider';
 import { convertToFlatSymbols, WorkspaceSymbolCallback } from './languageService/documentSymbolProvider';
 import { convertHoverResults } from './languageService/hoverProvider';
 import { ReferenceCallback } from './languageService/referencesProvider';
@@ -104,6 +106,8 @@ export interface ServerSettings {
     logLevel?: LogLevel;
     autoImportCompletions?: boolean;
     indexing?: boolean;
+    logTypeEvaluationTime?: boolean;
+    typeEvaluationTimeThreshold?: number;
 }
 
 export interface WorkspaceServiceInstance {
@@ -165,6 +169,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected _hasSignatureLabelOffsetCapability = false;
     protected _hasHierarchicalDocumentSymbolCapability = false;
     protected _hasWindowProgressCapability = false;
+    protected _hasGoToDeclarationCapability = false;
     protected _hoverContentFormat: MarkupKind = MarkupKind.PlainText;
     protected _completionDocFormat: MarkupKind = MarkupKind.PlainText;
     protected _completionSupportsSnippet = false;
@@ -375,21 +380,19 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             }
         });
 
-        // For any non-workspace paths, use the node file watcher.
-        let nodeWatchers: FileWatcher[];
+        // For any non-workspace paths, create a file watcher.
+        let nonWorkspaceWatchers: FileWatcher | undefined;
 
         try {
-            nodeWatchers = nonWorkspacePaths.map((path) => {
-                return fs.watch(path, { recursive: true }, (event, filename) =>
-                    listener(event as FileWatcherEventType, filename)
-                );
-            });
+            nonWorkspaceWatchers = new ChokidarFileWatcherProvider(this.console).createFileWatcher(
+                nonWorkspacePaths,
+                listener
+            );
         } catch (e) {
             // Versions of node >= 14 are reportedly throwing exceptions
             // when calling fs.watch with recursive: true. Just swallow
             // the exception and proceed.
             this.console.error(`Exception received when installing recursive file system watcher`);
-            nodeWatchers = [];
         }
 
         const fileWatcher: InternalFileWatcher = {
@@ -397,10 +400,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 // Stop listening for workspace paths.
                 lsBase._fileWatchers = lsBase._fileWatchers.filter((watcher) => watcher !== fileWatcher);
 
-                // Close the node watchers.
-                nodeWatchers.forEach((watcher) => {
-                    watcher.close();
-                });
+                // Close the non-workspace watchers.
+                nonWorkspaceWatchers?.close();
             },
             workspacePaths,
             eventHandler: listener,
@@ -427,7 +428,11 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this._connection.onCodeAction((params, token) => this.executeCodeAction(params, token));
 
-        this._connection.onDefinition(async (params, token) => {
+        const getDefinitions = async (
+            params: TextDocumentPositionParams,
+            token: CancellationToken,
+            filter: DefinitionFilter
+        ) => {
             this.recordUserInteractionTime();
 
             const filePath = convertUriToPath(params.textDocument.uri);
@@ -439,14 +444,31 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
             const workspace = await this.getWorkspaceForFile(filePath);
             if (workspace.disableLanguageServices) {
-                return;
+                return undefined;
             }
-            const locations = workspace.serviceInstance.getDefinitionForPosition(filePath, position, token);
+
+            const locations = workspace.serviceInstance.getDefinitionForPosition(filePath, position, filter, token);
             if (!locations) {
                 return undefined;
             }
             return locations.map((loc) => Location.create(convertPathToUri(loc.path), loc.range));
-        });
+        };
+
+        this._connection.onDefinition((params, token) =>
+            getDefinitions(
+                params,
+                token,
+                this._hasGoToDeclarationCapability ? DefinitionFilter.PreferSource : DefinitionFilter.All
+            )
+        );
+
+        this._connection.onDeclaration((params, token) =>
+            getDefinitions(
+                params,
+                token,
+                this._hasGoToDeclarationCapability ? DefinitionFilter.PreferStubs : DefinitionFilter.All
+            )
+        );
 
         this._connection.onReferences(async (params, token, workDoneReporter, resultReporter) => {
             if (this._pendingFindAllRefsCancellationSource) {
@@ -943,6 +965,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             (tag) => tag === DiagnosticTag.Unnecessary
         );
         this._hasWindowProgressCapability = !!capabilities.window?.workDoneProgress;
+        this._hasGoToDeclarationCapability = !!capabilities.textDocument?.declaration;
 
         // Create a service instance for each of the workspace folders.
         if (params.workspaceFolders) {
@@ -958,6 +981,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             capabilities: {
                 textDocumentSync: TextDocumentSyncKind.Incremental,
                 definitionProvider: { workDoneProgress: true },
+                declarationProvider: { workDoneProgress: true },
                 referencesProvider: { workDoneProgress: true },
                 documentSymbolProvider: { workDoneProgress: true },
                 workspaceSymbolProvider: { workDoneProgress: true },

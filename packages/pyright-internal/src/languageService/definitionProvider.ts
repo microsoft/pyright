@@ -22,11 +22,18 @@ import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
+export enum DefinitionFilter {
+    All = 'all',
+    PreferSource = 'preferSource',
+    PreferStubs = 'preferStubs',
+}
+
 export class DefinitionProvider {
     static getDefinitionsForPosition(
         sourceMapper: SourceMapper,
         parseResults: ParseResults,
         position: Position,
+        filter: DefinitionFilter,
         evaluator: TypeEvaluator,
         token: CancellationToken
     ): DocumentRange[] | undefined {
@@ -88,7 +95,23 @@ export class DefinitionProvider {
             }
         }
 
-        return definitions.length > 0 ? definitions : undefined;
+        if (definitions.length === 0) {
+            return undefined;
+        }
+
+        if (filter === DefinitionFilter.All) {
+            return definitions;
+        }
+
+        // If go-to-declaration is supported, attempt to only show only pyi files in go-to-declaration
+        // and none in go-to-definition, unless filtering would produce an empty list.
+        const preferStubs = filter === DefinitionFilter.PreferStubs;
+        const wantedFile = (v: DocumentRange) => preferStubs === isStubFile(v.path);
+        if (definitions.find(wantedFile)) {
+            return definitions.filter(wantedFile);
+        }
+
+        return definitions;
     }
 
     private static _addIfUnique(definitions: DocumentRange[], itemToAdd: DocumentRange) {

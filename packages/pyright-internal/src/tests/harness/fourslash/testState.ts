@@ -49,6 +49,7 @@ import { DocumentRange, Position, Range as PositionRange, rangesAreEqual, TextRa
 import { TextRangeCollection } from '../../../common/textRangeCollection';
 import { LanguageServerInterface, WorkspaceServiceInstance } from '../../../languageServerBase';
 import { AbbreviationInfo } from '../../../languageService/autoImporter';
+import { DefinitionFilter } from '../../../languageService/definitionProvider';
 import { convertHoverResults } from '../../../languageService/hoverProvider';
 import { ParseResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
@@ -1105,11 +1106,14 @@ export class TestState {
         }
     }
 
-    verifyFindDefinitions(map: {
-        [marker: string]: {
-            definitions: DocumentRange[];
-        };
-    }) {
+    verifyFindDefinitions(
+        map: {
+            [marker: string]: {
+                definitions: DocumentRange[];
+            };
+        },
+        filter: DefinitionFilter = DefinitionFilter.All
+    ) {
         this._analyze();
 
         for (const marker of this.getMarkers()) {
@@ -1123,7 +1127,7 @@ export class TestState {
             const expected = map[name].definitions;
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            const actual = this.program.getDefinitionsForPosition(fileName, position, CancellationToken.None);
+            const actual = this.program.getDefinitionsForPosition(fileName, position, filter, CancellationToken.None);
 
             assert.equal(actual?.length ?? 0, expected.length);
 

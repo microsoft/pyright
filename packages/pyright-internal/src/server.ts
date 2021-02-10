@@ -145,6 +145,17 @@ class PyrightServer extends LanguageServerBase {
                 if (pythonAnalysisSection.autoImportCompletions !== undefined) {
                     serverSettings.autoImportCompletions = pythonAnalysisSection.autoImportCompletions;
                 }
+
+                if (
+                    serverSettings.logLevel === LogLevel.Log &&
+                    pythonAnalysisSection.logTypeEvaluationTime !== undefined
+                ) {
+                    serverSettings.logTypeEvaluationTime = pythonAnalysisSection.logTypeEvaluationTime;
+                }
+
+                if (pythonAnalysisSection.typeEvaluationTimeThreshold !== undefined) {
+                    serverSettings.typeEvaluationTimeThreshold = pythonAnalysisSection.typeEvaluationTimeThreshold;
+                }
             } else {
                 serverSettings.autoSearchPaths = true;
             }
