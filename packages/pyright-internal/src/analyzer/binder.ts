@@ -2345,7 +2345,11 @@ export class Binder extends ParseTreeWalker {
                 flowNode.flags |= FlowFlags.Unbind;
             }
 
-            this._addExceptTargets(flowNode);
+            // Assume that an assignment to a member access expression
+            // can potentially generate an exception.
+            if (node.nodeType === ParseNodeType.MemberAccess) {
+                this._addExceptTargets(flowNode);
+            }
             this._currentFlowNode = flowNode;
         }
 
