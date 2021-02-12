@@ -409,7 +409,7 @@ test('Expressions8', () => {
 test('Unpack1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unpack1.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('Unpack2', () => {
@@ -795,7 +795,7 @@ test('Tuples5', () => {
 test('Tuples6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['tuples6.py']);
 
-    TestUtils.validateResults(analysisResults, 7);
+    TestUtils.validateResults(analysisResults, 8);
 });
 
 test('Tuples7', () => {

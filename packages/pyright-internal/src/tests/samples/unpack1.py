@@ -21,3 +21,9 @@ for c in b:
             # This should not generate an error.
             int_only(c)
 
+# This should generate an error
+x1 = *(1, 2, 3)
+
+x2 = 2, *(1, 2, 3)
+
+x3 = *(1, 2, 3), 2
