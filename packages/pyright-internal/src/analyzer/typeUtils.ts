@@ -1406,10 +1406,13 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     }
 
     if (isClass(type)) {
-        if (type.typeArguments && !allowUnknownTypeArgsForClasses && !ClassType.isPseudoGenericClass(type)) {
-            for (const argType of type.typeArguments) {
-                if (isPartlyUnknown(argType, allowUnknownTypeArgsForClasses, recursionCount + 1)) {
-                    return true;
+        if (!allowUnknownTypeArgsForClasses && !ClassType.isPseudoGenericClass(type)) {
+            const typeArgs = type.tupleTypeArguments || type.typeArguments;
+            if (typeArgs) {
+                for (const argType of typeArgs) {
+                    if (isPartlyUnknown(argType, allowUnknownTypeArgsForClasses, recursionCount + 1)) {
+                        return true;
+                    }
                 }
             }
         }

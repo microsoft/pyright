@@ -989,7 +989,7 @@ export function createTypeEvaluator(
 
             case ParseNodeType.Ellipsis: {
                 if ((flags & EvaluatorFlags.ConvertEllipsisToAny) !== 0) {
-                    typeResult = { type: AnyType.create(true), node };
+                    typeResult = { type: AnyType.create(/* isEllipsis */ true), node };
                 } else if ((flags & EvaluatorFlags.ConvertEllipsisToUnknown) !== 0) {
                     typeResult = { type: UnknownType.create(), node };
                 } else {
@@ -5341,7 +5341,7 @@ export function createTypeEvaluator(
                     // If the Tuple wasn't specialized or has a "..." type parameter, we can't
                     // make any determination about its contents.
                     if (!typeArgs || typeArgs.some((t) => isEllipsisType(t))) {
-                        tupleTypes = [AnyType.create(false), AnyType.create(true)];
+                        tupleTypes = [AnyType.create(/* isEllipsis */ false), AnyType.create(/* isEllipsis */ true)];
                         break;
                     }
 
@@ -5349,7 +5349,7 @@ export function createTypeEvaluator(
                         tupleTypes.push(typeArg);
                     }
                 } else {
-                    tupleTypes = [AnyType.create(false), AnyType.create(true)];
+                    tupleTypes = [AnyType.create(/* isEllipsis */ false), AnyType.create(/* isEllipsis */ true)];
                     break;
                 }
             } else {
@@ -5371,7 +5371,7 @@ export function createTypeEvaluator(
         stripLiterals = true,
         isForUnpackedVariadicTypeVar = false
     ): ClassType {
-        let combinedTupleType: Type = AnyType.create(false);
+        let combinedTupleType: Type = AnyType.create(/* isEllipsis */ false);
         if (typeArgs.length === 2 && isEllipsisType(typeArgs[1])) {
             combinedTupleType = typeArgs[0];
         } else {
@@ -10224,10 +10224,10 @@ export function createTypeEvaluator(
 
         // Handle tuple type params as a special case.
         if (isTupleTypeParam) {
-            // If no type args are provided and it's a tuple, default to [Any, ...].
+            // If no type args are provided and it's a tuple, default to [Unknown, ...].
             if (!typeArgs) {
-                typeArgTypes.push(AnyType.create(false));
-                typeArgTypes.push(AnyType.create(true));
+                typeArgTypes.push(UnknownType.create());
+                typeArgTypes.push(AnyType.create(/* isEllipsis */ true));
             }
 
             return specializeTupleClass(classType, typeArgTypes, typeArgs !== undefined);
