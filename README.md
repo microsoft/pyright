@@ -70,7 +70,7 @@ For emacs users, you can install [lsp-mode](https://github.com/emacs-lsp/lsp-mod
 To activate the pyright extension follow the instructions in the [docs](https://emacs-lsp.github.io/lsp-pyright/).
 
 ### Command-line
-The latest version of the command-line tool can be installed with npm, which is part of node. If you don't have a recent version of node on your system, install that first from [nodejs.org](nodejs.org). 
+The latest version of the command-line tool can be installed with npm, which is part of node. If you don't have a recent version of node on your system, install that first from [nodejs.org](https://nodejs.org). 
 
 To install pyright globally:
 `npm install -g pyright`
