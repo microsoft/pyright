@@ -4007,13 +4007,18 @@ export function createTypeEvaluator(
         }
 
         if (usage.method === 'get') {
-            reportPossibleUnknownAssignment(
-                fileInfo.diagnosticRuleSet.reportUnknownMemberType,
-                DiagnosticRule.reportUnknownMemberType,
-                node.memberName,
-                type,
-                node
-            );
+            // Don't report an error if the type is a partially-specialized
+            // class. This comes up frequently in cases where a type is passed
+            // as an argument (e.g. "defaultdict(list)").
+            if (node.parent?.nodeType !== ParseNodeType.Argument || !isClass(type)) {
+                reportPossibleUnknownAssignment(
+                    fileInfo.diagnosticRuleSet.reportUnknownMemberType,
+                    DiagnosticRule.reportUnknownMemberType,
+                    node.memberName,
+                    type,
+                    node
+                );
+            }
         }
 
         return { type, node };
