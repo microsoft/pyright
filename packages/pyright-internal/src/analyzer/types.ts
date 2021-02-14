@@ -773,6 +773,10 @@ export const enum FunctionTypeFlags {
     // Any collection of parameters will match this function. This is used
     // for Callable[..., x].
     SkipParamCompatibilityCheck = 1 << 15,
+
+    // This function represents the value bound to a ParamSpec, so its return
+    // type is not meaningful.
+    ParamSpecValue = 1 << 16,
 }
 
 interface FunctionDetails {
@@ -829,6 +833,8 @@ export interface ParamSpecEntry {
     hasDefault: boolean;
     type: Type;
 }
+
+export type ParamSpecValue = ParamSpecEntry[];
 
 export namespace FunctionType {
     export function createInstance(
@@ -980,7 +986,7 @@ export namespace FunctionType {
     }
 
     // Creates a new function based on the parameters of another function.
-    export function cloneForParamSpec(type: FunctionType, paramTypes: ParamSpecEntry[] | undefined) {
+    export function cloneForParamSpec(type: FunctionType, paramTypes: ParamSpecValue | undefined) {
         const newFunction = create(
             type.details.name,
             type.details.fullName,
@@ -1012,6 +1018,39 @@ export namespace FunctionType {
                 }),
             ];
         }
+
+        return newFunction;
+    }
+
+    export function cloneForParamSpecApplication(type: FunctionType, paramTypes: ParamSpecValue) {
+        const newFunction = create(
+            type.details.name,
+            type.details.fullName,
+            type.details.moduleName,
+            type.details.flags,
+            type.flags,
+            type.details.docString
+        );
+
+        // Make a shallow clone of the details.
+        newFunction.details = { ...type.details };
+
+        // Remove the last two parameters, which are the *args and **kwargs.
+        newFunction.details.parameters = newFunction.details.parameters.slice(
+            0,
+            newFunction.details.parameters.length - 2
+        );
+
+        paramTypes.forEach((specEntry) => {
+            newFunction.details.parameters.push({
+                category: specEntry.category,
+                name: specEntry.name,
+                hasDefault: specEntry.hasDefault,
+                isNameSynthesized: false,
+                hasDeclaredType: true,
+                type: specEntry.type,
+            });
+        });
 
         return newFunction;
     }
@@ -1103,6 +1142,10 @@ export namespace FunctionType {
 
     export function shouldSkipParamCompatibilityCheck(type: FunctionType) {
         return (type.details.flags & FunctionTypeFlags.SkipParamCompatibilityCheck) !== 0;
+    }
+
+    export function isParamSpecValue(type: FunctionType) {
+        return (type.details.flags & FunctionTypeFlags.ParamSpecValue) !== 0;
     }
 
     export function getEffectiveParameterType(type: FunctionType, index: number): Type {

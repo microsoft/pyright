@@ -3801,7 +3801,7 @@ export function createTypeEvaluator(
             case TypeCategory.TypeVar: {
                 if (baseType.details.isParamSpec) {
                     if (memberName === 'args' || memberName === 'kwargs') {
-                        return { type: AnyType.create(), node };
+                        return { type: baseType, node };
                     }
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -6850,6 +6850,11 @@ export function createTypeEvaluator(
                         /* isAsync */ false,
                         argList[argIndex].valueExpression!
                     );
+
+                    if (isParamSpec(listElementType)) {
+                        // Handle the case where the arg came from *P.args parameter.
+                        listElementType = AnyType.create();
+                    }
                 }
 
                 const funcArg: FunctionArgument = {
@@ -6993,7 +6998,7 @@ export function createTypeEvaluator(
                             )
                         );
                         const diag = new DiagnosticAddendum();
-                        if (!canAssignType(strMapObject, argType, diag)) {
+                        if (!isParamSpec(argType) && !canAssignType(strMapObject, argType, diag)) {
                             addDiagnostic(
                                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,

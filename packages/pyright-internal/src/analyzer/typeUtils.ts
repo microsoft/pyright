@@ -9,6 +9,7 @@
 
 import { assert } from 'console';
 
+import { ArgumentCategory, ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
@@ -21,6 +22,7 @@ import {
     EnumLiteral,
     findSubtype,
     FunctionType,
+    FunctionTypeFlags,
     isAny,
     isAnyOrUnknown,
     isClass,
@@ -28,6 +30,7 @@ import {
     isNone,
     isObject,
     isOverloadedFunction,
+    isParamSpec,
     isTypeSame,
     isTypeVar,
     isUnbound,
@@ -41,6 +44,7 @@ import {
     ObjectType,
     OverloadedFunctionType,
     ParamSpecEntry,
+    ParamSpecValue,
     removeFromUnion,
     SpecializedFunctionTypes,
     SubtypeConstraints,
@@ -1053,13 +1057,33 @@ export function buildTypeVarMap(
         let typeArgType: Type;
 
         if (typeArgs) {
-            if (index >= typeArgs.length) {
-                typeArgType = AnyType.create();
-            } else {
-                typeArgType = typeArgs[index];
-            }
+            if (isParamSpec(typeParam)) {
+                const paramSpecEntries: ParamSpecValue = [];
 
-            typeVarMap.setTypeVar(typeParam, typeArgType, /* isNarrowable */ false);
+                if (index < typeArgs.length) {
+                    typeArgType = typeArgs[index];
+                    if (isFunction(typeArgType) && FunctionType.isParamSpecValue(typeArgType)) {
+                        typeArgType.details.parameters.forEach((param) => {
+                            paramSpecEntries.push({
+                                category: param.category,
+                                name: param.name,
+                                hasDefault: !!param.hasDefault,
+                                type: param.type,
+                            });
+                        });
+                    }
+                }
+
+                typeVarMap.setParamSpec(typeParam, paramSpecEntries);
+            } else {
+                if (index >= typeArgs.length) {
+                    typeArgType = AnyType.create();
+                } else {
+                    typeArgType = typeArgs[index];
+                }
+
+                typeVarMap.setTypeVar(typeParam, typeArgType, /* isNarrowable */ false);
+            }
         }
     });
 
@@ -1643,14 +1667,38 @@ function _transformTypeVarsInClassType(
         typeParams.forEach((typeParam) => {
             let replacementType: Type = typeParam;
 
-            const typeParamName = TypeVarType.getNameWithScope(typeParam);
-            if (!recursionMap.has(typeParamName)) {
-                replacementType = callbacks.transformTypeVar(typeParam);
-                if (replacementType !== typeParam) {
-                    recursionMap.set(typeParamName, typeParam);
-                    replacementType = _transformTypeVars(replacementType, callbacks, recursionMap, recursionLevel + 1);
-                    recursionMap.delete(typeParamName);
-                    specializationNeeded = true;
+            if (typeParam.details.isParamSpec) {
+                const paramSpecEntries = callbacks.transformParamSpec(typeParam);
+                if (paramSpecEntries) {
+                    // Create a function type from the param spec entries.
+                    const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
+                    paramSpecEntries.forEach((entry) => {
+                        FunctionType.addParameter(functionType, {
+                            category: entry.category,
+                            name: entry.name,
+                            hasDefault: entry.hasDefault,
+                            hasDeclaredType: true,
+                            type: entry.type,
+                        });
+                    });
+
+                    replacementType = functionType;
+                }
+            } else {
+                const typeParamName = TypeVarType.getNameWithScope(typeParam);
+                if (!recursionMap.has(typeParamName)) {
+                    replacementType = callbacks.transformTypeVar(typeParam);
+                    if (replacementType !== typeParam) {
+                        recursionMap.set(typeParamName, typeParam);
+                        replacementType = _transformTypeVars(
+                            replacementType,
+                            callbacks,
+                            recursionMap,
+                            recursionLevel + 1
+                        );
+                        recursionMap.delete(typeParamName);
+                        specializationNeeded = true;
+                    }
                 }
             }
 
@@ -1729,6 +1777,35 @@ function _transformTypeVarsInFunctionType(
         parameterTypes: [],
         returnType: specializedReturnType,
     };
+
+    // Does this function end with *args: P.args, **args: P.kwargs? If so, we'll
+    // modify the function and replace these parameters with the signature captured
+    // by the ParamSpec.
+    if (functionType.details.parameters.length >= 2) {
+        const argsParam = functionType.details.parameters[functionType.details.parameters.length - 2];
+        const kwargsParam = functionType.details.parameters[functionType.details.parameters.length - 1];
+        const argsParamType = FunctionType.getEffectiveParameterType(
+            functionType,
+            functionType.details.parameters.length - 2
+        );
+        const kwargsParamType = FunctionType.getEffectiveParameterType(
+            functionType,
+            functionType.details.parameters.length - 1
+        );
+
+        if (
+            argsParam.category === ParameterCategory.VarArgList &&
+            kwargsParam.category === ParameterCategory.VarArgDictionary &&
+            isParamSpec(argsParamType) &&
+            isParamSpec(kwargsParamType) &&
+            isTypeSame(argsParamType, kwargsParamType)
+        ) {
+            const paramSpecType = callbacks.transformParamSpec(argsParamType);
+            if (paramSpecType) {
+                functionType = FunctionType.cloneForParamSpecApplication(functionType, paramSpecType);
+            }
+        }
+    }
 
     for (let i = 0; i < functionType.details.parameters.length; i++) {
         const paramType = FunctionType.getEffectiveParameterType(functionType, i);
