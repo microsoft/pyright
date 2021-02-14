@@ -4156,7 +4156,11 @@ export function createTypeEvaluator(
                     return undefined;
                 }
 
-                if (isClass(memberInfo.classType) && ClassType.isFrozenDataClass(memberInfo.classType)) {
+                if (
+                    isClass(memberInfo.classType) &&
+                    ClassType.isFrozenDataClass(memberInfo.classType) &&
+                    (flags & MemberAccessFlags.AccessClassMembersOnly) === 0
+                ) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.dataclassFrozen().format({
                             name: printType(ObjectType.create(memberInfo.classType)),

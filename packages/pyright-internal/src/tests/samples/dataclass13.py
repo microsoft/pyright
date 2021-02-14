@@ -1,6 +1,7 @@
 # This sample tests the handling of frozen dataclass types.
 
 from dataclasses import dataclass
+from typing import ClassVar
 
 
 @dataclass(frozen=False)
@@ -24,11 +25,15 @@ class DC3(DC1):
 class DC4(DC2):
     val4: int = 4
 
+    val5: ClassVar[int]
+
 
 a = DC1(val1=3)
 a.val1 = 3
 
 b = DC4(val2=3, val4=5)
+
+DC4.val5 = 3
 
 # This should generate an error because the dataclass is frozen.
 b.val2 = 3
