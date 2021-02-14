@@ -13,7 +13,6 @@ import { assert } from '../common/debug';
 import {
     ClassType,
     maxTypeRecursionCount,
-    ParamSpecEntry,
     ParamSpecValue,
     Type,
     TypeCategory,

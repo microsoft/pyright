@@ -14,7 +14,6 @@ import {
     combineTypes,
     EnumLiteral,
     FunctionType,
-    FunctionTypeFlags,
     isAnyOrUnknown,
     isClass,
     isObject,

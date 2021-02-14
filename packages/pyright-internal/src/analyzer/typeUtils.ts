@@ -9,7 +9,7 @@
 
 import { assert } from 'console';
 
-import { ArgumentCategory, ParameterCategory } from '../parser/parseNodes';
+import { ParameterCategory } from '../parser/parseNodes';
 import { DeclarationType } from './declaration';
 import { Symbol, SymbolFlags, SymbolTable } from './symbol';
 import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
