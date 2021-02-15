@@ -13375,13 +13375,13 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.PatternClass: {
-                pattern.arguments.forEach(arg => {
+                pattern.arguments.forEach((arg) => {
                     // TODO - add support for argument pattern type analysis.
                     assignTypeToPatternTargets(UnknownType.create(), arg.pattern);
                 });
                 break;
             }
-                
+
             case ParseNodeType.PatternLiteral:
             case ParseNodeType.PatternValue:
             case ParseNodeType.Error: {
