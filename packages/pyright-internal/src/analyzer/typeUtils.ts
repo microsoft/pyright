@@ -27,6 +27,7 @@ import {
     isAnyOrUnknown,
     isClass,
     isFunction,
+    isNever,
     isNone,
     isObject,
     isOverloadedFunction,
@@ -1473,6 +1474,94 @@ export function isPartlyUnknown(type: Type, allowUnknownTypeArgsForClasses = fal
     }
 
     return false;
+}
+
+// If the type is a union of same-sized tuples, these are combined into
+// a single tuple with that size. Otherwise, returns undefined.
+export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) {
+    if (!tupleType || !isClass(tupleType)) {
+        return undefined;
+    }
+
+    let tupleEntries: Type[][] | undefined;
+    let isValid = true;
+
+    doForEachSubtype(type, (subtype) => {
+        if (
+            isObject(subtype) &&
+            isTupleClass(subtype.classType) &&
+            subtype.classType.tupleTypeArguments &&
+            subtype.classType.tupleTypeArguments.length > 0 &&
+            !isEllipsisType(subtype.classType.tupleTypeArguments[subtype.classType.tupleTypeArguments.length - 1])
+        ) {
+            if (tupleEntries) {
+                if (tupleEntries.length === subtype.classType.tupleTypeArguments.length) {
+                    subtype.classType.tupleTypeArguments.forEach((entry, index) => {
+                        tupleEntries![index].push(entry);
+                    });
+                } else {
+                    isValid = false;
+                }
+            } else {
+                tupleEntries = subtype.classType.tupleTypeArguments.map((entry) => [entry]);
+            }
+        } else {
+            isValid = false;
+        }
+    });
+
+    if (!isValid || !tupleEntries) {
+        return undefined;
+    }
+
+    return convertToInstance(
+        specializeTupleClass(
+            tupleType,
+            tupleEntries.map((entry) => combineTypes(entry))
+        )
+    );
+}
+
+// Tuples require special handling for specialization. This method computes
+// the "effective" type argument, which is a union of the variadic type
+// arguments. If stripLiterals is true, literal values are stripped when
+// computing the effective type args.
+export function specializeTupleClass(
+    classType: ClassType,
+    typeArgs: Type[],
+    isTypeArgumentExplicit = true,
+    stripLiterals = true,
+    isForUnpackedVariadicTypeVar = false
+): ClassType {
+    let combinedTupleType: Type = AnyType.create(/* isEllipsis */ false);
+    if (typeArgs.length === 2 && isEllipsisType(typeArgs[1])) {
+        combinedTupleType = typeArgs[0];
+    } else {
+        combinedTupleType = combineTypes(typeArgs);
+    }
+
+    if (stripLiterals) {
+        combinedTupleType = stripLiteralValue(combinedTupleType);
+    }
+
+    // An empty tuple has an effective type of Any.
+    if (isNever(combinedTupleType)) {
+        combinedTupleType = AnyType.create();
+    }
+
+    const clonedClassType = ClassType.cloneForSpecialization(
+        classType,
+        [combinedTupleType],
+        isTypeArgumentExplicit,
+        /* skipAbstractClassTest */ undefined,
+        typeArgs
+    );
+
+    if (isForUnpackedVariadicTypeVar) {
+        clonedClassType.isTupleForUnpackedVariadicTypeVar = true;
+    }
+
+    return clonedClassType;
 }
 
 // Recursively walks a type and calls a callback for each TypeVar, allowing

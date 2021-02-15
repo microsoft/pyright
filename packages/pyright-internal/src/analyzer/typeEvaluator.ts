@@ -188,6 +188,7 @@ import {
     canBeTruthy,
     ClassMember,
     ClassMemberLookupFlags,
+    combineSameSizedTuples,
     computeMroLinearization,
     containsUnknown,
     convertToInstance,
@@ -222,6 +223,7 @@ import {
     setTypeArgumentsRecursive,
     specializeClassType,
     specializeForBaseClass,
+    specializeTupleClass,
     stripLiteralValue,
     transformExpectedTypeForConstructor,
     transformPossibleRecursiveTypeAlias,
@@ -5385,48 +5387,6 @@ export function createTypeEvaluator(
         return tupleTypes;
     }
 
-    // Tuples require special handling for specialization. This method computes
-    // the "effective" type argument, which is a union of the variadic type
-    // arguments. If stripLiterals is true, literal values are stripped when
-    // computing the effective type args.
-    function specializeTupleClass(
-        classType: ClassType,
-        typeArgs: Type[],
-        isTypeArgumentExplicit = true,
-        stripLiterals = true,
-        isForUnpackedVariadicTypeVar = false
-    ): ClassType {
-        let combinedTupleType: Type = AnyType.create(/* isEllipsis */ false);
-        if (typeArgs.length === 2 && isEllipsisType(typeArgs[1])) {
-            combinedTupleType = typeArgs[0];
-        } else {
-            combinedTupleType = combineTypes(typeArgs);
-        }
-
-        if (stripLiterals) {
-            combinedTupleType = stripLiteralValue(combinedTupleType);
-        }
-
-        // An empty tuple has an effective type of Any.
-        if (isNever(combinedTupleType)) {
-            combinedTupleType = AnyType.create();
-        }
-
-        const clonedClassType = ClassType.cloneForSpecialization(
-            classType,
-            [combinedTupleType],
-            isTypeArgumentExplicit,
-            /* skipAbstractClassTest */ undefined,
-            typeArgs
-        );
-
-        if (isForUnpackedVariadicTypeVar) {
-            clonedClassType.isTupleForUnpackedVariadicTypeVar = true;
-        }
-
-        return clonedClassType;
-    }
-
     function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[], isTypeArgumentExplicit: boolean) {
         // Search for the NamedTuple base class.
         const namedTupleIndex = classType.details.mro.findIndex(
@@ -6839,17 +6799,9 @@ export function createTypeEvaluator(
                 // If this is a tuple with specified element types, use those
                 // specified types rather than using the more generic iterator
                 // type which will be a union of all element types.
-                if (
-                    isObject(argType) &&
-                    isTupleClass(argType.classType) &&
-                    argType.classType.tupleTypeArguments &&
-                    argType.classType.tupleTypeArguments.length > 0 &&
-                    !isEllipsisType(
-                        argType.classType.tupleTypeArguments[argType.classType.tupleTypeArguments.length - 1]
-                    ) &&
-                    !isParamVariadic
-                ) {
-                    listElementType = argType.classType.tupleTypeArguments[unpackedArgIndex];
+                const combinedTupleType = combineSameSizedTuples(argType, tupleClassType);
+                if (!isParamVariadic && combinedTupleType && isObject(combinedTupleType)) {
+                    listElementType = combinedTupleType.classType.tupleTypeArguments![unpackedArgIndex];
 
                     // Determine if there are any more unpacked list arguments after
                     // this one. If not, we'll clear this flag because this unpacked
@@ -6860,7 +6812,7 @@ export function createTypeEvaluator(
                         ) !== undefined;
 
                     unpackedArgIndex++;
-                    if (unpackedArgIndex >= argType.classType.tupleTypeArguments.length) {
+                    if (unpackedArgIndex >= combinedTupleType.classType.tupleTypeArguments!.length) {
                         unpackedArgIndex = 0;
                         advanceToNextArg = true;
                     }
