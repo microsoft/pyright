@@ -376,7 +376,7 @@ export class Binder extends ParseTreeWalker {
             this.walk(node.suite);
         });
 
-        this._addSymbolToCurrentScope(node.name.value, /* isInitiallyUnbound */ true);
+        this._bindNameToScope(this._currentScope, node.name.value);
 
         this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ false, /* unbound */ false);
 
