@@ -204,6 +204,7 @@ import {
     isEllipsisType,
     isLiteralType,
     isNoReturnType,
+    isOpenEndedTupleClass,
     isOptionalType,
     isPartlyUnknown,
     isProperty,
@@ -2786,7 +2787,7 @@ export function createTypeEvaluator(
                 const sourceEntryCount = sourceEntryTypes.length;
 
                 // Is this a homogenous tuple of indeterminate length?
-                if (sourceEntryCount === 2 && isEllipsisType(sourceEntryTypes[1])) {
+                if (isOpenEndedTupleClass(tupleType)) {
                     for (let index = 0; index < target.expressions.length; index++) {
                         targetTypes[index].push({ type: sourceEntryTypes[0], constraints });
                     }
@@ -4911,10 +4912,7 @@ export function createTypeEvaluator(
                 const tupleType = getSpecializedTupleType(baseTypeClass);
                 if (tupleType && tupleType.tupleTypeArguments && tupleType.tupleTypeArguments.length > 0) {
                     if (index0Expr.isInteger && index0Expr.value >= 0) {
-                        if (
-                            tupleType.tupleTypeArguments.length === 2 &&
-                            isEllipsisType(tupleType.tupleTypeArguments[1])
-                        ) {
+                        if (isOpenEndedTupleClass(tupleType)) {
                             return tupleType.tupleTypeArguments[0];
                         } else if (index0Expr.value < tupleType.tupleTypeArguments.length) {
                             return tupleType.tupleTypeArguments[index0Expr.value];
@@ -5285,10 +5283,7 @@ export function createTypeEvaluator(
             // Is this a homogeneous tuple of indeterminate length? If so,
             // match the number of expected types to the number of entries
             // in the tuple expression.
-            if (
-                expectedType.classType.tupleTypeArguments.length === 2 &&
-                isEllipsisType(expectedType.classType.tupleTypeArguments[1])
-            ) {
+            if (isOpenEndedTupleClass(expectedType.classType)) {
                 const homogenousType = transformPossibleRecursiveTypeAlias(
                     expectedType.classType.tupleTypeArguments[0]
                 );
@@ -6800,7 +6795,12 @@ export function createTypeEvaluator(
                 // specified types rather than using the more generic iterator
                 // type which will be a union of all element types.
                 const combinedTupleType = combineSameSizedTuples(argType, tupleClassType);
-                if (!isParamVariadic && combinedTupleType && isObject(combinedTupleType)) {
+                if (
+                    !isParamVariadic &&
+                    combinedTupleType &&
+                    isObject(combinedTupleType) &&
+                    combinedTupleType.classType.tupleTypeArguments!.length > 0
+                ) {
                     listElementType = combinedTupleType.classType.tupleTypeArguments![unpackedArgIndex];
 
                     // Determine if there are any more unpacked list arguments after
@@ -13126,10 +13126,7 @@ export function createTypeEvaluator(
                     ) as ClassType;
                     if (isTupleClass(specializedSequence)) {
                         if (specializedSequence.tupleTypeArguments) {
-                            if (
-                                specializedSequence.tupleTypeArguments.length === 2 &&
-                                isEllipsisType(specializedSequence.tupleTypeArguments[1])
-                            ) {
+                            if (isOpenEndedTupleClass(specializedSequence)) {
                                 sequenceInfo.push({
                                     subtype,
                                     entryTypes: [specializedSequence.tupleTypeArguments[0]],

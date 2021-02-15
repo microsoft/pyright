@@ -422,16 +422,7 @@ export function canBeFalsy(type: Type, recursionLevel = 0): boolean {
         case TypeCategory.Object: {
             // Handle tuples specially.
             if (isTupleClass(type.classType) && type.classType.tupleTypeArguments) {
-                if (type.classType.tupleTypeArguments.length === 0) {
-                    return true;
-                }
-
-                const lastTypeArg = type.classType.tupleTypeArguments[type.classType.tupleTypeArguments.length - 1];
-                if (isEllipsisType(lastTypeArg)) {
-                    return true;
-                }
-
-                return false;
+                return isOpenEndedTupleClass(type.classType) || type.classType.tupleTypeArguments.length === 0;
             }
 
             // Check for Literal[False] and Literal[True].
@@ -581,6 +572,15 @@ export function isProperty(type: Type): type is ObjectType {
 
 export function isTupleClass(type: ClassType) {
     return ClassType.isBuiltIn(type, 'tuple');
+}
+
+// Indicates whether the type is a tuple class of
+// the form tuple[x, ...] where the number of elements
+// in the tuple is unknown.
+export function isOpenEndedTupleClass(type: ClassType) {
+    return (
+        type.tupleTypeArguments && type.tupleTypeArguments.length === 2 && isEllipsisType(type.tupleTypeArguments[1])
+    );
 }
 
 // Partially specializes a type within the context of a specified
@@ -1490,9 +1490,8 @@ export function combineSameSizedTuples(type: Type, tupleType: Type | undefined) 
         if (
             isObject(subtype) &&
             isTupleClass(subtype.classType) &&
-            subtype.classType.tupleTypeArguments &&
-            subtype.classType.tupleTypeArguments.length > 0 &&
-            !isEllipsisType(subtype.classType.tupleTypeArguments[subtype.classType.tupleTypeArguments.length - 1])
+            !isOpenEndedTupleClass(subtype.classType) &&
+            subtype.classType.tupleTypeArguments
         ) {
             if (tupleEntries) {
                 if (tupleEntries.length === subtype.classType.tupleTypeArguments.length) {

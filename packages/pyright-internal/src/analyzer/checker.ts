@@ -115,6 +115,7 @@ import {
     getDeclaredGeneratorYieldType,
     isEllipsisType,
     isNoReturnType,
+    isOpenEndedTupleClass,
     isPartlyUnknown,
     isProperty,
     isTupleClass,
@@ -765,8 +766,7 @@ export class Checker extends ParseTreeWalker {
         if (type && isObject(type)) {
             if (isTupleClass(type.classType) && type.classType.tupleTypeArguments) {
                 if (type.classType.tupleTypeArguments.length > 0) {
-                    const lastTypeArg = type.classType.tupleTypeArguments[type.classType.tupleTypeArguments.length - 1];
-                    if (!isEllipsisType(lastTypeArg)) {
+                    if (!isOpenEndedTupleClass(type.classType)) {
                         this._evaluator.addDiagnosticForTextRange(
                             this._fileInfo,
                             this._fileInfo.diagnosticRuleSet.reportAssertAlwaysTrue,
