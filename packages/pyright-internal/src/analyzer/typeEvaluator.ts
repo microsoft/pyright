@@ -304,6 +304,7 @@ interface SequencePatternInfo {
     subtype: Type;
     entryTypes: Type[];
     isIndeterminateLength: boolean;
+    isTuple: boolean;
 }
 
 interface MappingPatternInfo {
@@ -12794,6 +12795,11 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.PatternLiteral: {
+                if (!isPositiveTest) {
+                    // TODO - need to implement.
+                    return type;
+                }
+
                 const literalType = getTypeOfExpression(pattern.expression).type;
                 return mapSubtypes(type, (subtype) => {
                     if (canAssignType(subtype, literalType, new DiagnosticAddendum())) {
@@ -12809,6 +12815,14 @@ export function createTypeEvaluator(
 
             case ParseNodeType.PatternAs: {
                 let remainingType = type;
+
+                if (!isPositiveTest) {
+                    pattern.orPatterns.forEach((subpattern) => {
+                        remainingType = narrowTypeBasedOnPattern(remainingType, subpattern, /* isPositiveTest */ false);
+                    });
+                    return remainingType;
+                }
+
                 const narrowedTypes = pattern.orPatterns.map((subpattern) => {
                     const narrowedSubtype = narrowTypeBasedOnPattern(
                         remainingType,
@@ -12818,7 +12832,7 @@ export function createTypeEvaluator(
                     remainingType = narrowTypeBasedOnPattern(remainingType, subpattern, /* isPositiveTest */ false);
                     return narrowedSubtype;
                 });
-                return isPositiveTest ? combineTypes(narrowedTypes) : remainingType;
+                return combineTypes(narrowedTypes);
             }
 
             case ParseNodeType.PatternMapping: {
@@ -12846,6 +12860,9 @@ export function createTypeEvaluator(
         // Further narrow based on pattern entry types.
         sequenceInfo = sequenceInfo.filter((entry) => {
             let isPlausibleMatch = true;
+            const narrowedEntryTypes: Type[] = [];
+            let canNarrowTuple = entry.isTuple;
+
             pattern.entries.forEach((sequenceEntry, index) => {
                 const entryType = getTypeForPatternSequenceEntry(
                     entry,
@@ -12855,11 +12872,32 @@ export function createTypeEvaluator(
                 );
 
                 const narrowedEntryType = narrowTypeBasedOnPattern(entryType, sequenceEntry, /* isPositiveTest */ true);
+                if (index === pattern.starEntryIndex) {
+                    if (
+                        isObject(narrowedEntryType) &&
+                        narrowedEntryType.classType.tupleTypeArguments &&
+                        !isOpenEndedTupleClass(narrowedEntryType.classType) &&
+                        narrowedEntryType.classType.tupleTypeArguments
+                    ) {
+                        narrowedEntryTypes.push(...narrowedEntryType.classType.tupleTypeArguments);
+                    } else {
+                        canNarrowTuple = false;
+                    }
+                } else {
+                    narrowedEntryTypes.push(narrowedEntryType);
+                }
 
                 if (isNever(narrowedEntryType)) {
                     isPlausibleMatch = false;
                 }
             });
+
+            // If this is a tuple, we can narrow it to a specific tuple type.
+            // Other sequences cannot be narrowed because we don't know if they
+            // are immutable (covariant).
+            if (isPlausibleMatch && canNarrowTuple && tupleClassType && isClass(tupleClassType)) {
+                entry.subtype = ObjectType.create(specializeTupleClass(tupleClassType, narrowedEntryTypes));
+            }
 
             return isPlausibleMatch;
         });
@@ -13092,6 +13130,7 @@ export function createTypeEvaluator(
                     subtype,
                     entryTypes: [concreteSubtype],
                     isIndeterminateLength: true,
+                    isTuple: false,
                 });
             } else if (isObject(concreteSubtype)) {
                 for (const mroClass of concreteSubtype.classType.details.mro) {
@@ -13131,6 +13170,7 @@ export function createTypeEvaluator(
                                     subtype,
                                     entryTypes: [specializedSequence.tupleTypeArguments[0]],
                                     isIndeterminateLength: true,
+                                    isTuple: true,
                                 });
                             } else {
                                 if (
@@ -13142,6 +13182,7 @@ export function createTypeEvaluator(
                                         subtype,
                                         entryTypes: specializedSequence.tupleTypeArguments,
                                         isIndeterminateLength: false,
+                                        isTuple: true,
                                     });
                                 }
                             }
@@ -13155,6 +13196,7 @@ export function createTypeEvaluator(
                                     : UnknownType.create(),
                             ],
                             isIndeterminateLength: true,
+                            isTuple: false,
                         });
                     }
                 }

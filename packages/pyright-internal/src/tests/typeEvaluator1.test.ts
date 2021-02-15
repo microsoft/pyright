@@ -1356,3 +1356,11 @@ test('Match5', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('Match6', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match6.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+});
