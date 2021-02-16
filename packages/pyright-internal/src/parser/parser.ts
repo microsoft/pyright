@@ -348,7 +348,7 @@ export class Parser {
                 // token.
                 const peekToken = this._peekToken(1);
                 let isInvalidMatchToken = false;
-                if (peekToken.type === TokenType.Colon) {
+                if (peekToken.type === TokenType.Colon || peekToken.type === TokenType.Dot) {
                     isInvalidMatchToken = true;
                 } else if (peekToken.type === TokenType.Operator) {
                     const operatorToken = peekToken as OperatorToken;
