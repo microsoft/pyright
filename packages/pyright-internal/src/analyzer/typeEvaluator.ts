@@ -58,6 +58,7 @@ import {
     ParseNode,
     ParseNodeType,
     PatternAtomNode,
+    PatternClassArgumentNode,
     PatternClassNode,
     PatternMappingNode,
     PatternSequenceNode,
@@ -12782,10 +12783,9 @@ export function createTypeEvaluator(
         }
 
         const subjectType = getTypeOfExpression(node.parent.subjectExpression).type;
-        const narrowedSubjectType = narrowTypeBasedOnPattern(subjectType, node.pattern, /* positiveTest */ true);
-        assignTypeToPatternTargets(narrowedSubjectType, node.pattern);
+        assignTypeToPatternTargets(subjectType, node.pattern);
 
-        writeTypeCache(node, narrowedSubjectType);
+        writeTypeCache(node, subjectType);
     }
 
     function narrowTypeBasedOnPattern(type: Type, pattern: PatternAtomNode, isPositiveTest: boolean): Type {
@@ -12953,6 +12953,37 @@ export function createTypeEvaluator(
         return combineTypes(mappingInfo.map((entry) => entry.subtype));
     }
 
+    // Looks up the "__match_args__" class member to determine the names of
+    // the attributes used for class pattern matching.
+    function getPositionalMatchArgNames(type: ClassType): string[] {
+        const matchArgsMemberInfo = lookUpClassMember(type, '__match_args__');
+        if (matchArgsMemberInfo) {
+            const matchArgsType = getTypeOfMember(matchArgsMemberInfo);
+            if (
+                isObject(matchArgsType) &&
+                isTupleClass(matchArgsType.classType) &&
+                !isOpenEndedTupleClass(matchArgsType.classType) &&
+                matchArgsType.classType.tupleTypeArguments
+            ) {
+                const tupleArgs = matchArgsType.classType.tupleTypeArguments;
+
+                // Are all the args string literals?
+                if (
+                    !tupleArgs.some(
+                        (argType) =>
+                            !isObject(argType) ||
+                            !ClassType.isBuiltIn(argType.classType, 'str') ||
+                            argType.classType.literalValue === undefined
+                    )
+                ) {
+                    return tupleArgs.map((argType) => (argType as ObjectType).classType.literalValue as string);
+                }
+            }
+        }
+
+        return [];
+    }
+
     function narrowTypeBasedOnClassPattern(type: Type, pattern: PatternClassNode, isPositiveTest: boolean): Type {
         if (!isPositiveTest) {
             // TODO - need to implement
@@ -12991,8 +13022,30 @@ export function createTypeEvaluator(
                                 return undefined;
                             }
 
-                            // TODO - need to apply additional filters based on arguments.
-                            return matchSubtype;
+                            // Are there any positional arguments? If so, try to get the mappings for
+                            // these arguments by fetching the __match_args__ symbol from the class.
+                            let positionalArgNames: string[] = [];
+                            if (pattern.arguments.some((arg) => !arg.name)) {
+                                positionalArgNames = getPositionalMatchArgNames(expandedSubtype);
+                            }
+
+                            let isMatchValid = true;
+                            pattern.arguments.forEach((arg, index) => {
+                                const narrowedArgType = narrowTypeOfClassPatternArgument(
+                                    arg,
+                                    index,
+                                    positionalArgNames,
+                                    expandedSubtype
+                                );
+
+                                if (isNever(narrowedArgType)) {
+                                    isMatchValid = false;
+                                }
+                            });
+
+                            if (isMatchValid) {
+                                return matchSubtype;
+                            }
                         }
 
                         return undefined;
@@ -13002,6 +13055,34 @@ export function createTypeEvaluator(
                 return undefined;
             }
         );
+    }
+
+    function narrowTypeOfClassPatternArgument(
+        arg: PatternClassArgumentNode,
+        argIndex: number,
+        positionalArgNames: string[],
+        classType: ClassType
+    ) {
+        let argName: string | undefined;
+        if (arg.name) {
+            argName = arg.name.value;
+        } else if (argIndex < positionalArgNames.length) {
+            argName = positionalArgNames[argIndex];
+        }
+
+        let argType: Type | undefined;
+        if (argName) {
+            const argMemberInfo = lookUpClassMember(classType, argName);
+            if (argMemberInfo) {
+                argType = getTypeOfMember(argMemberInfo);
+            }
+        }
+
+        if (!argType) {
+            argType = UnknownType.create();
+        }
+
+        return narrowTypeBasedOnPattern(argType, arg.pattern, /* isPositiveTest */ true);
     }
 
     function narrowTypeBasedOnValuePattern(type: Type, pattern: PatternValueNode, isPositiveTest: boolean): Type {
@@ -13249,7 +13330,12 @@ export function createTypeEvaluator(
         }
     }
 
+    // Recursively assigns the specified type to the pattern and any capture
+    // nodes within it
     function assignTypeToPatternTargets(type: Type, pattern: PatternAtomNode) {
+        // Further narrow the type based on this pattern.
+        type = narrowTypeBasedOnPattern(type, pattern, /* positiveTest */ true);
+
         switch (pattern.nodeType) {
             case ParseNodeType.PatternSequence: {
                 const sequenceInfo = getSequencePatternInfo(type, pattern.entries.length, pattern.starEntryIndex);
@@ -13260,6 +13346,7 @@ export function createTypeEvaluator(
                             getTypeForPatternSequenceEntry(info, index, pattern.entries.length, pattern.starEntryIndex)
                         )
                     );
+
                     assignTypeToPatternTargets(entryType, entry);
                 });
                 break;
@@ -13267,8 +13354,7 @@ export function createTypeEvaluator(
 
             case ParseNodeType.PatternAs: {
                 if (pattern.target) {
-                    const narrowedType = narrowTypeBasedOnPattern(type, pattern, /* positiveTest */ true);
-                    assignTypeToExpression(pattern.target, narrowedType, pattern.target);
+                    assignTypeToExpression(pattern.target, type, pattern.target);
                 }
 
                 pattern.orPatterns.forEach((orPattern) => {
@@ -13366,9 +13452,47 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.PatternClass: {
-                pattern.arguments.forEach((arg) => {
-                    // TODO - add support for argument pattern type analysis.
-                    assignTypeToPatternTargets(UnknownType.create(), arg.pattern);
+                const argTypes: Type[][] = pattern.arguments.map((arg) => []);
+
+                mapSubtypesExpandTypeVars(type, /* constraintFilter */ undefined, (expandedSubtype) => {
+                    if (isObject(expandedSubtype)) {
+                        doForEachSubtype(type, (matchSubtype) => {
+                            const concreteSubtype = makeTopLevelTypeVarsConcrete(matchSubtype);
+
+                            if (isAnyOrUnknown(concreteSubtype)) {
+                                pattern.arguments.forEach((arg, index) => {
+                                    argTypes[index].push(concreteSubtype);
+                                });
+                            } else if (isObject(concreteSubtype)) {
+                                // Are there any positional arguments? If so, try to get the mappings for
+                                // these arguments by fetching the __match_args__ symbol from the class.
+                                let positionalArgNames: string[] = [];
+                                if (pattern.arguments.some((arg) => !arg.name)) {
+                                    positionalArgNames = getPositionalMatchArgNames(expandedSubtype.classType);
+                                }
+
+                                pattern.arguments.forEach((arg, index) => {
+                                    const narrowedArgType = narrowTypeOfClassPatternArgument(
+                                        arg,
+                                        index,
+                                        positionalArgNames,
+                                        expandedSubtype.classType
+                                    );
+                                    argTypes[index].push(narrowedArgType);
+                                });
+                            }
+                        });
+                    } else {
+                        pattern.arguments.forEach((arg, index) => {
+                            argTypes[index].push(UnknownType.create());
+                        });
+                    }
+
+                    return undefined;
+                });
+
+                pattern.arguments.forEach((arg, index) => {
+                    assignTypeToPatternTargets(combineTypes(argTypes[index]), arg.pattern);
                 });
                 break;
             }
