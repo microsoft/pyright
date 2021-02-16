@@ -5214,7 +5214,7 @@ export function createTypeEvaluator(
             EvaluatorFlags.FinalDisallowed;
 
         const fileInfo = getFileInfo(node);
-        if (isAnnotationEvaluationPostponed(fileInfo)) {
+        if (fileInfo.isStubFile) {
             adjustedFlags |= EvaluatorFlags.AllowForwardReferences;
         }
 
