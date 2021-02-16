@@ -1,7 +1,7 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain sequence patterns.
 
-from typing import Any, List, Literal, Tuple, Union
+from typing import Any, List, Literal, Protocol, Tuple, TypeVar, Union
 
 def test_unknown(value_to_match):
     match value_to_match:
@@ -154,4 +154,30 @@ def test_union(value_to_match: Union[Tuple[complex, complex], Tuple[int, str, fl
        
         case *h1, "hi":
             t_h1: Literal["tuple[str, ...] | tuple[Any, ...]"] = reveal_type(h1)
+
+
+class SupportsLessThan(Protocol):
+    def __lt__(self, __other: Any) -> bool: ...
+    def __le__(self, __other: Any) -> bool: ...
+
+SupportsLessThanT = TypeVar("SupportsLessThanT", bound=SupportsLessThan)
+
+
+def sort(seq: List[SupportsLessThanT]) -> List[SupportsLessThanT]:
+    match seq:
+        case [] | [_]:
+            return seq
+        case [x, y] if x <= y:
+            return seq
+        case [x, y]:
+            return [y, x]
+        case [x, y, z] if x <= y <= z:
+            return seq
+        case [x, y, z] if x > y > z:
+            return [z, y, x]
+        case [p, *rest]:
+            a = sort([x for x in rest if x <= p])
+            b = sort([x for x in rest if p < x])
+            return a + [p] + b
+    return seq
 
