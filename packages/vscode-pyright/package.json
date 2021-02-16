@@ -638,10 +638,10 @@
                     "default": "info",
                     "description": "Specifies the level of logging for the Output panel",
                     "enum": [
-                        "Error",
-                        "Warning",
-                        "Information",
-                        "Trace"
+                        "error",
+                        "warn",
+                        "info",
+                        "log"
                     ]
                 },
                 "python.analysis.typeCheckingMode": {
