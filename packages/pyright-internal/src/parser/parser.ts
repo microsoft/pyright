@@ -187,6 +187,7 @@ export class Parser {
     private _fileContents?: string;
     private _tokenizerOutput?: TokenizerOutput;
     private _tokenIndex = 0;
+    private _areErrorsSuppressed = false;
     private _parseOptions: ParseOptions = new ParseOptions();
     private _diagSink: DiagnosticSink = new DiagnosticSink();
     private _isInLoop = false;
@@ -343,39 +344,37 @@ export class Parser {
                 return this._parseAsyncStatement();
 
             case KeywordType.Match: {
-                // This feature is available only in Python 3.10 or newer.
-                if (this._getLanguageVersion() >= PythonVersion.V3_10) {
-                    // Match is considered a "soft" keyword, so we will treat
-                    // it as an identifier if it is followed by an unexpected
-                    // token.
-                    const peekToken = this._peekToken(1);
-                    let isInvalidMatchToken = false;
+                // Match is considered a "soft" keyword, so we will treat
+                // it as an identifier if it is followed by an unexpected
+                // token.
+                const peekToken = this._peekToken(1);
+                let isInvalidMatchToken = false;
 
+                if (
+                    peekToken.type === TokenType.Colon ||
+                    peekToken.type === TokenType.Semicolon ||
+                    peekToken.type === TokenType.Comma ||
+                    peekToken.type === TokenType.Dot ||
+                    peekToken.type === TokenType.NewLine ||
+                    peekToken.type === TokenType.EndOfStream
+                ) {
+                    isInvalidMatchToken = true;
+                } else if (peekToken.type === TokenType.Operator) {
+                    const operatorToken = peekToken as OperatorToken;
                     if (
-                        peekToken.type === TokenType.Colon ||
-                        peekToken.type === TokenType.Semicolon ||
-                        peekToken.type === TokenType.Comma ||
-                        peekToken.type === TokenType.Dot ||
-                        peekToken.type === TokenType.NewLine ||
-                        peekToken.type === TokenType.EndOfStream
+                        operatorToken.operatorType !== OperatorType.Multiply &&
+                        operatorToken.operatorType !== OperatorType.Subtract
                     ) {
-                        // TODO - how do we distinguish between a call statement
-                        // where the function name is "match" or an index statement
-                        // where the LHS is "match" and a match statement with a
-                        // sequence pattern?
                         isInvalidMatchToken = true;
-                    } else if (peekToken.type === TokenType.Operator) {
-                        const operatorToken = peekToken as OperatorToken;
-                        if (
-                            operatorToken.operatorType !== OperatorType.Multiply &&
-                            operatorToken.operatorType !== OperatorType.Subtract
-                        ) {
-                            isInvalidMatchToken = true;
-                        }
                     }
+                }
 
-                    if (!isInvalidMatchToken) {
-                        return this._parseMatchStatement();
+                if (!isInvalidMatchToken) {
+                    // Try to parse the match statement. If it doesn't appear to
+                    // be a match statement, treat as a non-keyword and reparse.
+                    const matchStatement = this._parseMatchStatement();
+                    if (matchStatement) {
+                        return matchStatement;
                     }
                 }
             }
@@ -412,12 +411,26 @@ export class Parser {
     // subject_expr:
     //     | star_named_expression ',' star_named_expressions?
     //     | named_expression
-    private _parseMatchStatement(): MatchNode {
+    private _parseMatchStatement(): MatchNode | undefined {
         const matchToken = this._getKeywordToken(KeywordType.Match);
 
-        // This feature requires Python 3.10.
-        if (this._getLanguageVersion() < PythonVersion.V3_10) {
-            this._addError(Localizer.Diagnostic.matchIncompatible(), matchToken);
+        // Parse the subject expression with errors suppressed. If it's not
+        // followed by a colon, we'll assume this is not a match statement.
+        // We need to do this because "match" is considered a soft keyword,
+        // and we need to distinguish between "match(2)" and "match (2):"
+        // and between "match[2]" and "match [2]:"
+        let smellsLikeMatchStatement = false;
+        this._suppressErrors(() => {
+            const curTokenIndex = this._tokenIndex;
+            this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
+            smellsLikeMatchStatement = this._peekToken().type === TokenType.Colon;
+
+            // Set the token index back to the start.
+            this._tokenIndex = curTokenIndex;
+        });
+
+        if (!smellsLikeMatchStatement) {
+            return undefined;
         }
 
         const subjectExpression = this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
@@ -488,6 +501,11 @@ export class Parser {
             } else {
                 this._addError(Localizer.Diagnostic.zeroCaseStatementsFound(), matchToken);
             }
+        }
+
+        // This feature requires Python 3.10.
+        if (this._getLanguageVersion() < PythonVersion.V3_10) {
+            this._addError(Localizer.Diagnostic.matchIncompatible(), matchToken);
         }
 
         return matchNode;
@@ -4284,11 +4302,23 @@ export class Parser {
         return this._parseOptions.pythonVersion;
     }
 
+    private _suppressErrors(callback: () => void) {
+        try {
+            this._areErrorsSuppressed = true;
+            callback();
+        } finally {
+            this._areErrorsSuppressed = false;
+        }
+    }
+
     private _addError(message: string, range: TextRange) {
         assert(range !== undefined);
-        this._diagSink.addError(
-            message,
-            convertOffsetsToRange(range.start, range.start + range.length, this._tokenizerOutput!.lines)
-        );
+
+        if (!this._areErrorsSuppressed) {
+            this._diagSink.addError(
+                message,
+                convertOffsetsToRange(range.start, range.start + range.length, this._tokenizerOutput!.lines)
+            );
+        }
     }
 }

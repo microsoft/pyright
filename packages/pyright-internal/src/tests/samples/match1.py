@@ -124,3 +124,33 @@ match (1, ):
         pass
   
 
+class Foo:
+    x: int
+
+
+def func1():
+    match = Foo()
+
+    # This should be treated as an expression statement, not a match statement.
+    match.x
+
+
+def func2():
+    match = [3]
+
+    # This should be treated as an expression statement, not a match statement.
+    match[0]
+
+    match [0]:
+        case _:
+            pass
+
+def func3():
+    def match(a: int): ...
+
+    # This should be treated as a call statement
+    match(0)
+
+    match (0):
+        case _:
+            pass
