@@ -343,25 +343,40 @@ export class Parser {
                 return this._parseAsyncStatement();
 
             case KeywordType.Match: {
-                // Match is considered a "soft" keyword, so we will treat
-                // it as an identifier if it is followed by an unexpected
-                // token.
-                const peekToken = this._peekToken(1);
-                let isInvalidMatchToken = false;
-                if (peekToken.type === TokenType.Colon || peekToken.type === TokenType.Dot) {
-                    isInvalidMatchToken = true;
-                } else if (peekToken.type === TokenType.Operator) {
-                    const operatorToken = peekToken as OperatorToken;
-                    if (
-                        operatorToken.operatorType !== OperatorType.Multiply &&
-                        operatorToken.operatorType !== OperatorType.Subtract
-                    ) {
-                        isInvalidMatchToken = true;
-                    }
-                }
+                // This feature is available only in Python 3.10 or newer.
+                if (this._getLanguageVersion() >= PythonVersion.V3_10) {
+                    // Match is considered a "soft" keyword, so we will treat
+                    // it as an identifier if it is followed by an unexpected
+                    // token.
+                    const peekToken = this._peekToken(1);
+                    let isInvalidMatchToken = false;
 
-                if (!isInvalidMatchToken) {
-                    return this._parseMatchStatement();
+                    if (
+                        peekToken.type === TokenType.Colon ||
+                        peekToken.type === TokenType.Semicolon ||
+                        peekToken.type === TokenType.Comma ||
+                        peekToken.type === TokenType.Dot ||
+                        peekToken.type === TokenType.NewLine ||
+                        peekToken.type === TokenType.EndOfStream
+                    ) {
+                        // TODO - how do we distinguish between a call statement
+                        // where the function name is "match" or an index statement
+                        // where the LHS is "match" and a match statement with a
+                        // sequence pattern?
+                        isInvalidMatchToken = true;
+                    } else if (peekToken.type === TokenType.Operator) {
+                        const operatorToken = peekToken as OperatorToken;
+                        if (
+                            operatorToken.operatorType !== OperatorType.Multiply &&
+                            operatorToken.operatorType !== OperatorType.Subtract
+                        ) {
+                            isInvalidMatchToken = true;
+                        }
+                    }
+
+                    if (!isInvalidMatchToken) {
+                        return this._parseMatchStatement();
+                    }
                 }
             }
         }
