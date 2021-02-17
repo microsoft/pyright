@@ -22,6 +22,7 @@ import {
     ExecutionScopeNode,
     ExpressionNode,
     FunctionNode,
+    IndexNode,
     isExpressionNode,
     LambdaNode,
     ModuleNode,
@@ -1197,6 +1198,23 @@ export function getCallNodeAndActiveParameterIndex(
 
         return tokens.getItemAt(index);
     }
+}
+
+// Returns the integer subscript if a simple numeric literal is used.
+export function getIntegerSubscriptValue(node: IndexNode): number | undefined {
+    if (
+        node.items.length === 1 &&
+        !node.trailingComma &&
+        node.items[0].argumentCategory === ArgumentCategory.Simple &&
+        !node.items[0].name
+    ) {
+        const expr = node.items[0].valueExpression;
+        if (expr.nodeType === ParseNodeType.Number && expr.isInteger && !expr.isImaginary) {
+            return expr.value;
+        }
+    }
+
+    return undefined;
 }
 
 export function printParseNodeType(type: ParseNodeType) {

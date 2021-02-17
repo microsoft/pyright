@@ -803,6 +803,34 @@ export class Checker extends ParseTreeWalker {
 
     visitIndex(node: IndexNode): boolean {
         this._evaluator.getType(node);
+
+        // If the index is a literal integer, see if this is a tuple with
+        // a known length and the integer value exceeds the length.
+        const subscriptValue = ParseTreeUtils.getIntegerSubscriptValue(node);
+        if (subscriptValue !== undefined) {
+            const baseType = this._evaluator.getType(node.baseExpression);
+            if (
+                baseType &&
+                isObject(baseType) &&
+                baseType.classType.tupleTypeArguments &&
+                !isOpenEndedTupleClass(baseType.classType)
+            ) {
+                const tupleLength = baseType.classType.tupleTypeArguments.length;
+
+                if (subscriptValue >= tupleLength) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.tupleIndexOutOfRange().format({
+                            length: tupleLength,
+                            index: subscriptValue,
+                        }),
+                        node
+                    );
+                }
+            }
+        }
+
         return true;
     }
 

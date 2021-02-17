@@ -122,3 +122,18 @@ def func12():
     data2: Tuple[List[str], ...] = *map(str.split, data),
     data3 = (*map(str.split, data),)
     data4: Tuple[List[str], ...] = (*map(str.split, data),)
+
+
+# Tests for index-out-of-range error.
+def func13(a: Tuple[int, str], b: Tuple[()], c: Tuple[int, ...]):
+    v1 = a[0]
+    v2 = a[1]
+
+    # This should generate an error.
+    v3 = a[2]
+
+    # This should generate an error.
+    v4 = b[0]
+
+    v5 = c[100]
+

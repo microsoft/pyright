@@ -566,6 +566,8 @@ export namespace Localizer {
         export const symbolOverridden = () =>
             new ParameterizedString<{ name: string; className: string }>(getRawString('Diagnostic.symbolOverridden'));
         export const tupleInAnnotation = () => getRawString('Diagnostic.tupleInAnnotation');
+        export const tupleIndexOutOfRange = () =>
+            new ParameterizedString<{ length: number; index: number }>(getRawString('Diagnostic.tupleIndexOutOfRange'));
         export const tupleSizeMismatch = () =>
             new ParameterizedString<{ expected: number; received: number }>(
                 getRawString('Diagnostic.tupleSizeMismatch')
