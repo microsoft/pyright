@@ -46,7 +46,6 @@ import {
     AutoImporter,
     AutoImportResult,
     buildModuleSymbolsMap,
-    getAutoImportCandidatesForAbbr,
     ModuleSymbolMap,
 } from '../languageService/autoImporter';
 import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
@@ -1019,7 +1018,7 @@ export class Program {
                 this._importResolver,
                 parseTree,
                 range.start,
-                [],
+                new Set(),
                 map,
                 libraryMap,
                 (p, t) => computeCompletionSimilarity(p, t) > similarityLimit
@@ -1033,7 +1032,7 @@ export class Program {
                 const info = nameMap?.get(writtenWord);
                 if (info) {
                     // No scope filter is needed since we only do exact match.
-                    results.push(...getAutoImportCandidatesForAbbr(autoImporter, writtenWord, info, token));
+                    results.push(...autoImporter.getAutoImportCandidatesForAbbr(writtenWord, info, token));
                 }
 
                 results.push(

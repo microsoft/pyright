@@ -119,18 +119,6 @@ export interface AbbreviationInfo {
     importName: string;
 }
 
-export function getAutoImportCandidatesForAbbr(
-    autoImporter: AutoImporter,
-    abbr: string | undefined,
-    abbrInfo: AbbreviationInfo,
-    token: CancellationToken
-) {
-    const exactMatch = 1;
-    return autoImporter
-        .getAutoImportCandidates(abbrInfo.importName, exactMatch, abbr, token)
-        .filter((r) => r.source === abbrInfo.importFrom && r.name === abbrInfo.importName);
-}
-
 export interface AutoImportResult {
     name: string;
     symbol?: Symbol;
@@ -157,6 +145,8 @@ interface ImportAliasData {
     kind?: CompletionItemKind;
 }
 
+type AutoImportResultMap = Map<string, AutoImportResult[]>;
+
 export class AutoImporter {
     private _importStatements: ImportStatements;
     private _patternMatcher: (pattern: string, name: string) => boolean;
@@ -166,13 +156,23 @@ export class AutoImporter {
         private _importResolver: ImportResolver,
         private _parseResults: ParseResults,
         private _invocationPosition: Position,
-        private _excludes: string[],
+        private _excludes: Set<string>,
         private _moduleSymbolMap: ModuleSymbolMap,
         private _libraryMap?: Map<string, IndexResults>,
         patternMatcher?: (pattern: string, name: string) => boolean
     ) {
         this._patternMatcher = patternMatcher ?? StringUtils.isPatternInSymbol;
         this._importStatements = getTopLevelImports(this._parseResults.parseTree, true);
+    }
+
+    getAutoImportCandidatesForAbbr(abbr: string | undefined, abbrInfo: AbbreviationInfo, token: CancellationToken) {
+        const map = this._getCandidates(abbrInfo.importName, /* similarityLimit */ 1, abbr, token);
+        const result = map.get(abbrInfo.importName);
+        if (!result) {
+            return [];
+        }
+
+        return result.filter((r) => r.source === abbrInfo.importFrom);
     }
 
     getAutoImportCandidates(
@@ -182,12 +182,26 @@ export class AutoImporter {
         token: CancellationToken
     ) {
         const results: AutoImportResult[] = [];
+        const map = this._getCandidates(word, similarityLimit, abbrFromUsers, token);
+
+        map.forEach((v) => results.push(...v));
+        return results;
+    }
+
+    private _getCandidates(
+        word: string,
+        similarityLimit: number,
+        abbrFromUsers: string | undefined,
+        token: CancellationToken
+    ) {
+        const resultMap = new Map<string, AutoImportResult[]>();
         const importAliasMap = new Map<string, Map<string, ImportAliasData>>();
 
-        this._addImportsFromModuleMap(word, similarityLimit, abbrFromUsers, importAliasMap, results, token);
-        this._addImportsFromLibraryMap(word, similarityLimit, abbrFromUsers, importAliasMap, results, token);
-        this._addImportsFromImportAliasMap(importAliasMap, abbrFromUsers, results, token);
-        return results;
+        this._addImportsFromModuleMap(word, similarityLimit, abbrFromUsers, importAliasMap, resultMap, token);
+        this._addImportsFromLibraryMap(word, similarityLimit, abbrFromUsers, importAliasMap, resultMap, token);
+        this._addImportsFromImportAliasMap(importAliasMap, abbrFromUsers, resultMap, token);
+
+        return resultMap;
     }
 
     private _addImportsFromLibraryMap(
@@ -195,7 +209,7 @@ export class AutoImporter {
         similarityLimit: number,
         abbrFromUsers: string | undefined,
         aliasMap: Map<string, Map<string, ImportAliasData>>,
-        results: AutoImportResult[],
+        results: AutoImportResultMap,
         token: CancellationToken
     ) {
         this._libraryMap?.forEach((indexResults, filePath) => {
@@ -230,7 +244,7 @@ export class AutoImporter {
         similarityLimit: number,
         abbrFromUsers: string | undefined,
         aliasMap: Map<string, Map<string, ImportAliasData>>,
-        results: AutoImportResult[],
+        results: AutoImportResultMap,
         token: CancellationToken
     ) {
         this._moduleSymbolMap.forEach((topLevelSymbols, filePath) => {
@@ -267,7 +281,7 @@ export class AutoImporter {
         isStubOrHasInit: { isStub: boolean; hasInit: boolean },
         abbrFromUsers: string | undefined,
         importAliasMap: Map<string, Map<string, ImportAliasData>>,
-        results: AutoImportResult[],
+        results: AutoImportResultMap,
         token: CancellationToken
     ) {
         throwIfCancellationRequested(token);
@@ -335,7 +349,7 @@ export class AutoImporter {
                 filePath
             );
 
-            results.push({
+            this._addResult(results, {
                 name,
                 alias: abbrFromUsers,
                 symbol: autoImportSymbol.symbol,
@@ -378,7 +392,7 @@ export class AutoImporter {
     private _addImportsFromImportAliasMap(
         importAliasMap: Map<string, Map<string, ImportAliasData>>,
         abbrFromUsers: string | undefined,
-        results: AutoImportResult[],
+        results: AutoImportResultMap,
         token: CancellationToken
     ) {
         throwIfCancellationRequested(token);
@@ -428,7 +442,7 @@ export class AutoImporter {
                     importAliasData.importParts.filePath
                 );
 
-                results.push({
+                this._addResult(results, {
                     name: importAliasData.importParts.importName,
                     alias: abbrFromUsers,
                     symbol: importAliasData.symbol,
@@ -555,12 +569,13 @@ export class AutoImporter {
         return word.length > 0 && this._patternMatcher(word, name);
     }
 
-    private _containsName(name: string, source: string | undefined, results: AutoImportResult[]) {
-        if (this._excludes.find((e) => e === name)) {
+    private _containsName(name: string, source: string | undefined, results: AutoImportResultMap) {
+        if (this._excludes.has(name)) {
             return true;
         }
 
-        if (results.find((r) => r.name === name && r.source === source)) {
+        const match = results.get(name);
+        if (match?.some((r) => r.source === source)) {
             return true;
         }
 
@@ -702,6 +717,16 @@ export class AutoImporter {
                 abbrFromUsers
             ),
         };
+    }
+
+    private _addResult(results: AutoImportResultMap, result: AutoImportResult) {
+        let entries = results.get(result.name);
+        if (!entries) {
+            entries = [];
+            results.set(result.name, entries);
+        }
+
+        entries.push(result);
     }
 }
 
