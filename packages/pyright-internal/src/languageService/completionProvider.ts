@@ -93,13 +93,7 @@ import {
 } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
-import {
-    AbbreviationInfo,
-    AutoImporter,
-    AutoImportResult,
-    getAutoImportCandidatesForAbbr,
-    ModuleSymbolMap,
-} from './autoImporter';
+import { AbbreviationInfo, AutoImporter, AutoImportResult, ModuleSymbolMap } from './autoImporter';
 import { IndexResults } from './documentSymbolProvider';
 
 const _keywords: string[] = [
@@ -1352,7 +1346,7 @@ export class CompletionProvider {
         }
 
         const moduleSymbolMap = this._autoImportMaps.getModuleSymbolsMap();
-        const excludes = completionList.items.filter((i) => !i.data?.autoImport).map((i) => i.label);
+        const excludes = new Set(completionList.items.filter((i) => !i.data?.autoImport).map((i) => i.label));
         const autoImporter = new AutoImporter(
             this._configOptions.findExecEnvironment(this._filePath),
             this._importResolver,
@@ -1365,8 +1359,8 @@ export class CompletionProvider {
 
         const results: AutoImportResult[] = [];
         const info = this._autoImportMaps.nameMap?.get(priorWord);
-        if (info && priorWord.length > 1 && !excludes.some((e) => e === priorWord)) {
-            results.push(...getAutoImportCandidatesForAbbr(autoImporter, priorWord, info, this._cancellationToken));
+        if (info && priorWord.length > 1 && !excludes.has(priorWord)) {
+            results.push(...autoImporter.getAutoImportCandidatesForAbbr(priorWord, info, this._cancellationToken));
         }
 
         results.push(
