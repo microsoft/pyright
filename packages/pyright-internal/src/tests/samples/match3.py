@@ -66,7 +66,7 @@ def test_bound_typevar(value_to_match: TInt) -> TInt:
 def test_union(value_to_match: Union[TInt, Literal[3], float, str]) -> Union[TInt, Literal[3], float, str]:
     match value_to_match:
         case int() as a1:
-            t_a1: Literal["TInt@test_union | Literal[3]"] = reveal_type(a1)
+            t_a1: Literal["TInt@test_union | int"] = reveal_type(a1)
 
         case float() as a2:
             t_a2: Literal["TInt@test_union | float | Literal[3]"] = reveal_type(a2)
@@ -103,3 +103,8 @@ def func1(points: list[Point[float] | Point[complex]]):
 
         case _ as e1:
             t_e1: Literal["list[Point[float] | Point[complex]]"] = reveal_type(e1)
+
+def func2(subj: object):
+    match subj:
+        case list() as a1:
+            t_a1: Literal["list[Unknown]"] = reveal_type(a1)

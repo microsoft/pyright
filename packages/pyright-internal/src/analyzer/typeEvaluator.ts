@@ -13121,7 +13121,15 @@ export function createTypeEvaluator(
                         }
 
                         if (isObject(concreteSubtype)) {
-                            if (!canAssignType(expandedSubtype, concreteSubtype.classType, new DiagnosticAddendum())) {
+                            let resultType: Type;
+
+                            if (canAssignType(expandedSubtype, concreteSubtype.classType, new DiagnosticAddendum())) {
+                                resultType = matchSubtype;
+                            } else if (
+                                canAssignType(concreteSubtype.classType, expandedSubtype, new DiagnosticAddendum())
+                            ) {
+                                resultType = convertToInstance(unexpandedSubtype);
+                            } else {
                                 return undefined;
                             }
 
@@ -13147,7 +13155,7 @@ export function createTypeEvaluator(
                             });
 
                             if (isMatchValid) {
-                                return matchSubtype;
+                                return resultType;
                             }
                         }
 
