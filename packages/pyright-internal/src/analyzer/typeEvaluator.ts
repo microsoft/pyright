@@ -207,6 +207,7 @@ import {
     getTypeVarScopeId,
     isEllipsisType,
     isLiteralType,
+    isLiteralTypeOrUnion,
     isNoReturnType,
     isOpenEndedTupleClass,
     isOptionalType,
@@ -5328,7 +5329,7 @@ export function createTypeEvaluator(
             getTypeOfExpression(expr, index < expectedTypes.length ? expectedTypes[index] : undefined)
         );
 
-        const expectedTypesContainLiterals = expectedTypes.some((type) => isLiteralType(type));
+        const expectedTypesContainLiterals = expectedTypes.some((type) => isLiteralTypeOrUnion(type));
 
         const type = convertToInstance(
             specializeTupleClass(
@@ -9308,7 +9309,7 @@ export function createTypeEvaluator(
                     expectedTypedDictEntries &&
                     isObject(keyType) &&
                     ClassType.isBuiltIn(keyType.classType, 'str') &&
-                    keyType.classType.literalValue &&
+                    isLiteralType(keyType) &&
                     expectedTypedDictEntries.has(keyType.classType.literalValue as string)
                 ) {
                     valueTypeResult = getTypeOfExpression(
@@ -12970,7 +12971,39 @@ export function createTypeEvaluator(
                             mappingEntry.keyPattern,
                             isPositiveTest
                         );
+
                         if (isNever(narrowedKeyType)) {
+                            isPlausibleMatch = false;
+                        }
+
+                        const valueType = mapSubtypes(narrowedKeyType, (keySubtype) => {
+                            if (isAnyOrUnknown(keySubtype)) {
+                                return keySubtype;
+                            }
+
+                            if (isObject(keySubtype) && ClassType.isBuiltIn(keySubtype.classType, 'str')) {
+                                if (!isLiteralType(keySubtype)) {
+                                    return UnknownType.create();
+                                }
+
+                                const tdEntries = getTypedDictMembersForClass(mappingSubtypeInfo.typedDict!);
+                                const valueEntry = tdEntries.get(keySubtype.classType.literalValue as string);
+                                if (valueEntry) {
+                                    const narrowedValueType = narrowTypeBasedOnPattern(
+                                        valueEntry.valueType,
+                                        mappingEntry.valuePattern,
+                                        /* isPositiveTest */ true
+                                    );
+                                    if (!isNever(narrowedValueType)) {
+                                        return narrowedValueType;
+                                    }
+                                }
+                            }
+
+                            return undefined;
+                        });
+
+                        if (isNever(valueType)) {
                             isPlausibleMatch = false;
                         }
                     }
@@ -13019,7 +13052,7 @@ export function createTypeEvaluator(
                         (argType) =>
                             !isObject(argType) ||
                             !ClassType.isBuiltIn(argType.classType, 'str') ||
-                            argType.classType.literalValue === undefined
+                            !isLiteralType(argType)
                     )
                 ) {
                     return tupleArgs.map((argType) => (argType as ObjectType).classType.literalValue as string);
@@ -13504,17 +13537,19 @@ export function createTypeEvaluator(
                                 );
                                 keyTypes.push(keyType);
 
-                                if (
-                                    isObject(keyType) &&
-                                    ClassType.isBuiltIn(keyType.classType, 'str') &&
-                                    isLiteralType(keyType)
-                                ) {
-                                    const tdEntries = getTypedDictMembersForClass(mappingSubtypeInfo.typedDict);
-                                    const valueInfo = tdEntries.get(keyType.classType.literalValue as string);
-                                    valueTypes.push(valueInfo ? valueInfo.valueType : UnknownType.create());
-                                } else {
-                                    valueTypes.push(UnknownType.create());
-                                }
+                                doForEachSubtype(keyType, (keySubtype) => {
+                                    if (
+                                        isObject(keySubtype) &&
+                                        ClassType.isBuiltIn(keySubtype.classType, 'str') &&
+                                        isLiteralType(keySubtype)
+                                    ) {
+                                        const tdEntries = getTypedDictMembersForClass(mappingSubtypeInfo.typedDict!);
+                                        const valueInfo = tdEntries.get(keySubtype.classType.literalValue as string);
+                                        valueTypes.push(valueInfo ? valueInfo.valueType : UnknownType.create());
+                                    } else {
+                                        valueTypes.push(UnknownType.create());
+                                    }
+                                });
                             } else if (mappingEntry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
                                 keyTypes.push(getBuiltInObject(pattern, 'str'));
                                 valueTypes.push(UnknownType.create());
@@ -15072,7 +15107,7 @@ export function createTypeEvaluator(
                     if (
                         isObject(leftType) &&
                         ClassType.isBuiltIn(leftType.classType, 'str') &&
-                        leftType.classType.literalValue !== undefined
+                        isLiteralType(leftType)
                     ) {
                         const adjIsPositiveTest =
                             testExpression.operator === OperatorType.In ? isPositiveTest : !isPositiveTest;
@@ -15478,7 +15513,7 @@ export function createTypeEvaluator(
             if (memberInfo && memberInfo.isTypeDeclared) {
                 const memberType = getTypeOfMember(memberInfo);
 
-                if (isLiteralType(memberType, /* allowLiteralUnions */ false)) {
+                if (isLiteralTypeOrUnion(memberType)) {
                     const isAssignable = canAssignType(memberType, literalType, new DiagnosticAddendum());
                     return isAssignable === isPositiveTest ? subtype : undefined;
                 }
@@ -19546,11 +19581,7 @@ export function createTypeEvaluator(
         const symbolMap = getTypedDictMembersForClass(classType);
 
         keyTypes.forEach((keyType, index) => {
-            if (
-                !isObject(keyType) ||
-                !ClassType.isBuiltIn(keyType.classType, 'str') ||
-                keyType.classType.literalValue === undefined
-            ) {
+            if (!isObject(keyType) || !ClassType.isBuiltIn(keyType.classType, 'str') || !isLiteralType(keyType)) {
                 isMatch = false;
             } else {
                 const keyValue = keyType.classType.literalValue as string;

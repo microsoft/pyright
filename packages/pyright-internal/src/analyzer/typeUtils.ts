@@ -542,12 +542,16 @@ export function getSpecializedTupleType(type: Type): ClassType | undefined {
     return applySolvedTypeVars(tupleClass, typeVarMap) as ClassType;
 }
 
-export function isLiteralType(type: Type, allowLiteralUnions = true): boolean {
+export function isLiteralType(type: ObjectType): boolean {
+    return type.classType.literalValue !== undefined;
+}
+
+export function isLiteralTypeOrUnion(type: Type): boolean {
     if (isObject(type)) {
         return type.classType.literalValue !== undefined;
     }
 
-    if (allowLiteralUnions && isUnion(type)) {
+    if (isUnion(type)) {
         return !findSubtype(type, (subtype) => !isObject(subtype) || subtype.classType.literalValue === undefined);
     }
 

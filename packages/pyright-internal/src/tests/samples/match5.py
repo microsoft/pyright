@@ -29,6 +29,9 @@ class Movie(TypedDict):
     release_year: int
     gross_earnings: float
 
+class MovieInfo:
+    field_of_interest: Literal["release_year", "gross_earnings"]
+
 def test_typed_dict(value_to_match: Movie):
     match value_to_match:
         case {"title": a1, "release_year": a2, **a3}:
@@ -39,6 +42,12 @@ def test_typed_dict(value_to_match: Movie):
         case {3: b1, "title": b2}:
             t_b1: Literal["Never"] = reveal_type(b1)
             t_b2: Literal["Never"] = reveal_type(b2)
+
+        case {"director": c1}:
+            t_c1: Literal["Never"] = reveal_type(c1)
+        
+        case {MovieInfo.field_of_interest: d1}:
+            t_d1: Literal["int | float"] = reveal_type(d1)
 
 
 def test_union(value_to_match: Dict[str | int, str | int] | Movie | str):
