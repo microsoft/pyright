@@ -59,6 +59,7 @@ import {
     ParseNodeType,
     PatternAsNode,
     PatternAtomNode,
+    PatternCaptureNode,
     PatternClassArgumentNode,
     PatternClassNode,
     PatternLiteralNode,
@@ -12867,7 +12868,11 @@ export function createTypeEvaluator(
                 return narrowTypeBasedOnValuePattern(type, pattern, isPositiveTest);
             }
 
-            case ParseNodeType.PatternCapture:
+            case ParseNodeType.PatternCapture: {
+                // A capture captures everything, so nothing remains in the negative case.
+                return isPositiveTest ? type : NeverType.create();
+            }
+
             case ParseNodeType.Error: {
                 return type;
             }
