@@ -47,3 +47,27 @@ def test_union(value_to_match: int | float | str | complex | bool | None):
             t_d1: Literal["Literal[True, 'True']"] = reveal_type(d1)
             t_d2: Literal["Literal[False, 'False']"] = reveal_type(d2)
 
+
+def test_narrowing1(value_to_match: Literal[1, True, "hi"]):
+    match value_to_match:
+        case True | "hi" | a1:
+            t_a1: Literal["Literal[1]"] = reveal_type(a1)
+
+        case 1 | b1:
+            t_b1: Literal["Literal[True, 'hi']"] = reveal_type(b1)
+
+        case 1 | True | "hi" | c1:
+            t_c1: Literal["Never"] = reveal_type(c1)
+
+
+def test_narrowing2(value_to_match: bool | float | None):
+    match value_to_match:
+        case complex() | True | a1:
+            t_a1: Literal["Literal[False] | None"] = reveal_type(a1)
+
+        case float() | None | False | b1:
+            t_b1: Literal["Literal[True]"] = reveal_type(b1)
+
+        case float() | False | True | None | c1:
+            t_c1: Literal["Never"] = reveal_type(c1)
+

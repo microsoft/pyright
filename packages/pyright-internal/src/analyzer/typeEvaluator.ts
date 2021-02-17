@@ -57,9 +57,11 @@ import {
     ParameterNode,
     ParseNode,
     ParseNodeType,
+    PatternAsNode,
     PatternAtomNode,
     PatternClassArgumentNode,
     PatternClassNode,
+    PatternLiteralNode,
     PatternMappingNode,
     PatternSequenceNode,
     PatternValueNode,
@@ -12837,18 +12839,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.PatternLiteral: {
-                if (!isPositiveTest) {
-                    // TODO - need to implement.
-                    return type;
-                }
-
-                const literalType = getTypeOfExpression(pattern.expression).type;
-                return mapSubtypes(type, (subtype) => {
-                    if (canAssignType(subtype, literalType, new DiagnosticAddendum())) {
-                        return literalType;
-                    }
-                    return undefined;
-                });
+                return narrowTypeBasedOnLiteralPattern(type, pattern, isPositiveTest);
             }
 
             case ParseNodeType.PatternClass: {
@@ -12856,25 +12847,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.PatternAs: {
-                let remainingType = type;
-
-                if (!isPositiveTest) {
-                    pattern.orPatterns.forEach((subpattern) => {
-                        remainingType = narrowTypeBasedOnPattern(remainingType, subpattern, /* isPositiveTest */ false);
-                    });
-                    return remainingType;
-                }
-
-                const narrowedTypes = pattern.orPatterns.map((subpattern) => {
-                    const narrowedSubtype = narrowTypeBasedOnPattern(
-                        remainingType,
-                        subpattern,
-                        /* isPositiveTest */ true
-                    );
-                    remainingType = narrowTypeBasedOnPattern(remainingType, subpattern, /* isPositiveTest */ false);
-                    return narrowedSubtype;
-                });
-                return combineTypes(narrowedTypes);
+                return narrowTypeBasedOnAsPattern(type, pattern, isPositiveTest);
             }
 
             case ParseNodeType.PatternMapping: {
@@ -12894,7 +12867,7 @@ export function createTypeEvaluator(
 
     function narrowTypeBasedOnSequencePattern(type: Type, pattern: PatternSequenceNode, isPositiveTest: boolean): Type {
         if (!isPositiveTest) {
-            // TODO - need to implement
+            // Never narrow in negative case.
             return type;
         }
 
@@ -12947,9 +12920,27 @@ export function createTypeEvaluator(
         return combineTypes(sequenceInfo.map((entry) => entry.subtype));
     }
 
+    function narrowTypeBasedOnAsPattern(type: Type, pattern: PatternAsNode, isPositiveTest: boolean): Type {
+        let remainingType = type;
+
+        if (!isPositiveTest) {
+            pattern.orPatterns.forEach((subpattern) => {
+                remainingType = narrowTypeBasedOnPattern(remainingType, subpattern, /* isPositiveTest */ false);
+            });
+            return remainingType;
+        }
+
+        const narrowedTypes = pattern.orPatterns.map((subpattern) => {
+            const narrowedSubtype = narrowTypeBasedOnPattern(remainingType, subpattern, /* isPositiveTest */ true);
+            remainingType = narrowTypeBasedOnPattern(remainingType, subpattern, /* isPositiveTest */ false);
+            return narrowedSubtype;
+        });
+        return combineTypes(narrowedTypes);
+    }
+
     function narrowTypeBasedOnMappingPattern(type: Type, pattern: PatternMappingNode, isPositiveTest: boolean): Type {
         if (!isPositiveTest) {
-            // TODO - need to implement
+            // Never narrow in negative case.
             return type;
         }
 
@@ -13026,13 +13017,74 @@ export function createTypeEvaluator(
         return [];
     }
 
-    function narrowTypeBasedOnClassPattern(type: Type, pattern: PatternClassNode, isPositiveTest: boolean): Type {
+    function narrowTypeBasedOnLiteralPattern(type: Type, pattern: PatternLiteralNode, isPositiveTest: boolean): Type {
+        const literalType = getTypeOfExpression(pattern.expression).type;
+
         if (!isPositiveTest) {
-            // TODO - need to implement
-            return type;
+            return mapSubtypes(type, (subtype) => {
+                if (canAssignType(literalType, subtype, new DiagnosticAddendum())) {
+                    return undefined;
+                }
+
+                // Narrow a non-literal bool based on a literal bool pattern.
+                if (
+                    isObject(subtype) &&
+                    ClassType.isBuiltIn(subtype.classType, 'bool') &&
+                    subtype.classType.literalValue === undefined &&
+                    isObject(literalType) &&
+                    ClassType.isBuiltIn(literalType.classType, 'bool') &&
+                    literalType.classType.literalValue !== undefined
+                ) {
+                    return ObjectType.create(
+                        ClassType.cloneWithLiteral(
+                            literalType.classType,
+                            !(literalType.classType.literalValue as boolean)
+                        )
+                    );
+                }
+
+                return subtype;
+            });
         }
 
+        return mapSubtypes(type, (subtype) => {
+            if (canAssignType(subtype, literalType, new DiagnosticAddendum())) {
+                return literalType;
+            }
+            return undefined;
+        });
+    }
+
+    function narrowTypeBasedOnClassPattern(type: Type, pattern: PatternClassNode, isPositiveTest: boolean): Type {
         const classType = getTypeOfExpression(pattern.className).type;
+
+        if (!isPositiveTest) {
+            // Don't attempt to narrow if there are arguments.
+            if (pattern.arguments.length > 0) {
+                return type;
+            }
+
+            // Don't attempt to narrow if the class type is a more complex type (e.g. a TypeVar or union).
+            if (!isClass(classType)) {
+                return type;
+            }
+
+            // Don't attempt to narrow if the class type is generic.
+            if (classType.details.typeParameters.length > 0) {
+                return type;
+            }
+
+            const diag = new DiagnosticAddendum();
+            const classInstance = convertToInstance(classType);
+            return mapSubtypes(type, (subtype) => {
+                if (canAssignType(classInstance, subtype, diag)) {
+                    return undefined;
+                }
+
+                return subtype;
+            });
+        }
+
         if (!TypeBase.isInstantiable(classType)) {
             addDiagnostic(
                 getFileInfo(pattern).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -13129,7 +13181,7 @@ export function createTypeEvaluator(
 
     function narrowTypeBasedOnValuePattern(type: Type, pattern: PatternValueNode, isPositiveTest: boolean): Type {
         if (!isPositiveTest) {
-            // TODO - need to implement
+            // Never narrow in negative case.
             return type;
         }
 
