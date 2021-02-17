@@ -1340,8 +1340,8 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         classType: ClassType,
         memberName: string,
-        usage: EvaluatorUsage,
-        diag: DiagnosticAddendum,
+        usage: EvaluatorUsage = { method: 'get' },
+        diag: DiagnosticAddendum = new DiagnosticAddendum(),
         memberAccessFlags = MemberAccessFlags.None
     ): Type | undefined {
         let memberInfo: ClassMemberLookup | undefined;
@@ -8667,15 +8667,26 @@ export function createTypeEvaluator(
 
                         const magicMethodName = operatorMap[node.operator][0];
                         let returnResult = getTypeFromMagicMethodReturn(
-                            leftSubtypeExpanded,
+                            leftSubtypeUnexpanded,
                             [rightSubtypeUnexpanded],
                             magicMethodName,
                             node,
                             expectedType
                         );
 
+                        if (!returnResult && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
+                            // Try with the expanded left type.
+                            returnResult = getTypeFromMagicMethodReturn(
+                                leftSubtypeExpanded,
+                                [rightSubtypeUnexpanded],
+                                magicMethodName,
+                                node,
+                                expectedType
+                            );
+                        }
+
                         if (!returnResult && rightSubtypeUnexpanded !== rightSubtypeExpanded) {
-                            // Try with the expanded right type.
+                            // Try with the expanded left and right type.
                             returnResult = getTypeFromMagicMethodReturn(
                                 leftSubtypeExpanded,
                                 [rightSubtypeExpanded],
@@ -8847,15 +8858,26 @@ export function createTypeEvaluator(
 
                             const magicMethodName = binaryOperatorMap[operator][0];
                             let resultType = getTypeFromMagicMethodReturn(
-                                leftSubtypeExpanded,
+                                leftSubtypeUnexpanded,
                                 [rightSubtypeUnexpanded],
                                 magicMethodName,
                                 errorNode,
                                 expectedType
                             );
 
+                            if (!resultType && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
+                                // Try the expanded left type.
+                                resultType = getTypeFromMagicMethodReturn(
+                                    leftSubtypeExpanded,
+                                    [rightSubtypeUnexpanded],
+                                    magicMethodName,
+                                    errorNode,
+                                    expectedType
+                                );
+                            }
+
                             if (!resultType && rightSubtypeUnexpanded !== rightSubtypeExpanded) {
-                                // Try the expanded right type.
+                                // Try the expanded left and right type.
                                 resultType = getTypeFromMagicMethodReturn(
                                     leftSubtypeExpanded,
                                     [rightSubtypeExpanded],
@@ -8869,15 +8891,26 @@ export function createTypeEvaluator(
                                 // Try the alternate form (swapping right and left).
                                 const altMagicMethodName = binaryOperatorMap[operator][1];
                                 resultType = getTypeFromMagicMethodReturn(
-                                    rightSubtypeExpanded,
+                                    rightSubtypeUnexpanded,
                                     [leftSubtypeUnexpanded],
                                     altMagicMethodName,
                                     errorNode,
                                     expectedType
                                 );
 
+                                if (!resultType && rightSubtypeUnexpanded !== rightSubtypeExpanded) {
+                                    // Try the expanded right type.
+                                    resultType = getTypeFromMagicMethodReturn(
+                                        rightSubtypeExpanded,
+                                        [leftSubtypeUnexpanded],
+                                        altMagicMethodName,
+                                        errorNode,
+                                        expectedType
+                                    );
+                                }
+
                                 if (!resultType && leftSubtypeUnexpanded !== leftSubtypeExpanded) {
-                                    // Try the expanded left type.
+                                    // Try the expanded right and left type.
                                     resultType = getTypeFromMagicMethodReturn(
                                         rightSubtypeExpanded,
                                         [leftSubtypeExpanded],
@@ -8932,18 +8965,27 @@ export function createTypeEvaluator(
         let magicMethodSupported = true;
 
         // Create a helper lambda for object subtypes.
-        const handleSubtype = (subtype: ObjectType | ClassType) => {
+        const handleSubtype = (subtype: ObjectType | ClassType | TypeVarType) => {
             let magicMethodType: Type | undefined;
+            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
-            if (isObject(subtype)) {
-                magicMethodType = getTypeFromObjectMember(errorNode, subtype, magicMethodName);
-            } else {
+            if (isObject(concreteSubtype)) {
+                magicMethodType = getTypeFromObjectMember(
+                    errorNode,
+                    concreteSubtype,
+                    magicMethodName,
+                    /* usage */ undefined,
+                    /* diag */ undefined,
+                    /* memberAccessFlags */ undefined,
+                    subtype
+                );
+            } else if (isClass(concreteSubtype)) {
                 magicMethodType = getTypeFromClassMember(
                     errorNode,
-                    subtype,
+                    concreteSubtype,
                     magicMethodName,
-                    { method: 'get' },
-                    new DiagnosticAddendum(),
+                    /* usage */ undefined,
+                    /* diag */ undefined,
                     MemberAccessFlags.ConsiderMetaclassOnly
                 );
             }
@@ -8985,7 +9027,7 @@ export function createTypeEvaluator(
                 return subtype;
             }
 
-            if (isObject(subtype) || isClass(subtype)) {
+            if (isObject(subtype) || isClass(subtype) || isTypeVar(subtype)) {
                 return handleSubtype(subtype);
             } else if (isNone(subtype)) {
                 // NoneType derives from 'object', so do the lookup on 'object'
@@ -16774,6 +16816,7 @@ export function createTypeEvaluator(
                 } else {
                     let declaredType = getDeclaredTypeOfSymbol(symbol);
                     if (declaredType) {
+                        declaredType = partiallySpecializeType(declaredType, destType);
                         let srcMemberType = getTypeOfMember(memberInfo);
 
                         if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
@@ -19677,7 +19720,8 @@ export function createTypeEvaluator(
             : new TypeVarMap(getTypeVarScopeId(memberClass));
 
         if (firstParamType && memberType.details.parameters.length > 0) {
-            const firstParam = memberType.details.parameters[0];
+            const memberTypeFirstParam = memberType.details.parameters[0];
+            const memberTypeFirstParamType = FunctionType.getEffectiveParameterType(memberType, 0);
 
             // If the type has a literal associated with it, strip it now. This
             // is needed to handle generic functions in the enum.Flag class.
@@ -19688,21 +19732,21 @@ export function createTypeEvaluator(
             const diag = new DiagnosticAddendum();
 
             if (
-                isTypeVar(firstParam.type) &&
-                firstParam.type.details.boundType &&
-                isObject(firstParam.type.details.boundType) &&
-                ClassType.isProtocolClass(firstParam.type.details.boundType.classType)
+                isTypeVar(memberTypeFirstParamType) &&
+                memberTypeFirstParamType.details.boundType &&
+                isObject(memberTypeFirstParamType.details.boundType) &&
+                ClassType.isProtocolClass(memberTypeFirstParamType.details.boundType.classType)
             ) {
                 // Handle the protocol class specially. Some protocol classes
                 // contain references to themselves or their subclasses, so if
                 // we attempt to call canAssignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
                 if (!typeVarMap.isLocked()) {
-                    typeVarMap.setTypeVar(firstParam.type, nonLiteralFirstParamType, /* isNarrowable */ false);
+                    typeVarMap.setTypeVar(memberTypeFirstParamType, nonLiteralFirstParamType, /* isNarrowable */ false);
                 }
             } else if (
                 !canAssignType(
-                    firstParam.type,
+                    memberTypeFirstParamType,
                     nonLiteralFirstParamType,
                     diag,
                     typeVarMap,
@@ -19710,7 +19754,11 @@ export function createTypeEvaluator(
                     recursionCount + 1
                 )
             ) {
-                if (firstParam.name && !firstParam.isNameSynthesized && firstParam.hasDeclaredType) {
+                if (
+                    memberTypeFirstParam.name &&
+                    !memberTypeFirstParam.isNameSynthesized &&
+                    memberTypeFirstParam.hasDeclaredType
+                ) {
                     if (errorNode) {
                         addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -19718,7 +19766,7 @@ export function createTypeEvaluator(
                             Localizer.Diagnostic.bindTypeMismatch().format({
                                 type: printType(baseType),
                                 methodName: memberType.details.name,
-                                paramName: firstParam.name,
+                                paramName: memberTypeFirstParam.name,
                             }) + diag.getString(),
                             errorNode
                         );
