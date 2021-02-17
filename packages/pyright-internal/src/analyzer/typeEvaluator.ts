@@ -10931,7 +10931,15 @@ export function createTypeEvaluator(
                             classType.details.flags |= ClassTypeFlags.EnumClass;
                         }
 
-                        if (ClassType.supportsAbstractMethods(argType)) {
+                        // Determine if the class is abstract. Protocol classes support abstract methods
+                        // even though they don't derive from the ABCMeta class. We'll exclude built-in
+                        // protocol classes because these are known not to contain any abstract methods
+                        // and getAbstractMethods causes problems because of dependencies on some of these
+                        // built-in protocol classes.
+                        if (
+                            ClassType.supportsAbstractMethods(argType) ||
+                            (ClassType.isProtocolClass(argType) && !ClassType.isBuiltIn(argType))
+                        ) {
                             classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
                         }
 

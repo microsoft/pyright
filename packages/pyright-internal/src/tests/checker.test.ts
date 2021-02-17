@@ -89,6 +89,12 @@ test('AbstractClass6', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('AbstractClass7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['abstractClass7.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Constants1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constants1.py']);
 
