@@ -59,7 +59,6 @@ import {
     ParseNodeType,
     PatternAsNode,
     PatternAtomNode,
-    PatternCaptureNode,
     PatternClassArgumentNode,
     PatternClassNode,
     PatternLiteralNode,
