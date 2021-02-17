@@ -180,6 +180,7 @@ import {
     UnboundType,
     UnknownType,
     Variance,
+    WildcardTypeVarScopeId,
 } from './types';
 import {
     addTypeVarsToListIfUnique,
@@ -9854,9 +9855,9 @@ export function createTypeEvaluator(
         functionType.details.declaredReturnType = AnyType.create();
 
         const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(errorNode);
-        if (enclosingScope) {
-            functionType.details.typeVarScopeId = getScopeIdForNode(enclosingScope);
-        }
+        functionType.details.typeVarScopeId = enclosingScope
+            ? getScopeIdForNode(enclosingScope)
+            : WildcardTypeVarScopeId;
 
         if (typeArgs && typeArgs.length > 0) {
             if (typeArgs[0].typeList) {

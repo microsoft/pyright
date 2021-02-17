@@ -18,6 +18,7 @@ import {
     TypeCategory,
     TypeVarScopeId,
     TypeVarType,
+    WildcardTypeVarScopeId,
 } from './types';
 import { doForEachSubtype } from './typeUtils';
 
@@ -99,7 +100,7 @@ export class TypeVarMap {
         return (
             scopeId !== undefined &&
             this._solveForScopes !== undefined &&
-            this._solveForScopes.some((s) => s === scopeId)
+            this._solveForScopes.some((s) => s === scopeId || s === WildcardTypeVarScopeId)
         );
     }
 

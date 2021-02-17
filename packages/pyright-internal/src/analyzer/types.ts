@@ -81,6 +81,7 @@ export type UnionableType =
 export type Type = UnionableType | NeverType | UnionType;
 
 export type TypeVarScopeId = string;
+export const WildcardTypeVarScopeId = '*';
 
 export class EnumLiteral {
     constructor(public className: string, public itemName: string) {}
