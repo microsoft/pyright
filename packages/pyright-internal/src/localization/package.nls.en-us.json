@@ -243,6 +243,7 @@
         "paramTypeCovariant": "Covariant type variable cannot be used in parameter type",
         "paramTypeUnknown": "Type of parameter \"{paramName}\" is unknown",
         "paramTypePartiallyUnknown": "Type of parameter \"{paramName}\" is partially unknown",
+        "parenthesizedContextManagerIllegal": "Parentheses within \"with\" statement requires Python 3.10 or newer",
         "positionArgAfterNamedArg": "Positional argument cannot appear after keyword arguments",
         "positionOnlyAfterNameOnly": "\"/\" parameter must appear before \"*\" parameter",
         "positionOnlyIncompatible": "Position-only argument separator requires Python 3.8 or newer",

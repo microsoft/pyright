@@ -500,6 +500,8 @@ export namespace Localizer {
             );
         export const paramTypePartiallyUnknown = () =>
             new ParameterizedString<{ paramName: string }>(getRawString('Diagnostic.paramTypePartiallyUnknown'));
+        export const parenthesizedContextManagerIllegal = () =>
+            getRawString('Diagnostic.parenthesizedContextManagerIllegal');
         export const positionArgAfterNamedArg = () => getRawString('Diagnostic.positionArgAfterNamedArg');
         export const positionOnlyAfterNameOnly = () => getRawString('Diagnostic.positionOnlyAfterNameOnly');
         export const positionOnlyIncompatible = () => getRawString('Diagnostic.positionOnlyIncompatible');

@@ -1653,15 +1653,29 @@ export class Parser {
     }
 
     // with_stmt: 'with' with_item (',' with_item)*  ':' suite
+    // Python 3.10 adds support for optional parentheses around
+    // with_item list.
     private _parseWithStatement(asyncToken?: KeywordToken): WithNode {
         const withToken = this._getKeywordToken(KeywordType.With);
         const withItemList: WithItemNode[] = [];
+
+        const possibleParen = this._peekToken();
+        const inParen = this._consumeTokenIfType(TokenType.OpenParenthesis);
+        if (inParen && this._getLanguageVersion() < PythonVersion.V3_10) {
+            this._addError(Localizer.Diagnostic.parenthesizedContextManagerIllegal(), possibleParen);
+        }
 
         while (true) {
             withItemList.push(this._parseWithItem());
 
             if (!this._consumeTokenIfType(TokenType.Comma)) {
                 break;
+            }
+        }
+
+        if (inParen) {
+            if (!this._consumeTokenIfType(TokenType.CloseParenthesis)) {
+                this._addError(Localizer.Diagnostic.expectedCloseParen(), this._peekToken());
             }
         }
 
