@@ -12,9 +12,11 @@ Z_DEFAULT_COMPRESSION: int
 Z_DEFAULT_STRATEGY: int
 Z_FILTERED: int
 Z_FINISH: int
+Z_FIXED: int
 Z_FULL_FLUSH: int
 Z_HUFFMAN_ONLY: int
 Z_NO_FLUSH: int
+Z_RLE: int
 Z_SYNC_FLUSH: int
 if sys.version_info >= (3,):
     DEF_BUF_SIZE: int

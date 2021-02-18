@@ -10,7 +10,7 @@ class TOTP(object):
         length: int,
         algorithm: HashAlgorithm,
         time_step: int,
-        backend: HMACBackend,
+        backend: Optional[HMACBackend] = ...,
         enforce_key_length: bool = ...,
     ): ...
     def generate(self, time: int) -> bytes: ...

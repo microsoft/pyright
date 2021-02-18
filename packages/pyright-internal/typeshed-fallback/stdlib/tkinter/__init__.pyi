@@ -349,7 +349,7 @@ class Misc:
     def bind(
         self,
         sequence: Optional[str] = ...,
-        func: Optional[Callable[[Event[Misc]], Optional[Literal["break"]]]] = ...,
+        func: Optional[Callable[[Event[Misc]], Any]] = ...,
         add: Optional[bool] = ...,
     ) -> str: ...
     @overload
@@ -362,7 +362,7 @@ class Misc:
     def bind_all(
         self,
         sequence: Optional[str] = ...,
-        func: Optional[Callable[[Event[Misc]], Optional[Literal["break"]]]] = ...,
+        func: Optional[Callable[[Event[Misc]], Any]] = ...,
         add: Optional[bool] = ...,
     ) -> str: ...
     @overload
@@ -374,7 +374,7 @@ class Misc:
         self,
         className: str,
         sequence: Optional[str] = ...,
-        func: Optional[Callable[[Event[Misc]], Optional[Literal["break"]]]] = ...,
+        func: Optional[Callable[[Event[Misc]], Any]] = ...,
         add: Optional[bool] = ...,
     ) -> str: ...
     @overload
@@ -645,7 +645,7 @@ class Tk(Misc, Wm):
     # Tk has __getattr__ so that tk_instance.foo falls back to tk_instance.tk.foo
     # Please keep in sync with _tkinter.TkappType
     call: Callable[..., Any]
-    eval: Callable[[str], str]
+    def eval(self, __code: str) -> str: ...
     adderrorinfo: Any
     createcommand: Any
     createfilehandler: Any
@@ -841,7 +841,7 @@ class Widget(BaseWidget, Pack, Place, Grid):
     def bind(
         self: _W,
         sequence: Optional[str] = ...,
-        func: Optional[Callable[[Event[_W]], Optional[Literal["break"]]]] = ...,
+        func: Optional[Callable[[Event[_W]], Any]] = ...,
         add: Optional[bool] = ...,
     ) -> str: ...
     @overload
@@ -1100,7 +1100,7 @@ class Canvas(Widget, XView, YView):
         self,
         tagOrId: Union[str, int],
         sequence: Optional[str] = ...,
-        func: Optional[Callable[[Event[Canvas]], Optional[Literal["break"]]]] = ...,
+        func: Optional[Callable[[Event[Canvas]], Any]] = ...,
         add: Optional[bool] = ...,
     ) -> str: ...
     @overload
@@ -2503,7 +2503,7 @@ class Text(Widget, XView, YView):
     def mark_set(self, markName: str, index: _TextIndex) -> None: ...
     def mark_unset(self, *markNames: str) -> None: ...
     def mark_next(self, index: _TextIndex) -> Optional[str]: ...
-    def mark_previous(self, index: _TextIndex): ...
+    def mark_previous(self, index: _TextIndex) -> Optional[str]: ...
     # **kw of peer_create is same as the kwargs of Text.__init__
     def peer_create(self, newPathName: Union[str, Text], cnf: Dict[str, Any] = ..., **kw: Any) -> None: ...
     def peer_names(self) -> Tuple[_tkinter.Tcl_Obj, ...]: ...
@@ -2531,7 +2531,7 @@ class Text(Widget, XView, YView):
         self,
         tagName: str,
         sequence: Optional[str],
-        func: Optional[Callable[[Event[Text]], Optional[Literal["break"]]]],
+        func: Optional[Callable[[Event[Text]], Any]],
         add: Optional[bool] = ...,
     ) -> str: ...
     @overload

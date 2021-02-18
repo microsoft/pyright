@@ -138,6 +138,7 @@ if sys.version_info >= (3, 6):
         OP_NO_TLSv1: int
         OP_NO_TLSv1_1: int
         OP_NO_TLSv1_2: int
+        OP_NO_TLSv1_3: int
         OP_CIPHER_SERVER_PREFERENCE: int
         OP_SINGLE_DH_USE: int
         OP_SINGLE_ECDH_USE: int
@@ -145,7 +146,6 @@ if sys.version_info >= (3, 6):
         OP_NO_TICKET: int
         if sys.version_info >= (3, 7):
             OP_NO_RENEGOTIATION: int
-            OP_NO_TLSv1_3: int
         if sys.version_info >= (3, 8):
             OP_ENABLE_MIDDLEBOX_COMPAT: int
     OP_ALL: Options
@@ -154,6 +154,7 @@ if sys.version_info >= (3, 6):
     OP_NO_TLSv1: Options
     OP_NO_TLSv1_1: Options
     OP_NO_TLSv1_2: Options
+    OP_NO_TLSv1_3: Options
     OP_CIPHER_SERVER_PREFERENCE: Options
     OP_SINGLE_DH_USE: Options
     OP_SINGLE_ECDH_USE: Options
@@ -161,7 +162,6 @@ if sys.version_info >= (3, 6):
     OP_NO_TICKET: Options
     if sys.version_info >= (3, 7):
         OP_NO_RENEGOTIATION: Options
-        OP_NO_TLSv1_3: Options
     if sys.version_info >= (3, 8):
         OP_ENABLE_MIDDLEBOX_COMPAT: Options
 else:
