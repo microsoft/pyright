@@ -825,6 +825,8 @@ export class Parser {
                 } else {
                     casePattern = patternList.list[0];
                 }
+
+                extendRange(casePattern, nextToken);
             } else {
                 casePattern = PatternSequenceNode.create(startToken, patternList.list);
             }

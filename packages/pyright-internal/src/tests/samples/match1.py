@@ -143,6 +143,10 @@ match (1, ):
     case 3 | x:
         pass
 
+    case _:
+        pass
+
+
 class Foo:
     x: int
 
