@@ -60,9 +60,8 @@ def test_narrowing1(value_to_match: Literal[1, True, "hi"]):
 
 def test_narrowing2(value_to_match: bool | float | None):
     match value_to_match:
-        case complex() | True | a1 | a2:
+        case complex() | True | a1:
             t_a1: Literal["Literal[False] | None"] = reveal_type(a1)
-            t_a2: Literal["Never"] = reveal_type(a2)
 
         case float() | None | False | b1:
             t_b1: Literal["Literal[True]"] = reveal_type(b1)

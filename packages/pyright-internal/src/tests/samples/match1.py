@@ -54,12 +54,9 @@ match (1, ):
     case value_obj.a, value_obj.b:
         pass
 
-    case a12 | b12 | c12, d12 | e12 as f12:
-        pass
-
     # This should generate an error because star
     # patterns can't be used with |.
-    case a13 | *b13 | c13:
+    case 3 | 4 | *b13:
         pass
 
     case *a14, b14:
@@ -123,6 +120,11 @@ match (1, ):
     case str(1, a41, x=3, value_obj.b as b41, c41=3, y=[d41, e41] as f41):
         pass
   
+    # This should generate three errors because irrefutable patterns
+    # must appear only as the last entry in an or pattern.
+    case (_ as z) | _ | x | y:
+        pass
+
 
 class Foo:
     x: int

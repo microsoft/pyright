@@ -464,6 +464,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.obscuredVariableDeclaration'));
         export const operatorLessOrGreaterDeprecated = () => getRawString('Diagnostic.operatorLessOrGreaterDeprecated');
         export const optionalExtraArgs = () => getRawString('Diagnostic.optionalExtraArgs');
+        export const orPatternIrrefutable = () => getRawString('Diagnostic.orPatternIrrefutable');
         export const overlappingOverload = () =>
             new ParameterizedString<{ name: string; obscured: number; obscuredBy: number }>(
                 getRawString('Diagnostic.overlappingOverload')

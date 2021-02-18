@@ -551,6 +551,20 @@ export class Parser {
         return CaseNode.create(caseToken, casePattern, guardExpression, suite);
     }
 
+    // PEP 634 defines the concept of an "irrefutable" pattern - a pattern that
+    // will always be matched.
+    private _isPatternIrrefutable(node: PatternAtomNode): boolean {
+        if (node.nodeType === ParseNodeType.PatternCapture) {
+            return true;
+        }
+
+        if (node.nodeType === ParseNodeType.PatternAs) {
+            return node.orPatterns.some((pattern) => this._isPatternIrrefutable(pattern));
+        }
+
+        return false;
+    }
+
     private _parsePatternSequence() {
         const patternList = this._parseExpressionListGeneric(() => this._parsePatternAs());
 
@@ -633,6 +647,12 @@ export class Parser {
         ) {
             this._addError(Localizer.Diagnostic.starPatternInAsPattern(), orPatterns[0]);
         }
+
+        orPatterns.forEach((orPattern, index) => {
+            if (index < orPatterns.length - 1 && this._isPatternIrrefutable(orPattern)) {
+                this._addError(Localizer.Diagnostic.orPatternIrrefutable(), orPattern);
+            }
+        });
 
         return PatternAsNode.create(orPatterns, target);
     }

@@ -1328,7 +1328,7 @@ test('Match1', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 10);
+    TestUtils.validateResults(analysisResults, 13);
 });
 
 test('Match2', () => {
