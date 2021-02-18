@@ -1350,7 +1350,8 @@ export function createTypeEvaluator(
         memberName: string,
         usage: EvaluatorUsage = { method: 'get' },
         diag: DiagnosticAddendum = new DiagnosticAddendum(),
-        memberAccessFlags = MemberAccessFlags.None
+        memberAccessFlags = MemberAccessFlags.None,
+        bindToType?: ClassType | ObjectType | TypeVarType
     ): Type | undefined {
         let memberInfo: ClassMemberLookup | undefined;
 
@@ -1361,7 +1362,8 @@ export function createTypeEvaluator(
                 memberName,
                 usage,
                 diag,
-                memberAccessFlags | MemberAccessFlags.AccessClassMembersOnly
+                memberAccessFlags | MemberAccessFlags.AccessClassMembersOnly,
+                bindToType
             );
         }
 
@@ -3828,7 +3830,15 @@ export function createTypeEvaluator(
             }
 
             case TypeCategory.Class: {
-                type = getTypeFromClassMember(node.memberName, baseType, memberName, usage, diag);
+                type = getTypeFromClassMember(
+                    node.memberName,
+                    baseType,
+                    memberName,
+                    usage,
+                    diag,
+                    MemberAccessFlags.None,
+                    baseTypeResult.bindToType
+                );
                 break;
             }
 
