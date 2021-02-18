@@ -122,7 +122,20 @@ match (1, ):
   
     # This should generate three errors because irrefutable patterns
     # must appear only as the last entry in an or pattern.
-    case (_ as x) | x | x:
+    case (_ as x) | x:
+        pass
+
+    # This should generate an error because it's an irrefutable pattern
+    # but is not the last case statement.
+    case _:
+        pass
+
+    # This should generate an error because it's an irrefutable pattern
+    # but is not the last case statement.
+    case (x):
+        pass
+
+    case _ if value_obj:
         pass
 
     # This should generate an error because or patterns must target the

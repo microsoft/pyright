@@ -508,6 +508,14 @@ export class Parser {
             this._addError(Localizer.Diagnostic.matchIncompatible(), matchToken);
         }
 
+        // Validate that only the last entry uses an irrefutable pattern.
+        for (let i = 0; i < matchNode.cases.length - 1; i++) {
+            const caseNode = matchNode.cases[i];
+            if (!caseNode.guardExpression && this._isPatternIrrefutable(caseNode.pattern)) {
+                this._addError(Localizer.Diagnostic.casePatternIsIrrefutable(), caseNode.pattern);
+            }
+        }
+
         return matchNode;
     }
 
@@ -779,8 +787,6 @@ export class Parser {
                 // Extend the node's range to include the rest of the line.
                 // This helps the signatureHelpProvider.
                 extendRange(classPattern, this._peekToken());
-            } else {
-                // TODO - verify arguments
             }
 
             return classPattern;
