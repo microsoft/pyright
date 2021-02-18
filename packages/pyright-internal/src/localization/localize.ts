@@ -465,6 +465,7 @@ export namespace Localizer {
         export const operatorLessOrGreaterDeprecated = () => getRawString('Diagnostic.operatorLessOrGreaterDeprecated');
         export const optionalExtraArgs = () => getRawString('Diagnostic.optionalExtraArgs');
         export const orPatternIrrefutable = () => getRawString('Diagnostic.orPatternIrrefutable');
+        export const orPatternMissingName = () => getRawString('Diagnostic.orPatternMissingName');
         export const overlappingOverload = () =>
             new ParameterizedString<{ name: string; obscured: number; obscuredBy: number }>(
                 getRawString('Diagnostic.overlappingOverload')
@@ -815,6 +816,8 @@ export namespace Localizer {
             );
         export const noOverloadAssignable = () =>
             new ParameterizedString<{ type: string }>(getRawString('DiagnosticAddendum.noOverloadAssignable'));
+        export const orPatternMissingName = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.orPatternMissingName'));
         export const overloadNotAssignable = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overloadNotAssignable'));
         export const overriddenMethod = () => getRawString('DiagnosticAddendum.overriddenMethod');

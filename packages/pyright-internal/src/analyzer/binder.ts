@@ -1839,7 +1839,17 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitPatternAs(node: PatternAsNode) {
+        const postOrLabel = this._createBranchLabel();
+
+        node.orPatterns.forEach((orPattern) => {
+            this.walk(orPattern);
+            this._addAntecedent(postOrLabel, this._currentFlowNode!);
+        });
+
+        this._currentFlowNode = this._finishFlowLabel(postOrLabel);
+
         if (node.target) {
+            this.walk(node.target);
             const symbol = this._bindNameToScope(this._currentScope, node.target.value);
             this._createAssignmentTargetFlowNodes(node.target, /* walkTargets */ false, /* unbound */ false);
 
@@ -1861,7 +1871,7 @@ export class Binder extends ParseTreeWalker {
             }
         }
 
-        return true;
+        return false;
     }
 
     visitPatternCapture(node: PatternCaptureNode) {

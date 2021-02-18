@@ -56,7 +56,7 @@ match (1, ):
 
     # This should generate an error because star
     # patterns can't be used with |.
-    case 3 | 4 | *b13:
+    case (3 as b13) | (4 as b13) | *b13:
         pass
 
     case *a14, b14:
@@ -122,9 +122,13 @@ match (1, ):
   
     # This should generate three errors because irrefutable patterns
     # must appear only as the last entry in an or pattern.
-    case (_ as z) | _ | x | y:
+    case (_ as x) | x | x:
         pass
 
+    # This should generate an error because or patterns must target the
+    # same names.
+    case 3 | x:
+        pass
 
 class Foo:
     x: int

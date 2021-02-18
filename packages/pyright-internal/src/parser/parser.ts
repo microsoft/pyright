@@ -565,6 +565,59 @@ export class Parser {
         return false;
     }
 
+    private _getPatternTargetNames(node: PatternAtomNode, nameMap: Map<string, boolean>): void {
+        switch (node.nodeType) {
+            case ParseNodeType.PatternSequence: {
+                node.entries.forEach((subpattern) => {
+                    this._getPatternTargetNames(subpattern, nameMap);
+                });
+                break;
+            }
+
+            case ParseNodeType.PatternClass: {
+                node.arguments.forEach((arg) => {
+                    this._getPatternTargetNames(arg.pattern, nameMap);
+                });
+                break;
+            }
+
+            case ParseNodeType.PatternAs: {
+                if (node.target) {
+                    nameMap.set(node.target.value, true);
+                }
+                node.orPatterns.forEach((subpattern) => {
+                    this._getPatternTargetNames(subpattern, nameMap);
+                });
+                break;
+            }
+
+            case ParseNodeType.PatternCapture: {
+                if (!node.isWildcard) {
+                    nameMap.set(node.target.value, true);
+                }
+                break;
+            }
+
+            case ParseNodeType.PatternMapping: {
+                node.entries.forEach((mapEntry) => {
+                    if (mapEntry.nodeType === ParseNodeType.PatternMappingExpandEntry) {
+                        nameMap.set(mapEntry.target.value, true);
+                    } else {
+                        this._getPatternTargetNames(mapEntry.keyPattern, nameMap);
+                        this._getPatternTargetNames(mapEntry.valuePattern, nameMap);
+                    }
+                });
+                break;
+            }
+
+            case ParseNodeType.PatternLiteral:
+            case ParseNodeType.PatternValue:
+            case ParseNodeType.Error: {
+                break;
+            }
+        }
+    }
+
     private _parsePatternSequence() {
         const patternList = this._parseExpressionListGeneric(() => this._parsePatternAs());
 
@@ -648,9 +701,32 @@ export class Parser {
             this._addError(Localizer.Diagnostic.starPatternInAsPattern(), orPatterns[0]);
         }
 
+        // Validate that irrefutable patterns are not in any entries other than the last.
         orPatterns.forEach((orPattern, index) => {
             if (index < orPatterns.length - 1 && this._isPatternIrrefutable(orPattern)) {
                 this._addError(Localizer.Diagnostic.orPatternIrrefutable(), orPattern);
+            }
+        });
+
+        // Validate that all bound variables are the same within all or patterns.
+        const fullNameMap = new Map<string, boolean>();
+        orPatterns.forEach((orPattern) => {
+            this._getPatternTargetNames(orPattern, fullNameMap);
+        });
+
+        orPatterns.forEach((orPattern) => {
+            const localNameMap = new Map<string, boolean>();
+            this._getPatternTargetNames(orPattern, localNameMap);
+
+            if (localNameMap.size < fullNameMap.size) {
+                const missingNames = Array.from(fullNameMap.keys()).filter((name) => !localNameMap.has(name));
+                const diag = new DiagnosticAddendum();
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.orPatternMissingName().format({
+                        name: missingNames.map((name) => `"${name}"`).join(', '),
+                    })
+                );
+                this._addError(Localizer.Diagnostic.orPatternMissingName() + diag.getString(), orPattern);
             }
         });
 
