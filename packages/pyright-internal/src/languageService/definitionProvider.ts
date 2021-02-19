@@ -12,11 +12,14 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
-import { DeclarationType } from '../analyzer/declaration';
+import { getFileInfo } from '../analyzer/analyzerNodeInfo';
+import { DeclarationType, isFunctionDeclaration } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
+import { isOverloadedFunction } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { isDefined } from '../common/core';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
 import { ParseNodeType } from '../parser/parseNodes';
@@ -79,14 +82,38 @@ export class DefinitionProvider {
                             range: resolvedDecl.range,
                         });
 
-                        if (isStubFile(resolvedDecl.path)) {
-                            const implDecls = sourceMapper.findDeclarations(resolvedDecl);
-                            for (const implDecl of implDecls) {
-                                if (implDecl && implDecl.path) {
+                        if (isFunctionDeclaration(resolvedDecl)) {
+                            // Handle overloaded function case
+                            const functionType = evaluator.getTypeForDeclaration(resolvedDecl);
+                            if (functionType && isOverloadedFunction(functionType)) {
+                                for (const overloadDecl of functionType.overloads
+                                    .map((o) => o.details.declaration)
+                                    .filter(isDefined)) {
                                     this._addIfUnique(definitions, {
-                                        path: implDecl.path,
-                                        range: implDecl.range,
+                                        path: overloadDecl.path,
+                                        range: overloadDecl.range,
                                     });
+                                }
+                            }
+                        }
+
+                        if (isStubFile(resolvedDecl.path)) {
+                            if (resolvedDecl.type === DeclarationType.Alias) {
+                                // Add matching source module
+                                sourceMapper
+                                    .findModules(resolvedDecl.path)
+                                    .map((m) => getFileInfo(m)?.filePath)
+                                    .filter(isDefined)
+                                    .forEach((f) => this._addIfUnique(definitions, this._createModuleEntry(f)));
+                            } else {
+                                const implDecls = sourceMapper.findDeclarations(resolvedDecl);
+                                for (const implDecl of implDecls) {
+                                    if (implDecl && implDecl.path) {
+                                        this._addIfUnique(definitions, {
+                                            path: implDecl.path,
+                                            range: implDecl.range,
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -112,6 +139,16 @@ export class DefinitionProvider {
         }
 
         return definitions;
+    }
+
+    private static _createModuleEntry(filePath: string): DocumentRange {
+        return {
+            path: filePath,
+            range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 },
+            },
+        };
     }
 
     private static _addIfUnique(definitions: DocumentRange[], itemToAdd: DocumentRange) {

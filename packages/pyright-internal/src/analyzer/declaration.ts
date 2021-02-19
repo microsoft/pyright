@@ -180,3 +180,23 @@ export type Declaration =
     | ParameterDeclaration
     | VariableDeclaration
     | AliasDeclaration;
+
+export function isFunctionDeclaration(decl: Declaration): decl is FunctionDeclaration {
+    return decl.type === DeclarationType.Function;
+}
+
+export function isClassDeclaration(decl: Declaration): decl is ClassDeclaration {
+    return decl.type === DeclarationType.Class;
+}
+
+export function isParameterDeclaration(decl: Declaration): decl is ParameterDeclaration {
+    return decl.type === DeclarationType.Parameter;
+}
+
+export function isVariableDeclaration(decl: Declaration): decl is VariableDeclaration {
+    return decl.type === DeclarationType.Variable;
+}
+
+export function isAliasDeclaration(decl: Declaration): decl is AliasDeclaration {
+    return decl.type === DeclarationType.Alias;
+}
