@@ -1863,6 +1863,7 @@ export class Program {
                 this._addShadowedFile(stubFileInfo, implFilePath);
                 return this.getBoundSourceFile(implFilePath);
             },
+            (f) => this.getBoundSourceFile(f),
             mapCompiled ?? false
         );
         return sourceMapper;

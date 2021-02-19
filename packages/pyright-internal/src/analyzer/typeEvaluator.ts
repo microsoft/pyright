@@ -16153,6 +16153,13 @@ export function createTypeEvaluator(
                         if (paramDecl) {
                             declarations.push(paramDecl);
                         }
+                    } else if (isOverloadedFunction(baseType)) {
+                        baseType.overloads.forEach((f) => {
+                            const paramDecl = getDeclarationFromFunctionNamedParameter(f, paramName);
+                            if (paramDecl) {
+                                declarations.push(paramDecl);
+                            }
+                        });
                     } else if (isClass(baseType)) {
                         const initMethodType = getTypeFromObjectMember(
                             argNode.parent.leftExpression,

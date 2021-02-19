@@ -146,3 +146,7 @@ interface Thenable<T> {
 export function isThenable<T>(v: any): v is Thenable<T> {
     return typeof v?.then === 'function';
 }
+
+export function isDefined<T>(element: T | undefined): element is T {
+    return element !== undefined;
+}

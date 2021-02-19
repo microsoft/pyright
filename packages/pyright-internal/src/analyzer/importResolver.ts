@@ -218,15 +218,19 @@ export class ImportResolver {
         // When ImportResolver resolves an import to a stub file, a second resolve is done
         // ignoring stub files, which gives us an approximation of where the implementation
         // for that stub is located.
-        this._cachedImportResults.forEach((map, env) => {
+        this._cachedImportResults.forEach((map) => {
             map.forEach((result) => {
                 if (result.isStubFile && result.isImportFound && result.nonStubImportResult) {
-                    if (result.resolvedPaths.some((f) => f === stubFilePath)) {
+                    if (result.resolvedPaths[result.resolvedPaths.length - 1] === stubFilePath) {
                         if (result.nonStubImportResult.isImportFound) {
-                            const nonEmptyPaths = result.nonStubImportResult.resolvedPaths.filter((p) =>
-                                p.endsWith('.py')
-                            );
-                            sourceFilePaths.push(...nonEmptyPaths);
+                            const nonEmptyPath =
+                                result.nonStubImportResult.resolvedPaths[
+                                    result.nonStubImportResult.resolvedPaths.length - 1
+                                ];
+
+                            if (nonEmptyPath.endsWith('.py')) {
+                                sourceFilePaths.push(nonEmptyPath);
+                            }
                         }
                     }
                 }
