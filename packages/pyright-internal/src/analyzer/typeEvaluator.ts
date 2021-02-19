@@ -14125,22 +14125,22 @@ export function createTypeEvaluator(
 
             baseType = makeTopLevelTypeVarsConcrete(baseType);
 
-            let symbol: Symbol | undefined;
-            if (isModule(baseType)) {
-                symbol = ModuleType.getField(baseType, memberName);
-            } else if (isClass(baseType)) {
-                const classMemberInfo = lookUpClassMember(baseType, memberName);
-                symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
-            } else if (isObject(baseType)) {
-                const classMemberInfo = lookUpClassMember(baseType.classType, memberName);
-                symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
-            }
+            const declaredTypeOfSymbol = mapSubtypes(baseType, (subtype) => {
+                let symbol: Symbol | undefined;
+                if (isModule(subtype)) {
+                    symbol = ModuleType.getField(subtype, memberName);
+                } else if (isClass(subtype)) {
+                    const classMemberInfo = lookUpClassMember(subtype, memberName);
+                    symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
+                } else if (isObject(subtype)) {
+                    const classMemberInfo = lookUpClassMember(subtype.classType, memberName);
+                    symbol = classMemberInfo ? classMemberInfo.symbol : undefined;
+                }
 
-            if (!symbol) {
-                return undefined;
-            }
+                return symbol ? getDeclaredTypeOfSymbol(symbol) : undefined;
+            });
 
-            return getDeclaredTypeOfSymbol(symbol);
+            return isNever(declaredTypeOfSymbol) ? undefined : declaredTypeOfSymbol;
         }
 
         return undefined;
@@ -14221,75 +14221,87 @@ export function createTypeEvaluator(
         // Evaluate the call base type.
         const callType = getDeclaredCallBaseType(node.leftExpression);
         if (callType) {
-            // We assume here that no constructors or __call__ methods
-            // will be inferred "no return" types, so we can restrict
-            // our check to functions.
-            let functionType: FunctionType | undefined;
-            if (isFunction(callType)) {
-                functionType = callType;
-            } else if (isOverloadedFunction(callType)) {
-                // Use the last overload, which should be the most general.
-                const overloadedFunction = callType;
-                functionType = overloadedFunction.overloads[overloadedFunction.overloads.length - 1];
-            }
+            doForEachSubtype(callType, (callSubtype) => {
+                // We assume here that no constructors or __call__ methods
+                // will be inferred "no return" types, so we can restrict
+                // our check to functions.
+                let functionType: FunctionType | undefined;
+                if (isFunction(callSubtype)) {
+                    functionType = callSubtype;
+                } else if (isOverloadedFunction(callSubtype)) {
+                    // Use the last overload, which should be the most general.
+                    const overloadedFunction = callSubtype;
+                    functionType = overloadedFunction.overloads[overloadedFunction.overloads.length - 1];
+                }
 
-            if (functionType && !FunctionType.isAsync(functionType)) {
-                if (functionType.details.declaredReturnType) {
-                    callIsNoReturn = isNoReturnType(functionType.details.declaredReturnType);
-                } else if (functionType.details.declaration) {
-                    // If the function has yield expressions, it's a generator, and
-                    // we'll assume the yield statements are reachable. Also, don't
-                    // infer a "no return" type for abstract methods.
-                    if (
-                        !functionType.details.declaration.yieldStatements &&
-                        !FunctionType.isAbstractMethod(functionType) &&
-                        !FunctionType.isStubDefinition(functionType) &&
-                        !FunctionType.isPyTypedDefinition(functionType)
-                    ) {
-                        // Check specifically for a common idiom where the only statement
-                        // (other than a possible docstring) is a "raise NotImplementedError".
-                        const functionStatements = functionType.details.declaration.node.suite.statements;
+                if (functionType && !FunctionType.isAsync(functionType)) {
+                    if (functionType.details.declaredReturnType) {
+                        if (isNoReturnType(functionType.details.declaredReturnType)) {
+                            callIsNoReturn = true;
+                        }
+                    } else if (functionType.details.declaration) {
+                        // If the function has yield expressions, it's a generator, and
+                        // we'll assume the yield statements are reachable. Also, don't
+                        // infer a "no return" type for abstract methods.
+                        if (
+                            !functionType.details.declaration.yieldStatements &&
+                            !FunctionType.isAbstractMethod(functionType) &&
+                            !FunctionType.isStubDefinition(functionType) &&
+                            !FunctionType.isPyTypedDefinition(functionType)
+                        ) {
+                            // Check specifically for a common idiom where the only statement
+                            // (other than a possible docstring) is a "raise NotImplementedError".
+                            const functionStatements = functionType.details.declaration.node.suite.statements;
 
-                        let foundRaiseNotImplemented = false;
-                        for (const statement of functionStatements) {
-                            if (
-                                statement.nodeType !== ParseNodeType.StatementList ||
-                                statement.statements.length !== 1
-                            ) {
+                            let foundRaiseNotImplemented = false;
+                            for (const statement of functionStatements) {
+                                if (
+                                    statement.nodeType !== ParseNodeType.StatementList ||
+                                    statement.statements.length !== 1
+                                ) {
+                                    break;
+                                }
+
+                                const simpleStatement = statement.statements[0];
+                                if (simpleStatement.nodeType === ParseNodeType.StringList) {
+                                    continue;
+                                }
+
+                                if (
+                                    simpleStatement.nodeType === ParseNodeType.Raise &&
+                                    simpleStatement.typeExpression
+                                ) {
+                                    // Check for "raise NotImplementedError" or "raise NotImplementedError()"
+                                    const isNotImplementedName = (node: ParseNode) => {
+                                        return (
+                                            node?.nodeType === ParseNodeType.Name &&
+                                            node.value === 'NotImplementedError'
+                                        );
+                                    };
+
+                                    if (isNotImplementedName(simpleStatement.typeExpression)) {
+                                        foundRaiseNotImplemented = true;
+                                    } else if (
+                                        simpleStatement.typeExpression.nodeType === ParseNodeType.Call &&
+                                        isNotImplementedName(simpleStatement.typeExpression.leftExpression)
+                                    ) {
+                                        foundRaiseNotImplemented = true;
+                                    }
+                                }
+
                                 break;
                             }
 
-                            const simpleStatement = statement.statements[0];
-                            if (simpleStatement.nodeType === ParseNodeType.StringList) {
-                                continue;
+                            if (
+                                !foundRaiseNotImplemented &&
+                                !isAfterNodeReachable(functionType.details.declaration.node)
+                            ) {
+                                callIsNoReturn = true;
                             }
-
-                            if (simpleStatement.nodeType === ParseNodeType.Raise && simpleStatement.typeExpression) {
-                                // Check for "raise NotImplementedError" or "raise NotImplementedError()"
-                                const isNotImplementedName = (node: ParseNode) => {
-                                    return (
-                                        node?.nodeType === ParseNodeType.Name && node.value === 'NotImplementedError'
-                                    );
-                                };
-
-                                if (isNotImplementedName(simpleStatement.typeExpression)) {
-                                    foundRaiseNotImplemented = true;
-                                } else if (
-                                    simpleStatement.typeExpression.nodeType === ParseNodeType.Call &&
-                                    isNotImplementedName(simpleStatement.typeExpression.leftExpression)
-                                ) {
-                                    foundRaiseNotImplemented = true;
-                                }
-                            }
-
-                            break;
                         }
-
-                        callIsNoReturn =
-                            !foundRaiseNotImplemented && !isAfterNodeReachable(functionType.details.declaration.node);
                     }
                 }
-            }
+            });
         }
 
         // Cache the value for next time.
