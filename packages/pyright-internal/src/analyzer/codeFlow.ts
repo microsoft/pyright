@@ -66,7 +66,7 @@ export interface FlowLabel extends FlowNode {
 
 // FlowAssignment represents a node that assigns a value.
 export interface FlowAssignment extends FlowNode {
-    node: NameNode | MemberAccessNode;
+    node: CodeFlowReferenceExpressionNode;
     antecedent: FlowNode;
     targetSymbolId: number;
 }

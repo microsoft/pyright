@@ -2374,6 +2374,14 @@ export class Binder extends ParseTreeWalker {
                 break;
             }
 
+            case ParseNodeType.Index: {
+                this._createFlowAssignment(target, unbound);
+                if (walkTargets) {
+                    this.walk(target);
+                }
+                break;
+            }
+
             case ParseNodeType.Tuple: {
                 target.expressions.forEach((expr) => {
                     this._createAssignmentTargetFlowNodes(expr, walkTargets, unbound);
@@ -2457,7 +2465,7 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _createFlowAssignment(node: NameNode | MemberAccessNode, unbound = false) {
+    private _createFlowAssignment(node: CodeFlowReferenceExpressionNode, unbound = false) {
         let targetSymbolId = indeterminateSymbolId;
         if (node.nodeType === ParseNodeType.Name) {
             const symbolWithScope = this._currentScope.lookUpSymbolRecursive(node.value);
