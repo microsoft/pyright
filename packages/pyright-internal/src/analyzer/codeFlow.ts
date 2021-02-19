@@ -15,11 +15,14 @@
 
 import { assert } from '../common/debug';
 import {
+    ArgumentCategory,
     CallNode,
     ExpressionNode,
     ImportFromNode,
+    IndexNode,
     MemberAccessNode,
     NameNode,
+    NumberNode,
     ParseNodeType,
     SuiteNode,
 } from '../parser/parseNodes';
@@ -43,6 +46,8 @@ export enum FlowFlags {
 }
 
 let _nextFlowNodeId = 1;
+
+export type CodeFlowReferenceExpressionNode = NameNode | MemberAccessNode | IndexNode;
 
 export function getUniqueFlowNodeId() {
     return _nextFlowNodeId++;
@@ -138,22 +143,40 @@ export function isCodeFlowSupportedForReference(reference: ExpressionNode): bool
         return isCodeFlowSupportedForReference(reference.leftExpression);
     }
 
+    if (reference.nodeType === ParseNodeType.Index) {
+        // Allow index expressions that have a single subscript that is a
+        // literal integer value.
+        if (
+            reference.items.length !== 1 ||
+            reference.trailingComma ||
+            reference.items[0].name !== undefined ||
+            reference.items[0].argumentCategory !== ArgumentCategory.Simple
+        ) {
+            return false;
+        }
+
+        const subscriptNode = reference.items[0].valueExpression;
+        if (subscriptNode.nodeType !== ParseNodeType.Number || subscriptNode.isImaginary || !subscriptNode.isInteger) {
+            return false;
+        }
+
+        return isCodeFlowSupportedForReference(reference.baseExpression);
+    }
+
     return false;
 }
 
-export function createKeyForReference(reference: NameNode | MemberAccessNode): string {
+export function createKeyForReference(reference: CodeFlowReferenceExpressionNode): string {
     let key;
     if (reference.nodeType === ParseNodeType.Name) {
         key = reference.value;
+    } else if (reference.nodeType === ParseNodeType.MemberAccess) {
+        const leftKey = createKeyForReference(reference.leftExpression as CodeFlowReferenceExpressionNode);
+        key = `${leftKey}.${reference.memberName.value}`;
     } else {
-        key = reference.memberName.value;
-        let leftNode = reference.leftExpression;
-        while (leftNode.nodeType === ParseNodeType.MemberAccess) {
-            key = leftNode.memberName.value + `.${key}`;
-            leftNode = leftNode.leftExpression;
-        }
-        assert(leftNode.nodeType === ParseNodeType.Name);
-        key = (leftNode as NameNode).value + `.${key}`;
+        const leftKey = createKeyForReference(reference.baseExpression as CodeFlowReferenceExpressionNode);
+        assert(reference.items.length === 1 && reference.items[0].valueExpression.nodeType === ParseNodeType.Number);
+        key = `${leftKey}[${(reference.items[0].valueExpression as NumberNode).value.toString()}]`;
     }
 
     return key;

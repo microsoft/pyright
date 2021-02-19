@@ -27,6 +27,7 @@ import {
     LambdaNode,
     ModuleNode,
     NameNode,
+    NumberNode,
     ParameterCategory,
     ParseNode,
     ParseNodeType,
@@ -833,6 +834,27 @@ export function isMatchingExpression(reference: ExpressionNode, expression: Expr
             isMatchingExpression(reference.leftExpression, expression.leftExpression) &&
             reference.memberName.value === expression.memberName.value
         );
+    } else if (reference.nodeType === ParseNodeType.Index && expression.nodeType === ParseNodeType.Index) {
+        if (!isMatchingExpression(reference.baseExpression, expression.baseExpression)) {
+            return false;
+        }
+
+        if (
+            expression.items.length !== 1 ||
+            expression.trailingComma ||
+            expression.items[0].name ||
+            expression.items[0].argumentCategory !== ArgumentCategory.Simple
+        ) {
+            return false;
+        }
+
+        const referenceNumberNode = reference.items[0].valueExpression as NumberNode;
+        const subscriptNode = expression.items[0].valueExpression;
+        if (subscriptNode.nodeType !== ParseNodeType.Number || subscriptNode.isImaginary || !subscriptNode.isInteger) {
+            return false;
+        }
+
+        return referenceNumberNode.value === subscriptNode.value;
     }
 
     return false;
@@ -843,6 +865,11 @@ export function isPartialMatchingExpression(reference: ExpressionNode, expressio
         return (
             isMatchingExpression(reference.leftExpression, expression) ||
             isPartialMatchingExpression(reference.leftExpression, expression)
+        );
+    } else if (reference.nodeType === ParseNodeType.Index) {
+        return (
+            isMatchingExpression(reference.baseExpression, expression) ||
+            isPartialMatchingExpression(reference.baseExpression, expression)
         );
     }
 
