@@ -129,13 +129,13 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.Index: {
-            return printExpression(node.baseExpression, flags) +
+            return (
+                printExpression(node.baseExpression, flags) +
                 '[' +
                 node.items.map((item) => printArgument(item, flags)).join(', ') +
                 ']' +
-                node.trailingComma
-                ? ','
-                : '';
+                (node.trailingComma ? ',' : '')
+            );
         }
 
         case ParseNodeType.UnaryOperation: {
