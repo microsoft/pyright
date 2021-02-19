@@ -64,6 +64,10 @@ export const enum TypeFlags {
 
     // This type refers to something that has been instantiated.
     Instance = 1 << 1,
+
+    // This type refers to a type that is wrapped an "Annotated"
+    // (PEP 593) annotation.
+    Annotated = 1 << 2,
 }
 
 export type UnionableType =
@@ -117,6 +121,10 @@ export namespace TypeBase {
         return (type.flags & TypeFlags.Instance) !== 0;
     }
 
+    export function isAnnotated(type: TypeBase) {
+        return (type.flags & TypeFlags.Annotated) !== 0;
+    }
+
     export function cloneForTypeAlias(
         type: Type,
         name: string,
@@ -135,6 +143,12 @@ export namespace TypeBase {
             typeVarScopeId,
         };
 
+        return typeClone;
+    }
+
+    export function cloneForAnnotated(type: Type) {
+        const typeClone = { ...type };
+        typeClone.flags |= TypeFlags.Annotated;
         return typeClone;
     }
 }

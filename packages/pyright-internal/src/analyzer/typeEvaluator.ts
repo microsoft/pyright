@@ -10217,7 +10217,7 @@ export function createTypeEvaluator(
             typeArg0Type = UnknownType.create();
         }
 
-        return typeArg0Type;
+        return TypeBase.cloneForAnnotated(typeArg0Type);
     }
 
     // Creates one of several "special" types that are defined in typing.pyi
@@ -10400,7 +10400,7 @@ export function createTypeEvaluator(
         let typeParameters: TypeVarType[] = [];
 
         // Skip this for a simple TypeVar (one that's not part of a union).
-        if (!isTypeVar(type)) {
+        if (!isTypeVar(type) || TypeBase.isAnnotated(type)) {
             doForEachSubtype(type, (subtype) => {
                 addTypeVarsToListIfUnique(typeParameters, getTypeVarArgumentsRecursive(subtype));
             });

@@ -1,7 +1,7 @@
 # This sample tests handling of the Python 3.9 "Annotated" feature
 # described in PEP 593.
 
-from typing import Annotated
+from typing import Annotated, TypeVar
 
 
 class struct2:
@@ -47,3 +47,9 @@ c: Annotated["this", "should generate an error"]
 # This should generate an error because all Annotated types should
 # include at least two type arguments.
 d: Annotated[int]
+
+# Verify that generic type aliases can be defined using Annotated.
+_T = TypeVar("_T")
+Param = Annotated[_T, "x"]
+
+x: Param[int] = 3
