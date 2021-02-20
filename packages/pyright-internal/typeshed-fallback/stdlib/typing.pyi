@@ -63,6 +63,10 @@ if sys.version_info >= (3, 10):
     TypeAlias: _SpecialForm = ...
     TypeGuard: _SpecialForm = ...
 
+    class TypeVarTuple:
+        __name__: str
+        def __init__(self, name: str) -> None: ...
+
 # Return type that indicates a function does not return.
 # This type is equivalent to the None type, but the no-op Union is necessary to
 # distinguish the None type from the None value.
