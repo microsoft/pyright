@@ -174,6 +174,10 @@ export interface DiagnosticRuleSet {
     // the base class symbol of the same name?
     reportIncompatibleVariableOverride: DiagnosticLevel;
 
+    // Report function overloads that overlap in signature but have
+    // incompatible return types.
+    reportOverlappingOverload: DiagnosticLevel;
+
     // Report usage of invalid escape sequences in string literals?
     reportInvalidStringEscapeSequence: DiagnosticLevel;
 
@@ -289,6 +293,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportConstantRedefinition,
         DiagnosticRule.reportIncompatibleMethodOverride,
         DiagnosticRule.reportIncompatibleVariableOverride,
+        DiagnosticRule.reportOverlappingOverload,
         DiagnosticRule.reportInvalidStringEscapeSequence,
         DiagnosticRule.reportUnknownParameterType,
         DiagnosticRule.reportUnknownArgumentType,
@@ -355,6 +360,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportConstantRedefinition: 'none',
         reportIncompatibleMethodOverride: 'none',
         reportIncompatibleVariableOverride: 'none',
+        reportOverlappingOverload: 'none',
         reportInvalidStringEscapeSequence: 'none',
         reportUnknownParameterType: 'none',
         reportUnknownArgumentType: 'none',
@@ -417,6 +423,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportConstantRedefinition: 'none',
         reportIncompatibleMethodOverride: 'none',
         reportIncompatibleVariableOverride: 'none',
+        reportOverlappingOverload: 'none',
         reportInvalidStringEscapeSequence: 'warning',
         reportUnknownParameterType: 'none',
         reportUnknownArgumentType: 'none',
@@ -479,6 +486,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportConstantRedefinition: 'error',
         reportIncompatibleMethodOverride: 'error',
         reportIncompatibleVariableOverride: 'error',
+        reportOverlappingOverload: 'none',
         reportInvalidStringEscapeSequence: 'error',
         reportUnknownParameterType: 'error',
         reportUnknownArgumentType: 'error',
@@ -1020,6 +1028,13 @@ export class ConfigOptions {
                 configObj.reportIncompatibleVariableOverride,
                 DiagnosticRule.reportIncompatibleVariableOverride,
                 defaultSettings.reportIncompatibleVariableOverride
+            ),
+
+            // Read the "reportOverlappingOverload" entry.
+            reportOverlappingOverload: this._convertDiagnosticLevel(
+                configObj.reportOverlappingOverload,
+                DiagnosticRule.reportOverlappingOverload,
+                defaultSettings.reportOverlappingOverload
             ),
 
             // Read the "reportInvalidStringEscapeSequence" entry.

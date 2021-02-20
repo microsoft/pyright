@@ -411,6 +411,17 @@
                                 "error"
                             ]
                         },
+                        "reportOverlappingOverload": {
+                            "type": "string",
+                            "description": "Diagnostics for function overloads that overlap in signature and obscure each other or have incompatible return types.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportInvalidStringEscapeSequence": {
                             "type": "string",
                             "description": "Diagnostics for invalid escape sequences used within string literals. The Python specification indicates that such sequences will generate a syntax error in future versions.",

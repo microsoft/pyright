@@ -868,7 +868,14 @@ test('Overload4', () => {
 });
 
 test('Overload5', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py']);
+    const configOptions = new ConfigOptions('.');
+
+    // By default, reportOverlappingOverload is off.
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py'], configOptions);
+    TestUtils.validateResults(analysisResults, 0);
+
+    configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
+    analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py'], configOptions);
     TestUtils.validateResults(analysisResults, 5);
 });
 
