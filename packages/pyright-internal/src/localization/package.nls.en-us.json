@@ -290,6 +290,7 @@
         "symbolIsUndefined": "\"{name}\" is not defined",
         "symbolIsPossiblyUnbound": "\"{name}\" is possibly unbound",
         "symbolOverridden": "\"{name}\" overrides symbol of same name in class \"{className}\"",
+        "tryWithoutExcept": "Try statement must have at least one except or finally clause",
         "tupleInAnnotation": "Tuple expression not allowed in type annotation",
         "tupleIndexOutOfRange": "Index {index} is out of range for tuple with length {length}",
         "tupleSizeMismatch": "Tuple size mismatch: expected {expected} but received {received}",

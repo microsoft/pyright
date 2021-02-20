@@ -1482,6 +1482,10 @@ export class Parser {
             extendRange(tryNode, tryNode.finallySuite);
         }
 
+        if (!tryNode.finallySuite && tryNode.exceptClauses.length === 0) {
+            this._addError(Localizer.Diagnostic.tryWithoutExcept(), tryToken);
+        }
+
         return tryNode;
     }
 
