@@ -2581,7 +2581,7 @@ export class Checker extends ParseTreeWalker {
             if (
                 node.parameters.length === 0 ||
                 !node.parameters[0].name ||
-                (node.parameters[0].name.value !== 'cls' && node.parameters[0].name.value !== 'mcs')
+                !['cls', '_cls', '__cls', '__mcls'].some((name) => node.parameters[0].name!.value === name)
             ) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportSelfClsParameterName,
