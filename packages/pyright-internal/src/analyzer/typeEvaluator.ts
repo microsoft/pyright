@@ -17487,6 +17487,11 @@ export function createTypeEvaluator(
                             srcArgCount = 1;
                         }
 
+                        if (isDestVariadic && isSrcHomogeneousType) {
+                            diag.addMessage(Localizer.DiagnosticAddendum.typeVarTupleRequiresKnownLength());
+                            return false;
+                        }
+
                         if (
                             (srcTypeArgs.length === destArgCount && !isSrcHomogeneousType) ||
                             isDestHomogenousType ||
@@ -17813,9 +17818,10 @@ export function createTypeEvaluator(
                 isObject(srcType) &&
                 isTupleClass(srcType.classType) &&
                 !!srcType.classType.isTupleForUnpackedVariadicTypeVar;
+
             if (!isVariadicTypeVar(srcType) && !isVariadicTuple) {
-                // Package up the type into a tuple.
                 if (tupleClassType && isClass(tupleClassType)) {
+                    // Package up the type into a tuple.
                     srcType = convertToInstance(
                         specializeTupleClass(
                             tupleClassType,

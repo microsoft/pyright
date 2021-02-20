@@ -933,6 +933,7 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsCovariant'));
         export const typeVarIsInvariant = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.typeVarIsInvariant'));
+        export const typeVarTupleRequiresKnownLength = () => getRawString('DiagnosticAddendum.typeVarTupleRequiresKnownLength');
         export const typeVarNotAllowed = () => getRawString('DiagnosticAddendum.typeVarNotAllowed');
         export const useDictInstead = () => getRawString('DiagnosticAddendum.useDictInstead');
         export const useListInstead = () => getRawString('DiagnosticAddendum.useListInstead');
