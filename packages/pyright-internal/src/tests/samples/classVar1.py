@@ -1,13 +1,22 @@
 # This sample tests the type checker's handling of ClassVar
 # as described in PEP 526.
 
-from typing import ClassVar, Dict, Protocol
+from typing import Any, ClassVar, Dict
+
+
+class MyDescriptor:
+    def __get__(self, *args: Any) -> str:
+        return ""
+
+    def __set__(self, obj: Any, value: str):
+        pass
 
 
 class Starship:
-    captain: str = 'Picard'
+    captain: str = "Picard"
     damage: int
     stats: ClassVar[Dict[str, int]] = {}
+    desc: ClassVar[MyDescriptor] = MyDescriptor()
 
     def __init__(self, damage: int, captain: str = None):
         self.damage = damage
@@ -15,7 +24,8 @@ class Starship:
             self.captain = captain  # Else keep the default
 
     def hit(self):
-        Starship.stats['hits'] = Starship.stats.get('hits', 0) + 1
+        Starship.stats["hits"] = Starship.stats.get("hits", 0) + 1
+
 
 enterprise_d = Starship(3000)
 Starship.stats = {}
@@ -26,3 +36,6 @@ a = enterprise_d.stats
 # be set via a class instance because it's a ClassVar.
 enterprise_d.stats = {}
 
+# This should not generate an error because "desc" is a
+# descriptor instance on the class.
+enterprise_d.desc = "OK"

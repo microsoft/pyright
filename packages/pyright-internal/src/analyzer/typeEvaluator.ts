@@ -4147,13 +4147,6 @@ export function createTypeEvaluator(
                 }
             }
 
-            if (usage.method === 'set' && memberInfo.symbol.isClassVar()) {
-                if (flags & MemberAccessFlags.DisallowClassVarWrites) {
-                    diag.addMessage(Localizer.DiagnosticAddendum.memberSetClassVar().format({ name: memberName }));
-                    return undefined;
-                }
-            }
-
             // Don't include variables within typed dict classes.
             if (ClassType.isTypedDictClass(classType)) {
                 const typedDecls = memberInfo.symbol.getTypedDeclarations();
@@ -4176,7 +4169,7 @@ export function createTypeEvaluator(
                 classType,
                 bindToType,
                 /* isAccessedThroughObject */ (flags & MemberAccessFlags.AccessClassMembersOnly) === 0,
-                (flags & MemberAccessFlags.TreatConstructorAsClassMethod) !== 0,
+                flags,
                 errorNode,
                 memberName,
                 usage,
@@ -4237,7 +4230,7 @@ export function createTypeEvaluator(
                     classType,
                     bindToType,
                     /* isAccessedThroughObject */ false,
-                    (flags & MemberAccessFlags.TreatConstructorAsClassMethod) !== 0,
+                    flags,
                     errorNode,
                     memberName,
                     usage,
@@ -4268,12 +4261,13 @@ export function createTypeEvaluator(
         baseTypeClass: ClassType,
         bindToType: ObjectType | ClassType | TypeVarType | undefined,
         isAccessedThroughObject: boolean,
-        treatConstructorAsClassMember: boolean,
+        flags: MemberAccessFlags,
         errorNode: ExpressionNode,
         memberName: string,
         usage: EvaluatorUsage,
         diag: DiagnosticAddendum
     ): Type | undefined {
+        const treatConstructorAsClassMember = (flags & MemberAccessFlags.TreatConstructorAsClassMethod) !== 0;
         let isTypeValid = true;
 
         type = mapSubtypes(type, (subtype) => {
@@ -4437,6 +4431,13 @@ export function createTypeEvaluator(
             }
 
             if (usage.method === 'set') {
+                if (memberInfo?.symbol.isClassVar()) {
+                    if (flags & MemberAccessFlags.DisallowClassVarWrites) {
+                        diag.addMessage(Localizer.DiagnosticAddendum.memberSetClassVar().format({ name: memberName }));
+                        return undefined;
+                    }
+                }
+
                 let enforceTargetType = false;
 
                 if (memberInfo && memberInfo.symbol.hasTypedDeclarations()) {
