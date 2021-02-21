@@ -10363,22 +10363,22 @@ export function createTypeEvaluator(
             const enumClassInfo = getTypeOfClass(enclosingClassNode);
 
             if (enumClassInfo && ClassType.isEnumClass(enumClassInfo.classType)) {
-                if (ClassType.isBuiltIn(enumClassInfo.classType)) {
-                    // Handle several built-in classes specially. We don't
-                    // want to interpret their class variables as enumerations.
-                    const className = enumClassInfo.classType.details.name;
-                    const builtInEnumClasses = ['Enum', 'IntEnum', 'Flag', 'IntFlag'];
-                    if (builtInEnumClasses.find((c) => c === className)) {
-                        return typeOfExpr;
-                    }
-                }
+                // The transform applies only to members that are assigned within
+                // the class.
+                const isInAssignmentNode =
+                    (node.parent?.nodeType === ParseNodeType.Assignment && node.parent.leftExpression === node) ||
+                    (node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+                        node.parent.valueExpression === node &&
+                        node.parent.parent?.nodeType === ParseNodeType.Assignment);
 
-                return ObjectType.create(
-                    ClassType.cloneWithLiteral(
-                        enumClassInfo.classType,
-                        new EnumLiteral(enumClassInfo.classType.details.name, node.value)
-                    )
-                );
+                if (isInAssignmentNode) {
+                    return ObjectType.create(
+                        ClassType.cloneWithLiteral(
+                            enumClassInfo.classType,
+                            new EnumLiteral(enumClassInfo.classType.details.name, node.value)
+                        )
+                    );
+                }
             }
         }
 
