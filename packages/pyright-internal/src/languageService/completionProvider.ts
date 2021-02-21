@@ -786,10 +786,14 @@ export class CompletionProvider {
                         return;
                     }
 
-                    if (
-                        staticmethod !== FunctionType.isStaticMethod(declaredType) ||
-                        classmethod !== FunctionType.isClassMethod(declaredType)
-                    ) {
+                    const isDeclaredStaticMethod = FunctionType.isStaticMethod(declaredType);
+
+                    // Special-case the "__init__subclass__" method because it's an implicit
+                    // classmethod that the type evaluator flags as a real classmethod.
+                    const isDeclaredClassMethod =
+                        FunctionType.isClassMethod(declaredType) && name !== '__init_subclass__';
+
+                    if (staticmethod !== isDeclaredStaticMethod || classmethod !== isDeclaredClassMethod) {
                         return;
                     }
 
