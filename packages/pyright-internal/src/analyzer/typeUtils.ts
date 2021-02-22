@@ -330,9 +330,8 @@ export function transformTypeObjectToClass(type: Type): Type {
         return type;
     }
 
-    // If it's a generic Type, we can't get the class.
     if (!classType.typeArguments || classType.typeArguments.length < 1 || !classType.isTypeArgumentExplicit) {
-        return type;
+        return UnknownType.create();
     }
 
     return convertToInstantiable(classType.typeArguments[0]);

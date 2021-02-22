@@ -1895,7 +1895,7 @@ export function createTypeEvaluator(
         };
 
         return mapSubtypes(type, (subtype) => {
-            subtype = getClassFromPotentialTypeObject(subtype);
+            subtype = transformTypeObjectToClass(subtype);
 
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
@@ -3456,7 +3456,7 @@ export function createTypeEvaluator(
                 } else if (isObject(type)) {
                     // If this is an object that contains a Type[X], transform it
                     // into class X.
-                    type = getClassFromPotentialTypeObject(type);
+                    type = transformTypeObjectToClass(type);
                 }
 
                 if (
@@ -3885,7 +3885,7 @@ export function createTypeEvaluator(
             }
 
             case TypeCategory.Object: {
-                const classFromTypeObject = getClassFromPotentialTypeObject(baseType);
+                const classFromTypeObject = transformTypeObjectToClass(baseType);
                 if (TypeBase.isInstantiable(classFromTypeObject)) {
                     // Handle the case where the object is a 'type' object, which
                     // represents a class.
@@ -4067,23 +4067,6 @@ export function createTypeEvaluator(
         }
 
         return { type, node };
-    }
-
-    // If the object type is a 'Type' object, converts it to the corresponding
-    // class that it represents and returns that class. Otherwise returns the
-    // original type.
-    function getClassFromPotentialTypeObject(potentialTypeObject: Type): Type {
-        if (isObject(potentialTypeObject)) {
-            if (ClassType.isBuiltIn(potentialTypeObject.classType, 'Type')) {
-                const typeArgs = potentialTypeObject.classType.typeArguments;
-
-                if (typeArgs && typeArgs.length > 0) {
-                    return convertToInstantiable(typeArgs[0]);
-                }
-            }
-        }
-
-        return potentialTypeObject;
     }
 
     function getTypeFromClassMemberName(
@@ -4757,7 +4740,7 @@ export function createTypeEvaluator(
         }
 
         const type = mapSubtypes(baseType, (subtype) => {
-            subtype = getClassFromPotentialTypeObject(subtype);
+            subtype = transformTypeObjectToClass(subtype);
             const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
 
             if (isAnyOrUnknown(concreteSubtype)) {
@@ -6142,7 +6125,7 @@ export function createTypeEvaluator(
         const returnType = mapSubtypes(callType, (subtype) => {
             let isTypeObject = false;
             if (isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'Type')) {
-                subtype = getClassFromPotentialTypeObject(subtype);
+                subtype = transformTypeObjectToClass(subtype);
                 isTypeObject = true;
             }
 
@@ -15625,7 +15608,7 @@ export function createTypeEvaluator(
                 }
 
                 case TypeCategory.Object: {
-                    const classFromTypeObject = getClassFromPotentialTypeObject(subtype);
+                    const classFromTypeObject = transformTypeObjectToClass(subtype);
                     if (TypeBase.isInstantiable(classFromTypeObject)) {
                         // It's a Type object, which is a class.
                         return isPositiveTest ? subtype : undefined;
@@ -18441,10 +18424,11 @@ export function createTypeEvaluator(
             if (ClassType.isBuiltIn(destClassType, 'Type')) {
                 const destTypeArgs = destClassType.typeArguments;
                 if (destTypeArgs && destTypeArgs.length >= 1) {
-                    if (TypeBase.isInstance(destTypeArgs[0]) && TypeBase.isInstantiable(srcType)) {
+                    const convertedSrc = transformTypeObjectToClass(srcType);
+                    if (TypeBase.isInstance(destTypeArgs[0]) && TypeBase.isInstantiable(convertedSrc)) {
                         return canAssignType(
                             destTypeArgs[0],
-                            convertToInstance(srcType),
+                            convertToInstance(convertedSrc),
                             diag,
                             typeVarMap,
                             flags,
