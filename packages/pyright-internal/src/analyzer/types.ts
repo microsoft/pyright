@@ -1836,7 +1836,13 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 return true;
             }
 
-            if (type1.details.name !== type2TypeVar.details.name) {
+            if (
+                type1.details.name !== type2TypeVar.details.name ||
+                type1.details.isParamSpec !== type2TypeVar.details.isParamSpec ||
+                type1.details.isVariadic !== type2TypeVar.details.isVariadic ||
+                type1.details.isSynthesized !== type2TypeVar.details.isSynthesized ||
+                type1.details.variance !== type2TypeVar.details.variance
+            ) {
                 return false;
             }
 
@@ -1850,10 +1856,6 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 if (boundType2) {
                     return false;
                 }
-            }
-
-            if (type1.details.variance !== type2TypeVar.details.variance) {
-                return false;
             }
 
             const constraints1 = type1.details.constraints;
