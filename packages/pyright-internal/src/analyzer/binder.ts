@@ -2561,7 +2561,19 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _bindNameToScope(scope: Scope, name: string, addedSymbols?: Map<string, Symbol>) {
-        if (this._currentScope.getBindingType(name) === undefined) {
+        // Is this name already bound to a scope other than the local one?
+        const bindingType = this._currentScope.getBindingType(name);
+
+        if (bindingType !== undefined) {
+            const scopeToUse =
+                bindingType === NameBindingType.Nonlocal
+                    ? this._currentScope.parent!
+                    : this._currentScope.getGlobalScope();
+            const symbolWithScope = scopeToUse.lookUpSymbolRecursive(name);
+            if (symbolWithScope) {
+                return symbolWithScope.symbol;
+            }
+        } else {
             // Don't overwrite an existing symbol.
             let symbol = scope.lookUpSymbol(name);
             if (!symbol) {
