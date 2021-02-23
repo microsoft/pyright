@@ -1544,14 +1544,25 @@ export class Binder extends ParseTreeWalker {
                 const symbol = this._bindNameToScope(this._currentScope, nameNode.value);
 
                 if (symbol) {
-                    if (!importSymbolNode.alias || importSymbolNode.alias.value !== importSymbolNode.name.value) {
-                        if (this._fileInfo.isStubFile) {
-                            // PEP 484 indicates that imported symbols should not be
-                            // considered "reexported" from a type stub file unless
-                            // they are imported using the "as" form using a redundant form.
-                            symbol.setIsExternallyHidden();
-                        } else if (this._fileInfo.isInPyTypedPackage && this._currentScope.type === ScopeType.Module) {
-                            this._potentialPrivateSymbols.set(nameNode.value, symbol);
+                    // All import statements of the form `from . import x` treat x
+                    // as an externally-visible (not hidden) symbol.
+                    if (node.module.nameParts.length > 0) {
+                        if (!importSymbolNode.alias || importSymbolNode.alias.value !== importSymbolNode.name.value) {
+                            if (this._fileInfo.isStubFile) {
+                                // PEP 484 indicates that imported symbols should not be
+                                // considered "reexported" from a type stub file unless
+                                // they are imported using the "as" form using a redundant form.
+                                symbol.setIsExternallyHidden();
+                            } else if (
+                                this._fileInfo.isInPyTypedPackage &&
+                                this._currentScope.type === ScopeType.Module
+                            ) {
+                                // Py.typed packages follow the same rule as PEP 484 except
+                                // that if the symbol appears in the __all__ list, it is overridden
+                                // and becomes a externally-visible symbol. For now, add it to
+                                // the "potentially private" map.
+                                this._potentialPrivateSymbols.set(nameNode.value, symbol);
+                            }
                         }
                     }
 
