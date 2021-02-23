@@ -10,6 +10,7 @@
 import * as child_process from 'child_process';
 
 import { ConfigOptions } from '../common/configOptions';
+import { compareComparableValues } from '../common/core';
 import { FileSystem } from '../common/fileSystem';
 import * as pathConsts from '../common/pathConsts';
 import {
@@ -28,6 +29,15 @@ interface PythonPathResult {
 }
 
 const cachedSearchPaths = new Map<string, PythonPathResult>();
+
+const extractSys = [
+    'import os, os.path, sys',
+    'normalize = lambda p: os.path.normcase(os.path.normpath(p))',
+    'cwd = normalize(os.getcwd())',
+    'sys.path[:] = (p for p in sys.path if p != "" and normalize(p) != cwd)',
+    'import json',
+    'json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
+].join('; ');
 
 export const stdLibFolderName = 'stdlib';
 export const thirdPartyFolderName = 'stubs';
@@ -74,12 +84,22 @@ export function findPythonSearchPaths(
         const venvPath = combinePaths(configOptions.venvPath, venvDir);
 
         const foundPaths: string[] = [];
+        const sitePackagesPaths: string[] = [];
 
         [pathConsts.lib, pathConsts.lib64, pathConsts.libAlternate].forEach((libPath) => {
             const sitePackagesPath = findSitePackagesPath(fs, combinePaths(venvPath, libPath), importFailureInfo);
             if (sitePackagesPath) {
-                foundPaths.push(sitePackagesPath);
+                addPathIfUnique(foundPaths, sitePackagesPath);
+                sitePackagesPaths.push(sitePackagesPath);
             }
+        });
+
+        // Now add paths from ".pth" files located in each of the site packages folders.
+        sitePackagesPaths.forEach((sitePackagesPath) => {
+            const pthPaths = getPathsFromPthFiles(fs, sitePackagesPath);
+            pthPaths.forEach((path) => {
+                addPathIfUnique(foundPaths, path);
+            });
         });
 
         if (foundPaths.length > 0) {
@@ -106,97 +126,6 @@ export function findPythonSearchPaths(
     }
 
     return pathResult.paths;
-}
-
-function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo: string[]): string | undefined {
-    if (fs.existsSync(libPath)) {
-        importFailureInfo.push(`Found path '${libPath}'; looking for ${pathConsts.sitePackages}`);
-    } else {
-        importFailureInfo.push(`Did not find '${libPath}'`);
-        return undefined;
-    }
-
-    const sitePackagesPath = combinePaths(libPath, pathConsts.sitePackages);
-    if (fs.existsSync(sitePackagesPath)) {
-        importFailureInfo.push(`Found path '${sitePackagesPath}'`);
-        return sitePackagesPath;
-    } else {
-        importFailureInfo.push(`Did not find '${sitePackagesPath}', so looking for python subdirectory`);
-    }
-
-    // We didn't find a site-packages directory directly in the lib
-    // directory. Scan for a "python*" directory instead.
-    const entries = getFileSystemEntries(fs, libPath);
-    for (let i = 0; i < entries.directories.length; i++) {
-        const dirName = entries.directories[i];
-        if (dirName.startsWith('python')) {
-            const dirPath = combinePaths(libPath, dirName, pathConsts.sitePackages);
-            if (fs.existsSync(dirPath)) {
-                importFailureInfo.push(`Found path '${dirPath}'`);
-                return dirPath;
-            } else {
-                importFailureInfo.push(`Path '${dirPath}' is not a valid directory`);
-            }
-        }
-    }
-}
-
-const extractSys = [
-    'import os, os.path, sys',
-    'normalize = lambda p: os.path.normcase(os.path.normpath(p))',
-    'cwd = normalize(os.getcwd())',
-    'sys.path[:] = (p for p in sys.path if p != "" and normalize(p) != cwd)',
-    'import json',
-    'json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
-].join('; ');
-
-function getPathResultFromInterpreter(
-    fs: FileSystem,
-    interpreter: string,
-    importFailureInfo: string[]
-): PythonPathResult | undefined {
-    const result: PythonPathResult = {
-        paths: [],
-        prefix: '',
-    };
-
-    try {
-        const commandLineArgs: string[] = ['-c', extractSys];
-
-        importFailureInfo.push(`Executing interpreter: '${interpreter}'`);
-        const execOutput = child_process.execFileSync(interpreter, commandLineArgs, { encoding: 'utf8' });
-
-        // Parse the execOutput. It should be a JSON-encoded array of paths.
-        try {
-            const execSplit = JSON.parse(execOutput);
-            for (let execSplitEntry of execSplit.path) {
-                execSplitEntry = execSplitEntry.trim();
-                if (execSplitEntry) {
-                    const normalizedPath = normalizePath(execSplitEntry);
-                    // Make sure the path exists and is a directory. We don't currently
-                    // support zip files and other formats.
-                    if (fs.existsSync(normalizedPath) && isDirectory(fs, normalizedPath)) {
-                        result.paths.push(normalizedPath);
-                    } else {
-                        importFailureInfo.push(`Skipping '${normalizedPath}' because it is not a valid directory`);
-                    }
-                }
-            }
-
-            result.prefix = execSplit.prefix;
-
-            if (result.paths.length === 0) {
-                importFailureInfo.push(`Found no valid directories`);
-            }
-        } catch (err) {
-            importFailureInfo.push(`Could not parse output: '${execOutput}'`);
-            throw err;
-        }
-    } catch {
-        return undefined;
-    }
-
-    return result;
 }
 
 export function getPythonPathFromPythonInterpreter(
@@ -249,4 +178,127 @@ export function getPythonPathFromPythonInterpreter(
 export function isPythonBinary(p: string): boolean {
     p = p.trim();
     return p === 'python' || p === 'python3';
+}
+
+function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo: string[]): string | undefined {
+    if (fs.existsSync(libPath)) {
+        importFailureInfo.push(`Found path '${libPath}'; looking for ${pathConsts.sitePackages}`);
+    } else {
+        importFailureInfo.push(`Did not find '${libPath}'`);
+        return undefined;
+    }
+
+    const sitePackagesPath = combinePaths(libPath, pathConsts.sitePackages);
+    if (fs.existsSync(sitePackagesPath)) {
+        importFailureInfo.push(`Found path '${sitePackagesPath}'`);
+        return sitePackagesPath;
+    } else {
+        importFailureInfo.push(`Did not find '${sitePackagesPath}', so looking for python subdirectory`);
+    }
+
+    // We didn't find a site-packages directory directly in the lib
+    // directory. Scan for a "python*" directory instead.
+    const entries = getFileSystemEntries(fs, libPath);
+    for (let i = 0; i < entries.directories.length; i++) {
+        const dirName = entries.directories[i];
+        if (dirName.startsWith('python')) {
+            const dirPath = combinePaths(libPath, dirName, pathConsts.sitePackages);
+            if (fs.existsSync(dirPath)) {
+                importFailureInfo.push(`Found path '${dirPath}'`);
+                return dirPath;
+            } else {
+                importFailureInfo.push(`Path '${dirPath}' is not a valid directory`);
+            }
+        }
+    }
+}
+
+function getPathResultFromInterpreter(
+    fs: FileSystem,
+    interpreter: string,
+    importFailureInfo: string[]
+): PythonPathResult | undefined {
+    const result: PythonPathResult = {
+        paths: [],
+        prefix: '',
+    };
+
+    try {
+        const commandLineArgs: string[] = ['-c', extractSys];
+
+        importFailureInfo.push(`Executing interpreter: '${interpreter}'`);
+        const execOutput = child_process.execFileSync(interpreter, commandLineArgs, { encoding: 'utf8' });
+
+        // Parse the execOutput. It should be a JSON-encoded array of paths.
+        try {
+            const execSplit = JSON.parse(execOutput);
+            for (let execSplitEntry of execSplit.path) {
+                execSplitEntry = execSplitEntry.trim();
+                if (execSplitEntry) {
+                    const normalizedPath = normalizePath(execSplitEntry);
+                    // Make sure the path exists and is a directory. We don't currently
+                    // support zip files and other formats.
+                    if (fs.existsSync(normalizedPath) && isDirectory(fs, normalizedPath)) {
+                        result.paths.push(normalizedPath);
+                    } else {
+                        importFailureInfo.push(`Skipping '${normalizedPath}' because it is not a valid directory`);
+                    }
+                }
+            }
+
+            result.prefix = execSplit.prefix;
+
+            if (result.paths.length === 0) {
+                importFailureInfo.push(`Found no valid directories`);
+            }
+        } catch (err) {
+            importFailureInfo.push(`Could not parse output: '${execOutput}'`);
+            throw err;
+        }
+    } catch {
+        return undefined;
+    }
+
+    return result;
+}
+
+function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
+    const searchPaths: string[] = [];
+
+    // Get a list of all *.pth files within the specified directory.
+    const pthFiles = fs
+        .readdirEntriesSync(parentDir)
+        .filter((entry) => entry.isFile() && entry.name.endsWith('.pth'))
+        .sort((a, b) => compareComparableValues(a.name, b.name));
+
+    pthFiles.forEach((pthFile) => {
+        const filePath = combinePaths(parentDir, pthFile.name);
+        const fileStats = fs.statSync(filePath);
+
+        // Skip all files that are much larger than expected.
+        if (fileStats.size > 0 && fileStats.size < 64 * 1024) {
+            const data = fs.readFileSync(filePath, 'utf8');
+            const lines = data.split(/\r?\n/);
+            lines.forEach((line) => {
+                const trimmedLine = line.trim();
+                if (trimmedLine.length > 0 && !trimmedLine.startsWith('#') && !trimmedLine.match(/^import\s/)) {
+                    const pthPath = combinePaths(parentDir, trimmedLine);
+                    if (fs.existsSync(pthPath) && isDirectory(fs, pthPath)) {
+                        searchPaths.push(pthPath);
+                    }
+                }
+            });
+        }
+    });
+
+    return searchPaths;
+}
+
+function addPathIfUnique(pathList: string[], pathToAdd: string) {
+    if (!pathList.some((path) => path === pathToAdd)) {
+        pathList.push(pathToAdd);
+        return true;
+    }
+
+    return false;
 }
