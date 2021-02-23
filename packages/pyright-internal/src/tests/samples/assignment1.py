@@ -1,19 +1,21 @@
 # This sample tests the type checker's handling of
 # member assignments.
 
+
 class Foo:
     def __init__(self):
         self.string_list: list[str] = []
 
     def do_something(self, num: int) -> str:
-        return ''
+        return ""
+
 
 a = Foo()
 
-a.string_list = ['yep']
+a.string_list = ["yep"]
 
 # This should generate an error because of a type mismatch.
-a.string_list = 'bbb'
+a.string_list = "bbb"
 
 # This should generate an error because of a type mismatch.
 a.string_list = {}
@@ -27,25 +29,28 @@ a.string_list2 = 4
 
 
 def patch1(num: int) -> str:
-    return ''
+    return ""
+
 
 def patch2(self, num: int) -> str:
-    return ''
+    return ""
 
-a.do_something = lambda x : 'hello'
+
+a.do_something = lambda num: "hello"
 a.do_something = patch1
 
 # This should generate an error because of a param count mismatch
-a.do_something = lambda : 'hello'
+a.do_something = lambda: "hello"
 
 # This should generate an error because of a return type mismatch
-a.do_something = lambda x : 1
+a.do_something = lambda x: 1
 
 
 Foo.do_something = patch2
 
 # This should generate an error because of a param count mismatch
 Foo.do_something = patch1
+
 
 class Class1:
     # This should generate an error because assignment expressions

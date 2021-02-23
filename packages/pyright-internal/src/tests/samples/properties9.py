@@ -20,5 +20,5 @@ obj = ClassA(str_to_int)
 val1: int = obj.converter("123", 10)
 val2: int = obj.converter_prop("123", 10)
 
-t1: Literal["(p0: str, p1: int) -> int"] = reveal_type(obj.converter)
-t2: Literal["(p0: str, p1: int) -> int"] = reveal_type(obj.converter_prop)
+t1: Literal["(_p0: str, _p1: int) -> int"] = reveal_type(obj.converter)
+t2: Literal["(_p0: str, _p1: int) -> int"] = reveal_type(obj.converter_prop)

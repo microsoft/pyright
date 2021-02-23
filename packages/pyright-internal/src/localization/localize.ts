@@ -768,6 +768,10 @@ export namespace Localizer {
         export const dataclassFrozen = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.dataclassFrozen'));
         export const finalMethod = () => getRawString('DiagnosticAddendum.finalMethod');
+        export const functionParamName = () =>
+            new ParameterizedString<{ destName: string; srcName: string }>(
+                getRawString('DiagnosticAddendum.functionParamName')
+            );
         export const functionReturnTypeMismatch = () =>
             new ParameterizedString<{ sourceType: string; destType: string }>(
                 getRawString('DiagnosticAddendum.functionReturnTypeMismatch')

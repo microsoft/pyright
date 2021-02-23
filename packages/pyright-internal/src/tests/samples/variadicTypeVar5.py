@@ -57,7 +57,7 @@ c2 = func1(callback2)
 c3 = func2(callback3)
 
 c4 = func1(callback4)
-t_c4: Literal["(p0: str, p1: complex) -> int"] = reveal_type(c4)
+t_c4: Literal["(_p0: str, _p1: complex) -> int"] = reveal_type(c4)
 c4_1 = c4("hi", 3j)
 t_c4_1: Literal["int"] = reveal_type(c4_1)
 
@@ -102,7 +102,7 @@ d2 = func3(callback2)
 d3 = func3(callback3)
 
 d4 = func3(callback4)
-t_d4: Literal["(p0: str, p1: complex) -> int"] = reveal_type(d4)
+t_d4: Literal["(_p0: str, _p1: complex) -> int"] = reveal_type(d4)
 d4_1 = d4("hi", 3j)
 t_d4_1: Literal["int"] = reveal_type(d4_1)
 
