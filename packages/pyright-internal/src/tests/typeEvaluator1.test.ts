@@ -1235,6 +1235,12 @@ test('Enums5', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Enums6', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['enums6.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('TypeGuard1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeGuard1.py']);
 

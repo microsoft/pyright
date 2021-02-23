@@ -114,7 +114,7 @@ import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
-import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { isConstantName, isDunderName, isPrivateOrProtectedName } from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { PrintableType, TracePrinter } from './tracePrinter';
 import {
@@ -10346,22 +10346,40 @@ export function createTypeEvaluator(
             const enumClassInfo = getTypeOfClass(enclosingClassNode);
 
             if (enumClassInfo && ClassType.isEnumClass(enumClassInfo.classType)) {
-                if (ClassType.isBuiltIn(enumClassInfo.classType)) {
-                    // Handle several built-in classes specially. We don't
-                    // want to interpret their class variables as enumerations.
-                    const className = enumClassInfo.classType.details.name;
-                    const builtInEnumClasses = ['Enum', 'IntEnum', 'Flag', 'IntFlag'];
-                    if (builtInEnumClasses.find((c) => c === className)) {
-                        return typeOfExpr;
+                // In ".py" files, the transform applies only to members that are
+                // assigned within the class. In stub files, it applies to most variables
+                // even if they are not assigned. This unfortunate convention means
+                // there is no way in a stub to specify both enum members and instance
+                // variables used within each enum instance. Unless/until there is
+                // a change to this convention and all type checkers and stubs adopt
+                // it, we're stuck with this limitation.
+                let isMemberOfEnumeration =
+                    (node.parent?.nodeType === ParseNodeType.Assignment && node.parent.leftExpression === node) ||
+                    (node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+                        node.parent.valueExpression === node &&
+                        node.parent.parent?.nodeType === ParseNodeType.Assignment);
+
+                if (!isMemberOfEnumeration && getFileInfo(node).isStubFile) {
+                    // Specifically exclude "value", "name" and any dunder variables.
+                    // These are reserved by the enum metaclass.
+                    if (
+                        node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+                        node.parent.valueExpression === node
+                    ) {
+                        if (node.value !== 'value' && node.value !== 'name' && !isDunderName(node.value)) {
+                            isMemberOfEnumeration = true;
+                        }
                     }
                 }
 
-                return ObjectType.create(
-                    ClassType.cloneWithLiteral(
-                        enumClassInfo.classType,
-                        new EnumLiteral(enumClassInfo.classType.details.name, node.value)
-                    )
-                );
+                if (isMemberOfEnumeration) {
+                    return ObjectType.create(
+                        ClassType.cloneWithLiteral(
+                            enumClassInfo.classType,
+                            new EnumLiteral(enumClassInfo.classType.details.name, node.value)
+                        )
+                    );
+                }
             }
         }
 
