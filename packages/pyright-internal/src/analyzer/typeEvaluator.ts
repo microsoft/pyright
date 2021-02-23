@@ -4564,7 +4564,11 @@ export function createTypeEvaluator(
                 !baseTypeResult.type.aliasName
             ) {
                 const minPythonVersion = nonSubscriptableBuiltinTypes[baseTypeResult.type.details.fullName];
-                if (minPythonVersion !== undefined && fileInfo.executionEnvironment.pythonVersion < minPythonVersion) {
+                if (
+                    minPythonVersion !== undefined &&
+                    fileInfo.executionEnvironment.pythonVersion < minPythonVersion &&
+                    !fileInfo.isStubFile
+                ) {
                     addError(
                         Localizer.Diagnostic.classNotRuntimeSubscriptable().format({
                             name: baseTypeResult.type.aliasName || baseTypeResult.type.details.name,
