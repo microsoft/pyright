@@ -281,7 +281,7 @@ function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
             const lines = data.split(/\r?\n/);
             lines.forEach((line) => {
                 const trimmedLine = line.trim();
-                if (trimmedLine.length > 0 && !trimmedLine.startsWith('#')) {
+                if (trimmedLine.length > 0 && !trimmedLine.startsWith('#') && !trimmedLine.match(/^import\s/)) {
                     const pthPath = combinePaths(parentDir, trimmedLine);
                     if (fs.existsSync(pthPath) && isDirectory(fs, pthPath)) {
                         searchPaths.push(pthPath);
