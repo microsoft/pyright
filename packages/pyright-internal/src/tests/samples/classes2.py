@@ -9,10 +9,14 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Type,
     TypeVar,
     Union,
     overload,
 )
+
+
+T_ParentClass = TypeVar("T_ParentClass", bound="ParentClass")
 
 
 class ParentClass:
@@ -73,11 +77,18 @@ class ParentClass:
     def my_method19(self, a: str, b: int, c: float, d: bool) -> None:
         ...
 
+    def my_method20(self: Type[T_ParentClass], a: str) -> T_ParentClass:
+        ...
+
     def _protected_method1(self, a: int):
         return 1
 
     def __private_method1(self, a: int):
         return 1
+
+
+T_ChildClass = TypeVar("T_ChildClass", bound="ChildClass")
+
 
 class ChildClass(ParentClass):
     # This should generate an error because the type of 'a' doesn't match.
@@ -150,6 +161,9 @@ class ChildClass(ParentClass):
 
     # This should generate an error because b param doesn't match a in name.
     def my_method19(self, b: str, *args: object, **kwargs: object) -> None:
+        ...
+
+    def my_method20(self: Type[T_ChildClass], a: str) -> T_ChildClass:
         ...
 
     # This should generate an error.

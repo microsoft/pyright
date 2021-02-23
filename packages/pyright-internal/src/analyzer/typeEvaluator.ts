@@ -18364,11 +18364,11 @@ export function createTypeEvaluator(
             if (srcTypeArgs && srcTypeArgs.length >= 1) {
                 if (isAnyOrUnknown(srcTypeArgs[0])) {
                     return true;
-                } else if (isObject(srcTypeArgs[0])) {
+                } else if (isObject(srcTypeArgs[0]) || isTypeVar(srcTypeArgs[0])) {
                     if (
                         canAssignType(
-                            destType,
-                            srcTypeArgs[0].classType,
+                            transformTypeObjectToClass(destType),
+                            convertToInstantiable(srcTypeArgs[0]),
                             diag.createAddendum(),
                             typeVarMap,
                             flags,
@@ -19399,6 +19399,19 @@ export function createTypeEvaluator(
         );
 
         for (let i = 0; i < paramCount; i++) {
+            // If the first parameter is a "self" or "cls" parameter, skip the
+            // test because these are allowed to violate the Liskov substitution
+            // principle.
+            if (i === 0) {
+                if (
+                    FunctionType.isInstanceMethod(overrideMethod) ||
+                    FunctionType.isClassMethod(overrideMethod) ||
+                    FunctionType.isConstructorMethod(overrideMethod)
+                ) {
+                    continue;
+                }
+            }
+
             const baseParam = baseParams[i];
             const overrideParam = overrideParams[i];
 
