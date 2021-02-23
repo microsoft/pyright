@@ -202,7 +202,14 @@ export class SourceMapper {
         variableName: string,
         recursiveDeclCache: Set<string>
     ): VariableDeclaration[] {
-        return this._findMemberDeclarationsByName(
+        let result: VariableDeclaration[] = [];
+
+        const uniqueId = `@${sourceFile.getFilePath()}/c/${className}/v/${variableName}`;
+        if (recursiveDeclCache.has(uniqueId)) {
+            return result;
+        }
+
+        result = this._findMemberDeclarationsByName(
             sourceFile,
             className,
             variableName,
@@ -217,6 +224,9 @@ export class SourceMapper {
             },
             recursiveDeclCache
         );
+
+        recursiveDeclCache.delete(uniqueId);
+        return result;
     }
 
     private _findMethodDeclarationsByName(
@@ -225,7 +235,16 @@ export class SourceMapper {
         functionName: string,
         recursiveDeclCache: Set<string>
     ): ClassOrFunctionOrVariableDeclaration[] {
-        return this._findMemberDeclarationsByName(
+        let result: ClassOrFunctionOrVariableDeclaration[] = [];
+
+        const uniqueId = `@${sourceFile.getFilePath()}/c/${className}/f/${functionName}`;
+        if (recursiveDeclCache.has(uniqueId)) {
+            return result;
+        }
+
+        recursiveDeclCache.add(uniqueId);
+
+        result = this._findMemberDeclarationsByName(
             sourceFile,
             className,
             functionName,
@@ -240,6 +259,9 @@ export class SourceMapper {
             },
             recursiveDeclCache
         );
+
+        recursiveDeclCache.delete(uniqueId);
+        return result;
     }
 
     private _findVariableDeclarationsByName(
@@ -249,7 +271,7 @@ export class SourceMapper {
     ): VariableDeclaration[] {
         const result: VariableDeclaration[] = [];
 
-        const uniqueId = sourceFile.getFilePath() + variableName;
+        const uniqueId = `@${sourceFile.getFilePath()}/v/${variableName}`;
         if (recursiveDeclCache.has(uniqueId)) {
             return result;
         }
@@ -272,7 +294,7 @@ export class SourceMapper {
     ): ClassOrFunctionOrVariableDeclaration[] {
         const result: ClassOrFunctionOrVariableDeclaration[] = [];
 
-        const uniqueId = sourceFile.getFilePath() + functionName;
+        const uniqueId = `@${sourceFile.getFilePath()}/f/${functionName}`;
         if (recursiveDeclCache.has(uniqueId)) {
             return result;
         }
@@ -322,7 +344,7 @@ export class SourceMapper {
     ): ClassOrFunctionOrVariableDeclaration[] {
         const result: ClassOrFunctionOrVariableDeclaration[] = [];
 
-        const uniqueId = sourceFile.getFilePath() + `@[${parentNode.start}]${className}`;
+        const uniqueId = `@${sourceFile.getFilePath()}[${parentNode.start}]${className}`;
         if (recursiveDeclCache.has(uniqueId)) {
             return result;
         }
