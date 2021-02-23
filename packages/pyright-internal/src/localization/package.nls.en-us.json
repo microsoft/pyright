@@ -406,6 +406,7 @@
         "dataclassFrozen": "Dataclass \"{name}\" is frozen",
         "finalMethod": "Final method",
         "keyUndefined": "\"{name}\" is not a defined key in \"{type}\"",
+        "functionParamName": "Parameter name mismatch: \"{destName}\" versus \"{srcName}\"",
         "functionReturnTypeMismatch": "Function return type \"{sourceType}\" is not compatible with type \"{destType}\"",
         "functionTooFewParams": "Function accepts too few positional parameters; expected {expected} but received {received}",
         "functionTooManyParams": "Function accepts too many positional parameters; expected {expected} but received {received}",

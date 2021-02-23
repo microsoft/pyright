@@ -9878,7 +9878,7 @@ export function createTypeEvaluator(
                 typeList.forEach((entry, index) => {
                     let entryType = entry.type;
                     let paramCategory: ParameterCategory = ParameterCategory.Simple;
-                    let paramName = `p${index.toString()}`;
+                    let paramName = `_p${index.toString()}`;
 
                     if (index === typeList.length - 1 && isVariadicTypeVar(entryType)) {
                         validateVariadicTypeVarIsUnpacked(entryType, entry.node);
@@ -18871,14 +18871,28 @@ export function createTypeEvaluator(
         if (!FunctionType.shouldSkipParamCompatibilityCheck(destType)) {
             // Match positional parameters.
             for (let paramIndex = 0; paramIndex < positionalsToMatch; paramIndex++) {
-                const srcParamType = FunctionType.getEffectiveParameterType(
-                    srcType,
-                    srcParams.findIndex((p) => p === srcPositionals[paramIndex])
-                );
-                const destParamType = FunctionType.getEffectiveParameterType(
-                    destType,
-                    destParams.findIndex((p) => p === destPositionals[paramIndex])
-                );
+                const srcParamIndex = srcParams.findIndex((p) => p === srcPositionals[paramIndex]);
+                const srcParamType = FunctionType.getEffectiveParameterType(srcType, srcParamIndex);
+                const destParamIndex = destParams.findIndex((p) => p === destPositionals[paramIndex]);
+                const destParamType = FunctionType.getEffectiveParameterType(destType, destParamIndex);
+
+                const destParamName = destPositionals[paramIndex].name;
+                const srcParamName = srcPositionals[paramIndex].name || '';
+                if (
+                    destParamName &&
+                    !isPrivateOrProtectedName(destParamName) &&
+                    !isPrivateOrProtectedName(srcParamName)
+                ) {
+                    if (destParamName !== srcParamName) {
+                        diag.createAddendum().addMessage(
+                            Localizer.DiagnosticAddendum.functionParamName().format({
+                                srcName: srcParamName,
+                                destName: destParamName,
+                            })
+                        );
+                        canAssign = false;
+                    }
+                }
 
                 if (
                     !canAssignFunctionParameter(

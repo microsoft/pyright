@@ -554,7 +554,7 @@ export function printFunctionParts(
                 specializedParamType.classType.tupleTypeArguments
             ) {
                 specializedParamType.classType.tupleTypeArguments.forEach((paramType, paramIndex) => {
-                    const paramString = `p${(index + paramIndex).toString()}: ${printType(
+                    const paramString = `_p${(index + paramIndex).toString()}: ${printType(
                         paramType,
                         printTypeFlags,
                         returnTypeCallback,

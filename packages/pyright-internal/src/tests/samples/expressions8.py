@@ -9,7 +9,7 @@ _T = TypeVar("_T")
 
 class ComparableTo(Protocol[_T]):
     @abstractmethod
-    def __lt__(self, other: _T) -> bool:
+    def __lt__(self, x: _T) -> bool:
         pass
 
 
