@@ -106,7 +106,7 @@ export function getFunctionDocStringFromDeclarations(declarations: Declaration[]
 
 function _getFunctionOrClassDeclDocString(decls: FunctionDeclaration[] | ClassDeclaration[]): string | undefined {
     for (const decl of decls) {
-        const docString = ParseTreeUtils.getDocString(decl.node?.suite?.statements);
+        const docString = ParseTreeUtils.getDocString(decl.node?.suite?.statements ?? []);
         if (docString) {
             return docString;
         }
