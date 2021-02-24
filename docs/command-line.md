@@ -12,6 +12,8 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | --lib                               | Use library code for types when stubs are missing    |
 | --outputjson                        | Output results in JSON format                        |
 | -p, --project FILE OR DIRECTORY     | Use the configuration file at this location          |
+| --pythonplatform PLATFORM           | Analyze for platform (Darwin, Linux, Windows)        |
+| --pythonversion VERSION             | Analyze for version (3.3, 3.4, etc.)                 |
 | --stats                             | Print detailed performance stats                     |
 | -t, --typeshed-path DIRECTORY       | Use typeshed type stubs at this location (2)         |
 | -v, --venv-path DIRECTORY           | Directory that contains virtual environments (3)     |
@@ -37,6 +39,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | 1           | One or more errors reported                                       |
 | 2           | Fatal error occurred with no errors or warnings reported          |
 | 3           | Config file could not be read or parsed                           |
+| 4           | Illegal command-line parameters specified                         |
 
 
 # JSON Output

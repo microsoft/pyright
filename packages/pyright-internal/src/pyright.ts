@@ -27,6 +27,7 @@ import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
 import { createFromRealFileSystem, FileSystem } from './common/fileSystem';
 import { isEmptyRange, Range } from './common/textRange';
+import { versionFromString } from './common/pythonVersion';
 
 const toolName = 'pyright';
 
@@ -35,6 +36,7 @@ enum ExitStatus {
     ErrorsReported = 1,
     FatalError = 2,
     ConfigFileParseError = 3,
+    ParameterError = 4,
 }
 
 interface PyrightJsonResults {
@@ -114,6 +116,8 @@ function processArgs() {
         { name: 'lib', type: Boolean },
         { name: 'outputjson', type: Boolean },
         { name: 'project', alias: 'p', type: String },
+        { name: 'pythonplatform', type: String },
+        { name: 'pythonversion', type: String },
         { name: 'stats' },
         { name: 'typeshed-path', alias: 't', type: String },
         { name: 'venv-path', alias: 'v', type: String },
@@ -131,21 +135,21 @@ function processArgs() {
         const argErr: { name: string; optionName: string } = err;
         if (argErr && argErr.optionName) {
             console.error(`Unexpected option ${argErr.optionName}.\n${toolName} --help for usage`);
-            return;
+            process.exit(ExitStatus.ParameterError);
         }
 
         console.error(`Unexpected error\n${toolName} --help for usage`);
-        return;
+        process.exit(ExitStatus.ParameterError);
     }
 
     if (args.help !== undefined) {
         printUsage();
-        return;
+        process.exit(ExitStatus.NoErrors);
     }
 
     if (args.version !== undefined) {
         printVersion();
-        return;
+        process.exit(ExitStatus.NoErrors);
     }
 
     if (args.outputjson) {
@@ -153,7 +157,7 @@ function processArgs() {
         for (const arg of incompatibleArgs) {
             if (args[arg] !== undefined) {
                 console.error(`'outputjson' option cannot be used with '${arg}' option`);
-                return;
+                process.exit(ExitStatus.ParameterError);
             }
         }
     }
@@ -163,7 +167,7 @@ function processArgs() {
         for (const arg of incompatibleArgs) {
             if (args[arg] !== undefined) {
                 console.error(`'verifytypes' option cannot be used with '${arg}' option`);
-                return;
+                process.exit(ExitStatus.ParameterError);
             }
         }
     }
@@ -173,7 +177,7 @@ function processArgs() {
         for (const arg of incompatibleArgs) {
             if (args[arg] !== undefined) {
                 console.error(`'createstub' option cannot be used with '${arg}' option`);
-                return;
+                process.exit(ExitStatus.ParameterError);
             }
         }
     }
@@ -190,6 +194,27 @@ function processArgs() {
 
     if (args.project) {
         options.configFilePath = combinePaths(process.cwd(), normalizePath(args.project));
+    }
+
+    if (args.pythonplatform) {
+        if (args.pythonplatform === 'Darwin' || args.pythonplatform === 'Linux' || args.pythonplatform === 'Windows') {
+            options.pythonPlatform = args.pythonplatform;
+        } else {
+            console.error(
+                `'${args.pythonplatform}' is not a supported Python platform; specify Darwin, Linux, or Windows`
+            );
+            process.exit(ExitStatus.ParameterError);
+        }
+    }
+
+    if (args.pythonversion) {
+        const version = versionFromString(args.pythonversion);
+        if (version) {
+            options.pythonVersion = version;
+        } else {
+            console.error(`'${args.pythonversion}' is not a supported Python version; specify 3.3, 3.4, etc.`);
+            process.exit(ExitStatus.ParameterError);
+        }
     }
 
     if (args['venv-path']) {
@@ -485,6 +510,8 @@ function printUsage() {
             '  --lib                            Use library code to infer types when stubs are missing\n' +
             '  --outputjson                     Output results in JSON format\n' +
             '  -p,--project FILE OR DIRECTORY   Use the configuration file at this location\n' +
+            '  --pythonplatform PLATFORM        Analyze for a specific platform (Darwin, Linux, Windows)\n' +
+            '  --pythonversion VERSION          Analyze for a specific version (3.3, 3.4, etc.)\n' +
             '  --stats                          Print detailed performance stats\n' +
             '  -t,--typeshed-path DIRECTORY     Use typeshed type stubs at this location\n' +
             '  -v,--venv-path DIRECTORY         Directory that contains virtual environments\n' +

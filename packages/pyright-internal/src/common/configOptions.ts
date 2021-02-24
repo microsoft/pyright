@@ -1199,7 +1199,6 @@ export class ConfigOptions {
         }
 
         // Read the default "pythonVersion".
-        this.defaultPythonVersion = undefined;
         if (configObj.pythonVersion !== undefined) {
             if (typeof configObj.pythonVersion === 'string') {
                 const version = versionFromString(configObj.pythonVersion);
@@ -1216,7 +1215,6 @@ export class ConfigOptions {
         this.ensureDefaultPythonVersion(pythonPath, console);
 
         // Read the default "pythonPlatform".
-        this.defaultPythonPlatform = undefined;
         if (configObj.pythonPlatform !== undefined) {
             if (typeof configObj.pythonPlatform !== 'string') {
                 console.error(`Config "pythonPlatform" field must contain a string.`);

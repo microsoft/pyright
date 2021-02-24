@@ -451,6 +451,11 @@ export class AnalyzerService {
         const configOptions = new ConfigOptions(projectRoot, this._typeCheckingMode);
         const defaultExcludes = ['**/node_modules', '**/__pycache__', '.git'];
 
+        // The pythonPlatform and pythonVersion from the command-line can be overridden
+        // by the config file, so initialize them upfront.
+        configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
+        configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
+
         if (commandLineOptions.fileSpecs.length > 0) {
             commandLineOptions.fileSpecs.forEach((fileSpec) => {
                 configOptions.include.push(getFileSpec(projectRoot, fileSpec));

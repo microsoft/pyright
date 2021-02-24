@@ -9,6 +9,8 @@
  * of the analyzer).
  */
 
+import { PythonVersion } from './pythonVersion';
+
 export const enum DiagnosticSeverityOverrides {
     Error = 'error',
     Warning = 'warning',
@@ -57,6 +59,12 @@ export class CommandLineOptions {
 
     // Path to python interpreter.
     pythonPath?: string;
+
+    // Python platform indicator (darwin, linux, win32)
+    pythonPlatform?: 'Darwin' | 'Linux' | 'Windows';
+
+    // Python version string (3.3, 3.4, etc.)
+    pythonVersion?: PythonVersion;
 
     // Path of typeshed stubs.
     typeshedPath?: string;
