@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "description": "Pyright Configuration Schema",
-	"allowComments": true,
-	"allowTrailingCommas": true,
+  "allowComments": true,
+  "allowTrailingCommas": true,
   "type": "object",
   "definitions": {
     "diagnostic": {
