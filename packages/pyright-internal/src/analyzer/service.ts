@@ -8,6 +8,7 @@
  * Python files.
  */
 
+import * as JSONC from 'jsonc-parser';
 import {
     AbstractCancellationTokenSource,
     CancellationToken,
@@ -839,7 +840,7 @@ export class AnalyzerService {
             let configObj: any;
             let parseFailed = false;
             try {
-                configObj = JSON.parse(configContents);
+                configObj = JSONC.parse(configContents);
                 return configObj;
             } catch {
                 parseFailed = true;
