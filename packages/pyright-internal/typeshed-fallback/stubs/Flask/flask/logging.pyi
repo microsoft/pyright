@@ -1,8 +1,12 @@
-from typing import Any
+from _typeshed.wsgi import ErrorStream
+from logging import Handler, Logger
 
-def wsgi_errors_stream(): ...
-def has_level_handler(logger: Any): ...
+from .app import Flask
 
-default_handler: Any
+wsgi_errors_stream: ErrorStream
 
-def create_logger(app: Any): ...
+def has_level_handler(logger: Logger) -> bool: ...
+
+default_handler: Handler
+
+def create_logger(app: Flask) -> Logger: ...

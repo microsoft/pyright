@@ -1,4 +1,4 @@
-from typing import Any, Tuple, Union
+from typing import Any
 from typing_extensions import Literal
 
 # _tkinter is meant to be only used internally by tkinter, but some tkinter
@@ -39,7 +39,7 @@ class TclError(Exception): ...
 # Tkapp_UnicodeResult, and it returns a string when it succeeds.
 class TkappType:
     # Please keep in sync with tkinter.Tk
-    def call(self, __command: Union[str, Tuple[Any, ...]], *args: Any) -> Any: ...
+    def call(self, __command: Any, *args: Any) -> Any: ...
     def eval(self, __script: str) -> str: ...
     adderrorinfo: Any
     createcommand: Any

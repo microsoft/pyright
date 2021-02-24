@@ -13,8 +13,7 @@ tempdir: Optional[str]
 template: str
 
 _S = TypeVar("_S")
-_T = TypeVar("_T")  # for pytype, define typevar in same file as alias
-_DirT = Union[_T, os.PathLike[_T]]
+_DirT = Union[AnyStr, os.PathLike[AnyStr]]
 
 if sys.version_info >= (3, 8):
     @overload

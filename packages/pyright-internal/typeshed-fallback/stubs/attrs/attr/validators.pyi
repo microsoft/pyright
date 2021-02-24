@@ -21,10 +21,10 @@ _T = TypeVar("_T")
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
 _T3 = TypeVar("_T3")
-_I = TypeVar("_I", bound=Iterable)
+_I = TypeVar("_I", bound=Iterable[Any])
 _K = TypeVar("_K")
 _V = TypeVar("_V")
-_M = TypeVar("_M", bound=Mapping)
+_M = TypeVar("_M", bound=Mapping[Any, Any])
 
 # To be more precise on instance_of use some overloads.
 # If there are more than 3 items in the tuple then we fall back to Any

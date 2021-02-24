@@ -1,4 +1,5 @@
 from datetime import timedelta
+from logging import Logger
 from types import TracebackType
 from typing import (
     Any,
@@ -104,7 +105,7 @@ class Flask(_PackageBoundObject):
     @property
     def preserve_context_on_exception(self): ...
     @property
-    def logger(self): ...
+    def logger(self) -> Logger: ...
     @property
     def jinja_env(self): ...
     @property

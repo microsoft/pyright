@@ -1,4 +1,3 @@
-import sys
 from hashlib import _Hash
 from typing import Any, ClassVar, Dict, Generic, Optional, Set, TypeVar, Union
 
@@ -6,20 +5,11 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.ec import (
     EllipticCurvePrivateKey,
     EllipticCurvePrivateKeyWithSerialization,
-    EllipticCurvePrivateNumbers,
     EllipticCurvePublicKey,
     EllipticCurvePublicKeyWithSerialization,
-    EllipticCurvePublicNumbers,
 )
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
-from cryptography.hazmat.primitives.asymmetric.rsa import (
-    RSAPrivateKey,
-    RSAPrivateKeyWithSerialization,
-    RSAPrivateNumbers,
-    RSAPublicKey,
-    RSAPublicKeyWithSerialization,
-    RSAPublicNumbers,
-)
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
 from cryptography.hazmat.primitives.hashes import HashAlgorithm
 
@@ -64,6 +54,8 @@ class RSAAlgorithm(Algorithm[Any]):
     hash_alg: Union[HashAlgorithm, Prehashed]
     def __init__(self, hash_alg: Union[HashAlgorithm, Prehashed]) -> None: ...
     def prepare_key(self, key: Union[bytes, str, RSAPrivateKey, RSAPublicKey]) -> Union[RSAPrivateKey, RSAPublicKey]: ...
+    @staticmethod
+    def to_jwk(key_obj: Any) -> str: ...
     @staticmethod
     def from_jwk(jwk: Union[str, bytes, Dict[str, Any]]) -> Union[RSAPrivateKey, RSAPublicKey]: ...
     def sign(self, msg: bytes, key: RSAPrivateKey) -> bytes: ...

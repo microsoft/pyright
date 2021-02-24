@@ -37,11 +37,13 @@ class Encoding(Enum):
     OpenSSH: str
     Raw: str
     X962: str
+    SMIME: str
 
 class PrivateFormat(Enum):
     PKCS8: str
     TraditionalOpenSSL: str
     Raw: str
+    OpenSSH: str
 
 class PublicFormat(Enum):
     SubjectPublicKeyInfo: str

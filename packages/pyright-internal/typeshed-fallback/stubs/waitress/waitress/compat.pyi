@@ -1,4 +1,3 @@
-import sys
 from io import TextIOWrapper
 from typing import Any, Optional, Tuple
 

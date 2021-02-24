@@ -1,4 +1,4 @@
-from typing import Any, Callable, Generic, Iterable, Mapping, Optional, Tuple, TypeVar
+from typing import Any, Callable, Generic, Iterable, Mapping, Optional, TypeVar
 
 from ._base import Executor, Future
 

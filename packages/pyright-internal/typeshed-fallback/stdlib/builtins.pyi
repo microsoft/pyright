@@ -1292,9 +1292,13 @@ class OSError(Exception):
     # filename, filename2 are actually Union[str, bytes, None]
     filename: Any
     filename2: Any
+    if sys.platform == "win32":
+        winerror: int
 
 EnvironmentError = OSError
 IOError = OSError
+if sys.platform == "win32":
+    WindowsError = OSError
 
 class ArithmeticError(_StandardError): ...
 class AssertionError(_StandardError): ...
@@ -1333,9 +1337,6 @@ class ModuleNotFoundError(ImportError): ...
 class IndexError(LookupError): ...
 class KeyError(LookupError): ...
 class UnboundLocalError(NameError): ...
-
-class WindowsError(OSError):
-    winerror: int
 
 class BlockingIOError(OSError):
     characters_written: int

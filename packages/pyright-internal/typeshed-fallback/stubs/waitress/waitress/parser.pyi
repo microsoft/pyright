@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import Mapping, Optional, Pattern, Sequence, Tuple, Union
+from typing import Any, Mapping, Optional, Pattern, Sequence, Tuple, Union
 
 from waitress.adjustments import Adjustments
 from waitress.receiver import ChunkedReceiver, FixedStreamReceiver
@@ -38,6 +38,6 @@ class HTTPRequestParser:
 def split_uri(uri: bytes) -> Tuple[str, str, bytes, str, str]: ...
 def get_header_lines(header: bytes) -> Sequence[bytes]: ...
 
-first_line_re: Pattern
+first_line_re: Pattern[Any]
 
 def crack_first_line(line: str) -> Tuple[bytes, bytes, bytes]: ...

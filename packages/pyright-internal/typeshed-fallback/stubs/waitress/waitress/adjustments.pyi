@@ -4,8 +4,8 @@ from typing import Any, Dict, FrozenSet, Iterable, List, Optional, Sequence, Set
 from .compat import HAS_IPV6 as HAS_IPV6, PY2 as PY2, WIN as WIN, string_types as string_types
 from .proxy_headers import PROXY_HEADERS as PROXY_HEADERS
 
-truthy: FrozenSet
-KNOWN_PROXY_HEADERS: FrozenSet
+truthy: FrozenSet[Any]
+KNOWN_PROXY_HEADERS: FrozenSet[Any]
 
 def asbool(s: Optional[Union[bool, str, int]]) -> bool: ...
 def asoctal(s: str) -> int: ...
