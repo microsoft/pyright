@@ -151,7 +151,6 @@ import {
     isOverloadedFunction,
     isParamSpec,
     isPossiblyUnbound,
-    isSameWithoutLiteralValue,
     isTypeSame,
     isTypeVar,
     isUnbound,
@@ -19602,10 +19601,14 @@ export function createTypeEvaluator(
                 return true;
             } else if (isUnion(effectiveSrcType)) {
                 // Does it match at least one of the constraints?
-                if (findSubtype(effectiveSrcType, (subtype) => isSameWithoutLiteralValue(constraint, subtype))) {
+                if (
+                    findSubtype(effectiveSrcType, (subtype) =>
+                        canAssignType(constraint, subtype, new DiagnosticAddendum())
+                    )
+                ) {
                     return true;
                 }
-            } else if (isSameWithoutLiteralValue(constraint, effectiveSrcType)) {
+            } else if (canAssignType(constraint, effectiveSrcType, new DiagnosticAddendum())) {
                 return true;
             }
         }

@@ -355,7 +355,7 @@ test('ReturnTypes1', () => {
 test('Specialization1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['specialization1.py']);
 
-    TestUtils.validateResults(analysisResults, 8);
+    TestUtils.validateResults(analysisResults, 7);
 });
 
 test('Specialization2', () => {
