@@ -2086,7 +2086,7 @@ export class Binder extends ParseTreeWalker {
         // Import all names that don't begin with an underscore.
         const namesToImport: string[] = [];
         lookupInfo.symbolTable.forEach((symbol, name) => {
-            if (!name.startsWith('_') && !symbol.isIgnoredForProtocolMatch()) {
+            if (!symbol.isExternallyHidden()) {
                 namesToImport!.push(name);
             }
         });
