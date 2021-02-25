@@ -195,6 +195,7 @@ import {
     ClassMemberLookupFlags,
     combineSameSizedTuples,
     computeMroLinearization,
+    containsLiteralType,
     containsUnknown,
     convertToInstance,
     convertToInstantiable,
@@ -9075,7 +9076,7 @@ export function createTypeEvaluator(
         node.entries.forEach((entryNode, index) => {
             let elementType: Type;
             if (entryNode.nodeType === ParseNodeType.ListComprehension) {
-                elementType = getElementTypeFromListComprehension(entryNode);
+                elementType = getElementTypeFromListComprehension(entryNode, expectedType);
             } else {
                 elementType = getTypeOfExpression(entryNode).type;
             }
@@ -9384,7 +9385,11 @@ export function createTypeEvaluator(
                     }
                 }
             } else if (entryNode.nodeType === ParseNodeType.ListComprehension) {
-                const dictEntryType = getElementTypeFromListComprehension(entryNode);
+                const dictEntryType = getElementTypeFromListComprehension(
+                    entryNode,
+                    expectedValueType,
+                    expectedKeyType
+                );
 
                 // The result should be a Tuple
                 if (isObject(dictEntryType)) {
@@ -9769,7 +9774,11 @@ export function createTypeEvaluator(
 
     // Returns the type of one entry returned by the list comprehension,
     // as opposed to the entire list.
-    function getElementTypeFromListComprehension(node: ListComprehensionNode, expectedElementType?: Type): Type {
+    function getElementTypeFromListComprehension(
+        node: ListComprehensionNode,
+        expectedValueOrElementType?: Type,
+        expectedKeyType?: Type
+    ): Type {
         // "Execute" the list comprehensions from start to finish.
         for (const comprehension of node.comprehensions) {
             if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
@@ -9797,15 +9806,23 @@ export function createTypeEvaluator(
         let type: Type = UnknownType.create();
         if (node.expression.nodeType === ParseNodeType.DictionaryKeyEntry) {
             // Create a tuple with the key/value types.
-            const keyType = stripLiteralValue(getTypeOfExpression(node.expression.keyExpression).type);
-            const valueType = stripLiteralValue(getTypeOfExpression(node.expression.valueExpression).type);
+            let keyType = getTypeOfExpression(node.expression.keyExpression, expectedKeyType).type;
+            if (!expectedKeyType || !containsLiteralType(expectedKeyType)) {
+                keyType = stripLiteralValue(keyType);
+            }
+            let valueType = getTypeOfExpression(node.expression.valueExpression, expectedValueOrElementType).type;
+            if (!expectedValueOrElementType || !containsLiteralType(expectedValueOrElementType)) {
+                valueType = stripLiteralValue(valueType);
+            }
 
             type = makeTupleObject([keyType, valueType]);
         } else if (node.expression.nodeType === ParseNodeType.DictionaryExpandEntry) {
             // The parser should have reported an error in this case because it's not allowed.
-            getTypeOfExpression(node.expression.expandExpression);
+            getTypeOfExpression(node.expression.expandExpression, expectedValueOrElementType);
         } else if (isExpressionNode(node)) {
-            type = stripLiteralValue(getTypeOfExpression(node.expression as ExpressionNode, expectedElementType).type);
+            type = stripLiteralValue(
+                getTypeOfExpression(node.expression as ExpressionNode, expectedValueOrElementType).type
+            );
         }
 
         return type;

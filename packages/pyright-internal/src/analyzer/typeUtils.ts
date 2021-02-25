@@ -557,6 +557,18 @@ export function isLiteralTypeOrUnion(type: Type): boolean {
     return false;
 }
 
+export function containsLiteralType(type: Type): boolean {
+    if (isObject(type) && isLiteralType(type)) {
+        return true;
+    }
+
+    if (isUnion(type)) {
+        return type.subtypes.some((subtype) => isObject(subtype) && isLiteralType(subtype));
+    }
+
+    return false;
+}
+
 export function isEllipsisType(type: Type): boolean {
     return isAny(type) && type.isEllipsis;
 }
