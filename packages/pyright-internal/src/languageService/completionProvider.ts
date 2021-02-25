@@ -75,6 +75,7 @@ import * as StringUtils from '../common/stringUtils';
 import { comparePositions, Position } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
+import { Duration } from '../common/timing';
 import {
     DecoratorNode,
     ErrorExpressionCategory,
@@ -197,9 +198,20 @@ export interface MemberAccessInfo {
     unknownMemberName?: string;
 }
 
+export interface AutoImportInfo {
+    itemCount: number;
+    indexCount: number;
+    totalTimeInMS: number;
+    indexTimeInMS: number;
+    editTimeInMS: number;
+    moduleResolveTimeInMS: number;
+    additionTimeInMS: number;
+}
+
 export interface CompletionResults {
     completionList: CompletionList | undefined;
     memberAccessInfo?: MemberAccessInfo;
+    autoImportInfo?: AutoImportInfo;
 }
 
 export interface CompletionOptions {
@@ -1059,6 +1071,7 @@ export class CompletionProvider {
         }
 
         const completionList = CompletionList.create();
+        const completionResults = { completionList };
 
         // Add call argument completions.
         this._addCallArgumentCompletions(parseNode, priorWord, priorText, postText, completionList);
@@ -1077,7 +1090,7 @@ export class CompletionProvider {
         // Add auto-import suggestions from other modules.
         // Ignore this check for privates, since they are not imported.
         if (this._configOptions.autoImportCompletions && !priorWord.startsWith('_') && !this._itemToResolve) {
-            this._getAutoImportCompletions(priorWord, parseNode, completionList);
+            this._getAutoImportCompletions(priorWord, completionResults);
         }
 
         // Add literal values if appropriate.
@@ -1097,7 +1110,7 @@ export class CompletionProvider {
             }
         }
 
-        return { completionList };
+        return completionResults;
     }
 
     private _addCallArgumentCompletions(
@@ -1344,8 +1357,13 @@ export class CompletionProvider {
         }
     }
 
-    private _getAutoImportCompletions(priorWord: string, node: ParseNode, completionList: CompletionList) {
+    private _getAutoImportCompletions(priorWord: string, completionResults: CompletionResults) {
         if (!this._autoImportMaps) {
+            return;
+        }
+
+        const completionList = completionResults.completionList;
+        if (!completionList) {
             return;
         }
 
@@ -1371,6 +1389,9 @@ export class CompletionProvider {
             ...autoImporter.getAutoImportCandidates(priorWord, similarityLimit, undefined, this._cancellationToken)
         );
 
+        const perfInfo = autoImporter.getPerfInfo();
+
+        const additionDuration = new Duration();
         for (const result of results) {
             if (result.symbol) {
                 this._addSymbol(result.name, result.symbol, priorWord, completionList, {
@@ -1397,6 +1418,16 @@ export class CompletionProvider {
                 );
             }
         }
+
+        completionResults.autoImportInfo = {
+            itemCount: results.length,
+            indexCount: perfInfo.indexCount,
+            indexTimeInMS: perfInfo.indexTimeInMS,
+            totalTimeInMS: perfInfo.totalInMs,
+            editTimeInMS: perfInfo.editTimeInMS,
+            moduleResolveTimeInMS: perfInfo.moduleResolveTimeInMS,
+            additionTimeInMS: additionDuration.getDurationInMilliseconds(),
+        };
     }
 
     private _getImportFromCompletions(
