@@ -10195,8 +10195,11 @@ export function createTypeEvaluator(
     }
 
     function createAnnotatedType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
-        if (!typeArgs || typeArgs.length < 2) {
+        if (typeArgs && typeArgs.length < 2) {
             addError(Localizer.Diagnostic.annotatedTypeArgMissing(), errorNode);
+        }
+
+        if (!typeArgs || typeArgs.length === 0) {
             return AnyType.create();
         }
 
