@@ -27,6 +27,7 @@ import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Position } from '../common/textRange';
+import { Duration } from '../common/timing';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { IndexAliasData, IndexResults } from './documentSymbolProvider';
@@ -34,7 +35,7 @@ import { IndexAliasData, IndexResults } from './documentSymbolProvider';
 export interface AutoImportSymbol {
     readonly importAlias?: IndexAliasData;
     readonly symbol?: Symbol;
-    readonly kind?: CompletionItemKind;
+    readonly kind?: SymbolKind;
 }
 
 export interface ModuleSymbolTable {
@@ -95,7 +96,7 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
                             declaration.type === DeclarationType.Variable &&
                             !declaration.isConstant &&
                             !declaration.isFinal
-                                ? CompletionItemKind.Variable
+                                ? SymbolKind.Variable
                                 : undefined;
                         callbackfn({ symbol, kind: variableKind }, name);
                     });
@@ -142,7 +143,7 @@ interface ImportAliasData {
     importParts: ImportParts;
     importGroup: ImportGroup;
     symbol?: Symbol;
-    kind?: CompletionItemKind;
+    kind?: SymbolKind;
 }
 
 type AutoImportResultMap = Map<string, AutoImportResult[]>;
@@ -150,6 +151,13 @@ type AutoImportResultMap = Map<string, AutoImportResult[]>;
 export class AutoImporter {
     private _importStatements: ImportStatements;
     private _patternMatcher: (pattern: string, name: string) => boolean;
+
+    // Track some auto import internal perf numbers.
+    private _stopWatch = new Duration();
+    private _indexCount = 0;
+    private _indexTimeInMS = 0;
+    private _editTimeInMS = 0;
+    private _resolveModuleTimeInMS = 0;
 
     constructor(
         private _execEnvironment: ExecutionEnvironment,
@@ -188,6 +196,16 @@ export class AutoImporter {
         return results;
     }
 
+    getPerfInfo() {
+        return {
+            totalInMs: this._stopWatch.getDurationInMilliseconds(),
+            indexCount: this._indexCount,
+            indexTimeInMS: this._indexTimeInMS,
+            editTimeInMS: this._editTimeInMS,
+            moduleResolveTimeInMS: this._resolveModuleTimeInMS,
+        };
+    }
+
     private _getCandidates(
         word: string,
         similarityLimit: number,
@@ -212,6 +230,8 @@ export class AutoImporter {
         results: AutoImportResultMap,
         token: CancellationToken
     ) {
+        const startTime = this._stopWatch.getDurationInMilliseconds();
+
         this._libraryMap?.forEach((indexResults, filePath) => {
             if (indexResults.privateOrProtected) {
                 return;
@@ -222,6 +242,8 @@ export class AutoImporter {
                 // user code.
                 return;
             }
+
+            this._indexCount += indexResults.symbols.length;
 
             // See if this file should be offered as an implicit import.
             const isStubFileOrHasInit = this._isStubFileOrHasInit(this._libraryMap!, filePath);
@@ -237,6 +259,8 @@ export class AutoImporter {
                 token
             );
         });
+
+        this._indexTimeInMS = this._stopWatch.getDurationInMilliseconds() - startTime;
     }
 
     private _addImportsFromModuleMap(
@@ -297,7 +321,7 @@ export class AutoImporter {
 
             if (
                 !isStubOrHasInit.isStub &&
-                autoImportSymbol.kind === CompletionItemKind.Variable &&
+                autoImportSymbol.kind === SymbolKind.Variable &&
                 !SymbolNameUtils.isPublicConstantOrTypeAlias(name)
             ) {
                 // If it is not a stub file and symbol is Variable, we only include it if
@@ -333,7 +357,7 @@ export class AutoImporter {
                         },
                         importGroup,
                         symbol: autoImportSymbol.symbol,
-                        kind: convertSymbolKindToCompletionItemKind(autoImportSymbol.importAlias.kind),
+                        kind: autoImportSymbol.importAlias.kind,
                     },
                     importAliasMap
                 );
@@ -354,7 +378,7 @@ export class AutoImporter {
                 alias: abbrFromUsers,
                 symbol: autoImportSymbol.symbol,
                 source: importSource,
-                kind: autoImportSymbol.kind,
+                kind: convertSymbolKindToCompletionItemKind(autoImportSymbol.kind),
                 insertionText: autoImportTextEdits.insertionText,
                 edits: autoImportTextEdits.edits,
             });
@@ -446,7 +470,7 @@ export class AutoImporter {
                     name: importAliasData.importParts.importName,
                     alias: abbrFromUsers,
                     symbol: importAliasData.symbol,
-                    kind: importAliasData.kind,
+                    kind: convertSymbolKindToCompletionItemKind(importAliasData.kind),
                     source: importAliasData.importParts.importFrom,
                     insertionText: autoImportTextEdits.insertionText,
                     edits: autoImportTextEdits.edits,
@@ -586,7 +610,13 @@ export class AutoImporter {
     // convert to a module name that can be used in an
     // 'import from' statement.
     private _getModuleNameAndTypeFromFilePath(filePath: string): ModuleNameAndType {
-        return this._importResolver.getModuleNameForImport(filePath, this._execEnvironment);
+        const startTime = this._stopWatch.getDurationInMilliseconds();
+        try {
+            return this._importResolver.getModuleNameForImport(filePath, this._execEnvironment);
+        } finally {
+            const endTime = this._stopWatch.getDurationInMilliseconds();
+            this._resolveModuleTimeInMS += endTime - startTime;
+        }
     }
 
     private _getImportGroupFromModuleNameAndType(moduleNameAndType: ModuleNameAndType): ImportGroup {
@@ -601,6 +631,30 @@ export class AutoImporter {
     }
 
     private _getTextEditsForAutoImportByFilePath(
+        moduleName: string,
+        importName: string | undefined,
+        abbrFromUsers: string | undefined,
+        insertionText: string,
+        importGroup: ImportGroup,
+        filePath: string
+    ) {
+        const startTime = this._stopWatch.getDurationInMilliseconds();
+        try {
+            return this._getTextEditsForAutoImportByFilePathInternal(
+                moduleName,
+                importName,
+                abbrFromUsers,
+                insertionText,
+                importGroup,
+                filePath
+            );
+        } finally {
+            const endTime = this._stopWatch.getDurationInMilliseconds();
+            this._editTimeInMS += endTime - startTime;
+        }
+    }
+
+    private _getTextEditsForAutoImportByFilePathInternal(
         moduleName: string,
         importName: string | undefined,
         abbrFromUsers: string | undefined,
@@ -741,7 +795,7 @@ function createModuleSymbolTableFromIndexResult(indexResults: IndexResults): Mod
                 callbackfn(
                     {
                         importAlias: data.alias,
-                        kind: convertSymbolKindToCompletionItemKind(data.kind),
+                        kind: data.kind,
                     },
                     data.name
                 );
@@ -750,7 +804,7 @@ function createModuleSymbolTableFromIndexResult(indexResults: IndexResults): Mod
     };
 }
 
-function convertSymbolKindToCompletionItemKind(kind: SymbolKind) {
+function convertSymbolKindToCompletionItemKind(kind: SymbolKind | undefined) {
     switch (kind) {
         case SymbolKind.File:
             return CompletionItemKind.File;
