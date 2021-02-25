@@ -113,7 +113,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { NameBindingType, Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
-import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 
 interface MemberAccessInfo {
     classNode: ClassNode;
@@ -2601,7 +2601,7 @@ export class Binder extends ParseTreeWalker {
                 }
 
                 if (isPrivateOrProtectedName(name)) {
-                    if (this._fileInfo.isStubFile) {
+                    if (this._fileInfo.isStubFile || isPrivateName(name)) {
                         symbol.setIsExternallyHidden();
                     } else if (this._fileInfo.isInPyTypedPackage && this._currentScope.type === ScopeType.Module) {
                         this._potentialPrivateSymbols.set(name, symbol);
