@@ -5372,7 +5372,9 @@ export function createTypeEvaluator(
     }
 
     function buildTupleTypesList(entryTypeResults: TypeResult[]): Type[] {
-        let tupleTypes: Type[] = [];
+        const entryTypes: Type[] = [];
+        let isOpenEnded = false;
+
         for (const typeResult of entryTypeResults) {
             if (typeResult.unpackedType) {
                 // Is this an unpacked tuple? If so, we can append the individual
@@ -5384,24 +5386,26 @@ export function createTypeEvaluator(
 
                     // If the Tuple wasn't specialized or has a "..." type parameter, we can't
                     // make any determination about its contents.
-                    if (!typeArgs || typeArgs.some((t) => isEllipsisType(t))) {
-                        tupleTypes = [AnyType.create(/* isEllipsis */ false), AnyType.create(/* isEllipsis */ true)];
-                        break;
-                    }
-
-                    for (const typeArg of typeArgs) {
-                        tupleTypes.push(typeArg);
+                    if (!typeArgs || isOpenEndedTupleClass(typeResult.unpackedType.classType)) {
+                        entryTypes.push(typeResult.type);
+                        isOpenEnded = true;
+                    } else {
+                        entryTypes.push(...typeArgs);
                     }
                 } else {
-                    tupleTypes = [AnyType.create(/* isEllipsis */ false), AnyType.create(/* isEllipsis */ true)];
-                    break;
+                    entryTypes.push(UnknownType.create());
+                    isOpenEnded = true;
                 }
             } else {
-                tupleTypes.push(typeResult.type);
+                entryTypes.push(typeResult.type);
             }
         }
 
-        return tupleTypes;
+        if (isOpenEnded) {
+            return [combineTypes(entryTypes), AnyType.create(/* isEllipsis */ true)];
+        }
+
+        return entryTypes;
     }
 
     function updateNamedTupleBaseClass(classType: ClassType, typeArgs: Type[], isTypeArgumentExplicit: boolean) {
