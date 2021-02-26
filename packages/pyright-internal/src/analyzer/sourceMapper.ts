@@ -20,14 +20,16 @@ import {
     isClassDeclaration,
     isFunctionDeclaration,
     isParameterDeclaration,
+    isSpecialBuiltInClassDeclarations,
     isVariableDeclaration,
     ParameterDeclaration,
+    SpecialBuiltInClassDeclaration,
     VariableDeclaration,
 } from './declaration';
 import { ImportResolver } from './importResolver';
 import { SourceFile } from './sourceFile';
 import { TypeEvaluator } from './typeEvaluator';
-import { isClass, isFunction, isOverloadedFunction } from './types';
+import { ClassType, isClass, isFunction, isOverloadedFunction } from './types';
 import { lookUpClassMember } from './typeUtils';
 
 type ClassOrFunctionOrVariableDeclaration = ClassDeclaration | FunctionDeclaration | VariableDeclaration;
@@ -60,6 +62,8 @@ export class SourceMapper {
             return this._findVariableDeclarations(stubDecl);
         } else if (isParameterDeclaration(stubDecl)) {
             return this._findParameterDeclarations(stubDecl);
+        } else if (isSpecialBuiltInClassDeclarations(stubDecl)) {
+            return this._findSpecialBuiltInClassDeclarations(stubDecl);
         }
 
         return [];
@@ -75,6 +79,22 @@ export class SourceMapper {
         return this._findFunctionOrTypeAliasDeclarations(stubDecl)
             .filter((d) => isFunctionDeclaration(d))
             .map((d) => d as FunctionDeclaration);
+    }
+
+    private _findSpecialBuiltInClassDeclarations(
+        stubDecl: SpecialBuiltInClassDeclaration,
+        recursiveDeclCache = new Set<string>()
+    ) {
+        if (stubDecl.node.valueExpression.nodeType === ParseNodeType.Name) {
+            const className = stubDecl.node.valueExpression.value;
+            const sourceFiles = this._getBoundSourceFilesFromStubFile(stubDecl.path);
+
+            return sourceFiles.flatMap((sourceFile) =>
+                this._findClassDeclarationsByName(sourceFile, className, recursiveDeclCache)
+            );
+        }
+
+        return [];
     }
 
     private _findClassOrTypeAliasDeclarations(stubDecl: ClassDeclaration, recursiveDeclCache = new Set<string>()) {
@@ -419,26 +439,43 @@ export class SourceMapper {
                 for (const overloadDecl of type.overloads.map((o) => o.details.declaration).filter(isDefined)) {
                     this._addClassOrFunctionDeclarations(overloadDecl, result, recursiveDeclCache);
                 }
-            } else if (type && isClass(type)) {
-                const importResult = this._importResolver.resolveImport(decl.path, this._execEnv, {
-                    leadingDots: 0,
-                    nameParts: type.details.moduleName.split('.'),
-                    importedSymbols: [],
-                });
+            } else if (isClass(type)) {
+                this._addClassTypeDeclarations(decl.path, type, result, recursiveDeclCache);
+            }
+        }
+    }
 
-                if (importResult.isImportFound && importResult.resolvedPaths.length > 0) {
-                    const sourceFile = this._boundSourceGetter(
-                        importResult.resolvedPaths[importResult.resolvedPaths.length - 1]
-                    );
-                    if (sourceFile) {
-                        const fullClassName = type.details.fullName.substring(
-                            type.details.moduleName.length + 1 /* +1 for trailing dot */
-                        );
-                        result.push(
-                            ...this._findClassDeclarationsByName(sourceFile, fullClassName, recursiveDeclCache)
-                        );
-                    }
+    private _addClassTypeDeclarations(
+        originated: string,
+        type: ClassType,
+        result: ClassOrFunctionOrVariableDeclaration[],
+        recursiveDeclCache: Set<string>
+    ) {
+        const importResult = this._importResolver.resolveImport(originated, this._execEnv, {
+            leadingDots: 0,
+            nameParts: type.details.moduleName.split('.'),
+            importedSymbols: [],
+        });
+
+        if (importResult.isImportFound && importResult.resolvedPaths.length > 0) {
+            const filePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+            const sourceFiles = [];
+
+            if (isStubFile(filePath)) {
+                sourceFiles.push(...this._getBoundSourceFilesFromStubFile(filePath));
+            } else {
+                const sourceFile = this._boundSourceGetter(filePath);
+                if (sourceFile) {
+                    sourceFiles.push(sourceFile);
                 }
+            }
+
+            const fullClassName = type.details.fullName.substring(
+                type.details.moduleName.length + 1 /* +1 for trailing dot */
+            );
+
+            for (const sourceFile of sourceFiles) {
+                result.push(...this._findClassDeclarationsByName(sourceFile, fullClassName, recursiveDeclCache));
             }
         }
     }

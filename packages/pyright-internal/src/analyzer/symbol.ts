@@ -43,6 +43,9 @@ export const enum SymbolFlags {
     // Indicates that the symbol is a ClassVar, so it cannot be
     // set when accessed through a class instance.
     ClassVar = 1 << 7,
+
+    // // Indicates that the symbol is in __all__.
+    InDunderAll = 1 << 8,
 }
 
 let nextSymbolId = 1;
@@ -124,6 +127,14 @@ export class Symbol {
 
     isClassVar() {
         return !!(this._flags & SymbolFlags.ClassVar);
+    }
+
+    setIsInDunderAll() {
+        this._flags |= SymbolFlags.InDunderAll;
+    }
+
+    isInDunderAll() {
+        return !!(this._flags & SymbolFlags.InDunderAll);
     }
 
     setIsPrivateMember() {

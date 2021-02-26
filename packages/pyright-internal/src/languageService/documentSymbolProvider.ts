@@ -12,7 +12,7 @@ import { CancellationToken, DocumentSymbol, Location, SymbolInformation, SymbolK
 import { URI } from 'vscode-uri';
 
 import { resolveAliasDeclaration } from '../analyzer/aliasDeclarationUtils';
-import { ImportLookup } from '../analyzer/analyzerFileInfo';
+import { AnalyzerFileInfo, ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
 import { AliasDeclaration, Declaration, DeclarationType } from '../analyzer/declaration';
 import { getNameFromDeclaration } from '../analyzer/declarationUtils';
@@ -20,11 +20,9 @@ import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { isProperty } from '../analyzer/typeUtils';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
-import { getLibraryPathWithoutExtension } from '../common/pathUtils';
 import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Range } from '../common/textRange';
-import { ModuleNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 
 export interface IndexAliasData {
@@ -53,37 +51,6 @@ export interface IndexOptions {
 }
 
 export type WorkspaceSymbolCallback = (symbols: SymbolInformation[]) => void;
-
-export function includeAliasDeclarationInIndex(
-    importLookup: ImportLookup,
-    modulePath: string,
-    declaration: AliasDeclaration
-): boolean {
-    const aliasUsed = declaration.usesLocalName && !!declaration.symbolName && declaration.path.length > 0;
-    const wildcardUsed = declaration.node.nodeType === ParseNodeType.ImportFrom && declaration.node.isWildcardImport;
-    if (!aliasUsed && !wildcardUsed) {
-        return false;
-    }
-
-    // Make sure imported symbol is a submodule of same package.
-    if (!getLibraryPathWithoutExtension(declaration.path).startsWith(modulePath)) {
-        return false;
-    }
-
-    if (wildcardUsed) {
-        // if "import *" is used, resolve the alias to see whether we should include it.
-        const resolved = resolveAliasDeclaration(importLookup, declaration, /* resolveLocalNames */ true);
-        if (!resolved) {
-            return false;
-        }
-
-        if (!getLibraryPathWithoutExtension(resolved.path).startsWith(modulePath)) {
-            return false;
-        }
-    }
-
-    return true;
-}
 
 export function getIndexAliasData(
     importLookup: ImportLookup,
@@ -118,6 +85,7 @@ export function convertToFlatSymbols(documentUri: string, symbolList: DocumentSy
 
 export class DocumentSymbolProvider {
     static getSymbolsForDocument(
+        fileInfo: AnalyzerFileInfo | undefined,
         indexResults: IndexResults | undefined,
         parseResults: ParseResults | undefined,
         filePath: string,
@@ -132,13 +100,14 @@ export class DocumentSymbolProvider {
 
         const indexSymbolData =
             (indexResults?.symbols as IndexSymbolData[]) ??
-            DocumentSymbolProvider.indexSymbols(parseResults!, { indexingForAutoImportMode: false }, token);
+            DocumentSymbolProvider.indexSymbols(fileInfo!, parseResults!, { indexingForAutoImportMode: false }, token);
 
         appendWorkspaceSymbolsRecursive(indexSymbolData, filePath, query, '', symbolList, token);
         return symbolList;
     }
 
     static addHierarchicalSymbolsForDocument(
+        fileInfo: AnalyzerFileInfo | undefined,
         indexResults: IndexResults | undefined,
         parseResults: ParseResults | undefined,
         symbolList: DocumentSymbol[],
@@ -150,17 +119,25 @@ export class DocumentSymbolProvider {
 
         const indexSymbolData =
             (indexResults?.symbols as IndexSymbolData[]) ??
-            DocumentSymbolProvider.indexSymbols(parseResults!, { indexingForAutoImportMode: false }, token);
+            DocumentSymbolProvider.indexSymbols(fileInfo!, parseResults!, { indexingForAutoImportMode: false }, token);
         appendDocumentSymbolsRecursive(indexSymbolData, symbolList, token);
     }
 
     static indexSymbols(
+        fileInfo: AnalyzerFileInfo,
         parseResults: ParseResults,
         options: IndexOptions,
         token: CancellationToken
     ): IndexSymbolData[] {
+        // Here are the rule of what symbols are indexed for a file.
+        // 1. If it is a stub file, we index every public symbols defined by "https://www.python.org/dev/peps/pep-0484/#stub-files"
+        // 2. If it is a py file and it is py.typed package, we index public symbols
+        //    defined by "https://github.com/microsoft/pyright/blob/master/docs/typed-libraries.md#library-interface"
+        // 3. If it is a py file and it is not py.typed package, we index only symbols that appear in
+        //    __all__ to make sure we don't include too many symbols in the index.
+
         const indexSymbolData: IndexSymbolData[] = [];
-        collectSymbolIndexData(parseResults, parseResults.parseTree, options, indexSymbolData, token);
+        collectSymbolIndexData(fileInfo, parseResults, parseResults.parseTree, options, indexSymbolData, token);
 
         return indexSymbolData;
     }
@@ -298,29 +275,8 @@ function appendDocumentSymbolsRecursive(
     }
 }
 
-function getAllNameTable(autoImportMode: boolean, root: ModuleNode) {
-    if (!autoImportMode) {
-        // We only care about __all__ in auto import mode.
-        // other cases such as workspace symbols, document symbols, we will collect all symbols
-        // regardless whether it shows up in __all__ or not.
-        return undefined;
-    }
-
-    // If __all__ is defined, we only care ones in the __all__
-    const allNames = AnalyzerNodeInfo.getDunderAllNames(root);
-    if (allNames) {
-        return new Set<string>(allNames);
-    }
-
-    const file = AnalyzerNodeInfo.getFileInfo(root);
-    if (file && file.isStubFile) {
-        return undefined;
-    }
-
-    return new Set<string>();
-}
-
 function collectSymbolIndexData(
+    fileInfo: AnalyzerFileInfo,
     parseResults: ParseResults,
     node: AnalyzerNodeInfo.ScopedNode,
     options: IndexOptions,
@@ -334,17 +290,19 @@ function collectSymbolIndexData(
         return;
     }
 
-    const allNameTable = getAllNameTable(options.indexingForAutoImportMode, parseResults.parseTree);
-
-    let modulePath: string | undefined = undefined;
     const symbolTable = scope.symbolTable;
     symbolTable.forEach((symbol, name) => {
         if (symbol.isIgnoredForProtocolMatch()) {
             return;
         }
 
-        if (allNameTable && !allNameTable.has(name)) {
-            // if allNameTable exists, then name must exist in the table.
+        // If we are not py.typed package, symbol must exist in __all__ for auto import mode.
+        if (
+            options.indexingForAutoImportMode &&
+            !fileInfo.isStubFile &&
+            !fileInfo.isInPyTypedPackage &&
+            !symbol.isInDunderAll()
+        ) {
             return;
         }
 
@@ -367,22 +325,18 @@ function collectSymbolIndexData(
             }
 
             if (declaration.path.length <= 0) {
-                return;
-            }
-
-            const lookup = AnalyzerNodeInfo.getFileInfo(parseResults.parseTree)!.importLookup;
-            modulePath =
-                modulePath ??
-                getLibraryPathWithoutExtension(AnalyzerNodeInfo.getFileInfo(parseResults.parseTree)!.filePath);
-
-            if (!allNameTable && !includeAliasDeclarationInIndex(lookup, modulePath, declaration)) {
-                // For import alias, we only put the alias in the index if it is the form of
-                // "from x import y as z" or the alias is explicitly listed in __all__
+                // If alias doesn't have a path to the original file, we can't do dedup
+                // so ignore those aliases.
+                // ex) asyncio.futures, asyncio.base_futures.futures and many will dedup
+                //     to asyncio.futures
                 return;
             }
         }
 
+        // We rely on ExternallyHidden flag to determine what
+        // symbols should be public (included in the index)
         collectSymbolIndexDataForName(
+            fileInfo,
             parseResults,
             declaration,
             options,
@@ -395,6 +349,7 @@ function collectSymbolIndexData(
 }
 
 function collectSymbolIndexDataForName(
+    fileInfo: AnalyzerFileInfo,
     parseResults: ParseResults,
     declaration: Declaration,
     options: IndexOptions,
@@ -418,7 +373,7 @@ function collectSymbolIndexDataForName(
 
     if (declaration.type === DeclarationType.Class || declaration.type === DeclarationType.Function) {
         if (!options.indexingForAutoImportMode) {
-            collectSymbolIndexData(parseResults, declaration.node, options, children, token);
+            collectSymbolIndexData(fileInfo, parseResults, declaration.node, options, children, token);
         }
 
         range = convertOffsetsToRange(

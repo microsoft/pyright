@@ -200,3 +200,7 @@ export function isVariableDeclaration(decl: Declaration): decl is VariableDeclar
 export function isAliasDeclaration(decl: Declaration): decl is AliasDeclaration {
     return decl.type === DeclarationType.Alias;
 }
+
+export function isSpecialBuiltInClassDeclarations(decl: Declaration): decl is SpecialBuiltInClassDeclaration {
+    return decl.type === DeclarationType.SpecialBuiltInClass;
+}
