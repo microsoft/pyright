@@ -638,7 +638,13 @@ export class SourceFile {
             }
 
             this._indexingNeeded = false;
-            const symbols = DocumentSymbolProvider.indexSymbols(this._parseResults, options, token);
+            const symbols = DocumentSymbolProvider.indexSymbols(
+                AnalyzerNodeInfo.getFileInfo(this._parseResults.parseTree)!,
+                this._parseResults,
+                options,
+                token
+            );
+
             ls.add(`found ${symbols.length}`);
 
             const name = stripFileExtension(getFileName(this._filePath));
@@ -720,6 +726,7 @@ export class SourceFile {
         }
 
         DocumentSymbolProvider.addHierarchicalSymbolsForDocument(
+            this._parseResults ? AnalyzerNodeInfo.getFileInfo(this._parseResults.parseTree) : undefined,
             this.getCachedIndexResults(),
             this._parseResults,
             symbolList,
@@ -734,6 +741,7 @@ export class SourceFile {
         }
 
         return DocumentSymbolProvider.getSymbolsForDocument(
+            this._parseResults ? AnalyzerNodeInfo.getFileInfo(this._parseResults.parseTree) : undefined,
             this.getCachedIndexResults(),
             this._parseResults,
             this._filePath,

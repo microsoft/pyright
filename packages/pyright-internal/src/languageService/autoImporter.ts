@@ -337,7 +337,7 @@ export class AutoImporter {
                 return;
             }
 
-            const alreadyIncluded = this._containsName(name, undefined, results);
+            const alreadyIncluded = this._containsName(name, importSource, results);
             if (alreadyIncluded) {
                 return;
             }
@@ -455,6 +455,15 @@ export class AutoImporter {
                             return;
                         }
                     }
+                }
+
+                const alreadyIncluded = this._containsName(
+                    importAliasData.importParts.importName,
+                    importAliasData.importParts.importFrom,
+                    results
+                );
+                if (alreadyIncluded) {
+                    return;
                 }
 
                 const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(

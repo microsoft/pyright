@@ -261,6 +261,14 @@ export class Binder extends ParseTreeWalker {
 
         AnalyzerNodeInfo.setDunderAllNames(node, this._dunderAllNames);
 
+        // Set __all__ flags on the module symbols.
+        const scope = AnalyzerNodeInfo.getScope(node);
+        if (scope && this._dunderAllNames) {
+            for (const name of this._dunderAllNames) {
+                scope.symbolTable.get(name)?.setIsInDunderAll();
+            }
+        }
+
         return {
             moduleDocString: ParseTreeUtils.getDocString(node.statements),
         };
