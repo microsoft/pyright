@@ -19386,6 +19386,9 @@ export function createTypeEvaluator(
                         if (result) {
                             assignedSubtype = ObjectType.create(result);
                         }
+                    } else if (isAnyOrUnknown(assignedSubtype)) {
+                        // Any or Unknown do not narrow because they're assignable to all types.
+                        return declaredType;
                     }
 
                     return assignedSubtype;
