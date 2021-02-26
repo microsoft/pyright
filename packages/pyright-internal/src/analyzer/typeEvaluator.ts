@@ -13920,7 +13920,9 @@ export function createTypeEvaluator(
         if (nodeToEvaluate.nodeType === ParseNodeType.TypeAnnotation) {
             evaluateTypeAnnotationExpression(nodeToEvaluate);
         } else {
-            getTypeOfExpression(nodeToEvaluate);
+            const fileInfo = getFileInfo(nodeToEvaluate);
+            const flags = fileInfo.isStubFile ? EvaluatorFlags.AllowForwardReferences : EvaluatorFlags.None;
+            getTypeOfExpression(nodeToEvaluate, /* expectedType */ undefined, flags);
         }
     }
 
@@ -16214,7 +16216,8 @@ export function createTypeEvaluator(
                 }
             }
         } else {
-            let allowForwardReferences = false;
+            const fileInfo = getFileInfo(node);
+            let allowForwardReferences = fileInfo.isStubFile;
 
             // Determine if this node is within a quoted type annotation.
             if (ParseTreeUtils.isWithinTypeAnnotation(node, !isAnnotationEvaluationPostponed(getFileInfo(node)))) {
