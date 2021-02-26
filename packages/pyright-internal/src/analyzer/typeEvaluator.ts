@@ -1114,7 +1114,21 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Unpack: {
-                const iterType = getTypeOfExpression(node.expression, expectedTypeAlt, flags).type;
+                let iterExpectedType: Type | undefined;
+                if (expectedTypeAlt) {
+                    const iterableType = getBuiltInType(node, 'Iterable');
+                    if (iterableType && isClass(iterableType)) {
+                        iterExpectedType = ObjectType.create(
+                            ClassType.cloneForSpecialization(
+                                iterableType,
+                                [expectedTypeAlt],
+                                /* isTypeArgumentExplicit */ true
+                            )
+                        );
+                    }
+                }
+
+                const iterType = getTypeOfExpression(node.expression, iterExpectedType, flags).type;
                 if (
                     (flags & EvaluatorFlags.TypeVarTupleDisallowed) === 0 &&
                     isVariadicTypeVar(iterType) &&
