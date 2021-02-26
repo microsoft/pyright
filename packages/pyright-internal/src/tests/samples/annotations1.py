@@ -34,3 +34,12 @@ class ClassB(ClassA):
 
 class ClassC:
     pass
+
+
+def func10():
+    pass
+
+# This should generate an error because function calls
+# are not allowed within a type annotation.
+x: func10()
+

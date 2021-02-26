@@ -359,6 +359,11 @@ export const enum EvaluatorFlags {
     // normally not allowed if ExpectingType is set.
     GenericClassTypeAllowed = 1 << 9,
 
+    // A type annotation restricts the types of expressions that are
+    // allowed. If this flag is set, illegal type expressions are
+    // flagged as errors.
+    ExpectingTypeAnnotation = 1 << 10,
+
     // TypeVars within this expression must not refer to type vars
     // used in an outer scope that.
     DisallowTypeVarsWithScopeId = 1 << 11,
@@ -922,7 +927,17 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Call: {
-                typeResult = getTypeFromCall(node, expectedTypeAlt);
+                if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                    addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeAnnotationCall(),
+                        node
+                    );
+                    typeResult = { node, type: UnknownType.create() };
+                } else {
+                    typeResult = getTypeFromCall(node, expectedTypeAlt);
+                }
                 break;
             }
 
@@ -1149,7 +1164,8 @@ export function createTypeEvaluator(
                     EvaluatorFlags.EvaluateStringLiteralAsType |
                         EvaluatorFlags.ParamSpecDisallowed |
                         EvaluatorFlags.TypeVarTupleDisallowed |
-                        EvaluatorFlags.ExpectingType
+                        EvaluatorFlags.ExpectingType |
+                        EvaluatorFlags.ExpectingTypeAnnotation
                 );
                 break;
             }
@@ -1231,6 +1247,7 @@ export function createTypeEvaluator(
 
         let evaluatorFlags =
             EvaluatorFlags.ExpectingType |
+            EvaluatorFlags.ExpectingTypeAnnotation |
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.ParamSpecDisallowed;
@@ -3765,6 +3782,7 @@ export function createTypeEvaluator(
             EvaluatorFlags.DoNotSpecialize |
             (flags &
                 (EvaluatorFlags.ExpectingType |
+                    EvaluatorFlags.ExpectingTypeAnnotation |
                     EvaluatorFlags.AllowForwardReferences |
                     EvaluatorFlags.AssociateTypeVarsWithCurrentScope));
         const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, baseTypeFlags);
@@ -5243,6 +5261,7 @@ export function createTypeEvaluator(
         let adjustedFlags =
             flags |
             EvaluatorFlags.ExpectingType |
+            EvaluatorFlags.ExpectingTypeAnnotation |
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.FinalDisallowed;
