@@ -18928,6 +18928,11 @@ export function createTypeEvaluator(
         const positionalsToMatch = Math.min(srcPositionals.length, destPositionals.length);
         const srcTypeVarMap = new TypeVarMap(getTypeVarScopeId(srcType));
 
+        const srcKwargsIndex = srcParams.findIndex((p) => p.category === ParameterCategory.VarArgDictionary && p.name);
+        const destKwargsIndex = destParams.findIndex(
+            (p) => p.category === ParameterCategory.VarArgDictionary && p.name
+        );
+
         if (!FunctionType.shouldSkipParamCompatibilityCheck(destType)) {
             // Match positional parameters.
             for (let paramIndex = 0; paramIndex < positionalsToMatch; paramIndex++) {
@@ -19171,19 +19176,39 @@ export function createTypeEvaluator(
                 }
 
                 if (srcStartOfNamed >= 0) {
-                    srcParams.forEach((param, index) => {
+                    srcParams.forEach((srcParam, index) => {
                         if (index >= srcStartOfNamed) {
-                            if (param.name && param.category === ParameterCategory.Simple) {
-                                const destParam = destParamMap.get(param.name);
+                            if (srcParam.name && srcParam.category === ParameterCategory.Simple) {
+                                const destParam = destParamMap.get(srcParam.name);
                                 const paramDiag = diag.createAddendum();
                                 if (!destParam) {
-                                    if (!destHasKwargsParam && !param.hasDefault) {
+                                    if (!destHasKwargsParam && !srcParam.hasDefault) {
                                         paramDiag.addMessage(
                                             Localizer.DiagnosticAddendum.namedParamMissingInDest().format({
-                                                name: param.name,
+                                                name: srcParam.name,
                                             })
                                         );
                                         canAssign = false;
+                                    } else if (destHasKwargsParam) {
+                                        // Make sure we can assign the type to the Kwargs.
+                                        const destKwargsType = FunctionType.getEffectiveParameterType(
+                                            destType,
+                                            destKwargsIndex
+                                        );
+                                        if (
+                                            !canAssignFunctionParameter(
+                                                destKwargsType,
+                                                srcParam.type,
+                                                destKwargsIndex,
+                                                diag.createAddendum(),
+                                                typeVarMap,
+                                                srcTypeVarMap,
+                                                flags,
+                                                recursionCount
+                                            )
+                                        ) {
+                                            canAssign = false;
+                                        }
                                     }
                                 } else {
                                     const specializedDestParamType = typeVarMap
@@ -19191,7 +19216,7 @@ export function createTypeEvaluator(
                                         : destParam.type;
                                     if (
                                         !canAssignType(
-                                            param.type,
+                                            srcParam.type,
                                             specializedDestParamType,
                                             paramDiag.createAddendum(),
                                             undefined,
@@ -19201,14 +19226,14 @@ export function createTypeEvaluator(
                                     ) {
                                         paramDiag.addMessage(
                                             Localizer.DiagnosticAddendum.namedParamTypeMismatch().format({
-                                                name: param.name,
+                                                name: srcParam.name,
                                                 sourceType: printType(specializedDestParamType),
-                                                destType: printType(param.type),
+                                                destType: printType(srcParam.type),
                                             })
                                         );
                                         canAssign = false;
                                     }
-                                    destParamMap.delete(param.name);
+                                    destParamMap.delete(srcParam.name);
                                 }
                             }
                         }
@@ -19223,13 +19248,6 @@ export function createTypeEvaluator(
                     );
                     canAssign = false;
                 });
-
-                const srcKwargsIndex = srcParams.findIndex(
-                    (p) => p.category === ParameterCategory.VarArgDictionary && p.name
-                );
-                const destKwargsIndex = destParams.findIndex(
-                    (p) => p.category === ParameterCategory.VarArgDictionary && p.name
-                );
 
                 // If both src and dest have a "*kwargs" parameter, make sure
                 // their types are compatible.

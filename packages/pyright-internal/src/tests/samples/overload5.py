@@ -1,7 +1,17 @@
 # This sample tests the type checker's detection of overlapping
 # overload declarations.
 
-from typing import Any, Generic, Literal, Optional, Tuple, TypeVar, Union, overload
+from typing import (
+    Any,
+    Generic,
+    Literal,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    overload,
+)
 
 
 @overload
@@ -151,4 +161,26 @@ def func13(x: int) -> str:
 
 @overload
 def func13(x: Union[int, str]) -> int:
+    ...
+
+
+# Test 5: non-matching keyword argument (shouldn't generate error)
+@overload
+def func14(x: int, *, cls: str, **kwargs: Any) -> int:
+    ...
+
+
+@overload
+def func14(x: int, **kwargs: Any) -> str:
+    ...
+
+
+# Test 6: non-matching keyword argument (shouldn't generate error)
+@overload
+def func15(cls: str, **kwargs: Any) -> int:
+    ...
+
+
+@overload
+def func15(**kwargs: Any) -> str:
     ...
