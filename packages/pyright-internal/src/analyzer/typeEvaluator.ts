@@ -5393,7 +5393,7 @@ export function createTypeEvaluator(
                         entryTypes.push(...typeArgs);
                     }
                 } else {
-                    entryTypes.push(UnknownType.create());
+                    entryTypes.push(typeResult.type);
                     isOpenEnded = true;
                 }
             } else {
