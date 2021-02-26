@@ -3062,7 +3062,7 @@ export function createTypeEvaluator(
                     EvaluatorFlags.DoNotSpecialize
                 );
 
-                const indexTypeResult = getTypeFromIndexWithBaseType(
+                getTypeFromIndexWithBaseType(
                     target,
                     baseTypeResult.type,
                     {
@@ -3074,7 +3074,7 @@ export function createTypeEvaluator(
                     EvaluatorFlags.None
                 );
 
-                writeTypeCache(target, indexTypeResult.type);
+                writeTypeCache(target, type);
                 break;
             }
 

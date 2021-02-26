@@ -17,8 +17,12 @@ def func1(v1: List[Optional[complex]]):
         t_v1_0_updated1: Literal["None"] = reveal_type(v1[0])
         t_v1_1_updated1: Literal["None"] = reveal_type(v1[1])
 
+        v1[0], v1[1] = 1, 2
+        t_v1_0_updated2: Literal["Literal[1]"] = reveal_type(v1[0])
+        t_v1_1_updated2: Literal["Literal[2]"] = reveal_type(v1[1])
+
         v1 = []
-        t_v1_0_updated2: Literal["complex | None"] = reveal_type(v1[0])
+        t_v1_0_updated3: Literal["complex | None"] = reveal_type(v1[0])
 
     i = 1
     if v1[i]:
