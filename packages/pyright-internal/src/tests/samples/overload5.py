@@ -1,7 +1,7 @@
 # This sample tests the type checker's detection of overlapping
 # overload declarations.
 
-from typing import Any, Generic, Optional, Tuple, TypeVar, overload
+from typing import Any, Generic, Literal, Optional, Tuple, TypeVar, Union, overload
 
 
 @overload
@@ -100,3 +100,55 @@ class GenericClass(Generic[_T1, _T2]):
     @overload
     def method2(a: _T1, b: _T2) -> int:
         return 1
+
+
+class Parent:
+    ...
+
+
+class Child(Parent):
+    ...
+
+
+# Test 1: Literal subtype
+@overload
+def func10(x: Literal[3]) -> int:
+    ...
+
+
+@overload
+def func10(x: int) -> str:
+    ...
+
+
+# Test 2: Subclass subtype
+@overload
+def func11(x: Child) -> str:
+    ...
+
+
+@overload
+def func11(x: Parent) -> int:
+    ...
+
+
+# Test 3: Implicit subtype
+@overload
+def func12(x: int) -> str:
+    ...  # Mypy does not report error here
+
+
+@overload
+def func12(x: float) -> int:
+    ...
+
+
+# Test 4: Union subtype
+@overload
+def func13(x: int) -> str:
+    ...
+
+
+@overload
+def func13(x: Union[int, str]) -> int:
+    ...

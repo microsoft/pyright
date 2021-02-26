@@ -18209,8 +18209,8 @@ export function createTypeEvaluator(
                 }
             }
 
-            if (flags & CanAssignFlags.SkipSolveTypeVars) {
-                if (isTypeVar(srcType)) {
+            if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0) {
+                if (flags & CanAssignFlags.SkipSolveTypeVars) {
                     return canAssignType(
                         makeTopLevelTypeVarsConcrete(destType),
                         makeTopLevelTypeVarsConcrete(srcType),
@@ -18219,17 +18219,17 @@ export function createTypeEvaluator(
                         flags,
                         recursionCount + 1
                     );
+                } else {
+                    return assignTypeToTypeVar(
+                        destType,
+                        srcType,
+                        canNarrowType,
+                        diag,
+                        typeVarMap || new TypeVarMap(),
+                        flags,
+                        recursionCount + 1
+                    );
                 }
-            } else if ((flags & CanAssignFlags.ReverseTypeVarMatching) === 0) {
-                return assignTypeToTypeVar(
-                    destType,
-                    srcType,
-                    canNarrowType,
-                    diag,
-                    typeVarMap || new TypeVarMap(),
-                    flags,
-                    recursionCount + 1
-                );
             }
         }
 
@@ -18258,30 +18258,27 @@ export function createTypeEvaluator(
         }
 
         if (isTypeVar(srcType)) {
-            if (flags & CanAssignFlags.SkipSolveTypeVars) {
-                if (destType.category !== TypeCategory.Union) {
-                    if (isTypeVar(destType)) {
-                        return true;
-                    }
-
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(destType),
-                        })
+            if ((flags & CanAssignFlags.ReverseTypeVarMatching) !== 0) {
+                if ((flags & CanAssignFlags.SkipSolveTypeVars) !== 0) {
+                    return canAssignType(
+                        makeTopLevelTypeVarsConcrete(srcType),
+                        makeTopLevelTypeVarsConcrete(destType),
+                        new DiagnosticAddendum(),
+                        /* typeVarMap */ undefined,
+                        flags,
+                        recursionCount + 1
                     );
-                    return false;
+                } else {
+                    return assignTypeToTypeVar(
+                        srcType,
+                        destType,
+                        /* canNarrowType */ true,
+                        diag,
+                        typeVarMap || new TypeVarMap(getTypeVarScopeId(srcType)),
+                        flags,
+                        recursionCount + 1
+                    );
                 }
-            } else if ((flags & CanAssignFlags.ReverseTypeVarMatching) !== 0) {
-                return assignTypeToTypeVar(
-                    srcType,
-                    destType,
-                    /* canNarrowType */ true,
-                    diag,
-                    typeVarMap || new TypeVarMap(getTypeVarScopeId(srcType)),
-                    flags,
-                    recursionCount + 1
-                );
             }
         }
 
