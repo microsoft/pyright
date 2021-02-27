@@ -1115,13 +1115,40 @@ export function isAssignmentToDefaultsFollowingNamedTuple(callNode: ParseNode): 
 // This simple parse tree walker calls a callback function
 // for each NameNode it encounters.
 export class NameNodeWalker extends ParseTreeWalker {
-    constructor(private _callback: (node: NameNode) => void) {
+    private _subscriptIndex: number | undefined;
+    private _baseExpression: ExpressionNode | undefined;
+
+    constructor(
+        private _callback: (
+            node: NameNode,
+            subscriptIndex: number | undefined,
+            baseExpression: ExpressionNode | undefined
+        ) => void
+    ) {
         super();
     }
 
     visitName(node: NameNode) {
-        this._callback(node);
+        this._callback(node, this._subscriptIndex, this._baseExpression);
         return true;
+    }
+
+    visitIndex(node: IndexNode) {
+        this.walk(node.baseExpression);
+
+        const prevSubscriptIndex = this._subscriptIndex;
+        const prevBaseExpression = this._baseExpression;
+        this._baseExpression = node.baseExpression;
+
+        node.items.forEach((item, index) => {
+            this._subscriptIndex = index;
+            this.walk(item);
+        });
+
+        this._subscriptIndex = prevSubscriptIndex;
+        this._baseExpression = prevBaseExpression;
+
+        return false;
     }
 }
 

@@ -127,6 +127,11 @@ import {
 } from './typeUtils';
 import { TypeVarMap } from './typeVarMap';
 
+interface LocalTypeVarInfo {
+    isExempt: boolean;
+    nodes: NameNode[];
+}
+
 export class Checker extends ParseTreeWalker {
     private readonly _moduleNode: ModuleNode;
     private readonly _fileInfo: AnalyzerFileInfo;
@@ -988,16 +993,41 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
-        const localTypeVarUsage = new Map<string, NameNode[]>();
+        const localTypeVarUsage = new Map<string, LocalTypeVarInfo>();
 
-        const nameWalker = new ParseTreeUtils.NameNodeWalker((nameNode) => {
+        const nameWalker = new ParseTreeUtils.NameNodeWalker((nameNode, subscriptIndex, baseExpression) => {
             const nameType = this._evaluator.getType(nameNode);
+            ``;
             if (nameType && isTypeVar(nameType)) {
                 if (nameType.scopeId === this._evaluator.getScopeIdForNode(node)) {
+                    // We exempt constrained TypeVars and bound TypeVars that are type arguments of
+                    // other types. There are legitimate uses for singleton instances
+                    // in this particular case.
+                    let isExempt =
+                        nameType.details.constraints.length > 0 ||
+                        (nameType.details.boundType !== undefined && subscriptIndex !== undefined);
+
+                    if (!isExempt && baseExpression && subscriptIndex !== undefined) {
+                        // Is this a type argument for a generic type alias? If so,
+                        // exempt it from the check because the type alias may repeat
+                        // the TypeVar multiple times.
+                        const baseType = this._evaluator.getType(baseExpression);
+                        if (
+                            baseType?.typeAliasInfo &&
+                            baseType.typeAliasInfo.typeParameters &&
+                            subscriptIndex < baseType.typeAliasInfo.typeParameters.length
+                        ) {
+                            isExempt = true;
+                        }
+                    }
+
                     if (!localTypeVarUsage.has(nameType.details.name)) {
-                        localTypeVarUsage.set(nameType.details.name, [nameNode]);
+                        localTypeVarUsage.set(nameType.details.name, {
+                            nodes: [nameNode],
+                            isExempt,
+                        });
                     } else {
-                        localTypeVarUsage.get(nameType.details.name)!.push(nameNode);
+                        localTypeVarUsage.get(nameType.details.name)!.nodes.push(nameNode);
                     }
                 }
             }
@@ -1016,15 +1046,15 @@ export class Checker extends ParseTreeWalker {
         }
 
         // Report errors for all local type variables that appear only once.
-        localTypeVarUsage.forEach((nameNodes) => {
-            if (nameNodes.length === 1) {
+        localTypeVarUsage.forEach((usage) => {
+            if (usage.nodes.length === 1 && !usage.isExempt) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse,
                     DiagnosticRule.reportInvalidTypeVarUse,
                     Localizer.Diagnostic.typeVarUsedOnlyOnce().format({
-                        name: nameNodes[0].value,
+                        name: usage.nodes[0].value,
                     }),
-                    nameNodes[0]
+                    usage.nodes[0]
                 );
             }
         });

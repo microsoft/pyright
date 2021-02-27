@@ -1281,7 +1281,7 @@ test('TypeVar6', () => {
 test('TypeVar7', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar7.py']);
 
-    TestUtils.validateResults(analysisResults, 22, 2);
+    TestUtils.validateResults(analysisResults, 22);
 });
 
 test('TypeVar8', () => {
@@ -1293,7 +1293,7 @@ test('TypeVar8', () => {
 test('TypeVar9', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeVar9.py']);
 
-    TestUtils.validateResults(analysisResults, 4);
+    TestUtils.validateResults(analysisResults, 5);
 });
 
 test('Annotated1', () => {
