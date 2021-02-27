@@ -44,6 +44,11 @@ def a() -> None:
     ...
 
 
+@overload
+def a(x: int) -> None:
+    ...
+
+
 # This should generate an error.
 def a():
     pass

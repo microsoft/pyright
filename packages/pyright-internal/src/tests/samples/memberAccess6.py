@@ -27,6 +27,9 @@ class Column(Generic[_T]):
     def __get__(self: "Column[_T]", instance: FooBase, type: Optional[Type[_T]]) -> _T:
         ...
 
+    def __get__(self, instance: FooBase, type: Optional[Type[_T]]) -> Optional[_T]:
+        ...
+
 
 class Foo(FooBase):
     bar: Column[str] = Column(str)

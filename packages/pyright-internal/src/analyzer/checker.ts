@@ -1067,7 +1067,11 @@ export class Checker extends ParseTreeWalker {
     ) {
         for (let i = 0; i < prevOverloads.length; i++) {
             const prevOverload = prevOverloads[i];
-            if (this._isOverlappingOverload(functionType, prevOverload)) {
+            if (
+                FunctionType.isOverloaded(functionType) &&
+                FunctionType.isOverloaded(prevOverload) &&
+                this._isOverlappingOverload(functionType, prevOverload)
+            ) {
                 this._evaluator.addDiagnostic(
                     this._fileInfo.diagnosticRuleSet.reportOverlappingOverload,
                     DiagnosticRule.reportOverlappingOverload,
@@ -1084,7 +1088,11 @@ export class Checker extends ParseTreeWalker {
 
         for (let i = 0; i < prevOverloads.length; i++) {
             const prevOverload = prevOverloads[i];
-            if (this._isOverlappingOverload(prevOverload, functionType)) {
+            if (
+                FunctionType.isOverloaded(functionType) &&
+                FunctionType.isOverloaded(prevOverload) &&
+                this._isOverlappingOverload(prevOverload, functionType)
+            ) {
                 const prevReturnType = FunctionType.getSpecializedReturnType(prevOverload);
                 const returnType = FunctionType.getSpecializedReturnType(functionType);
 
@@ -1344,12 +1352,15 @@ export class Checker extends ParseTreeWalker {
 
     private _reportInvalidOverload(name: string, symbol: Symbol) {
         const typedDecls = symbol.getTypedDeclarations();
-        if (typedDecls.length === 1) {
+        if (typedDecls.length >= 1) {
             const primaryDecl = typedDecls[0];
+
             if (primaryDecl.type === DeclarationType.Function) {
                 const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
+                const functions = isOverloadedFunction(type) ? type.overloads : isFunction(type) ? [type] : [];
+                const overloadedFunctions = functions.filter((func) => FunctionType.isOverloaded(func));
 
-                if (isFunction(type) && FunctionType.isOverloaded(type)) {
+                if (overloadedFunctions.length === 1) {
                     // There should never be a single overload.
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
@@ -1357,6 +1368,32 @@ export class Checker extends ParseTreeWalker {
                         Localizer.Diagnostic.singleOverload().format({ name }),
                         primaryDecl.node.name
                     );
+                }
+
+                // If the file is not a stub and this is the first overload,
+                // verify that there is an implementation.
+                if (!this._fileInfo.isStubFile) {
+                    let hasImplementation = true;
+
+                    if (
+                        isOverloadedFunction(type) &&
+                        FunctionType.isOverloaded(type.overloads[type.overloads.length - 1])
+                    ) {
+                        hasImplementation = false;
+                    } else if (isFunction(type) && FunctionType.isOverloaded(type)) {
+                        hasImplementation = false;
+                    }
+
+                    if (!hasImplementation) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.overloadWithoutImplementation().format({
+                                name: primaryDecl.node.name.value,
+                            }),
+                            primaryDecl.node.name
+                        );
+                    }
                 }
             }
         }

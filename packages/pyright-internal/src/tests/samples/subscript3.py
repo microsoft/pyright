@@ -17,6 +17,9 @@ class ClassA:
     def __getitem__(self, index: Any, *, v1: int) -> str:
         ...
 
+    def __getitem__(self, index: Any, *, v1: int) -> str:
+        ...
+
     @overload
     def __setitem__(self, index: int, value: int) -> None:
         ...
@@ -26,6 +29,9 @@ class ClassA:
         ...
 
     @overload
+    def __setitem__(self, index: Any, value: str, *, v1: int) -> None:
+        ...
+
     def __setitem__(self, index: Any, value: str, *, v1: int) -> None:
         ...
 

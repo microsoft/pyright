@@ -1558,7 +1558,11 @@ export function createTypeEvaluator(
             if (isFunction(type)) {
                 addOneFunctionToSignature(type);
             } else {
-                type.overloads.forEach(addOneFunctionToSignature);
+                type.overloads.forEach((func) => {
+                    if (FunctionType.isOverloaded(func)) {
+                        addOneFunctionToSignature(func);
+                    }
+                });
             }
         }
 
@@ -12325,34 +12329,30 @@ export function createTypeEvaluator(
                     }
                 }
 
-                if (FunctionType.isOverloaded(type)) {
-                    overloadedTypes.push(type);
-                }
+                overloadedTypes.push(type);
 
                 if (overloadedTypes.length === 1) {
                     return overloadedTypes[0];
                 }
 
-                if (overloadedTypes.length > 1) {
-                    // Create a new overloaded type that copies the contents of the previous
-                    // one and adds a new function.
-                    const newOverload = OverloadedFunctionType.create(overloadedTypes);
+                // Create a new overloaded type that copies the contents of the previous
+                // one and adds a new function.
+                const newOverload = OverloadedFunctionType.create(overloadedTypes);
 
-                    const prevOverload = overloadedTypes[overloadedTypes.length - 2];
-                    const isPrevOverloadAbstract = FunctionType.isAbstractMethod(prevOverload);
-                    const isCurrentOverloadAbstract = FunctionType.isAbstractMethod(type);
+                const prevOverload = overloadedTypes[overloadedTypes.length - 2];
+                const isPrevOverloadAbstract = FunctionType.isAbstractMethod(prevOverload);
+                const isCurrentOverloadAbstract = FunctionType.isAbstractMethod(type);
 
-                    if (isPrevOverloadAbstract !== isCurrentOverloadAbstract) {
-                        addDiagnostic(
-                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.overloadAbstractMismatch().format({ name: node.name.value }),
-                            node.name
-                        );
-                    }
-
-                    return newOverload;
+                if (isPrevOverloadAbstract !== isCurrentOverloadAbstract) {
+                    addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.overloadAbstractMismatch().format({ name: node.name.value }),
+                        node.name
+                    );
                 }
+
+                return newOverload;
             }
         }
 
@@ -18647,6 +18647,9 @@ export function createTypeEvaluator(
                 // make a copy of the existing one if it's specified.
                 const overloads = concreteSrcType.overloads;
                 const overloadIndex = overloads.findIndex((overload) => {
+                    if (!FunctionType.isOverloaded(overload)) {
+                        return false;
+                    }
                     const typeVarMapClone = typeVarMap ? typeVarMap.clone() : undefined;
                     return canAssignType(
                         destType,
@@ -18731,6 +18734,10 @@ export function createTypeEvaluator(
 
             // All overloads in the dest must be assignable.
             const isAssignable = !destType.overloads.some((destOverload) => {
+                if (!FunctionType.isOverloaded(destOverload)) {
+                    return false;
+                }
+
                 if (typeVarMap) {
                     typeVarMap.addSolveForScope(getTypeVarScopeId(destOverload));
                 }

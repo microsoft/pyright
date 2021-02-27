@@ -876,7 +876,7 @@ test('Overload3', () => {
 
 test('Overload4', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload4.py']);
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Overload5', () => {
