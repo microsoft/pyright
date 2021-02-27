@@ -6632,9 +6632,7 @@ export function createTypeEvaluator(
             ) {
                 const typeParams = type.strippedFirstParamType!.classType.details.typeParameters;
                 type.strippedFirstParamType.classType.typeArguments.forEach((typeArg, index) => {
-                    if (!isTypeVar(typeArg)) {
-                        typeVarMap.setTypeVar(typeParams[index], typeArg, /* isNarrowable */ false);
-                    }
+                    typeVarMap.setTypeVar(typeParams[index], typeArg, /* isNarrowable */ false);
                 });
             }
         }
@@ -18282,7 +18280,8 @@ export function createTypeEvaluator(
             }
         }
 
-        if (isUnion(srcType)) {
+        const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
+        if (isUnion(concreteSrcType)) {
             // Start by checking for an exact match. This is needed to handle unions
             // that contain recursive type aliases.
             if (isTypeSame(srcType, destType)) {
@@ -18292,7 +18291,7 @@ export function createTypeEvaluator(
             let isIncompatible = false;
 
             // For union sources, all of the types need to be assignable to the dest.
-            doForEachSubtype(srcType, (subtype) => {
+            doForEachSubtype(concreteSrcType, (subtype) => {
                 if (!canAssignType(destType, subtype, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)) {
                     isIncompatible = true;
                 }
@@ -18468,8 +18467,6 @@ export function createTypeEvaluator(
         }
 
         if (isClass(destType)) {
-            const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
-
             if (isClass(concreteSrcType)) {
                 if (
                     canAssignClass(
