@@ -3403,7 +3403,7 @@ export function createTypeEvaluator(
         const name = node.value;
         let type: Type | undefined;
         let isIncomplete = false;
-        const allowForwardReferences = (flags & EvaluatorFlags.AllowForwardReferences) !== 0;
+        const allowForwardReferences = (flags & EvaluatorFlags.AllowForwardReferences) !== 0 || fileInfo.isStubFile;
 
         // Look for the scope that contains the value definition and
         // see if it has a declared type.
@@ -3416,15 +3416,6 @@ export function createTypeEvaluator(
             // scope, there's no need to use code flow analysis.
             if (symbolWithScope.scope.type === ScopeType.Builtin) {
                 useCodeFlowAnalysis = false;
-            }
-
-            if (fileInfo.isStubFile) {
-                // Type stubs allow forward references of classes, so
-                // don't use code flow analysis in this case.
-                const decl = getLastTypedDeclaredForSymbol(symbolWithScope.symbol);
-                if (decl && decl.type === DeclarationType.Class) {
-                    useCodeFlowAnalysis = false;
-                }
             }
 
             const symbol = symbolWithScope.symbol;
@@ -10893,7 +10884,7 @@ export function createTypeEvaluator(
         const initSubclassArgs: FunctionArgument[] = [];
 
         node.arguments.forEach((arg) => {
-            // Ignore keyword parameters other than metaclass or total.
+            // Ignore keyword parameters other than metaclass.
             if (!arg.name || arg.name.value === 'metaclass') {
                 let exprFlags =
                     EvaluatorFlags.ExpectingType |
