@@ -484,6 +484,7 @@ const nonSubscriptableBuiltinTypes: { [builtinName: string]: PythonVersion } = {
     'builtins.tuple': PythonVersion.V3_9,
     'collections.ChainMap': PythonVersion.V3_9,
     'collections.Counter': PythonVersion.V3_9,
+    'collections.defaultdict': PythonVersion.V3_9,
     'collections.DefaultDict': PythonVersion.V3_9,
     'collections.deque': PythonVersion.V3_9,
     'collections.OrderedDict': PythonVersion.V3_9,
