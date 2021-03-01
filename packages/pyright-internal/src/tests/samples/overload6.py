@@ -23,7 +23,7 @@ class SupportsRound1(Protocol[_T_co]):
     def __round__(self, ndigits: int) -> _T_co:
         ...
 
-    def __round__(self, ndigits: int = 0) -> int:
+    def __round__(self, ndigits: int = 0) -> _T_co:
         ...
 
 

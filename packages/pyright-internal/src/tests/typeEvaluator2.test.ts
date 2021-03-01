@@ -888,12 +888,17 @@ test('Overload5', () => {
 
     configOptions.diagnosticRuleSet.reportOverlappingOverload = 'error';
     analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload5.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 10);
 });
 
 test('Overload6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload6.py']);
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('Overload7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload7.py']);
+    TestUtils.validateResults(analysisResults, 3);
 });
 
 test('Final1', () => {

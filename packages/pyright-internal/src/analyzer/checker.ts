@@ -1157,6 +1157,51 @@ export class Checker extends ParseTreeWalker {
         );
     }
 
+    private _isLegalOverloadImplementation(
+        overload: FunctionType,
+        implementation: FunctionType,
+        diag: DiagnosticAddendum
+    ): boolean {
+        // First check the parameters to see if they are assignable.
+        let isLegal = this._evaluator.canAssignType(
+            overload,
+            implementation,
+            diag,
+            /* typeVarMap */ undefined,
+            CanAssignFlags.SkipSolveTypeVars |
+                CanAssignFlags.SkipFunctionReturnTypeCheck |
+                CanAssignFlags.DisallowAssignFromAny
+        );
+
+        // Now check the return types.
+        const overloadReturnType =
+            overload.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(overload);
+        const implementationReturnType =
+            implementation.details.declaredReturnType || this._evaluator.getFunctionInferredReturnType(implementation);
+
+        const returnDiag = new DiagnosticAddendum();
+        if (
+            !this._evaluator.canAssignType(
+                implementationReturnType,
+                overloadReturnType,
+                returnDiag.createAddendum(),
+                /* typeVarMap */ undefined,
+                CanAssignFlags.SkipSolveTypeVars
+            )
+        ) {
+            returnDiag.addMessage(
+                Localizer.DiagnosticAddendum.functionReturnTypeMismatch().format({
+                    sourceType: this._evaluator.printType(overloadReturnType, /* expandTypeAlias */ false),
+                    destType: this._evaluator.printType(implementationReturnType, /* expandTypeAlias */ false),
+                })
+            );
+            diag.addAddendum(returnDiag);
+            isLegal = false;
+        }
+
+        return isLegal;
+    }
+
     private _walkStatementsAndReportUnreachable(statements: StatementNode[]) {
         let reportedUnreachable = false;
 
@@ -1372,19 +1417,19 @@ export class Checker extends ParseTreeWalker {
 
                 // If the file is not a stub and this is the first overload,
                 // verify that there is an implementation.
-                if (!this._fileInfo.isStubFile) {
-                    let hasImplementation = true;
+                if (!this._fileInfo.isStubFile && overloadedFunctions.length > 0) {
+                    let implementationFunction: FunctionType | undefined;
 
                     if (
                         isOverloadedFunction(type) &&
-                        FunctionType.isOverloaded(type.overloads[type.overloads.length - 1])
+                        !FunctionType.isOverloaded(type.overloads[type.overloads.length - 1])
                     ) {
-                        hasImplementation = false;
-                    } else if (isFunction(type) && FunctionType.isOverloaded(type)) {
-                        hasImplementation = false;
+                        implementationFunction = type.overloads[type.overloads.length - 1];
+                    } else if (isFunction(type) && !FunctionType.isOverloaded(type)) {
+                        implementationFunction = type;
                     }
 
-                    if (!hasImplementation) {
+                    if (!implementationFunction) {
                         this._evaluator.addDiagnostic(
                             this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -1393,6 +1438,36 @@ export class Checker extends ParseTreeWalker {
                             }),
                             primaryDecl.node.name
                         );
+                    } else if (isOverloadedFunction(type)) {
+                        // Verify that all overload signatures are assignable to implementation signature.
+                        type.overloads.forEach((overload, index) => {
+                            if (overload === implementationFunction || !FunctionType.isOverloaded(overload)) {
+                                return;
+                            }
+
+                            const diag = new DiagnosticAddendum();
+                            if (!this._isLegalOverloadImplementation(overload, implementationFunction!, diag)) {
+                                if (implementationFunction!.details.declaration) {
+                                    const diagnostic = this._evaluator.addDiagnostic(
+                                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        Localizer.Diagnostic.overloadImplementationMismatch().format({
+                                            name,
+                                            index: index + 1,
+                                        }) + diag.getString(),
+                                        implementationFunction!.details.declaration.node.name
+                                    );
+
+                                    if (diagnostic && overload.details.declaration) {
+                                        diagnostic.addRelatedInfo(
+                                            Localizer.DiagnosticAddendum.overloadMethod(),
+                                            primaryDecl.path,
+                                            primaryDecl.range
+                                        );
+                                    }
+                                }
+                            }
+                        });
                     }
                 }
             }

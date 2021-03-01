@@ -179,7 +179,7 @@ def func11(*args: Any, **kwargs: Any) -> Any:
 # Test 3: Implicit subtype
 @overload
 def func12(x: int) -> str:
-    ...  # Mypy does not report error here
+    ...
 
 
 @overload
@@ -206,7 +206,7 @@ def func13(*args: Any, **kwargs: Any) -> Any:
     pass
 
 
-# Test 5: non-matching keyword argument (shouldn't generate error)
+# Test 5: non-matching keyword argument
 @overload
 def func14(x: int, *, cls: str, **kwargs: Any) -> int:
     ...

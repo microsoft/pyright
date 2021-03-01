@@ -16,7 +16,7 @@ def foo2(a: int) -> None:
     ...
 
 
-def foo2():
+def foo2(a: int) -> None:
     pass
 
 

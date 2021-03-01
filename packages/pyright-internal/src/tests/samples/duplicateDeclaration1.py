@@ -50,11 +50,11 @@ def a(x: int) -> None:
 
 
 # This should generate an error.
-def a():
+def a(x: int = 3):
     pass
 
 
-def a():
+def a(x: int = 3):
     pass
 
 

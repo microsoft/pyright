@@ -18978,6 +18978,20 @@ export function createTypeEvaluator(
                     }
                 }
 
+                // Handle the special case of an overloaded __init__ method whose self
+                // parameter is annotated.
+                if (
+                    paramIndex === 0 &&
+                    srcType.details.name === '__init__' &&
+                    FunctionType.isInstanceMethod(srcType) &&
+                    destType.details.name === '__init__' &&
+                    FunctionType.isInstanceMethod(destType) &&
+                    FunctionType.isOverloaded(destType) &&
+                    destPositionals[paramIndex].hasDeclaredType
+                ) {
+                    continue;
+                }
+
                 if (
                     !canAssignFunctionParameter(
                         destParamType,
