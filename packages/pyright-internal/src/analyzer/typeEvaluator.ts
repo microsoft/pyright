@@ -18227,7 +18227,7 @@ export function createTypeEvaluator(
                     return canAssignType(
                         makeTopLevelTypeVarsConcrete(destType),
                         makeTopLevelTypeVarsConcrete(srcType),
-                        new DiagnosticAddendum(),
+                        diag,
                         /* typeVarMap */ undefined,
                         flags,
                         recursionCount + 1
@@ -18276,7 +18276,7 @@ export function createTypeEvaluator(
                     return canAssignType(
                         makeTopLevelTypeVarsConcrete(srcType),
                         makeTopLevelTypeVarsConcrete(destType),
-                        new DiagnosticAddendum(),
+                        diag,
                         /* typeVarMap */ undefined,
                         flags,
                         recursionCount + 1
