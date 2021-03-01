@@ -3179,7 +3179,11 @@ export class Parser {
 
         // If this was a simple expression with no colons return it.
         if (!sawColon) {
-            return sliceExpressions[0]!;
+            if (sliceExpressions[0]) {
+                return sliceExpressions[0];
+            }
+
+            return ErrorNode.create(this._peekToken(), ErrorExpressionCategory.MissingIndexOrSlice);
         }
 
         const sliceNode = SliceNode.create(firstToken);
