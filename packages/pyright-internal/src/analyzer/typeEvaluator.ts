@@ -19260,12 +19260,32 @@ export function createTypeEvaluator(
                 }
 
                 // See if there are any unmatched named parameters.
-                destParamMap.forEach((_, paramName) => {
-                    const paramDiag = diag.createAddendum();
-                    paramDiag.addMessage(
-                        Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName })
-                    );
-                    canAssign = false;
+                destParamMap.forEach((destParam, paramName) => {
+                    if (srcKwargsIndex >= 0 && destParam.name) {
+                        // Make sure the dest kwargs type is compatible.
+                        const srcKwargsType = FunctionType.getEffectiveParameterType(srcType, srcKwargsIndex);
+                        if (
+                            !canAssignFunctionParameter(
+                                destParam.type,
+                                srcKwargsType,
+                                destKwargsIndex,
+                                diag.createAddendum(),
+                                typeVarMap,
+                                srcTypeVarMap,
+                                flags,
+                                recursionCount
+                            )
+                        ) {
+                            canAssign = false;
+                        }
+                        destParamMap.delete(destParam.name);
+                    } else {
+                        const paramDiag = diag.createAddendum();
+                        paramDiag.addMessage(
+                            Localizer.DiagnosticAddendum.namedParamMissingInSource().format({ name: paramName })
+                        );
+                        canAssign = false;
+                    }
                 });
 
                 // If both src and dest have a "*kwargs" parameter, make sure
