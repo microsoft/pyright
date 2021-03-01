@@ -1464,10 +1464,6 @@ export class Checker extends ParseTreeWalker {
         // that are overloads or property setters/deleters.
         if (primaryDecl.type === DeclarationType.Function) {
             const primaryDeclTypeInfo = this._evaluator.getTypeOfFunction(primaryDecl.node);
-            const isPrimaryProperty =
-                primaryDeclTypeInfo &&
-                isObject(primaryDeclTypeInfo.decoratedType) &&
-                ClassType.isPropertyClass(primaryDeclTypeInfo.decoratedType.classType);
 
             otherDecls = otherDecls.filter((decl) => {
                 if (decl.type !== DeclarationType.Function) {
@@ -1479,13 +1475,20 @@ export class Checker extends ParseTreeWalker {
                     return true;
                 }
 
-                // Is it a property?
+                // We need to handle properties in a careful manner because of
+                // the way that setters and deleters are often defined using multiple
+                // methods with the same name.
                 if (
-                    isPrimaryProperty &&
+                    primaryDeclTypeInfo &&
+                    isObject(primaryDeclTypeInfo.decoratedType) &&
+                    ClassType.isPropertyClass(primaryDeclTypeInfo.decoratedType.classType) &&
                     isObject(funcTypeInfo.decoratedType) &&
                     ClassType.isPropertyClass(funcTypeInfo.decoratedType.classType)
                 ) {
-                    return false;
+                    return (
+                        funcTypeInfo.decoratedType.classType.details.typeSourceId !==
+                        primaryDeclTypeInfo!.decoratedType.classType.details.typeSourceId
+                    );
                 }
 
                 return !FunctionType.isOverloaded(funcTypeInfo.functionType);

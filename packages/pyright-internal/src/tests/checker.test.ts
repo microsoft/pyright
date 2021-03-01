@@ -279,3 +279,9 @@ test('DuplicateDeclaration1', () => {
 
     TestUtils.validateResults(analysisResults, 6);
 });
+
+test('DuplicateDeclaration2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['duplicateDeclaration2.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
