@@ -5,7 +5,9 @@
 class Example1:
     # This should not generate an error because "int"
     # is not forward-declared.
-    int: int = 4
+    str: str = 4
+
+    int = int
 
     # This should generate an error because int is no
     # longer a reference to the outer-scoped symbol.

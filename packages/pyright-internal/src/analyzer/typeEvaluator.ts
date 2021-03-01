@@ -265,6 +265,7 @@ interface TypeResult {
 interface EffectiveTypeResult {
     type: Type;
     isIncomplete: boolean;
+    includesVariableDecl: boolean;
     isRecursiveDefinition: boolean;
 }
 
@@ -3530,6 +3531,27 @@ export function createTypeEvaluator(
             }
 
             setSymbolAccessed(fileInfo, symbol, node);
+
+            if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                // Verify that the name does not refer to a (non type alias) variable.
+                if (effectiveTypeInfo.includesVariableDecl && !type.typeAliasInfo) {
+                    // Disable for TypeVar and Unknown types as well as assignments
+                    // in the typings.pyi file, since it defines special forms.
+                    if (
+                        !isTypeAliasPlaceholder(type) &&
+                        !isTypeVar(type) &&
+                        !isUnknown(type) &&
+                        !fileInfo.isTypingStubFile
+                    ) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeAnnotationVariable(),
+                            node
+                        );
+                    }
+                }
+            }
         } else {
             // Handle the special case of "reveal_type" and "reveal_locals".
             if (name !== 'reveal_type' && name !== 'reveal_locals') {
@@ -10771,7 +10793,7 @@ export function createTypeEvaluator(
                     // only if the evaluated type is an instantiable type.
                     if (
                         !isSpeculativeTypeAlias ||
-                        (TypeBase.isInstantiable(rightHandType) && !isAnyOrUnknown(rightHandType))
+                        (TypeBase.isInstantiable(rightHandType) && !isUnknown(rightHandType))
                     ) {
                         // If this is a type alias, record its name based on the assignment target.
                         rightHandType = transformTypeForTypeAlias(
@@ -11789,6 +11811,9 @@ export function createTypeEvaluator(
                     return ObjectType.create(
                         ClassType.cloneForSpecialization(typeClass, [selfType], /* isTypeArgumentExplicit */ true)
                     );
+                } else {
+                    // This path is taken when analyzing the typing.pyi file.
+                    return AnyType.create();
                 }
             }
         }
@@ -16566,6 +16591,9 @@ export function createTypeEvaluator(
             return {
                 type: declaredType || UnknownType.create(),
                 isIncomplete: false,
+                includesVariableDecl: symbol
+                    .getTypedDeclarations()
+                    .some((decl) => decl.type === DeclarationType.Variable),
                 isRecursiveDefinition: !declaredType,
             };
         }
@@ -16576,6 +16604,7 @@ export function createTypeEvaluator(
         const decls = symbol.getDeclarations();
         const isFinalVar = isFinalVariable(symbol);
         let isIncomplete = false;
+        let includesVariableDecl = false;
 
         decls.forEach((decl, index) => {
             // If useLastDecl is true, consider only the last declaration.
@@ -16622,6 +16651,8 @@ export function createTypeEvaluator(
 
                         if (type) {
                             if (decl.type === DeclarationType.Variable) {
+                                includesVariableDecl = true;
+
                                 let isConstant = decl.type === DeclarationType.Variable && !!decl.isConstant;
 
                                 // Treat enum values declared within an enum class as though they are const even
@@ -16665,6 +16696,7 @@ export function createTypeEvaluator(
             return {
                 type: combineTypes(typesToCombine),
                 isIncomplete: false,
+                includesVariableDecl,
                 isRecursiveDefinition: false,
             };
         }
@@ -16672,6 +16704,7 @@ export function createTypeEvaluator(
         return {
             type: UnboundType.create(),
             isIncomplete,
+            includesVariableDecl,
             isRecursiveDefinition: false,
         };
     }
