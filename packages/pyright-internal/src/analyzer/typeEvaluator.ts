@@ -5314,7 +5314,7 @@ export function createTypeEvaluator(
             }
         }
 
-        return getTypeFromTupleInferred(node);
+        return getTypeFromTupleInferred(node, /* useAny */ !!expectedType);
     }
 
     function getTypeFromTupleExpected(node: TupleNode, expectedType: Type): TypeResult | undefined {
@@ -5388,8 +5388,10 @@ export function createTypeEvaluator(
         return { type, node };
     }
 
-    function getTypeFromTupleInferred(node: TupleNode): TypeResult {
-        const entryTypeResults = node.expressions.map((expr) => getTypeOfExpression(expr));
+    function getTypeFromTupleInferred(node: TupleNode, useAny: boolean): TypeResult {
+        const entryTypeResults = node.expressions.map((expr) =>
+            getTypeOfExpression(expr, useAny ? AnyType.create() : undefined)
+        );
 
         if (!tupleClassType || !isClass(tupleClassType)) {
             return { type: UnknownType.create(), node };
@@ -7543,35 +7545,38 @@ export function createTypeEvaluator(
                 return diagAddendum;
             };
 
-            if (isUnknown(simplifiedType)) {
-                const diagAddendum = getDiagAddendum();
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
-                    DiagnosticRule.reportUnknownArgumentType,
-                    Localizer.Diagnostic.argTypeUnknown() + diagAddendum.getString(),
-                    argParam.errorNode
-                );
-            } else if (isPartlyUnknown(simplifiedType, true)) {
-                // Don't report an error if the type is a partially-specialized
-                // class. This comes up frequently in cases where a type is passed
-                // as an argument (e.g. "defaultdict(list)").
-
-                // If the parameter type is also partially unknown, don't report
-                // the error because it's likely that the partially-unknown type
-                // arose due to bidirectional type matching.
-                if (!isPartlyUnknown(argParam.paramType) && !isClass(simplifiedType)) {
+            // Do not check for unknown types if the expected type is "Any".
+            if (!isAny(argParam.paramType)) {
+                if (isUnknown(simplifiedType)) {
                     const diagAddendum = getDiagAddendum();
-                    diagAddendum.addMessage(
-                        Localizer.DiagnosticAddendum.argumentType().format({
-                            type: printType(simplifiedType, /* expandTypeAlias */ true),
-                        })
-                    );
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
                         DiagnosticRule.reportUnknownArgumentType,
-                        Localizer.Diagnostic.argTypePartiallyUnknown() + diagAddendum.getString(),
+                        Localizer.Diagnostic.argTypeUnknown() + diagAddendum.getString(),
                         argParam.errorNode
                     );
+                } else if (isPartlyUnknown(simplifiedType, true)) {
+                    // Don't report an error if the type is a partially-specialized
+                    // class. This comes up frequently in cases where a type is passed
+                    // as an argument (e.g. "defaultdict(list)").
+
+                    // If the parameter type is also partially unknown, don't report
+                    // the error because it's likely that the partially-unknown type
+                    // arose due to bidirectional type matching.
+                    if (!isPartlyUnknown(argParam.paramType) && !isClass(simplifiedType)) {
+                        const diagAddendum = getDiagAddendum();
+                        diagAddendum.addMessage(
+                            Localizer.DiagnosticAddendum.argumentType().format({
+                                type: printType(simplifiedType, /* expandTypeAlias */ true),
+                            })
+                        );
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportUnknownArgumentType,
+                            DiagnosticRule.reportUnknownArgumentType,
+                            Localizer.Diagnostic.argTypePartiallyUnknown() + diagAddendum.getString(),
+                            argParam.errorNode
+                        );
+                    }
                 }
             }
         }
@@ -9143,7 +9148,7 @@ export function createTypeEvaluator(
         }
 
         let inferredEntryType =
-            entryTypes.length > 0 ? combineTypes(entryTypes.map((t) => stripLiteralValue(t))) : AnyType.create();
+            entryTypes.length > 0 ? combineTypes(entryTypes.map((t) => stripLiteralValue(t))) : UnknownType.create();
 
         // If we weren't provided an expected type, strip away any
         // literals from the set.
@@ -9186,7 +9191,11 @@ export function createTypeEvaluator(
             }
         }
 
-        const result = getTypeFromDictionaryInferred(node, /* forceStrict */ !!expectedType)!;
+        const result = getTypeFromDictionaryInferred(
+            node,
+            /* forceStrict */ !!expectedType,
+            /* useAny */ !!expectedType
+        )!;
         return { ...result, expectedTypeDiagAddendum };
     }
 
@@ -9198,12 +9207,14 @@ export function createTypeEvaluator(
         expectedType: Type,
         expectedDiagAddendum: DiagnosticAddendum
     ): TypeResult | undefined {
-        const keyTypes: Type[] = [];
-        const valueTypes: Type[] = [];
+        expectedType = transformPossibleRecursiveTypeAlias(expectedType);
 
         if (!isObject(expectedType)) {
             return undefined;
         }
+
+        const keyTypes: Type[] = [];
+        const valueTypes: Type[] = [];
 
         // Handle TypedDict's as a special case.
         if (ClassType.isTypedDictClass(expectedType.classType)) {
@@ -9290,21 +9301,28 @@ export function createTypeEvaluator(
     // Attempts to infer the type of a dictionary statement. If an expectedType
     // is provided, the resulting type must be compatible with the expected type.
     // If this isn't possible, undefined is returned.
-    function getTypeFromDictionaryInferred(node: DictionaryNode, forceStrict: boolean): TypeResult {
-        let keyType: Type = AnyType.create();
-        let valueType: Type = AnyType.create();
+    function getTypeFromDictionaryInferred(node: DictionaryNode, forceStrict: boolean, useAny: boolean): TypeResult {
+        let keyType: Type = useAny ? AnyType.create() : UnknownType.create();
+        let valueType: Type = useAny ? AnyType.create() : UnknownType.create();
 
         let keyTypes: Type[] = [];
         let valueTypes: Type[] = [];
 
         // Infer the key and value types if possible.
-        getKeyAndValueTypesFromDictionary(node, keyTypes, valueTypes, !forceStrict);
+        getKeyAndValueTypesFromDictionary(
+            node,
+            keyTypes,
+            valueTypes,
+            !forceStrict,
+            useAny ? AnyType.create() : undefined,
+            useAny ? AnyType.create() : undefined
+        );
 
         // Strip any literal values.
         keyTypes = keyTypes.map((t) => stripLiteralValue(t));
         valueTypes = valueTypes.map((t) => stripLiteralValue(t));
 
-        keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : AnyType.create();
+        keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : useAny ? AnyType.create() : UnknownType.create();
 
         // If the value type differs and we're not using "strict inference mode",
         // we need to back off because we can't properly represent the mappings
@@ -9315,10 +9333,10 @@ export function createTypeEvaluator(
             if (getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || forceStrict) {
                 valueType = combineTypes(valueTypes);
             } else {
-                valueType = areTypesSame(valueTypes) ? valueTypes[0] : UnknownType.create();
+                valueType = areTypesSame(valueTypes) ? valueTypes[0] : useAny ? AnyType.create() : UnknownType.create();
             }
         } else {
-            valueType = AnyType.create();
+            valueType = useAny ? AnyType.create() : UnknownType.create();
         }
 
         const type = getBuiltInObject(node, 'dict', [keyType, valueType]);
@@ -9476,13 +9494,14 @@ export function createTypeEvaluator(
             }
         }
 
-        return getTypeFromListInferred(node, /* forceStrict */ !!expectedType);
+        return getTypeFromListInferred(node, /* forceStrict */ !!expectedType, /* useAny */ !!expectedType);
     }
 
     // Attempts to determine the type of a list statement based on an expected type.
     // Returns undefined if that type cannot be honored.
     function getTypeFromListExpected(node: ListNode, expectedType: Type): TypeResult | undefined {
         expectedType = transformPossibleRecursiveTypeAlias(expectedType);
+
         if (!isObject(expectedType)) {
             return undefined;
         }
@@ -9536,15 +9555,15 @@ export function createTypeEvaluator(
 
     // Attempts to infer the type of a list statement with no "expected type". If
     // forceStrict is true, it always includes all of the list subtypes.
-    function getTypeFromListInferred(node: ListNode, forceStrict: boolean): TypeResult {
+    function getTypeFromListInferred(node: ListNode, forceStrict: boolean, useAny: boolean): TypeResult {
         let entryTypes: Type[] = [];
         node.entries.forEach((entry, index) => {
             let entryType: Type;
 
             if (entry.nodeType === ParseNodeType.ListComprehension) {
-                entryType = getElementTypeFromListComprehension(entry);
+                entryType = getElementTypeFromListComprehension(entry, useAny ? AnyType.create() : undefined);
             } else {
-                entryType = getTypeOfExpression(entry).type;
+                entryType = getTypeOfExpression(entry, useAny ? AnyType.create() : undefined).type;
             }
 
             if (index < maxEntriesToUseForInference) {
@@ -9554,7 +9573,7 @@ export function createTypeEvaluator(
 
         entryTypes = entryTypes.map((t) => stripLiteralValue(t));
 
-        let inferredEntryType: Type = AnyType.create();
+        let inferredEntryType: Type = useAny ? AnyType.create() : UnknownType.create();
         if (entryTypes.length > 0) {
             // If there was an expected type or we're using strict list inference,
             // combine the types into a union.
@@ -9562,7 +9581,11 @@ export function createTypeEvaluator(
                 inferredEntryType = combineTypes(entryTypes, maxSubtypesForInferredType);
             } else {
                 // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
-                inferredEntryType = areTypesSame(entryTypes) ? entryTypes[0] : UnknownType.create();
+                inferredEntryType = areTypesSame(entryTypes)
+                    ? entryTypes[0]
+                    : useAny
+                    ? AnyType.create()
+                    : UnknownType.create();
             }
         }
 
