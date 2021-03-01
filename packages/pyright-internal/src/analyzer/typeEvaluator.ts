@@ -6355,18 +6355,7 @@ export function createTypeEvaluator(
                                 // for the specified object.
                                 const argType = getTypeForArgument(argList[0]);
                                 if (isObject(argType) || (isTypeVar(argType) && TypeBase.isInstance(argType))) {
-                                    const typeType = getTypingType(errorNode, 'Type');
-                                    if (typeType && isClass(typeType)) {
-                                        return ObjectType.create(
-                                            ClassType.cloneForSpecialization(
-                                                typeType,
-                                                [stripLiteralValue(argType)],
-                                                /* isTypeArgumentExplicit */ true
-                                            )
-                                        );
-                                    } else {
-                                        return ObjectType.create(concreteSubtype);
-                                    }
+                                    return convertToInstantiable(stripLiteralValue(argType));
                                 }
                             } else if (argList.length >= 2) {
                                 // The two-parameter form of "type" returns a new class type
