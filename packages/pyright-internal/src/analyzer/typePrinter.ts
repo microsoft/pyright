@@ -364,13 +364,19 @@ export function printType(
                 }
 
                 if (type.details.boundType) {
-                    return printType(
+                    const boundTypeString = printType(
                         type.details.boundType,
                         printTypeFlags,
                         returnTypeCallback,
                         /* expandTypeAlias */ false,
                         recursionCount + 1
                     );
+
+                    if (TypeBase.isInstantiable(type)) {
+                        return `Type[${boundTypeString}]`;
+                    }
+
+                    return boundTypeString;
                 }
 
                 return (printTypeFlags & PrintTypeFlags.PrintUnknownWithAny) !== 0 ? 'Any' : 'Unknown';

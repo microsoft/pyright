@@ -11757,6 +11757,7 @@ export function createTypeEvaluator(
         return { functionType, decoratedType };
     }
 
+    // Synthesizes the "self" or "cls" parameter type if they are not explicitly annotated.
     function inferFirstParamType(
         flags: FunctionTypeFlags,
         containingClassType: ClassType,
@@ -11764,34 +11765,30 @@ export function createTypeEvaluator(
     ): Type | undefined {
         if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
             if (containingClassType) {
-                if (flags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod)) {
-                    // For class methods, the cls parameter is allowed to skip the
-                    // abstract class test because the caller is possibly passing
-                    // in a non-abstract subclass.
-                    const clsType = TypeVarType.createInstantiable(`__type_of_cls_${containingClassType.details.name}`);
-                    clsType.details.isSynthesized = true;
-                    clsType.details.isSynthesizedSelfCls = true;
-                    const scopeId = getScopeIdForNode(functionNode);
-                    clsType.nameWithScope = TypeVarType.makeNameWithScope(clsType.details.name, scopeId);
-                    clsType.scopeId = scopeId;
+                const hasClsParam = flags & (FunctionTypeFlags.ClassMethod | FunctionTypeFlags.ConstructorMethod);
 
-                    clsType.details.boundType = selfSpecializeClassType(
-                        containingClassType,
-                        /* setSkipAbstractClassTest */ true
-                    );
-                    return clsType;
-                } else if ((flags & FunctionTypeFlags.StaticMethod) === 0) {
-                    const selfType = TypeVarType.createInstance(`__type_of_self_${containingClassType.details.name}`);
-                    const scopeId = getScopeIdForNode(functionNode);
-                    selfType.details.isSynthesized = true;
-                    selfType.details.isSynthesizedSelfCls = true;
-                    selfType.nameWithScope = TypeVarType.makeNameWithScope(selfType.details.name, scopeId);
-                    selfType.scopeId = scopeId;
+                const selfType = TypeVarType.createInstance(`__type_of_self_${containingClassType.details.name}`);
+                const scopeId = getScopeIdForNode(functionNode);
+                selfType.details.isSynthesized = true;
+                selfType.details.isSynthesizedSelfCls = true;
+                selfType.nameWithScope = TypeVarType.makeNameWithScope(selfType.details.name, scopeId);
+                selfType.scopeId = scopeId;
 
-                    selfType.details.boundType = ObjectType.create(
-                        selfSpecializeClassType(containingClassType, /* setSkipAbstractClassTest */ true)
-                    );
+                // The self/cls parameter is allowed to skip the abstract class test
+                // because the caller is possibly passing in a non-abstract subclass.
+                selfType.details.boundType = ObjectType.create(
+                    selfSpecializeClassType(containingClassType, /* setSkipAbstractClassTest */ true)
+                );
+
+                if (!hasClsParam) {
                     return selfType;
+                }
+
+                const typeClass = getTypingType(functionNode, 'Type');
+                if (typeClass && isClass(typeClass)) {
+                    return ObjectType.create(
+                        ClassType.cloneForSpecialization(typeClass, [selfType], /* isTypeArgumentExplicit */ true)
+                    );
                 }
             }
         }
