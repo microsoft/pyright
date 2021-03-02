@@ -18484,7 +18484,7 @@ export function createTypeEvaluator(
             const srcTypeArgs = srcType.classType.typeArguments;
             if (srcTypeArgs && srcTypeArgs.length >= 1) {
                 if (isAnyOrUnknown(srcTypeArgs[0])) {
-                    return true;
+                    return TypeBase.isInstantiable(destType);
                 } else if (isObject(srcTypeArgs[0]) || isTypeVar(srcTypeArgs[0])) {
                     if (
                         canAssignType(
