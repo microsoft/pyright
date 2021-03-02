@@ -115,7 +115,12 @@ import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isDunderName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { getLastTypedDeclaredForSymbol, isFinalVariable, isNotRequiredTypedDictVariable, isRequiredTypedDictVariable } from './symbolUtils';
+import {
+    getLastTypedDeclaredForSymbol,
+    isFinalVariable,
+    isNotRequiredTypedDictVariable,
+    isRequiredTypedDictVariable,
+} from './symbolUtils';
 import { PrintableType, TracePrinter } from './tracePrinter';
 import {
     CachedType,
