@@ -135,7 +135,7 @@ class TarFile(Iterable[TarInfo]):
     @classmethod
     def taropen(
         cls,
-        name: AnyPath,
+        name: Optional[AnyPath],
         mode: str = ...,
         fileobj: Optional[IO[bytes]] = ...,
         *,
@@ -152,7 +152,7 @@ class TarFile(Iterable[TarInfo]):
     @classmethod
     def gzopen(
         cls,
-        name: AnyPath,
+        name: Optional[AnyPath],
         mode: str = ...,
         fileobj: Optional[IO[bytes]] = ...,
         compresslevel: int = ...,
@@ -169,7 +169,7 @@ class TarFile(Iterable[TarInfo]):
     @classmethod
     def bz2open(
         cls,
-        name: AnyPath,
+        name: Optional[AnyPath],
         mode: str = ...,
         fileobj: Optional[IO[bytes]] = ...,
         compresslevel: int = ...,
@@ -186,7 +186,7 @@ class TarFile(Iterable[TarInfo]):
     @classmethod
     def xzopen(
         cls,
-        name: AnyPath,
+        name: Optional[AnyPath],
         mode: str = ...,
         fileobj: Optional[IO[bytes]] = ...,
         preset: Optional[int] = ...,

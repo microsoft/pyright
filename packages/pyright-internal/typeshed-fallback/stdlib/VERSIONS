@@ -54,7 +54,7 @@ builtins: 3.6
 bz2: 2.7
 cProfile: 2.7
 calendar: 2.7
-cgi: 2.7
+cgi: 3.6
 cgitb: 2.7
 chunk: 2.7
 cmath: 2.7

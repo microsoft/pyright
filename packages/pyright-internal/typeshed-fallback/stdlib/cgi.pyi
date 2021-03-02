@@ -1,7 +1,8 @@
 import sys
 from _typeshed import SupportsGetItem, SupportsItemAccess
 from builtins import type as _type
-from typing import IO, Any, AnyStr, Iterable, Iterator, Mapping, Optional, Protocol, TypeVar, Union
+from collections.abc import Iterable, Iterator, Mapping
+from typing import IO, Any, Optional, Protocol, TypeVar, Union
 
 _T = TypeVar("_T", bound=FieldStorage)
 
@@ -36,10 +37,7 @@ def print_form(form: dict[str, Any]) -> None: ...
 def print_directory() -> None: ...
 def print_environ_usage() -> None: ...
 
-if sys.version_info < (3,):
-    def escape(s: AnyStr, quote: bool = ...) -> AnyStr: ...
-
-elif sys.version_info < (3, 8):
+if sys.version_info < (3, 8):
     def escape(s: str, quote: Optional[bool] = ...) -> str: ...
 
 class MiniFieldStorage:
@@ -82,48 +80,22 @@ class FieldStorage(object):
     done: int
     list: Optional[_list[Any]]
     value: Union[None, bytes, _list[Any]]
-
-    if sys.version_info >= (3, 6):
-        def __init__(
-            self,
-            fp: Optional[IO[Any]] = ...,
-            headers: Optional[Mapping[str, str]] = ...,
-            outerboundary: bytes = ...,
-            environ: SupportsGetItem[str, str] = ...,
-            keep_blank_values: int = ...,
-            strict_parsing: int = ...,
-            limit: Optional[int] = ...,
-            encoding: str = ...,
-            errors: str = ...,
-            max_num_fields: Optional[int] = ...,
-            separator: str = ...,
-        ) -> None: ...
-    elif sys.version_info >= (3, 0):
-        def __init__(
-            self,
-            fp: Optional[IO[Any]] = ...,
-            headers: Optional[Mapping[str, str]] = ...,
-            outerboundary: bytes = ...,
-            environ: SupportsGetItem[str, str] = ...,
-            keep_blank_values: int = ...,
-            strict_parsing: int = ...,
-            limit: Optional[int] = ...,
-            encoding: str = ...,
-            errors: str = ...,
-        ) -> None: ...
-    else:
-        def __init__(
-            self,
-            fp: IO[Any] = ...,
-            headers: Mapping[str, str] = ...,
-            outerboundary: bytes = ...,
-            environ: SupportsGetItem[str, str] = ...,
-            keep_blank_values: int = ...,
-            strict_parsing: int = ...,
-        ) -> None: ...
-    if sys.version_info >= (3, 0):
-        def __enter__(self: _T) -> _T: ...
-        def __exit__(self, *args: Any) -> None: ...
+    def __init__(
+        self,
+        fp: Optional[IO[Any]] = ...,
+        headers: Optional[Mapping[str, str]] = ...,
+        outerboundary: bytes = ...,
+        environ: SupportsGetItem[str, str] = ...,
+        keep_blank_values: int = ...,
+        strict_parsing: int = ...,
+        limit: Optional[int] = ...,
+        encoding: str = ...,
+        errors: str = ...,
+        max_num_fields: Optional[int] = ...,
+        separator: str = ...,
+    ) -> None: ...
+    def __enter__(self: _T) -> _T: ...
+    def __exit__(self, *args: Any) -> None: ...
     def __repr__(self) -> str: ...
     def __iter__(self) -> Iterator[str]: ...
     def __getitem__(self, key: str) -> Any: ...
@@ -131,36 +103,8 @@ class FieldStorage(object):
     def getfirst(self, key: str, default: Any = ...) -> Any: ...
     def getlist(self, key: str) -> _list[Any]: ...
     def keys(self) -> _list[str]: ...
-    if sys.version_info < (3, 0):
-        def has_key(self, key: str) -> bool: ...
     def __contains__(self, key: str) -> bool: ...
     def __len__(self) -> int: ...
-    if sys.version_info >= (3, 0):
-        def __bool__(self) -> bool: ...
-    else:
-        def __nonzero__(self) -> bool: ...
-    if sys.version_info >= (3, 0):
-        # In Python 3 it returns bytes or str IO depending on an internal flag
-        def make_file(self) -> IO[Any]: ...
-    else:
-        # In Python 2 it always returns bytes and ignores the "binary" flag
-        def make_file(self, binary: Any = ...) -> IO[bytes]: ...
-
-if sys.version_info < (3, 0):
-    from UserDict import UserDict
-    class FormContentDict(UserDict[str, list[str]]):
-        query_string: str
-        def __init__(self, environ: Mapping[str, str] = ..., keep_blank_values: int = ..., strict_parsing: int = ...) -> None: ...
-    class SvFormContentDict(FormContentDict):
-        def getlist(self, key: Any) -> Any: ...
-    class InterpFormContentDict(SvFormContentDict): ...
-    class FormContent(FormContentDict):
-        # TODO this should have
-        # def values(self, key: Any) -> Any: ...
-        # but this is incompatible with the supertype, and adding '# type: ignore' triggers
-        # a parse error in pytype (https://github.com/google/pytype/issues/53)
-        def indexed_value(self, key: Any, location: int) -> Any: ...
-        def value(self, key: Any) -> Any: ...
-        def length(self, key: Any) -> int: ...
-        def stripped(self, key: Any) -> Any: ...
-        def pars(self) -> dict[Any, Any]: ...
+    def __bool__(self) -> bool: ...
+    # In Python 3 it returns bytes or str IO depending on an internal flag
+    def make_file(self) -> IO[Any]: ...

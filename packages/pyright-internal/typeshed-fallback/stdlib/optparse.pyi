@@ -96,6 +96,7 @@ class Option:
     _short_opts: List[_Text]
     action: _Text
     dest: Optional[_Text]
+    default: Any
     nargs: int
     type: Any
     callback: Optional[Callable[..., Any]]

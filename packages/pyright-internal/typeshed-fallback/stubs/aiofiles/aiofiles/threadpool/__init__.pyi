@@ -1,13 +1,13 @@
 from _typeshed import AnyPath, OpenBinaryMode, OpenBinaryModeReading, OpenBinaryModeUpdating, OpenBinaryModeWriting, OpenTextMode
 from asyncio import AbstractEventLoop
-from typing import Any, Callable, Optional, TypeVar, Union, overload
+from typing import Any, Callable, Optional, Union, overload
 from typing_extensions import Literal
 
 from ..base import AiofilesContextManager
 from .binary import AsyncBufferedIOBase, AsyncBufferedReader, AsyncFileIO, _UnknownAsyncBinaryIO
 from .text import AsyncTextIOWrapper
 
-_OpenFile = TypeVar("_OpenFile", bound=Union[AnyPath, int])
+_OpenFile = Union[AnyPath, int]
 _Opener = Callable[[str, int], int]
 
 # Text mode: always returns AsyncTextIOWrapper

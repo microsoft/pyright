@@ -5,7 +5,7 @@ _C = TypeVar("_C", bound=Callable[..., Any])
 _Func = TypeVar("_Func", bound=Callable[..., Any])
 _T = TypeVar("_T")
 
-def get_init(cls): ...
+def get_init(cls: type) -> None: ...
 
 if sys.version_info >= (3,):
     from inspect import getfullargspec as getfullargspec, iscoroutinefunction as iscoroutinefunction

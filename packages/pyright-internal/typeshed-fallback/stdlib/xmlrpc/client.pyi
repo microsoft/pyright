@@ -47,9 +47,9 @@ class ResponseError(Error): ...
 
 class Fault(Error):
 
-    faultCode: str
+    faultCode: int
     faultString: str
-    def __init__(self, faultCode: str, faultString: str, **extra: Any) -> None: ...
+    def __init__(self, faultCode: int, faultString: str, **extra: Any) -> None: ...
 
 boolean = bool
 Boolean = bool
