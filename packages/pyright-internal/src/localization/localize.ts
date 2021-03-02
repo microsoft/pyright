@@ -451,6 +451,8 @@ export namespace Localizer {
         export const noReturnContainsReturn = () => getRawString('Diagnostic.noReturnContainsReturn');
         export const noReturnContainsYield = () => getRawString('Diagnostic.noReturnContainsYield');
         export const noReturnReturnsNone = () => getRawString('Diagnostic.noReturnReturnsNone');
+        export const notRequiredArgCount = () => getRawString('Diagnostic.notRequiredArgCount');
+        export const notRequiredNotInTypedDict = () => getRawString('Diagnostic.notRequiredNotInTypedDict');
         export const objectNotCallable = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.objectNotCallable'));
         export const obscuredClassDeclaration = () =>
@@ -535,6 +537,8 @@ export namespace Localizer {
         export const recursiveDefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.recursiveDefinition'));
         export const relativeImportNotAllowed = () => getRawString('Diagnostic.relativeImportNotAllowed');
+        export const requiredArgCount = () => getRawString('Diagnostic.requiredArgCount');
+        export const requiredNotInTypedDict = () => getRawString('Diagnostic.requiredNotInTypedDict');
         export const returnMissing = () =>
             new ParameterizedString<{ returnType: string }>(getRawString('Diagnostic.returnMissing'));
         export const returnOutsideFunction = () => getRawString('Diagnostic.returnOutsideFunction');

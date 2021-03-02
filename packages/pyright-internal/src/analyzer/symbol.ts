@@ -44,7 +44,7 @@ export const enum SymbolFlags {
     // set when accessed through a class instance.
     ClassVar = 1 << 7,
 
-    // // Indicates that the symbol is in __all__.
+    // Indicates that the symbol is in __all__.
     InDunderAll = 1 << 8,
 }
 

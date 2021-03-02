@@ -705,6 +705,24 @@ test('TypedDict12', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Required1', () => {
+    // Analyze with Python 3.10 settings.
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['required1.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 8);
+});
+
+test('Required2', () => {
+    // Analyze with Python 3.10 settings.
+    const configOptions = new ConfigOptions('.');
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['required2.py'], configOptions);
+
+    TestUtils.validateResults(analysisResults, 7);
+});
+
 test('Metaclass1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['metaclass1.py']);
     TestUtils.validateResults(analysisResults, 0);

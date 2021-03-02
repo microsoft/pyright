@@ -1426,7 +1426,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitImportFrom(node: ImportFromNode): boolean {
-        const typingSymbolsOfInterest = ['Final', 'TypeAlias', 'ClassVar'];
+        const typingSymbolsOfInterest = ['Final', 'TypeAlias', 'ClassVar', 'Required', 'NotRequired'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
         let resolvedPath = '';
@@ -2857,6 +2857,8 @@ export class Binder extends ParseTreeWalker {
                         node: target,
                         isConstant: isConstantName(name.value),
                         isFinal: finalInfo.isFinal,
+                        isRequired: this._isRequiredAnnotation(typeAnnotationNode),
+                        isNotRequired: this._isNotRequiredAnnotation(typeAnnotationNode),
                         typeAliasAnnotation: isExplicitTypeAlias ? typeAnnotation : undefined,
                         typeAliasName: isExplicitTypeAlias ? target : undefined,
                         path: this._fileInfo.filePath,
@@ -2965,7 +2967,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     // Determines if the specified type annotation expression is a "Final".
-    // It returns two boolean values indicating if the expression is a "Final"
+    // It returns a value indicating whether the expression is a "Final"
     // expression and whether it's a "raw" Final with no type arguments.
     private _isAnnotationFinal(typeAnnotation: ExpressionNode | undefined): FinalInfo {
         let isFinal = false;
@@ -2990,6 +2992,28 @@ export class Binder extends ParseTreeWalker {
         }
 
         return { isFinal, finalTypeNode };
+    }
+
+    // Determines if the specified type annotation is wrapped in a "Required".
+    private _isRequiredAnnotation(typeAnnotation: ExpressionNode | undefined): boolean {
+        if (typeAnnotation && typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
+            if (this._isTypingAnnotation(typeAnnotation.baseExpression, 'Required')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Determines if the specified type annotation is wrapped in a "NotRequired".
+    private _isNotRequiredAnnotation(typeAnnotation: ExpressionNode | undefined): boolean {
+        if (typeAnnotation && typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
+            if (this._isTypingAnnotation(typeAnnotation.baseExpression, 'NotRequired')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private _isAnnotationTypeAlias(typeAnnotation: ExpressionNode | undefined) {

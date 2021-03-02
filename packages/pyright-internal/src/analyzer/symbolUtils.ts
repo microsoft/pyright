@@ -39,3 +39,11 @@ export function isTypedDictMemberAccessedThroughIndex(symbol: Symbol): boolean {
 export function isFinalVariable(symbol: Symbol): boolean {
     return symbol.getDeclarations().some((decl) => isFinalVariableDeclaration(decl));
 }
+
+export function isRequiredTypedDictVariable(symbol: Symbol) {
+    return symbol.getDeclarations().some((decl) => decl.type === DeclarationType.Variable && !!decl.isRequired);
+}
+
+export function isNotRequiredTypedDictVariable(symbol: Symbol) {
+    return symbol.getDeclarations().some((decl) => decl.type === DeclarationType.Variable && !!decl.isNotRequired);
+}

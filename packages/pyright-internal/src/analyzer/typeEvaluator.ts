@@ -115,7 +115,7 @@ import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
 import { isConstantName, isDunderName, isPrivateOrProtectedName } from './symbolNameUtils';
-import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
+import { getLastTypedDeclaredForSymbol, isFinalVariable, isNotRequiredTypedDictVariable, isRequiredTypedDictVariable } from './symbolUtils';
 import { PrintableType, TracePrinter } from './tracePrinter';
 import {
     CachedType,
@@ -10220,6 +10220,51 @@ export function createTypeEvaluator(
         return ClassType.cloneForSpecialization(classType, [convertToInstance(typeArg)], !!typeArgs);
     }
 
+    function createRequiredType(
+        classType: ClassType,
+        errorNode: ParseNode,
+        isRequired: boolean,
+        typeArgs: TypeResult[] | undefined
+    ): Type {
+        if (!typeArgs || typeArgs.length !== 1) {
+            addError(
+                isRequired ? Localizer.Diagnostic.requiredArgCount() : Localizer.Diagnostic.notRequiredArgCount(),
+                errorNode
+            );
+            return classType;
+        }
+
+        const typeArgType = typeArgs[0].type;
+
+        // Make sure this is used only in a dataclass.
+        const containingClassNode = ParseTreeUtils.getEnclosingClass(errorNode, /* stopAtFunction */ true);
+        const classTypeInfo = containingClassNode ? getTypeOfClass(containingClassNode) : undefined;
+
+        let isUsageLegal = false;
+
+        if (classTypeInfo && isClass(classTypeInfo.classType) && ClassType.isTypedDictClass(classTypeInfo.classType)) {
+            // The only legal usage is when used in a type annotation statement.
+            if (
+                errorNode.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+                errorNode.parent.typeAnnotation === errorNode
+            ) {
+                isUsageLegal = true;
+            }
+        }
+
+        if (!isUsageLegal) {
+            addError(
+                isRequired
+                    ? Localizer.Diagnostic.requiredNotInTypedDict()
+                    : Localizer.Diagnostic.notRequiredNotInTypedDict(),
+                errorNode
+            );
+            return ClassType.cloneForSpecialization(classType, [convertToInstance(typeArgType)], !!typeArgs);
+        }
+
+        return typeArgType;
+    }
+
     function createUnpackType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined): Type {
         if (!typeArgs || typeArgs.length !== 1) {
             addError(Localizer.Diagnostic.unpackArgCount(), errorNode);
@@ -10435,7 +10480,7 @@ export function createTypeEvaluator(
     function transformTypeForPossibleEnumClass(node: NameNode, typeOfExpr: Type): Type {
         // If the node is within a class that derives from the metaclass
         // "EnumMeta", we need to treat assignments differently.
-        const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+        const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
         if (enclosingClassNode) {
             const enumClassInfo = getTypeOfClass(enclosingClassNode);
 
@@ -10630,6 +10675,8 @@ export function createTypeEvaluator(
             Concatenate: { alias: '', module: 'builtins' },
             TypeGuard: { alias: '', module: 'builtins' },
             Unpack: { alias: '', module: 'builtins' },
+            Required: { alias: '', module: 'builtins' },
+            NotRequired: { alias: '', module: 'builtins' },
         };
 
         const aliasMapEntry = specialTypes[assignedName];
@@ -11462,7 +11509,7 @@ export function createTypeEvaluator(
 
         // There was no cached type, so create a new one.
         // Retrieve the containing class node if the function is a method.
-        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, true);
+        const containingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
         let containingClassType: ClassType | undefined;
         if (containingClassNode) {
             const classInfo = getTypeOfClass(containingClassNode);
@@ -15808,6 +15855,11 @@ export function createTypeEvaluator(
                 case 'Unpack': {
                     return createUnpackType(errorNode, typeArgs);
                 }
+
+                case 'Required':
+                case 'NotRequired': {
+                    return createRequiredType(classType, errorNode, aliasedName === 'Required', typeArgs);
+                }
             }
         }
 
@@ -19924,9 +19976,18 @@ export function createTypeEvaluator(
                 // Only variables (not functions, classes, etc.) are considered.
                 const lastDecl = getLastTypedDeclaredForSymbol(symbol);
                 if (lastDecl && lastDecl.type === DeclarationType.Variable) {
+                    const valueType = getDeclaredTypeOfSymbol(symbol) || UnknownType.create();
+                    let isRequired = !ClassType.isCanOmitDictValues(classType);
+
+                    if (isRequiredTypedDictVariable(symbol)) {
+                        isRequired = true;
+                    } else if (isNotRequiredTypedDictVariable(symbol)) {
+                        isRequired = false;
+                    }
+
                     keyMap.set(name, {
-                        valueType: getDeclaredTypeOfSymbol(symbol) || UnknownType.create(),
-                        isRequired: !ClassType.isCanOmitDictValues(classType),
+                        valueType,
+                        isRequired,
                         isProvided: false,
                     });
                 }

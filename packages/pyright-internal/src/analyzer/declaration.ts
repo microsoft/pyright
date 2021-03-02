@@ -112,6 +112,12 @@ export interface VariableDeclaration extends DeclarationBase {
     // constant in that reassignment is not permitted)?
     isFinal?: boolean;
 
+    // Is the declaration annotated with "Required"?
+    isRequired?: boolean;
+
+    // Is the declaration annotated with "NotRequired"?
+    isNotRequired?: boolean;
+
     // Points to the "TypeAlias" annotation described in PEP 613.
     typeAliasAnnotation?: ExpressionNode;
 
