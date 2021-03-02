@@ -690,17 +690,19 @@ export function createTypeEvaluator(
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
     let returnTypeInferenceTypeCache: TypeCache | undefined;
 
-    function run<T>(title: string, callback: () => T, o: PrintableType): T {
-        return evaluatorOptions.logCalls
-            ? logger.log(
-                  title,
-                  (s) => {
-                      s.add(printer?.print(o));
-                      return callback();
-                  },
-                  evaluatorOptions.minimumLoggingThreshold
-              )
-            : callback();
+    function logInternalCall<T>(title: string, callback: () => T, value: PrintableType): T {
+        if (!evaluatorOptions.logCalls) {
+            return callback();
+        }
+
+        return logger.log(
+            title,
+            (logState) => {
+                logState.add(printer?.print(value));
+                return callback();
+            },
+            evaluatorOptions.minimumLoggingThreshold
+        );
     }
 
     function runWithCancellationToken<T>(token: CancellationToken, callback: () => T): T {
@@ -859,7 +861,11 @@ export function createTypeEvaluator(
     }
 
     function getTypeOfExpression(node: ExpressionNode, expectedType?: Type, flags = EvaluatorFlags.None) {
-        return run('getTypeOfExpression', () => getTypeOfExpressionInternal(node, expectedType, flags), node);
+        return logInternalCall(
+            'getTypeOfExpression',
+            () => getTypeOfExpressionInternal(node, expectedType, flags),
+            node
+        );
     }
 
     function getTypeOfExpressionInternal(
@@ -16573,7 +16579,7 @@ export function createTypeEvaluator(
     }
 
     function getEffectiveTypeOfSymbolForUsage(symbol: Symbol, usageNode?: NameNode, useLastDecl = false) {
-        return run(
+        return logInternalCall(
             'getEffectiveTypeOfSymbolForUsage',
             () => getEffectiveTypeOfSymbolForUsageInternal(symbol, usageNode, useLastDecl),
             symbol
@@ -16802,7 +16808,11 @@ export function createTypeEvaluator(
     }
 
     function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
-        return run('getFunctionInferredReturnType', () => getFunctionInferredReturnTypeInternal(type, args), type);
+        return logInternalCall(
+            'getFunctionInferredReturnType',
+            () => getFunctionInferredReturnTypeInternal(type, args),
+            type
+        );
     }
 
     function getFunctionInferredReturnTypeInternal(type: FunctionType, args?: ValidateArgTypeParams[]) {
