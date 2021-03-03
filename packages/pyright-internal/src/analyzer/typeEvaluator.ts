@@ -4367,9 +4367,8 @@ export function createTypeEvaluator(
                             // Provide "obj" argument.
                             argumentCategory: ArgumentCategory.Simple,
                             type:
-                                bindToType ||
                                 (isAccessedThroughObject
-                                    ? ObjectType.create(baseTypeClass)
+                                    ? bindToType || ObjectType.create(baseTypeClass)
                                     : NoneType.createInstance()),
                         },
                     ];

@@ -20,6 +20,10 @@ class Column(Generic[_T]):
 class Foo:
     bar = Column[str]()
 
+    @classmethod
+    def func1(cls):
+        a: Column[str] = cls.bar
+
 
 a: Column[str] = Foo.bar
 b: str = Foo().bar
