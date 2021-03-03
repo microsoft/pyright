@@ -192,6 +192,8 @@ The `--verifytypes` option can be combined with `--outputjson` to emit the resul
 
 The `--verifytypes` feature can be integrated into a continuous integration (CI) system to verify that a library remains “type complete”.
 
+If the `--verifytypes` option is combined with `--ignoreexternal`, any incomplete types that are imported from other external packages are ignored. This allows library authors to focus on adding type annotations for the code that is directly under their control.
+
 
 ### Improving Type Completeness
 

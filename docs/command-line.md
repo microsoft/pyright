@@ -9,6 +9,7 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | --createstub IMPORT                 | Create type stub file(s) for import                  |
 | --dependencies                      | Emit import dependency information                   |
 | -h, --help                          | Show help message                                    |
+| --ignoreexternal                    | Ignore external imports for --verifytypes            |
 | --lib                               | Use library code for types when stubs are missing    |
 | --outputjson                        | Output results in JSON format                        |
 | -p, --project FILE OR DIRECTORY     | Use the configuration file at this location          |
@@ -21,7 +22,6 @@ Pyright can be run as either a VS Code extension or as a node-based command-line
 | --verifytypes IMPORT                | Verify completeness of types in py.typed package     |
 | --version                           | Print pyright version                                |
 | -w, --watch                         | Continue to run and watch for changes (4)            |
-| --ignore-external                   | Ignore external imports for --verifytypes            |
 
 (1) If specific files are specified on the command line, the pyrightconfig.json file is ignored.
 
