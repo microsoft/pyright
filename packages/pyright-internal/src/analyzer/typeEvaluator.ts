@@ -11574,9 +11574,9 @@ export function createTypeEvaluator(
         // Allow recursion by registering the partially-constructed
         // function type.
         const scope = ScopeUtils.getScopeForNode(node);
-        const functionSymbol = scope?.lookUpSymbol(node.name.value);
-        if (functionDecl) {
-            setSymbolResolutionPartialType(functionSymbol!, functionDecl, functionType);
+        const functionSymbol = scope?.lookUpSymbolRecursive(node.name.value);
+        if (functionDecl && functionSymbol) {
+            setSymbolResolutionPartialType(functionSymbol.symbol, functionDecl, functionType);
         }
         writeTypeCache(node, functionType);
         writeTypeCache(node.name, functionType);
