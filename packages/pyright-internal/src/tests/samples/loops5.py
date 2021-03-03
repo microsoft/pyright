@@ -13,4 +13,4 @@ while True:
     a = test
     t1: Literal["dict[str, str]"] = reveal_type(a)
     test = a.copy()
-    t2: Literal["Dict[str, str]"] = reveal_type(test)
+    t2: Literal["dict[str, str]"] = reveal_type(test)
