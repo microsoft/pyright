@@ -650,6 +650,9 @@ function reportDiagnosticsAsText(fileDiagnostics: FileDiagnostics[]): Diagnostic
 
 function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
     let message = prefix;
+    if (diag.file) {
+        message += `${diag.file}:`;
+    }
     if (diag.range && !isEmptyRange(diag.range)) {
         message +=
             chalk.yellow(`${diag.range.start.line + 1}`) +
