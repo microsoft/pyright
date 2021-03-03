@@ -10,6 +10,7 @@
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Diagnostic, DiagnosticAddendum, DiagnosticCategory } from '../common/diagnostic';
+import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileSystem } from '../common/fileSystem';
 import { combinePaths, getDirectoryPath, getFileExtension, stripFileExtension } from '../common/pathUtils';
 import { getEmptyRange } from '../common/textRange';
@@ -80,7 +81,7 @@ export interface PackageTypeReport {
     missingDefaultParamCount: number;
     modules: PackageModule[];
     alternateSymbolNames: AlternateSymbolNameMap;
-    diagnostics: Diagnostic[];
+    fileDiagnostics: FileDiagnostics[];
 }
 
 interface TypeVerificationInfo {
@@ -132,12 +133,14 @@ export class PackageTypeVerifier {
             missingDefaultParamCount: 0,
             alternateSymbolNames: new Map<string, string[]>(),
             modules: [],
-            diagnostics: [],
+            fileDiagnostics: [{ filePath: '', diagnostics: [] }],
         };
+
+        const commonDiagnostics = report.fileDiagnostics[0].diagnostics;
 
         try {
             if (!trimmedPackageName) {
-                report.diagnostics.push(
+                commonDiagnostics.push(
                     new Diagnostic(
                         DiagnosticCategory.Error,
                         `Package name "${trimmedPackageName}" is invalid`,
@@ -145,7 +148,7 @@ export class PackageTypeVerifier {
                     )
                 );
             } else if (!report.rootDirectory) {
-                report.diagnostics.push(
+                commonDiagnostics.push(
                     new Diagnostic(
                         DiagnosticCategory.Error,
                         `Package "${trimmedPackageName}" cannot be resolved`,
@@ -155,7 +158,7 @@ export class PackageTypeVerifier {
             } else {
                 const pyTypedInfo = getPyTypedInfo(this._fileSystem, report.rootDirectory);
                 if (!pyTypedInfo) {
-                    report.diagnostics.push(
+                    commonDiagnostics.push(
                         new Diagnostic(DiagnosticCategory.Error, 'No py.typed file found', getEmptyRange())
                     );
                 } else {
@@ -169,7 +172,7 @@ export class PackageTypeVerifier {
 
                     // If the filter eliminated all modules, report an error.
                     if (publicModules.length === 0) {
-                        report.diagnostics.push(
+                        commonDiagnostics.push(
                             new Diagnostic(
                                 DiagnosticCategory.Error,
                                 `Module "${trimmedPackageName}" cannot be resolved`,
@@ -196,7 +199,7 @@ export class PackageTypeVerifier {
                 (e.stack ? e.stack.toString() : undefined) ||
                 (typeof e.message === 'string' ? e.message : undefined) ||
                 JSON.stringify(e);
-            report.diagnostics.push(
+            commonDiagnostics.push(
                 new Diagnostic(
                     DiagnosticCategory.Error,
                     `An internal error occurred while verifying types: "${message}"`,
@@ -360,11 +363,11 @@ export class PackageTypeVerifier {
 
         const importResult = this._resolveImport(moduleName);
         if (!importResult.isImportFound) {
-            report.diagnostics.push(
+            report.fileDiagnostics[0].diagnostics.push(
                 new Diagnostic(DiagnosticCategory.Error, `Could not resolve module "${moduleName}"`, getEmptyRange())
             );
         } else if (importResult.isStubPackage) {
-            report.diagnostics.push(
+            report.fileDiagnostics[0].diagnostics.push(
                 new Diagnostic(
                     DiagnosticCategory.Error,
                     `No inlined types found for module "${moduleName}" because stub package was present`,
@@ -373,6 +376,7 @@ export class PackageTypeVerifier {
             );
         } else {
             const modulePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
+            report.fileDiagnostics.push({ filePath: modulePath, diagnostics: [] });
             this._program.addTrackedFiles([modulePath], /* isThirdPartyImport */ true, /* isInPyTypedPackage */ true);
 
             const sourceFile = this._program.getBoundSourceFile(modulePath);
@@ -391,7 +395,7 @@ export class PackageTypeVerifier {
                     ''
                 );
             } else {
-                report.diagnostics.push(
+                report.fileDiagnostics[0].diagnostics.push(
                     new Diagnostic(DiagnosticCategory.Error, `Could not bind file "${modulePath}"`, getEmptyRange())
                 );
             }
@@ -490,7 +494,8 @@ export class PackageTypeVerifier {
                 const fullName = `${scopeName}.${name}`;
                 const symbolType = this._program.getTypeForSymbol(symbol);
                 let errorMessage = '';
-
+                const diagnostics = report.fileDiagnostics[report.fileDiagnostics.length - 1].diagnostics;
+                const range = (symbol.hasDeclarations() && symbol.getDeclarations()[0].range) || getEmptyRange();
                 const packageSymbolType = this._getPackageSymbolType(symbol, symbolType);
                 const packageSymbolTypeText = PackageTypeVerifier.getSymbolTypeString(packageSymbolType);
                 const packageSymbol: PackageSymbol = {
@@ -530,7 +535,7 @@ export class PackageTypeVerifier {
                 }
 
                 if (errorMessage) {
-                    report.diagnostics.push(new Diagnostic(DiagnosticCategory.Error, errorMessage, getEmptyRange()));
+                    diagnostics.push(new Diagnostic(DiagnosticCategory.Error, errorMessage, range));
                     report.unknownTypeCount++;
                 }
 
@@ -542,11 +547,11 @@ export class PackageTypeVerifier {
                         if (isClass(symbolType)) {
                             // Determine whether the class has a proper doc string.
                             if (!symbolType.details.docString) {
-                                report.diagnostics.push(
+                                diagnostics.push(
                                     new Diagnostic(
                                         DiagnosticCategory.Warning,
                                         `No docstring found for class "${fullName}"`,
-                                        getEmptyRange()
+                                        range
                                     )
                                 );
 
@@ -602,11 +607,11 @@ export class PackageTypeVerifier {
                         if (isDocStringMissing) {
                             // Don't require docstrings for dunder methods.
                             if (!isDunderName(name)) {
-                                report.diagnostics.push(
+                                diagnostics.push(
                                     new Diagnostic(
                                         DiagnosticCategory.Warning,
                                         `No docstring found for function "${fullName}"`,
-                                        getEmptyRange()
+                                        range
                                     )
                                 );
 
@@ -615,11 +620,11 @@ export class PackageTypeVerifier {
                         }
 
                         if (isDefaultValueEllipsis) {
-                            report.diagnostics.push(
+                            diagnostics.push(
                                 new Diagnostic(
                                     DiagnosticCategory.Warning,
                                     `One or more default values in function "${fullName}" is specified as "..."`,
-                                    getEmptyRange()
+                                    range
                                 )
                             );
 
