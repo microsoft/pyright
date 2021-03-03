@@ -17,10 +17,10 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import {
     getClassDocString,
-    getFunctionDocStringFromDeclaration,
-    getFunctionDocStringFromType,
+    getFunctionDocStringInherited,
     getModuleDocString,
-    getOverloadedFunctionDocStrings,
+    getOverloadedFunctionDocStringsInherited,
+    getPropertyDocStringInherited,
 } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import {
@@ -309,9 +309,16 @@ export class HoverProvider {
         const classText = `${node.value}(${functionParts[0].join(', ')})`;
 
         this._addResultsPart(parts, '(class) ' + classText, true);
-        const addedDoc = this._addDocumentationPartForType(format, sourceMapper, parts, initMethodType, declaration);
+        const addedDoc = this._addDocumentationPartForType(
+            format,
+            sourceMapper,
+            parts,
+            initMethodType,
+            declaration,
+            evaluator
+        );
         if (!addedDoc) {
-            this._addDocumentationPartForType(format, sourceMapper, parts, classType, declaration);
+            this._addDocumentationPartForType(format, sourceMapper, parts, classType, declaration, evaluator);
         }
         return true;
     }
@@ -331,7 +338,7 @@ export class HoverProvider {
     ) {
         const type = evaluator.getType(node);
         if (type) {
-            this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl);
+            this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl, evaluator);
         }
     }
 
@@ -340,7 +347,8 @@ export class HoverProvider {
         sourceMapper: SourceMapper,
         parts: HoverTextPart[],
         type: Type,
-        resolvedDecl: DeclarationBase | undefined
+        resolvedDecl: DeclarationBase | undefined,
+        evaluator: TypeEvaluator
     ): boolean {
         const docStrings: (string | undefined)[] = [];
 
@@ -349,12 +357,50 @@ export class HoverProvider {
         } else if (isClass(type)) {
             docStrings.push(getClassDocString(type, resolvedDecl, sourceMapper));
         } else if (isFunction(type)) {
-            docStrings.push(getFunctionDocStringFromType(type, sourceMapper));
+            if (resolvedDecl?.type === DeclarationType.Function) {
+                const enclosingClass = resolvedDecl ? ParseTreeUtils.getEnclosingClass(resolvedDecl.node) : undefined;
+                const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
+
+                docStrings.push(
+                    getFunctionDocStringInherited(type, resolvedDecl, sourceMapper, classResults?.classType)
+                );
+            } else if (resolvedDecl?.type === DeclarationType.Class) {
+                // Special case where hover on Class decl returns __init__ docString
+                const enclosingClass =
+                    resolvedDecl.node.nodeType === ParseNodeType.Class ? resolvedDecl.node : undefined;
+                const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
+                const fieldSymbol = classResults?.classType.details.fields.get(type.details.name);
+                if (fieldSymbol) {
+                    const decl = fieldSymbol.getDeclarations()[0];
+                    docStrings.push(getFunctionDocStringInherited(type, decl, sourceMapper, classResults?.classType));
+                }
+            }
         } else if (isOverloadedFunction(type)) {
-            docStrings.push(...getOverloadedFunctionDocStrings(type, resolvedDecl, sourceMapper));
+            const enclosingClass = resolvedDecl ? ParseTreeUtils.getEnclosingClass(resolvedDecl.node) : undefined;
+            const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
+
+            docStrings.push(
+                ...getOverloadedFunctionDocStringsInherited(
+                    type,
+                    resolvedDecl,
+                    sourceMapper,
+                    evaluator,
+                    classResults?.classType
+                )
+            );
         } else if (resolvedDecl?.type === DeclarationType.Function) {
             // @property functions
-            docStrings.push(getFunctionDocStringFromDeclaration(resolvedDecl as FunctionDeclaration, sourceMapper));
+            const enclosingClass =
+                resolvedDecl?.type === DeclarationType.Function
+                    ? ParseTreeUtils.getEnclosingClass((resolvedDecl as FunctionDeclaration).node.name, false)
+                    : undefined;
+            const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
+
+            if (classResults) {
+                docStrings.push(
+                    getPropertyDocStringInherited(resolvedDecl, sourceMapper, evaluator, classResults.classType)
+                );
+            }
         }
 
         let addedDoc = false;

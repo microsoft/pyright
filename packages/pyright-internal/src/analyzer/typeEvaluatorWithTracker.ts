@@ -10,6 +10,7 @@
  * and etc.
  */
 
+import { isDebugMode } from '../common/core';
 import { LogTracker } from '../common/logTracker';
 import { timingStats } from '../common/timing';
 import { ImportLookup } from './analyzerFileInfo';
@@ -23,6 +24,10 @@ export function createTypeEvaluatorWithTracker(
     logger: LogTracker,
     printer?: TracePrinter
 ) {
+    if (!evaluatorOptions.logCalls && isDebugMode()) {
+        return createTypeEvaluator(importLookup, evaluatorOptions, logger, undefined);
+    }
+
     function run<T>(title: string, callback: () => T, value?: PrintableType): T {
         return evaluatorOptions.logCalls
             ? logger.log(

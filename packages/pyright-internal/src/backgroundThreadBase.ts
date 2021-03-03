@@ -14,6 +14,7 @@ import { LogLevel } from './common/console';
 import * as debug from './common/debug';
 import { createFromRealFileSystem, FileSystem } from './common/fileSystem';
 import { FileSpec } from './common/pathUtils';
+import { PyrightFileSystem } from './pyrightFileSystem';
 
 export class BackgroundThreadBase {
     protected fs: FileSystem;
@@ -24,7 +25,7 @@ export class BackgroundThreadBase {
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = data.rootDirectory;
 
-        this.fs = createFromRealFileSystem(this.getConsole());
+        this.fs = new PyrightFileSystem(createFromRealFileSystem(this.getConsole()));
     }
 
     protected log(level: LogLevel, msg: string) {

@@ -98,6 +98,23 @@ export const enum ClassMemberLookupFlags {
     DeclaredTypesOnly = 1 << 4,
 }
 
+export const enum ClassIteratorFlags {
+    Default = 0,
+
+    // By default, the original (derived) class is searched along
+    // with its base classes. If this flag is set, the original
+    // class is skipped and only the base classes are searched.
+    SkipOriginalClass = 1 << 0,
+
+    // By default, base classes are searched as well as the
+    // original (derived) class. If this flag is set, no recursion
+    // is performed.
+    SkipBaseClasses = 1 << 1,
+
+    // Skip the 'object' base class in particular.
+    SkipObjectBaseClass = 1 << 2,
+}
+
 export const enum CanAssignFlags {
     Default = 0,
 
@@ -740,47 +757,52 @@ export function lookUpObjectMember(
 }
 
 // Looks up a member in a class using the multiple-inheritance rules
-// defined by Python. For more details, see this note on method resolution
+// defined by Python.
+export function lookUpClassMember(
+    classType: Type,
+    memberName: string,
+    flags = ClassMemberLookupFlags.Default
+): ClassMember | undefined {
+    const memberItr = getClassMemberIterator(classType, memberName, flags);
+
+    return memberItr.next()?.value;
+}
+
+// Iterates members in a class matching memberName using the multiple-inheritance rules.
+// For more details, see this note on method resolution
 // order: https://www.python.org/download/releases/2.3/mro/.
 // As it traverses the inheritance tree, it applies partial specialization
 // to the the base class and member. For example, if ClassA inherits from
 // ClassB[str] which inherits from Dict[_T1, int], a search for '__iter__'
 // would return a class type of Dict[str, int] and a symbolType of
 // (self) -> Iterator[str].
-export function lookUpClassMember(
-    classType: Type,
-    memberName: string,
-    flags = ClassMemberLookupFlags.Default
-): ClassMember | undefined {
+export function* getClassMemberIterator(classType: Type, memberName: string, flags = ClassMemberLookupFlags.Default) {
     const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
 
     if (isClass(classType)) {
         let foundUnknownBaseClass = false;
-        let skipMroEntry = (flags & ClassMemberLookupFlags.SkipOriginalClass) !== 0;
 
-        for (const mroClass of classType.details.mro) {
-            if (skipMroEntry) {
-                skipMroEntry = false;
-                continue;
-            }
+        let classFlags = ClassIteratorFlags.Default;
+        if (flags & ClassMemberLookupFlags.SkipOriginalClass) {
+            classFlags = classFlags | ClassIteratorFlags.SkipOriginalClass;
+        }
+        if (flags & ClassMemberLookupFlags.SkipBaseClasses) {
+            classFlags = classFlags | ClassIteratorFlags.SkipBaseClasses;
+        }
+        if (flags & ClassMemberLookupFlags.SkipObjectBaseClass) {
+            classFlags = classFlags | ClassIteratorFlags.SkipObjectBaseClass;
+        }
 
+        const classItr = getClassIterator(classType, classFlags);
+
+        for (const [mroClass, specializedMroClass] of classItr) {
             if (!isClass(mroClass)) {
                 foundUnknownBaseClass = true;
                 continue;
             }
 
-            // If mroClass is an ancestor of classType, partially specialize
-            // it in the context of classType.
-            const specializedMroClass = partiallySpecializeType(mroClass, classType);
             if (!isClass(specializedMroClass)) {
                 continue;
-            }
-
-            // Should we ignore members on the 'object' base class?
-            if (flags & ClassMemberLookupFlags.SkipObjectBaseClass) {
-                if (ClassType.isBuiltIn(specializedMroClass, 'object')) {
-                    continue;
-                }
             }
 
             const memberFields = specializedMroClass.details.fields;
@@ -791,12 +813,13 @@ export function lookUpClassMember(
                 if (symbol && symbol.isInstanceMember()) {
                     const hasDeclaredType = symbol.hasTypedDeclarations();
                     if (!declaredTypesOnly || hasDeclaredType) {
-                        return {
+                        const cm: ClassMember = {
                             symbol,
                             isInstanceMember: true,
                             classType: specializedMroClass,
                             isTypeDeclared: hasDeclaredType,
                         };
+                        yield cm;
                     }
                 }
             }
@@ -820,39 +843,72 @@ export function lookUpClassMember(
                         }
                     }
 
-                    return {
+                    const cm: ClassMember = {
                         symbol,
                         isInstanceMember,
                         classType: specializedMroClass,
                         isTypeDeclared: hasDeclaredType,
                     };
+                    yield cm;
                 }
-            }
-
-            if ((flags & ClassMemberLookupFlags.SkipBaseClasses) !== 0) {
-                break;
             }
         }
 
         if (foundUnknownBaseClass && !declaredTypesOnly) {
             // The class derives from an unknown type, so all bets are off
             // when trying to find a member. Return an unknown symbol.
-            return {
+            const cm: ClassMember = {
                 symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
                 isInstanceMember: false,
                 classType: UnknownType.create(),
                 isTypeDeclared: false,
             };
+            yield cm;
         }
     } else if (isAnyOrUnknown(classType)) {
         // The class derives from an unknown type, so all bets are off
         // when trying to find a member. Return an unknown symbol.
-        return {
+        const cm: ClassMember = {
             symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
             isInstanceMember: false,
             classType: UnknownType.create(),
             isTypeDeclared: false,
         };
+        yield cm;
+    }
+
+    return undefined;
+}
+
+export function* getClassIterator(classType: Type, flags = ClassIteratorFlags.Default) {
+    if (isClass(classType)) {
+        let skipMroEntry = (flags & ClassIteratorFlags.SkipOriginalClass) !== 0;
+
+        for (const mroClass of classType.details.mro) {
+            if (skipMroEntry) {
+                skipMroEntry = false;
+                continue;
+            }
+
+            // If mroClass is an ancestor of classType, partially specialize
+            // it in the context of classType.
+            const specializedMroClass = partiallySpecializeType(mroClass, classType);
+
+            // Should we ignore members on the 'object' base class?
+            if (flags & ClassIteratorFlags.SkipObjectBaseClass) {
+                if (isClass(specializedMroClass)) {
+                    if (ClassType.isBuiltIn(specializedMroClass, 'object')) {
+                        continue;
+                    }
+                }
+            }
+
+            yield [mroClass, specializedMroClass];
+
+            if ((flags & ClassIteratorFlags.SkipBaseClasses) !== 0) {
+                break;
+            }
+        }
     }
 
     return undefined;

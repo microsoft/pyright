@@ -1068,7 +1068,7 @@ export class AnalyzerService {
                     }
 
                     // Wholesale ignore events that appear to be from tmp file modification.
-                    if (path.endsWith('.tmp')) {
+                    if (path.endsWith('.tmp') || path.endsWith('.git')) {
                         return;
                     }
 

@@ -10,6 +10,7 @@
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { FileSystem } from '../common/fileSystem';
+import { stubsSuffix } from '../common/pathConsts';
 import {
     changeAnyExtension,
     combinePathComponents,
@@ -31,6 +32,7 @@ import {
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import * as StringUtils from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
+import { PyrightFileSystem } from '../pyrightFileSystem';
 import { ImplicitImport, ImportResult, ImportType } from './importResult';
 import * as PythonPathUtils from './pythonPathUtils';
 import { getPyTypedInfo, PyTypedInfo } from './pyTypedUtils';
@@ -53,7 +55,6 @@ type CachedImportResults = Map<string, ImportResult>;
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
 const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExtensions];
-const stubsSuffix = '-stubs';
 
 // Should we allow partial resolution for third-party packages? Some use tricks
 // to populate their package namespaces, so we might be able to partially resolve
@@ -64,6 +65,7 @@ const allowPartialResolutionForThirdPartyPackages = false;
 
 export class ImportResolver {
     protected _configOptions: ConfigOptions;
+
     private _cachedPythonSearchPaths = new Map<string, string[]>();
     private _cachedImportResults = new Map<string, CachedImportResults>();
     private _cachedTypeshedStdLibPath: string | undefined;
@@ -81,6 +83,10 @@ export class ImportResolver {
     invalidateCache() {
         this._cachedPythonSearchPaths = new Map<string, string[]>();
         this._cachedImportResults = new Map<string, CachedImportResults>();
+
+        if (this.fileSystem instanceof PyrightFileSystem) {
+            this.fileSystem.clearPartialStubs();
+        }
     }
 
     // Resolves the import and returns the path if it exists, otherwise
@@ -109,6 +115,8 @@ export class ImportResolver {
             filteredImplicitImports: [],
             nonStubImportResult: undefined,
         };
+
+        this._ensurePartialStubPackages(execEnv);
 
         // Is it a relative import?
         if (moduleDescriptor.leadingDots > 0) {
@@ -478,6 +486,52 @@ export class ImportResolver {
         useStubPackage = false,
         allowPyi = true
     ): ImportResult {
+        if (allowPyi && useStubPackage) {
+            // Look for packaged stubs first. PEP 561 indicates that package authors can ship
+            // their stubs separately from their package implementation by appending the string
+            // '-stubs' to its top - level directory name. We'll look there first.
+            const importResult = this._resolveAbsoluteImport(
+                rootPath,
+                execEnv,
+                moduleDescriptor,
+                importName,
+                importFailureInfo,
+                allowPartial,
+                /* allowNativeLib */ false,
+                /* useStubPackage */ true,
+                /* allowPyi */ true
+            );
+
+            // We found fully typed stub packages.
+            if (importResult.packageDirectory) {
+                return importResult;
+            }
+        }
+
+        return this._resolveAbsoluteImport(
+            rootPath,
+            execEnv,
+            moduleDescriptor,
+            importName,
+            importFailureInfo,
+            allowPartial,
+            allowNativeLib,
+            /* useStubPackage */ false,
+            allowPyi
+        );
+    }
+
+    private _resolveAbsoluteImport(
+        rootPath: string,
+        execEnv: ExecutionEnvironment,
+        moduleDescriptor: ImportedModuleDescriptor,
+        importName: string,
+        importFailureInfo: string[],
+        allowPartial: boolean,
+        allowNativeLib: boolean,
+        useStubPackage: boolean,
+        allowPyi: boolean
+    ): ImportResult {
         importFailureInfo.push(`Attempting to resolve using root path '${rootPath}'`);
 
         // Starting at the specified path, walk the file system to find the
@@ -696,6 +750,37 @@ export class ImportResolver {
         }
     }
 
+    private _ensurePartialStubPackages(execEnv: ExecutionEnvironment) {
+        if (!(this.fileSystem instanceof PyrightFileSystem)) {
+            return;
+        }
+
+        if (this.fileSystem.isPartialStubPackagesScanned(execEnv)) {
+            return;
+        }
+
+        const fs = this.fileSystem;
+        const ignored: string[] = [];
+        const paths: string[] = [];
+
+        // Add paths to search stub packages.
+        addPaths(this._configOptions.stubPath);
+        addPaths(execEnv.root);
+        execEnv.extraPaths.forEach((p) => addPaths(p));
+        addPaths(this.getTypeshedPathEx(execEnv, ignored));
+        this._getPythonSearchPaths(execEnv, ignored).forEach((p) => addPaths(p));
+
+        this.fileSystem.processPartialStubPackages(paths, this.getImportRoots(execEnv));
+
+        function addPaths(path?: string) {
+            if (!path || fs.isPathScanned(path)) {
+                return;
+            }
+
+            paths.push(path);
+        }
+    }
+
     private _lookUpResultsInCache(
         execEnv: ExecutionEnvironment,
         importName: string,
@@ -820,7 +905,10 @@ export class ImportResolver {
                     execEnv,
                     moduleDescriptor,
                     importName,
-                    importFailureInfo
+                    importFailureInfo,
+                    /* allowPartial */ undefined,
+                    /* allowNativeLib */ false,
+                    /* useStubPackage */ true
                 );
 
                 if (typingsImport.isImportFound) {
@@ -844,7 +932,7 @@ export class ImportResolver {
             importFailureInfo,
             /* allowPartial */ undefined,
             /* allowNativeLib */ true,
-            /* useStubPackage */ undefined,
+            /* useStubPackage */ true,
             allowPyi
         );
         bestResultSoFar = localImport;
@@ -859,7 +947,7 @@ export class ImportResolver {
                 importFailureInfo,
                 /* allowPartial */ undefined,
                 /* allowNativeLib */ true,
-                /* useStubPackage */ undefined,
+                /* useStubPackage */ true,
                 allowPyi
             );
             bestResultSoFar = this._pickBestImport(bestResultSoFar, localImport);
@@ -871,43 +959,17 @@ export class ImportResolver {
             for (const searchPath of pythonSearchPaths) {
                 importFailureInfo.push(`Looking in python search path '${searchPath}'`);
 
-                let thirdPartyImport: ImportResult | undefined;
-
-                if (allowPyi) {
-                    // Look for packaged stubs first. PEP 561 indicates that package authors can ship
-                    // their stubs separately from their package implementation by appending the string
-                    // '-stubs' to its top - level directory name. We'll look there first.
-                    thirdPartyImport = this.resolveAbsoluteImport(
-                        searchPath,
-                        execEnv,
-                        moduleDescriptor,
-                        importName,
-                        importFailureInfo,
-                        /* allowPartial */ allowPartialResolutionForThirdPartyPackages,
-                        /* allowNativeLib */ false,
-                        /* useStubPackage */ true,
-                        allowPyi
-                    );
-                }
-
-                if (!thirdPartyImport?.isImportFound) {
-                    // Either we didn't look for a packaged stub or we looked but didn't find one.
-                    // If there was a packaged stub directory, we can stop searching unless
-                    // it happened to be marked as "partially typed".
-                    if (!thirdPartyImport?.packageDirectory || thirdPartyImport.pyTypedInfo?.isPartiallyTyped) {
-                        thirdPartyImport = this.resolveAbsoluteImport(
-                            searchPath,
-                            execEnv,
-                            moduleDescriptor,
-                            importName,
-                            importFailureInfo,
-                            /* allowPartial */ allowPartialResolutionForThirdPartyPackages,
-                            /* allowNativeLib */ true,
-                            /* useStubPackage */ false,
-                            allowPyi
-                        );
-                    }
-                }
+                const thirdPartyImport = this.resolveAbsoluteImport(
+                    searchPath,
+                    execEnv,
+                    moduleDescriptor,
+                    importName,
+                    importFailureInfo,
+                    /* allowPartial */ allowPartialResolutionForThirdPartyPackages,
+                    /* allowNativeLib */ true,
+                    /* useStubPackage */ true,
+                    allowPyi
+                );
 
                 if (thirdPartyImport) {
                     thirdPartyImport.importType = ImportType.ThirdParty;
@@ -1004,15 +1066,15 @@ export class ImportResolver {
 
         // Find the site packages for the configured virtual environment.
         if (!this._cachedPythonSearchPaths.has(cacheKey)) {
-            this._cachedPythonSearchPaths.set(
-                cacheKey,
+            const paths =
                 PythonPathUtils.findPythonSearchPaths(
                     this.fileSystem,
                     this._configOptions,
                     execEnv.venv,
                     importFailureInfo
-                ) || []
-            );
+                ) || [];
+
+            this._cachedPythonSearchPaths.set(cacheKey, paths);
         }
 
         return this._cachedPythonSearchPaths.get(cacheKey)!;

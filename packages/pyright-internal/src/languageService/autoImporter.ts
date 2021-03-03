@@ -39,7 +39,7 @@ export interface AutoImportSymbol {
 }
 
 export interface ModuleSymbolTable {
-    forEach(callbackfn: (symbol: AutoImportSymbol, name: string) => void): void;
+    forEach(callbackfn: (symbol: AutoImportSymbol, name: string, library: boolean) => void): void;
 }
 
 export type ModuleSymbolMap = Map<string, ModuleSymbolTable>;
@@ -70,7 +70,7 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
             }
 
             moduleSymbolMap.set(filePath, {
-                forEach(callbackfn: (value: AutoImportSymbol, key: string) => void): void {
+                forEach(callbackfn: (value: AutoImportSymbol, key: string, library: boolean) => void): void {
                     symbolTable.forEach((symbol, name) => {
                         if (symbol.isExternallyHidden()) {
                             return;
@@ -98,7 +98,7 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
                             !declaration.isFinal
                                 ? SymbolKind.Variable
                                 : undefined;
-                        callbackfn({ symbol, kind: variableKind }, name);
+                        callbackfn({ symbol, kind: variableKind }, name, /* library */ false);
                     });
                 },
             });
@@ -107,7 +107,7 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
 
         const indexResults = file.sourceFile.getCachedIndexResults();
         if (indexResults && !indexResults.privateOrProtected) {
-            moduleSymbolMap.set(filePath, createModuleSymbolTableFromIndexResult(indexResults));
+            moduleSymbolMap.set(filePath, createModuleSymbolTableFromIndexResult(indexResults, /* library */ false));
             return;
         }
     });
@@ -154,10 +154,22 @@ export class AutoImporter {
 
     // Track some auto import internal perf numbers.
     private _stopWatch = new Duration();
-    private _indexCount = 0;
-    private _indexTimeInMS = 0;
-    private _editTimeInMS = 0;
-    private _resolveModuleTimeInMS = 0;
+    private _perfInfo = {
+        indexUsed: false,
+        totalInMs: 0,
+
+        moduleTimeInMS: 0,
+        indexTimeInMS: 0,
+        importAliasTimeInMS: 0,
+
+        symbolCount: 0,
+        userIndexCount: 0,
+        indexCount: 0,
+        importAliasCount: 0,
+
+        editTimeInMS: 0,
+        moduleResolveTimeInMS: 0,
+    };
 
     constructor(
         private _execEnvironment: ExecutionEnvironment,
@@ -171,6 +183,8 @@ export class AutoImporter {
     ) {
         this._patternMatcher = patternMatcher ?? StringUtils.isPatternInSymbol;
         this._importStatements = getTopLevelImports(this._parseResults.parseTree, true);
+
+        this._perfInfo.indexUsed = !!this._libraryMap;
     }
 
     getAutoImportCandidatesForAbbr(abbr: string | undefined, abbrInfo: AbbreviationInfo, token: CancellationToken) {
@@ -197,13 +211,8 @@ export class AutoImporter {
     }
 
     getPerfInfo() {
-        return {
-            totalInMs: this._stopWatch.getDurationInMilliseconds(),
-            indexCount: this._indexCount,
-            indexTimeInMS: this._indexTimeInMS,
-            editTimeInMS: this._editTimeInMS,
-            moduleResolveTimeInMS: this._resolveModuleTimeInMS,
-        };
+        this._perfInfo.totalInMs = this._stopWatch.getDurationInMilliseconds();
+        return this._perfInfo;
     }
 
     private _getCandidates(
@@ -243,12 +252,10 @@ export class AutoImporter {
                 return;
             }
 
-            this._indexCount += indexResults.symbols.length;
-
             // See if this file should be offered as an implicit import.
             const isStubFileOrHasInit = this._isStubFileOrHasInit(this._libraryMap!, filePath);
             this._processModuleSymbolTable(
-                createModuleSymbolTableFromIndexResult(indexResults),
+                createModuleSymbolTableFromIndexResult(indexResults, /* library */ true),
                 filePath,
                 word,
                 similarityLimit,
@@ -260,7 +267,7 @@ export class AutoImporter {
             );
         });
 
-        this._indexTimeInMS = this._stopWatch.getDurationInMilliseconds() - startTime;
+        this._perfInfo.indexTimeInMS = this._stopWatch.getDurationInMilliseconds() - startTime;
     }
 
     private _addImportsFromModuleMap(
@@ -271,6 +278,8 @@ export class AutoImporter {
         results: AutoImportResultMap,
         token: CancellationToken
     ) {
+        const startTime = this._stopWatch.getDurationInMilliseconds();
+
         this._moduleSymbolMap.forEach((topLevelSymbols, filePath) => {
             // See if this file should be offered as an implicit import.
             const isStubFileOrHasInit = this._isStubFileOrHasInit(this._moduleSymbolMap!, filePath);
@@ -286,6 +295,8 @@ export class AutoImporter {
                 token
             );
         });
+
+        this._perfInfo.moduleTimeInMS = this._stopWatch.getDurationInMilliseconds() - startTime;
     }
 
     private _isStubFileOrHasInit<T>(map: Map<string, T>, filePath: string) {
@@ -316,8 +327,10 @@ export class AutoImporter {
         }
 
         const dotCount = StringUtils.getCharacterCount(importSource, '.');
-        topLevelSymbols.forEach((autoImportSymbol, name) => {
+        topLevelSymbols.forEach((autoImportSymbol, name, library) => {
             throwIfCancellationRequested(token);
+
+            this._perfIndexCount(autoImportSymbol, library);
 
             if (
                 !isStubOrHasInit.isStub &&
@@ -421,7 +434,11 @@ export class AutoImporter {
     ) {
         throwIfCancellationRequested(token);
 
+        const startTime = this._stopWatch.getDurationInMilliseconds();
+
         importAliasMap.forEach((mapPerSymbolName) => {
+            this._perfInfo.importAliasCount += mapPerSymbolName.size;
+
             mapPerSymbolName.forEach((importAliasData) => {
                 throwIfCancellationRequested(token);
 
@@ -486,6 +503,8 @@ export class AutoImporter {
                 });
             });
         });
+
+        this._perfInfo.importAliasTimeInMS = this._stopWatch.getDurationInMilliseconds() - startTime;
     }
 
     private _addToImportAliasMap(
@@ -624,7 +643,7 @@ export class AutoImporter {
             return this._importResolver.getModuleNameForImport(filePath, this._execEnvironment);
         } finally {
             const endTime = this._stopWatch.getDurationInMilliseconds();
-            this._resolveModuleTimeInMS += endTime - startTime;
+            this._perfInfo.moduleResolveTimeInMS += endTime - startTime;
         }
     }
 
@@ -659,7 +678,7 @@ export class AutoImporter {
             );
         } finally {
             const endTime = this._stopWatch.getDurationInMilliseconds();
-            this._editTimeInMS += endTime - startTime;
+            this._perfInfo.editTimeInMS += endTime - startTime;
         }
     }
 
@@ -782,6 +801,16 @@ export class AutoImporter {
         };
     }
 
+    private _perfIndexCount(autoImportSymbol: AutoImportSymbol, library: boolean) {
+        if (autoImportSymbol.symbol) {
+            this._perfInfo.symbolCount++;
+        } else if (library) {
+            this._perfInfo.indexCount++;
+        } else {
+            this._perfInfo.userIndexCount++;
+        }
+    }
+
     private _addResult(results: AutoImportResultMap, result: AutoImportResult) {
         let entries = results.get(result.name);
         if (!entries) {
@@ -793,9 +822,9 @@ export class AutoImporter {
     }
 }
 
-function createModuleSymbolTableFromIndexResult(indexResults: IndexResults): ModuleSymbolTable {
+function createModuleSymbolTableFromIndexResult(indexResults: IndexResults, library: boolean): ModuleSymbolTable {
     return {
-        forEach(callbackfn: (value: AutoImportSymbol, key: string) => void): void {
+        forEach(callbackfn: (value: AutoImportSymbol, key: string, library: boolean) => void): void {
             indexResults.symbols.forEach((data) => {
                 if (!data.externallyVisible) {
                     return;
@@ -806,7 +835,8 @@ function createModuleSymbolTableFromIndexResult(indexResults: IndexResults): Mod
                         importAlias: data.alias,
                         kind: data.kind,
                     },
-                    data.name
+                    data.name,
+                    library
                 );
             });
         },

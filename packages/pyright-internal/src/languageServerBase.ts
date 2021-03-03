@@ -86,6 +86,7 @@ import { convertToFlatSymbols, WorkspaceSymbolCallback } from './languageService
 import { convertHoverResults } from './languageService/hoverProvider';
 import { ReferenceCallback } from './languageService/referencesProvider';
 import { Localizer } from './localization/localize';
+import { PyrightFileSystem } from './pyrightFileSystem';
 import { WorkspaceMap } from './workspaceMap';
 
 export interface ServerSettings {
@@ -213,7 +214,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
 
         this.console.info(`Server root directory: ${_serverOptions.rootDirectory}`);
 
-        this.fs = createFromRealFileSystem(this.console, this);
+        this.fs = new PyrightFileSystem(createFromRealFileSystem(this.console, this));
 
         // Set the working directory to a known location within
         // the extension directory. Otherwise the execution of
@@ -238,6 +239,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     abstract createBackgroundAnalysis(): BackgroundAnalysisBase | undefined;
 
     protected abstract executeCommand(params: ExecuteCommandParams, token: CancellationToken): Promise<any>;
+
     protected isLongRunningCommand(command: string): boolean {
         // By default, all commands are considered "long-running" and should
         // display a cancelable progress dialog. Servers can override this

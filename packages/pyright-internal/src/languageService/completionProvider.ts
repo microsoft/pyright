@@ -21,7 +21,7 @@ import {
 
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { Declaration, DeclarationType, FunctionDeclaration } from '../analyzer/declaration';
+import { Declaration, DeclarationType, FunctionDeclaration, isFunctionDeclaration } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -32,11 +32,10 @@ import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import {
     getClassDocString,
-    getFunctionDocStringFromDeclaration,
-    getFunctionDocStringFromDeclarations,
-    getFunctionDocStringFromType,
+    getFunctionDocStringInherited,
     getModuleDocString,
-    getOverloadedFunctionDocStrings,
+    getOverloadedFunctionDocStringsInherited,
+    getPropertyDocStringInherited,
 } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluator';
 import {
@@ -199,10 +198,19 @@ export interface MemberAccessInfo {
 }
 
 export interface AutoImportInfo {
-    itemCount: number;
-    indexCount: number;
+    indexUsed: boolean;
     totalTimeInMS: number;
+
+    moduleTimeInMS: number;
     indexTimeInMS: number;
+    importAliasTimeInMS: number;
+
+    itemCount: number;
+    symbolCount: number;
+    userIndexCount: number;
+    indexCount: number;
+    importAliasCount: number;
+
     editTimeInMS: number;
     moduleResolveTimeInMS: number;
     additionTimeInMS: number;
@@ -1420,10 +1428,19 @@ export class CompletionProvider {
         }
 
         completionResults.autoImportInfo = {
-            itemCount: results.length,
-            indexCount: perfInfo.indexCount,
-            indexTimeInMS: perfInfo.indexTimeInMS,
+            indexUsed: perfInfo.indexUsed,
             totalTimeInMS: perfInfo.totalInMs,
+
+            moduleTimeInMS: perfInfo.moduleTimeInMS,
+            indexTimeInMS: perfInfo.indexTimeInMS,
+            importAliasTimeInMS: perfInfo.importAliasTimeInMS,
+
+            itemCount: results.length,
+            symbolCount: perfInfo.symbolCount,
+            userIndexCount: perfInfo.userIndexCount,
+            indexCount: perfInfo.indexCount,
+            importAliasCount: perfInfo.userIndexCount,
+
             editTimeInMS: perfInfo.editTimeInMS,
             moduleResolveTimeInMS: perfInfo.moduleResolveTimeInMS,
             additionTimeInMS: additionDuration.getDurationInMilliseconds(),
@@ -1725,21 +1742,46 @@ export class CompletionProvider {
                             } else if (isClass(type)) {
                                 documentation = getClassDocString(type, primaryDecl, this._sourceMapper);
                             } else if (isFunction(type)) {
-                                documentation = getFunctionDocStringFromType(type, this._sourceMapper);
-                            } else if (isOverloadedFunction(type)) {
-                                documentation = getOverloadedFunctionDocStrings(
+                                const enclosingClass = isFunctionDeclaration(primaryDecl)
+                                    ? ParseTreeUtils.getEnclosingClass(primaryDecl.node.name, false)
+                                    : undefined;
+                                const classResults = enclosingClass
+                                    ? this._evaluator.getTypeOfClass(enclosingClass)
+                                    : undefined;
+                                documentation = getFunctionDocStringInherited(
                                     type,
                                     primaryDecl,
-                                    this._sourceMapper
+                                    this._sourceMapper,
+                                    classResults?.classType
+                                );
+                            } else if (isOverloadedFunction(type)) {
+                                const enclosingClass = isFunctionDeclaration(primaryDecl)
+                                    ? ParseTreeUtils.getEnclosingClass(primaryDecl.node.name, false)
+                                    : undefined;
+                                const classResults = enclosingClass
+                                    ? this._evaluator.getTypeOfClass(enclosingClass)
+                                    : undefined;
+                                documentation = getOverloadedFunctionDocStringsInherited(
+                                    type,
+                                    primaryDecl,
+                                    this._sourceMapper,
+                                    this._evaluator,
+                                    classResults?.classType
                                 ).find((doc) => doc);
-                            } else if (primaryDecl.type === DeclarationType.Function) {
+                            } else if (primaryDecl?.type === DeclarationType.Function) {
                                 // @property functions
-                                documentation = getFunctionDocStringFromDeclaration(primaryDecl, this._sourceMapper);
-                                if (documentation === undefined) {
-                                    // if the setter was undocumented check the getter
-                                    documentation = getFunctionDocStringFromDeclarations(
-                                        symbol.getDeclarations(),
-                                        this._sourceMapper
+                                const enclosingClass = isFunctionDeclaration(primaryDecl)
+                                    ? ParseTreeUtils.getEnclosingClass(primaryDecl.node.name, false)
+                                    : undefined;
+                                const classResults = enclosingClass
+                                    ? this._evaluator.getTypeOfClass(enclosingClass)
+                                    : undefined;
+                                if (classResults) {
+                                    documentation = getPropertyDocStringInherited(
+                                        primaryDecl,
+                                        this._sourceMapper,
+                                        this._evaluator,
+                                        classResults?.classType
                                     );
                                 }
                             }
