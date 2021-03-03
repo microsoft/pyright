@@ -75,6 +75,12 @@ export class SourceMapper {
             .map((d) => d as ClassDeclaration);
     }
 
+    findClassDeclarationsByType(originatedPath: string, type: ClassType): ClassDeclaration[] {
+        const result: ClassOrFunctionOrVariableDeclaration[] = [];
+        this._addClassTypeDeclarations(originatedPath, type, result, new Set<string>());
+        return result.filter((r) => isClassDeclaration(r)).map((r) => r as ClassDeclaration);
+    }
+
     findFunctionDeclarations(stubDecl: FunctionDeclaration): FunctionDeclaration[] {
         return this._findFunctionOrTypeAliasDeclarations(stubDecl)
             .filter((d) => isFunctionDeclaration(d))

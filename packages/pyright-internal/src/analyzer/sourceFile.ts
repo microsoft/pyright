@@ -46,6 +46,7 @@ import { Localizer } from '../localization/localize';
 import { ModuleNode } from '../parser/parseNodes';
 import { ModuleImport, ParseOptions, Parser, ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
+import { PyrightFileSystem } from '../pyrightFileSystem';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Binder, BinderResults } from './binder';
@@ -502,7 +503,7 @@ export class SourceFile {
     // (or at least cancel) prior to calling again. It returns true if a parse
     // was required and false if the parse information was up to date already.
     parse(configOptions: ConfigOptions, importResolver: ImportResolver, content?: string): boolean {
-        return this._logTracker.log(`parsing: ${this._filePath}`, (logState) => {
+        return this._logTracker.log(`parsing: ${this._getPathForLogging(this._filePath)}`, (logState) => {
             // If the file is already parsed, we can skip.
             if (!this.isParseRequired()) {
                 logState.suppress();
@@ -630,7 +631,7 @@ export class SourceFile {
     }
 
     index(options: IndexOptions, token: CancellationToken): IndexResults | undefined {
-        return this._logTracker.log(`indexing: ${this._filePath}`, (ls) => {
+        return this._logTracker.log(`indexing: ${this._getPathForLogging(this._filePath)}`, (ls) => {
             // If we have no completed analysis job, there's nothing to do.
             if (!this._parseResults || !this.isIndexingRequired()) {
                 ls.suppress();
@@ -905,7 +906,7 @@ export class SourceFile {
         assert(!this._isBindingInProgress);
         assert(this._parseResults !== undefined);
 
-        return this._logTracker.log(`binding: ${this._filePath}`, () => {
+        return this._logTracker.log(`binding: ${this._getPathForLogging(this._filePath)}`, () => {
             try {
                 // Perform name binding.
                 timingStats.bindTime.timeOperation(() => {
@@ -972,7 +973,7 @@ export class SourceFile {
         assert(this.isCheckingRequired());
         assert(this._parseResults !== undefined);
 
-        return this._logTracker.log(`checking: ${this._filePath}`, () => {
+        return this._logTracker.log(`checking: ${this._getPathForLogging(this._filePath)}`, () => {
             try {
                 timingStats.typeCheckerTime.timeOperation(() => {
                     const checker = new Checker(this._parseResults!.parseTree, evaluator);
@@ -1148,5 +1149,13 @@ export class SourceFile {
             typeshedModulePath,
             collectionsModulePath,
         };
+    }
+
+    private _getPathForLogging(filepath: string) {
+        if (!(this.fileSystem instanceof PyrightFileSystem) || !this.fileSystem.isVirtual(filepath)) {
+            return filepath;
+        }
+
+        return '[virtual] ' + filepath;
     }
 }

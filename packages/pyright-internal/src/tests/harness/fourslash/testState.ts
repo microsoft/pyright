@@ -34,6 +34,7 @@ import * as debug from '../../../common/debug';
 import { createDeferred } from '../../../common/deferred';
 import { DiagnosticCategory } from '../../../common/diagnostic';
 import { FileEditAction } from '../../../common/editAction';
+import { FileSystem } from '../../../common/fileSystem';
 import {
     combinePaths,
     comparePaths,
@@ -53,6 +54,7 @@ import { DefinitionFilter } from '../../../languageService/definitionProvider';
 import { convertHoverResults } from '../../../languageService/hoverProvider';
 import { ParseResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
+import { PyrightFileSystem } from '../../../pyrightFileSystem';
 import * as host from '../host';
 import { stringify } from '../utils';
 import { createFromFileSystem } from '../vfs/factory';
@@ -93,8 +95,9 @@ export class TestState {
     private readonly _cancellationToken: TestCancellationToken;
     private readonly _files: string[] = [];
     private readonly _hostSpecificFeatures: HostSpecificFeatures;
+    private readonly _testFS: vfs.TestFileSystem;
 
-    readonly fs: vfs.TestFileSystem;
+    readonly fs: FileSystem;
     readonly workspace: WorkspaceServiceInstance;
     readonly console: ConsoleInterface;
     readonly rawConfigJson: any | undefined;
@@ -146,12 +149,14 @@ export class TestState {
         }
 
         this.console = nullConsole;
-        this.fs = createFromFileSystem(
+        this._testFS = createFromFileSystem(
             host.HOST,
             ignoreCase,
             { cwd: basePath, files, meta: testData.globalOptions },
             mountPaths
         );
+
+        this.fs = new PyrightFileSystem(this._testFS);
         this._files = sourceFiles;
 
         const service = this._createAnalysisService(
@@ -193,6 +198,10 @@ export class TestState {
 
     get program(): Program {
         return this.workspace.serviceInstance.test_program;
+    }
+
+    cwd() {
+        return this._testFS.cwd();
     }
 
     // Entry points from fourslash.ts
@@ -1216,7 +1225,7 @@ export class TestState {
 
     private _getFileContent(fileName: string): string {
         const files = this.testData.files.filter(
-            (f) => comparePaths(f.fileName, fileName, this.fs.ignoreCase) === Comparison.EqualTo
+            (f) => comparePaths(f.fileName, fileName, this._testFS.ignoreCase) === Comparison.EqualTo
         );
         return files[0].content;
     }

@@ -696,10 +696,6 @@ export function createTypeEvaluator(
     let returnTypeInferenceTypeCache: TypeCache | undefined;
 
     function logInternalCall<T>(title: string, callback: () => T, value: PrintableType): T {
-        if (!evaluatorOptions.logCalls) {
-            return callback();
-        }
-
         return logger.log(
             title,
             (logState) => {
@@ -865,13 +861,10 @@ export function createTypeEvaluator(
         });
     }
 
-    function getTypeOfExpression(node: ExpressionNode, expectedType?: Type, flags = EvaluatorFlags.None) {
-        return logInternalCall(
-            'getTypeOfExpression',
-            () => getTypeOfExpressionInternal(node, expectedType, flags),
-            node
-        );
-    }
+    const getTypeOfExpression = evaluatorOptions.logCalls
+        ? (n: ExpressionNode, t?: Type, f = EvaluatorFlags.None) =>
+              logInternalCall('getTypeOfExpression', () => getTypeOfExpressionInternal(n, t, f), n)
+        : getTypeOfExpressionInternal;
 
     function getTypeOfExpressionInternal(
         node: ExpressionNode,
@@ -16643,13 +16636,14 @@ export function createTypeEvaluator(
         return getEffectiveTypeOfSymbolForUsage(symbol).type;
     }
 
-    function getEffectiveTypeOfSymbolForUsage(symbol: Symbol, usageNode?: NameNode, useLastDecl = false) {
-        return logInternalCall(
-            'getEffectiveTypeOfSymbolForUsage',
-            () => getEffectiveTypeOfSymbolForUsageInternal(symbol, usageNode, useLastDecl),
-            symbol
-        );
-    }
+    const getEffectiveTypeOfSymbolForUsage = evaluatorOptions.logCalls
+        ? (s: Symbol, u?: NameNode, l = false) =>
+              logInternalCall(
+                  'getEffectiveTypeOfSymbolForUsage',
+                  () => getEffectiveTypeOfSymbolForUsageInternal(s, u, l),
+                  s
+              )
+        : getEffectiveTypeOfSymbolForUsageInternal;
 
     function getEffectiveTypeOfSymbolForUsageInternal(
         symbol: Symbol,
@@ -16872,13 +16866,10 @@ export function createTypeEvaluator(
         return UnknownType.create();
     }
 
-    function getFunctionInferredReturnType(type: FunctionType, args?: ValidateArgTypeParams[]) {
-        return logInternalCall(
-            'getFunctionInferredReturnType',
-            () => getFunctionInferredReturnTypeInternal(type, args),
-            type
-        );
-    }
+    const getFunctionInferredReturnType = evaluatorOptions.logCalls
+        ? (t: FunctionType, a?: ValidateArgTypeParams[]) =>
+              logInternalCall('getFunctionInferredReturnType', () => getFunctionInferredReturnTypeInternal(t, a), t)
+        : getFunctionInferredReturnTypeInternal;
 
     function getFunctionInferredReturnTypeInternal(type: FunctionType, args?: ValidateArgTypeParams[]) {
         let returnType: Type | undefined;
