@@ -3195,7 +3195,13 @@ export function createTypeEvaluator(
 
                     if (!isAnyOrUnknown(concreteSubtype)) {
                         if (isClass(concreteSubtype) && concreteSubtype.literalValue === undefined) {
-                            if (!derivesFromClassRecursive(concreteSubtype, baseExceptionType, /* ignoreUnknown */ false)) {
+                            if (
+                                !derivesFromClassRecursive(
+                                    concreteSubtype,
+                                    baseExceptionType,
+                                    /* ignoreUnknown */ false
+                                )
+                            ) {
                                 diagAddendum.addMessage(
                                     Localizer.Diagnostic.exceptionTypeIncorrect().format({
                                         type: printType(subtype, /* expandTypeAlias */ false),
