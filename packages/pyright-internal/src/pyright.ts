@@ -125,6 +125,7 @@ function processArgs() {
         { name: 'verbose', type: Boolean },
         { name: 'version', type: Boolean },
         { name: 'watch', alias: 'w', type: Boolean },
+        { name: 'ignore-external', type: Boolean },
     ];
 
     let args: CommandLineOptions;
@@ -242,7 +243,13 @@ function processArgs() {
 
     // The package type verification uses a different path.
     if (args['verifytypes'] !== undefined) {
-        verifyPackageTypes(realFileSystem, args['verifytypes'] || '', !!args.verbose, !!args.outputjson);
+        verifyPackageTypes(
+            realFileSystem,
+            args['verifytypes'] || '',
+            !!args.verbose,
+            !!args.outputjson,
+            args['ignore-external']
+        );
     }
 
     const watch = args.watch !== undefined;
@@ -329,7 +336,8 @@ function verifyPackageTypes(
     realFileSystem: FileSystem,
     packageName: string,
     verboseOutput: boolean,
-    outputJson: boolean
+    outputJson: boolean,
+    ignoreUnknownTypesFromImports: boolean
 ): never {
     try {
         const verifier = new PackageTypeVerifier(realFileSystem);
@@ -337,7 +345,6 @@ function verifyPackageTypes(
         // If the package name ends with a bang, we'll take that
         // to mean that the caller wants to ignore unknown types from imports
         // outside of the package.
-        let ignoreUnknownTypesFromImports = false;
         if (packageName.endsWith('!')) {
             ignoreUnknownTypesFromImports = true;
             packageName = packageName.substr(0, packageName.length - 1);
@@ -518,7 +525,8 @@ function printUsage() {
             '  --verbose                        Emit verbose diagnostics\n' +
             '  --verifytypes PACKAGE            Verify type completeness of a py.typed package\n' +
             '  --version                        Print Pyright version\n' +
-            '  -w,--watch                       Continue to run and watch for changes\n'
+            '  -w,--watch                       Continue to run and watch for changes\n' +
+            '  --ignore-external                Ignore external imports for --verifytypes\n'
     );
 }
 
