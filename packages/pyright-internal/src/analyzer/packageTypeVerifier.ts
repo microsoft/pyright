@@ -495,7 +495,7 @@ export class PackageTypeVerifier {
                 const symbolType = this._program.getTypeForSymbol(symbol);
                 let errorMessage = '';
                 const diagnostics = report.fileDiagnostics[report.fileDiagnostics.length - 1].diagnostics;
-
+                const range = (symbol.hasDeclarations() && symbol.getDeclarations()[0].range) || getEmptyRange();
                 const packageSymbolType = this._getPackageSymbolType(symbol, symbolType);
                 const packageSymbolTypeText = PackageTypeVerifier.getSymbolTypeString(packageSymbolType);
                 const packageSymbol: PackageSymbol = {
@@ -535,7 +535,7 @@ export class PackageTypeVerifier {
                 }
 
                 if (errorMessage) {
-                    diagnostics.push(new Diagnostic(DiagnosticCategory.Error, errorMessage, getEmptyRange()));
+                    diagnostics.push(new Diagnostic(DiagnosticCategory.Error, errorMessage, range));
                     report.unknownTypeCount++;
                 }
 
@@ -551,7 +551,7 @@ export class PackageTypeVerifier {
                                     new Diagnostic(
                                         DiagnosticCategory.Warning,
                                         `No docstring found for class "${fullName}"`,
-                                        getEmptyRange()
+                                        range
                                     )
                                 );
 
@@ -611,7 +611,7 @@ export class PackageTypeVerifier {
                                     new Diagnostic(
                                         DiagnosticCategory.Warning,
                                         `No docstring found for function "${fullName}"`,
-                                        getEmptyRange()
+                                        range
                                     )
                                 );
 
@@ -624,7 +624,7 @@ export class PackageTypeVerifier {
                                 new Diagnostic(
                                     DiagnosticCategory.Warning,
                                     `One or more default values in function "${fullName}" is specified as "..."`,
-                                    getEmptyRange()
+                                    range
                                 )
                             );
 
