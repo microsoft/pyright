@@ -382,17 +382,19 @@ function buildTypeCompletenessReport(packageName: string, completenessReport: Pa
     };
 
     // Add the general diagnostics.
-    completenessReport.diagnostics.forEach((diag) => {
-        const jsonDiag = convertDiagnosticToJson('', diag);
-        report.diagnostics.push(jsonDiag);
+    completenessReport.fileDiagnostics.forEach((fileDiagnostics) => {
+        fileDiagnostics.diagnostics.forEach((diag) => {
+            const jsonDiag = convertDiagnosticToJson(fileDiagnostics.filePath, diag);
+            report.diagnostics.push(jsonDiag);
 
-        if (jsonDiag.severity === 'error') {
-            report.summary.errorCount++;
-        } else if (jsonDiag.severity === 'warning') {
-            report.summary.warningCount++;
-        } else if (jsonDiag.severity === 'information') {
-            report.summary.informationCount++;
-        }
+            if (jsonDiag.severity === 'error') {
+                report.summary.errorCount++;
+            } else if (jsonDiag.severity === 'warning') {
+                report.summary.warningCount++;
+            } else if (jsonDiag.severity === 'information') {
+                report.summary.informationCount++;
+            }
+        });
     });
 
     report.typeCompleteness = {
