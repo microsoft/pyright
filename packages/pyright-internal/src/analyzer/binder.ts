@@ -2214,21 +2214,21 @@ export class Binder extends ParseTreeWalker {
                 this._currentFlowNode = this._finishFlowLabel(afterLabel);
                 this._bindNeverCondition(node.rightExpression, target, isPositiveTest);
             }
-        } else if (this._isNarrowingExpression(node, expressionList)) {
-            // Limit only to expressions that contain a single narrowable subexpression
+        } else {
+            // Limit only to expressions that contain a narrowable subexpression
             // that is a name. This avoids complexities with composite expressions like
             // member access or index expressions.
-            const filteredExpressionList = expressionList.filter((expr) => expr.nodeType === ParseNodeType.Name);
-            if (filteredExpressionList.length === 1) {
-                this._currentFlowNode = this._createFlowConditional(
-                    isPositiveTest ? FlowFlags.TrueNeverCondition : FlowFlags.FalseNeverCondition,
-                    this._currentFlowNode!,
-                    node
-                );
+            if (this._isNarrowingExpression(node, expressionList)) {
+                const filteredExprList = expressionList.filter((expr) => expr.nodeType === ParseNodeType.Name);
+                if (filteredExprList.length > 0) {
+                    this._currentFlowNode = this._createFlowConditional(
+                        isPositiveTest ? FlowFlags.TrueNeverCondition : FlowFlags.FalseNeverCondition,
+                        this._currentFlowNode!,
+                        node
+                    );
+                }
             }
-            this._addAntecedent(target, this._currentFlowNode!);
-        } else {
-            // The expression wasn't narrowable, so connect the graph.
+
             this._addAntecedent(target, this._currentFlowNode!);
         }
     }

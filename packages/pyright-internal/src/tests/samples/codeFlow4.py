@@ -51,3 +51,17 @@ def func4(x: Color):
             y = 3
 
     print(y)
+
+
+def func5():
+    if True:
+        y = 2
+
+    print(y)
+
+
+def func6():
+    if not None:
+        y = 2
+
+    print(y)
