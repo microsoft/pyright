@@ -37,14 +37,14 @@ class Color(Enum):
     RED = 1
     BLUE = 2
     GREEN = 3
-    PERIWINKEL = 4
+    PERIWINKLE = 4
 
 
 def func4(x: Color):
     if x == Color.RED:
         return
 
-    if x == Color.GREEN or (Color.PERIWINKEL == x and True):
+    if x == Color.GREEN or (Color.PERIWINKLE == x and True):
         y = 2
     else:
         if Color.BLUE == x:
