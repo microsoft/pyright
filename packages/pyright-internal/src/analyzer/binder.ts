@@ -1010,6 +1010,11 @@ export class Binder extends ParseTreeWalker {
             constExprValue === true ? Binder._unreachableFlowNode : this._finishFlowLabel(elseLabel);
         if (node.elseSuite) {
             this.walk(node.elseSuite);
+        } else {
+            // Create a flow node that gates the missing "else" clause based
+            // on whether the narrowing of the expression in th negative case
+            // evaluates to "never".
+            this._bindNeverCondition(node.testExpression, postIfLabel, /* isPositiveTest */ false);
         }
         this._addAntecedent(postIfLabel, this._currentFlowNode);
         this._currentFlowNode = this._finishFlowLabel(postIfLabel);
@@ -2182,6 +2187,52 @@ export class Binder extends ParseTreeWalker {
         return node;
     }
 
+    // Creates a node that creates a "gate" that is closed (doesn't allow for code
+    // flow) if the specified expression is never once it is narrowed (in either the
+    // positive or negative case).
+    private _bindNeverCondition(node: ExpressionNode, target: FlowLabel, isPositiveTest: boolean) {
+        const expressionList: CodeFlowReferenceExpressionNode[] = [];
+
+        if (node.nodeType === ParseNodeType.UnaryOperation && node.operator === OperatorType.Not) {
+            this._bindNeverCondition(node.expression, target, !isPositiveTest);
+        } else if (
+            node.nodeType === ParseNodeType.BinaryOperation &&
+            (node.operator === OperatorType.And || node.operator === OperatorType.Or)
+        ) {
+            if (node.operator === OperatorType.And) {
+                // In the And case, we need to gate the synthesized else clause if both
+                // of the operands evaluate to never once they are narrowed.
+                const savedCurrentFlowNode = this._currentFlowNode;
+                this._bindNeverCondition(node.leftExpression, target, isPositiveTest);
+                this._currentFlowNode = savedCurrentFlowNode;
+                this._bindNeverCondition(node.rightExpression, target, isPositiveTest);
+            } else {
+                // In the Or case, we need to gate the synthesized else clause if either
+                // of the operands evaluate to never.
+                const afterLabel = this._createBranchLabel();
+                this._bindNeverCondition(node.leftExpression, afterLabel, isPositiveTest);
+                this._currentFlowNode = this._finishFlowLabel(afterLabel);
+                this._bindNeverCondition(node.rightExpression, target, isPositiveTest);
+            }
+        } else if (this._isNarrowingExpression(node, expressionList)) {
+            // Limit only to expressions that contain a single narrowable subexpression
+            // that is a name. This avoids complexities with composite expressions like
+            // member access or index expressions.
+            const filteredExpressionList = expressionList.filter((expr) => expr.nodeType === ParseNodeType.Name);
+            if (filteredExpressionList.length === 1) {
+                this._currentFlowNode = this._createFlowConditional(
+                    isPositiveTest ? FlowFlags.TrueNeverCondition : FlowFlags.FalseNeverCondition,
+                    this._currentFlowNode!,
+                    node
+                );
+            }
+            this._addAntecedent(target, this._currentFlowNode!);
+        } else {
+            // The expression wasn't narrowable, so connect the graph.
+            this._addAntecedent(target, this._currentFlowNode!);
+        }
+    }
+
     private _bindConditional(node: ExpressionNode, trueTarget: FlowLabel, falseTarget: FlowLabel) {
         const savedTrueTarget = this._currentTrueTarget;
         const savedFalseTarget = this._currentFalseTarget;
@@ -2232,9 +2283,13 @@ export class Binder extends ParseTreeWalker {
             this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
         });
 
+        // Select the first name expression.
+        const filteredExprList = expressionList.filter((expr) => expr.nodeType === ParseNodeType.Name);
+
         const conditionalFlowNode: FlowCondition = {
             flags,
             id: getUniqueFlowNodeId(),
+            reference: filteredExprList.length > 0 ? filteredExprList[0] : undefined,
             expression,
             antecedent,
         };

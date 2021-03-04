@@ -3541,11 +3541,12 @@ export function createTypeEvaluator(
                         ? effectiveType
                         : UnboundType.create();
                 const codeFlowTypeResult = getFlowTypeOfReference(node, symbol.id, typeAtStart);
-                if (codeFlowTypeResult) {
+                if (codeFlowTypeResult.type) {
                     type = codeFlowTypeResult.type;
-                    if (codeFlowTypeResult.isIncomplete) {
-                        isIncomplete = true;
-                    }
+                }
+
+                if (codeFlowTypeResult.isIncomplete) {
+                    isIncomplete = true;
                 }
             }
 
@@ -3933,12 +3934,16 @@ export function createTypeEvaluator(
 
             // See if we can refine the type based on code flow analysis.
             const codeFlowTypeResult = getFlowTypeOfReference(node, indeterminateSymbolId, initialType);
-            if (codeFlowTypeResult) {
+            if (codeFlowTypeResult.type) {
                 memberTypeResult.type = codeFlowTypeResult.type;
-                if (codeFlowTypeResult.isIncomplete) {
-                    memberTypeResult.isIncomplete = true;
-                }
             }
+
+            if (codeFlowTypeResult.isIncomplete) {
+                memberTypeResult.isIncomplete = true;
+            }
+
+            deleteTypeCacheEntry(node);
+            deleteTypeCacheEntry(node.memberName);
         }
 
         if (baseTypeResult.isIncomplete) {
@@ -4752,12 +4757,15 @@ export function createTypeEvaluator(
 
             // See if we can refine the type based on code flow analysis.
             const codeFlowTypeResult = getFlowTypeOfReference(node, indeterminateSymbolId, indexTypeResult.type);
-            if (codeFlowTypeResult) {
+            if (codeFlowTypeResult.type) {
                 indexTypeResult.type = codeFlowTypeResult.type;
-                if (codeFlowTypeResult.isIncomplete) {
-                    indexTypeResult.isIncomplete = true;
-                }
             }
+
+            if (codeFlowTypeResult.isIncomplete) {
+                indexTypeResult.isIncomplete = true;
+            }
+
+            deleteTypeCacheEntry(node);
         }
 
         if (baseTypeResult.isIncomplete) {
@@ -14687,7 +14695,7 @@ export function createTypeEvaluator(
         reference: CodeFlowReferenceExpressionNode,
         targetSymbolId: number,
         initialType: Type | undefined
-    ): TypeResult | undefined {
+    ): FlowNodeTypeResult {
         // See if this execution scope requires code flow for this reference expression.
         const referenceKey = createKeyForReference(reference);
         const executionScope = ParseTreeUtils.getExecutionScopeNode(reference);
@@ -14695,7 +14703,7 @@ export function createTypeEvaluator(
 
         assert(codeFlowExpressions !== undefined);
         if (!codeFlowExpressions!.has(referenceKey)) {
-            return undefined;
+            return { type: undefined, isIncomplete: false };
         }
 
         // Is there an code flow analyzer cached for this execution scope?
@@ -14731,11 +14739,7 @@ export function createTypeEvaluator(
             incompleteTypeTracker.enableUndoTracking();
         }
 
-        if (codeFlowResult.type) {
-            return { node: reference, type: codeFlowResult.type, isIncomplete: codeFlowResult.isIncomplete };
-        }
-
-        return undefined;
+        return { type: codeFlowResult.type, isIncomplete: codeFlowResult.isIncomplete };
     }
 
     // Creates a new code flow analyzer that can be used to narrow the types
@@ -14954,7 +14958,7 @@ export function createTypeEvaluator(
                             // If there was a cache entry already, that means we hit a recursive
                             // case (something like "int: int = 4"). Avoid infinite recursion
                             // by returning an undefined type.
-                            if (cachedEntry) {
+                            if (cachedEntry && cachedEntry.type === undefined) {
                                 return { type: undefined, isIncomplete: true };
                             }
 
@@ -15110,6 +15114,27 @@ export function createTypeEvaluator(
                         continue;
                     }
 
+                    if (curFlowNode.flags & (FlowFlags.TrueNeverCondition | FlowFlags.FalseNeverCondition)) {
+                        const conditionalFlowNode = curFlowNode as FlowCondition;
+                        if (conditionalFlowNode.reference) {
+                            const typeNarrowingCallback = getTypeNarrowingCallback(
+                                conditionalFlowNode.reference,
+                                conditionalFlowNode
+                            );
+                            if (typeNarrowingCallback) {
+                                const refTypeInfo = getTypeOfExpression(conditionalFlowNode.reference!);
+                                const narrowedType = typeNarrowingCallback(refTypeInfo.type) || refTypeInfo.type;
+
+                                // If the narrowed type is "never", don't allow further exploration.
+                                if (isNever(narrowedType)) {
+                                    return setCacheEntry(curFlowNode, undefined, !!refTypeInfo.isIncomplete);
+                                }
+                            }
+                        }
+                        curFlowNode = conditionalFlowNode.antecedent;
+                        continue;
+                    }
+
                     if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
                         const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
                         if (preFinallyFlowNode.isGateClosed) {
@@ -15225,14 +15250,17 @@ export function createTypeEvaluator(
                         FlowFlags.AssignmentAlias |
                         FlowFlags.TrueCondition |
                         FlowFlags.FalseCondition |
-                        FlowFlags.WildcardImport)
+                        FlowFlags.WildcardImport |
+                        FlowFlags.TrueNeverCondition |
+                        FlowFlags.FalseNeverCondition)
                 ) {
                     const typedFlowNode = curFlowNode as
                         | FlowVariableAnnotation
                         | FlowAssignment
                         | FlowAssignmentAlias
                         | FlowCondition
-                        | FlowWildcardImport;
+                        | FlowWildcardImport
+                        | FlowCondition;
                     curFlowNode = typedFlowNode.antecedent;
                     continue;
                 }
@@ -15330,7 +15358,7 @@ export function createTypeEvaluator(
         flowNode: FlowCondition
     ): TypeNarrowingCallback | undefined {
         let testExpression = flowNode.expression;
-        const isPositiveTest = !!(flowNode.flags & FlowFlags.TrueCondition);
+        const isPositiveTest = !!(flowNode.flags & (FlowFlags.TrueCondition | FlowFlags.TrueNeverCondition));
 
         if (testExpression.nodeType === ParseNodeType.AssignmentExpression) {
             if (ParseTreeUtils.isMatchingExpression(reference, testExpression.rightExpression)) {

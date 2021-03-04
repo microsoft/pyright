@@ -638,6 +638,12 @@ test('CodeFlow3', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('CodeFlow4', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlow4.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
+});
+
 test('Properties1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['properties1.py']);
 

@@ -43,6 +43,8 @@ export enum FlowFlags {
     AssignmentAlias = 1 << 13, // Assigned symbol is aliased to another symbol with the same name
     VariableAnnotation = 1 << 14, // Separates a variable annotation from its name node
     PostContextManager = 1 << 15, // Label that's used for context managers that suppress exceptions
+    TrueNeverCondition = 1 << 16, // Condition whose type evaluates to never when narrowed in positive test
+    FalseNeverCondition = 1 << 17, // Condition whose type evaluates to never when narrowed in negative test
 }
 
 let _nextFlowNodeId = 1;
@@ -106,6 +108,7 @@ export interface FlowWildcardImport extends FlowNode {
 // be true or false at the node's location in the control flow.
 export interface FlowCondition extends FlowNode {
     expression: ExpressionNode;
+    reference?: CodeFlowReferenceExpressionNode;
     antecedent: FlowNode;
 }
 
