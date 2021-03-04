@@ -378,7 +378,7 @@ function collectSymbolIndexDataForName(
 
         range = convertOffsetsToRange(
             declaration.node.start,
-            declaration.node.name.start + declaration.node.length,
+            declaration.node.start + declaration.node.length,
             parseResults.tokenizerOutput.lines
         );
     }
