@@ -168,6 +168,42 @@ def func2(val: Optional[int]):
 
 In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `int` (specifically, a value of 0) or `None` in the negative case.
 
+### Narrowing for Implied Else
+When an “if” or “elif” clause is used without a corresponding “else”, Pyright will generally assume that the code can “fall through” without executing the “if” or “elif” block. However, there are cases where the analyzer can determine that a fall-through is not possible because the “if” or “elif” is guaranteed to be executed based on type analysis.
+
+```python
+def func1(x: int):
+    if x == 1 or x == 2:
+        y = True
+    
+    print(y) # Error: "y" is possibly unbound
+
+def func2(x: Literal[1, 2]):
+    if x == 1 or x == 2:
+        y = True
+    
+    print(y) # No error
+```
+
+This can be especially useful when exhausting all members in an enum.
+
+```python
+from enum import Enum
+
+class Color(Enum):
+    RED = 1
+    BLUE = 2
+    GREEN = 3
+
+def func3(color: Color) -> str:
+    if color === Color.RED or color === Color.Blue:
+        return "yes"
+    elif color === Color.GREEN:
+        return "no"
+```
+
+If you later added another color to the enumeration above (e.g. `YELLOW = 4`), Pyright would detect that `func3` no longer exhausts all members of the enumeration and possibly returns `None`, which violates the declared return type.
+
 ### Narrowing Any
 
 In general, the type `Any` is not narrowed. The only exceptions to this rule are the built-in `isinstance` and `issubclass` type guards plus user-defined type guards. In all other cases, `Any` is left as is, even for assignments.
