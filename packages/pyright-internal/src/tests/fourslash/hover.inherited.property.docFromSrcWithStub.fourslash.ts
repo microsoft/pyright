@@ -82,6 +82,6 @@
 ////     def length(self, value) -> None: ...
 
 helper.verifyHover('markdown', {
-    getter_docs: '```python\n(property) length: Literal[3]\n```\nread property doc',
-    setter_docs: '```python\n(property) length: Literal[3]\n```\nsetter property doc',
+    getter_docs: '```python\n(property) length: int\n```\nread property doc',
+    setter_docs: '```python\n(property) length: int\n```\nsetter property doc',
 });

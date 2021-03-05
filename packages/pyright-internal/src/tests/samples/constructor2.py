@@ -125,7 +125,7 @@ def s14(p: Bat):
 
 def s15():
     a = Bear(1)
-    t1: Literal["Bear[Literal[1]]"] = reveal_type(a)
+    t1: Literal["Bear[int]"] = reveal_type(a)
     b = Bear[int](1)
     t2: Literal["Bear[int]"] = reveal_type(b)
     c = Bear[float](1)

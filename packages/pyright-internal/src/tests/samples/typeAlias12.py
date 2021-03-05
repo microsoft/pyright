@@ -18,7 +18,7 @@ def f() -> F[T]:
 
 g = f()
 v1 = g("foo")
-t_v1: Literal["Literal['foo']"] = reveal_type(v1)
+t_v1: Literal["str"] = reveal_type(v1)
 
 v2 = g(1)
-t_v2: Literal["Literal[1]"] = reveal_type(v2)
+t_v2: Literal["int"] = reveal_type(v2)

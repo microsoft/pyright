@@ -18354,6 +18354,12 @@ export function createTypeEvaluator(
 
         // Handle the unconstrained (but possibly bound) case.
         let updatedType = srcType;
+        if (!curTypeVarMapping || !containsLiteralType(curTypeVarMapping)) {
+            // Strip literals if the existing value contains no literals. This allows
+            // for explicit (but no implicit) literal specialization of a generic class.
+            updatedType = stripLiteralValue(updatedType);
+        }
+
         const curTypeIsNarrowable = typeVarMap.isNarrowable(destType) && !typeVarMap.isLocked();
         const updatedTypeIsNarrowable = canNarrowType && curTypeIsNarrowable;
 
