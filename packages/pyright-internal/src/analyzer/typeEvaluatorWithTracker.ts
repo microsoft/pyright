@@ -71,8 +71,8 @@ export function createTypeEvaluatorWithTracker(
         verifyDeleteExpression: (n) => run('verifyDeleteExpression', () => typeEvaluator.verifyDeleteExpression(n), n),
         isAfterNodeReachable: (n) => run('isAfterNodeReachable', () => typeEvaluator.isAfterNodeReachable(n), n),
         isNodeReachable: (n) => run('isNodeReachable', () => typeEvaluator.isNodeReachable(n), n),
-        suppressDiagnostics: (callback) =>
-            run('suppressDiagnostics', () => typeEvaluator.suppressDiagnostics(callback)),
+        suppressDiagnostics: (node, callback) =>
+            run('suppressDiagnostics', () => typeEvaluator.suppressDiagnostics(node, callback)),
         getDeclarationsForNameNode: (n) =>
             run('getDeclarationsForNameNode', () => typeEvaluator.getDeclarationsForNameNode(n), n),
         getTypeForDeclaration: (n) => run('getTypeForDeclaration', () => typeEvaluator.getTypeForDeclaration(n), n),

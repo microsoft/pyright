@@ -554,7 +554,7 @@ export interface TypeEvaluator {
 
     isAfterNodeReachable: (node: ParseNode) => boolean;
     isNodeReachable: (node: ParseNode) => boolean;
-    suppressDiagnostics: (callback: () => void) => void;
+    suppressDiagnostics: (node: ParseNode, callback: () => void) => void;
 
     getDeclarationsForNameNode: (node: NameNode) => Declaration[] | undefined;
     getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
@@ -690,9 +690,9 @@ export function createTypeEvaluator(
     const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
     const typeCache: TypeCache = new Map<number, CachedType>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
+    const suppressedNodeStack: ParseNode[] = [];
     const incompleteTypeTracker = new IncompleteTypeTracker();
     let cancellationToken: CancellationToken | undefined;
-    let isDiagnosticSuppressed = false;
     let flowIncompleteGeneration = 1;
     let initializedBasicTypes = false;
     let noneType: Type | undefined;
@@ -1205,7 +1205,7 @@ export function createTypeEvaluator(
             case ParseNodeType.Error: {
                 // Evaluate the child expression as best we can so the
                 // type information is cached for the completion handler.
-                suppressDiagnostics(() => {
+                suppressDiagnostics(node, () => {
                     if (node.child) {
                         getTypeOfExpression(node.child);
                     }
@@ -2598,7 +2598,7 @@ export function createTypeEvaluator(
 
     function isDiagnosticSuppressedForNode(node: ParseNode) {
         return (
-            isDiagnosticSuppressed ||
+            suppressedNodeStack.some((suppressedNode) => ParseTreeUtils.isNodeContainedWithin(node, suppressedNode)) ||
             speculativeTypeTracker.isSpeculative(node) ||
             incompleteTypeTracker.isUndoTrackingEnabled()
         );
@@ -3252,11 +3252,11 @@ export function createTypeEvaluator(
             case ParseNodeType.Error: {
                 // Evaluate the child expression as best we can so the
                 // type information is cached for the completion handler.
-                suppressDiagnostics(() => {
-                    if (target.child) {
-                        getTypeOfExpression(target.child);
-                    }
-                });
+                if (target.child) {
+                    suppressDiagnostics(target.child, () => {
+                        getTypeOfExpression(target.child!);
+                    });
+                }
                 break;
             }
 
@@ -3304,7 +3304,7 @@ export function createTypeEvaluator(
                                 );
                             } else {
                                 let callResult: CallResult | undefined;
-                                suppressDiagnostics(() => {
+                                suppressDiagnostics(node.typeExpression!, () => {
                                     callResult = validateConstructorArguments(
                                         node.typeExpression!,
                                         [],
@@ -3400,11 +3400,11 @@ export function createTypeEvaluator(
             case ParseNodeType.Error: {
                 // Evaluate the child expression as best we can so the
                 // type information is cached for the completion handler.
-                suppressDiagnostics(() => {
-                    if (node.child) {
-                        getTypeOfExpression(node.child, /* expectedType */ undefined, EvaluatorFlags.SkipUnboundCheck);
-                    }
-                });
+                if (node.child) {
+                    suppressDiagnostics(node.child, () => {
+                        getTypeOfExpression(node.child!, /* expectedType */ undefined, EvaluatorFlags.SkipUnboundCheck);
+                    });
+                }
                 break;
             }
 
@@ -4575,7 +4575,7 @@ export function createTypeEvaluator(
                     if (accessMethodType && isFunction(accessMethodType)) {
                         // Don't emit separate diagnostics for these method calls because
                         // they will be redundant.
-                        const returnType = suppressDiagnostics(() => {
+                        const returnType = suppressDiagnostics(errorNode, () => {
                             // Bind the accessor to the base object type.
                             const boundMethodType = bindFunctionToClassOrObject(
                                 subtype,
@@ -9298,7 +9298,7 @@ export function createTypeEvaluator(
 
                 let callResult: CallResult | undefined;
 
-                suppressDiagnostics(() => {
+                suppressDiagnostics(errorNode, () => {
                     callResult = validateCallArguments(
                         errorNode,
                         functionArgs,
@@ -13676,7 +13676,7 @@ export function createTypeEvaluator(
                             // Determine if we assignment is supported for this combination of
                             // value subtype and matching subtype.
                             const magicMethodName = binaryOperatorMap[OperatorType.Equals][0];
-                            const returnType = suppressDiagnostics(() =>
+                            const returnType = suppressDiagnostics(pattern.expression, () =>
                                 getTypeFromMagicMethodReturn(
                                     leftSubtypeExpanded,
                                     [rightSubtypeUnexpanded],
@@ -16437,13 +16437,12 @@ export function createTypeEvaluator(
     }
 
     // Disables recording of errors and warnings.
-    function suppressDiagnostics<T>(callback: () => T) {
-        const wasSuppressed = isDiagnosticSuppressed;
-        isDiagnosticSuppressed = true;
+    function suppressDiagnostics<T>(node: ParseNode, callback: () => T) {
+        suppressedNodeStack.push(node);
         try {
             return callback();
         } finally {
-            isDiagnosticSuppressed = wasSuppressed;
+            suppressedNodeStack.pop();
         }
     }
 
@@ -17291,7 +17290,7 @@ export function createTypeEvaluator(
         }
 
         // Suppress diagnostics because we don't want to generate errors.
-        suppressDiagnostics(() => {
+        suppressDiagnostics(functionNode, () => {
             // Allocate a new temporary type cache for the context of just
             // this function so we can analyze it separately without polluting
             // the main type cache.

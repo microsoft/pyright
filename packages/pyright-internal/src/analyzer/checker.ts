@@ -171,7 +171,7 @@ export class Checker extends ParseTreeWalker {
         if (!AnalyzerNodeInfo.isCodeUnreachable(node)) {
             super.walk(node);
         } else {
-            this._evaluator.suppressDiagnostics(() => {
+            this._evaluator.suppressDiagnostics(node, () => {
                 super.walk(node);
             });
         }
