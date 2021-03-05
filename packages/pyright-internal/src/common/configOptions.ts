@@ -486,7 +486,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportConstantRedefinition: 'error',
         reportIncompatibleMethodOverride: 'error',
         reportIncompatibleVariableOverride: 'error',
-        reportOverlappingOverload: 'none',
+        reportOverlappingOverload: 'error',
         reportInvalidStringEscapeSequence: 'error',
         reportUnknownParameterType: 'error',
         reportUnknownArgumentType: 'error',

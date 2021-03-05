@@ -258,7 +258,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportConstantRedefinition                | "none"     | "none"     | "error"    |
 | reportIncompatibleMethodOverride          | "none"     | "none"     | "error"    |
 | reportIncompatibleVariableOverride        | "none"     | "none"     | "error"    |
-| reportOverlappingOverload                 | "none"     | "none"     | "none"     |
+| reportOverlappingOverload                 | "none"     | "none"     | "error"     |
 | reportInvalidStringEscapeSequence         | "none"     | "warning"  | "error"    |
 | reportUnknownParameterType                | "none"     | "none"     | "error"    |
 | reportUnknownArgumentType                 | "none"     | "none"     | "error"    |
