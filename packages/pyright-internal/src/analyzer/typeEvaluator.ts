@@ -12247,7 +12247,7 @@ export function createTypeEvaluator(
             }
         }
 
-        const returnType = getTypeFromDecorator(decoratorNode, inputFunctionType);
+        let returnType = getTypeFromDecorator(decoratorNode, inputFunctionType);
 
         // Check for some built-in decorator types with known semantics.
         if (isFunction(decoratorType)) {
@@ -12303,10 +12303,18 @@ export function createTypeEvaluator(
             }
         }
 
-        // Copy the overload flag from the input function type.
         if (isFunction(inputFunctionType) && isFunction(returnType)) {
+            returnType = FunctionType.clone(returnType);
+
+            // Copy the overload flag from the input function type.
             if (FunctionType.isOverloaded(inputFunctionType)) {
                 returnType.details.flags |= FunctionTypeFlags.Overloaded;
+            }
+
+            // Copy the docstrings from the input function type if the
+            // decorator didn't have its own docstring.
+            if (!returnType.details.docString) {
+                returnType.details.docString = inputFunctionType.details.docString;
             }
         }
 
