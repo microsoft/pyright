@@ -2197,14 +2197,10 @@ export class Binder extends ParseTreeWalker {
         if (this._targetFunctionDeclaration) {
             // Skip this heuristic for methods with 0 or 1 parameters, since the
             // param might be a "self" or "cls".
-            const paramCount = this._targetFunctionDeclaration.node.parameters.length;
+            const params = this._targetFunctionDeclaration.node.parameters;
             const isMethod = this._targetFunctionDeclaration.isMethod;
-            if ((isMethod && paramCount > 1) || (!isMethod && paramCount > 0)) {
-                if (
-                    !this._targetFunctionDeclaration.node.parameters.some(
-                        (param) => param.typeAnnotation !== undefined || param.typeAnnotationComment !== undefined
-                    )
-                ) {
+            if ((isMethod && params.length > 1) || (!isMethod && params.length > 0)) {
+                if (!params.some((param) => !!param.typeAnnotation || !!param.typeAnnotationComment)) {
                     return false;
                 }
             }
