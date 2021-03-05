@@ -19373,6 +19373,9 @@ export function createTypeEvaluator(
             (p) => p.category === ParameterCategory.VarArgDictionary && p.name
         );
 
+        const srcPositionalOnlyIndex = srcParams.findIndex((p) => p.category === ParameterCategory.Simple && !p.name);
+        const destPositionalOnlyIndex = destParams.findIndex((p) => p.category === ParameterCategory.Simple && !p.name);
+
         if (!FunctionType.shouldSkipParamCompatibilityCheck(destType)) {
             // Match positional parameters.
             for (let paramIndex = 0; paramIndex < positionalsToMatch; paramIndex++) {
@@ -19388,7 +19391,12 @@ export function createTypeEvaluator(
                     !isPrivateOrProtectedName(destParamName) &&
                     !isPrivateOrProtectedName(srcParamName)
                 ) {
-                    if (destParamName !== srcParamName) {
+                    const isPositionalOnly =
+                        srcPositionalOnlyIndex >= 0 &&
+                        paramIndex < srcPositionalOnlyIndex &&
+                        destPositionalOnlyIndex >= 0 &&
+                        paramIndex < destPositionalOnlyIndex;
+                    if (!isPositionalOnly && destParamName !== srcParamName) {
                         diag.createAddendum().addMessage(
                             Localizer.DiagnosticAddendum.functionParamName().format({
                                 srcName: srcParamName,

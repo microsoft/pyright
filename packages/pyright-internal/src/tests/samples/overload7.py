@@ -8,6 +8,7 @@ from typing import (
     Literal,
     Optional,
     TypeVar,
+    Union,
     overload,
 )
 
@@ -102,3 +103,17 @@ def func5(a: None) -> None:
 # This should generate an error because List is not compatible with Dict.
 def func5(a: Optional[Dict[Any, Any]]) -> Optional[Any]:
     ...
+
+
+@overload
+def func6(foo: int, /) -> int:
+    ...
+
+
+@overload
+def func6(bar: str, /) -> int:
+    ...
+
+
+def func6(p0: Union[int, str], /) -> int:
+    return 3
