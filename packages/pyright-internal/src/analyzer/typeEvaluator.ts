@@ -4324,6 +4324,9 @@ export function createTypeEvaluator(
                         ClassType.isSameGenericClass(containingClassType, classType)
                     ) {
                         type = getDeclaredTypeOfSymbol(memberInfo.symbol) || UnknownType.create();
+                        if (type && isClass(memberInfo.classType)) {
+                            type = partiallySpecializeType(type, memberInfo.classType);
+                        }
                     }
                 }
 
