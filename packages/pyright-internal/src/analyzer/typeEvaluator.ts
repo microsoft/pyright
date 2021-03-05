@@ -614,8 +614,9 @@ export interface TypeEvaluator {
 
 interface CodeFlowAnalyzer {
     getTypeFromCodeFlow: (
-        reference: CodeFlowReferenceExpressionNode,
-        targetSymbolId: number,
+        flowNode: FlowNode,
+        reference: CodeFlowReferenceExpressionNode | undefined,
+        targetSymbolId: number | undefined,
         initialType: Type | undefined
     ) => FlowNodeTypeResult;
 }
@@ -2489,7 +2490,15 @@ export function createTypeEvaluator(
             return false;
         }
 
-        return isFlowNodeReachable(flowNode);
+        if (!isFlowNodeReachable(flowNode)) {
+            return false;
+        }
+
+        // if (!isFlowNodeReachableUsingNeverNarrowing(node, flowNode)) {
+        //     return false;
+        // }
+
+        return true;
     }
 
     function isAfterNodeReachable(node: ParseNode): boolean {
@@ -2498,7 +2507,30 @@ export function createTypeEvaluator(
             return false;
         }
 
-        return isFlowNodeReachable(returnFlowNode);
+        if (!isFlowNodeReachable(returnFlowNode)) {
+            return false;
+        }
+
+        if (!isFlowNodeReachableUsingNeverNarrowing(node, returnFlowNode)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // Although isFlowNodeReachable indicates that the node is reachable, it
+    // may not be reachable if we apply "never narrowing".
+    function isFlowNodeReachableUsingNeverNarrowing(node: ParseNode, flowNode: FlowNode) {
+        const analyzer = getCodeFlowAnalyzerForNode(node.id);
+        const codeFlowResult = getTypeFromCodeFlow(
+            analyzer,
+            flowNode,
+            /* reference */ undefined,
+            /* targetSymbolId */ undefined,
+            /* initialType */ UnboundType.create()
+        );
+
+        return codeFlowResult.type !== undefined;
     }
 
     // Determines whether there is a code flow path from sourceNode to sinkNode.
@@ -14688,6 +14720,18 @@ export function createTypeEvaluator(
         return callIsNoReturn;
     }
 
+    function getCodeFlowAnalyzerForNode(nodeId: number) {
+        let analyzer = codeFlowAnalyzerCache.get(nodeId);
+
+        if (!analyzer) {
+            // Allocate a new code flow analyzer.
+            analyzer = createCodeFlowAnalyzer();
+            codeFlowAnalyzerCache.set(nodeId, analyzer);
+        }
+
+        return analyzer;
+    }
+
     // Attempts to determine the type of the reference expression at the
     // point in the code. If the code flow analysis has nothing to say
     // about that expression, it return undefined.
@@ -14717,20 +14761,29 @@ export function createTypeEvaluator(
             // a temporary analyzer that we'll use only for this context.
             analyzer = getCodeFlowAnalyzerForReturnTypeInferenceContext();
         } else {
-            analyzer = codeFlowAnalyzerCache.get(executionNode.id);
-
-            if (!analyzer) {
-                // Allocate a new code flow analyzer.
-                analyzer = createCodeFlowAnalyzer();
-                codeFlowAnalyzerCache.set(executionNode.id, analyzer);
-            }
+            analyzer = getCodeFlowAnalyzerForNode(executionNode.id);
         }
 
+        const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
+        if (flowNode === undefined) {
+            return { type: undefined, isIncomplete: false };
+        }
+
+        return getTypeFromCodeFlow(analyzer, flowNode!, reference, targetSymbolId, initialType);
+    }
+
+    function getTypeFromCodeFlow(
+        analyzer: CodeFlowAnalyzer,
+        flowNode: FlowNode,
+        reference: CodeFlowReferenceExpressionNode | undefined,
+        targetSymbolId: number | undefined,
+        initialType: Type | undefined
+    ) {
         incompleteTypeTracker.enterTrackingScope();
         let codeFlowResult: FlowNodeTypeResult;
 
         try {
-            codeFlowResult = analyzer.getTypeFromCodeFlow(reference, targetSymbolId, initialType);
+            codeFlowResult = analyzer.getTypeFromCodeFlow(flowNode!, reference, targetSymbolId, initialType);
         } finally {
             incompleteTypeTracker.exitTrackingScope();
         }
@@ -14749,12 +14802,15 @@ export function createTypeEvaluator(
         const flowNodeTypeCacheSet = new Map<string, TypeCache>();
 
         function getTypeFromCodeFlow(
-            reference: CodeFlowReferenceExpressionNode,
-            targetSymbolId: number,
+            flowNode: FlowNode,
+            reference: CodeFlowReferenceExpressionNode | undefined,
+            targetSymbolId: number | undefined,
             initialType: Type | undefined
         ): FlowNodeTypeResult {
-            const flowNode = AnalyzerNodeInfo.getFlowNode(reference);
-            const referenceKey = createKeyForReference(reference) + `.${targetSymbolId.toString()}`;
+            const referenceKey =
+                reference !== undefined && targetSymbolId !== undefined
+                    ? createKeyForReference(reference) + `.${targetSymbolId.toString()}`
+                    : '.';
             let flowNodeTypeCache = flowNodeTypeCacheSet.get(referenceKey);
             if (!flowNodeTypeCache) {
                 flowNodeTypeCache = new Map<number, CachedType | undefined>();
@@ -14891,8 +14947,8 @@ export function createTypeEvaluator(
             // returned.
             function getTypeFromFlowNode(
                 flowNode: FlowNode,
-                reference: CodeFlowReferenceExpressionNode,
-                targetSymbolId: number,
+                reference: CodeFlowReferenceExpressionNode | undefined,
+                targetSymbolId: number | undefined,
                 initialType: Type | undefined
             ): FlowNodeTypeResult {
                 let curFlowNode = flowNode;
@@ -14945,39 +15001,41 @@ export function createTypeEvaluator(
                         // Are we targeting the same symbol? We need to do this extra check because the same
                         // symbol name might refer to different symbols in different scopes (e.g. a list
                         // comprehension introduces a new scope).
-                        if (
-                            targetSymbolId === assignmentFlowNode.targetSymbolId &&
-                            ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)
-                        ) {
-                            // Is this a special "unbind" assignment? If so,
-                            // we can handle it immediately without any further evaluation.
-                            if (curFlowNode.flags & FlowFlags.Unbind) {
-                                return setCacheEntry(curFlowNode, UnboundType.create(), /* isIncomplete */ false);
-                            }
+                        if (reference) {
+                            if (
+                                targetSymbolId === assignmentFlowNode.targetSymbolId &&
+                                ParseTreeUtils.isMatchingExpression(reference, assignmentFlowNode.node)
+                            ) {
+                                // Is this a special "unbind" assignment? If so,
+                                // we can handle it immediately without any further evaluation.
+                                if (curFlowNode.flags & FlowFlags.Unbind) {
+                                    return setCacheEntry(curFlowNode, UnboundType.create(), /* isIncomplete */ false);
+                                }
 
-                            // If there was a cache entry already, that means we hit a recursive
-                            // case (something like "int: int = 4"). Avoid infinite recursion
-                            // by returning an undefined type.
-                            if (cachedEntry && cachedEntry.type === undefined) {
-                                return { type: undefined, isIncomplete: true };
-                            }
+                                // If there was a cache entry already, that means we hit a recursive
+                                // case (something like "int: int = 4"). Avoid infinite recursion
+                                // by returning an undefined type.
+                                if (cachedEntry && cachedEntry.type === undefined) {
+                                    return { type: undefined, isIncomplete: true };
+                                }
 
-                            // Set the cache entry to undefined before evaluating the
-                            // expression in case it depends on itself.
-                            setCacheEntry(curFlowNode, undefined, /* isIncomplete */ true);
-                            let flowTypeResult = evaluateAssignmentFlowNode(assignmentFlowNode);
-                            if (flowTypeResult && isTypeAliasPlaceholder(flowTypeResult.type)) {
-                                flowTypeResult = undefined;
+                                // Set the cache entry to undefined before evaluating the
+                                // expression in case it depends on itself.
+                                setCacheEntry(curFlowNode, undefined, /* isIncomplete */ true);
+                                let flowTypeResult = evaluateAssignmentFlowNode(assignmentFlowNode);
+                                if (flowTypeResult && isTypeAliasPlaceholder(flowTypeResult.type)) {
+                                    flowTypeResult = undefined;
+                                }
+                                return setCacheEntry(curFlowNode, flowTypeResult?.type, !!flowTypeResult?.isIncomplete);
+                            } else if (ParseTreeUtils.isPartialMatchingExpression(reference, assignmentFlowNode.node)) {
+                                // If the node partially matches the reference, we need to "kill" any narrowed
+                                // types further above this point. For example, if we see the sequence
+                                //    a.b = 3
+                                //    a = Foo()
+                                //    x = a.b
+                                // The type of "a.b" can no longer be assumed to be Literal[3].
+                                return setCacheEntry(curFlowNode, initialType, /* isIncomplete */ false);
                             }
-                            return setCacheEntry(curFlowNode, flowTypeResult?.type, !!flowTypeResult?.isIncomplete);
-                        } else if (ParseTreeUtils.isPartialMatchingExpression(reference, assignmentFlowNode.node)) {
-                            // If the node partially matches the reference, we need to "kill" any narrowed
-                            // types further above this point. For example, if we see the sequence
-                            //    a.b = 3
-                            //    a = Foo()
-                            //    x = a.b
-                            // The type of "a.b" can no longer be assumed to be Literal[3].
-                            return setCacheEntry(curFlowNode, initialType, /* isIncomplete */ false);
                         }
 
                         curFlowNode = assignmentFlowNode.antecedent;
@@ -15094,20 +15152,23 @@ export function createTypeEvaluator(
 
                     if (curFlowNode.flags & (FlowFlags.TrueCondition | FlowFlags.FalseCondition)) {
                         const conditionalFlowNode = curFlowNode as FlowCondition;
-                        const typeNarrowingCallback = getTypeNarrowingCallback(reference, conditionalFlowNode);
-                        if (typeNarrowingCallback) {
-                            const flowTypeResult = getTypeFromFlowNode(
-                                conditionalFlowNode.antecedent,
-                                reference,
-                                targetSymbolId,
-                                initialType
-                            );
-                            let flowType = flowTypeResult.type;
-                            if (flowType) {
-                                flowType = typeNarrowingCallback(flowType);
-                            }
 
-                            return setCacheEntry(curFlowNode, flowType, flowTypeResult.isIncomplete);
+                        if (reference) {
+                            const typeNarrowingCallback = getTypeNarrowingCallback(reference, conditionalFlowNode);
+                            if (typeNarrowingCallback) {
+                                const flowTypeResult = getTypeFromFlowNode(
+                                    conditionalFlowNode.antecedent,
+                                    reference,
+                                    targetSymbolId,
+                                    initialType
+                                );
+                                let flowType = flowTypeResult.type;
+                                if (flowType) {
+                                    flowType = typeNarrowingCallback(flowType);
+                                }
+
+                                return setCacheEntry(curFlowNode, flowType, flowTypeResult.isIncomplete);
+                            }
                         }
 
                         curFlowNode = conditionalFlowNode.antecedent;
@@ -15178,7 +15239,7 @@ export function createTypeEvaluator(
 
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
                         const wildcardImportFlowNode = curFlowNode as FlowWildcardImport;
-                        if (reference.nodeType === ParseNodeType.Name) {
+                        if (reference && reference.nodeType === ParseNodeType.Name) {
                             const nameValue = reference.value;
                             if (wildcardImportFlowNode.names.some((name) => name === nameValue)) {
                                 const type = getTypeFromWildcardImport(wildcardImportFlowNode, nameValue);

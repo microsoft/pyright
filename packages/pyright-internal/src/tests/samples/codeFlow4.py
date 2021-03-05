@@ -65,3 +65,20 @@ def func6():
         y = 2
 
     print(y)
+
+
+def func7(color: Color) -> str:
+    if color == Color.RED or color == Color.BLUE:
+        return "yes"
+    elif color == Color.GREEN or color == Color.PERIWINKLE:
+        return "no"
+
+
+def func8(color: Color):
+    if color == Color.RED or color == Color.BLUE:
+        return True
+    elif color == Color.GREEN or color == Color.PERIWINKLE:
+        return False
+
+
+t1: Literal["bool"] = reveal_type(func8(Color.RED))
