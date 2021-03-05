@@ -16017,8 +16017,11 @@ export function createTypeEvaluator(
                 const memberType = getTypeOfMember(memberInfo);
 
                 if (isLiteralTypeOrUnion(memberType)) {
-                    const isAssignable = canAssignType(memberType, literalType, new DiagnosticAddendum());
-                    return isAssignable === isPositiveTest ? subtype : undefined;
+                    if (isPositiveTest) {
+                        return canAssignType(memberType, literalType, new DiagnosticAddendum()) ? subtype : undefined;
+                    } else {
+                        return canAssignType(literalType, memberType, new DiagnosticAddendum()) ? undefined : subtype;
+                    }
                 }
             }
 
