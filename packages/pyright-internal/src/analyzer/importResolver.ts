@@ -63,15 +63,6 @@ const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExtensions]
 // errors when these partial-resolutions fail.
 const allowPartialResolutionForThirdPartyPackages = false;
 
-const enum ResolveImportFlags {
-    Default = 0,
-    AllowPartialResolution = 1 << 0,
-    AllowNativeLibs = 1 << 1,
-    UseStubPackage = 1 << 2,
-    SkipStubFile = 1 << 3,
-    SkipPyTypedInfo = 1 << 4,
-}
-
 export class ImportResolver {
     protected _configOptions: ConfigOptions;
 
@@ -160,21 +151,12 @@ export class ImportResolver {
                 }
             }
 
-            const bestImport = this._resolveBestAbsoluteImport(
-                sourceFilePath,
-                execEnv,
-                moduleDescriptor,
-                /* allowPyi */ true
-            );
+            const bestImport = this._resolveBestAbsoluteImport(sourceFilePath, execEnv, moduleDescriptor, true);
             if (bestImport) {
                 if (bestImport.isStubFile) {
                     bestImport.nonStubImportResult =
-                        this._resolveBestAbsoluteImport(
-                            sourceFilePath,
-                            execEnv,
-                            moduleDescriptor,
-                            /* allowPyi */ false
-                        ) || notFoundResult;
+                        this._resolveBestAbsoluteImport(sourceFilePath, execEnv, moduleDescriptor, false) ||
+                        notFoundResult;
                 }
                 return this.addResultsToCache(execEnv, importName, bestImport, moduleDescriptor.importedSymbols);
             }
@@ -499,9 +481,12 @@ export class ImportResolver {
         moduleDescriptor: ImportedModuleDescriptor,
         importName: string,
         importFailureInfo: string[],
-        flags: ResolveImportFlags
+        allowPartial = false,
+        allowNativeLib = false,
+        useStubPackage = false,
+        allowPyi = true
     ): ImportResult {
-        if ((flags & ResolveImportFlags.SkipStubFile) === 0 && (flags & ResolveImportFlags.UseStubPackage) !== 0) {
+        if (allowPyi && useStubPackage) {
             // Look for packaged stubs first. PEP 561 indicates that package authors can ship
             // their stubs separately from their package implementation by appending the string
             // '-stubs' to its top - level directory name. We'll look there first.
@@ -511,7 +496,10 @@ export class ImportResolver {
                 moduleDescriptor,
                 importName,
                 importFailureInfo,
-                flags & ~ResolveImportFlags.AllowNativeLibs
+                allowPartial,
+                /* allowNativeLib */ false,
+                /* useStubPackage */ true,
+                /* allowPyi */ true
             );
 
             // We found fully typed stub packages.
@@ -526,7 +514,10 @@ export class ImportResolver {
             moduleDescriptor,
             importName,
             importFailureInfo,
-            flags & ~ResolveImportFlags.UseStubPackage
+            allowPartial,
+            allowNativeLib,
+            /* useStubPackage */ false,
+            allowPyi
         );
     }
 
@@ -536,7 +527,10 @@ export class ImportResolver {
         moduleDescriptor: ImportedModuleDescriptor,
         importName: string,
         importFailureInfo: string[],
-        flags: ResolveImportFlags
+        allowPartial: boolean,
+        allowNativeLib: boolean,
+        useStubPackage: boolean,
+        allowPyi: boolean
     ): ImportResult {
         importFailureInfo.push(`Attempting to resolve using root path '${rootPath}'`);
 
@@ -558,11 +552,7 @@ export class ImportResolver {
             const pyFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.py');
             const pyiFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.pyi');
 
-            if (
-                (flags & ResolveImportFlags.SkipStubFile) === 0 &&
-                this.fileSystem.existsSync(pyiFilePath) &&
-                isFile(this.fileSystem, pyiFilePath)
-            ) {
+            if (allowPyi && this.fileSystem.existsSync(pyiFilePath) && isFile(this.fileSystem, pyiFilePath)) {
                 importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
                 resolvedPaths.push(pyiFilePath);
                 isStubFile = true;
@@ -582,7 +572,7 @@ export class ImportResolver {
                 const isLastPart = i === moduleDescriptor.nameParts.length - 1;
                 dirPath = combinePaths(dirPath, moduleDescriptor.nameParts[i]);
 
-                if ((flags & ResolveImportFlags.UseStubPackage) !== 0 && isFirstPart) {
+                if (useStubPackage && isFirstPart) {
                     dirPath += stubsSuffix;
                     isStubPackage = true;
                 }
@@ -600,11 +590,7 @@ export class ImportResolver {
                     const pyiFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.pyi');
                     let foundInit = false;
 
-                    if (
-                        (flags & ResolveImportFlags.SkipStubFile) === 0 &&
-                        this.fileSystem.existsSync(pyiFilePath) &&
-                        isFile(this.fileSystem, pyiFilePath)
-                    ) {
+                    if (allowPyi && this.fileSystem.existsSync(pyiFilePath) && isFile(this.fileSystem, pyiFilePath)) {
                         importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
                         resolvedPaths.push(pyiFilePath);
                         if (isLastPart) {
@@ -617,7 +603,7 @@ export class ImportResolver {
                         foundInit = true;
                     }
 
-                    if (foundInit && !pyTypedInfo && (flags & ResolveImportFlags.SkipPyTypedInfo) === 0) {
+                    if (foundInit && !pyTypedInfo) {
                         pyTypedInfo = getPyTypedInfo(this.fileSystem, dirPath);
                     }
 
@@ -650,11 +636,7 @@ export class ImportResolver {
                 const pyFilePath = combinePaths(fileDirectory, fileNameWithoutExtension + '.py');
                 const pyiFilePath = combinePaths(fileDirectory, fileNameWithoutExtension + '.pyi');
 
-                if (
-                    (flags & ResolveImportFlags.SkipStubFile) === 0 &&
-                    this.fileSystem.existsSync(pyiFilePath) &&
-                    isFile(this.fileSystem, pyiFilePath)
-                ) {
+                if (allowPyi && this.fileSystem.existsSync(pyiFilePath) && isFile(this.fileSystem, pyiFilePath)) {
                     importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
                     resolvedPaths.push(pyiFilePath);
                     if (isLastPart) {
@@ -665,7 +647,7 @@ export class ImportResolver {
                     resolvedPaths.push(pyFilePath);
                 } else {
                     if (
-                        (flags & ResolveImportFlags.AllowNativeLibs) !== 0 &&
+                        allowNativeLib &&
                         this.fileSystem.existsSync(fileDirectory) &&
                         isDirectory(this.fileSystem, fileDirectory)
                     ) {
@@ -704,7 +686,7 @@ export class ImportResolver {
 
         let importFound: boolean;
         const isPartlyResolved = resolvedPaths.length > 0 && resolvedPaths.length < moduleDescriptor.nameParts.length;
-        if ((flags & ResolveImportFlags.AllowPartialResolution) !== 0) {
+        if (allowPartial) {
             importFound = resolvedPaths.length > 0;
         } else {
             importFound = resolvedPaths.length >= moduleDescriptor.nameParts.length;
@@ -924,7 +906,9 @@ export class ImportResolver {
                     moduleDescriptor,
                     importName,
                     importFailureInfo,
-                    ResolveImportFlags.UseStubPackage
+                    /* allowPartial */ undefined,
+                    /* allowNativeLib */ false,
+                    /* useStubPackage */ true
                 );
 
                 if (typingsImport.isImportFound) {
@@ -940,18 +924,16 @@ export class ImportResolver {
 
         // Look for it in the root directory of the execution environment.
         importFailureInfo.push(`Looking in root directory of execution environment ` + `'${execEnv.root}'`);
-        let flags =
-            ResolveImportFlags.AllowNativeLibs | ResolveImportFlags.UseStubPackage | ResolveImportFlags.SkipPyTypedInfo;
-        if (!allowPyi) {
-            flags |= ResolveImportFlags.SkipStubFile;
-        }
         let localImport = this.resolveAbsoluteImport(
             execEnv.root,
             execEnv,
             moduleDescriptor,
             importName,
             importFailureInfo,
-            flags
+            /* allowPartial */ undefined,
+            /* allowNativeLib */ true,
+            /* useStubPackage */ true,
+            allowPyi
         );
         bestResultSoFar = localImport;
 
@@ -963,7 +945,10 @@ export class ImportResolver {
                 moduleDescriptor,
                 importName,
                 importFailureInfo,
-                flags
+                /* allowPartial */ undefined,
+                /* allowNativeLib */ true,
+                /* useStubPackage */ true,
+                allowPyi
             );
             bestResultSoFar = this._pickBestImport(bestResultSoFar, localImport);
         }
@@ -974,21 +959,16 @@ export class ImportResolver {
             for (const searchPath of pythonSearchPaths) {
                 importFailureInfo.push(`Looking in python search path '${searchPath}'`);
 
-                let flags = ResolveImportFlags.AllowNativeLibs | ResolveImportFlags.UseStubPackage;
-                if (!allowPyi) {
-                    flags |= ResolveImportFlags.SkipStubFile;
-                }
-                if (allowPartialResolutionForThirdPartyPackages) {
-                    flags |= ResolveImportFlags.AllowPartialResolution;
-                }
-
                 const thirdPartyImport = this.resolveAbsoluteImport(
                     searchPath,
                     execEnv,
                     moduleDescriptor,
                     importName,
                     importFailureInfo,
-                    flags
+                    /* allowPartial */ allowPartialResolutionForThirdPartyPackages,
+                    /* allowNativeLib */ true,
+                    /* useStubPackage */ true,
+                    allowPyi
                 );
 
                 if (thirdPartyImport) {
@@ -1123,8 +1103,7 @@ export class ImportResolver {
                 execEnv,
                 moduleDescriptor,
                 importName,
-                importFailureInfo,
-                isStdLib ? ResolveImportFlags.SkipPyTypedInfo : ResolveImportFlags.Default
+                importFailureInfo
             );
             if (importInfo.isImportFound) {
                 importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
@@ -1314,7 +1293,8 @@ export class ImportResolver {
             moduleDescriptor,
             importName,
             importFailureInfo,
-            ResolveImportFlags.AllowNativeLibs | ResolveImportFlags.SkipPyTypedInfo
+            false,
+            true
         );
         return this._filterImplicitImports(absImport, moduleDescriptor.importedSymbols);
     }
