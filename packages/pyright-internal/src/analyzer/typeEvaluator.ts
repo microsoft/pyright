@@ -6728,7 +6728,7 @@ export function createTypeEvaluator(
                     // If the concreteSubtype originated from a TypeVar, convert
                     // the constructed type back to the TypeVar. For example, if
                     // we have `cls: Type[_T]` followed by `_T()`.
-                    if (isTypeVar(subtype) && !subtype.details.isSynthesized) {
+                    if (isTypeVar(subtype)) {
                         returnType = convertToInstance(subtype);
                     }
 
