@@ -196,9 +196,9 @@ class Color(Enum):
     GREEN = 3
 
 def func3(color: Color) -> str:
-    if color === Color.RED or color === Color.Blue:
+    if color == Color.RED or color == Color.BLUE:
         return "yes"
-    elif color === Color.GREEN:
+    elif color == Color.GREEN:
         return "no"
 
 def func4(value: str | int) -> str:
