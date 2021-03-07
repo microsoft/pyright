@@ -25,9 +25,10 @@ import { NullConsole } from './common/console';
 import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
-import { createFromRealFileSystem, FileSystem } from './common/fileSystem';
+import { createFromRealFileSystem } from './common/fileSystem';
 import { isEmptyRange, Range } from './common/textRange';
 import { versionFromString } from './common/pythonVersion';
+import { PyrightFileSystem } from './pyrightFileSystem';
 
 const toolName = 'pyright';
 
@@ -239,12 +240,12 @@ function processArgs() {
     options.checkOnlyOpenFiles = false;
 
     const output = args.outputjson ? new NullConsole() : undefined;
-    const realFileSystem = createFromRealFileSystem(output);
+    const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output));
 
     // The package type verification uses a different path.
     if (args['verifytypes'] !== undefined) {
         verifyPackageTypes(
-            realFileSystem,
+            fileSystem,
             args['verifytypes'] || '',
             !!args.verbose,
             !!args.outputjson,
@@ -257,7 +258,7 @@ function processArgs() {
     const watch = args.watch !== undefined;
     options.watchForSourceChanges = watch;
 
-    const service = new AnalyzerService('<default>', realFileSystem, output);
+    const service = new AnalyzerService('<default>', fileSystem, output);
 
     service.setCompletionCallback((results) => {
         if (results.fatalErrorOccurred) {
@@ -335,14 +336,14 @@ function processArgs() {
 }
 
 function verifyPackageTypes(
-    realFileSystem: FileSystem,
+    fileSystem: PyrightFileSystem,
     packageName: string,
     verboseOutput: boolean,
     outputJson: boolean,
     ignoreUnknownTypesFromImports: boolean
 ): never {
     try {
-        const verifier = new PackageTypeVerifier(realFileSystem);
+        const verifier = new PackageTypeVerifier(fileSystem);
 
         const report = verifier.verify(packageName, ignoreUnknownTypesFromImports);
         const jsonReport = buildTypeCompletenessReport(packageName, report);

@@ -8,6 +8,7 @@
  */
 
 import { randomBytes } from 'crypto';
+import { Dirent } from 'fs';
 import * as path from 'path';
 import Char from 'typescript-char';
 import { URI } from 'vscode-uri';
@@ -565,37 +566,41 @@ export function isFile(fs: FileSystem, path: string): boolean {
 
 export function getFileSystemEntries(fs: FileSystem, path: string): FileSystemEntries {
     try {
-        const entries = fs.readdirEntriesSync(path || '.').sort((a, b) => {
-            if (a.name < b.name) {
-                return -1;
-            } else if (a.name > b.name) {
-                return 1;
-            } else {
-                return 0;
-            }
-        });
-        const files: string[] = [];
-        const directories: string[] = [];
-        for (const entry of entries) {
-            // This is necessary because on some file system node fails to exclude
-            // "." and "..". See https://github.com/nodejs/node/issues/4002
-            if (entry.name === '.' || entry.name === '..') {
-                continue;
-            }
-
-            if (entry.isFile()) {
-                files.push(entry.name);
-            } else if (entry.isDirectory()) {
-                // Don't traverse symbolic links. They can lead to cycles.
-                if (!entry.isSymbolicLink()) {
-                    directories.push(entry.name);
-                }
-            }
-        }
-        return { files, directories };
+        return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(path || '.'));
     } catch (e) {
         return { files: [], directories: [] };
     }
+}
+
+export function getFileSystemEntriesFromDirEntries(dirEntries: Dirent[]): FileSystemEntries {
+    const entries = dirEntries.sort((a, b) => {
+        if (a.name < b.name) {
+            return -1;
+        } else if (a.name > b.name) {
+            return 1;
+        } else {
+            return 0;
+        }
+    });
+    const files: string[] = [];
+    const directories: string[] = [];
+    for (const entry of entries) {
+        // This is necessary because on some file system node fails to exclude
+        // "." and "..". See https://github.com/nodejs/node/issues/4002
+        if (entry.name === '.' || entry.name === '..') {
+            continue;
+        }
+
+        if (entry.isFile()) {
+            files.push(entry.name);
+        } else if (entry.isDirectory()) {
+            // Don't traverse symbolic links. They can lead to cycles.
+            if (!entry.isSymbolicLink()) {
+                directories.push(entry.name);
+            }
+        }
+    }
+    return { files, directories };
 }
 
 // Transforms a relative file spec (one that potentially contains
