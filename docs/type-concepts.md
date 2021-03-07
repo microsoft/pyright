@@ -143,7 +143,7 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `callable(x)`
 * `f(x)` (where f is a user-defined type guard as defined in [PEP 647](https://www.python.org/dev/peps/pep-0647/))
 
-* x (where x is any expression that is statically verifiable to be truthy or falsy in all cases)
+* `x` (where x is any expression that is statically verifiable to be truthy or falsy in all cases)
 
 Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, and call expressions. Other operators (such as arithmetic operators or subscripts) are not supported.
 
@@ -185,7 +185,7 @@ def func2(x: Literal[1, 2]):
     print(y) # No error
 ```
 
-This can be especially useful when exhausting all members in an enum.
+This can be especially useful when exhausting all members in an enum or types in a union.
 
 ```python
 from enum import Enum
@@ -200,9 +200,17 @@ def func3(color: Color) -> str:
         return "yes"
     elif color === Color.GREEN:
         return "no"
+
+def func4(value: str | int) -> str:
+    if isinstance(value, str):
+        return "received a str"
+    elif isinstance(value, int):
+        return "received an int"
 ```
 
-If you later added another color to the enumeration above (e.g. `YELLOW = 4`), Pyright would detect that `func3` no longer exhausts all members of the enumeration and possibly returns `None`, which violates the declared return type.
+If you later added another color to the `Color` enumeration above (e.g. `YELLOW = 4`), Pyright would detect that `func3` no longer exhausts all members of the enumeration and possibly returns `None`, which violates the declared return type. Likewise, if you modify the type of the `value` parameter in `func4` to expand the union, a similar error will be produced.
+
+This “narrowing for implied else” technique works for all narrowing expressions listed above with the exception of simple falsy/truthy statements and type guards. These are excluded because they are not generally used for exhaustive checks, and their inclusion would have a significant impact on analysis performance.
 
 ### Narrowing Any
 
