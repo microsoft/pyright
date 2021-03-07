@@ -3,7 +3,10 @@
  * Copyright (c) Microsoft Corporation.
  * Licensed under the MIT license.
  *
- * a file system that knows how to deal with partial stub files.
+ * A file system that knows how to deal with partial stub files.
+ * Files within a partial stub package act as though they are
+ * copied into the associated package, and the combined set of
+ * files is treated as one.
  */
 
 import * as fs from 'fs';
@@ -32,8 +35,8 @@ export class PyrightFileSystem implements FileSystem {
 
     existsSync(path: string): boolean {
         if (this._partialStubPackagePaths.has(path)) {
-            // Pretend partial stub package directory doesn't exist.
-            // To be 100% correct, we need to check whether a file is under partial stub package path,
+            // Pretend partial stub package directory doesn't exist. To be 100% correct,
+            // we need to check whether a file is under partial stub package path,
             // but for now, this is enough to make import resolver to skip this folder.
             return false;
         }
@@ -192,7 +195,15 @@ export class PyrightFileSystem implements FileSystem {
                             this._pathMap.set(pyiFile, combinePaths(partialStubPackagePath, partialStub));
 
                             const directory = ensureTrailingDirectorySeparator(getDirectoryPath(pyiFile));
-                            getOrAdd(this._folderMap, directory, () => []).push(getFileName(pyiFile));
+                            let folderInfo = this._folderMap.get(directory);
+                            if (!folderInfo) {
+                                folderInfo = [];
+                                this._folderMap.set(directory, folderInfo);
+                            }
+                            const pyiFileName = getFileName(pyiFile);
+                            if (!folderInfo.some((entry) => entry === pyiFileName)) {
+                                folderInfo.push(pyiFileName);
+                            }
                         }
                     } catch {
                         // ignore
@@ -275,16 +286,4 @@ class FakeFile extends fs.Dirent {
     isSocket(): boolean {
         return false;
     }
-}
-
-function getOrAdd<K, V>(map: Map<K, V>, key: K, newValueFactory: () => V): V {
-    const value = map.get(key);
-    if (value !== undefined) {
-        return value;
-    }
-
-    const newValue = newValueFactory();
-    map.set(key, newValue);
-
-    return newValue;
 }

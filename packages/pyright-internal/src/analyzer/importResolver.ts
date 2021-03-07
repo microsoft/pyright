@@ -1066,13 +1066,16 @@ export class ImportResolver {
 
         // Find the site packages for the configured virtual environment.
         if (!this._cachedPythonSearchPaths.has(cacheKey)) {
-            const paths =
+            let paths =
                 PythonPathUtils.findPythonSearchPaths(
                     this.fileSystem,
                     this._configOptions,
                     execEnv.venv,
                     importFailureInfo
                 ) || [];
+
+            // Remove duplicates (yes, it happens).
+            paths = [...new Set(paths)];
 
             this._cachedPythonSearchPaths.set(cacheKey, paths);
         }
