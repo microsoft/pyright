@@ -18523,9 +18523,12 @@ export function createTypeEvaluator(
 
         // If there's a bound type, make sure the source is assignable to it.
         if (destType.details.boundType) {
+            const boundType = TypeBase.isInstantiable(destType)
+                ? convertToInstantiable(destType.details.boundType)
+                : destType.details.boundType;
             if (
                 !canAssignType(
-                    destType.details.boundType,
+                    boundType,
                     updatedType,
                     diag.createAddendum(),
                     typeVarMap,
@@ -18539,7 +18542,7 @@ export function createTypeEvaluator(
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeBound().format({
                             sourceType: printType(updatedType),
-                            destType: printType(destType.details.boundType),
+                            destType: printType(boundType),
                             name: TypeVarType.getReadableName(destType),
                         })
                     );
