@@ -11444,11 +11444,11 @@ export function createTypeEvaluator(
                         if (!effectiveMetaclass) {
                             effectiveMetaclass = baseClassMeta;
                         } else if (
-                            derivesFromClassRecursive(baseClassMeta, effectiveMetaclass, /* ignoreUnknown */ true)
+                            derivesFromClassRecursive(baseClassMeta, effectiveMetaclass, /* ignoreUnknown */ false)
                         ) {
                             effectiveMetaclass = baseClassMeta;
                         } else if (
-                            !derivesFromClassRecursive(effectiveMetaclass, baseClassMeta, /* ignoreUnknown */ true)
+                            !derivesFromClassRecursive(effectiveMetaclass, baseClassMeta, /* ignoreUnknown */ false)
                         ) {
                             if (!reportedMetaclassConflict) {
                                 addDiagnostic(
