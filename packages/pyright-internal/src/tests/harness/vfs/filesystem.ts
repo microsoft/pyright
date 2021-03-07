@@ -335,6 +335,10 @@ export class TestFileSystem implements FileSystem {
         return path;
     }
 
+    invalidateCache() {
+        // Nothing to do
+    }
+
     private _scan(path: string, stats: Stats, axis: Axis, traversal: Traversal, noFollow: boolean, results: string[]) {
         if (axis === 'ancestors-or-self' || axis === 'self' || axis === 'descendants-or-self') {
             if (!traversal.accept || traversal.accept(path, stats)) {
@@ -477,9 +481,33 @@ export class TestFileSystem implements FileSystem {
     /**
      * Determines whether a path exists.
      */
-    existsSync(path: string) {
+    existsSync(path: string, canCache = false) {
         const result = this._walk(this._resolve(path), /*noFollow*/ true, () => 'stop');
         return result !== undefined && result.node !== undefined;
+    }
+
+    /**
+     * Determines whether a file exists.
+     */
+    fileExistsSync(path: string, canCache = false): boolean {
+        try {
+            const stats = this.statSync(path);
+            return stats.isFile();
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Determines whether a directory exists.
+     */
+    dirExistsSync(path: string, canCache = false): boolean {
+        try {
+            const stats = this.statSync(path);
+            return stats.isDirectory();
+        } catch {
+            return false;
+        }
     }
 
     /**
@@ -554,7 +582,7 @@ export class TestFileSystem implements FileSystem {
      *
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
-    readdirSync(path: string) {
+    readdirSync(path: string, canCache = false) {
         const { node } = this._walk(this._resolve(path));
         if (!node) {
             throw createIOError('ENOENT');
@@ -572,7 +600,7 @@ export class TestFileSystem implements FileSystem {
      *
      * NOTE: do not rename this method as it is intended to align with the same named export of the "fs" module.
      */
-    readdirEntriesSync(path: string): Dirent[] {
+    readdirEntriesSync(path: string, canCache = false): Dirent[] {
         const { node } = this._walk(this._resolve(path));
         if (!node) {
             throw createIOError('ENOENT');

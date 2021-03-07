@@ -8,7 +8,7 @@
  */
 
 import { FileSystem } from '../common/fileSystem';
-import { combinePaths, isDirectory, isFile } from '../common/pathUtils';
+import { combinePaths } from '../common/pathUtils';
 
 export interface PyTypedInfo {
     pyTypedPath: string;
@@ -18,14 +18,14 @@ export interface PyTypedInfo {
 const _pyTypedFileName = 'py.typed';
 
 export function getPyTypedInfo(fileSystem: FileSystem, dirPath: string): PyTypedInfo | undefined {
-    if (!fileSystem.existsSync(dirPath) || !isDirectory(fileSystem, dirPath)) {
+    if (!fileSystem.dirExistsSync(dirPath, /* canCache */ true)) {
         return undefined;
     }
 
     let isPartiallyTyped = false;
     const pyTypedPath = combinePaths(dirPath, _pyTypedFileName);
 
-    if (!fileSystem.existsSync(dirPath) || !isFile(fileSystem, pyTypedPath)) {
+    if (!fileSystem.fileExistsSync(pyTypedPath, /* canCache */ true)) {
         return undefined;
     }
 

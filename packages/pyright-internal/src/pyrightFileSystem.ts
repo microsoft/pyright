@@ -7,6 +7,8 @@
  * Files within a partial stub package act as though they are
  * copied into the associated package, and the combined set of
  * files is treated as one.
+ * This file system implementation also caches catalog information
+ * and returns cached information if available.
  */
 
 import * as fs from 'fs';
@@ -22,7 +24,14 @@ import {
     TmpfileOptions,
 } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
-import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFileName } from './common/pathUtils';
+import {
+    combinePathComponents,
+    combinePaths,
+    ensureTrailingDirectorySeparator,
+    getDirectoryPath,
+    getFileName,
+    getPathComponents,
+} from './common/pathUtils';
 
 export class PyrightFileSystem implements FileSystem {
     private readonly _pathMap = new Map<string, string>();
@@ -31,9 +40,11 @@ export class PyrightFileSystem implements FileSystem {
     private readonly _rootSearched = new Set<string>();
     private readonly _partialStubPackagePaths = new Set<string>();
 
+    private readonly _cachedEntriesForPath = new Map<string, fs.Dirent[]>();
+
     constructor(private _realFS: FileSystem) {}
 
-    existsSync(path: string): boolean {
+    existsSync(path: string, canCache = false): boolean {
         if (this._partialStubPackagePaths.has(path)) {
             // Pretend partial stub package directory doesn't exist. To be 100% correct,
             // we need to check whether a file is under partial stub package path,
@@ -44,6 +55,53 @@ export class PyrightFileSystem implements FileSystem {
         return this._realFS.existsSync(this._getPath(path));
     }
 
+    fileExistsSync(path: string, canCache = false): boolean {
+        const splitPath = this._splitPath(path);
+
+        if (!canCache || !splitPath[0] || !splitPath[1]) {
+            if (!this.existsSync(path, canCache)) {
+                return false;
+            }
+            try {
+                const stats = this.statSync(path);
+                return stats.isFile();
+            } catch {
+                return false;
+            }
+        }
+
+        const entries = this.readdirEntriesSync(splitPath[0], /* canCache */ true);
+        const entry = entries.find((entry) => entry.name === splitPath[1]);
+        return entry !== undefined && entry.isFile();
+    }
+
+    dirExistsSync(path: string, canCache = false): boolean {
+        const splitPath = this._splitPath(path);
+
+        if (!canCache || !splitPath[0] || !splitPath[1]) {
+            if (!this.existsSync(path, canCache)) {
+                return false;
+            }
+            try {
+                const stats = this.statSync(path);
+                return stats.isDirectory();
+            } catch {
+                return false;
+            }
+        }
+
+        if (this._partialStubPackagePaths.has(path)) {
+            // Pretend partial stub package directory doesn't exist. To be 100% correct,
+            // we need to check whether a file is under partial stub package path,
+            // but for now, this is enough to make import resolver to skip this folder.
+            return false;
+        }
+
+        const entries = this.readdirEntriesSync(splitPath[0], /* canCache */ true);
+        const entry = entries.find((entry) => entry.name === splitPath[1]);
+        return entry !== undefined && entry.isDirectory();
+    }
+
     mkdirSync(path: string, options?: MkDirOptions | number): void {
         this._realFS.mkdirSync(path, options);
     }
@@ -52,26 +110,30 @@ export class PyrightFileSystem implements FileSystem {
         this._realFS.chdir(path);
     }
 
-    readdirEntriesSync(path: string): fs.Dirent[] {
-        const entries = this._realFS.readdirEntriesSync(path);
-
-        const partialStubs = this._folderMap.get(ensureTrailingDirectorySeparator(path));
-        if (!partialStubs) {
-            return entries;
+    readdirEntriesSync(path: string, canCache = false): fs.Dirent[] {
+        if (!canCache) {
+            return this._readdirEntriesSyncUncached(path);
         }
 
-        return entries.concat(partialStubs.map((f) => new FakeFile(f)));
+        const cachedValue = this._cachedEntriesForPath.get(path);
+        if (cachedValue) {
+            return cachedValue;
+        }
+
+        let newCacheValue: fs.Dirent[];
+        try {
+            newCacheValue = this._readdirEntriesSyncUncached(path);
+        } catch {
+            newCacheValue = [];
+        }
+
+        // Populate cache for next time.
+        this._cachedEntriesForPath.set(path, newCacheValue);
+        return newCacheValue;
     }
 
-    readdirSync(path: string): string[] {
-        const entries = this._realFS.readdirSync(path);
-
-        const partialStubs = this._folderMap.get(ensureTrailingDirectorySeparator(path));
-        if (!partialStubs) {
-            return entries;
-        }
-
-        return entries.concat(partialStubs);
+    readdirSync(path: string, canCache = false): string[] {
+        return this.readdirEntriesSync(path, canCache).map((entry) => entry.name);
     }
 
     readFileSync(path: string, encoding?: null): Buffer;
@@ -143,6 +205,8 @@ export class PyrightFileSystem implements FileSystem {
     }
 
     processPartialStubPackages(paths: string[], roots: string[]) {
+        let stubPackageInfoChanged = false;
+
         for (const path of paths) {
             this._rootSearched.add(path);
 
@@ -192,7 +256,11 @@ export class PyrightFileSystem implements FileSystem {
                                 continue;
                             }
 
-                            this._pathMap.set(pyiFile, combinePaths(partialStubPackagePath, partialStub));
+                            const partialStubPath = combinePaths(partialStubPackagePath, partialStub);
+                            if (this._pathMap.get(pyiFile) !== partialStubPath) {
+                                this._pathMap.set(pyiFile, partialStubPath);
+                                stubPackageInfoChanged = true;
+                            }
 
                             const directory = ensureTrailingDirectorySeparator(getDirectoryPath(pyiFile));
                             let folderInfo = this._folderMap.get(directory);
@@ -203,6 +271,7 @@ export class PyrightFileSystem implements FileSystem {
                             const pyiFileName = getFileName(pyiFile);
                             if (!folderInfo.some((entry) => entry === pyiFileName)) {
                                 folderInfo.push(pyiFileName);
+                                stubPackageInfoChanged = true;
                             }
                         }
                     } catch {
@@ -211,10 +280,21 @@ export class PyrightFileSystem implements FileSystem {
                 }
             }
         }
+
+        // Invalidate any cached FS entries that may have changed because of
+        // the new partial stub information.
+        if (stubPackageInfoChanged) {
+            this.invalidateCache();
+        }
     }
 
     isVirtual(filepath: string): boolean {
         return this._pathMap.has(filepath);
+    }
+
+    invalidateCache(): void {
+        this._cachedEntriesForPath.clear();
+        this._realFS.invalidateCache();
     }
 
     clearPartialStubs(): void {
@@ -223,6 +303,33 @@ export class PyrightFileSystem implements FileSystem {
 
         this._rootSearched.clear();
         this._partialStubPackagePaths.clear();
+
+        this.invalidateCache();
+    }
+
+    private _readdirEntriesSyncUncached(path: string): fs.Dirent[] {
+        const entries = this._realFS.readdirEntriesSync(path, /* canCache */ false);
+
+        const partialStubs = this._folderMap.get(ensureTrailingDirectorySeparator(path));
+        if (!partialStubs) {
+            return entries;
+        }
+
+        return entries.concat(partialStubs.map((f) => new FakeFile(f)));
+    }
+
+    // Splits a path into the name of the containing directory and
+    // a file or dir within that containing directory.
+    private _splitPath(path: string): [string, string] {
+        const pathComponents = getPathComponents(path);
+        if (pathComponents.length <= 1) {
+            return [path, ''];
+        }
+
+        const containingPath = combinePathComponents(pathComponents.slice(0, -1));
+        const fileOrDirName = pathComponents[pathComponents.length - 1];
+
+        return [containingPath, fileOrDirName];
     }
 
     private _getPath(path: string) {

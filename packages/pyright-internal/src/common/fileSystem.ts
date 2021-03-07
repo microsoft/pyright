@@ -53,10 +53,17 @@ export interface TmpfileOptions {
 
 export interface FileSystem {
     existsSync(path: string): boolean;
+    existsSync(path: string, canCache: boolean): boolean;
+    fileExistsSync(path: string): boolean;
+    fileExistsSync(path: string, canCache: boolean): boolean;
+    dirExistsSync(path: string): boolean;
+    dirExistsSync(path: string, canCache: boolean): boolean;
     mkdirSync(path: string, options?: MkDirOptions | number): void;
     chdir(path: string): void;
     readdirEntriesSync(path: string): fs.Dirent[];
+    readdirEntriesSync(path: string, canCache: boolean): fs.Dirent[];
     readdirSync(path: string): string[];
+    readdirSync(path: string, canCache: boolean): string[];
     readFileSync(path: string, encoding?: null): Buffer;
     readFileSync(path: string, encoding: BufferEncoding): string;
     readFileSync(path: string, encoding?: BufferEncoding | null): string | Buffer;
@@ -75,6 +82,7 @@ export interface FileSystem {
     // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
     tmpdir(): string;
     tmpfile(options?: TmpfileOptions): string;
+    invalidateCache(): void;
 }
 
 export interface FileWatcherProvider {
@@ -116,8 +124,26 @@ class RealFileSystem implements FileSystem {
         this._fileWatcherProvider = fileWatcherProvider;
     }
 
-    existsSync(path: string) {
+    existsSync(path: string, canCache = false) {
         return fs.existsSync(path);
+    }
+
+    fileExistsSync(path: string, canCache = false): boolean {
+        try {
+            const stats = this.statSync(path);
+            return stats.isFile();
+        } catch {
+            return false;
+        }
+    }
+
+    dirExistsSync(path: string, canCache = false): boolean {
+        try {
+            const stats = this.statSync(path);
+            return stats.isDirectory();
+        } catch {
+            return false;
+        }
     }
 
     mkdirSync(path: string, options?: MkDirOptions | number) {
@@ -128,10 +154,10 @@ class RealFileSystem implements FileSystem {
         process.chdir(path);
     }
 
-    readdirSync(path: string): string[] {
+    readdirSync(path: string, canCache = false): string[] {
         return fs.readdirSync(path);
     }
-    readdirEntriesSync(path: string): fs.Dirent[] {
+    readdirEntriesSync(path: string, canCache = false): fs.Dirent[] {
         return fs.readdirSync(path, { withFileTypes: true });
     }
 
@@ -216,6 +242,10 @@ class RealFileSystem implements FileSystem {
     tmpfile(options?: TmpfileOptions): string {
         const f = tmp.fileSync({ dir: this.tmpdir(), discardDescriptor: true, ...options });
         return f.name;
+    }
+
+    invalidateCache() {
+        // Nothing to do
     }
 }
 
