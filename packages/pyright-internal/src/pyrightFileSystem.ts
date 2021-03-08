@@ -59,7 +59,11 @@ export class PyrightFileSystem implements FileSystem {
     }
 
     readdirEntriesSync(path: string): fs.Dirent[] {
-        const entries = this._realFS.readdirEntriesSync(path);
+        const entries = this._realFS.readdirEntriesSync(path).filter((item) => {
+            // Filter out the stub package directory.
+            const dirPath = combinePaths(path, item.name);
+            return !this._partialStubPackagePaths.has(dirPath);
+        });
 
         const partialStubs = this._folderMap.get(ensureTrailingDirectorySeparator(path));
         if (!partialStubs) {
@@ -70,7 +74,11 @@ export class PyrightFileSystem implements FileSystem {
     }
 
     readdirSync(path: string): string[] {
-        const entries = this._realFS.readdirSync(path);
+        const entries = this._realFS.readdirSync(path).filter((item) => {
+            // Filter out the stub package directory.
+            const dirPath = combinePaths(path, item);
+            return !this._partialStubPackagePaths.has(dirPath);
+        });
 
         const partialStubs = this._folderMap.get(ensureTrailingDirectorySeparator(path));
         if (!partialStubs) {
