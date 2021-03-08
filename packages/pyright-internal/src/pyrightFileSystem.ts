@@ -22,7 +22,13 @@ import {
     TmpfileOptions,
 } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
-import { combinePaths, ensureTrailingDirectorySeparator, getDirectoryPath, getFileName } from './common/pathUtils';
+import {
+    combinePaths,
+    ensureTrailingDirectorySeparator,
+    getDirectoryPath,
+    getFileName,
+    isDirectory,
+} from './common/pathUtils';
 
 export class PyrightFileSystem implements FileSystem {
     private readonly _pathMap = new Map<string, string>();
@@ -146,7 +152,7 @@ export class PyrightFileSystem implements FileSystem {
         for (const path of paths) {
             this._rootSearched.add(path);
 
-            if (!this._realFS.existsSync(path)) {
+            if (!this._realFS.existsSync(path) || !isDirectory(this._realFS, path)) {
                 continue;
             }
 
