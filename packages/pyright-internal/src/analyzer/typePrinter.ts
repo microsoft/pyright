@@ -463,7 +463,7 @@ export function printObjectTypeForClass(
             // Handle Tuple[()] as a special case.
             if (typeArgs.length > 0) {
                 const typeArgStrings: string[] = [];
-                const isAllAny = true;
+                let isAllAny = true;
 
                 typeArgs.forEach((typeArg, index) => {
                     const typeParam = index < typeParams.length ? typeParams[index] : undefined;
@@ -476,21 +476,33 @@ export function printObjectTypeForClass(
                     ) {
                         // Expand the tuple type that maps to the variadic type parameter.
                         if (typeArg.classType.tupleTypeArguments.length === 0) {
+                            if (!isAnyOrUnknown(typeArg)) {
+                                isAllAny = false;
+                            }
+
                             typeArgStrings.push('()');
                         } else {
                             typeArgStrings.push(
-                                ...typeArg.classType.tupleTypeArguments!.map((typeArg) =>
-                                    printType(
+                                ...typeArg.classType.tupleTypeArguments!.map((typeArg) => {
+                                    if (!isAnyOrUnknown(typeArg)) {
+                                        isAllAny = false;
+                                    }
+
+                                    return printType(
                                         typeArg,
                                         printTypeFlags,
                                         returnTypeCallback,
                                         /* expandTypeAlias */ false,
                                         recursionCount + 1
-                                    )
-                                )
+                                    );
+                                })
                             );
                         }
                     } else {
+                        if (!isAnyOrUnknown(typeArg)) {
+                            isAllAny = false;
+                        }
+
                         typeArgStrings.push(
                             printType(
                                 typeArg,
