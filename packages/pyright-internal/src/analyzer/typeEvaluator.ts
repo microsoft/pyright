@@ -5703,21 +5703,27 @@ export function createTypeEvaluator(
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
                 node.leftExpression.nodeType === ParseNodeType.Name &&
-                node.leftExpression.value === 'reveal_type' &&
-                node.arguments.length === 1 &&
-                node.arguments[0].argumentCategory === ArgumentCategory.Simple &&
-                node.arguments[0].name === undefined
+                node.leftExpression.value === 'reveal_type'
             ) {
-                // Handle the special-case "reveal_type" call.
-                returnResult.type = getTypeFromRevealType(node);
+                if (node.arguments.length === 1 &&
+                    node.arguments[0].argumentCategory === ArgumentCategory.Simple &&
+                    node.arguments[0].name === undefined) {
+                    // Handle the special-case "reveal_type" call.
+                    returnResult.type = getTypeFromRevealType(node);
+                } else {
+                    addError(Localizer.Diagnostic.revealTypeArgs(), node);
+                }
             } else if (
                 isAnyOrUnknown(baseTypeResult.type) &&
                 node.leftExpression.nodeType === ParseNodeType.Name &&
-                node.leftExpression.value === 'reveal_locals' &&
-                node.arguments.length === 0
+                node.leftExpression.value === 'reveal_locals'
             ) {
-                // Handle the special-case "reveal_locals" call.
-                returnResult.type = getTypeFromRevealLocals(node);
+                if (node.arguments.length === 0) {
+                    // Handle the special-case "reveal_locals" call.
+                    returnResult.type = getTypeFromRevealLocals(node);
+                } else {
+                    addError(Localizer.Diagnostic.revealLocalsArgs(), node);
+                }
             } else {
                 returnResult.type =
                     validateCallArguments(
