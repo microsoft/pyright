@@ -21,19 +21,15 @@ class Class2(Dict[Tuple[Unpack[_Ys]], Tuple[Unpack[_Xs]]]):
     ...
 
 
-# This should generate an error because a TypeVarTuple must come at the end.
 class Class3(Dict[Tuple[Unpack[_Ys]], _T1]):
     ...
 
 
-# This should generate an error because a TypeVarTuple must come at the end.
 class Class4(Dict[_T1, Tuple[Unpack[_Ys]]], Generic[Unpack[_Ys], _T1]):
     ...
 
 
 class Class5(Dict[Tuple[Unpack[_Ys]], _T1], Generic[_T1, Unpack[_Ys]]):
-    # This should generate an error because *_Ys must be the last
-    # type argument in Tuple.
     def func1(self, a: Tuple[Unpack[_Ys], int]):
         pass
 
@@ -48,8 +44,6 @@ class Class5(Dict[Tuple[Unpack[_Ys]], _T1], Generic[_T1, Unpack[_Ys]]):
     def func4(self, *args: Unpack[_Xs]) -> Union[int, Unpack[_Ys], Unpack[_Xs]]:
         return 3
 
-    # This should generate an error because *_Ys must be the last
-    # argument in a callable list.
     def func5(self, a: Callable[[Unpack[_Ys], int], Any]):
         pass
 
@@ -59,7 +53,6 @@ class Class5(Dict[Tuple[Unpack[_Ys]], _T1], Generic[_T1, Unpack[_Ys]]):
         pass
 
 
-# This should generate an error because the TypeVarTuple is not at the end.
 Alias1 = Union[Tuple[int, Unpack[_Xs]], _T1]
 
 # This should generate an error because at most one TypeVarTuple is allowed.

@@ -388,7 +388,7 @@
         "unusedCallResult": "Result of call expression is of type \"{type}\" and is not used; assign to variable \"_\" if this is intentional",
         "unusedCoroutine": "Result of async function call is not used; use \"await\" or assign result to variable",
         "varAnnotationIllegal": "Type annotations for variables requires Python 3.6 or newer; use type comment for compatibility with previous versions",
-        "variadicTypeParamNotAtEnd": "TypeVarTuple \"{name}\" must be the last type parameter",
+        "variadicTypeArgsTooMany": "Type argument list can have at most one unpacked TypeVarTuple",
         "variadicTypeParamTooManyAlias": "Type alias can have at most one TypeVarTuple type parameter but received multiple ({names})",
         "variadicTypeParamTooManyClass": "Generic class can have at most one TypeVarTuple type parameter but received multiple ({names})",
         "walrusIllegal": "Operator \":=\" requires Python 3.8 or newer",

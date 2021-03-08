@@ -40,7 +40,12 @@ x6 = Alias1[int, int, str](3, 4, "")
 
 x7: Alias1[int, float, str] = Array(3, 4, "")
 
+# This should generate an error. This case is arguably OK, but the logic
+# currently assumes that an unpacked TypeVarTuple argument always matches
+# a TypeVarTuple parameter one for one.
 Alias4 = Array[_T, int, Unpack[_Xs]]
+
+Alias5 = Array[Unpack[_Xs]]
 
 y1: Alias4[float, str, str] = Array(3.4, 2, "hi", "hi")
 
@@ -63,14 +68,14 @@ z2 = func1(Array(3, 4.3, "hi", 3j))
 z3 = func1(Array(3.5, 4))
 t_z3: Literal["float"] = reveal_type(z3)
 
-Alias5 = Tuple[int, Unpack[_Xs]]
+Alias6 = Tuple[int, Unpack[_Xs]]
 
 
 # The type annotation for y will generate an error if
 # reportMissingTypeArgument is enabled.
-def func2(x: Alias5[float, bool], y: Alias5, z: Alias5[()]):
-    t_x: Literal["Alias5[float, bool]"] = reveal_type(x)
+def func2(x: Alias6[float, bool], y: Alias6, z: Alias6[()]):
+    t_x: Literal["Alias6[float, bool]"] = reveal_type(x)
 
-    t_y: Literal["Alias5[*_Xs@Alias5]"] = reveal_type(y)
+    t_y: Literal["Alias6[*_Xs@Alias6]"] = reveal_type(y)
 
-    t_z: Literal["Alias5[()]"] = reveal_type(z)
+    t_z: Literal["Alias6[()]"] = reveal_type(z)

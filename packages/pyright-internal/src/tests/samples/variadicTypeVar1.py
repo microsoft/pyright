@@ -32,6 +32,9 @@ class ClassA(Generic[_T, Unpack[_Xs]]):
     # This should generate an error.
     y: _Xs = ()
 
+    # This should generate an error.
+    z: Tuple[_Xs, ...]
+
 
 # This should generate an error.
 class ClassB(Generic[_Xs]):

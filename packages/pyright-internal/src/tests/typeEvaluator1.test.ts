@@ -1288,7 +1288,7 @@ test('VariadicTypeVar1', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar1.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 9);
+    TestUtils.validateResults(analysisResults, 12);
 });
 
 test('VariadicTypeVar2', () => {
@@ -1320,7 +1320,7 @@ test('VariadicTypeVar5', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar5.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 13);
 });
 
 test('VariadicTypeVar6', () => {
@@ -1328,7 +1328,7 @@ test('VariadicTypeVar6', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar6.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 13);
 });
 
 test('VariadicTypeVar7', () => {
@@ -1336,7 +1336,7 @@ test('VariadicTypeVar7', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['variadicTypeVar7.py'], configOptions);
-    TestUtils.validateResults(analysisResults, 12);
+    TestUtils.validateResults(analysisResults, 6);
 });
 
 test('VariadicTypeVar8', () => {

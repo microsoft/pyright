@@ -1966,10 +1966,28 @@ function _transformTypeVarsInFunctionType(
         }
     }
 
+    let variadicParamIndex: number | undefined;
+    let variadicTypesToUnpack: Type[] | undefined;
+
     for (let i = 0; i < functionType.details.parameters.length; i++) {
         const paramType = FunctionType.getEffectiveParameterType(functionType, i);
         const specializedType = _transformTypeVars(paramType, callbacks, recursionMap, recursionLevel + 1);
         specializedParameters.parameterTypes.push(specializedType);
+        if (
+            variadicParamIndex === undefined &&
+            isVariadicTypeVar(paramType) &&
+            functionType.details.parameters[i].category === ParameterCategory.Simple
+        ) {
+            variadicParamIndex = i;
+
+            if (
+                isObject(specializedType) &&
+                isTupleClass(specializedType.classType) &&
+                specializedType.classType.isTupleForUnpackedVariadicTypeVar
+            ) {
+                variadicTypesToUnpack = specializedType.classType.tupleTypeArguments;
+            }
+        }
 
         if (paramType !== specializedType) {
             typesRequiredSpecialization = true;
@@ -1990,7 +2008,39 @@ function _transformTypeVarsInFunctionType(
         );
     }
 
-    return FunctionType.cloneForSpecialization(functionType, specializedParameters, specializedInferredReturnType);
+    // If there was no unpacked variadic type variable, we're done.
+    if (!variadicTypesToUnpack) {
+        return FunctionType.cloneForSpecialization(functionType, specializedParameters, specializedInferredReturnType);
+    }
+
+    // Unpack the tuple and synthesize a new function in the process.
+    const newFunctionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.SynthesizedMethod);
+    specializedParameters.parameterTypes.forEach((paramType, index) => {
+        if (index === variadicParamIndex) {
+            // Unpack the tuple into individual parameters.
+            variadicTypesToUnpack!.forEach((unpackedType) => {
+                FunctionType.addParameter(newFunctionType, {
+                    category: ParameterCategory.Simple,
+                    name: `_p${newFunctionType.details.parameters.length}`,
+                    isNameSynthesized: true,
+                    type: unpackedType,
+                    hasDeclaredType: true,
+                });
+            });
+        } else {
+            const param = { ...functionType.details.parameters[index] };
+            param.type = paramType;
+            if (param.name && param.isNameSynthesized) {
+                param.name = `_p${newFunctionType.details.parameters.length}`;
+            }
+
+            FunctionType.addParameter(newFunctionType, param);
+        }
+    });
+
+    newFunctionType.details.declaredReturnType = FunctionType.getSpecializedReturnType(functionType);
+
+    return newFunctionType;
 }
 
 // If the declared return type for the function is a Generator, AsyncGenerator,

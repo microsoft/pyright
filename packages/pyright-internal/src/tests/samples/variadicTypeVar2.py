@@ -58,3 +58,6 @@ class Array(Generic[Unpack[_Xs]]):
 def func0(value: Array[_Xs]) -> Tuple[complex, _Xs, str]:
     ...
 
+def func1(value: Array[*_Xs]) -> Tuple[complex, *_Xs, str]:
+    ...
+

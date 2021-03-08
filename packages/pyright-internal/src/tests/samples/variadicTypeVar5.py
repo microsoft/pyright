@@ -29,7 +29,7 @@ def callback3(a: str) -> None:
     ...
 
 
-def callback4(a: int, b: str, c: complex) -> int:
+def callback4(a: int, b: complex, c: str) -> int:
     ...
 
 
@@ -57,18 +57,18 @@ c2 = func1(callback2)
 c3 = func2(callback3)
 
 c4 = func1(callback4)
-t_c4: Literal["(_p0: str, _p1: complex) -> int"] = reveal_type(c4)
-c4_1 = c4("hi", 3j)
+t_c4: Literal["(_p0: complex, _p1: str) -> int"] = reveal_type(c4)
+c4_1 = c4(3j, "hi")
 t_c4_1: Literal["int"] = reveal_type(c4_1)
 
 # This should generate an error.
-c4_2 = c4("hi")
+c4_2 = c4(3j)
 
 # This should generate an error.
-c4_3 = c4("hi", 3j, 4)
+c4_3 = c4(3j, "hi", 4)
 
 c5 = func1(callback5)
-t_c5: Literal["(*args: *_Xs@callback5) -> int"] = reveal_type(c5)
+t_c5: Literal["(_p0: *_Xs@callback5) -> int"] = reveal_type(c5)
 
 # This should generate an error.
 c6_1 = func1(callback6)
@@ -102,12 +102,29 @@ d2 = func3(callback2)
 d3 = func3(callback3)
 
 d4 = func3(callback4)
-t_d4: Literal["(_p0: str, _p1: complex) -> int"] = reveal_type(d4)
-d4_1 = d4("hi", 3j)
+t_d4: Literal["(_p0: complex, _p1: str) -> int"] = reveal_type(d4)
+d4_1 = d4(3j, "hi")
 t_d4_1: Literal["int"] = reveal_type(d4_1)
 
 # This should generate an error.
-d4_2 = d4("hi")
+d4_2 = d4(3j)
 
 # This should generate an error.
-d4_3 = d4("hi", 3j, 4)
+d4_3 = d4(3j, "hi", 4)
+
+
+def func4(func: Callable[[Unpack[_Xs], int], int]) -> Callable[[Unpack[_Xs]], int]:
+    ...
+
+def callback8(a: int, b: str, c: complex, d: int) -> int:
+    ...
+
+d5_1 = func4(callback1)
+t_d5_1: Literal["() -> int"] = reveal_type(d5_1)
+
+# This should generate an error.
+d5_2 = func4(callback4)
+
+d5_3 = func4(callback8)
+t_d5_3: Literal["(_p0: int, _p1: str, _p2: complex) -> int"] = reveal_type(d5_3)
+

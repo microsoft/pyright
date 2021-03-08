@@ -739,8 +739,7 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.unusedCallResult'));
         export const unusedCoroutine = () => getRawString('Diagnostic.unusedCoroutine');
         export const varAnnotationIllegal = () => getRawString('Diagnostic.varAnnotationIllegal');
-        export const variadicTypeParamNotAtEnd = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.variadicTypeParamNotAtEnd'));
+        export const variadicTypeArgsTooMany = () => getRawString('Diagnostic.variadicTypeArgsTooMany');
         export const variadicTypeParamTooManyAlias = () =>
             new ParameterizedString<{ names: string }>(getRawString('Diagnostic.variadicTypeParamTooManyAlias'));
         export const variadicTypeParamTooManyClass = () =>
