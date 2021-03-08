@@ -8,7 +8,7 @@
  * runtime rules of Python.
  */
 
-import * as fs from 'fs';
+import { Dirent } from 'fs';
 
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { FileSystem } from '../common/fileSystem';
@@ -72,7 +72,7 @@ export class ImportResolver {
     private _cachedTypeshedThirdPartyPath: string | undefined;
     private _cachedTypeshedThirdPartyPackagePaths: Map<string, string> | undefined;
     private _cachedTypeshedThirdPartyPackageRoots: string[] | undefined;
-    private _cachedEntriesForPath = new Map<string, fs.Dirent[]>();
+    private _cachedEntriesForPath = new Map<string, Dirent[]>();
 
     readonly fileSystem: FileSystem;
 
@@ -458,13 +458,13 @@ export class ImportResolver {
         return roots;
     }
 
-    protected readdirEntriesCached(path: string): fs.Dirent[] {
+    protected readdirEntriesCached(path: string): Dirent[] {
         const cachedValue = this._cachedEntriesForPath.get(path);
         if (cachedValue) {
             return cachedValue;
         }
 
-        let newCacheValue: fs.Dirent[];
+        let newCacheValue: Dirent[];
         try {
             newCacheValue = this.fileSystem.readdirEntriesSync(path);
         } catch {
