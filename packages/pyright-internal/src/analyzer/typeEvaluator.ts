@@ -5705,9 +5705,11 @@ export function createTypeEvaluator(
                 node.leftExpression.nodeType === ParseNodeType.Name &&
                 node.leftExpression.value === 'reveal_type'
             ) {
-                if (node.arguments.length === 1 &&
+                if (
+                    node.arguments.length === 1 &&
                     node.arguments[0].argumentCategory === ArgumentCategory.Simple &&
-                    node.arguments[0].name === undefined) {
+                    node.arguments[0].name === undefined
+                ) {
                     // Handle the special-case "reveal_type" call.
                     returnResult.type = getTypeFromRevealType(node);
                 } else {
