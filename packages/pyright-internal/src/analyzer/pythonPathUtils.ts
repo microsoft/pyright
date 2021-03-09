@@ -268,7 +268,7 @@ function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
     // Get a list of all *.pth files within the specified directory.
     const pthFiles = fs
         .readdirEntriesSync(parentDir)
-        .filter((entry) => entry.isFile() && entry.name.endsWith('.pth'))
+        .filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.pth'))
         .sort((a, b) => compareComparableValues(a.name, b.name));
 
     pthFiles.forEach((pthFile) => {
@@ -276,7 +276,7 @@ function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
         const fileStats = fs.statSync(filePath);
 
         // Skip all files that are much larger than expected.
-        if (fileStats.size > 0 && fileStats.size < 64 * 1024) {
+        if (fileStats.isFile() && fileStats.size > 0 && fileStats.size < 64 * 1024) {
             const data = fs.readFileSync(filePath, 'utf8');
             const lines = data.split(/\r?\n/);
             lines.forEach((line) => {

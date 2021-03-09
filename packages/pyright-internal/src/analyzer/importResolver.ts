@@ -26,6 +26,8 @@ import {
     getFileSystemEntriesFromDirEntries,
     getPathComponents,
     getRelativePathComponentsFromDirectory,
+    isDirectory,
+    isFile,
     resolvePaths,
     stripFileExtension,
     stripTrailingDirectorySeparator,
@@ -502,7 +504,18 @@ export class ImportResolver {
 
         const entries = this.readdirEntriesCached(splitPath[0]);
         const entry = entries.find((entry) => entry.name === splitPath[1]);
-        return entry !== undefined && entry.isFile();
+        if (entry?.isFile()) {
+            return true;
+        }
+
+        if (entry?.isSymbolicLink()) {
+            const realPath = this.fileSystem.realpathSync(path);
+            if (this.fileSystem.existsSync(realPath) && isFile(this.fileSystem, realPath)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected dirExistsCached(path: string): boolean {
@@ -522,7 +535,18 @@ export class ImportResolver {
 
         const entries = this.readdirEntriesCached(splitPath[0]);
         const entry = entries.find((entry) => entry.name === splitPath[1]);
-        return entry !== undefined && entry.isDirectory();
+        if (entry?.isDirectory()) {
+            return true;
+        }
+
+        if (entry?.isSymbolicLink()) {
+            const realPath = this.fileSystem.realpathSync(path);
+            if (this.fileSystem.existsSync(realPath) && isDirectory(this.fileSystem, realPath)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected addResultsToCache(
