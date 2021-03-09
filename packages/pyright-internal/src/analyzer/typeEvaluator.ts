@@ -14190,7 +14190,14 @@ export function createTypeEvaluator(
                 node.nodeType === ParseNodeType.DictionaryExpandEntry ||
                 node.nodeType === ParseNodeType.ListComprehension ||
                 node.nodeType === ParseNodeType.ListComprehensionFor ||
-                node.nodeType === ParseNodeType.ListComprehensionIf
+                node.nodeType === ParseNodeType.ListComprehensionIf ||
+                node.nodeType === ParseNodeType.PatternSequence ||
+                node.nodeType === ParseNodeType.PatternLiteral ||
+                node.nodeType === ParseNodeType.PatternClass ||
+                node.nodeType === ParseNodeType.PatternAs ||
+                node.nodeType === ParseNodeType.PatternCapture ||
+                node.nodeType === ParseNodeType.PatternMapping ||
+                node.nodeType === ParseNodeType.PatternValue
             );
         }
 
@@ -14261,6 +14268,11 @@ export function createTypeEvaluator(
                 }
             }
         };
+
+        if (parent.nodeType === ParseNodeType.Case) {
+            evaluateTypesForCaseNode(parent);
+            return;
+        }
 
         if (parent.nodeType === ParseNodeType.TypeAnnotation) {
             evaluateTypeAnnotationExpression(parent);
