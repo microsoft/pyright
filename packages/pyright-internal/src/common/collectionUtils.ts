@@ -301,3 +301,15 @@ export function getNestedProperty(object: any, property: string) {
     }, object);
     return value;
 }
+
+export function getOrAdd<K, V>(map: Map<K, V>, key: K, newValueFactory: () => V): V {
+    const value = map.get(key);
+    if (value !== undefined) {
+        return value;
+    }
+
+    const newValue = newValueFactory();
+    map.set(key, newValue);
+
+    return newValue;
+}
