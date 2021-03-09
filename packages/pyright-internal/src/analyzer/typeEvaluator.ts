@@ -13008,6 +13008,8 @@ export function createTypeEvaluator(
         const exceptionTypes = getTypeOfExpression(node.typeExpression!).type;
 
         function getExceptionType(exceptionType: Type, errorNode: ParseNode) {
+            exceptionType = makeTopLevelTypeVarsConcrete(exceptionType);
+
             if (isAnyOrUnknown(exceptionType)) {
                 return exceptionType;
             }
