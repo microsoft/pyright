@@ -330,6 +330,28 @@ export class Checker extends ParseTreeWalker {
                 }
             });
 
+            // Check for invalid use of ParamSpec P.args and P.kwargs.
+            const paramSpecParams = node.parameters.filter((param, index) => {
+                const paramInfo = functionTypeResult.functionType.details.parameters[index];
+                if (paramInfo.typeAnnotation && isTypeVar(paramInfo.type) && isParamSpec(paramInfo.type)) {
+                    if (
+                        paramInfo.category !== ParameterCategory.Simple &&
+                        paramInfo.typeAnnotation.nodeType === ParseNodeType.MemberAccess
+                    ) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+
+            if (paramSpecParams.length === 1) {
+                this._evaluator.addError(
+                    Localizer.Diagnostic.paramSpecArgsKwargsUsage(),
+                    paramSpecParams[0].typeAnnotation || paramSpecParams[0].typeAnnotationComment!
+                );
+            }
+
             // If this is a stub, ensure that the return type is specified.
             if (this._fileInfo.isStubFile) {
                 const returnAnnotation =

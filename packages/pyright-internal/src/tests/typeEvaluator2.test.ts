@@ -1180,7 +1180,7 @@ test('ParamSpec2', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_9;
     const analysisResults39 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
-    TestUtils.validateResults(analysisResults39, 6);
+    TestUtils.validateResults(analysisResults39, 5);
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const analysisResults310 = TestUtils.typeAnalyzeSampleFiles(['paramSpec2.py'], configOptions);
@@ -1200,7 +1200,7 @@ test('ParamSpec4', () => {
 
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec4.py'], configOptions);
-    TestUtils.validateResults(results, 5, 2);
+    TestUtils.validateResults(results, 5);
 });
 
 test('ParamSpec5', () => {
@@ -1257,6 +1257,14 @@ test('ParamSpec11', () => {
     configOptions.defaultPythonVersion = PythonVersion.V3_10;
     const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec11.py'], configOptions);
     TestUtils.validateResults(results, 0);
+});
+
+test('ParamSpec12', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec12.py'], configOptions);
+    TestUtils.validateResults(results, 11);
 });
 
 test('ClassVar1', () => {

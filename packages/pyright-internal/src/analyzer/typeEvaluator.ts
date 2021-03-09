@@ -3743,15 +3743,23 @@ export function createTypeEvaluator(
                                 node.parent?.nodeType === ParseNodeType.MemberAccess &&
                                 node.parent.leftExpression === node
                             ) {
-                                if (
-                                    node.parent.memberName.value === 'args' ||
-                                    node.parent.memberName.value === 'kwargs'
-                                ) {
+                                const memberName = node.parent.memberName.value;
+                                if (memberName === 'args' || memberName === 'kwargs') {
                                     const outerFunctionScope = ParseTreeUtils.getEnclosingClassOrFunction(
                                         enclosingScope
                                     );
+
                                     if (outerFunctionScope?.nodeType === ParseNodeType.Function) {
                                         enclosingScope = outerFunctionScope;
+                                    } else if (!scopedTypeVarInfo.type.scopeId) {
+                                        addDiagnostic(
+                                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                            DiagnosticRule.reportGeneralTypeIssues,
+                                            Localizer.Diagnostic.paramSpecNotUsedByOuterScope().format({
+                                                name: type.details.name,
+                                            }),
+                                            node
+                                        );
                                     }
                                 }
                             }
@@ -3777,13 +3785,15 @@ export function createTypeEvaluator(
                 } else if ((flags & EvaluatorFlags.DisallowTypeVarsWithoutScopeId) !== 0) {
                     if (
                         (type.scopeId === undefined || scopedTypeVarInfo.foundInterveningClass) &&
-                        !type.details.isSynthesized &&
-                        !type.details.isParamSpec
+                        !type.details.isSynthesized
                     ) {
+                        const message = isParamSpec(type)
+                            ? Localizer.Diagnostic.paramSpecNotUsedByOuterScope()
+                            : Localizer.Diagnostic.typeVarNotUsedByOuterScope();
                         addDiagnostic(
                             getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.typeVarNotUsedByOuterScope().format({ name: type.details.name }),
+                            message.format({ name: type.details.name }),
                             node
                         );
                     }
@@ -3839,7 +3849,11 @@ export function createTypeEvaluator(
         assert(TypeBase.isInstantiable(type));
 
         while (curNode) {
-            curNode = ParseTreeUtils.getTypeVarScopeNode(curNode);
+            // Generally, getTypeVarScopeNode should not include the function
+            // that contains the TypeVar in its signature, but we make an exception
+            // for TypeVars that are used in a member access expression to accommodate
+            // ParamSpecs (P.args and P.kwargs).
+            curNode = ParseTreeUtils.getTypeVarScopeNode(curNode, node.parent?.nodeType === ParseNodeType.MemberAccess);
             if (!curNode) {
                 break;
             }
@@ -3920,6 +3934,8 @@ export function createTypeEvaluator(
                 (EvaluatorFlags.ExpectingType |
                     EvaluatorFlags.ExpectingTypeAnnotation |
                     EvaluatorFlags.AllowForwardReferences |
+                    EvaluatorFlags.DisallowTypeVarsWithScopeId |
+                    EvaluatorFlags.DisallowTypeVarsWithoutScopeId |
                     EvaluatorFlags.AssociateTypeVarsWithCurrentScope));
         const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, baseTypeFlags);
 
@@ -4029,9 +4045,28 @@ export function createTypeEvaluator(
 
             case TypeCategory.TypeVar: {
                 if (baseType.details.isParamSpec) {
-                    if (memberName === 'args' || memberName === 'kwargs') {
+                    if (memberName === 'args') {
+                        if (
+                            node.parent?.nodeType !== ParseNodeType.Parameter ||
+                            node.parent.category !== ParameterCategory.VarArgList
+                        ) {
+                            addError(Localizer.Diagnostic.paramSpecArgsUsage(), node);
+                            return { type: UnknownType.create(), node };
+                        }
                         return { type: baseType, node };
                     }
+
+                    if (memberName === 'kwargs') {
+                        if (
+                            node.parent?.nodeType !== ParseNodeType.Parameter ||
+                            node.parent.category !== ParameterCategory.VarArgDictionary
+                        ) {
+                            addError(Localizer.Diagnostic.paramSpecKwargsUsage(), node);
+                            return { type: UnknownType.create(), node };
+                        }
+                        return { type: baseType, node };
+                    }
+
                     addDiagnostic(
                         fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,

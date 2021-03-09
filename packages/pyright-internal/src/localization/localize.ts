@@ -490,13 +490,18 @@ export namespace Localizer {
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramAlreadyAssigned'));
         export const paramNameMissing = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramNameMissing'));
+        export const paramSpecArgsKwargsUsage = () => getRawString('Diagnostic.paramSpecArgsKwargsUsage');
+        export const paramSpecArgsUsage = () => getRawString('Diagnostic.paramSpecArgsUsage');
         export const paramSpecAssignedName = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecAssignedName'));
         export const paramSpecContext = () => getRawString('Diagnostic.paramSpecContext');
         export const paramSpecIllegal = () => getRawString('Diagnostic.paramSpecIllegal');
         export const paramSpecFirstArg = () => getRawString('Diagnostic.paramSpecFirstArg');
+        export const paramSpecKwargsUsage = () => getRawString('Diagnostic.paramSpecKwargsUsage');
         export const paramSpecNotBound = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.paramSpecNotBound'));
+        export const paramSpecNotUsedByOuterScope = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecNotUsedByOuterScope'));
         export const paramSpecUnknownArg = () => getRawString('Diagnostic.paramSpecUnknownArg');
         export const paramSpecUnknownMember = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecUnknownMember'));

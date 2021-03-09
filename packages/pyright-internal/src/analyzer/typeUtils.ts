@@ -979,6 +979,10 @@ export function getTypeVarArgumentsRecursive(type: Type, recursionCount = 0): Ty
             );
         }
 
+        if (type.details.paramSpec) {
+            addTypeVarsToListIfUnique(combinedList, [type.details.paramSpec]);
+        }
+
         const returnType = FunctionType.getSpecializedReturnType(type);
         if (returnType) {
             addTypeVarsToListIfUnique(combinedList, getTypeVarArgumentsRecursive(returnType, recursionCount + 1));

@@ -686,14 +686,14 @@ export function getEvaluationScopeNode(node: ParseNode): EvaluationScopeNode {
 
 // Returns the parse node corresponding to the function or class that
 // contains the specified typeVar reference.
-export function getTypeVarScopeNode(node: ParseNode): EvaluationScopeNode {
+export function getTypeVarScopeNode(node: ParseNode, allowInFunctionSignature = false): EvaluationScopeNode {
     let prevNode: ParseNode | undefined;
     let curNode: ParseNode | undefined = node;
 
     while (curNode) {
         switch (curNode.nodeType) {
             case ParseNodeType.Function: {
-                if (prevNode === curNode.suite) {
+                if (prevNode === curNode.suite || allowInFunctionSignature) {
                     return curNode;
                 }
                 break;
