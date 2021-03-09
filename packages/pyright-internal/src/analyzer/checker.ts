@@ -92,6 +92,7 @@ import {
     isNone,
     isObject,
     isOverloadedFunction,
+    isParamSpec,
     isTypeSame,
     isTypeVar,
     isUnion,
@@ -1000,12 +1001,13 @@ export class Checker extends ParseTreeWalker {
             ``;
             if (nameType && isTypeVar(nameType)) {
                 if (nameType.scopeId === this._evaluator.getScopeIdForNode(node)) {
-                    // We exempt constrained TypeVars and bound TypeVars that are type arguments of
-                    // other types. There are legitimate uses for singleton instances
-                    // in this particular case.
+                    // We exempt constrained TypeVars, bound TypeVars that are type arguments of
+                    // other types, and ParamSpecs. There are legitimate uses for singleton
+                    // instances in these particular cases.
                     let isExempt =
                         nameType.details.constraints.length > 0 ||
-                        (nameType.details.boundType !== undefined && subscriptIndex !== undefined);
+                        (nameType.details.boundType !== undefined && subscriptIndex !== undefined) ||
+                        isParamSpec(nameType);
 
                     if (!isExempt && baseExpression && subscriptIndex !== undefined) {
                         // Is this a type argument for a generic type alias? If so,
