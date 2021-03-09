@@ -39,6 +39,7 @@
         "callableSecondArg": "Expected return type as second type argument for \"Callable\"",
         "casePatternIsIrrefutable": "Irrefutable pattern is allowed only for the last case statement",
         "classDecoratorTypeUnknown": "Untyped class decorator obscures type of class; ignoring decorator",
+        "classDefinitionCycle": "Class definition for \"{name}\" depends on itself",
         "classGetItemClsParam": "__class_getitem__ override should take a \"cls\" parameter",
         "classMethodClsParam": "Class methods should take a \"cls\" parameter",
         "classNotRuntimeSubscriptable": "Subscript for class \"{name}\" will generate runtime exception; enclose type annotation in quotes",

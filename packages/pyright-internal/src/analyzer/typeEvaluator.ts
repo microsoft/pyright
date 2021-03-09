@@ -1428,6 +1428,16 @@ export function createTypeEvaluator(
     ): TypeResult | undefined {
         let memberInfo: ClassMemberLookup | undefined;
 
+        if (ClassType.isPartiallyConstructed(classType)) {
+            addDiagnostic(
+                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.classDefinitionCycle().format({ name: classType.details.name }),
+                errorNode
+            );
+            return { node: errorNode, type: UnknownType.create() };
+        }
+
         if ((memberAccessFlags & MemberAccessFlags.ConsiderMetaclassOnly) === 0) {
             memberInfo = getTypeFromClassMemberName(
                 errorNode,
