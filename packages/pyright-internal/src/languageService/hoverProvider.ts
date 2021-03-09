@@ -11,7 +11,7 @@
 
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
-import { Declaration, DeclarationBase, DeclarationType, FunctionDeclaration } from '../analyzer/declaration';
+import { Declaration, DeclarationType, FunctionDeclaration } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
@@ -334,7 +334,7 @@ export class HoverProvider {
         parts: HoverTextPart[],
         node: NameNode,
         evaluator: TypeEvaluator,
-        resolvedDecl: DeclarationBase | undefined
+        resolvedDecl: Declaration | undefined
     ) {
         const type = evaluator.getType(node);
         if (type) {
@@ -347,7 +347,7 @@ export class HoverProvider {
         sourceMapper: SourceMapper,
         parts: HoverTextPart[],
         type: Type,
-        resolvedDecl: DeclarationBase | undefined,
+        resolvedDecl: Declaration | undefined,
         evaluator: TypeEvaluator
     ): boolean {
         const docStrings: (string | undefined)[] = [];

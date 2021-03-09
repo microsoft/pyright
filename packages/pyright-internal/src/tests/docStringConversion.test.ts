@@ -702,6 +702,22 @@ find an arbitrary function's zeros.
     _testConvertToMarkdown(docstring, markdown);
 });
 
+test('DontEscapeHtmlTagsInsideCodeBlocks', () => {
+    const docstring = 'hello  `<code>`';
+
+    const markdown = 'hello  `<code>`';
+
+    _testConvertToMarkdown(docstring, markdown);
+});
+
+test('EscapeHtmlTagsOutsideCodeBlocks', () => {
+    const docstring = 'hello  <noncode>';
+
+    const markdown = 'hello  &lt;noncode&gt;';
+
+    _testConvertToMarkdown(docstring, markdown);
+});
+
 function _testConvertToMarkdown(docstring: string, expectedMarkdown: string) {
     const actualMarkdown = convertDocStringToMarkdown(docstring);
 

@@ -236,7 +236,7 @@ class DocStringConverter {
 
         const line = this.formatPlainTextIndent(this._currentLine());
 
-        this._appendTextLine(this._escapeHtml(line));
+        this._appendTextLine(line);
         this._eatLine();
     }
 
@@ -302,6 +302,8 @@ class DocStringConverter {
                 this._append(part);
                 continue;
             }
+
+            part = this._escapeHtml(part);
 
             if (i === 0) {
                 // Only one part, and not inside code, so check header cases.
@@ -542,7 +544,7 @@ class DocStringConverter {
         // Handle epyDocs
         if (line.startsWith('@')) {
             this._appendLine();
-            this._appendTextLine(this._escapeHtml(line));
+            this._appendTextLine(line);
             this._eatLine();
             return true;
         }
@@ -563,7 +565,7 @@ class DocStringConverter {
 
             // force indent for fields
             line = this._convertIndent(line);
-            this._appendTextLine(this._escapeHtml(line));
+            this._appendTextLine(line);
             this._eatLine();
             return true;
         }
@@ -632,7 +634,7 @@ class DocStringConverter {
         // Remove leading spaces so that multiline items get appear in a single block
         if (isMultiLineItem) {
             const line = this._currentLine().trimStart();
-            this._appendTextLine(this._escapeHtml(line));
+            this._appendTextLine(line);
             this._eatLine();
         }
     }

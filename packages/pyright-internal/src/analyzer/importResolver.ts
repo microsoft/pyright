@@ -10,6 +10,7 @@
 
 import { Dirent } from 'fs';
 
+import { getOrAdd } from '../common/collectionUtils';
 import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { FileSystem } from '../common/fileSystem';
 import { stubsSuffix } from '../common/pathConsts';
@@ -68,6 +69,7 @@ export class ImportResolver {
 
     private _cachedPythonSearchPaths = new Map<string, string[]>();
     private _cachedImportResults = new Map<string, CachedImportResults>();
+    private _cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
     private _cachedTypeshedStdLibPath: string | undefined;
     private _cachedTypeshedThirdPartyPath: string | undefined;
     private _cachedTypeshedThirdPartyPackagePaths: Map<string, string> | undefined;
@@ -84,6 +86,7 @@ export class ImportResolver {
     invalidateCache() {
         this._cachedPythonSearchPaths = new Map<string, string[]>();
         this._cachedImportResults = new Map<string, CachedImportResults>();
+        this._cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
         this._invalidateFileSystemCache();
 
         if (this.fileSystem instanceof PyrightFileSystem) {
@@ -326,7 +329,13 @@ export class ImportResolver {
     // Returns the module name (of the form X.Y.Z) that needs to be imported
     // from the current context to access the module with the specified file path.
     // In a sense, it's performing the inverse of resolveImport.
-    getModuleNameForImport(filePath: string, execEnv: ExecutionEnvironment): ModuleNameAndType {
+    getModuleNameForImport(filePath: string, execEnv: ExecutionEnvironment) {
+        // Cache results of the reverse of resolveImport as we cache resolveImport.
+        const cache = getOrAdd(this._cachedModuleNameResults, execEnv.root, () => new Map<string, ModuleNameAndType>());
+        return getOrAdd(cache, filePath, () => this._getModuleNameForImport(filePath, execEnv));
+    }
+
+    private _getModuleNameForImport(filePath: string, execEnv: ExecutionEnvironment): ModuleNameAndType {
         let moduleName: string | undefined;
         let importType = ImportType.BuiltIn;
         let isLocalTypingsFile = false;
@@ -522,13 +531,10 @@ export class ImportResolver {
         importResult: ImportResult,
         importedSymbols: string[] | undefined
     ) {
-        let cacheForExecEnv = this._cachedImportResults.get(execEnv.root);
-        if (!cacheForExecEnv) {
-            cacheForExecEnv = new Map<string, ImportResult>();
-            this._cachedImportResults.set(execEnv.root, cacheForExecEnv);
-        }
-
-        cacheForExecEnv.set(importName, importResult);
+        getOrAdd(this._cachedImportResults, execEnv.root, () => new Map<string, ImportResult>()).set(
+            importName,
+            importResult
+        );
 
         return this._filterImplicitImports(importResult, importedSymbols);
     }
