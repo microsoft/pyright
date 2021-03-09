@@ -268,26 +268,37 @@ function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
     // Get a list of all *.pth files within the specified directory.
     const pthFiles = fs
         .readdirEntriesSync(parentDir)
-        .filter((entry) => entry.isFile() && entry.name.endsWith('.pth'))
+        .filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.pth'))
         .sort((a, b) => compareComparableValues(a.name, b.name));
 
     pthFiles.forEach((pthFile) => {
-        const filePath = combinePaths(parentDir, pthFile.name);
-        const fileStats = fs.statSync(filePath);
+        let filePath = combinePaths(parentDir, pthFile.name);
 
-        // Skip all files that are much larger than expected.
-        if (fileStats.size > 0 && fileStats.size < 64 * 1024) {
-            const data = fs.readFileSync(filePath, 'utf8');
-            const lines = data.split(/\r?\n/);
-            lines.forEach((line) => {
-                const trimmedLine = line.trim();
-                if (trimmedLine.length > 0 && !trimmedLine.startsWith('#') && !trimmedLine.match(/^import\s/)) {
-                    const pthPath = combinePaths(parentDir, trimmedLine);
-                    if (fs.existsSync(pthPath) && isDirectory(fs, pthPath)) {
-                        searchPaths.push(pthPath);
+        if (pthFile.isSymbolicLink()) {
+            // Resolve the symlink.
+            filePath = fs.realpathSync(filePath);
+            if (!fs.existsSync(filePath)) {
+                filePath = '';
+            }
+        }
+
+        if (filePath) {
+            const fileStats = fs.statSync(filePath);
+
+            // Skip all files that are much larger than expected.
+            if (fileStats.isFile() && fileStats.size > 0 && fileStats.size < 64 * 1024) {
+                const data = fs.readFileSync(filePath, 'utf8');
+                const lines = data.split(/\r?\n/);
+                lines.forEach((line) => {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.length > 0 && !trimmedLine.startsWith('#') && !trimmedLine.match(/^import\s/)) {
+                        const pthPath = combinePaths(parentDir, trimmedLine);
+                        if (fs.existsSync(pthPath) && isDirectory(fs, pthPath)) {
+                            searchPaths.push(pthPath);
+                        }
                     }
-                }
-            });
+                });
+            }
         }
     });
 

@@ -26,6 +26,8 @@ import {
     getFileSystemEntriesFromDirEntries,
     getPathComponents,
     getRelativePathComponentsFromDirectory,
+    isDirectory,
+    isFile,
     resolvePaths,
     stripFileExtension,
     stripTrailingDirectorySeparator,
@@ -255,8 +257,9 @@ export class ImportResolver {
         if (sourceFilePaths.length === 0) {
             // Simple case where the stub and source files are next to each other.
             const sourceFilePath = changeAnyExtension(stubFilePath, '.py');
-            if (this.dirExistsCached(sourceFilePath)) {
-                sourceFilePaths.push(sourceFilePath);
+            const resolvedDirPath = this.resolveDirSync(sourceFilePath);
+            if (resolvedDirPath) {
+                sourceFilePaths.push(resolvedDirPath);
             }
         }
 
@@ -297,8 +300,10 @@ export class ImportResolver {
                 for (const importRootPath of importRootPaths) {
                     const absoluteStubPath = resolvePaths(importRootPath, relativeStubPath);
                     let absoluteSourcePath = changeAnyExtension(absoluteStubPath, '.py');
-                    if (this.fileExistsCached(absoluteSourcePath)) {
-                        sourceFilePaths.push(absoluteSourcePath);
+                    const resolvedSimplePyFile = this.resolveFileSync(absoluteSourcePath);
+
+                    if (resolvedSimplePyFile) {
+                        sourceFilePaths.push(resolvedSimplePyFile);
                     } else {
                         const filePathWithoutExtension = stripFileExtension(absoluteSourcePath);
 
@@ -307,15 +312,17 @@ export class ImportResolver {
                             // Try equivalent: <root>/package.py
                             absoluteSourcePath =
                                 filePathWithoutExtension.substr(0, filePathWithoutExtension.length - 9) + '.py';
-                            if (this.fileExistsCached(absoluteSourcePath)) {
-                                sourceFilePaths.push(absoluteSourcePath);
+                            const resolvedInitPyFile1 = this.resolveFileSync(absoluteSourcePath);
+                            if (resolvedInitPyFile1) {
+                                sourceFilePaths.push(resolvedInitPyFile1);
                             }
                         } else {
                             // Did not match: <root>/package.py
                             // Try equivalent: <root>/package/__init__.py
                             absoluteSourcePath = combinePaths(filePathWithoutExtension, '__init__.py');
-                            if (this.fileExistsCached(absoluteSourcePath)) {
-                                sourceFilePaths.push(absoluteSourcePath);
+                            const resolvedInitPyFile2 = this.resolveFileSync(absoluteSourcePath);
+                            if (resolvedInitPyFile2) {
+                                sourceFilePaths.push(resolvedInitPyFile2);
                             }
                         }
                     }
@@ -485,44 +492,86 @@ export class ImportResolver {
         return newCacheValue;
     }
 
-    protected fileExistsCached(path: string): boolean {
+    // If the path points to a file, returns the path (possibly
+    // following a symlink in the process) or returns undefined.
+    protected resolveFileSync(path: string): string | undefined {
         const splitPath = this._splitPath(path);
 
         if (!splitPath[0] || !splitPath[1]) {
             if (!this.fileSystem.existsSync(path)) {
-                return false;
+                return undefined;
             }
             try {
                 const stats = this.fileSystem.statSync(path);
-                return stats.isFile();
+                if (stats.isFile()) {
+                    return path;
+                } else if (stats.isSymbolicLink()) {
+                    const realPath = this.fileSystem.realpathSync(path);
+                    if (this.fileSystem.existsSync(realPath) && isFile(this.fileSystem, realPath)) {
+                        return realPath;
+                    }
+                }
+                return undefined;
             } catch {
-                return false;
+                return undefined;
             }
         }
 
         const entries = this.readdirEntriesCached(splitPath[0]);
         const entry = entries.find((entry) => entry.name === splitPath[1]);
-        return entry !== undefined && entry.isFile();
+        if (entry?.isFile()) {
+            return path;
+        }
+
+        if (entry?.isSymbolicLink()) {
+            const realPath = this.fileSystem.realpathSync(path);
+            if (this.fileSystem.existsSync(realPath) && isFile(this.fileSystem, realPath)) {
+                return realPath;
+            }
+        }
+
+        return undefined;
     }
 
-    protected dirExistsCached(path: string): boolean {
+    // If the path points to a directory, returns the path (possibly
+    // following a symlink in the process) or returns undefined.
+    protected resolveDirSync(path: string): string | undefined {
         const splitPath = this._splitPath(path);
 
         if (!splitPath[0] || !splitPath[1]) {
             if (!this.fileSystem.existsSync(path)) {
-                return false;
+                return undefined;
             }
             try {
                 const stats = this.fileSystem.statSync(path);
-                return stats.isDirectory();
+                if (stats.isDirectory()) {
+                    return path;
+                } else if (stats.isSymbolicLink()) {
+                    const realPath = this.fileSystem.realpathSync(path);
+                    if (this.fileSystem.existsSync(realPath) && isDirectory(this.fileSystem, realPath)) {
+                        return realPath;
+                    }
+                }
+                return undefined;
             } catch {
-                return false;
+                return undefined;
             }
         }
 
         const entries = this.readdirEntriesCached(splitPath[0]);
         const entry = entries.find((entry) => entry.name === splitPath[1]);
-        return entry !== undefined && entry.isDirectory();
+        if (entry?.isDirectory()) {
+            return path;
+        }
+
+        if (entry?.isSymbolicLink()) {
+            const realPath = this.fileSystem.realpathSync(path);
+            if (this.fileSystem.existsSync(realPath) && isDirectory(this.fileSystem, realPath)) {
+                return realPath;
+            }
+        }
+
+        return undefined;
     }
 
     protected addResultsToCache(
@@ -639,15 +688,28 @@ export class ImportResolver {
             const fileNameWithoutExtension = '__init__';
             const pyFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.py');
             const pyiFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.pyi');
+            let foundFile = false;
 
-            if (allowPyi && this.fileExistsCached(pyiFilePath)) {
-                importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
-                resolvedPaths.push(pyiFilePath);
-                isStubFile = true;
-            } else if (this.fileExistsCached(pyFilePath)) {
-                importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
-                resolvedPaths.push(pyFilePath);
-            } else {
+            if (allowPyi) {
+                const resolvedPyiFile = this.resolveFileSync(pyiFilePath);
+                if (resolvedPyiFile) {
+                    importFailureInfo.push(`Resolved import with file '${resolvedPyiFile}'`);
+                    resolvedPaths.push(resolvedPyiFile);
+                    isStubFile = true;
+                    foundFile = true;
+                }
+            }
+
+            if (!foundFile) {
+                const resolvedPyFile = this.resolveFileSync(pyFilePath);
+                if (resolvedPyFile) {
+                    importFailureInfo.push(`Resolved import with file '${resolvedPyFile}'`);
+                    resolvedPaths.push(resolvedPyFile);
+                    foundFile = true;
+                }
+            }
+
+            if (!foundFile) {
                 importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
                 resolvedPaths.push('');
                 isNamespacePackage = true;
@@ -665,9 +727,10 @@ export class ImportResolver {
                     isStubPackage = true;
                 }
 
-                const foundDirectory = this.dirExistsCached(dirPath);
+                const resolvedDirPath = this.resolveDirSync(dirPath);
 
-                if (foundDirectory) {
+                if (resolvedDirPath) {
+                    dirPath = resolvedDirPath;
                     if (isFirstPart) {
                         packageDirectory = dirPath;
                     }
@@ -678,21 +741,29 @@ export class ImportResolver {
                     const pyiFilePath = combinePaths(dirPath, fileNameWithoutExtension + '.pyi');
                     let foundInit = false;
 
-                    if (allowPyi && this.fileExistsCached(pyiFilePath)) {
-                        importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
-                        resolvedPaths.push(pyiFilePath);
-                        if (isLastPart) {
-                            isStubFile = true;
+                    if (allowPyi) {
+                        const resolvedPyiPath = this.resolveFileSync(pyiFilePath);
+                        if (resolvedPyiPath) {
+                            importFailureInfo.push(`Resolved import with file '${resolvedPyiPath}'`);
+                            resolvedPaths.push(resolvedPyiPath);
+                            if (isLastPart) {
+                                isStubFile = true;
+                            }
+                            foundInit = true;
                         }
-                        foundInit = true;
-                    } else if (this.fileExistsCached(pyFilePath)) {
-                        importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
-                        resolvedPaths.push(pyFilePath);
-                        foundInit = true;
+                    }
+
+                    if (!foundInit) {
+                        const resolvedPyPath = this.resolveFileSync(pyFilePath);
+                        if (resolvedPyPath) {
+                            importFailureInfo.push(`Resolved import with file '${resolvedPyPath}'`);
+                            resolvedPaths.push(resolvedPyPath);
+                            foundInit = true;
+                        }
                     }
 
                     if (foundInit && !pyTypedInfo && lookForPyTyped) {
-                        if (this.fileExistsCached(combinePaths(dirPath, 'py.typed'))) {
+                        if (this.resolveFileSync(combinePaths(dirPath, 'py.typed'))) {
                             pyTypedInfo = getPyTypedInfo(this.fileSystem, dirPath);
                         }
                     }
@@ -725,41 +796,60 @@ export class ImportResolver {
                 fileDirectory = getDirectoryPath(fileDirectory);
                 const pyFilePath = combinePaths(fileDirectory, fileNameWithoutExtension + '.py');
                 const pyiFilePath = combinePaths(fileDirectory, fileNameWithoutExtension + '.pyi');
+                let foundFile = false;
 
-                if (allowPyi && this.fileExistsCached(pyiFilePath)) {
-                    importFailureInfo.push(`Resolved import with file '${pyiFilePath}'`);
-                    resolvedPaths.push(pyiFilePath);
-                    if (isLastPart) {
-                        isStubFile = true;
+                if (allowPyi) {
+                    const resolvedPyiFile = this.resolveFileSync(pyiFilePath);
+                    if (resolvedPyiFile) {
+                        importFailureInfo.push(`Resolved import with file '${resolvedPyiFile}'`);
+                        resolvedPaths.push(resolvedPyiFile);
+                        if (isLastPart) {
+                            isStubFile = true;
+                        }
+                        foundFile = true;
                     }
-                } else if (this.fileExistsCached(pyFilePath)) {
-                    importFailureInfo.push(`Resolved import with file '${pyFilePath}'`);
-                    resolvedPaths.push(pyFilePath);
-                } else {
-                    if (allowNativeLib && this.dirExistsCached(fileDirectory)) {
-                        const filesInDir = this._getFilesInDirectory(fileDirectory);
-                        const nativeLibFileName = filesInDir.find((f) =>
-                            this._isNativeModuleFileName(fileNameWithoutExtension, f)
-                        );
-                        if (nativeLibFileName) {
-                            const nativeLibPath = combinePaths(fileDirectory, nativeLibFileName);
-                            // Try resolving native library to a custom stub.
-                            isNativeLib = this._resolveNativeModuleStub(
-                                nativeLibPath,
-                                execEnv,
-                                importName,
-                                moduleDescriptor,
-                                importFailureInfo,
-                                resolvedPaths
+                }
+
+                if (!foundFile) {
+                    const resolvedPyFile = this.resolveFileSync(pyFilePath);
+                    if (resolvedPyFile) {
+                        importFailureInfo.push(`Resolved import with file '${resolvedPyFile}'`);
+                        resolvedPaths.push(resolvedPyFile);
+                        foundFile = true;
+                    }
+                }
+
+                if (!foundFile) {
+                    if (allowNativeLib) {
+                        const resolvedDirPath = this.resolveDirSync(fileDirectory);
+                        if (resolvedDirPath) {
+                            const filesInDir = this._getFilesInDirectory(resolvedDirPath);
+                            const nativeLibFileName = filesInDir.find((f) =>
+                                this._isNativeModuleFileName(fileNameWithoutExtension, f)
                             );
+                            if (nativeLibFileName) {
+                                const nativeLibPath = combinePaths(resolvedDirPath, nativeLibFileName);
+                                // Try resolving native library to a custom stub.
+                                isNativeLib = this._resolveNativeModuleStub(
+                                    nativeLibPath,
+                                    execEnv,
+                                    importName,
+                                    moduleDescriptor,
+                                    importFailureInfo,
+                                    resolvedPaths
+                                );
+                            }
                         }
                     }
 
-                    if (!isNativeLib && foundDirectory) {
-                        importFailureInfo.push(`Partially resolved import with directory '${dirPath}'`);
+                    if (!isNativeLib && resolvedDirPath) {
+                        importFailureInfo.push(`Partially resolved import with directory '${resolvedDirPath}'`);
                         resolvedPaths.push('');
                         if (isLastPart) {
-                            implicitImports = this._findImplicitImports(importName, dirPath, [pyFilePath, pyiFilePath]);
+                            implicitImports = this._findImplicitImports(importName, resolvedDirPath, [
+                                pyFilePath,
+                                pyiFilePath,
+                            ]);
                             isNamespacePackage = true;
                         }
                     } else if (isNativeLib) {
@@ -1192,17 +1282,20 @@ export class ImportResolver {
             ? this._getStdlibTypeshedPath(execEnv, importFailureInfo)
             : this._getThirdPartyTypeshedPackagePath(moduleDescriptor, execEnv, importFailureInfo);
 
-        if (typeshedPath && this.dirExistsCached(typeshedPath)) {
-            const importInfo = this.resolveAbsoluteImport(
-                typeshedPath,
-                execEnv,
-                moduleDescriptor,
-                importName,
-                importFailureInfo
-            );
-            if (importInfo.isImportFound) {
-                importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
-                return importInfo;
+        if (typeshedPath) {
+            const resolvedTypeshedPath = this.resolveDirSync(typeshedPath);
+            if (resolvedTypeshedPath) {
+                const importInfo = this.resolveAbsoluteImport(
+                    resolvedTypeshedPath,
+                    execEnv,
+                    moduleDescriptor,
+                    importName,
+                    importFailureInfo
+                );
+                if (importInfo.isImportFound) {
+                    importInfo.importType = isStdLib ? ImportType.BuiltIn : ImportType.ThirdParty;
+                    return importInfo;
+                }
             }
         }
 
@@ -1265,8 +1358,9 @@ export class ImportResolver {
             return;
         }
 
-        if (this.dirExistsCached(typeshedPath)) {
-            this._getCompletionSuggestionsAbsolute(typeshedPath, moduleDescriptor, suggestions, similarityLimit);
+        const resolvedDirPath = this.resolveDirSync(typeshedPath);
+        if (resolvedDirPath) {
+            this._getCompletionSuggestionsAbsolute(resolvedDirPath, moduleDescriptor, suggestions, similarityLimit);
         }
     }
 
@@ -1321,15 +1415,17 @@ export class ImportResolver {
         // python search paths, then in the typeshed-fallback directory.
         if (this._configOptions.typeshedPath) {
             const possibleTypeshedPath = this._configOptions.typeshedPath;
-            if (this.dirExistsCached(possibleTypeshedPath)) {
-                typeshedPath = possibleTypeshedPath;
+            const resolvedDirPath = this.resolveDirSync(possibleTypeshedPath);
+            if (resolvedDirPath) {
+                typeshedPath = resolvedDirPath;
             }
         } else {
             const pythonSearchPaths = this._getPythonSearchPaths(execEnv, importFailureInfo);
             for (const searchPath of pythonSearchPaths) {
                 const possibleTypeshedPath = combinePaths(searchPath, 'typeshed');
-                if (this.dirExistsCached(possibleTypeshedPath)) {
-                    typeshedPath = possibleTypeshedPath;
+                const resolvedDirPath = this.resolveDirSync(possibleTypeshedPath);
+                if (resolvedDirPath) {
+                    typeshedPath = resolvedDirPath;
                     break;
                 }
             }
@@ -1341,19 +1437,20 @@ export class ImportResolver {
         }
 
         typeshedPath = PythonPathUtils.getTypeshedSubdirectory(typeshedPath, isStdLib);
+        const resolvedDirPath = this.resolveDirSync(typeshedPath);
 
-        if (!this.dirExistsCached(typeshedPath)) {
+        if (!resolvedDirPath) {
             return undefined;
         }
 
         // Cache the results.
         if (isStdLib) {
-            this._cachedTypeshedStdLibPath = typeshedPath;
+            this._cachedTypeshedStdLibPath = resolvedDirPath;
         } else {
-            this._cachedTypeshedThirdPartyPath = typeshedPath;
+            this._cachedTypeshedThirdPartyPath = resolvedDirPath;
         }
 
-        return typeshedPath;
+        return resolvedDirPath;
     }
 
     private _resolveRelativeImport(
@@ -1443,9 +1540,11 @@ export class ImportResolver {
                 }
 
                 dirPath = combinePaths(dirPath, nameParts[i]);
-                if (!this.dirExistsCached(dirPath)) {
+                const resolvedDirPath = this.resolveDirSync(dirPath);
+                if (!resolvedDirPath) {
                     break;
                 }
+                dirPath = resolvedDirPath;
             }
         }
     }
@@ -1539,8 +1638,8 @@ export class ImportResolver {
                 strippedFileName = stripFileExtension(fileName);
             } else if (
                 this._isNativeModuleFileExtension(fileExt) &&
-                !this.fileExistsCached(`${fileName}.py`) &&
-                !this.fileExistsCached(`${fileName}.pyi`)
+                !this.resolveFileSync(`${fileName}.py`) &&
+                !this.resolveFileSync(`${fileName}.pyi`)
             ) {
                 // Native module.
                 strippedFileName = fileName.substr(0, fileName.indexOf('.'));
@@ -1585,11 +1684,17 @@ export class ImportResolver {
             let isStubFile = false;
             let path = '';
 
-            if (this.fileExistsCached(pyiFilePath)) {
+            const resolvedPyiFile = this.resolveFileSync(pyiFilePath);
+            if (resolvedPyiFile) {
                 isStubFile = true;
-                path = pyiFilePath;
-            } else if (this.fileExistsCached(pyFilePath)) {
-                path = pyFilePath;
+                path = resolvedPyiFile;
+            }
+
+            if (!path) {
+                const resolvedPyFile = this.resolveFileSync(pyFilePath);
+                if (resolvedPyFile) {
+                    path = resolvedPyFile;
+                }
             }
 
             if (path) {
