@@ -32,7 +32,7 @@ import { ConsoleInterface, log, LogLevel, StandardConsole } from '../common/cons
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
-import { FileSystem, FileWatcher, ignoredWatchEventFunction, Stats } from '../common/fileSystem';
+import { FileSystem, FileWatcher, ignoredWatchEventFunction } from '../common/fileSystem';
 import {
     combinePaths,
     FileSpec,
