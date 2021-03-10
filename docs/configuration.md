@@ -177,7 +177,7 @@ The following is an example of a pyright config file:
   ],
 
   "stubPath": "src/stubs",
-  "venvPath": "/home/foo/.venvs",
+  "venv": "env367",
 
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
