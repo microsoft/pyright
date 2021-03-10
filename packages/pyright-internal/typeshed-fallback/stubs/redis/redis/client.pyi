@@ -52,6 +52,8 @@ def parse_hscan(response, **options): ...
 def parse_zscan(response, **options): ...
 def parse_slowlog_get(response, **options): ...
 
+_ScoreCastFuncReturn = TypeVar("_ScoreCastFuncReturn")
+
 _Value = Union[bytes, float, int, Text]
 _Key = Union[Text, bytes]
 
@@ -599,28 +601,123 @@ class Redis(Generic[_StrType]):
     def zadd(
         self, name: _Key, mapping: Mapping[_Key, _Value], nx: bool = ..., xx: bool = ..., ch: bool = ..., incr: bool = ...
     ) -> int: ...
-    def zcard(self, name): ...
+    def zcard(self, name: _Key) -> int: ...
     def zcount(self, name: _Key, min: _Value, max: _Value) -> int: ...
-    def zincrby(self, name, value, amount=...): ...
-    def zinterstore(self, dest, keys, aggregate=...): ...
-    def zlexcount(self, name, min, max): ...
-    def zpopmax(self, name, count=...): ...
-    def zpopmin(self, name, count=...): ...
-    def bzpopmax(self, keys, timeout=...): ...
-    def bzpopmin(self, keys, timeout=...): ...
-    def zrange(self, name, start, end, desc=..., withscores=..., score_cast_func=...): ...
-    def zrangebylex(self, name, min, max, start=..., num=...): ...
-    def zrangebyscore(self, name, min, max, start=..., num=..., withscores=..., score_cast_func=...): ...
-    def zrank(self, name: _Key, value: _Key) -> Optional[int]: ...
-    def zrem(self, name, *values): ...
-    def zremrangebylex(self, name, min, max): ...
-    def zremrangebyrank(self, name, min, max): ...
+    def zincrby(self, name: _Key, value: _Value, amount: float = ...) -> float: ...
+    def zinterstore(self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] = ...) -> int: ...
+    def zlexcount(self, name: _Key, min: _Value, max: _Value) -> int: ...
+    def zpopmax(self, name: _Key, count: Optional[int] = ...) -> List[_StrType]: ...
+    def zpopmin(self, name: _Key, count: Optional[int] = ...) -> List[_StrType]: ...
+    @overload
+    def bzpopmax(self, keys: Union[_Key, Iterable[_Key]], timeout: Literal[0] = ...) -> Tuple[_StrType, _StrType, float]: ...
+    @overload
+    def bzpopmax(self, keys: Union[_Key, Iterable[_Key]], timeout: float) -> Optional[Tuple[_StrType, _StrType, float]]: ...
+    @overload
+    def bzpopmin(self, keys: Union[_Key, Iterable[_Key]], timeout: Literal[0] = ...) -> Tuple[_StrType, _StrType, float]: ...
+    @overload
+    def bzpopmin(self, keys: Union[_Key, Iterable[_Key]], timeout: float) -> Optional[Tuple[_StrType, _StrType, float]]: ...
+    @overload
+    def zrange(
+        self,
+        name: _Key,
+        start: int,
+        end: int,
+        desc: bool = ...,
+        *,
+        withscores: Literal[True],
+        score_cast_func: Callable[[float], _ScoreCastFuncReturn] = ...,
+    ) -> List[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    def zrange(
+        self,
+        name: _Key,
+        start: int,
+        end: int,
+        desc: bool = ...,
+        withscores: bool = ...,
+        score_cast_func: Callable[[Any], Any] = ...,
+    ) -> List[_StrType]: ...
+    def zrangebylex(
+        self, name: _Key, min: _Value, max: _Value, start: Optional[int] = ..., num: Optional[int] = ...
+    ) -> List[_StrType]: ...
+    @overload
+    def zrangebyscore(
+        self,
+        name: _Key,
+        min: _Value,
+        max: _Value,
+        start: Optional[int] = ...,
+        num: Optional[int] = ...,
+        *,
+        withscores: Literal[True],
+        score_cast_func: Callable[[float], _ScoreCastFuncReturn] = ...,
+    ) -> List[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    def zrangebyscore(
+        self,
+        name: _Key,
+        min: _Value,
+        max: _Value,
+        start: Optional[int] = ...,
+        num: Optional[int] = ...,
+        withscores: bool = ...,
+        score_cast_func: Callable[[Any], Any] = ...,
+    ) -> List[_StrType]: ...
+    def zrank(self, name: _Key, value: _Value) -> Optional[int]: ...
+    def zrem(self, name: _Key, *values: _Value) -> int: ...
+    def zremrangebylex(self, name: _Key, min: _Value, max: _Value) -> int: ...
+    def zremrangebyrank(self, name: _Key, min: int, max: int) -> int: ...
     def zremrangebyscore(self, name: _Key, min: _Value, max: _Value) -> int: ...
-    def zrevrange(self, name, start, end, withscores=..., score_cast_func=...): ...
-    def zrevrangebyscore(self, name, max, min, start=..., num=..., withscores=..., score_cast_func=...): ...
-    def zrevrank(self, name, value): ...
-    def zscore(self, name, value): ...
-    def zunionstore(self, dest, keys, aggregate=...): ...
+    @overload
+    def zrevrange(
+        self,
+        name: _Key,
+        start: int,
+        end: int,
+        desc: bool = ...,
+        *,
+        withscores: Literal[True],
+        score_cast_func: Callable[[float], _ScoreCastFuncReturn] = ...,
+    ) -> List[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    def zrevrange(
+        self,
+        name: _Key,
+        start: int,
+        end: int,
+        desc: bool = ...,
+        withscores: bool = ...,
+        score_cast_func: Callable[[Any], Any] = ...,
+    ) -> List[_StrType]: ...
+    @overload
+    def zrevrangebyscore(
+        self,
+        name: _Key,
+        min: _Value,
+        max: _Value,
+        start: Optional[int] = ...,
+        num: Optional[int] = ...,
+        *,
+        withscores: Literal[True],
+        score_cast_func: Callable[[float], _ScoreCastFuncReturn] = ...,
+    ) -> List[Tuple[_StrType, _ScoreCastFuncReturn]]: ...
+    @overload
+    def zrevrangebyscore(
+        self,
+        name: _Key,
+        min: _Value,
+        max: _Value,
+        start: Optional[int] = ...,
+        num: Optional[int] = ...,
+        withscores: bool = ...,
+        score_cast_func: Callable[[Any], Any] = ...,
+    ) -> List[_StrType]: ...
+    def zrevrangebylex(
+        self, name: _Key, min: _Value, max: _Value, start: Optional[int] = ..., num: Optional[int] = ...
+    ) -> List[_StrType]: ...
+    def zrevrank(self, name: _Key, value: _Value) -> Optional[int]: ...
+    def zscore(self, name: _Key, value: _Value) -> Optional[float]: ...
+    def zunionstore(self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] = ...) -> int: ...
     def pfadd(self, name: _Key, *values: _Value) -> int: ...
     def pfcount(self, name: _Key) -> int: ...
     def pfmerge(self, dest: _Key, *sources: _Key) -> bool: ...
@@ -926,28 +1023,65 @@ class Pipeline(Redis):
     def zadd(  # type: ignore [override]
         self, name: _Key, mapping: Mapping[_Key, _Value], nx: bool = ..., xx: bool = ..., ch: bool = ..., incr: bool = ...
     ) -> Pipeline: ...
-    def zcard(self, name) -> Pipeline: ...  # type: ignore [override]
+    def zcard(self, name: _Key) -> Pipeline: ...  # type: ignore [override]
     def zcount(self, name: _Key, min: _Value, max: _Value) -> Pipeline: ...  # type: ignore [override]
-    def zincrby(self, name, value, amount=...) -> Pipeline: ...  # type: ignore [override]
-    def zinterstore(self, dest, keys, aggregate=...) -> Pipeline: ...  # type: ignore [override]
-    def zlexcount(self, name, min, max) -> Pipeline: ...  # type: ignore [override]
-    def zpopmax(self, name, count=...) -> Pipeline: ...  # type: ignore [override]
-    def zpopmin(self, name, count=...) -> Pipeline: ...  # type: ignore [override]
-    def bzpopmax(self, keys, timeout=...) -> Pipeline: ...  # type: ignore [override]
-    def bzpopmin(self, keys, timeout=...) -> Pipeline: ...  # type: ignore [override]
-    def zrange(self, name, start, end, desc=..., withscores=..., score_cast_func=...) -> Pipeline: ...  # type: ignore [override]
-    def zrangebylex(self, name, min, max, start=..., num=...) -> Pipeline: ...  # type: ignore [override]
-    def zrangebyscore(self, name, min, max, start=..., num=..., withscores=..., score_cast_func=...) -> Pipeline: ...  # type: ignore [override]
-    def zrank(self, name: _Key, value: _Key) -> Pipeline: ...  # type: ignore [override]
-    def zrem(self, name, *values) -> Pipeline: ...  # type: ignore [override]
-    def zremrangebylex(self, name, min, max) -> Pipeline: ...  # type: ignore [override]
-    def zremrangebyrank(self, name, min, max) -> Pipeline: ...  # type: ignore [override]
+    def zincrby(self, name: _Key, value: _Value, amount: float = ...) -> Pipeline: ...  # type: ignore [override]
+    def zinterstore(self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] = ...) -> Pipeline: ...  # type: ignore [override]
+    def zlexcount(self, name: _Key, min: _Value, max: _Value) -> Pipeline: ...  # type: ignore [override]
+    def zpopmax(self, name: _Key, count: Optional[int] = ...) -> Pipeline: ...  # type: ignore [override]
+    def zpopmin(self, name: _Key, count: Optional[int] = ...) -> Pipeline: ...  # type: ignore [override]
+    def bzpopmax(self, keys: Union[_Key, Iterable[_Key]], timeout: float = ...) -> Pipeline: ...  # type: ignore [override]
+    def bzpopmin(self, keys: Union[_Key, Iterable[_Key]], timeout: float = ...) -> Pipeline: ...  # type: ignore [override]
+    def zrange(  # type: ignore [override]
+        self,
+        name: _Key,
+        start: int,
+        end: int,
+        desc: bool = ...,
+        withscores: bool = ...,
+        score_cast_func: Callable[[Any], Any] = ...,
+    ) -> Pipeline: ...
+    def zrangebylex(self, name: _Key, min: _Value, max: _Value, start: Optional[int] = ..., num: Optional[int] = ...) -> Pipeline: ...  # type: ignore [override]
+    def zrangebyscore(  # type: ignore [override]
+        self,
+        name: _Key,
+        min: _Value,
+        max: _Value,
+        start: Optional[int] = ...,
+        num: Optional[int] = ...,
+        withscores: bool = ...,
+        score_cast_func: Callable[[Any], Any] = ...,
+    ) -> Pipeline: ...
+    def zrank(self, name: _Key, value: _Value) -> Pipeline: ...  # type: ignore [override]
+    def zrem(self, name: _Key, *values: _Value) -> Pipeline: ...  # type: ignore [override]
+    def zremrangebylex(self, name: _Key, min: _Value, max: _Value) -> Pipeline: ...  # type: ignore [override]
+    def zremrangebyrank(self, name: _Key, min: _Value, max: _Value) -> Pipeline: ...  # type: ignore [override]
     def zremrangebyscore(self, name: _Key, min: _Value, max: _Value) -> Pipeline: ...  # type: ignore [override]
-    def zrevrange(self, name, start, end, withscores=..., score_cast_func=...) -> Pipeline: ...  # type: ignore [override]
-    def zrevrangebyscore(self, name, max, min, start=..., num=..., withscores=..., score_cast_func=...) -> Pipeline: ...  # type: ignore [override]
-    def zrevrank(self, name, value) -> Pipeline: ...  # type: ignore [override]
-    def zscore(self, name, value) -> Pipeline: ...  # type: ignore [override]
-    def zunionstore(self, dest, keys, aggregate=...) -> Pipeline: ...  # type: ignore [override]
+    def zrevrange(  # type: ignore [override]
+        self,
+        name: _Key,
+        start: int,
+        end: int,
+        desc: bool = ...,
+        withscores: bool = ...,
+        score_cast_func: Callable[[Any], Any] = ...,
+    ) -> Pipeline: ...
+    def zrevrangebyscore(  # type: ignore [override]
+        self,
+        name: _Key,
+        min: _Value,
+        max: _Value,
+        start: Optional[int] = ...,
+        num: Optional[int] = ...,
+        withscores: bool = ...,
+        score_cast_func: Callable[[Any], Any] = ...,
+    ) -> Pipeline: ...
+    def zrevrangebylex(  # type: ignore [override]
+        self, name: _Key, min: _Value, max: _Value, start: Optional[int] = ..., num: Optional[int] = ...
+    ) -> Pipeline: ...
+    def zrevrank(self, name: _Key, value: _Value) -> Pipeline: ...  # type: ignore [override]
+    def zscore(self, name: _Key, value: _Value) -> Pipeline: ...  # type: ignore [override]
+    def zunionstore(self, dest: _Key, keys: Iterable[_Key], aggregate: Literal["SUM", "MIN", "MAX"] = ...) -> Pipeline: ...  # type: ignore [override]
     def pfadd(self, name: _Key, *values: _Value) -> Pipeline: ...  # type: ignore [override]
     def pfcount(self, name: _Key) -> Pipeline: ...  # type: ignore [override]
     def pfmerge(self, dest: _Key, *sources: _Key) -> Pipeline: ...  # type: ignore [override]

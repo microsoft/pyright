@@ -13,6 +13,7 @@ _ParamType = Union[str, Tuple[Optional[str], Optional[str], str]]
 _HeaderType = Any
 
 class Message:
+    policy: Policy  # undocumented
     preamble: Optional[str]
     epilogue: Optional[str]
     defects: List[MessageDefect]

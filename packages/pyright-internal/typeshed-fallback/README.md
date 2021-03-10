@@ -108,6 +108,8 @@ There are several tests:
 tests typeshed with [mypy](https://github.com/python/mypy/)
 - `tests/pytype_test.py` tests typeshed with
 [pytype](https://github.com/google/pytype/).
+- `tests/pyright_test.py` tests typeshed with
+[pyright](https://github.com/microsoft/pyright).
 - `tests/mypy_self_check.py` checks mypy's code base using this version of
 typeshed.
 - `tests/mypy_test_suite.py` runs a subset of mypy's test suite using this version of
@@ -121,13 +123,16 @@ consistent with each other.
 
 Run:
 ```
-$ python3.6 -m venv .venv3
+$ python3 -m venv .venv3
 $ source .venv3/bin/activate
 (.venv3)$ pip install -U pip
 (.venv3)$ pip install -r requirements-tests-py3.txt
 ```
 This will install mypy (you need the latest master branch from GitHub),
 typed-ast, flake8 (and plugins), pytype, black and isort.
+
+If you want to run the pyright tests, you need to have
+[Node.js](https://nodejs.org/) installed.
 
 ### mypy_test.py
 
@@ -159,6 +164,10 @@ them with the `--python27-exe` and `--python36-exe` arguments, respectively.
 Run using: `(.venv3)$ python3 tests/pytype_test.py`
 
 This test works similarly to `mypy_test.py`, except it uses `pytype`.
+
+### pyright\_test.py
+
+This test requires Node.js to be installed.
 
 ### mypy_self_check.py
 

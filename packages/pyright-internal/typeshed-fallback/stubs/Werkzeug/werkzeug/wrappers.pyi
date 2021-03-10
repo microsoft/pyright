@@ -149,7 +149,7 @@ class BaseResponse:
         key: str,
         value: Union[str, bytes] = ...,
         max_age: Optional[int] = ...,
-        expires: Optional[int] = ...,
+        expires: Optional[Union[int, datetime]] = ...,
         path: str = ...,
         domain: Optional[str] = ...,
         secure: bool = ...,
