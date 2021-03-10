@@ -57,9 +57,6 @@ export class ExecutionEnvironment {
 
     // Default to no extra paths.
     extraPaths: string[] = [];
-
-    // Name of virtual environment to use.
-    venv?: string;
 }
 
 export type DiagnosticLevel = 'none' | 'information' | 'warning' | 'error';
@@ -610,8 +607,8 @@ export class ConfigOptions {
     // third-party modules.
     venvPath?: string;
 
-    // Default venv environment. Can be overridden by executionEnvironment.
-    defaultVenv?: string;
+    // Default venv environment.
+    venv?: string;
 
     // Default pythonVersion. Can be overridden by executionEnvironment.
     defaultPythonVersion?: PythonVersion;
@@ -1188,13 +1185,13 @@ export class ConfigOptions {
             }
         }
 
-        // Read the default "venv".
-        this.defaultVenv = undefined;
+        // Read the "venv" name.
+        this.venv = undefined;
         if (configObj.venv !== undefined) {
             if (typeof configObj.venv !== 'string') {
                 console.error(`Config "venv" field must contain a string.`);
             } else {
-                this.defaultVenv = configObj.venv;
+                this.venv = configObj.venv;
             }
         }
 
@@ -1461,15 +1458,6 @@ export class ConfigOptions {
                     newExecEnv.pythonPlatform = envObj.pythonPlatform;
                 } else {
                     console.error(`Config executionEnvironments index ${index} pythonPlatform must be a string.`);
-                }
-            }
-
-            // Validate the venv.
-            if (envObj.venv) {
-                if (typeof envObj.venv === 'string') {
-                    newExecEnv.venv = envObj.venv;
-                } else {
-                    console.error(`Config executionEnvironments index ${index} venv must be a string.`);
                 }
             }
 

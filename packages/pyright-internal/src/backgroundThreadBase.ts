@@ -68,7 +68,7 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     configOptions.useLibraryCodeForTypes = jsonObject.useLibraryCodeForTypes;
     configOptions.internalTestMode = jsonObject.internalTestMode;
     configOptions.venvPath = jsonObject.venvPath;
-    configOptions.defaultVenv = jsonObject.defaultVenv;
+    configOptions.venv = jsonObject.venv;
     configOptions.defaultPythonVersion = jsonObject.defaultPythonVersion;
     configOptions.defaultPythonPlatform = jsonObject.defaultPythonPlatform;
     configOptions.diagnosticRuleSet = jsonObject.diagnosticRuleSet;

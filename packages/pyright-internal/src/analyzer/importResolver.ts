@@ -1178,17 +1178,12 @@ export class ImportResolver {
     }
 
     private _getPythonSearchPaths(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
-        const cacheKey = execEnv.venv ? execEnv.venv : '<default>';
+        const cacheKey = '<default>';
 
         // Find the site packages for the configured virtual environment.
         if (!this._cachedPythonSearchPaths.has(cacheKey)) {
             let paths =
-                PythonPathUtils.findPythonSearchPaths(
-                    this.fileSystem,
-                    this._configOptions,
-                    execEnv.venv,
-                    importFailureInfo
-                ) || [];
+                PythonPathUtils.findPythonSearchPaths(this.fileSystem, this._configOptions, importFailureInfo) || [];
 
             // Remove duplicates (yes, it happens).
             paths = [...new Set(paths)];

@@ -34,13 +34,11 @@ Pyright does not require a Python environment to be configured if all imports ca
 
 Pyright uses the following mechanisms (in priority order) to determine which Python environment to use:
 
-1. If a `venv` name is specified for the execution environment along with a `python.venvPath` setting (or a `--venv-path` command-line argument), it appends the venv name to the specified venv path.
+1. If a `venv` name is specified along with a `python.venvPath` setting (or a `--venv-path` command-line argument), it appends the venv name to the specified venv path.
 
-2. If no `venv` name is specified for the execution environment but a `defaultVenv` name is specified at the top level of the config file, use that venv name instead.
+2. If no `venv` is specified in the config file, use the `python.pythonPath` setting. This setting is defined by the VS Code Python extension and can be configured using the Python extension’s environment picker interface. More recent versions of the Python extension no longer store the selected Python environment in the `python.pythonPath` setting and instead use a storage mechanism that is private to the extension. Pyright is able to access this through an API exposed by the Python extension.
 
-3. If no `venv` or `defaultVenv` is specified in the config file, use the `python.pythonPath` setting. This setting is defined by the VS Code Python extension and can be configured using the Python extension’s environment picker interface. More recent versions of the Python extension no longer store the selected Python environment in the `python.pythonPath` setting and instead use a storage mechanism that is private to the extension. Pyright is able to access this through an API exposed by the Python extension.
-
-4. As a fallback, use the default Python environment (i.e. the one that is invoked when typing `python` in the shell).
+3. As a fallback, use the default Python environment (i.e. the one that is invoked when typing `python` in the shell).
 
 ## Debugging Import Resolution Problems
 The import resolution mechanisms in Python are complicated, and Pyright offers many configuration options. If you are encountering problems with import resolution, Pyright provides additional logging that may help you identify the cause. To enable verbose logging, pass `--verbose` as a command-line argument or add the following entry to the config file `"verboseOutput": true`. If you are using the Pyright VS Code extension, the additional logging will appear in the Output tab (select “Pyright” from the menu). Please include this verbose logging when reporting import resolution bugs.

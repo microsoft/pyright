@@ -1213,7 +1213,7 @@ export class TestState {
         // run test in venv mode under root so that
         // under test we can point to local lib folder
         configOptions.venvPath = vfs.MODULE_PATH;
-        configOptions.defaultVenv = vfs.MODULE_PATH;
+        configOptions.venv = vfs.MODULE_PATH;
 
         // make sure we set typing path
         if (configOptions.stubPath === undefined) {

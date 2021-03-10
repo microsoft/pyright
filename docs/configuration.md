@@ -18,9 +18,9 @@ Relative paths specified within the config file are relative to the config file�
 
 **stubPath** [path, optional]: Path to a directory that contains custom type stubs. Each package's type stub file(s) are expected to be in its own subdirectory. The default value of this setting is "./typings". (typingsPath is now deprecated)
 
-**venvPath** [path, optional]: Path to a directory containing one or more subdirectories, each of which contains a virtual environment. Each execution environment (see below for details) can refer to a different virtual environment. When used in conjunction with a **venv** setting (see below), pyright will search for imports in the virtual environment’s site-packages directory rather than the paths specified by the default Python interpreter.
+**venvPath** [path, optional]: Path to a directory containing one or more subdirectories, each of which contains a virtual environment. When used in conjunction with a **venv** setting (see below), pyright will search for imports in the virtual environment’s site-packages directory rather than the paths specified by the default Python interpreter. If you are working on a project with other developers, it is best not to specify this setting in the config file, since this path will typically differ for each developer. Instead, it can be specified on the command line or in a per-user setting.
 
-**venv** [string, optional]: Used in conjunction with the venvPath, specifies the virtual environment to use. Individual execution environments may override this setting.
+**venv** [string, optional]: Used in conjunction with the venvPath, specifies the virtual environment to use.
 
 **verboseOutput** [boolean]: Specifies whether output logs should be verbose. This is useful when diagnosing certain problems like import resolution issues.
 
@@ -150,9 +150,7 @@ The following settings can be specified for each execution environment.
 
 **root** [string, required]: Root path for the code that will execute within this execution environment.
 
-**extraPaths** [array of strings, optional]: Additional search paths (in addition to the root path) that will be used when searching for packages. At runtime, these will be specified in the PYTHONPATH environment variable.
-
-**venv** [string, optional]: The virtual environment to use for this execution environment. If not specified, the global `venv` setting is used instead.
+**extraPaths** [array of strings, optional]: Additional search paths (in addition to the root path) that will be used when searching for modules imported by files within this execution environment. Note that each file’s execution environment mapping is independent, so if file A is in one execution environment ane imports a second file B within a second execution environment, any imports from B will use the extraPaths in the second execution environment.
 
 **pythonVersion** [string, optional]: The version of Python used for this execution environment. If not specified, the global `pythonVersion` setting is used instead.
 
@@ -201,8 +199,7 @@ The following is an example of a pyright config file:
       "pythonVersion": "3.0",
       "extraPaths": [
         "src/backend"
-      ],
-      "venv": "venv_bar"
+      ]
     },
     {
       "root": "src/tests",

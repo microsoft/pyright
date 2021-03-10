@@ -72,15 +72,14 @@ export function getTypeshedSubdirectory(typeshedPath: string, isStdLib: boolean)
 export function findPythonSearchPaths(
     fs: FileSystem,
     configOptions: ConfigOptions,
-    venv: string | undefined,
     importFailureInfo: string[],
     includeWatchPathsOnly?: boolean | undefined,
     workspaceRoot?: string | undefined
 ): string[] | undefined {
     importFailureInfo.push('Finding python search paths');
 
-    if (configOptions.venvPath !== undefined && (venv !== undefined || configOptions.defaultVenv)) {
-        const venvDir = venv !== undefined ? venv : configOptions.defaultVenv;
+    if (configOptions.venvPath !== undefined && configOptions.venv) {
+        const venvDir = configOptions.venv;
         const venvPath = combinePaths(configOptions.venvPath, venvDir);
 
         const foundPaths: string[] = [];

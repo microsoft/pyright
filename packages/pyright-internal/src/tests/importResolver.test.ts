@@ -325,7 +325,7 @@ function getImportResult(
 function getConfigOption(fs: PyrightFileSystem) {
     const configOptions = new ConfigOptions(normalizeSlashes('/'));
     configOptions.venvPath = fs.getModulePath();
-    configOptions.defaultVenv = fs.getModulePath();
+    configOptions.venv = fs.getModulePath();
 
     return configOptions;
 }
