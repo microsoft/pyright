@@ -764,6 +764,7 @@ export namespace Localizer {
             new ParameterizedString<{ exprType: string; yieldType: string }>(
                 getRawString('Diagnostic.yieldTypeMismatch')
             );
+        export const yieldWithinListCompr = () => getRawString('Diagnostic.yieldWithinListCompr');
         export const zeroCaseStatementsFound = () => getRawString('Diagnostic.zeroCaseStatementsFound');
         export const zeroLengthTupleNotAllowed = () => getRawString('Diagnostic.zeroLengthTupleNotAllowed');
     }

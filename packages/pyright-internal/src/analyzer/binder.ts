@@ -955,11 +955,19 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitYield(node: YieldNode): boolean {
+        if (this._isInListComprehension(node)) {
+            this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
+        }
+
         this._bindYield(node);
         return false;
     }
 
     visitYieldFrom(node: YieldFromNode): boolean {
+        if (this._isInListComprehension(node)) {
+            this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
+        }
+
         this._bindYield(node);
         return false;
     }
@@ -1919,6 +1927,17 @@ export class Binder extends ParseTreeWalker {
         }
 
         return true;
+    }
+
+    private _isInListComprehension(node: ParseNode) {
+        let curNode: ParseNode | undefined = node;
+        while (curNode) {
+            if (curNode.nodeType === ParseNodeType.ListComprehension) {
+                return true;
+            }
+            curNode = curNode.parent;
+        }
+        return false;
     }
 
     private _addPatternCaptureTarget(target: NameNode) {
