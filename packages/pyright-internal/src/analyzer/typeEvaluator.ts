@@ -19113,11 +19113,9 @@ export function createTypeEvaluator(
                     );
                 }
 
-                // All functions are assignable to "object".
-                if (ClassType.isBuiltIn(destType.classType, 'object')) {
-                    if ((flags & CanAssignFlags.EnforceInvariance) === 0) {
-                        return true;
-                    }
+                // All functions are objects, so try to assign as an object.
+                if (objectType && isObject(objectType)) {
+                    return canAssignType(destType, objectType, diag, typeVarMap, flags, recursionCount + 1);
                 }
             } else if (isModule(concreteSrcType)) {
                 // Is the destination the built-in "ModuleType"?
