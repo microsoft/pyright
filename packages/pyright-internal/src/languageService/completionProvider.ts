@@ -955,7 +955,7 @@ export class CompletionProvider {
             leftType = this._evaluator.makeTopLevelTypeVarsConcrete(leftType);
 
             doForEachSubtype(leftType, (subtype) => {
-                subtype = transformTypeObjectToClass(subtype);
+                subtype = this._evaluator.makeTopLevelTypeVarsConcrete(transformTypeObjectToClass(subtype));
 
                 if (isObject(subtype)) {
                     getMembersForClass(subtype.classType, symbolTable, /* includeInstanceVars */ true);
