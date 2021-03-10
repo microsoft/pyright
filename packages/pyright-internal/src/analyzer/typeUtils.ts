@@ -1267,7 +1267,7 @@ export function removeTruthinessFromType(type: Type): Type {
 export function getDeclaredGeneratorYieldType(functionType: FunctionType, iterableType: Type): Type | undefined {
     const returnType = FunctionType.getSpecializedReturnType(functionType);
     if (returnType) {
-        const generatorTypeArgs = _getGeneratorReturnTypeArgs(returnType);
+        const generatorTypeArgs = getGeneratorTypeArgs(returnType);
 
         if (generatorTypeArgs && generatorTypeArgs.length >= 1 && isClass(iterableType)) {
             // The yield type is the first type arg. Wrap it in an iterable.
@@ -1293,7 +1293,7 @@ export function getDeclaredGeneratorYieldType(functionType: FunctionType, iterab
 export function getDeclaredGeneratorSendType(functionType: FunctionType): Type | undefined {
     const returnType = FunctionType.getSpecializedReturnType(functionType);
     if (returnType) {
-        const generatorTypeArgs = _getGeneratorReturnTypeArgs(returnType);
+        const generatorTypeArgs = getGeneratorTypeArgs(returnType);
 
         if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
             // The send type is the second type arg.
@@ -1311,7 +1311,7 @@ export function getDeclaredGeneratorSendType(functionType: FunctionType): Type |
 export function getDeclaredGeneratorReturnType(functionType: FunctionType): Type | undefined {
     const returnType = FunctionType.getSpecializedReturnType(functionType);
     if (returnType) {
-        const generatorTypeArgs = _getGeneratorReturnTypeArgs(returnType);
+        const generatorTypeArgs = getGeneratorTypeArgs(returnType);
 
         if (generatorTypeArgs && generatorTypeArgs.length >= 3) {
             // The send type is the third type arg.
@@ -2049,7 +2049,7 @@ function _transformTypeVarsInFunctionType(
 
 // If the declared return type for the function is a Generator, AsyncGenerator,
 // Iterator, or AsyncIterator, returns the type arguments for the type.
-function _getGeneratorReturnTypeArgs(returnType: Type): Type[] | undefined {
+export function getGeneratorTypeArgs(returnType: Type): Type[] | undefined {
     if (isObject(returnType)) {
         const classType = returnType.classType;
         if (ClassType.isBuiltIn(classType)) {

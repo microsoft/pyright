@@ -208,6 +208,7 @@ import {
     enumerateLiteralsForType,
     getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType,
+    getGeneratorTypeArgs,
     getSpecializedTupleType,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
@@ -1150,13 +1151,9 @@ export function createTypeEvaluator(
                 break;
             }
 
-            case ParseNodeType.Yield: {
-                typeResult = getTypeFromYield(node);
-                break;
-            }
-
+            case ParseNodeType.Yield:
             case ParseNodeType.YieldFrom: {
-                typeResult = getTypeFromYieldFrom(node);
+                typeResult = getTypeFromYield(node);
                 break;
             }
 
@@ -9948,7 +9945,7 @@ export function createTypeEvaluator(
         return { type, node };
     }
 
-    function getTypeFromYield(node: YieldNode): TypeResult {
+    function getTypeFromYield(node: YieldNode | YieldFromNode): TypeResult {
         let sentType: Type | undefined;
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
@@ -9959,37 +9956,16 @@ export function createTypeEvaluator(
             }
         }
 
-        if (!sentType) {
-            sentType = UnknownType.create();
-        }
-
+        let returnedType: Type | undefined;
         if (node.expression) {
-            getTypeOfExpression(node.expression, sentType);
-        }
-
-        return { type: sentType, node };
-    }
-
-    function getTypeFromYieldFrom(node: YieldFromNode): TypeResult {
-        let sentType: Type | undefined;
-
-        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
-        if (enclosingFunction) {
-            const functionTypeInfo = getTypeOfFunction(enclosingFunction);
-            if (functionTypeInfo) {
-                sentType = getDeclaredGeneratorSendType(functionTypeInfo.functionType);
+            const generatorType = getTypeOfExpression(node.expression, sentType).type;
+            const generatorTypeArgs = getGeneratorTypeArgs(generatorType);
+            if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
+                returnedType = generatorTypeArgs[2];
             }
         }
 
-        if (!sentType) {
-            sentType = UnknownType.create();
-        }
-
-        if (node.expression) {
-            getTypeOfExpression(node.expression, sentType);
-        }
-
-        return { type: sentType, node };
+        return { type: returnedType || UnknownType.create(), node };
     }
 
     function getTypeFromLambda(node: LambdaNode, expectedType: Type | undefined): TypeResult {

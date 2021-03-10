@@ -936,6 +936,12 @@ test('Generators10', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('Generators11', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['generators11.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Coroutines1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['coroutines1.py']);
 
