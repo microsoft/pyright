@@ -21,7 +21,7 @@ export class QuickActionCommand implements ServerCommand {
         if (params.arguments && params.arguments.length >= 1) {
             const docUri = params.arguments[0];
             const otherArgs = params.arguments.slice(1);
-            const filePath = convertUriToPath(docUri);
+            const filePath = convertUriToPath(this._ls.fs, docUri);
             const workspace = await this._ls.getWorkspaceForFile(filePath);
 
             if (params.command === Commands.orderImports && workspace.disableOrganizeImports) {

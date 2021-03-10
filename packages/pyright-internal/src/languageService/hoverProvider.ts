@@ -42,6 +42,7 @@ import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { getOverloadedFunctionTooltip } from './tooltipUtils';
 
 export interface HoverTextPart {
     python?: boolean;
@@ -231,7 +232,13 @@ export class HoverProvider {
                     label = declaredType && isProperty(declaredType) ? 'property' : 'method';
                 }
 
-                this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(node, evaluator), true);
+                const type = evaluator.getType(node);
+                if (type && isOverloadedFunction(type)) {
+                    this._addResultsPart(parts, `(${label})\n${getOverloadedFunctionTooltip(type, evaluator)}`, true);
+                } else {
+                    this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(node, evaluator), true);
+                }
+
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }

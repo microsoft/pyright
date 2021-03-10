@@ -124,7 +124,7 @@ export class ImportResolver {
             nonStubImportResult: undefined,
         };
 
-        this._ensurePartialStubPackages(execEnv);
+        this.ensurePartialStubPackages(execEnv);
 
         // Is it a relative import?
         if (moduleDescriptor.leadingDots > 0) {
@@ -540,6 +540,39 @@ export class ImportResolver {
         return false;
     }
 
+    ensurePartialStubPackages(execEnv: ExecutionEnvironment) {
+        if (!(this.fileSystem instanceof PyrightFileSystem)) {
+            return false;
+        }
+
+        if (this.fileSystem.isPartialStubPackagesScanned(execEnv)) {
+            return false;
+        }
+
+        const fs = this.fileSystem;
+        const ignored: string[] = [];
+        const paths: string[] = [];
+
+        // Add paths to search stub packages.
+        addPaths(this._configOptions.stubPath);
+        addPaths(execEnv.root);
+        execEnv.extraPaths.forEach((p) => addPaths(p));
+        addPaths(this.getTypeshedPathEx(execEnv, ignored));
+        this._getPythonSearchPaths(execEnv, ignored).forEach((p) => addPaths(p));
+
+        this.fileSystem.processPartialStubPackages(paths, this.getImportRoots(execEnv));
+        this._invalidateFileSystemCache();
+        return true;
+
+        function addPaths(path?: string) {
+            if (!path || fs.isPathScanned(path)) {
+                return;
+            }
+
+            paths.push(path);
+        }
+    }
+
     protected addResultsToCache(
         execEnv: ExecutionEnvironment,
         importName: string,
@@ -848,38 +881,6 @@ export class ImportResolver {
         const fileExtension = getFileExtension(fileName, /* multiDotExtension */ false).toLowerCase();
         if (this._isNativeModuleFileExtension(fileExtension)) {
             return stripFileExtension(stripFileExtension(fileName));
-        }
-    }
-
-    private _ensurePartialStubPackages(execEnv: ExecutionEnvironment) {
-        if (!(this.fileSystem instanceof PyrightFileSystem)) {
-            return;
-        }
-
-        if (this.fileSystem.isPartialStubPackagesScanned(execEnv)) {
-            return;
-        }
-
-        const fs = this.fileSystem;
-        const ignored: string[] = [];
-        const paths: string[] = [];
-
-        // Add paths to search stub packages.
-        addPaths(this._configOptions.stubPath);
-        addPaths(execEnv.root);
-        execEnv.extraPaths.forEach((p) => addPaths(p));
-        addPaths(this.getTypeshedPathEx(execEnv, ignored));
-        this._getPythonSearchPaths(execEnv, ignored).forEach((p) => addPaths(p));
-
-        this.fileSystem.processPartialStubPackages(paths, this.getImportRoots(execEnv));
-        this._invalidateFileSystemCache();
-
-        function addPaths(path?: string) {
-            if (!path || fs.isPathScanned(path)) {
-                return;
-            }
-
-            paths.push(path);
         }
     }
 

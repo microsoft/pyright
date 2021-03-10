@@ -105,11 +105,7 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
             return;
         }
 
-        const indexResults = file.sourceFile.getCachedIndexResults();
-        if (indexResults && !indexResults.privateOrProtected) {
-            moduleSymbolMap.set(filePath, createModuleSymbolTableFromIndexResult(indexResults, /* library */ false));
-            return;
-        }
+        // For now, don't iterate through closed user files using indices.
     });
 
     return moduleSymbolMap;
@@ -125,9 +121,15 @@ export interface AutoImportResult {
     symbol?: Symbol;
     source?: string;
     insertionText: string;
-    edits: TextEditAction[];
+    edits?: TextEditAction[];
     alias?: string;
     kind?: CompletionItemKind;
+}
+
+export interface AutoImportOptions {
+    libraryMap?: Map<string, IndexResults>;
+    patternMatcher?: (pattern: string, name: string) => boolean;
+    lazyEdit?: boolean;
 }
 
 interface ImportParts {
@@ -150,7 +152,6 @@ type AutoImportResultMap = Map<string, AutoImportResult[]>;
 
 export class AutoImporter {
     private _importStatements: ImportStatements;
-    private _patternMatcher: (pattern: string, name: string) => boolean;
 
     // Track some auto import internal perf numbers.
     private _stopWatch = new Duration();
@@ -178,13 +179,12 @@ export class AutoImporter {
         private _invocationPosition: Position,
         private _excludes: Set<string>,
         private _moduleSymbolMap: ModuleSymbolMap,
-        private _libraryMap?: Map<string, IndexResults>,
-        patternMatcher?: (pattern: string, name: string) => boolean
+        private _config: AutoImportOptions
     ) {
-        this._patternMatcher = patternMatcher ?? StringUtils.isPatternInSymbol;
+        this._config.patternMatcher = this._config.patternMatcher ?? StringUtils.isPatternInSymbol;
         this._importStatements = getTopLevelImports(this._parseResults.parseTree, true);
 
-        this._perfInfo.indexUsed = !!this._libraryMap;
+        this._perfInfo.indexUsed = !!this._config.libraryMap;
     }
 
     getAutoImportCandidatesForAbbr(abbr: string | undefined, abbrInfo: AbbreviationInfo, token: CancellationToken) {
@@ -241,7 +241,7 @@ export class AutoImporter {
     ) {
         const startTime = this._stopWatch.getDurationInMilliseconds();
 
-        this._libraryMap?.forEach((indexResults, filePath) => {
+        this._config.libraryMap?.forEach((indexResults, filePath) => {
             if (indexResults.privateOrProtected) {
                 return;
             }
@@ -253,7 +253,7 @@ export class AutoImporter {
             }
 
             // See if this file should be offered as an implicit import.
-            const isStubFileOrHasInit = this._isStubFileOrHasInit(this._libraryMap!, filePath);
+            const isStubFileOrHasInit = this._isStubFileOrHasInit(this._config.libraryMap!, filePath);
             this._processModuleSymbolTable(
                 createModuleSymbolTableFromIndexResult(indexResults, /* library */ true),
                 filePath,
@@ -618,7 +618,7 @@ export class AutoImporter {
             return word === name;
         }
 
-        return word.length > 0 && this._patternMatcher(word, name);
+        return word.length > 0 && this._config.patternMatcher!(word, name);
     }
 
     private _containsName(name: string, source: string | undefined, results: AutoImportResultMap) {
@@ -689,7 +689,7 @@ export class AutoImporter {
         insertionText: string,
         importGroup: ImportGroup,
         filePath: string
-    ): { insertionText: string; edits: TextEditAction[] } {
+    ): { insertionText: string; edits?: TextEditAction[] } {
         // If there is no symbolName, there can't be existing import statement.
         const importStatement = this._importStatements.mapByFilePath.get(filePath);
         if (importStatement) {
@@ -735,12 +735,14 @@ export class AutoImporter {
                 if (moduleName === importStatement.moduleName) {
                     return {
                         insertionText: abbrFromUsers ?? insertionText,
-                        edits: getTextEditsForAutoImportSymbolAddition(
-                            importName,
-                            importStatement,
-                            this._parseResults,
-                            abbrFromUsers
-                        ),
+                        edits: this._config.lazyEdit
+                            ? undefined
+                            : getTextEditsForAutoImportSymbolAddition(
+                                  importName,
+                                  importStatement,
+                                  this._parseResults,
+                                  abbrFromUsers
+                              ),
                     };
                 }
             }
@@ -764,12 +766,14 @@ export class AutoImporter {
                     // If not, add what we want at the existing import from statement.
                     return {
                         insertionText: abbrFromUsers ?? insertionText,
-                        edits: getTextEditsForAutoImportSymbolAddition(
-                            importName,
-                            imported,
-                            this._parseResults,
-                            abbrFromUsers
-                        ),
+                        edits: this._config.lazyEdit
+                            ? undefined
+                            : getTextEditsForAutoImportSymbolAddition(
+                                  importName,
+                                  imported,
+                                  this._parseResults,
+                                  abbrFromUsers
+                              ),
                     };
                 }
             }
@@ -789,15 +793,17 @@ export class AutoImporter {
 
         return {
             insertionText: abbrFromUsers ?? insertionText,
-            edits: getTextEditsForAutoImportInsertion(
-                importName,
-                this._importStatements,
-                moduleName,
-                importGroup,
-                this._parseResults,
-                this._invocationPosition,
-                abbrFromUsers
-            ),
+            edits: this._config.lazyEdit
+                ? undefined
+                : getTextEditsForAutoImportInsertion(
+                      importName,
+                      this._importStatements,
+                      moduleName,
+                      importGroup,
+                      this._parseResults,
+                      this._invocationPosition,
+                      abbrFromUsers
+                  ),
         };
     }
 

@@ -95,6 +95,7 @@ import { ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
 import { AbbreviationInfo, AutoImporter, AutoImportResult, ModuleSymbolMap } from './autoImporter';
 import { IndexResults } from './documentSymbolProvider';
+import { getOverloadedFunctionTooltip } from './tooltipUtils';
 
 const _keywords: string[] = [
     // Expression keywords
@@ -225,6 +226,7 @@ export interface CompletionResults {
 export interface CompletionOptions {
     format: MarkupKind;
     snippet: boolean;
+    lazyEdit: boolean;
 }
 
 export type AbbreviationMap = Map<string, AbbreviationInfo>;
@@ -487,11 +489,23 @@ export class CompletionProvider {
         if (completionItemData.symbolLabel) {
             this._itemToResolve = completionItem;
 
-            // Rerun the completion lookup. It will fill in additional information
-            // about the item to be resolved. We'll ignore the rest of the returned
-            // list. This is a bit wasteful, but all of that information should be
-            // cached, so it's not as bad as it might seem.
-            this.getCompletionsForPosition();
+            if (!completionItemData.autoImportText) {
+                // Rerun the completion lookup. It will fill in additional information
+                // about the item to be resolved. We'll ignore the rest of the returned
+                // list. This is a bit wasteful, but all of that information should be
+                // cached, so it's not as bad as it might seem.
+                this.getCompletionsForPosition();
+            } else if (!completionItem.additionalTextEdits) {
+                const completionList = CompletionList.create();
+                const completionResults = { completionList };
+
+                this._getAutoImportCompletions(
+                    completionItemData.symbolLabel,
+                    /* similarityLimit */ 1,
+                    /* lazyEdit */ false,
+                    completionResults
+                );
+            }
         }
     }
 
@@ -1098,7 +1112,7 @@ export class CompletionProvider {
         // Add auto-import suggestions from other modules.
         // Ignore this check for privates, since they are not imported.
         if (this._configOptions.autoImportCompletions && !priorWord.startsWith('_') && !this._itemToResolve) {
-            this._getAutoImportCompletions(priorWord, completionResults);
+            this._getAutoImportCompletions(priorWord, similarityLimit, this._options.lazyEdit, completionResults);
         }
 
         // Add literal values if appropriate.
@@ -1365,7 +1379,12 @@ export class CompletionProvider {
         }
     }
 
-    private _getAutoImportCompletions(priorWord: string, completionResults: CompletionResults) {
+    private _getAutoImportCompletions(
+        priorWord: string,
+        similarityLimit: number,
+        lazyEdit: boolean,
+        completionResults: CompletionResults
+    ) {
         if (!this._autoImportMaps) {
             return;
         }
@@ -1384,7 +1403,7 @@ export class CompletionProvider {
             this._position,
             excludes,
             moduleSymbolMap,
-            this._autoImportMaps.libraryMap
+            { libraryMap: this._autoImportMaps.libraryMap, lazyEdit }
         );
 
         const results: AutoImportResult[] = [];
@@ -1654,7 +1673,7 @@ export class CompletionProvider {
                 if (this._itemToResolve) {
                     const completionItemData = this._itemToResolve.data as CompletionItemData;
 
-                    if (completionItemData.symbolLabel === name) {
+                    if (completionItemData.symbolLabel === name && !completionItemData.autoImportText) {
                         // This call can be expensive to perform on every completion item
                         // that we return, so we do it lazily in the "resolve" callback.
                         const type = this._evaluator.getEffectiveTypeOfSymbol(symbol);
@@ -1681,7 +1700,7 @@ export class CompletionProvider {
 
                                 case DeclarationType.Function: {
                                     const functionType =
-                                        detail.boundObject && isFunction(type)
+                                        detail.boundObject && (isFunction(type) || isOverloadedFunction(type))
                                             ? this._evaluator.bindFunctionToClassOrObject(detail.boundObject, type)
                                             : type;
                                     if (functionType) {
@@ -1697,13 +1716,12 @@ export class CompletionProvider {
                                                 this._evaluator.printType(propertyType, /* expandTypeAlias */ false) +
                                                 ' (property)';
                                         } else if (isOverloadedFunction(functionType)) {
-                                            typeDetail = functionType.overloads
-                                                .map(
-                                                    (overload) =>
-                                                        name +
-                                                        this._evaluator.printType(overload, /* expandTypeAlias */ false)
-                                                )
-                                                .join('\n');
+                                            // 35 is completion tooltip's default width size
+                                            typeDetail = getOverloadedFunctionTooltip(
+                                                functionType,
+                                                this._evaluator,
+                                                /* columnThreshold */ 35
+                                            );
                                         } else {
                                             typeDetail =
                                                 name +
@@ -1978,6 +1996,13 @@ export class CompletionProvider {
                 };
                 return textEdit;
             });
+
+            if (this._itemToResolve) {
+                const data = this._itemToResolve.data as CompletionItemData;
+                if (data.autoImportText === completionItemData.autoImportText) {
+                    this._itemToResolve.additionalTextEdits = completionItem.additionalTextEdits;
+                }
+            }
         }
 
         completionList.items.push(completionItem);

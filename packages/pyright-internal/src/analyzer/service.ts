@@ -191,6 +191,10 @@ export class AnalyzerService {
         this._applyConfigOptions(reanalyze);
     }
 
+    ensurePartialStubPackages(path: string) {
+        return this._backgroundAnalysisProgram.ensurePartialStubPackages(path);
+    }
+
     setFileOpened(path: string, version: number | null, contents: string) {
         this._backgroundAnalysisProgram.setFileOpened(path, version, contents);
         this._scheduleReanalysis(false);
@@ -230,6 +234,7 @@ export class AnalyzerService {
         range: Range,
         similarityLimit: number,
         nameMap: AbbreviationMap | undefined,
+        lazyEdit: boolean,
         token: CancellationToken
     ) {
         return this._program.getAutoImports(
@@ -238,6 +243,7 @@ export class AnalyzerService {
             similarityLimit,
             nameMap,
             this._backgroundAnalysisProgram.getIndexing(filePath),
+            lazyEdit,
             token
         );
     }
@@ -322,9 +328,17 @@ export class AnalyzerService {
         filePath: string,
         completionItem: CompletionItem,
         options: CompletionOptions,
+        nameMap: AbbreviationMap | undefined,
         token: CancellationToken
     ) {
-        this._program.resolveCompletionItem(filePath, completionItem, options, token);
+        this._program.resolveCompletionItem(
+            filePath,
+            completionItem,
+            options,
+            nameMap,
+            this._backgroundAnalysisProgram.getIndexing(filePath),
+            token
+        );
     }
 
     performQuickAction(

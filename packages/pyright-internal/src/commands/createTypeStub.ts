@@ -31,7 +31,7 @@ export class CreateTypeStubCommand implements ServerCommand {
             const workspace: WorkspaceServiceInstance = {
                 workspaceName: `Create Type Stub ${importName}`,
                 rootPath: workspaceRoot,
-                rootUri: convertPathToUri(workspaceRoot),
+                rootUri: convertPathToUri(this._ls.fs, workspaceRoot),
                 serviceInstance: service,
                 disableLanguageServices: true,
                 disableOrganizeImports: true,

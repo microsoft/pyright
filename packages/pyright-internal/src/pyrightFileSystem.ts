@@ -32,23 +32,30 @@ import {
 } from './common/pathUtils';
 
 export class PyrightFileSystem implements FileSystem {
-    private readonly _pathMap = new Map<string, string>();
+    // Mapped file to original file map
+    private readonly _fileMap = new Map<string, string>();
+
+    // Original file to mapped file map
+    private readonly _reverseFileMap = new Map<string, string>();
+
+    // Mapped files per a containing folder map
     private readonly _folderMap = new Map<string, string[]>();
 
+    // Root paths processed
     private readonly _rootSearched = new Set<string>();
+
+    // Partial stub package paths processed
     private readonly _partialStubPackagePaths = new Set<string>();
 
     constructor(private _realFS: FileSystem) {}
 
     existsSync(path: string): boolean {
-        if (this._partialStubPackagePaths.has(path)) {
-            // Pretend partial stub package directory doesn't exist. To be 100% correct,
-            // we need to check whether a file is under partial stub package path,
-            // but for now, this is enough to make import resolver to skip this folder.
+        if (this._partialStubPackagePaths.has(path) || this._reverseFileMap.has(path)) {
+            // Pretend partial stub folder and its files not exist
             return false;
         }
 
-        return this._realFS.existsSync(this._getPath(path));
+        return this._realFS.existsSync(this.getOriginalFilePath(path));
     }
 
     mkdirSync(path: string, options?: MkDirOptions | number): void {
@@ -92,19 +99,19 @@ export class PyrightFileSystem implements FileSystem {
     readFileSync(path: string, encoding?: null): Buffer;
     readFileSync(path: string, encoding: BufferEncoding): string;
     readFileSync(path: string, encoding?: BufferEncoding | null): string | Buffer {
-        return this._realFS.readFileSync(this._getPath(path), encoding);
+        return this._realFS.readFileSync(this.getOriginalFilePath(path), encoding);
     }
 
     writeFileSync(path: string, data: string | Buffer, encoding: BufferEncoding | null): void {
-        this._realFS.writeFileSync(this._getPath(path), data, encoding);
+        this._realFS.writeFileSync(this.getOriginalFilePath(path), data, encoding);
     }
 
     statSync(path: string): Stats {
-        return this._realFS.statSync(this._getPath(path));
+        return this._realFS.statSync(this.getOriginalFilePath(path));
     }
 
     unlinkSync(path: string): void {
-        this._realFS.unlinkSync(this._getPath(path));
+        this._realFS.unlinkSync(this.getOriginalFilePath(path));
     }
 
     realpathSync(path: string): string {
@@ -120,24 +127,24 @@ export class PyrightFileSystem implements FileSystem {
     }
 
     createReadStream(path: string): fs.ReadStream {
-        return this._realFS.createReadStream(this._getPath(path));
+        return this._realFS.createReadStream(this.getOriginalFilePath(path));
     }
 
     createWriteStream(path: string): fs.WriteStream {
-        return this._realFS.createWriteStream(this._getPath(path));
+        return this._realFS.createWriteStream(this.getOriginalFilePath(path));
     }
 
     copyFileSync(src: string, dst: string): void {
-        this._realFS.copyFileSync(this._getPath(src), this._getPath(dst));
+        this._realFS.copyFileSync(this.getOriginalFilePath(src), this.getOriginalFilePath(dst));
     }
 
     // Async I/O
     readFile(path: string): Promise<Buffer> {
-        return this._realFS.readFile(this._getPath(path));
+        return this._realFS.readFile(this.getOriginalFilePath(path));
     }
 
     readFileText(path: string, encoding?: BufferEncoding): Promise<string> {
-        return this._realFS.readFileText(this._getPath(path), encoding);
+        return this._realFS.readFileText(this.getOriginalFilePath(path), encoding);
     }
 
     // The directory returned by tmpdir must exist and be the same each time tmpdir is called.
@@ -205,21 +212,23 @@ export class PyrightFileSystem implements FileSystem {
                         // 3. Merge partial stub packages to the library (py.typed not exist or partially typed).
                         partialStubs = partialStubs ?? this._getRelativePathPartialStubs(partialStubPackagePath);
                         for (const partialStub of partialStubs) {
-                            const pyiFile = combinePaths(packagePath, partialStub);
-                            if (this.existsSync(pyiFile)) {
+                            const mappedPyiFile = combinePaths(packagePath, partialStub);
+                            if (this.existsSync(mappedPyiFile)) {
                                 // Found existing pyi file, skip.
                                 continue;
                             }
 
-                            this._pathMap.set(pyiFile, combinePaths(partialStubPackagePath, partialStub));
+                            const originalPyiFile = combinePaths(partialStubPackagePath, partialStub);
+                            this._fileMap.set(mappedPyiFile, originalPyiFile);
+                            this._reverseFileMap.set(originalPyiFile, mappedPyiFile);
 
-                            const directory = ensureTrailingDirectorySeparator(getDirectoryPath(pyiFile));
+                            const directory = ensureTrailingDirectorySeparator(getDirectoryPath(mappedPyiFile));
                             let folderInfo = this._folderMap.get(directory);
                             if (!folderInfo) {
                                 folderInfo = [];
                                 this._folderMap.set(directory, folderInfo);
                             }
-                            const pyiFileName = getFileName(pyiFile);
+                            const pyiFileName = getFileName(mappedPyiFile);
                             if (!folderInfo.some((entry) => entry === pyiFileName)) {
                                 folderInfo.push(pyiFileName);
                             }
@@ -232,20 +241,27 @@ export class PyrightFileSystem implements FileSystem {
         }
     }
 
-    isVirtual(filepath: string): boolean {
-        return this._pathMap.has(filepath);
-    }
-
     clearPartialStubs(): void {
-        this._pathMap.clear();
+        this._fileMap.clear();
         this._folderMap.clear();
 
         this._rootSearched.clear();
         this._partialStubPackagePaths.clear();
     }
 
-    private _getPath(path: string) {
-        return this._pathMap.get(path) ?? path;
+    // See whether the file is mapped to another location.
+    isMappedFilePath(filepath: string): boolean {
+        return this._fileMap.has(filepath);
+    }
+
+    // Get original filepath if the given filepath is mapped.
+    getOriginalFilePath(mappedFilepath: string) {
+        return this._fileMap.get(mappedFilepath) ?? mappedFilepath;
+    }
+
+    // Get mapped filepath if the given filepath is mapped.
+    getMappedFilePath(originalFilepath: string) {
+        return this._reverseFileMap.get(originalFilepath) ?? originalFilepath;
     }
 
     private _getRelativePathPartialStubs(path: string) {

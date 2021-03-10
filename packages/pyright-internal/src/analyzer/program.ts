@@ -983,6 +983,7 @@ export class Program {
         similarityLimit: number,
         nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
+        lazyEdit: boolean,
         token: CancellationToken
     ): AutoImportResult[] {
         const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
@@ -1020,8 +1021,11 @@ export class Program {
                 range.start,
                 new Set(),
                 map,
-                libraryMap,
-                (p, t) => computeCompletionSimilarity(p, t) > similarityLimit
+                {
+                    lazyEdit,
+                    libraryMap,
+                    patternMatcher: (p, t) => computeCompletionSimilarity(p, t) > similarityLimit,
+                }
             );
 
             // Filter out any name that is already defined in the current scope.
@@ -1446,6 +1450,8 @@ export class Program {
         filePath: string,
         completionItem: CompletionItem,
         options: CompletionOptions,
+        nameMap: AbbreviationMap | undefined,
+        libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
     ) {
         return this._runEvaluatorWithCancellationToken(token, () => {
@@ -1464,6 +1470,9 @@ export class Program {
                 this._evaluator!,
                 options,
                 this._createSourceMapper(execEnv, /* mapCompiled */ true),
+                nameMap,
+                libraryMap,
+                () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),
                 completionItem,
                 token
             );
