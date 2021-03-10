@@ -1427,9 +1427,18 @@ export class ImportResolver {
     }
 
     private _getFilesInDirectory(dirPath: string): string[] {
-        return this.readdirEntriesCached(dirPath)
-            .filter((f) => f.isFile())
-            .map((f) => f.name);
+        const entriesInDir = this.readdirEntriesCached(dirPath);
+        const filesInDir = entriesInDir.filter((f) => f.isFile()).map((f) => f.name);
+
+        // Add any symbolic links that point to files.
+        entriesInDir.forEach((f) => {
+            const linkPath = combinePaths(dirPath, f.name);
+            if (f.isSymbolicLink() && this.fileSystem.statSync(linkPath).isFile()) {
+                filesInDir.push(f.name);
+            }
+        });
+
+        return filesInDir;
     }
 
     private _getCompletionSuggestionsAbsolute(
@@ -1470,7 +1479,12 @@ export class ImportResolver {
     }
 
     private _addFilteredSuggestions(dirPath: string, filter: string, suggestions: string[], similarityLimit: number) {
-        const entries = getFileSystemEntriesFromDirEntries(this.readdirEntriesCached(dirPath));
+        // Enumerate all of the files and directories in the path, expanding links.
+        const entries = getFileSystemEntriesFromDirEntries(
+            this.readdirEntriesCached(dirPath),
+            this.fileSystem,
+            dirPath
+        );
 
         entries.files.forEach((file) => {
             // Strip multi-dot extensions to handle file names like "foo.cpython-32m.so". We want
@@ -1545,8 +1559,12 @@ export class ImportResolver {
     private _findImplicitImports(importingModuleName: string, dirPath: string, exclusions: string[]): ImplicitImport[] {
         const implicitImportMap = new Map<string, ImplicitImport>();
 
-        // Enumerate all of the files and directories in the path.
-        const entries = getFileSystemEntriesFromDirEntries(this.readdirEntriesCached(dirPath));
+        // Enumerate all of the files and directories in the path, expanding links.
+        const entries = getFileSystemEntriesFromDirEntries(
+            this.readdirEntriesCached(dirPath),
+            this.fileSystem,
+            dirPath
+        );
 
         // Add implicit file-based modules.
         for (const fileName of entries.files) {

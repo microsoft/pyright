@@ -566,13 +566,18 @@ export function isFile(fs: FileSystem, path: string): boolean {
 
 export function getFileSystemEntries(fs: FileSystem, path: string): FileSystemEntries {
     try {
-        return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(path || '.'));
+        return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(path || '.'), fs, path);
     } catch (e) {
         return { files: [], directories: [] };
     }
 }
 
-export function getFileSystemEntriesFromDirEntries(dirEntries: Dirent[]): FileSystemEntries {
+// Sorts the entires into files and directories, including any symbolic links.
+export function getFileSystemEntriesFromDirEntries(
+    dirEntries: Dirent[],
+    fs: FileSystem,
+    path: string
+): FileSystemEntries {
     const entries = dirEntries.sort((a, b) => {
         if (a.name < b.name) {
             return -1;
@@ -594,9 +599,14 @@ export function getFileSystemEntriesFromDirEntries(dirEntries: Dirent[]): FileSy
         if (entry.isFile()) {
             files.push(entry.name);
         } else if (entry.isDirectory()) {
-            // Don't traverse symbolic links. They can lead to cycles.
-            if (!entry.isSymbolicLink()) {
-                directories.push(entry.name);
+            directories.push(entry.name);
+        } else if (entry.isSymbolicLink()) {
+            const entryPath = combinePaths(path, entry.name);
+            const stat = fs.statSync(entryPath);
+            if (stat.isFile()) {
+                files.push(entry.name);
+            } else if (stat.isDirectory()) {
+                files.push(entry.name);
             }
         }
     }
