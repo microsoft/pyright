@@ -1424,7 +1424,7 @@ export class ImportResolver {
         // Add any symbolic links that point to files.
         entriesInDir.forEach((f) => {
             const linkPath = combinePaths(dirPath, f.name);
-            if (f.isSymbolicLink() && this.fileSystem.statSync(linkPath).isFile()) {
+            if (f.isSymbolicLink() && tryStat(this.fileSystem, linkPath)?.isFile()) {
                 filesInDir.push(f.name);
             }
         });
