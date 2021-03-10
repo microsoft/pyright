@@ -28,6 +28,7 @@ import {
     getDirectoryPath,
     getFileName,
     isDirectory,
+    tryStat,
 } from './common/pathUtils';
 
 export class PyrightFileSystem implements FileSystem {
@@ -165,11 +166,15 @@ export class PyrightFileSystem implements FileSystem {
             }
 
             for (const entry of this._realFS.readdirEntriesSync(path)) {
-                if (!entry.isDirectory() || !entry.name.endsWith(stubsSuffix)) {
+                const partialStubPackagePath = combinePaths(path, entry.name);
+                const isDirectory = !entry.isSymbolicLink()
+                    ? entry.isDirectory()
+                    : !!tryStat(this._realFS, partialStubPackagePath)?.isDirectory();
+
+                if (!isDirectory || !entry.name.endsWith(stubsSuffix)) {
                     continue;
                 }
 
-                const partialStubPackagePath = combinePaths(path, entry.name);
                 const pyTypedInfo = getPyTypedInfo(this._realFS, partialStubPackagePath);
                 if (!pyTypedInfo || !pyTypedInfo.isPartiallyTyped) {
                     // Stub-Package is fully typed.
@@ -185,8 +190,8 @@ export class PyrightFileSystem implements FileSystem {
                 for (const root of roots) {
                     const packagePath = combinePaths(root, packageName);
                     try {
-                        const stat = this._realFS.statSync(packagePath);
-                        if (!stat.isDirectory()) {
+                        const stat = tryStat(this._realFS, packagePath);
+                        if (!stat?.isDirectory()) {
                             continue;
                         }
 
@@ -249,13 +254,24 @@ export class PyrightFileSystem implements FileSystem {
         const partialStubPathLength = ensureTrailingDirectorySeparator(path).length;
         const searchAllStubs = (path: string) => {
             for (const entry of this._realFS.readdirEntriesSync(path)) {
-                if (entry.isDirectory()) {
-                    searchAllStubs(combinePaths(path, entry.name));
+                const filePath = combinePaths(path, entry.name);
+
+                let isDirectory = entry.isDirectory();
+                let isFile = entry.isFile();
+                if (entry.isSymbolicLink()) {
+                    const stat = tryStat(this._realFS, filePath);
+                    if (stat) {
+                        isDirectory = stat.isDirectory();
+                        isFile = stat.isFile();
+                    }
                 }
 
-                if (entry.isFile() && entry.name.endsWith('.pyi')) {
-                    const stubFile = combinePaths(path, entry.name);
-                    const relative = stubFile.substring(partialStubPathLength);
+                if (isDirectory) {
+                    searchAllStubs(filePath);
+                }
+
+                if (isFile && entry.name.endsWith('.pyi')) {
+                    const relative = filePath.substring(partialStubPathLength);
                     if (relative) {
                         paths.push(relative);
                     }

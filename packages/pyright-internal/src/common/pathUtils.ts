@@ -16,7 +16,7 @@ import { URI } from 'vscode-uri';
 import { some } from './collectionUtils';
 import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
 import * as debug from './debug';
-import { FileSystem } from './fileSystem';
+import { FileSystem, Stats } from './fileSystem';
 import {
     compareStringsCaseInsensitive,
     compareStringsCaseSensitive,
@@ -182,13 +182,9 @@ export function makeDirectories(fs: FileSystem, dirPath: string, startingFromDir
 }
 
 export function getFileSize(fs: FileSystem, path: string) {
-    try {
-        const stat = fs.statSync(path);
-        if (stat.isFile()) {
-            return stat.size;
-        }
-    } catch {
-        // Ignore the exception.
+    const stat = tryStat(fs, path);
+    if (stat?.isFile()) {
+        return stat.size;
     }
     return 0;
 }
@@ -543,25 +539,19 @@ export function normalizePath(pathString: string): string {
 }
 
 export function isDirectory(fs: FileSystem, path: string): boolean {
-    let stat: any;
-    try {
-        stat = fs.statSync(path);
-    } catch (e) {
-        return false;
-    }
-
-    return stat.isDirectory();
+    return tryStat(fs, path)?.isDirectory() ?? false;
 }
 
 export function isFile(fs: FileSystem, path: string): boolean {
-    let stat: any;
-    try {
-        stat = fs.statSync(path);
-    } catch (e) {
-        return false;
-    }
+    return tryStat(fs, path)?.isFile() ?? false;
+}
 
-    return stat.isFile();
+export function tryStat(fs: FileSystem, path: string): Stats | undefined {
+    try {
+        return fs.statSync(path);
+    } catch (e) {
+        return undefined;
+    }
 }
 
 export function getFileSystemEntries(fs: FileSystem, path: string): FileSystemEntries {
@@ -602,10 +592,10 @@ export function getFileSystemEntriesFromDirEntries(
             directories.push(entry.name);
         } else if (entry.isSymbolicLink()) {
             const entryPath = combinePaths(path, entry.name);
-            const stat = fs.statSync(entryPath);
-            if (stat.isFile()) {
+            const stat = tryStat(fs, entryPath);
+            if (stat?.isFile()) {
                 files.push(entry.name);
-            } else if (stat.isDirectory()) {
+            } else if (stat?.isDirectory()) {
                 files.push(entry.name);
             }
         }

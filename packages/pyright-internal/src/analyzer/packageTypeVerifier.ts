@@ -12,7 +12,7 @@ import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { Diagnostic, DiagnosticAddendum, DiagnosticCategory } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
 import { FileSystem } from '../common/fileSystem';
-import { combinePaths, getDirectoryPath, getFileExtension, stripFileExtension } from '../common/pathUtils';
+import { combinePaths, getDirectoryPath, getFileExtension, stripFileExtension, tryStat } from '../common/pathUtils';
 import { getEmptyRange } from '../common/textRange';
 import { DeclarationType, FunctionDeclaration, VariableDeclaration } from './declaration';
 import { ImportedModuleDescriptor, ImportResolver } from './importResolver';
@@ -430,7 +430,17 @@ export class PackageTypeVerifier {
         const dirEntries = this._fileSystem.readdirEntriesSync(dirPath);
 
         dirEntries.forEach((entry) => {
-            if (entry.isFile()) {
+            let isFile = entry.isFile();
+            let isDirectory = entry.isDirectory();
+            if (entry.isSymbolicLink()) {
+                const stat = tryStat(this._fileSystem, combinePaths(dirPath, entry.name));
+                if (stat) {
+                    isFile = stat.isFile();
+                    isDirectory = stat.isDirectory();
+                }
+            }
+
+            if (isFile) {
                 const fileExtension = getFileExtension(entry.name);
 
                 if (fileExtension === '.py' || fileExtension === '.pyi') {
@@ -447,7 +457,7 @@ export class PackageTypeVerifier {
                         }
                     }
                 }
-            } else if (entry.isDirectory()) {
+            } else if (isDirectory) {
                 if (!isPrivateOrProtectedName(entry.name) && this._isLegalModulePartName(entry.name)) {
                     this._addPublicModulesRecursive(
                         combinePaths(dirPath, entry.name),

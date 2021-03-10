@@ -21,6 +21,7 @@ import {
     getFileSystemEntries,
     isDirectory,
     normalizePath,
+    tryStat,
 } from '../common/pathUtils';
 
 interface PythonPathResult {
@@ -272,10 +273,10 @@ function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
 
     pthFiles.forEach((pthFile) => {
         const filePath = combinePaths(parentDir, pthFile.name);
-        const fileStats = fs.statSync(filePath);
+        const fileStats = tryStat(fs, filePath);
 
         // Skip all files that are much larger than expected.
-        if (fileStats.isFile() && fileStats.size > 0 && fileStats.size < 64 * 1024) {
+        if (fileStats?.isFile() && fileStats.size > 0 && fileStats.size < 64 * 1024) {
             const data = fs.readFileSync(filePath, 'utf8');
             const lines = data.split(/\r?\n/);
             lines.forEach((line) => {

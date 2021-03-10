@@ -32,7 +32,7 @@ import { ConsoleInterface, log, LogLevel, StandardConsole } from '../common/cons
 import { Diagnostic } from '../common/diagnostic';
 import { FileEditAction, TextEditAction } from '../common/editAction';
 import { LanguageServiceExtension } from '../common/extensibility';
-import { FileSystem, FileWatcher, ignoredWatchEventFunction, Stats } from '../common/fileSystem';
+import { FileSystem, FileWatcher, ignoredWatchEventFunction } from '../common/fileSystem';
 import {
     combinePaths,
     FileSpec,
@@ -44,6 +44,7 @@ import {
     isDirectory,
     normalizePath,
     stripFileExtension,
+    tryStat,
 } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
@@ -1071,12 +1072,7 @@ export class AnalyzerService {
                         return;
                     }
 
-                    let stats: Stats | undefined;
-                    try {
-                        stats = this._fs.statSync(path);
-                    } catch {
-                        stats = undefined;
-                    }
+                    const stats = tryStat(this._fs, path);
 
                     if (stats && stats.isFile() && !path.endsWith('.py') && !path.endsWith('.pyi')) {
                         return;
