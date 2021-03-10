@@ -53,3 +53,24 @@ def f5(p: Union[TD1, TD3]):
     else:
         tp2: Literal["TD3"] = reveal_type(p)
 
+
+def f6(p: Union[TD1, TD2, TD3]):
+    # This should generate an error
+    v1 = p["a"]
+
+    v2 = p.get("a")
+
+    if "c" in p:
+        v3 = p["c"]
+        t_v3: Literal["str"] = reveal_type(v3)
+
+    if "a" in p and "d" in p:
+        v4 = p["a"]
+        t_v4: Literal["int"] = reveal_type(v4)
+
+        v5 = p["d"]
+        t_v5: Literal["str"] = reveal_type(v5)
+
+    # This should generate an error
+    v6 = p["d"]
+

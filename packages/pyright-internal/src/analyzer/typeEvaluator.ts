@@ -560,7 +560,7 @@ export interface TypeEvaluator {
     getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
     resolveAliasDeclaration: (declaration: Declaration, resolveLocalNames: boolean) => Declaration | undefined;
     getTypeFromIterable: (type: Type, isAsync: boolean, errorNode: ParseNode) => Type;
-    getTypedDictMembersForClass: (classType: ClassType) => Map<string, TypedDictEntry>;
+    getTypedDictMembersForClass: (classType: ClassType, allowNarrowed: boolean) => Map<string, TypedDictEntry>;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
     getScopeIdForNode: (node: ParseNode) => string;
@@ -2319,7 +2319,7 @@ export function createTypeEvaluator(
             defaultTypeVar.details.isSynthesized = true;
             defaultTypeVar = TypeVarType.cloneForScopeId(defaultTypeVar, typeVarScopeId, classType.details.name);
 
-            const createGetMethod = (keyType: Type, valueType: Type) => {
+            const createGetMethod = (keyType: Type, valueType: Type, includeDefault: boolean) => {
                 const getOverload = FunctionType.createInstance(
                     'get',
                     '',
@@ -2333,14 +2333,18 @@ export function createTypeEvaluator(
                     type: keyType,
                     hasDeclaredType: true,
                 });
-                FunctionType.addParameter(getOverload, {
-                    category: ParameterCategory.Simple,
-                    name: 'default',
-                    type: valueType,
-                    hasDeclaredType: true,
-                    hasDefault: true,
-                });
-                getOverload.details.declaredReturnType = valueType;
+                if (includeDefault) {
+                    FunctionType.addParameter(getOverload, {
+                        category: ParameterCategory.Simple,
+                        name: 'default',
+                        type: valueType,
+                        hasDeclaredType: true,
+                        hasDefault: true,
+                    });
+                    getOverload.details.declaredReturnType = valueType;
+                } else {
+                    getOverload.details.declaredReturnType = combineTypes([valueType, NoneType.createInstance()]);
+                }
                 return getOverload;
             };
 
@@ -2435,7 +2439,10 @@ export function createTypeEvaluator(
             entries.forEach((entry, name) => {
                 const nameLiteralType = ObjectType.create(ClassType.cloneWithLiteral(strClass, name));
 
-                getOverloads.push(createGetMethod(nameLiteralType, entry.valueType));
+                if (!entry.isRequired) {
+                    getOverloads.push(createGetMethod(nameLiteralType, entry.valueType, /* includeDefault */ false));
+                }
+                getOverloads.push(createGetMethod(nameLiteralType, entry.valueType, /* includeDefault */ true));
                 popOverloads.push(...createPopMethods(nameLiteralType, entry.valueType));
                 setDefaultOverloads.push(createSetDefaultMethod(nameLiteralType, entry.valueType, entry.isRequired));
             });
@@ -2443,7 +2450,8 @@ export function createTypeEvaluator(
             // Provide a final overload that handles the general case where the key is
             // a str but the literal value isn't known.
             const strType = ObjectType.create(strClass);
-            getOverloads.push(createGetMethod(strType, AnyType.create()));
+            getOverloads.push(createGetMethod(strType, AnyType.create(), /* includeDefault */ false));
+            getOverloads.push(createGetMethod(strType, AnyType.create(), /* includeDefault */ true));
             popOverloads.push(...createPopMethods(strType, AnyType.create()));
             setDefaultOverloads.push(createSetDefaultMethod(strType, AnyType.create()));
 
@@ -5347,7 +5355,7 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        const entries = getTypedDictMembersForClass(baseType.classType);
+        const entries = getTypedDictMembersForClass(baseType.classType, /* allowNarrowed */ true);
 
         const indexTypeResult = getTypeOfExpression(node.items[0].valueExpression);
         const indexType = indexTypeResult.type;
@@ -5376,6 +5384,13 @@ export function createTypeEvaluator(
                         })
                     );
                     return UnknownType.create();
+                } else if (!entry.isRequired && usage.method === 'get') {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.keyNotRequired().format({
+                            name: entryName,
+                            type: printType(baseType),
+                        })
+                    );
                 }
 
                 if (usage.method === 'set') {
@@ -16058,11 +16073,40 @@ export function createTypeEvaluator(
     function narrowTypeForTypedDictKey(referenceType: Type, literalKey: ClassType, isPositiveTest: boolean): Type {
         const narrowedType = mapSubtypes(referenceType, (subtype) => {
             if (isObject(subtype) && ClassType.isTypedDictClass(subtype.classType)) {
-                const entries = getTypedDictMembersForClass(subtype.classType);
+                const entries = getTypedDictMembersForClass(subtype.classType, /* allowNarrowed */ true);
                 const tdEntry = entries.get(literalKey.literalValue as string);
 
                 if (isPositiveTest) {
-                    return tdEntry === undefined ? undefined : subtype;
+                    if (!tdEntry) {
+                        return undefined;
+                    }
+
+                    // If the entry is currently not required, we can mark it as required
+                    // after this guard expression confirms it is.
+                    if (tdEntry.isRequired) {
+                        return subtype;
+                    }
+
+                    const oldNarrowedEntriesMap = subtype.classType.typedDictNarrowedEntries;
+                    const newNarrowedEntriesMap = new Map<string, TypedDictEntry>();
+                    if (oldNarrowedEntriesMap) {
+                        // Copy the old entries.
+                        oldNarrowedEntriesMap.forEach((value, key) => {
+                            newNarrowedEntriesMap.set(key, value);
+                        });
+                    }
+
+                    // Add the new entry.
+                    newNarrowedEntriesMap.set(literalKey.literalValue as string, {
+                        valueType: tdEntry.valueType,
+                        isRequired: true,
+                        isProvided: true,
+                    });
+
+                    // Clone the TypedDict object with the new entries.
+                    return ObjectType.create(
+                        ClassType.cloneForNarrowedTypedDictEntries(subtype.classType, newNarrowedEntriesMap)
+                    );
                 } else {
                     return tdEntry !== undefined && tdEntry.isRequired ? undefined : subtype;
                 }
@@ -17881,7 +17925,7 @@ export function createTypeEvaluator(
     ) {
         let typesAreConsistent = true;
         const destEntries = getTypedDictMembersForClass(destType);
-        const srcEntries = getTypedDictMembersForClass(srcType);
+        const srcEntries = getTypedDictMembersForClass(srcType, /* allowNarrowed */ true);
 
         destEntries.forEach((destEntry, name) => {
             const srcEntry = srcEntries.get(name);
@@ -20426,7 +20470,7 @@ export function createTypeEvaluator(
         return isMatch;
     }
 
-    function getTypedDictMembersForClass(classType: ClassType) {
+    function getTypedDictMembersForClass(classType: ClassType, allowNarrowed = false) {
         // Were the entries already calculated and cached?
         if (!classType.details.typedDictEntries) {
             const entries = new Map<string, TypedDictEntry>();
@@ -20441,6 +20485,13 @@ export function createTypeEvaluator(
         classType.details.typedDictEntries!.forEach((value, key) => {
             entries.set(key, { ...value });
         });
+
+        // Apply narrowed types on top of existing entries if present.
+        if (allowNarrowed && classType.typedDictNarrowedEntries) {
+            classType.typedDictNarrowedEntries.forEach((value, key) => {
+                entries.set(key, { ...value });
+            });
+        }
 
         return entries;
     }

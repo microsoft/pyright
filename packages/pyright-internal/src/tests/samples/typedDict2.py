@@ -13,7 +13,7 @@ class BookBasedMovie(Movie, total=True):
 
 
 def get_movie_name(movie: Movie):
-    return movie["name"]
+    return movie.get("name")
 
 
 name2 = get_movie_name({"name": "ET", "year": 1982})

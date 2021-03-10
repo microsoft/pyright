@@ -325,7 +325,7 @@ test('TypeNarrowing17', () => {
 test('TypeNarrowing18', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeNarrowing18.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 2);
 });
 
 test('TypeNarrowing19', () => {

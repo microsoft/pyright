@@ -379,6 +379,11 @@ export interface ClassType extends TypeBase {
     // (e.g. Tuple, List, Dict). This field holds the alias
     // name.
     aliasName?: string;
+
+    // Used for "narrowing" of typed dicts where some entries
+    // that are not required have been confirmed to be present
+    // through the use of a guard expression.
+    typedDictNarrowedEntries?: Map<string, TypedDictEntry>;
 }
 
 export namespace ClassType {
@@ -447,6 +452,15 @@ export namespace ClassType {
     export function cloneForTypingAlias(classType: ClassType, aliasName: string): ClassType {
         const newClassType = { ...classType };
         newClassType.aliasName = aliasName;
+        return newClassType;
+    }
+
+    export function cloneForNarrowedTypedDictEntries(
+        classType: ClassType,
+        narrowedEntries?: Map<string, TypedDictEntry>
+    ) {
+        const newClassType = { ...classType };
+        newClassType.typedDictNarrowedEntries = narrowedEntries;
         return newClassType;
     }
 

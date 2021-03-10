@@ -80,8 +80,8 @@ export function createTypeEvaluatorWithTracker(
             run('resolveAliasDeclaration', () => typeEvaluator.resolveAliasDeclaration(d, l), d),
         getTypeFromIterable: (t, a, e) =>
             run('getTypeFromIterable', () => typeEvaluator.getTypeFromIterable(t, a, e), t),
-        getTypedDictMembersForClass: (c) =>
-            run('getTypedDictMembersForClass', () => typeEvaluator.getTypedDictMembersForClass(c), c),
+        getTypedDictMembersForClass: (c, a) =>
+            run('getTypedDictMembersForClass', () => typeEvaluator.getTypedDictMembersForClass(c, a), c),
         getGetterTypeFromProperty: (p, i) =>
             run('getGetterTypeFromProperty', () => typeEvaluator.getGetterTypeFromProperty(p, i), p),
         markNamesAccessed: (n, a) => run('markNamesAccessed', () => typeEvaluator.markNamesAccessed(n, a), n),

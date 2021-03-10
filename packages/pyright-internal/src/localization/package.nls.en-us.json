@@ -420,6 +420,7 @@
         "asyncHelp": "Did you mean \"async with\"?",
         "dataclassFrozen": "Dataclass \"{name}\" is frozen",
         "finalMethod": "Final method",
+        "keyNotRequired": "\"{name}\" is not a required key in \"{type}\", so access may result in runtime exception",
         "keyUndefined": "\"{name}\" is not a defined key in \"{type}\"",
         "functionParamName": "Parameter name mismatch: \"{destName}\" versus \"{srcName}\"",
         "functionReturnTypeMismatch": "Function return type \"{sourceType}\" is incompatible with type \"{destType}\"",
