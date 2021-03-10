@@ -31,6 +31,7 @@ import {
     resolvePaths,
     stripFileExtension,
     stripTrailingDirectorySeparator,
+    tryStat,
 } from '../common/pathUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import * as StringUtils from '../common/stringUtils';
@@ -494,12 +495,7 @@ export class ImportResolver {
             if (!this.fileSystem.existsSync(path)) {
                 return false;
             }
-            try {
-                const stats = this.fileSystem.statSync(path);
-                return stats.isFile();
-            } catch {
-                return false;
-            }
+            return tryStat(this.fileSystem, path)?.isFile() ?? false;
         }
 
         const entries = this.readdirEntriesCached(splitPath[0]);
@@ -525,12 +521,7 @@ export class ImportResolver {
             if (!this.fileSystem.existsSync(path)) {
                 return false;
             }
-            try {
-                const stats = this.fileSystem.statSync(path);
-                return stats.isDirectory();
-            } catch {
-                return false;
-            }
+            return tryStat(this.fileSystem, path)?.isDirectory() ?? false;
         }
 
         const entries = this.readdirEntriesCached(splitPath[0]);
