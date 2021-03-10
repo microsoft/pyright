@@ -208,7 +208,7 @@ class PyrightServer extends LanguageServerBase {
     ): Promise<(Command | CodeAction)[] | undefined | null> {
         this.recordUserInteractionTime();
 
-        const filePath = convertUriToPath(params.textDocument.uri);
+        const filePath = convertUriToPath(this.fs, params.textDocument.uri);
         const workspace = await this.getWorkspaceForFile(filePath);
         return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range, token);
     }
@@ -221,7 +221,7 @@ class PyrightServer extends LanguageServerBase {
         return {
             isEnabled: (data: AnalysisResults) => true,
             begin: () => {
-                if (this._hasWindowProgressCapability) {
+                if (this.client.hasWindowProgressCapability) {
                     workDoneProgress = this._connection.window.createWorkDoneProgress();
                     workDoneProgress
                         .then((progress) => {

@@ -34,7 +34,7 @@ test('virtual file exists', () => {
 
     const stubFile = combinePaths(libraryRoot, 'myLib', 'partialStub.pyi');
     assert(fs.existsSync(stubFile));
-    assert(fs.isVirtual(stubFile));
+    assert(fs.isMappedFilePath(stubFile));
 
     const myLib = combinePaths(libraryRoot, 'myLib');
     const entries = fs.readdirEntriesSync(myLib);

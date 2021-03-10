@@ -94,6 +94,10 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType: 'setAllowedThirdPartyImports', data: importNames });
     }
 
+    ensurePartialStubPackages(filePath: string) {
+        this.enqueueRequest({ requestType: 'ensurePartialStubPackages', data: { filePath } });
+    }
+
     setFileOpened(filePath: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
         this.enqueueRequest({ requestType: 'setFileOpened', data: { filePath, version, contents } });
     }
@@ -361,6 +365,12 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
                 break;
             }
 
+            case 'ensurePartialStubPackages': {
+                const { filePath } = msg.data;
+                this._importResolver.ensurePartialStubPackages(this._configOptions.findExecEnvironment(filePath));
+                break;
+            }
+
             case 'setFileOpened': {
                 const { filePath, version, contents } = msg.data;
                 this.program.setFileOpened(filePath, version, contents);
@@ -518,6 +528,7 @@ export interface AnalysisRequest {
         | 'setConfigOptions'
         | 'setTrackedFiles'
         | 'setAllowedThirdPartyImports'
+        | 'ensurePartialStubPackages'
         | 'setFileOpened'
         | 'setFileClosed'
         | 'markAllFilesDirty'

@@ -13,6 +13,7 @@ import * as path from 'path';
 import Char from 'typescript-char';
 import { URI } from 'vscode-uri';
 
+import { PyrightFileSystem } from '../pyrightFileSystem';
 import { some } from './collectionUtils';
 import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
 import * as debug from './debug';
@@ -859,7 +860,7 @@ function fileSystemEntryExists(fs: FileSystem, path: string, entryKind: FileSyst
     }
 }
 
-export function convertUriToPath(uriString: string): string {
+export function convertUriToPath(fs: FileSystem, uriString: string): string {
     const uri = URI.parse(uriString);
     let convertedPath = normalizePath(uri.path);
     // If this is a DOS-style path with a drive letter, remove
@@ -867,10 +868,19 @@ export function convertUriToPath(uriString: string): string {
     if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
         convertedPath = convertedPath.substr(1);
     }
+
+    if (fs instanceof PyrightFileSystem) {
+        return fs.getMappedFilePath(convertedPath);
+    }
+
     return convertedPath;
 }
 
-export function convertPathToUri(path: string): string {
+export function convertPathToUri(fs: FileSystem, path: string): string {
+    if (fs instanceof PyrightFileSystem) {
+        path = fs.getOriginalFilePath(path);
+    }
+
     return URI.file(path).toString();
 }
 

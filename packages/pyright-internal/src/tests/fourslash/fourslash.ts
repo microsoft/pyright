@@ -143,6 +143,7 @@ declare namespace _ {
     type DefinitionFilter = 'all' | 'preferSource' | 'preferStubs';
 
     interface Fourslash {
+        getMappedFilePath(path: string): string;
         getDocumentHighlightKind(m?: Marker): DocumentHighlightKind | undefined;
 
         getMarkerName(m: Marker): string;

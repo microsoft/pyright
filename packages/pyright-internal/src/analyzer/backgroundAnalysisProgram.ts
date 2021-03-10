@@ -85,6 +85,11 @@ export class BackgroundAnalysisProgram {
         this._program.setAllowedThirdPartyImports(importNames);
     }
 
+    ensurePartialStubPackages(path: string) {
+        this._backgroundAnalysis?.ensurePartialStubPackages(path);
+        return this._importResolver.ensurePartialStubPackages(this._configOptions.findExecEnvironment(path));
+    }
+
     setFileOpened(filePath: string, version: number | null, contents: string) {
         this._backgroundAnalysis?.setFileOpened(filePath, version, [{ text: contents }]);
         this._program.setFileOpened(filePath, version, [{ text: contents }]);
