@@ -2796,7 +2796,7 @@ export function createTypeEvaluator(
                     if (ClassType.isProtocolClass(classTypeResults.classType)) {
                         const memberSymbol = classTypeResults.classType.details.fields.get(target.memberName.value);
                         if (memberSymbol) {
-                            const classLevelDecls = memberSymbol.getDeclarations().filter(decl => {
+                            const classLevelDecls = memberSymbol.getDeclarations().filter((decl) => {
                                 return !ParseTreeUtils.getEnclosingFunction(decl.node);
                             });
                             if (classLevelDecls.length === 0) {
