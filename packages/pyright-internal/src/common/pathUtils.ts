@@ -597,7 +597,7 @@ export function getFileSystemEntriesFromDirEntries(
             if (stat?.isFile()) {
                 files.push(entry.name);
             } else if (stat?.isDirectory()) {
-                files.push(entry.name);
+                directories.push(entry.name);
             }
         }
     }
