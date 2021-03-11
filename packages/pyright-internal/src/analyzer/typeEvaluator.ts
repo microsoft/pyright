@@ -18455,6 +18455,8 @@ export function createTypeEvaluator(
                     constrainedType = srcType;
                 }
             } else {
+                let isCompatible = true;
+
                 // Find the narrowest constrained type that is compatible.
                 constrainedType = mapSubtypes(concreteSrcType, (srcSubtype) => {
                     let constrainedSubtype: Type | undefined;
@@ -18471,10 +18473,15 @@ export function createTypeEvaluator(
                         }
                     });
 
+                    if (!constrainedSubtype) {
+                        // We found a source subtype that is not compatible with the dest.
+                        isCompatible = false;
+                    }
+
                     return constrainedSubtype;
                 });
 
-                if (isNever(constrainedType)) {
+                if (isNever(constrainedType) || !isCompatible) {
                     constrainedType = undefined;
                 }
             }
@@ -18827,8 +18834,7 @@ export function createTypeEvaluator(
             }
         }
 
-        const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
-        if (isUnion(srcType) || isUnion(concreteSrcType)) {
+        if (isUnion(srcType)) {
             // Start by checking for an exact match. This is needed to handle unions
             // that contain recursive type aliases.
             if (isTypeSame(srcType, destType)) {
@@ -18838,9 +18844,23 @@ export function createTypeEvaluator(
             let isIncompatible = false;
 
             // For union sources, all of the types need to be assignable to the dest.
-            doForEachSubtype(isUnion(srcType) ? srcType : concreteSrcType, (subtype) => {
-                if (!canAssignType(destType, subtype, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)) {
-                    isIncompatible = true;
+            doForEachSubtype(srcType, (subtype) => {
+                if (
+                    !canAssignType(destType, subtype, new DiagnosticAddendum(), typeVarMap, flags, recursionCount + 1)
+                ) {
+                    // That didn't work, so try again with concrete versions.
+                    if (
+                        !canAssignType(
+                            destType,
+                            makeTopLevelTypeVarsConcrete(subtype),
+                            diag.createAddendum(),
+                            typeVarMap,
+                            flags,
+                            recursionCount + 1
+                        )
+                    ) {
+                        isIncompatible = true;
+                    }
                 }
             });
 
@@ -19014,6 +19034,7 @@ export function createTypeEvaluator(
         }
 
         if (isClass(destType)) {
+            const concreteSrcType = makeTopLevelTypeVarsConcrete(srcType);
             if (isClass(concreteSrcType)) {
                 if (
                     canAssignClass(
