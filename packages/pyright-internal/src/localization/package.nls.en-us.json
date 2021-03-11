@@ -23,7 +23,7 @@
         "assertAlwaysTrue": "Assert expression always evaluates to true",
         "assignmentExprContext": "Assignment expression must be within module, function or lambda",
         "assignmentExprComprehension": "Assignment expression target \"{name}\" cannot use same name as comprehension for target",
-        "assignmentInProtocol": "Assignment to instance or class variables not allowed within a Protocol class",
+        "assignmentInProtocol": "Instance or class variables within a Protocol class must be explicitly declared within the class body",
         "assignmentTargetExpr": "Expression cannot be assignment target",
         "awaitIllegal": "Use of \"await\" requires Python 3.5 or newer",
         "awaitNotInAsync": "\"await\" allowed only within async function",

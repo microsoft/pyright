@@ -2792,9 +2792,17 @@ export function createTypeEvaluator(
                     }
 
                     // Assignments to instance or class variables through "self" or "cls" is not
-                    // allowed for protocol classes.
+                    // allowed for protocol classes unless it is also declared within the class.
                     if (ClassType.isProtocolClass(classTypeResults.classType)) {
-                        addError(Localizer.Diagnostic.assignmentInProtocol(), target.memberName);
+                        const memberSymbol = classTypeResults.classType.details.fields.get(target.memberName.value);
+                        if (memberSymbol) {
+                            const classLevelDecls = memberSymbol.getDeclarations().filter(decl => {
+                                return !ParseTreeUtils.getEnclosingFunction(decl.node);
+                            });
+                            if (classLevelDecls.length === 0) {
+                                addError(Localizer.Diagnostic.assignmentInProtocol(), target.memberName);
+                            }
+                        }
                     }
                 }
             }
