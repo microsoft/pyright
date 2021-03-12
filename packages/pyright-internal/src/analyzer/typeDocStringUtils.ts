@@ -110,11 +110,14 @@ export function getFunctionDocStringInherited(
         const memberIterator = getClassMemberIterator(classType, funcName, DefaultClassIteratorFlagsForFunctions);
 
         for (const classMember of memberIterator) {
-            const inheritedDecl = classMember.symbol.getDeclarations().slice(-1)[0];
-            if (isFunctionDeclaration(inheritedDecl)) {
-                docString = getFunctionDocStringFromDeclaration(inheritedDecl, sourceMapper);
-                if (docString) {
-                    break;
+            const decls = classMember.symbol.getDeclarations();
+            if (decls.length > 0) {
+                const inheritedDecl = classMember.symbol.getDeclarations().slice(-1)[0];
+                if (isFunctionDeclaration(inheritedDecl)) {
+                    docString = getFunctionDocStringFromDeclaration(inheritedDecl, sourceMapper);
+                    if (docString) {
+                        break;
+                    }
                 }
             }
         }
