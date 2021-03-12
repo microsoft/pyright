@@ -29,8 +29,6 @@ interface PythonPathResult {
     prefix: string;
 }
 
-const cachedSearchPaths = new Map<string, PythonPathResult>();
-
 const extractSys = [
     'import os, os.path, sys',
     'normalize = lambda p: os.path.normcase(os.path.normpath(p))',
@@ -133,14 +131,6 @@ export function getPythonPathFromPythonInterpreter(
     interpreterPath: string | undefined,
     importFailureInfo: string[]
 ): PythonPathResult {
-    const searchKey = interpreterPath || '';
-
-    // If we've seen this request before, return the cached results.
-    const cachedPath = cachedSearchPaths.get(searchKey);
-    if (cachedPath) {
-        return cachedPath;
-    }
-
     let result: PythonPathResult | undefined;
 
     if (interpreterPath) {
@@ -166,7 +156,6 @@ export function getPythonPathFromPythonInterpreter(
         };
     }
 
-    cachedSearchPaths.set(searchKey, result);
     importFailureInfo.push(`Received ${result.paths.length} paths from interpreter`);
     result.paths.forEach((path) => {
         importFailureInfo.push(`  ${path}`);
