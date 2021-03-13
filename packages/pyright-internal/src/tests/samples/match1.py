@@ -23,6 +23,8 @@ match (1, ):
     case :
         pass
 
+    # This should generate an error because it is an irrefutable pattern
+    # and is not at the end.
     case (a4):
         pass
 
