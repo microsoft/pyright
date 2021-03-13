@@ -18628,9 +18628,10 @@ export function createTypeEvaluator(
             const boundType = TypeBase.isInstantiable(destType)
                 ? convertToInstantiable(destType.details.boundType)
                 : destType.details.boundType;
-            const adjustedUpdatedType = isTypeVar(srcType) && TypeBase.isInstantiable(srcType)
-                ? convertToInstantiable(updatedType)
-                : updatedType;
+            const adjustedUpdatedType =
+                isTypeVar(srcType) && TypeBase.isInstantiable(srcType)
+                    ? convertToInstantiable(updatedType)
+                    : updatedType;
             if (
                 !canAssignType(
                     boundType,
