@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of Enum.
 
 from enum import Enum, IntEnum
-from typing import List, Literal
+from typing import Literal
 
 
 TestEnum1 = Enum("TestEnum1", "A B C D")
@@ -46,3 +46,8 @@ t2: Literal["list[TestEnum3]"] = reveal_type(list2)
 
 num_items_in_enum3 = len(TestEnum3)
 t3: Literal["int"] = reveal_type(num_items_in_enum3)
+
+t4: Literal["Literal['A']"] = reveal_type(TestEnum3.A.name)
+t5: Literal["Literal['A']"] = reveal_type(TestEnum3.A._name_)
+t6: Literal["Literal[0]"] = reveal_type(TestEnum3.A.value)
+t7: Literal["Literal[0]"] = reveal_type(TestEnum3.A._value_)

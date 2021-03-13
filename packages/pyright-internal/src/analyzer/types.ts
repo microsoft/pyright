@@ -88,7 +88,7 @@ export type TypeVarScopeId = string;
 export const WildcardTypeVarScopeId = '*';
 
 export class EnumLiteral {
-    constructor(public className: string, public itemName: string) {}
+    constructor(public className: string, public itemName: string, public itemType: Type) {}
 }
 
 export type LiteralValue = number | boolean | string | EnumLiteral;

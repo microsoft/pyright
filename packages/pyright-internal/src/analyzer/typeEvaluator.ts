@@ -205,7 +205,6 @@ import {
     convertToInstantiable,
     derivesFromClassRecursive,
     doForEachSubtype,
-    enumerateLiteralsForType,
     getDeclaredGeneratorReturnType,
     getDeclaredGeneratorSendType,
     getGeneratorTypeArgs,
@@ -4137,6 +4136,26 @@ export function createTypeEvaluator(
                         usage,
                         flags
                     );
+                }
+
+                // Handle the special case of 'name' and 'value' members within an enum.
+                if (
+                    ClassType.isEnumClass(baseType.classType) &&
+                    baseType.classType.literalValue instanceof EnumLiteral
+                ) {
+                    if (memberName === 'name' || memberName === '_name_') {
+                        const strClass = getBuiltInType(node, 'str');
+                        if (isClass(strClass)) {
+                            return {
+                                node,
+                                type: ObjectType.create(
+                                    ClassType.cloneWithLiteral(strClass, baseType.classType.literalValue.itemName)
+                                ),
+                            };
+                        }
+                    } else if (memberName === 'value' || memberName === '_value_') {
+                        return { node, type: baseType.classType.literalValue.itemType };
+                    }
                 }
 
                 const typeResult = getTypeFromObjectMember(
@@ -10776,7 +10795,7 @@ export function createTypeEvaluator(
         return createSpecialType(classType, typeArgs, /* paramLimit */ undefined, /* allowParamSpec */ true);
     }
 
-    function transformTypeForPossibleEnumClass(node: NameNode, typeOfExpr: Type): Type {
+    function transformTypeForPossibleEnumClass(node: NameNode, getValueType: () => Type): Type | undefined {
         // If the node is within a class that derives from the metaclass
         // "EnumMeta", we need to treat assignments differently.
         const enclosingClassNode = ParseTreeUtils.getEnclosingClass(node, /* stopAtFunction */ true);
@@ -10795,7 +10814,10 @@ export function createTypeEvaluator(
                     (node.parent?.nodeType === ParseNodeType.Assignment && node.parent.leftExpression === node) ||
                     (node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
                         node.parent.valueExpression === node &&
-                        node.parent.parent?.nodeType === ParseNodeType.Assignment);
+                        node.parent.parent?.nodeType === ParseNodeType.Assignment) ||
+                    (getFileInfo(node).isStubFile &&
+                        node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
+                        node.parent.valueExpression === node);
 
                 // The spec specifically excludes names that start and end with a single underscore.
                 // This also includes dunder names.
@@ -10803,36 +10825,28 @@ export function createTypeEvaluator(
                     isMemberOfEnumeration = false;
                 }
 
-                // The spec excludes descriptors.
-                if (isObject(typeOfExpr) && typeOfExpr.classType.details.fields.get('__get__')) {
+                // Specifically exclude "value" and "name". These are reserved by the enum metaclass.
+                if (node.value === 'name' || node.value === 'value') {
                     isMemberOfEnumeration = false;
                 }
 
-                if (!isMemberOfEnumeration && getFileInfo(node).isStubFile) {
-                    // Specifically exclude "value", "name" and any dunder variables.
-                    // These are reserved by the enum metaclass.
-                    if (
-                        node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
-                        node.parent.valueExpression === node
-                    ) {
-                        if (node.value !== 'value' && node.value !== 'name') {
-                            isMemberOfEnumeration = true;
-                        }
-                    }
+                const valueType = getValueType();
+
+                // The spec excludes descriptors.
+                if (isObject(valueType) && valueType.classType.details.fields.get('__get__')) {
+                    isMemberOfEnumeration = false;
                 }
 
                 if (isMemberOfEnumeration) {
                     return ObjectType.create(
                         ClassType.cloneWithLiteral(
                             enumClassInfo.classType,
-                            new EnumLiteral(enumClassInfo.classType.details.name, node.value)
+                            new EnumLiteral(enumClassInfo.classType.details.name, node.value, valueType)
                         )
                     );
                 }
             }
         }
-
-        return typeOfExpr;
     }
 
     function transformTypeForTypeAlias(type: Type, name: NameNode, errorNode: ParseNode): Type {
@@ -11136,7 +11150,8 @@ export function createTypeEvaluator(
                 // If this is an enum, transform the type as required.
                 rightHandType = srcType;
                 if (node.leftExpression.nodeType === ParseNodeType.Name && !node.typeAnnotationComment) {
-                    rightHandType = transformTypeForPossibleEnumClass(node.leftExpression, rightHandType);
+                    rightHandType =
+                        transformTypeForPossibleEnumClass(node.leftExpression, () => rightHandType!) || rightHandType;
                 }
 
                 if (typeAliasNameNode) {
@@ -16192,6 +16207,38 @@ export function createTypeEvaluator(
         });
     }
 
+    function enumerateLiteralsForType(type: ObjectType): ObjectType[] | undefined {
+        if (ClassType.isBuiltIn(type.classType, 'bool')) {
+            // Booleans have only two types: True and False.
+            return [
+                ObjectType.create(ClassType.cloneWithLiteral(type.classType, true)),
+                ObjectType.create(ClassType.cloneWithLiteral(type.classType, false)),
+            ];
+        }
+
+        if (ClassType.isEnumClass(type.classType)) {
+            // Enumerate all of the values in this enumeration.
+            const enumList: ObjectType[] = [];
+            const fields = type.classType.details.fields;
+            fields.forEach((symbol, name) => {
+                if (!symbol.isIgnoredForProtocolMatch() && !symbol.isInstanceMember()) {
+                    const symbolType = getEffectiveTypeOfSymbol(symbol);
+                    if (
+                        isObject(symbolType) &&
+                        ClassType.isSameGenericClass(type.classType, symbolType.classType) &&
+                        symbolType.classType.literalValue !== undefined
+                    ) {
+                        enumList.push(symbolType);
+                    }
+                }
+            });
+
+            return enumList;
+        }
+
+        return undefined;
+    }
+
     // Attempts to narrow a type (make it more constrained) based on a
     // call to "callable". For example, if the original type of expression "x" is
     // Union[Callable[..., Any], Type[int], int], it would remove the "int" because
@@ -16897,7 +16944,8 @@ export function createTypeEvaluator(
                     if (declaredType) {
                         // Apply enum transform if appropriate.
                         if (declaration.node.nodeType === ParseNodeType.Name) {
-                            declaredType = transformTypeForPossibleEnumClass(declaration.node, declaredType);
+                            declaredType =
+                                transformTypeForPossibleEnumClass(declaration.node, () => declaredType) || declaredType;
                         }
 
                         if (typeAliasNode && typeAliasNode.valueExpression.nodeType === ParseNodeType.Name) {
@@ -17029,7 +17077,14 @@ export function createTypeEvaluator(
             })?.type;
 
             if (inferredType && resolvedDecl.node.nodeType === ParseNodeType.Name) {
-                inferredType = transformTypeForPossibleEnumClass(resolvedDecl.node, inferredType);
+                inferredType =
+                    transformTypeForPossibleEnumClass(resolvedDecl.node, () => {
+                        return (
+                            evaluateTypeForSubnode(typeSource, () => {
+                                evaluateTypesForStatement(typeSource);
+                            })?.type || UnknownType.create()
+                        );
+                    }) || inferredType;
             }
 
             if (inferredType && resolvedDecl.typeAliasName) {
