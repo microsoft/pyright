@@ -1682,29 +1682,6 @@ export function createTypeEvaluator(
         return false;
     }
 
-    // Determines whether the specified expression is possibly an implicit type alias.
-    // In Python, type aliases look the same as simple assignments, but we use some heuristics
-    // to tell them apart.
-    function isPossibleImplicitTypeAlias(expression: ExpressionNode): boolean {
-        if (expression.nodeType === ParseNodeType.Name) {
-            const symbolWithScope = lookUpSymbolRecursive(expression, expression.value, /* honorCodeFlow */ false);
-            if (symbolWithScope) {
-                const symbol = symbolWithScope.symbol;
-                const decls = symbol.getDeclarations();
-
-                // Make sure it's assigned only once and is a variable declaration.
-                if (decls.length === 1 && isPossibleTypeAliasDeclaration(decls[0])) {
-                    // Make sure it's not defined within a looping construct.
-                    if (!ParseTreeUtils.isWithinLoop(decls[0].node)) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
     // Determines whether the specified expression is a symbol with a declared type
     // (either a simple name or a member variable). If so, the type is returned.
     function getDeclaredTypeForExpression(expression: ExpressionNode): Type | undefined {
@@ -11094,10 +11071,18 @@ export function createTypeEvaluator(
                         EvaluatorFlags.TypeVarTupleDisallowed;
 
                     typeAliasNameNode = (node.leftExpression as TypeAnnotationNode).valueExpression as NameNode;
-                } else if (isPossibleImplicitTypeAlias(node.leftExpression)) {
-                    if (node.leftExpression.nodeType === ParseNodeType.Name) {
-                        typeAliasNameNode = node.leftExpression;
-                        isSpeculativeTypeAlias = true;
+                } else if (node.leftExpression.nodeType === ParseNodeType.Name) {
+                    const symbolWithScope = lookUpSymbolRecursive(
+                        node.leftExpression,
+                        node.leftExpression.value,
+                        /* honorCodeFlow */ false
+                    );
+                    if (symbolWithScope) {
+                        const decls = symbolWithScope.symbol.getDeclarations();
+                        if (decls.length === 1 && isPossibleTypeAliasDeclaration(decls[0])) {
+                            typeAliasNameNode = node.leftExpression;
+                            isSpeculativeTypeAlias = true;
+                        }
                     }
                 }
 
@@ -17077,14 +17062,17 @@ export function createTypeEvaluator(
             })?.type;
 
             if (inferredType && resolvedDecl.node.nodeType === ParseNodeType.Name) {
-                inferredType =
-                    transformTypeForPossibleEnumClass(resolvedDecl.node, () => {
-                        return (
-                            evaluateTypeForSubnode(typeSource, () => {
-                                evaluateTypesForStatement(typeSource);
-                            })?.type || UnknownType.create()
-                        );
-                    }) || inferredType;
+                // See if this is an enum member. If so, we need to handle it as a special case.
+                const enumMemberType = transformTypeForPossibleEnumClass(resolvedDecl.node, () => {
+                    return (
+                        evaluateTypeForSubnode(resolvedDecl.inferredTypeSource!, () => {
+                            evaluateTypesForStatement(resolvedDecl.inferredTypeSource!);
+                        })?.type || UnknownType.create()
+                    );
+                });
+                if (enumMemberType) {
+                    inferredType = enumMemberType;
+                }
             }
 
             if (inferredType && resolvedDecl.typeAliasName) {

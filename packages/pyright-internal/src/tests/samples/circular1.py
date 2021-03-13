@@ -9,8 +9,6 @@ class Example1:
 
     int = int
 
-    # This should generate an error because int is no
-    # longer a reference to the outer-scoped symbol.
     test: int
 
 
