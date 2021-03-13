@@ -114,7 +114,7 @@ import { Scope, ScopeType } from './scope';
 import * as ScopeUtils from './scopeUtils';
 import { evaluateStaticBoolExpression } from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
-import { isConstantName, isDunderName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { isConstantName, isPrivateOrProtectedName, isSingleDunderName } from './symbolNameUtils';
 import {
     getLastTypedDeclaredForSymbol,
     isFinalVariable,
@@ -10797,6 +10797,17 @@ export function createTypeEvaluator(
                         node.parent.valueExpression === node &&
                         node.parent.parent?.nodeType === ParseNodeType.Assignment);
 
+                // The spec specifically excludes names that start and end with a single underscore.
+                // This also includes dunder names.
+                if (isSingleDunderName(node.value)) {
+                    isMemberOfEnumeration = false;
+                }
+
+                // The spec excludes descriptors.
+                if (isObject(typeOfExpr) && typeOfExpr.classType.details.fields.get('__get__')) {
+                    isMemberOfEnumeration = false;
+                }
+
                 if (!isMemberOfEnumeration && getFileInfo(node).isStubFile) {
                     // Specifically exclude "value", "name" and any dunder variables.
                     // These are reserved by the enum metaclass.
@@ -10804,7 +10815,7 @@ export function createTypeEvaluator(
                         node.parent?.nodeType === ParseNodeType.TypeAnnotation &&
                         node.parent.valueExpression === node
                     ) {
-                        if (node.value !== 'value' && node.value !== 'name' && !isDunderName(node.value)) {
+                        if (node.value !== 'value' && node.value !== 'name') {
                             isMemberOfEnumeration = true;
                         }
                     }

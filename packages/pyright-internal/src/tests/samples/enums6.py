@@ -6,8 +6,17 @@ from enum import Enum
 from typing import Literal
 
 
+class Descriptor:
+    def __get__(self, instance, owner=None) -> complex:
+        return 3j
+
+
 class MyEnum(Enum):
     ENTRY = (123, "abc")
+
+    desc = Descriptor()
+
+    _exempt_ = 12
 
     foo: int
     bar: str
@@ -19,3 +28,7 @@ class MyEnum(Enum):
 
 baz = 123 + MyEnum.ENTRY.foo
 t_baz: Literal["int"] = reveal_type(baz)
+
+t_exempt: Literal["int"] = reveal_type(MyEnum._exempt_)
+
+t_desc: Literal["complex"] = reveal_type(MyEnum.desc)

@@ -30,6 +30,11 @@ export function isDunderName(name: string) {
     return name.length > 4 && name.startsWith('__') && name.endsWith('__');
 }
 
+// "Single Dunder" names start and end with single underscores.
+export function isSingleDunderName(name: string) {
+    return name.length > 2 && name.startsWith('_') && name.endsWith('_');
+}
+
 // Constants are all-caps with possible numbers and underscores.
 export function isConstantName(name: string) {
     return !!name.match(_constantRegEx) && !name.match(_underscoreOnlyRegEx);
