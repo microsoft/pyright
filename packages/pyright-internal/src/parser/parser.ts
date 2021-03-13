@@ -422,7 +422,11 @@ export class Parser {
         let smellsLikeMatchStatement = false;
         this._suppressErrors(() => {
             const curTokenIndex = this._tokenIndex;
-            this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
+            this._parseTestOrStarListAsExpression(
+                /* allowAssignmentExpression */ true,
+                ErrorExpressionCategory.MissingPatternSubject,
+                Localizer.Diagnostic.expectedReturnExpr()
+            );
             smellsLikeMatchStatement = this._peekToken().type === TokenType.Colon;
 
             // Set the token index back to the start.
@@ -433,7 +437,11 @@ export class Parser {
             return undefined;
         }
 
-        const subjectExpression = this._parseTestOrStarExpression(/* allowAssignmentExpression */ true);
+        const subjectExpression = this._parseTestOrStarListAsExpression(
+            /* allowAssignmentExpression */ true,
+            ErrorExpressionCategory.MissingPatternSubject,
+            Localizer.Diagnostic.expectedReturnExpr()
+        );
         const matchNode = MatchNode.create(matchToken, subjectExpression);
 
         const nextToken = this._peekToken();

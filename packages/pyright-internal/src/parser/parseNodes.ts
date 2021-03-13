@@ -119,6 +119,7 @@ export const enum ErrorExpressionCategory {
     MissingListCloseBracket,
     MissingFunctionParameterList,
     MissingPattern,
+    MissingPatternSubject,
 }
 
 export interface ParseNodeBase extends TextRange {

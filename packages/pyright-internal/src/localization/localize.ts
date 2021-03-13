@@ -308,6 +308,7 @@ export namespace Localizer {
         export const expectedOpenParen = () => getRawString('Diagnostic.expectedOpenParen');
         export const expectedParamName = () => getRawString('Diagnostic.expectedParamName');
         export const expectedPatternExpr = () => getRawString('Diagnostic.expectedPatternExpr');
+        export const expectedPatternSubjectExpr = () => getRawString('Diagnostic.expectedPatternSubjectExpr');
         export const expectedPatternValue = () => getRawString('Diagnostic.expectedPatternValue');
         export const expectedReturnExpr = () => getRawString('Diagnostic.expectedReturnExpr');
         export const expectedSliceIndex = () => getRawString('Diagnostic.expectedSliceIndex');

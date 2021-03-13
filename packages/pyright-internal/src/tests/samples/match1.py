@@ -179,3 +179,8 @@ def func3():
     match (0):
         case _:
             pass
+
+def func4():
+    match 1, 2, "3":
+        case _:
+            pass

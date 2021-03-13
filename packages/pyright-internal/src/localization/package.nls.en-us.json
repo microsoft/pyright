@@ -121,6 +121,7 @@
         "expectedOpenParen": "Expected \"(\"",
         "expectedParamName": "Expected parameter name",
         "expectedPatternExpr": "Expected pattern expression",
+        "expectedPatternSubjectExpr": "Expected pattern subject expression",
         "expectedPatternValue": "Expected pattern value expression of the form \"a.b\"",
         "expectedReturnExpr": "Expected expression after \"return\"",
         "expectedSliceIndex": "Expected index or slice expression",
