@@ -18628,10 +18628,13 @@ export function createTypeEvaluator(
             const boundType = TypeBase.isInstantiable(destType)
                 ? convertToInstantiable(destType.details.boundType)
                 : destType.details.boundType;
+            const adjustedUpdatedType = isTypeVar(srcType) && TypeBase.isInstantiable(srcType)
+                ? convertToInstantiable(updatedType)
+                : updatedType;
             if (
                 !canAssignType(
                     boundType,
-                    updatedType,
+                    adjustedUpdatedType,
                     diag.createAddendum(),
                     typeVarMap,
                     CanAssignFlags.Default,
@@ -18643,7 +18646,7 @@ export function createTypeEvaluator(
                 if (!destType.details.isSynthesized) {
                     diag.addMessage(
                         Localizer.DiagnosticAddendum.typeBound().format({
-                            sourceType: printType(updatedType),
+                            sourceType: printType(adjustedUpdatedType),
                             destType: printType(boundType),
                             name: TypeVarType.getReadableName(destType),
                         })
