@@ -4590,7 +4590,7 @@ export function createTypeEvaluator(
                         // Provide "type" argument.
                         argList.push({
                             argumentCategory: ArgumentCategory.Simple,
-                            type: AnyType.create(),
+                            type: baseTypeClass,
                         });
                     } else if (usage.method === 'set') {
                         // Provide "value" argument.
