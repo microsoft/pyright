@@ -6,14 +6,14 @@
 # no "unknown" types remaining in this file.
 # pyright: strict
 
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 
-_A = TypeVar('_A')
-_B = TypeVar('_B')
+_A = TypeVar("_A")
+_B = TypeVar("_B")
+
 
 class Foo(Generic[_A, _B]):
-    # This should generate an error because "hello" isn't compatible with "_B".
-    def __init__(self, a: _A, b: _B = 'hello'):
+    def __init__(self, a: _A, b: _B = "hello"):
         self._foo_a = a
         self._foo_b = b
 
@@ -28,7 +28,5 @@ class Foo(Generic[_A, _B]):
 
 foo = Foo(27)
 
-should_be_int = foo.value_a
-should_be_str = foo.value_b
-
-
+t_a: Literal["int"] = reveal_type(foo.value_a)
+t_b: Literal["str"] = reveal_type(foo.value_b)

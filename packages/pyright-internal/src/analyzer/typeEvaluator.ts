@@ -11979,6 +11979,12 @@ export function createTypeEvaluator(
                 if (param.defaultValue && defaultValueType) {
                     const diagAddendum = new DiagnosticAddendum();
                     const typeVarMap = new TypeVarMap(functionType.details.typeVarScopeId);
+                    if (containingClassType && containingClassType.details.typeVarScopeId !== undefined) {
+                        if (node.name.value === '__init__' || node.name.value === '__new__') {
+                            typeVarMap.addSolveForScope(containingClassType.details.typeVarScopeId);
+                        }
+                    }
+
                     if (!canAssignType(annotatedType, defaultValueType, diagAddendum, typeVarMap)) {
                         const diag = addDiagnostic(
                             fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,

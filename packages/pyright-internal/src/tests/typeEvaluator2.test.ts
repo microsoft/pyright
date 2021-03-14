@@ -350,7 +350,7 @@ test('GenericTypes18', () => {
 test('GenericTypes19', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes19.py']);
 
-    TestUtils.validateResults(analysisResults, 1);
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('GenericTypes20', () => {
@@ -504,7 +504,7 @@ test('GenericTypes42', () => {
 test('GenericTypes43', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['genericTypes43.py']);
 
-    TestUtils.validateResults(analysisResults, 3);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('GenericTypes44', () => {
