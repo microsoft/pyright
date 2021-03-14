@@ -274,6 +274,12 @@ interface EffectiveTypeResult {
     isRecursiveDefinition: boolean;
 }
 
+interface EffectiveTypeCacheEntry {
+    usageNodeId: number | undefined;
+    useLastDecl: boolean;
+    result: EffectiveTypeResult;
+}
+
 interface FunctionArgument {
     argumentCategory: ArgumentCategory;
     node?: ArgumentNode;
@@ -690,6 +696,7 @@ export function createTypeEvaluator(
     const codeFlowAnalyzerCache = new Map<number, CodeFlowAnalyzer>();
     const typeCache: TypeCache = new Map<number, CachedType>();
     const speculativeTypeTracker = new SpeculativeTypeTracker();
+    const effectiveTypeCache = new Map<number, EffectiveTypeCacheEntry[]>();
     const suppressedNodeStack: ParseNode[] = [];
     const incompleteTypeTracker = new IncompleteTypeTracker();
     let cancellationToken: CancellationToken | undefined;
@@ -17147,6 +17154,17 @@ export function createTypeEvaluator(
             };
         }
 
+        // Look in the cache to see if we've computed this already.
+        let cacheEntries = effectiveTypeCache.get(symbol.id);
+        const usageNodeId = usageNode ? usageNode.id : undefined;
+        if (cacheEntries) {
+            for (const entry of cacheEntries) {
+                if (entry.usageNodeId === usageNodeId && entry.useLastDecl === useLastDecl) {
+                    return entry.result;
+                }
+            }
+        }
+
         // Infer the type.
         const typesToCombine: Type[] = [];
         const isPrivate = symbol.isPrivateMember();
@@ -17242,12 +17260,26 @@ export function createTypeEvaluator(
         });
 
         if (typesToCombine.length > 0) {
-            return {
+            const result: EffectiveTypeResult = {
                 type: combineTypes(typesToCombine),
                 isIncomplete: false,
                 includesVariableDecl,
                 isRecursiveDefinition: false,
             };
+
+            // Add the entry to the cache so we don't need to compute it next time.
+            if (!cacheEntries) {
+                cacheEntries = [];
+                effectiveTypeCache.set(symbol.id, cacheEntries);
+            }
+
+            cacheEntries.push({
+                usageNodeId,
+                useLastDecl,
+                result,
+            });
+
+            return result;
         }
 
         return {
