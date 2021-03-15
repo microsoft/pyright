@@ -471,6 +471,11 @@ export class AnalyzerService {
         // by the config file, so initialize them upfront.
         configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
         configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
+        configOptions.ensureDefaultExtraPaths(
+            this._fs,
+            commandLineOptions.autoSearchPaths || false,
+            commandLineOptions.extraPaths
+        );
 
         if (commandLineOptions.fileSpecs.length > 0) {
             commandLineOptions.fileSpecs.forEach((fileSpec) => {
@@ -526,25 +531,8 @@ export class AnalyzerService {
                         configOptions.autoExcludeVenv = true;
                     }
                 }
-
-                // If the user has defined execution environments, then we ignore
-                // autoSearchPaths, extraPaths and leave it up to them to set
-                // extraPaths on the execution environments.
-                if (configOptions.executionEnvironments.length === 0) {
-                    configOptions.addExecEnvironmentForExtraPaths(
-                        this._fs,
-                        commandLineOptions.autoSearchPaths || false,
-                        commandLineOptions.extraPaths || []
-                    );
-                }
             }
         } else {
-            configOptions.addExecEnvironmentForExtraPaths(
-                this._fs,
-                commandLineOptions.autoSearchPaths || false,
-                commandLineOptions.extraPaths || []
-            );
-
             configOptions.autoExcludeVenv = true;
             configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
         }

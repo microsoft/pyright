@@ -39,10 +39,16 @@ export enum PythonPlatform {
 
 export class ExecutionEnvironment {
     // Default to "." which indicates every file in the project.
-    constructor(root: string, defaultPythonVersion?: PythonVersion, defaultPythonPlatform?: string) {
+    constructor(
+        root: string,
+        defaultPythonVersion: PythonVersion | undefined,
+        defaultPythonPlatform: string | undefined,
+        defaultExtraPaths: string[] | undefined
+    ) {
         this.root = root;
         this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
+        this.extraPaths = defaultExtraPaths || [];
     }
 
     // Root directory for execution - absolute or relative to the
@@ -616,6 +622,9 @@ export class ConfigOptions {
     // Default pythonPlatform. Can be overridden by executionEnvironment.
     defaultPythonPlatform?: string;
 
+    // Default extraPaths. Can be overridden by executionEnvironment.
+    defaultExtraPaths?: string[];
+
     //---------------------------------------------------------------
     // Internal-only switches
 
@@ -645,44 +654,24 @@ export class ConfigOptions {
         });
 
         if (!execEnv) {
-            execEnv = new ExecutionEnvironment(this.projectRoot, this.defaultPythonVersion, this.defaultPythonPlatform);
+            execEnv = new ExecutionEnvironment(
+                this.projectRoot,
+                this.defaultPythonVersion,
+                this.defaultPythonPlatform,
+                this.defaultExtraPaths
+            );
         }
 
         return execEnv;
     }
 
     getDefaultExecEnvironment(): ExecutionEnvironment {
-        return new ExecutionEnvironment(this.projectRoot, this.defaultPythonVersion, this.defaultPythonPlatform);
-    }
-
-    addExecEnvironmentForExtraPaths(fs: FileSystem, autoSearchPaths: boolean, extraPaths: string[]) {
-        const paths: string[] = [];
-
-        if (autoSearchPaths) {
-            // Auto-detect the common scenario where the sources are under the src folder
-            const srcPath = resolvePaths(this.projectRoot, pathConsts.src);
-            if (fs.existsSync(srcPath) && !fs.existsSync(resolvePaths(srcPath, '__init__.py'))) {
-                paths.push(srcPath);
-            }
-        }
-
-        if (extraPaths.length > 0) {
-            for (const p of extraPaths) {
-                paths.push(resolvePaths(this.projectRoot, p));
-            }
-        }
-
-        if (paths.length > 0) {
-            const execEnv = new ExecutionEnvironment(
-                this.projectRoot,
-                this.defaultPythonVersion,
-                this.defaultPythonPlatform
-            );
-
-            execEnv.extraPaths.push(...paths);
-
-            this.executionEnvironments.push(execEnv);
-        }
+        return new ExecutionEnvironment(
+            this.projectRoot,
+            this.defaultPythonVersion,
+            this.defaultPythonPlatform,
+            this.defaultExtraPaths
+        );
     }
 
     // Initialize the structure from a JSON object.
@@ -1195,6 +1184,23 @@ export class ConfigOptions {
             }
         }
 
+        // Read the default "extraPaths".
+        if (configObj.extraPaths !== undefined) {
+            this.defaultExtraPaths = [];
+            if (!Array.isArray(configObj.extraPaths)) {
+                console.error(`Config "extraPaths" field must contain an array.`);
+            } else {
+                const pathList = configObj.extraPaths as string[];
+                pathList.forEach((path, pathIndex) => {
+                    if (typeof path !== 'string') {
+                        console.error(`Config "extraPaths" field ${pathIndex} must be a string.`);
+                    } else {
+                        this.defaultExtraPaths!.push(normalizePath(combinePaths(this.projectRoot, path)));
+                    }
+                });
+            }
+        }
+
         // Read the default "pythonVersion".
         if (configObj.pythonVersion !== undefined) {
             if (typeof configObj.pythonVersion === 'string') {
@@ -1362,6 +1368,28 @@ export class ConfigOptions {
         }
     }
 
+    ensureDefaultExtraPaths(fs: FileSystem, autoSearchPaths: boolean, extraPaths: string[] | undefined) {
+        const paths: string[] = [];
+
+        if (autoSearchPaths) {
+            // Auto-detect the common scenario where the sources are under the src folder
+            const srcPath = resolvePaths(this.projectRoot, pathConsts.src);
+            if (fs.existsSync(srcPath) && !fs.existsSync(resolvePaths(srcPath, '__init__.py'))) {
+                paths.push(srcPath);
+            }
+        }
+
+        if (extraPaths && extraPaths.length > 0) {
+            for (const p of extraPaths) {
+                paths.push(resolvePaths(this.projectRoot, p));
+            }
+        }
+
+        if (paths.length > 0) {
+            this.defaultExtraPaths = paths;
+        }
+    }
+
     applyDiagnosticOverrides(diagnosticSeverityOverrides: DiagnosticSeverityOverridesMap | undefined) {
         if (!diagnosticSeverityOverrides) {
             return;
@@ -1407,7 +1435,8 @@ export class ConfigOptions {
             const newExecEnv = new ExecutionEnvironment(
                 this.projectRoot,
                 this.defaultPythonVersion,
-                this.defaultPythonPlatform
+                this.defaultPythonPlatform,
+                this.defaultExtraPaths
             );
 
             // Validate the root.

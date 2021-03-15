@@ -71,6 +71,7 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     configOptions.venv = jsonObject.venv;
     configOptions.defaultPythonVersion = jsonObject.defaultPythonVersion;
     configOptions.defaultPythonPlatform = jsonObject.defaultPythonPlatform;
+    configOptions.defaultExtraPaths = jsonObject.defaultExtraPaths;
     configOptions.diagnosticRuleSet = jsonObject.diagnosticRuleSet;
     configOptions.executionEnvironments = jsonObject.executionEnvironments;
     configOptions.autoImportCompletions = jsonObject.autoImportCompletions;

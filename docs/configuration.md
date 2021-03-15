@@ -24,6 +24,8 @@ Relative paths specified within the config file are relative to the config file�
 
 **verboseOutput** [boolean]: Specifies whether output logs should be verbose. This is useful when diagnosing certain problems like import resolution issues.
 
+**extraPaths** [array of strings, optional]: Additional search paths that will be used when searching for modules imported by files.
+
 **pythonVersion** [string, optional]: Specifies the version of Python that will be used to execute the source code. The version should be specified as a string in the format "M.m" where M is the major version and m is the minor (e.g. `"3.0"` or `"3.6"`). If a version is provided, pyright will generate errors if the source code makes use of language features that are not supported in that version. It will also tailor its use of type stub files, which conditionalizes type definitions based on the version. If no version is specified, pyright will use the version of the current python interpreter, if one is present.
 
 **pythonPlatform** [string, optional]: Specifies the target platform that will be used to execute the source code. Should be one of `"Windows"`, `"Darwin"` or `"Linux"`. If specified, pyright will tailor its use of type stub files, which conditionalize type definitions based on the platform. If no platform is specified, pyright will use the current platform.
@@ -150,7 +152,7 @@ The following settings can be specified for each execution environment.
 
 **root** [string, required]: Root path for the code that will execute within this execution environment.
 
-**extraPaths** [array of strings, optional]: Additional search paths (in addition to the root path) that will be used when searching for modules imported by files within this execution environment. Note that each file’s execution environment mapping is independent, so if file A is in one execution environment ane imports a second file B within a second execution environment, any imports from B will use the extraPaths in the second execution environment.
+**extraPaths** [array of strings, optional]: Additional search paths (in addition to the root path) that will be used when searching for modules imported by files within this execution environment. If specified, this overrides the default extraPaths setting when resolving imports for files within this execution environment. Note that each file’s execution environment mapping is independent, so if file A is in one execution environment ane imports a second file B within a second execution environment, any imports from B will use the extraPaths in the second execution environment.
 
 **pythonVersion** [string, optional]: The version of Python used for this execution environment. If not specified, the global `pythonVersion` setting is used instead.
 
