@@ -4971,7 +4971,7 @@ export function createTypeEvaluator(
             typeParameters.forEach((param, index) => {
                 const typeArgType: Type =
                     index < typeArgs.length ? convertToInstance(typeArgs[index].type) : UnknownType.create();
-                assignTypeToTypeVar(param, typeArgType, /* canNarrowType */ false, diag, typeVarMap);
+                canAssignTypeToTypeVar(param, typeArgType, /* canNarrowType */ false, diag, typeVarMap);
             });
 
             if (!diag.isEmpty()) {
@@ -4986,7 +4986,7 @@ export function createTypeEvaluator(
             if (baseType.typeAliasInfo && type !== baseType) {
                 const typeArgs: Type[] = [];
                 baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
-                    typeArgs.push(typeVarMap.getTypeVar(typeParam) || UnknownType.create());
+                    typeArgs.push(typeVarMap.getTypeVarType(typeParam) || UnknownType.create());
                 });
 
                 type = TypeBase.cloneForTypeAlias(
@@ -6342,7 +6342,7 @@ export function createTypeEvaluator(
     ): boolean {
         if (isAny(expectedType)) {
             type.details.typeParameters.forEach((typeParam) => {
-                typeVarMap.setTypeVar(typeParam, expectedType, /* isNarrowable */ false);
+                typeVarMap.setTypeVarType(typeParam, expectedType);
             });
             return true;
         }
@@ -6362,7 +6362,7 @@ export function createTypeEvaluator(
         if (ClassType.isSameGenericClass(expectedType.classType, type)) {
             const sameClassTypeVarMap = buildTypeVarMapFromSpecializedClass(expectedType.classType);
             sameClassTypeVarMap.getTypeVars().forEach((entry) => {
-                typeVarMap.setTypeVar(entry.typeVar, entry.type, sameClassTypeVarMap.isNarrowable(entry.typeVar));
+                typeVarMap.setTypeVarType(entry.typeVar, entry.type, sameClassTypeVarMap.isNarrowable(entry.typeVar));
             });
             return true;
         }
@@ -6393,7 +6393,7 @@ export function createTypeEvaluator(
         const syntheticTypeVarMap = new TypeVarMap(expectedTypeScopeId);
         if (canAssignType(genericExpectedType, specializedType, new DiagnosticAddendum(), syntheticTypeVarMap)) {
             synthExpectedTypeArgs.forEach((typeVar, index) => {
-                const synthTypeVar = syntheticTypeVarMap.getTypeVar(typeVar);
+                const synthTypeVar = syntheticTypeVarMap.getTypeVarType(typeVar);
 
                 // Is this one of the synthesized type vars we allocated above? If so,
                 // the type arg that corresponds to this type var maps back to the target type.
@@ -6413,7 +6413,7 @@ export function createTypeEvaluator(
                             liveTypeVarScopes
                         );
                         if (expectedTypeArgValue) {
-                            typeVarMap.setTypeVar(targetTypeVar, expectedTypeArgValue, /* isNarrowable */ false);
+                            typeVarMap.setTypeVarType(targetTypeVar, expectedTypeArgValue);
                         }
                     }
                 }
@@ -6918,7 +6918,7 @@ export function createTypeEvaluator(
             ) {
                 const typeParams = type.strippedFirstParamType!.classType.details.typeParameters;
                 type.strippedFirstParamType.classType.typeArguments.forEach((typeArg, index) => {
-                    typeVarMap.setTypeVar(typeParams[index], typeArg, /* isNarrowable */ false);
+                    typeVarMap.setTypeVarType(typeParams[index], typeArg);
                 });
             }
         }
@@ -9925,7 +9925,7 @@ export function createTypeEvaluator(
         targetTypeVar.scopeId = expectedTypeScopeId;
 
         let typeVarMap = new TypeVarMap(expectedTypeScopeId);
-        typeVarMap.setTypeVar(targetTypeVar, expectedType, isNarrowable);
+        typeVarMap.setTypeVarType(targetTypeVar, expectedType, isNarrowable);
 
         // First, try to assign entries with their literal values stripped.
         // The only time we don't want to strip them is if the expected
@@ -9937,7 +9937,7 @@ export function createTypeEvaluator(
         ) {
             // Allocate a fresh typeVarMap before we try again with literals not stripped.
             typeVarMap = new TypeVarMap(expectedTypeScopeId);
-            typeVarMap.setTypeVar(targetTypeVar, expectedType, isNarrowable);
+            typeVarMap.setTypeVarType(targetTypeVar, expectedType, isNarrowable);
             if (entryTypes.some((entryType) => !canAssignType(targetTypeVar!, entryType, diagDummy, typeVarMap))) {
                 return undefined;
             }
@@ -18320,7 +18320,7 @@ export function createTypeEvaluator(
             const srcTypeArgs = curSrcType.typeArguments;
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
                 const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
-                typeVarMap.setTypeVar(destType.details.typeParameters[i], typeArgType, /* isNarrowable */ true);
+                typeVarMap.setTypeVarType(destType.details.typeParameters[i], typeArgType, /* isNarrowable */ true);
             }
 
             if (
@@ -18415,7 +18415,7 @@ export function createTypeEvaluator(
                             destTypeArg,
                             assignmentDiag,
                             typeVarMap,
-                            flags ^ CanAssignFlags.ReverseTypeVarMatching,
+                            (flags ^ CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.AllowTypeVarNarrowing,
                             recursionCount + 1
                         )
                     ) {
@@ -18461,7 +18461,7 @@ export function createTypeEvaluator(
     // produce the narrowest type that meets all of the requirements. If the type var map
     // has been "locked", it simply validates that the srcType is compatible (with no attempt
     // to widen or narrow).
-    function assignTypeToTypeVar(
+    function canAssignTypeToTypeVar(
         destType: TypeVarType,
         srcType: Type,
         canNarrowType: boolean,
@@ -18479,6 +18479,8 @@ export function createTypeEvaluator(
             return true;
         }
 
+        // Verify that we are solving for the scope associated with this
+        // type variable.
         if (!typeVarMap.hasSolveForScope(destType.scopeId)) {
             if (isAnyOrUnknown(srcType)) {
                 return true;
@@ -18530,7 +18532,7 @@ export function createTypeEvaluator(
             }
         }
 
-        const curTypeVarMapping = typeVarMap.getTypeVar(destType);
+        const curTypeVarMapping = typeVarMap.getTypeVarType(destType);
 
         // Handle the constrained case. This case needs to be handled specially
         // because type narrowing isn't used in this case. For example, if the
@@ -18598,7 +18600,7 @@ export function createTypeEvaluator(
                     // to the type variable.
                     if (canAssignType(constrainedType, curTypeVarMapping, new DiagnosticAddendum())) {
                         if (!typeVarMap.isLocked() && isTypeVarInScope) {
-                            typeVarMap.setTypeVar(destType, constrainedType, /* isNarrowable */ false);
+                            typeVarMap.setTypeVarType(destType, constrainedType);
                         }
                     } else {
                         diag.addMessage(
@@ -18613,7 +18615,7 @@ export function createTypeEvaluator(
             } else {
                 // Assign the type to the type var.
                 if (!typeVarMap.isLocked() && isTypeVarInScope) {
-                    typeVarMap.setTypeVar(destType, constrainedType, /* isNarrowable */ false);
+                    typeVarMap.setTypeVarType(destType, constrainedType);
                 }
             }
 
@@ -18750,7 +18752,7 @@ export function createTypeEvaluator(
         }
 
         if (!typeVarMap.isLocked() && isTypeVarInScope) {
-            typeVarMap.setTypeVar(destType, updatedType, updatedTypeIsNarrowable);
+            typeVarMap.setTypeVarType(destType, updatedType, updatedTypeIsNarrowable);
         }
 
         return true;
@@ -18868,7 +18870,7 @@ export function createTypeEvaluator(
                         recursionCount + 1
                     );
                 } else {
-                    return assignTypeToTypeVar(
+                    return canAssignTypeToTypeVar(
                         destType,
                         srcType,
                         canNarrowType,
@@ -18917,10 +18919,10 @@ export function createTypeEvaluator(
                         recursionCount + 1
                     );
                 } else {
-                    return assignTypeToTypeVar(
+                    return canAssignTypeToTypeVar(
                         srcType,
                         destType,
-                        /* canNarrowType */ true,
+                        canNarrowType,
                         diag,
                         typeVarMap || new TypeVarMap(getTypeVarScopeId(srcType)),
                         flags,
@@ -19522,7 +19524,7 @@ export function createTypeEvaluator(
             destType,
             new DiagnosticAddendum(),
             destTypeVarMap,
-            flags ^ CanAssignFlags.ReverseTypeVarMatching,
+            (flags ^ CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.AllowTypeVarNarrowing,
             recursionCount + 1
         );
 
@@ -20055,15 +20057,20 @@ export function createTypeEvaluator(
             // If the source function was generic and we solved some of the type variables
             // in that generic type, assign them back to the destination typeVar.
             srcTypeVarMap.getTypeVars().forEach((typeVarEntry) => {
-                canAssignType(typeVarEntry.typeVar, typeVarEntry.type, new DiagnosticAddendum(), typeVarMap);
+                canAssignType(
+                    typeVarEntry.typeVar,
+                    srcTypeVarMap.getTypeVarType(typeVarEntry.typeVar)!,
+                    new DiagnosticAddendum(),
+                    typeVarMap
+                );
             });
 
             // Perform partial specialization of type variables to allow for
             // "higher-order" type variables.
             typeVarMap.getTypeVars().forEach((entry) => {
-                const specializedType = applySolvedTypeVars(entry.type, typeVarMap);
+                const specializedType = applySolvedTypeVars(typeVarMap.getTypeVarType(entry.typeVar)!, typeVarMap);
                 if (specializedType !== entry.type) {
-                    typeVarMap.setTypeVar(entry.typeVar, specializedType, typeVarMap.isNarrowable(entry.typeVar));
+                    typeVarMap.setTypeVarType(entry.typeVar, specializedType, typeVarMap.isNarrowable(entry.typeVar));
                 }
             });
 
@@ -20143,7 +20150,7 @@ export function createTypeEvaluator(
             let replacedTypeArg = false;
             const newTypeArgs = assignedType.typeArguments.map((typeArg, index) => {
                 const typeParam = assignedType.details.typeParameters[index];
-                const expectedTypeArgType = typeVarMap.getTypeVar(typeParam);
+                const expectedTypeArgType = typeVarMap.getTypeVarType(typeParam);
 
                 if (expectedTypeArgType) {
                     if (isAny(expectedTypeArgType) || isAnyOrUnknown(typeArg)) {
@@ -20797,7 +20804,7 @@ export function createTypeEvaluator(
                 // we attempt to call canAssignType, we'll risk infinite recursion.
                 // Instead, we'll assume it's assignable.
                 if (!typeVarMap.isLocked()) {
-                    typeVarMap.setTypeVar(memberTypeFirstParamType, nonLiteralFirstParamType, /* isNarrowable */ false);
+                    typeVarMap.setTypeVarType(memberTypeFirstParamType, nonLiteralFirstParamType);
                 }
             } else if (
                 !canAssignType(

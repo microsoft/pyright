@@ -611,7 +611,7 @@ export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, unknownI
             // If the type variable is unrelated to the scopes we're solving,
             // don't transform that type variable.
             if (typeVar.scopeId && typeVarMap.hasSolveForScope(typeVar.scopeId)) {
-                const replacement = typeVarMap.getTypeVar(typeVar);
+                const replacement = typeVarMap.getTypeVarType(typeVar);
                 if (replacement) {
                     return replacement;
                 }
@@ -987,7 +987,7 @@ export function specializeClassType(type: ClassType): ClassType {
     const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
     const typeParams = ClassType.getTypeParameters(type);
     typeParams.forEach((typeParam) => {
-        typeVarMap.setTypeVar(typeParam, UnknownType.create(), /* isNarrowable */ false);
+        typeVarMap.setTypeVarType(typeParam, UnknownType.create());
     });
 
     return applySolvedTypeVars(type, typeVarMap) as ClassType;
@@ -1064,7 +1064,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 
         case TypeCategory.TypeVar:
             if (!typeVarMap.hasTypeVar(destType)) {
-                typeVarMap.setTypeVar(destType, srcType, typeVarMap.isNarrowable(destType));
+                typeVarMap.setTypeVarType(destType, srcType, typeVarMap.isNarrowable(destType));
             }
             break;
     }
@@ -1128,7 +1128,7 @@ export function buildTypeVarMap(
                     typeArgType = typeArgs[index];
                 }
 
-                typeVarMap.setTypeVar(typeParam, typeArgType, /* isNarrowable */ false);
+                typeVarMap.setTypeVarType(typeParam, typeArgType);
             }
         }
     });

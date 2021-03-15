@@ -65,7 +65,7 @@ export class TypeVarMap {
         }
 
         this._typeVarMap.forEach((value) => {
-            newTypeVarMap.setTypeVar(value.typeVar, value.type, this.isNarrowable(value.typeVar));
+            newTypeVarMap.setTypeVarType(value.typeVar, value.type, this.isNarrowable(value.typeVar));
         });
 
         this._paramSpecMap.forEach((value) => {
@@ -146,11 +146,11 @@ export class TypeVarMap {
         return this._typeVarMap.has(this._getKey(reference));
     }
 
-    getTypeVar(reference: TypeVarType): Type | undefined {
+    getTypeVarType(reference: TypeVarType): Type | undefined {
         return this._typeVarMap.get(this._getKey(reference))?.type;
     }
 
-    setTypeVar(reference: TypeVarType, type: Type, isNarrowable: boolean) {
+    setTypeVarType(reference: TypeVarType, type: Type, isNarrowable = false) {
         assert(!this._isLocked);
         const key = this._getKey(reference);
         this._typeVarMap.set(key, { typeVar: reference, type, isNarrowable });
@@ -169,6 +169,11 @@ export class TypeVarMap {
             this._variadicTypeVarMap = new Map<string, VariadicTypeVarMapEntry>();
         }
         this._variadicTypeVarMap.set(key, { typeVar: reference, types });
+    }
+
+    getTypeVar(reference: TypeVarType): TypeVarMapEntry | undefined {
+        const key = this._getKey(reference);
+        return this._typeVarMap.get(key);
     }
 
     getTypeVars(): TypeVarMapEntry[] {
