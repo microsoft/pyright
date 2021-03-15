@@ -1064,7 +1064,7 @@ export function setTypeArgumentsRecursive(destType: Type, srcType: Type, typeVar
 
         case TypeCategory.TypeVar:
             if (!typeVarMap.hasTypeVar(destType)) {
-                typeVarMap.setTypeVarType(destType, srcType, typeVarMap.isNarrowable(destType));
+                typeVarMap.setTypeVarType(destType, srcType);
             }
             break;
     }

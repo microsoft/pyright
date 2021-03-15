@@ -6110,16 +6110,19 @@ export function createTypeEvaluator(
                             getTypeVarScopesForNode(errorNode)
                         )
                     ) {
-                        const callResult = validateCallArguments(
-                            errorNode,
-                            argList,
-                            initMethodType,
-                            typeVarMap,
-                            skipUnknownArgCheck,
-                            NoneType.createInstance()
-                        );
+                        let callResult: CallResult | undefined;
+                        suppressDiagnostics(errorNode, () => {
+                            callResult = validateCallArguments(
+                                errorNode,
+                                argList,
+                                initMethodType,
+                                typeVarMap,
+                                skipUnknownArgCheck,
+                                NoneType.createInstance()
+                            );
+                        });
 
-                        if (!callResult.argumentErrors) {
+                        if (!callResult?.argumentErrors) {
                             return applyExpectedSubtypeForConstructor(type, expectedSubType, typeVarMap);
                         }
                     }
@@ -6362,16 +6365,22 @@ export function createTypeEvaluator(
         if (ClassType.isSameGenericClass(expectedType.classType, type)) {
             const sameClassTypeVarMap = buildTypeVarMapFromSpecializedClass(expectedType.classType);
             sameClassTypeVarMap.getTypeVars().forEach((entry) => {
-                typeVarMap.setTypeVarType(entry.typeVar, entry.type, sameClassTypeVarMap.isNarrowable(entry.typeVar));
+                const typeVarType = sameClassTypeVarMap.getTypeVarType(entry.typeVar);
+                typeVarMap.setTypeVarType(
+                    entry.typeVar,
+                    entry.typeVar.details.variance === Variance.Covariant ? undefined : typeVarType,
+                    entry.typeVar.details.variance === Variance.Contravariant ? undefined : typeVarType
+                );
             });
             return true;
         }
 
         // Create a generic version of the expected type.
         const expectedTypeScopeId = getTypeVarScopeId(expectedType.classType);
-        const synthExpectedTypeArgs = ClassType.getTypeParameters(expectedType.classType).map((_, index) => {
+        const synthExpectedTypeArgs = ClassType.getTypeParameters(expectedType.classType).map((typeParam, index) => {
             const typeVar = TypeVarType.createInstance(`__dest${index}`);
             typeVar.details.isSynthesized = true;
+            typeVar.details.variance = typeParam.details.variance;
             typeVar.scopeId = expectedTypeScopeId;
             return typeVar;
         });
@@ -6413,7 +6422,11 @@ export function createTypeEvaluator(
                             liveTypeVarScopes
                         );
                         if (expectedTypeArgValue) {
-                            typeVarMap.setTypeVarType(targetTypeVar, expectedTypeArgValue);
+                            typeVarMap.setTypeVarType(
+                                targetTypeVar,
+                                typeVar.details.variance === Variance.Covariant ? undefined : expectedTypeArgValue,
+                                typeVar.details.variance === Variance.Contravariant ? undefined : expectedTypeArgValue
+                            );
                         }
                     }
                 }
@@ -6551,6 +6564,7 @@ export function createTypeEvaluator(
                         expectedType,
                         typeVarMap
                     );
+
                     if (functionType) {
                         if (functionType.details.builtInName === 'cast' && argList.length === 2) {
                             // Verify that the cast is necessary.
@@ -6927,9 +6941,10 @@ export function createTypeEvaluator(
             // If the expected type is a union, we don't know which type is expected,
             // so avoid using the expected type.
             if (expectedType.category !== TypeCategory.Union) {
-                // Prepopulate the typeVarMap based on the specialized expected type if the callee has a declared
-                // return type. This will allow us to more closely match the expected type if possible.
-                // We set the AllowTypeVarNarrowing flag so a narrower type can be used for TypeVars if possible.
+                // Prepopulate the typeVarMap based on the specialized expected type if the
+                // callee has a declared return type. This will allow us to more closely match
+                // the expected type if possible. We set the AllowTypeVarNarrowing flag so a
+                // narrower type can be used for TypeVars if possible.
                 canAssignType(
                     getFunctionEffectiveReturnType(type),
                     expectedType,
@@ -9925,7 +9940,7 @@ export function createTypeEvaluator(
         targetTypeVar.scopeId = expectedTypeScopeId;
 
         let typeVarMap = new TypeVarMap(expectedTypeScopeId);
-        typeVarMap.setTypeVarType(targetTypeVar, expectedType, isNarrowable);
+        typeVarMap.setTypeVarType(targetTypeVar, isNarrowable ? undefined : expectedType, expectedType);
 
         // First, try to assign entries with their literal values stripped.
         // The only time we don't want to strip them is if the expected
@@ -9937,7 +9952,7 @@ export function createTypeEvaluator(
         ) {
             // Allocate a fresh typeVarMap before we try again with literals not stripped.
             typeVarMap = new TypeVarMap(expectedTypeScopeId);
-            typeVarMap.setTypeVarType(targetTypeVar, expectedType, isNarrowable);
+            typeVarMap.setTypeVarType(targetTypeVar, isNarrowable ? undefined : expectedType, expectedType);
             if (entryTypes.some((entryType) => !canAssignType(targetTypeVar!, entryType, diagDummy, typeVarMap))) {
                 return undefined;
             }
@@ -18190,44 +18205,47 @@ export function createTypeEvaluator(
                             isDestHomogenousType ||
                             isDestVariadic
                         ) {
-                            for (let i = 0; i < Math.max(destArgCount, srcArgCount); i++) {
+                            const maxArgCount = Math.max(destArgCount, srcArgCount);
+                            for (let argIndex = 0; argIndex < maxArgCount; argIndex++) {
                                 let srcTypeArgType: Type;
                                 let destTypeArgType: Type;
                                 let isSourceTypeMissing = false;
 
                                 if (isSrcHomogeneousType) {
                                     srcTypeArgType = srcTypeArgs[0];
-                                } else if (i < srcTypeArgs.length) {
-                                    srcTypeArgType = srcTypeArgs[i];
+                                } else if (argIndex < srcTypeArgs.length) {
+                                    srcTypeArgType = srcTypeArgs[argIndex];
                                 } else {
                                     srcTypeArgType = AnyType.create();
                                     if (destType.isTypeArgumentExplicit) {
-                                        if (isDestVariadic && i < destArgCount - 1 && !isDestHomogenousType) {
+                                        if (isDestVariadic && argIndex < destArgCount - 1 && !isDestHomogenousType) {
                                             isSourceTypeMissing = true;
                                         }
                                     }
                                 }
 
-                                if (isDestVariadic && i >= destArgCount - 1) {
+                                let movePastSourceArgs = false;
+                                if (isDestVariadic && argIndex >= destArgCount - 1) {
                                     destTypeArgType = destTypeArgs[destArgCount - 1];
                                     if (tupleClassType && isClass(tupleClassType)) {
                                         // Package up the remaining type arguments into a tuple object.
-                                        const remainingSrcTypeArgs = srcTypeArgs.slice(i);
+                                        const remainingSrcTypeArgs = srcTypeArgs.slice(argIndex);
                                         srcTypeArgType = convertToInstance(
                                             specializeTupleClass(
                                                 tupleClassType,
-                                                remainingSrcTypeArgs,
+                                                remainingSrcTypeArgs.map((type) => stripLiteralValue(type)),
                                                 /* isTypeArgumentExplicit */ true,
                                                 /* stripLiterals */ true,
                                                 /* isForUnpackedVariadicTypeVar */ true
                                             )
                                         );
-                                        i = srcArgCount;
+                                        movePastSourceArgs = true;
                                     }
                                 } else if (isDestHomogenousType) {
                                     destTypeArgType = destTypeArgs[0];
                                 } else {
-                                    destTypeArgType = i < destTypeArgs.length ? destTypeArgs[i] : AnyType.create();
+                                    destTypeArgType =
+                                        argIndex < destTypeArgs.length ? destTypeArgs[argIndex] : AnyType.create();
                                 }
 
                                 const entryDiag = diag.createAddendum();
@@ -18245,10 +18263,14 @@ export function createTypeEvaluator(
                                 ) {
                                     entryDiag.addMessage(
                                         Localizer.DiagnosticAddendum.tupleEntryTypeMismatch().format({
-                                            entry: i + 1,
+                                            entry: argIndex + 1,
                                         })
                                     );
                                     return false;
+                                }
+
+                                if (movePastSourceArgs) {
+                                    argIndex = srcArgCount;
                                 }
                             }
                         } else {
@@ -18320,7 +18342,7 @@ export function createTypeEvaluator(
             const srcTypeArgs = curSrcType.typeArguments;
             for (let i = 0; i < destType.details.typeParameters.length; i++) {
                 const typeArgType = i < srcTypeArgs.length ? srcTypeArgs[i] : UnknownType.create();
-                typeVarMap.setTypeVarType(destType.details.typeParameters[i], typeArgType, /* isNarrowable */ true);
+                typeVarMap.setTypeVarType(destType.details.typeParameters[i], undefined, typeArgType);
             }
 
             if (
@@ -18532,7 +18554,9 @@ export function createTypeEvaluator(
             }
         }
 
-        const curTypeVarMapping = typeVarMap.getTypeVarType(destType);
+        const curEntry = typeVarMap.getTypeVar(destType);
+        const curNarrowTypeBound = curEntry?.narrowBound;
+        const curWideTypeBound = curEntry?.wideBound;
 
         // Handle the constrained case. This case needs to be handled specially
         // because type narrowing isn't used in this case. For example, if the
@@ -18593,12 +18617,12 @@ export function createTypeEvaluator(
                 return false;
             }
 
-            if (curTypeVarMapping && !isAnyOrUnknown(curTypeVarMapping)) {
-                if (!canAssignType(curTypeVarMapping, constrainedType, new DiagnosticAddendum())) {
+            if (curNarrowTypeBound && !isAnyOrUnknown(curNarrowTypeBound)) {
+                if (!canAssignType(curNarrowTypeBound, constrainedType, new DiagnosticAddendum())) {
                     // Handle the case where one of the constrained types is a wider
                     // version of another constrained type that was previously assigned
                     // to the type variable.
-                    if (canAssignType(constrainedType, curTypeVarMapping, new DiagnosticAddendum())) {
+                    if (canAssignType(constrainedType, curNarrowTypeBound, new DiagnosticAddendum())) {
                         if (!typeVarMap.isLocked() && isTypeVarInScope) {
                             typeVarMap.setTypeVarType(destType, constrainedType);
                         }
@@ -18606,7 +18630,7 @@ export function createTypeEvaluator(
                         diag.addMessage(
                             Localizer.DiagnosticAddendum.typeConstraint().format({
                                 type: printType(constrainedType),
-                                name: printType(curTypeVarMapping),
+                                name: printType(curNarrowTypeBound),
                             })
                         );
                         return false;
@@ -18623,96 +18647,94 @@ export function createTypeEvaluator(
         }
 
         // Handle the unconstrained (but possibly bound) case.
-        let updatedType = srcType;
-        if (!curTypeVarMapping || !containsLiteralType(curTypeVarMapping)) {
+        let adjSrcType = srcType;
+        if (!curWideTypeBound || !containsLiteralType(curWideTypeBound)) {
             // Strip literals if the existing value contains no literals. This allows
             // for explicit (but no implicit) literal specialization of a generic class.
-            updatedType = stripLiteralValue(updatedType);
+            adjSrcType = stripLiteralValue(adjSrcType);
         }
 
-        const curTypeIsNarrowable = typeVarMap.isNarrowable(destType) && !typeVarMap.isLocked();
-        const updatedTypeIsNarrowable = canNarrowType && curTypeIsNarrowable;
+        let newNarrowTypeBound = curNarrowTypeBound;
+        let newWideTypeBound = curWideTypeBound;
+        const diagAddendum = new DiagnosticAddendum();
 
-        if (curTypeVarMapping) {
-            const diagAddendum = new DiagnosticAddendum();
-            if (canNarrowType) {
-                // Handle the narrowing case (used for contravariant type matching).
-                if (
-                    curTypeIsNarrowable &&
-                    canAssignType(srcType, curTypeVarMapping, diagAddendum, typeVarMap, flags, recursionCount + 1)
-                ) {
-                    // No need to narrow. Stick with the existing type unless it's an Unknown,
-                    // in which case we'll try to replace it with a known type.
-                    if (!isAnyOrUnknown(curTypeVarMapping) && !isUnknown(srcType)) {
-                        updatedType = curTypeVarMapping;
+        if (canNarrowType) {
+            // Update the wide type bound.
+            if (!curWideTypeBound) {
+                newWideTypeBound = adjSrcType;
+            } else if (canAssignType(curWideTypeBound, srcType, diagAddendum)) {
+                // The srcType is narrower than the current wideTypeBound, so replace it.
+                newWideTypeBound = srcType;
+
+                // Make sure we haven't narrowed it beyond the current narrow bound.
+                if (curNarrowTypeBound) {
+                    if (!canAssignType(curNarrowTypeBound, newWideTypeBound, new DiagnosticAddendum())) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: printType(adjSrcType),
+                                destType: printType(curWideTypeBound),
+                            })
+                        );
+                        diag.addAddendum(diagAddendum);
+                        return false;
                     }
-                } else if (
-                    !canAssignType(
-                        curTypeVarMapping,
-                        srcType,
+                }
+            } else if (!canAssignType(adjSrcType, curWideTypeBound, diagAddendum)) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                        sourceType: printType(adjSrcType),
+                        destType: printType(curWideTypeBound),
+                    })
+                );
+                diag.addAddendum(diagAddendum);
+                return false;
+            }
+        } else {
+            if (!curNarrowTypeBound) {
+                // There was previously no narrow bound. We've now established one.
+                newNarrowTypeBound = adjSrcType;
+            } else if (
+                canAssignType(curNarrowTypeBound, adjSrcType, diagAddendum, typeVarMap, flags, recursionCount + 1)
+            ) {
+                // No need to widen. Stick with the existing type unless it's an Unknown,
+                // in which case we'll replace it with a known type.
+                newNarrowTypeBound = isUnknown(curNarrowTypeBound) ? adjSrcType : curNarrowTypeBound;
+            } else {
+                // We need to widen the type.
+                if (typeVarMap.isLocked()) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(curNarrowTypeBound),
+                            destType: printType(adjSrcType),
+                        })
+                    );
+                    return false;
+                }
+
+                // Don't allow widening for variadic type variables.
+                if (isVariadicTypeVar(destType)) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(curNarrowTypeBound),
+                            destType: printType(adjSrcType),
+                        })
+                    );
+                    return false;
+                }
+
+                if (
+                    canAssignType(
+                        adjSrcType,
+                        curNarrowTypeBound,
                         new DiagnosticAddendum(),
                         typeVarMap,
                         flags,
                         recursionCount + 1
                     )
                 ) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(srcType),
-                            destType: printType(curTypeVarMapping),
-                        })
-                    );
-                    return false;
-                }
-            } else {
-                // Handle the widen case.
-                if (canAssignType(curTypeVarMapping, srcType, diagAddendum, typeVarMap, flags, recursionCount + 1)) {
-                    if (curTypeIsNarrowable) {
-                        // The new srcType is narrower than the current type, but the current
-                        // type is allowed to be narrowed, so replace the current type with
-                        // the srcType.
-                    } else {
-                        // No need to widen. Stick with the existing type unless it's an Unknown,
-                        // in which case we'll replace it with a known type.
-                        if (!isUnknown(curTypeVarMapping)) {
-                            updatedType = curTypeVarMapping;
-                        }
-                    }
+                    newNarrowTypeBound = adjSrcType;
                 } else {
-                    if (typeVarMap.isLocked()) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                sourceType: printType(curTypeVarMapping),
-                                destType: printType(srcType),
-                            })
-                        );
-                        return false;
-                    }
-
-                    if (
-                        !canAssignType(
-                            srcType,
-                            curTypeVarMapping,
-                            new DiagnosticAddendum(),
-                            typeVarMap,
-                            flags,
-                            recursionCount + 1
-                        )
-                    ) {
-                        // Don't allow widening for variadic type variables.
-                        if (isVariadicTypeVar(destType)) {
-                            diag.addMessage(
-                                Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                    sourceType: printType(curTypeVarMapping),
-                                    destType: printType(srcType),
-                                })
-                            );
-                            return false;
-                        } else {
-                            // Create a union, widening the type.
-                            updatedType = combineTypes([curTypeVarMapping, srcType]);
-                        }
-                    }
+                    newNarrowTypeBound = combineTypes([curNarrowTypeBound, adjSrcType]);
                 }
             }
         }
@@ -18722,6 +18744,7 @@ export function createTypeEvaluator(
             const boundType = TypeBase.isInstantiable(destType)
                 ? convertToInstantiable(destType.details.boundType)
                 : destType.details.boundType;
+            const updatedType = (newNarrowTypeBound || newWideTypeBound)!;
             const adjustedUpdatedType =
                 isTypeVar(srcType) && TypeBase.isInstantiable(srcType)
                     ? convertToInstantiable(updatedType)
@@ -18752,7 +18775,7 @@ export function createTypeEvaluator(
         }
 
         if (!typeVarMap.isLocked() && isTypeVarInScope) {
-            typeVarMap.setTypeVarType(destType, updatedType, updatedTypeIsNarrowable);
+            typeVarMap.setTypeVarType(destType, newNarrowTypeBound, newWideTypeBound);
         }
 
         return true;
@@ -20068,9 +20091,11 @@ export function createTypeEvaluator(
             // Perform partial specialization of type variables to allow for
             // "higher-order" type variables.
             typeVarMap.getTypeVars().forEach((entry) => {
-                const specializedType = applySolvedTypeVars(typeVarMap.getTypeVarType(entry.typeVar)!, typeVarMap);
-                if (specializedType !== entry.type) {
-                    typeVarMap.setTypeVarType(entry.typeVar, specializedType, typeVarMap.isNarrowable(entry.typeVar));
+                if (entry.narrowBound) {
+                    const specializedType = applySolvedTypeVars(entry.narrowBound, typeVarMap);
+                    if (specializedType !== entry.narrowBound) {
+                        typeVarMap.setTypeVarType(entry.typeVar, specializedType, entry.wideBound);
+                    }
                 }
             });
 

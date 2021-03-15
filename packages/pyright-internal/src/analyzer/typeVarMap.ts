@@ -24,8 +24,11 @@ import { doForEachSubtype } from './typeUtils';
 
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
-    type: Type;
-    isNarrowable: boolean;
+
+    // The final type must "fit" between the narrow and
+    // wide type bound.
+    narrowBound?: Type;
+    wideBound?: Type;
 }
 
 export interface ParamSpecMapEntry {
@@ -65,7 +68,7 @@ export class TypeVarMap {
         }
 
         this._typeVarMap.forEach((value) => {
-            newTypeVarMap.setTypeVarType(value.typeVar, value.type, this.isNarrowable(value.typeVar));
+            newTypeVarMap.setTypeVarType(value.typeVar, value.narrowBound, value.wideBound);
         });
 
         this._paramSpecMap.forEach((value) => {
@@ -134,7 +137,8 @@ export class TypeVarMap {
             // Add a fractional amount based on the complexity of the definition.
             // The more complex, the lower the score. In the spirit of Occam's
             // Razor, we always want to favor simple answers.
-            score += this._getComplexityScoreForType(value.type);
+            const typeVarType = this.getTypeVarType(value.typeVar)!;
+            score += this._getComplexityScoreForType(typeVarType);
         });
 
         score += this._paramSpecMap.size;
@@ -147,13 +151,17 @@ export class TypeVarMap {
     }
 
     getTypeVarType(reference: TypeVarType): Type | undefined {
-        return this._typeVarMap.get(this._getKey(reference))?.type;
+        const entry = this._typeVarMap.get(this._getKey(reference));
+        if (!entry) {
+            return undefined;
+        }
+        return entry.narrowBound || entry.wideBound;
     }
 
-    setTypeVarType(reference: TypeVarType, type: Type, isNarrowable = false) {
+    setTypeVarType(reference: TypeVarType, narrowBound: Type | undefined, wideBound?: Type) {
         assert(!this._isLocked);
         const key = this._getKey(reference);
-        this._typeVarMap.set(key, { typeVar: reference, type, isNarrowable });
+        this._typeVarMap.set(key, { typeVar: reference, narrowBound, wideBound });
     }
 
     getVariadicTypeVar(reference: TypeVarType): Type[] | undefined {
@@ -203,14 +211,13 @@ export class TypeVarMap {
         return this._typeVarMap.size;
     }
 
-    isNarrowable(reference: TypeVarType): boolean {
+    getWideTypeBound(reference: TypeVarType): Type | undefined {
         const entry = this._typeVarMap.get(this._getKey(reference));
         if (entry) {
-            return entry.isNarrowable;
+            return entry.wideBound;
         }
 
-        // A TypeVar that doesn't yet exist in the map is considered narrowable.
-        return true;
+        return undefined;
     }
 
     lock() {
