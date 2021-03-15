@@ -3,6 +3,50 @@ from typing import IO, Any, BinaryIO, NamedTuple, Optional, Tuple, Union, overlo
 
 _chtype = Union[str, bytes, int]
 
+# ACS codes are only initialized after initscr is called
+ACS_BBSS: int
+ACS_BLOCK: int
+ACS_BOARD: int
+ACS_BSBS: int
+ACS_BSSB: int
+ACS_BSSS: int
+ACS_BTEE: int
+ACS_BULLET: int
+ACS_CKBOARD: int
+ACS_DARROW: int
+ACS_DEGREE: int
+ACS_DIAMOND: int
+ACS_GEQUAL: int
+ACS_HLINE: int
+ACS_LANTERN: int
+ACS_LARROW: int
+ACS_LEQUAL: int
+ACS_LLCORNER: int
+ACS_LRCORNER: int
+ACS_LTEE: int
+ACS_NEQUAL: int
+ACS_PI: int
+ACS_PLMINUS: int
+ACS_PLUS: int
+ACS_RARROW: int
+ACS_RTEE: int
+ACS_S1: int
+ACS_S3: int
+ACS_S7: int
+ACS_S9: int
+ACS_SBBS: int
+ACS_SBSB: int
+ACS_SBSS: int
+ACS_SSBB: int
+ACS_SSBS: int
+ACS_SSSB: int
+ACS_SSSS: int
+ACS_STERLING: int
+ACS_TTEE: int
+ACS_UARROW: int
+ACS_ULCORNER: int
+ACS_URCORNER: int
+ACS_VLINE: int
 ALL_MOUSE_EVENTS: int
 A_ALTCHARSET: int
 A_ATTRIBUTES: int

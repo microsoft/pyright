@@ -31,6 +31,12 @@ class SupportsLessThan(Protocol):
 
 SupportsLessThanT = TypeVar("SupportsLessThanT", bound=SupportsLessThan)  # noqa: Y001
 
+class SupportsDivMod(Protocol[_T_contra, _T_co]):
+    def __divmod__(self, __other: _T_contra) -> _T_co: ...
+
+class SupportsRDivMod(Protocol[_T_contra, _T_co]):
+    def __rdivmod__(self, __other: _T_contra) -> _T_co: ...
+
 # Mapping-like protocols
 
 class SupportsItems(Protocol[_KT_co, _VT_co]):
