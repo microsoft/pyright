@@ -7756,11 +7756,17 @@ export function createTypeEvaluator(
         let isTypeIncomplete = false;
 
         if (argParam.argument.valueExpression) {
-            let expectedType: Type | undefined = applySolvedTypeVars(argParam.paramType, typeVarMap);
+            // If the param type is a "bare" TypeVar, don't use it as an expected
+            // type. This causes problems for cases where the the call expression
+            // result can influence the type of the TypeVar, such as in
+            // the expression "min(1, max(2, 0.5))"
+            let expectedType: Type | undefined = isTypeVar(argParam.paramType)
+                ? undefined
+                : applySolvedTypeVars(argParam.paramType, typeVarMap);
 
             // If the expected type is unknown, don't use an expected type. Instead,
             // use default rules for evaluating the expression type.
-            if (isUnknown(expectedType)) {
+            if (expectedType && isUnknown(expectedType)) {
                 expectedType = undefined;
             }
 
@@ -8912,14 +8918,18 @@ export function createTypeEvaluator(
         // For most binary operations, the "expected type" is applied to the output
         // of the magic method for that operation. However, the "or" and "and" operators
         // have no magic method, so we apply the expected type directly to both operands.
-        const expectedOperandType =
+        let expectedOperandType =
             node.operator === OperatorType.Or || node.operator === OperatorType.And ? expectedType : undefined;
         const leftTypeResult = getTypeOfExpression(leftExpression, expectedOperandType, flags);
         let leftType = leftTypeResult.type;
 
         // If there is no expected type, use the type of the left operand. This
         // allows us to infer a better type for expressions like `x or []`.
-        const rightTypeResult = getTypeOfExpression(rightExpression, expectedOperandType || leftType, flags);
+        if (!expectedOperandType && (node.operator === OperatorType.Or || node.operator === OperatorType.And)) {
+            expectedOperandType = leftType;
+        }
+
+        const rightTypeResult = getTypeOfExpression(rightExpression, expectedOperandType, flags);
         let rightType = rightTypeResult.type;
 
         if (leftTypeResult.isIncomplete || rightTypeResult.isIncomplete) {
@@ -17808,12 +17818,12 @@ export function createTypeEvaluator(
         if (typesAreConsistent && destType.details.typeParameters.length > 0 && destType.typeArguments) {
             // Create a specialized version of the protocol defined by the dest and
             // make sure the resulting type args can be assigned.
-            const specializedSrcProtocol = applySolvedTypeVars(genericDestType, genericDestTypeVarMap) as ClassType;
+            const specializedDestProtocol = applySolvedTypeVars(genericDestType, genericDestTypeVarMap) as ClassType;
 
             if (
                 !verifyTypeArgumentsAssignable(
                     destType,
-                    specializedSrcProtocol,
+                    specializedDestProtocol,
                     diag,
                     typeVarMap,
                     flags,
@@ -18662,79 +18672,105 @@ export function createTypeEvaluator(
             // Update the wide type bound.
             if (!curWideTypeBound) {
                 newWideTypeBound = adjSrcType;
-            } else if (canAssignType(curWideTypeBound, srcType, diagAddendum)) {
-                // The srcType is narrower than the current wideTypeBound, so replace it.
-                newWideTypeBound = srcType;
-
-                // Make sure we haven't narrowed it beyond the current narrow bound.
-                if (curNarrowTypeBound) {
-                    if (!canAssignType(curNarrowTypeBound, newWideTypeBound, new DiagnosticAddendum())) {
-                        diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                                sourceType: printType(adjSrcType),
-                                destType: printType(curWideTypeBound),
-                            })
-                        );
-                        diag.addAddendum(diagAddendum);
-                        return false;
-                    }
+            } else if (!isTypeSame(curWideTypeBound, adjSrcType)) {
+                if (canAssignType(curWideTypeBound, adjSrcType, diagAddendum)) {
+                    // The srcType is narrower than the current wideTypeBound, so replace it.
+                    newWideTypeBound = srcType;
+                } else if (!canAssignType(adjSrcType, curWideTypeBound, diagAddendum)) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(adjSrcType),
+                            destType: printType(curWideTypeBound),
+                        })
+                    );
+                    diag.addAddendum(diagAddendum);
+                    return false;
                 }
-            } else if (!canAssignType(adjSrcType, curWideTypeBound, diagAddendum)) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                        sourceType: printType(adjSrcType),
-                        destType: printType(curWideTypeBound),
-                    })
-                );
-                diag.addAddendum(diagAddendum);
-                return false;
+            }
+
+            // Make sure we haven't narrowed it beyond the current narrow bound.
+            if (curNarrowTypeBound) {
+                if (!canAssignType(newWideTypeBound!, curNarrowTypeBound, new DiagnosticAddendum())) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(adjSrcType),
+                            destType: printType(curNarrowTypeBound),
+                        })
+                    );
+                    diag.addAddendum(diagAddendum);
+                    return false;
+                }
             }
         } else {
             if (!curNarrowTypeBound) {
                 // There was previously no narrow bound. We've now established one.
                 newNarrowTypeBound = adjSrcType;
-            } else if (
-                canAssignType(curNarrowTypeBound, adjSrcType, diagAddendum, typeVarMap, flags, recursionCount + 1)
-            ) {
-                // No need to widen. Stick with the existing type unless it's an Unknown,
-                // in which case we'll replace it with a known type.
-                newNarrowTypeBound = isUnknown(curNarrowTypeBound) ? adjSrcType : curNarrowTypeBound;
-            } else {
-                // We need to widen the type.
-                if (typeVarMap.isLocked()) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(curNarrowTypeBound),
-                            destType: printType(adjSrcType),
-                        })
-                    );
-                    return false;
-                }
-
-                // Don't allow widening for variadic type variables.
-                if (isVariadicTypeVar(destType)) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
-                            sourceType: printType(curNarrowTypeBound),
-                            destType: printType(adjSrcType),
-                        })
-                    );
-                    return false;
-                }
-
+            } else if (!isTypeSame(curNarrowTypeBound, adjSrcType)) {
                 if (
-                    canAssignType(
-                        adjSrcType,
-                        curNarrowTypeBound,
+                    canAssignType(curNarrowTypeBound, adjSrcType, diagAddendum, typeVarMap, flags, recursionCount + 1)
+                ) {
+                    // No need to widen. Stick with the existing type unless it's an Unknown,
+                    // in which case we'll replace it with a known type.
+                    newNarrowTypeBound = isUnknown(curNarrowTypeBound) ? adjSrcType : curNarrowTypeBound;
+                } else {
+                    // We need to widen the type.
+                    if (typeVarMap.isLocked()) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: printType(curNarrowTypeBound),
+                                destType: printType(adjSrcType),
+                            })
+                        );
+                        return false;
+                    }
+
+                    // Don't allow widening for variadic type variables.
+                    if (isVariadicTypeVar(destType)) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                                sourceType: printType(curNarrowTypeBound),
+                                destType: printType(adjSrcType),
+                            })
+                        );
+                        return false;
+                    }
+
+                    if (
+                        canAssignType(
+                            adjSrcType,
+                            curNarrowTypeBound,
+                            new DiagnosticAddendum(),
+                            typeVarMap,
+                            flags,
+                            recursionCount + 1
+                        )
+                    ) {
+                        newNarrowTypeBound = adjSrcType;
+                    } else {
+                        newNarrowTypeBound = combineTypes([curNarrowTypeBound, adjSrcType]);
+                    }
+                }
+            }
+
+            // Make sure we don't exceed the wide type bound.
+            if (curWideTypeBound) {
+                if (
+                    !canAssignType(
+                        curWideTypeBound,
+                        newNarrowTypeBound!,
                         new DiagnosticAddendum(),
                         typeVarMap,
                         flags,
                         recursionCount + 1
                     )
                 ) {
-                    newNarrowTypeBound = adjSrcType;
-                } else {
-                    newNarrowTypeBound = combineTypes([curNarrowTypeBound, adjSrcType]);
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
+                            sourceType: printType(curWideTypeBound),
+                            destType: printType(adjSrcType),
+                        })
+                    );
+                    return false;
                 }
             }
         }
