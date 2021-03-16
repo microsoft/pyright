@@ -23,7 +23,7 @@ await helper.verifyCompletion('included', 'markdown', {
                 kind: Consts.CompletionItemKind.Property,
                 textEdit: {
                     range: helper.getPositionRange('marker'),
-                    newText: 'prop(self):\n    return ',
+                    newText: 'prop(self):\n    return super().prop',
                 },
             },
         ],

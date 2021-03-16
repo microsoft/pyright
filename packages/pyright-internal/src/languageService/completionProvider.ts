@@ -965,9 +965,7 @@ export class CompletionProvider {
         }
 
         if (isProperty) {
-            // If it's a property, it's not clear what to provide in the
-            // implementation. Assume that the user will fill in the expression.
-            return sb;
+            return sb + `super().${decl.node.name.value}`;
         }
 
         return sb + `super().${decl.node.name.value}(${parameters.map(convertToString).join(', ')})`;
