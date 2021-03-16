@@ -391,7 +391,6 @@
         "unpackNotAllowed": "Unpack operation not allowed in this context",
         "unpackTuplesIllegal": "Unpack operation not allowed in tuples prior to Python 3.8",
         "unreachableCode": "Code is unreachable",
-        "unsupportedDunderAllAssignment": "Expression assigned to \"__all__\" is not supported, so exported symbol list may be incorrect; use list or tuple of string literal values in assignment",
         "unsupportedDunderAllOperation": "Operation on \"__all__\" is not supported, so exported symbol list may not be incorrect",
         "unusedCallResult": "Result of call expression is of type \"{type}\" and is not used; assign to variable \"_\" if this is intentional",
         "unusedCoroutine": "Result of async function call is not used; use \"await\" or assign result to variable",
