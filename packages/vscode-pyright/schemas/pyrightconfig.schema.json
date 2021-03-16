@@ -413,6 +413,18 @@
       "title": "Controls reporting of call expressions that returns Coroutine whose results are not consumed",
       "default": "error"
     },
+    "extraPaths": {
+      "$id": "#/properties/executionEnvironments/items/properties/extraPaths",
+      "type": "array",
+      "title": "Additional import search resolution paths",
+      "items": {
+        "$id": "#/properties/executionEnvironments/items/properties/extraPaths/items",
+        "type": "string",
+        "title": "Additional import search resolution path",
+        "default": "",
+        "pattern": "^(.*)$"
+      }
+    },
     "pythonVersion": {
       "$id": "#/properties/pythonVersion",
       "type": "string",
