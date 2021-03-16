@@ -129,6 +129,7 @@ export interface AutoImportResult {
 export interface AutoImportOptions {
     libraryMap?: Map<string, IndexResults>;
     patternMatcher?: (pattern: string, name: string) => boolean;
+    allowVariableInAll?: boolean;
     lazyEdit?: boolean;
 }
 
@@ -179,12 +180,12 @@ export class AutoImporter {
         private _invocationPosition: Position,
         private _excludes: Set<string>,
         private _moduleSymbolMap: ModuleSymbolMap,
-        private _config: AutoImportOptions
+        private _options: AutoImportOptions
     ) {
-        this._config.patternMatcher = this._config.patternMatcher ?? StringUtils.isPatternInSymbol;
+        this._options.patternMatcher = this._options.patternMatcher ?? StringUtils.isPatternInSymbol;
         this._importStatements = getTopLevelImports(this._parseResults.parseTree, true);
 
-        this._perfInfo.indexUsed = !!this._config.libraryMap;
+        this._perfInfo.indexUsed = !!this._options.libraryMap;
     }
 
     getAutoImportCandidatesForAbbr(abbr: string | undefined, abbrInfo: AbbreviationInfo, token: CancellationToken) {
@@ -241,7 +242,7 @@ export class AutoImporter {
     ) {
         const startTime = this._stopWatch.getDurationInMilliseconds();
 
-        this._config.libraryMap?.forEach((indexResults, filePath) => {
+        this._options.libraryMap?.forEach((indexResults, filePath) => {
             if (indexResults.privateOrProtected) {
                 return;
             }
@@ -253,7 +254,7 @@ export class AutoImporter {
             }
 
             // See if this file should be offered as an implicit import.
-            const isStubFileOrHasInit = this._isStubFileOrHasInit(this._config.libraryMap!, filePath);
+            const isStubFileOrHasInit = this._isStubFileOrHasInit(this._options.libraryMap!, filePath);
             this._processModuleSymbolTable(
                 createModuleSymbolTableFromIndexResult(indexResults, /* library */ true),
                 filePath,
@@ -332,13 +333,7 @@ export class AutoImporter {
 
             this._perfIndexCount(autoImportSymbol, library);
 
-            if (
-                !isStubOrHasInit.isStub &&
-                autoImportSymbol.kind === SymbolKind.Variable &&
-                !SymbolNameUtils.isPublicConstantOrTypeAlias(name)
-            ) {
-                // If it is not a stub file and symbol is Variable, we only include it if
-                // name is public constant or type alias.
+            if (!this._shouldIncludeVariable(autoImportSymbol, name, isStubOrHasInit.isStub, library)) {
                 return;
             }
 
@@ -424,6 +419,25 @@ export class AutoImporter {
             { importParts, importGroup },
             importAliasMap
         );
+    }
+
+    private _shouldIncludeVariable(
+        autoImportSymbol: AutoImportSymbol,
+        name: string,
+        isStub: boolean,
+        library: boolean
+    ) {
+        // If it is not a stub file and symbol is Variable, we only include it if
+        // name is public constant or type alias unless it is in __all__ for user files.
+        if (isStub || autoImportSymbol.kind !== SymbolKind.Variable) {
+            return true;
+        }
+
+        if (this._options.allowVariableInAll && !library && autoImportSymbol.symbol?.isInDunderAll()) {
+            return true;
+        }
+
+        return SymbolNameUtils.isPublicConstantOrTypeAlias(name);
     }
 
     private _addImportsFromImportAliasMap(
@@ -618,7 +632,7 @@ export class AutoImporter {
             return word === name;
         }
 
-        return word.length > 0 && this._config.patternMatcher!(word, name);
+        return word.length > 0 && this._options.patternMatcher!(word, name);
     }
 
     private _containsName(name: string, source: string | undefined, results: AutoImportResultMap) {
@@ -735,7 +749,7 @@ export class AutoImporter {
                 if (moduleName === importStatement.moduleName) {
                     return {
                         insertionText: abbrFromUsers ?? insertionText,
-                        edits: this._config.lazyEdit
+                        edits: this._options.lazyEdit
                             ? undefined
                             : getTextEditsForAutoImportSymbolAddition(
                                   importName,
@@ -766,7 +780,7 @@ export class AutoImporter {
                     // If not, add what we want at the existing import from statement.
                     return {
                         insertionText: abbrFromUsers ?? insertionText,
-                        edits: this._config.lazyEdit
+                        edits: this._options.lazyEdit
                             ? undefined
                             : getTextEditsForAutoImportSymbolAddition(
                                   importName,
@@ -793,7 +807,7 @@ export class AutoImporter {
 
         return {
             insertionText: abbrFromUsers ?? insertionText,
-            edits: this._config.lazyEdit
+            edits: this._options.lazyEdit
                 ? undefined
                 : getTextEditsForAutoImportInsertion(
                       importName,

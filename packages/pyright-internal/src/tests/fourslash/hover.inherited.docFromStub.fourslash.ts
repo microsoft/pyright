@@ -35,8 +35,8 @@
 //// inner.[|/*child_a_inner_method1_docs*/method1|]()
 
 helper.verifyHover('markdown', {
-    child_a_method1_docs: '```python\n(method) method1: () -> bool\n```\nA.method1 docs',
+    child_a_method1_docs: '```python\n(method) method1: () -> bool\n```\n---\nA.method1 docs',
     child_a_docs: '```python\n(class) ChildA\n```\n',
     child_a_inner_docs: '```python\n(class) ChildInner\n```\n',
-    child_a_inner_method1_docs: '```python\n(method) method1: () -> bool\n```\nA.Inner.method1 docs',
+    child_a_inner_method1_docs: '```python\n(method) method1: () -> bool\n```\n---\nA.Inner.method1 docs',
 });

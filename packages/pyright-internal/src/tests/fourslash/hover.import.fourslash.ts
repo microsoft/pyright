@@ -7,5 +7,5 @@
 //// '''documentation for library'''
 
 helper.verifyHover('markdown', {
-    marker: '```python\n(module) library\n```\ndocumentation for library',
+    marker: '```python\n(module) library\n```\n---\ndocumentation for library',
 });

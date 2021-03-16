@@ -984,6 +984,7 @@ export class Program {
         nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
         lazyEdit: boolean,
+        allowVariableInAll: boolean,
         token: CancellationToken
     ): AutoImportResult[] {
         const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
@@ -1023,6 +1024,7 @@ export class Program {
                 map,
                 {
                     lazyEdit,
+                    allowVariableInAll,
                     libraryMap,
                     patternMatcher: (p, t) => computeCompletionSimilarity(p, t) > similarityLimit,
                 }
