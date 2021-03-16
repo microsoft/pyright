@@ -765,7 +765,7 @@ export class CompletionProvider {
                 const symbolTable = new Map<string, Symbol>();
                 for (const mroClass of classResults.classType.details.mro) {
                     if (isClass(mroClass)) {
-                        getMembersForClass(mroClass, symbolTable, false);
+                        getMembersForClass(mroClass, symbolTable, /* includeInstanceVars */ false);
                     }
                 }
 
@@ -802,7 +802,7 @@ export class CompletionProvider {
         for (let i = 1; i < classResults.classType.details.mro.length; i++) {
             const mroClass = classResults.classType.details.mro[i];
             if (isClass(mroClass)) {
-                getMembersForClass(mroClass, symbolTable, false);
+                getMembersForClass(mroClass, symbolTable, /* includeInstanceVars */ false);
             }
         }
 
@@ -812,27 +812,55 @@ export class CompletionProvider {
         const completionList = CompletionList.create();
 
         symbolTable.forEach((symbol, name) => {
-            const decl = getLastTypedDeclaredForSymbol(symbol);
+            let decl = getLastTypedDeclaredForSymbol(symbol);
             if (decl && decl.type === DeclarationType.Function) {
                 if (StringUtils.isPatternInSymbol(partialName.value, name)) {
                     const declaredType = this._evaluator.getTypeForDeclaration(decl);
-                    if (!declaredType || declaredType.category !== TypeCategory.Function) {
+                    if (!declaredType) {
                         return;
                     }
 
-                    const isDeclaredStaticMethod = FunctionType.isStaticMethod(declaredType);
+                    let isProperty = isObject(declaredType) && ClassType.isPropertyClass(declaredType.classType);
+
+                    if (SymbolNameUtils.isDunderName(name)) {
+                        // Don't offer suggestions for built-in properties like "__class__", etc.
+                        isProperty = false;
+                    }
+
+                    if (!isFunction(declaredType) && !isProperty) {
+                        return;
+                    }
+
+                    if (isProperty) {
+                        // For properties, we should override the "getter", which is typically
+                        // the first declaration.
+                        const typedDecls = symbol.getTypedDeclarations();
+                        if (typedDecls.length > 0 && typedDecls[0].type === DeclarationType.Function) {
+                            decl = typedDecls[0];
+                        }
+                    }
+
+                    const isDeclaredStaticMethod =
+                        isFunction(declaredType) && FunctionType.isStaticMethod(declaredType);
 
                     // Special-case the "__init__subclass__" method because it's an implicit
                     // classmethod that the type evaluator flags as a real classmethod.
                     const isDeclaredClassMethod =
-                        FunctionType.isClassMethod(declaredType) && name !== '__init_subclass__';
+                        isFunction(declaredType) &&
+                        FunctionType.isClassMethod(declaredType) &&
+                        name !== '__init_subclass__';
 
                     if (staticmethod !== isDeclaredStaticMethod || classmethod !== isDeclaredClassMethod) {
                         return;
                     }
 
                     const methodSignature = this._printMethodSignature(decl.node) + ':';
-                    const methodBody = this._printOverriddenMethodBody(classResults.classType, declaredType, decl);
+                    const methodBody = this._printOverriddenMethodBody(
+                        classResults.classType,
+                        isDeclaredStaticMethod,
+                        isProperty,
+                        decl
+                    );
                     const textEdit = this._createReplaceEdits(
                         priorWord,
                         partialName,
@@ -909,7 +937,12 @@ export class CompletionProvider {
         return methodSignature;
     }
 
-    private _printOverriddenMethodBody(classType: ClassType, declaredType: FunctionType, decl: FunctionDeclaration) {
+    private _printOverriddenMethodBody(
+        classType: ClassType,
+        isStaticMethod: boolean,
+        isProperty: boolean,
+        decl: FunctionDeclaration
+    ) {
         let sb = '    ';
 
         if (
@@ -926,15 +959,21 @@ export class CompletionProvider {
             return sb;
         }
 
-        const parameters = getParameters(declaredType, decl);
+        const parameters = getParameters();
         if (decl.node.name.value !== '__init__') {
             sb += 'return ';
         }
 
+        if (isProperty) {
+            // If it's a property, it's not clear what to provide in the
+            // implementation. Assume that the user will fill in the expression.
+            return sb;
+        }
+
         return sb + `super().${decl.node.name.value}(${parameters.map(convertToString).join(', ')})`;
 
-        function getParameters(declaredType: FunctionType, decl: FunctionDeclaration) {
-            if (FunctionType.isStaticMethod(declaredType)) {
+        function getParameters() {
+            if (isStaticMethod) {
                 return decl.node.parameters.filter((p) => p.name);
             }
 
