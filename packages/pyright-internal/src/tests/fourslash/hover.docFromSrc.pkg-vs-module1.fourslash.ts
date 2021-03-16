@@ -22,5 +22,5 @@
 //// print([|/*func1_docs*/func1|]())
 
 helper.verifyHover('markdown', {
-    func1_docs: '```python\n(function) func1: () -> bool\n```\nfunc1 docs',
+    func1_docs: '```python\n(function) func1: () -> bool\n```\n---\nfunc1 docs',
 });

@@ -235,6 +235,7 @@ export class AnalyzerService {
         similarityLimit: number,
         nameMap: AbbreviationMap | undefined,
         lazyEdit: boolean,
+        allowVariableInAll: boolean,
         token: CancellationToken
     ) {
         return this._program.getAutoImports(
@@ -244,6 +245,7 @@ export class AnalyzerService {
             nameMap,
             this._backgroundAnalysisProgram.getIndexing(filePath),
             lazyEdit,
+            allowVariableInAll,
             token
         );
     }

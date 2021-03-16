@@ -246,6 +246,7 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
     private _configOptions: ConfigOptions;
     private _importResolver: ImportResolver;
     private _program: Program;
+    protected _logTracker: LogTracker;
 
     get program(): Program {
         return this._program;
@@ -260,13 +261,16 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
 
         this._configOptions = new ConfigOptions(data.rootDirectory);
         this._importResolver = this.createImportResolver(this.fs, this._configOptions);
+
         const console = this.getConsole();
+        this._logTracker = new LogTracker(console, `BG(${threadId})`);
+
         this._program = new Program(
             this._importResolver,
             this._configOptions,
             console,
             this._extension,
-            new LogTracker(console, `BG(${threadId})`)
+            this._logTracker
         );
     }
 

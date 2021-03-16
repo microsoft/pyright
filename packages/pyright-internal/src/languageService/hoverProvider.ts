@@ -424,7 +424,13 @@ export class HoverProvider {
     private static _addDocumentationResultsPart(format: MarkupKind, parts: HoverTextPart[], docString?: string) {
         if (docString) {
             if (format === MarkupKind.Markdown) {
-                this._addResultsPart(parts, convertDocStringToMarkdown(docString));
+                const markDown = convertDocStringToMarkdown(docString);
+
+                if (parts.length > 0 && markDown.length > 0) {
+                    parts.push({ text: '---\n' });
+                }
+
+                this._addResultsPart(parts, markDown);
             } else if (format === MarkupKind.PlainText) {
                 this._addResultsPart(parts, convertDocStringToPlainText(docString));
             } else {

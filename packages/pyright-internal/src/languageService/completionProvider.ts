@@ -21,7 +21,13 @@ import {
 
 import { ImportLookup } from '../analyzer/analyzerFileInfo';
 import * as AnalyzerNodeInfo from '../analyzer/analyzerNodeInfo';
-import { Declaration, DeclarationType, FunctionDeclaration, isFunctionDeclaration } from '../analyzer/declaration';
+import {
+    Declaration,
+    DeclarationType,
+    FunctionDeclaration,
+    isAliasDeclaration,
+    isFunctionDeclaration,
+} from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
@@ -1669,8 +1675,10 @@ export class CompletionProvider {
         symbolTable.forEach((symbol, name) => {
             // If there are no declarations or the symbol is not
             // exported from this scope, don't include it in the
-            // suggestion list.
-            if (!symbol.isExternallyHidden() && includeSymbolCallback(name)) {
+            // suggestion list unless we are in the same file.
+            const hidden =
+                symbol.isExternallyHidden() && !symbol.getDeclarations().some((d) => this._definedInCurrentFile(d));
+            if (!hidden && includeSymbolCallback(name)) {
                 // Don't add a symbol more than once. It may have already been
                 // added from an inner scope's symbol table.
                 if (!completionList.items.some((item) => item.label === name)) {
@@ -1681,6 +1689,26 @@ export class CompletionProvider {
                 }
             }
         });
+    }
+
+    private _definedInCurrentFile(decl: Declaration) {
+        if (isAliasDeclaration(decl)) {
+            // Alias decl's path points to the original symbol
+            // the alias is pointing to. So, we need to get the
+            // filepath in that the alias is defined from the node.
+            return getFileInfo(decl.node)?.filePath === this._filePath;
+        }
+
+        // Other decls, the path points to the file the symbol is defined in.
+        return decl.path === this._filePath;
+
+        function getFileInfo(node: ParseNode | undefined) {
+            while (node && node.nodeType !== ParseNodeType.Module) {
+                node = node.parent;
+            }
+
+            return node ? AnalyzerNodeInfo.getFileInfo(node) : undefined;
+        }
     }
 
     private _addSymbol(
