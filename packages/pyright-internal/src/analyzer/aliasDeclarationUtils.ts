@@ -41,9 +41,6 @@ export function resolveAliasDeclaration(
         let lookupResult: ImportLookupResult | undefined;
         if (curDeclaration.path) {
             lookupResult = importLookup(curDeclaration.path);
-            if (!lookupResult) {
-                return undefined;
-            }
         }
 
         const symbol: Symbol | undefined = lookupResult

@@ -1610,10 +1610,14 @@ export class Binder extends ParseTreeWalker {
                             moduleName: this._fileInfo.moduleName,
                         };
 
-                        // Handle the case of "from . import X". In this case,
-                        // we want to always resolve to the submodule rather than
-                        // the resolved path.
-                        if (node.module.nameParts.length === 0) {
+                        // Handle the case of "from . import X" within an __init__ file.
+                        // In this case, we want to always resolve to the submodule rather
+                        // than the resolved path.
+                        if (
+                            fileName === '__init__' &&
+                            node.module.leadingDots === 1 &&
+                            node.module.nameParts.length === 0
+                        ) {
                             resolvedPath = '';
                         }
                     }

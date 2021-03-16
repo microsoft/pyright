@@ -14221,7 +14221,13 @@ export function createTypeEvaluator(
             return undefined;
         }
 
-        let aliasDecl = symbolWithScope.symbol.getDeclarations().find((decl) => decl.node === node);
+        // Normally there will be at most one decl associated with the import node, but
+        // there can be multiple in the case of the "from .X import X" statement. In such
+        // case, we want to choose the last declaration.
+        const filteredDecls = symbolWithScope.symbol
+            .getDeclarations()
+            .filter((decl) => ParseTreeUtils.isNodeContainedWithin(node, decl.node));
+        let aliasDecl = filteredDecls.length > 0 ? filteredDecls[filteredDecls.length - 1] : undefined;
 
         // If we didn't find an exact match, look for any alias associated with
         // this symbol. In cases where we have multiple ImportAs nodes that share
