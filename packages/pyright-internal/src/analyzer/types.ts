@@ -464,6 +464,13 @@ export namespace ClassType {
         return newClassType;
     }
 
+    export function cloneWithNewTypeParameters(classType: ClassType, typeParams: TypeVarType[]): ClassType {
+        const newClassType = { ...classType };
+        newClassType.details = { ...newClassType.details };
+        newClassType.details.typeParameters = typeParams;
+        return newClassType;
+    }
+
     export function isLiteralValueSame(type1: ClassType, type2: ClassType) {
         if (type1.literalValue === undefined) {
             return type2.literalValue === undefined;
@@ -1547,6 +1554,27 @@ export namespace TypeVarType {
         assert(type.details.isVariadic);
         const newInstance: TypeVarType = { ...type };
         newInstance.isVariadicUnpacked = false;
+        return newInstance;
+    }
+
+    // Creates a "simplified" version of the TypeVar with invariance
+    // and no bound or constraints. ParamSpecs and variadics are left unmodified.
+    export function cloneAsInvariant(type: TypeVarType) {
+        if (type.details.isParamSpec || type.details.isVariadic) {
+            return type;
+        }
+
+        if (type.details.variance === Variance.Invariant) {
+            if (type.details.boundType === undefined && type.details.constraints.length === 0) {
+                return type;
+            }
+        }
+
+        const newInstance: TypeVarType = { ...type };
+        newInstance.details = { ...newInstance.details };
+        newInstance.details.variance = Variance.Invariant;
+        newInstance.details.boundType = undefined;
+        newInstance.details.constraints = [];
         return newInstance;
     }
 

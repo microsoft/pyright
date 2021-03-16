@@ -42,10 +42,16 @@ new_sender = sender
 
 
 class Proto(Protocol[T]):
+    def m1(self, p0: T) -> None:
+        pass
+
     attr: T
 
 
 class Proto_Impl:
+    def m1(self, p0: int) -> None:
+        pass
+
     attr: int
 
 

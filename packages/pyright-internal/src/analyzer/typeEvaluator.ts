@@ -595,6 +595,7 @@ export interface TypeEvaluator {
         flags?: CanAssignFlags
     ) => boolean;
     canOverrideMethod: (baseMethod: Type, overrideMethod: FunctionType, diag: DiagnosticAddendum) => boolean;
+    canAssignProtocolClassToSelf: (destType: ClassType, srcType: ClassType) => boolean;
 
     addError: (message: string, node: ParseNode) => Diagnostic | undefined;
     addWarning: (message: string, node: ParseNode) => Diagnostic | undefined;
@@ -17749,8 +17750,8 @@ export function createTypeEvaluator(
                     diag.addMessage(Localizer.DiagnosticAddendum.protocolMemberMissing().format({ name }));
                     typesAreConsistent = false;
                 } else {
-                    let declaredType = getDeclaredTypeOfSymbol(symbol);
-                    if (declaredType) {
+                    let destMemberType = getDeclaredTypeOfSymbol(symbol);
+                    if (destMemberType) {
                         let srcMemberType = getTypeOfMember(memberInfo);
 
                         if (isFunction(srcMemberType) || isOverloadedFunction(srcMemberType)) {
@@ -17768,10 +17769,10 @@ export function createTypeEvaluator(
                                     srcMemberType = boundSrcFunction;
                                 }
 
-                                if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
+                                if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
                                     const boundDeclaredType = bindFunctionToClassOrObject(
                                         srcType,
-                                        declaredType,
+                                        destMemberType,
                                         /* memberClass */ undefined,
                                         /* errorNode */ undefined,
                                         recursionCount + 1,
@@ -17779,7 +17780,7 @@ export function createTypeEvaluator(
                                         srcType
                                     );
                                     if (boundDeclaredType) {
-                                        declaredType = boundDeclaredType;
+                                        destMemberType = boundDeclaredType;
                                     }
                                 }
                             } else if (isClass(memberInfo.classType)) {
@@ -17792,16 +17793,16 @@ export function createTypeEvaluator(
                                     srcMemberType = boundSrcFunction;
                                 }
 
-                                if (isFunction(declaredType) || isOverloadedFunction(declaredType)) {
+                                if (isFunction(destMemberType) || isOverloadedFunction(destMemberType)) {
                                     const boundDeclaredType = bindFunctionToClassOrObject(
                                         ObjectType.create(srcType),
-                                        declaredType,
+                                        destMemberType,
                                         memberInfo.classType,
                                         /* errorNode */ undefined,
                                         recursionCount + 1
                                     );
                                     if (boundDeclaredType) {
-                                        declaredType = boundDeclaredType;
+                                        destMemberType = boundDeclaredType;
                                     }
                                 }
                             }
@@ -17811,14 +17812,14 @@ export function createTypeEvaluator(
 
                         // Properties require special processing.
                         if (
-                            isObject(declaredType) &&
-                            ClassType.isPropertyClass(declaredType.classType) &&
+                            isObject(destMemberType) &&
+                            ClassType.isPropertyClass(destMemberType.classType) &&
                             isObject(srcMemberType) &&
                             ClassType.isPropertyClass(srcMemberType.classType)
                         ) {
                             if (
-                                !canAssignPropertyToProtocol(
-                                    declaredType.classType,
+                                !canAssignProperty(
+                                    destMemberType.classType,
                                     srcMemberType.classType,
                                     srcType,
                                     subDiag.createAddendum(),
@@ -17831,7 +17832,7 @@ export function createTypeEvaluator(
                             }
                         } else if (
                             !canAssignType(
-                                declaredType,
+                                destMemberType,
                                 srcMemberType,
                                 subDiag.createAddendum(),
                                 genericDestTypeVarMap,
@@ -18013,7 +18014,7 @@ export function createTypeEvaluator(
         return typesAreConsistent;
     }
 
-    function canAssignPropertyToProtocol(
+    function canAssignProperty(
         destPropertyType: ClassType,
         srcPropertyType: ClassType,
         srcClass: ClassType,
@@ -18073,6 +18074,83 @@ export function createTypeEvaluator(
                     diag.addMessage('getter type is incompatible');
                     isAssignable = false;
                     return;
+                }
+            }
+        });
+
+        return isAssignable;
+    }
+
+    // This function is used to validate the variance of type variables
+    // within a protocol class.
+    function canAssignProtocolClassToSelf(destType: ClassType, srcType: ClassType, recursionCount = 1): boolean {
+        assert(ClassType.isProtocolClass(destType));
+        assert(ClassType.isProtocolClass(srcType));
+        assert(ClassType.isSameGenericClass(destType, srcType));
+        assert(destType.details.typeParameters.length > 0);
+
+        const diag = new DiagnosticAddendum();
+        const typeVarMap = new TypeVarMap();
+        let isAssignable = true;
+
+        destType.details.fields.forEach((symbol, name) => {
+            if (isAssignable && symbol.isClassMember() && !symbol.isIgnoredForProtocolMatch()) {
+                const memberInfo = lookUpClassMember(srcType, name);
+                assert(memberInfo !== undefined);
+
+                let destMemberType = getDeclaredTypeOfSymbol(symbol);
+                if (destMemberType) {
+                    const srcMemberType = getTypeOfMember(memberInfo!);
+                    destMemberType = partiallySpecializeType(destMemberType, destType);
+
+                    // Properties require special processing.
+                    if (
+                        isObject(destMemberType) &&
+                        ClassType.isPropertyClass(destMemberType.classType) &&
+                        isObject(srcMemberType) &&
+                        ClassType.isPropertyClass(srcMemberType.classType)
+                    ) {
+                        if (
+                            !canAssignProperty(
+                                destMemberType.classType,
+                                srcMemberType.classType,
+                                srcType,
+                                diag,
+                                typeVarMap,
+                                recursionCount + 1
+                            )
+                        ) {
+                            isAssignable = false;
+                        }
+                    } else if (
+                        !canAssignType(
+                            destMemberType,
+                            srcMemberType,
+                            diag,
+                            typeVarMap,
+                            CanAssignFlags.Default,
+                            recursionCount + 1
+                        )
+                    ) {
+                        isAssignable = false;
+                    }
+                }
+            }
+        });
+
+        // Now handle base classes.
+        destType.details.baseClasses.forEach((baseClass) => {
+            if (
+                isClass(baseClass) &&
+                !ClassType.isBuiltIn(baseClass, 'object') &&
+                !ClassType.isBuiltIn(baseClass, 'Protocol')
+            ) {
+                const specializedDestBaseClass = specializeForBaseClass(destType, baseClass);
+                const specializedSrcBaseClass = specializeForBaseClass(srcType, baseClass);
+                if (
+                    !canAssignProtocolClassToSelf(specializedDestBaseClass, specializedSrcBaseClass, recursionCount + 1)
+                ) {
+                    isAssignable = false;
                 }
             }
         });
@@ -18486,7 +18564,6 @@ export function createTypeEvaluator(
                 const destTypeParam = destArgIndex < destTypeParams.length ? destTypeParams[destArgIndex] : undefined;
                 const assignmentDiag = new DiagnosticAddendum();
 
-                // Are we assigning to a variadic type parameter?
                 if (!destTypeParam || destTypeParam.details.variance === Variance.Covariant) {
                     if (
                         !canAssignType(destTypeArg, srcTypeArg, assignmentDiag, typeVarMap, flags, recursionCount + 1)
@@ -21072,6 +21149,7 @@ export function createTypeEvaluator(
         getTypeAnnotationForParameter,
         canAssignType,
         canOverrideMethod,
+        canAssignProtocolClassToSelf,
         addError,
         addWarning,
         addInformation,

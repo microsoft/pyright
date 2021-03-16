@@ -669,6 +669,14 @@ test('Protocol16', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Protocol17', () => {
+    const configOptions = new ConfigOptions('.');
+    configOptions.diagnosticRuleSet.reportInvalidTypeVarUse = 'error';
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['protocol17.py']);
+
+    TestUtils.validateResults(analysisResults, 7);
+});
+
 test('TypedDict1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict1.py']);
 

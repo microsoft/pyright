@@ -82,6 +82,7 @@ import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
 import { TypeEvaluator } from './typeEvaluator';
 import {
+    AnyType,
     ClassType,
     combineTypes,
     FunctionType,
@@ -229,6 +230,10 @@ export class Checker extends ParseTreeWalker {
                         }
                     }
                 });
+
+                // If this is a generic protocol class, verify that its type variables
+                // have the proper variance.
+                this._validateProtocolTypeParamVariance(node, classTypeResult.classType);
             }
 
             this._validateClassMethods(classTypeResult.classType);
@@ -2454,6 +2459,95 @@ export class Checker extends ParseTreeWalker {
                         className: parentSymbol.classType.details.name,
                     }),
                     decl.node
+                );
+            }
+        });
+    }
+
+    // Validates that the type variables used in a generic protocol class have
+    // the proper variance (invariant, covariant, contravariant). See PEP 544
+    // for an explanation for why this is important to enforce.
+    private _validateProtocolTypeParamVariance(errorNode: ClassNode, classType: ClassType) {
+        const origTypeParams = classType.details.typeParameters;
+
+        // If this isn't a generic protocol, there's nothing to do here.
+        if (origTypeParams.length === 0) {
+            return;
+        }
+
+        const objectType = this._evaluator.getBuiltInType(errorNode, 'object');
+        if (!isClass(objectType)) {
+            return;
+        }
+
+        // Replace all of the type parameters with invariant TypeVars.
+        const updatedTypeParams = origTypeParams.map((typeParam) => TypeVarType.cloneAsInvariant(typeParam));
+        const updatedClassType = ClassType.cloneWithNewTypeParameters(classType, updatedTypeParams);
+
+        const objectObject = ObjectType.create(objectType);
+
+        updatedTypeParams.forEach((param, paramIndex) => {
+            // Replace all type arguments with Any except for the
+            // TypeVar of interest, which is replaced with an object instance.
+            const srcTypeArgs = updatedTypeParams.map((_, i) => {
+                return i === paramIndex ? objectObject : AnyType.create();
+            });
+
+            // Replace all type arguments with Any except for the
+            // TypeVar of interest, which is replaced with itself.
+            const destTypeArgs = updatedTypeParams.map((p, i) => {
+                return i === paramIndex ? p : AnyType.create();
+            });
+
+            const srcType = ClassType.cloneForSpecialization(
+                updatedClassType,
+                srcTypeArgs,
+                /* isTypeArgumentExplicit */ true
+            );
+            const destType = ClassType.cloneForSpecialization(
+                updatedClassType,
+                destTypeArgs,
+                /* isTypeArgumentExplicit */ true
+            );
+
+            const isDestSubtypeOfSrc = this._evaluator.canAssignProtocolClassToSelf(srcType, destType);
+
+            let expectedVariance: Variance;
+            if (isDestSubtypeOfSrc) {
+                expectedVariance = Variance.Covariant;
+            } else {
+                const isSrcSubtypeOfDest = this._evaluator.canAssignProtocolClassToSelf(destType, srcType);
+                if (isSrcSubtypeOfDest) {
+                    expectedVariance = Variance.Contravariant;
+                } else {
+                    expectedVariance = Variance.Invariant;
+                }
+            }
+
+            if (expectedVariance !== origTypeParams[paramIndex].details.variance) {
+                let message: string;
+                if (expectedVariance === Variance.Covariant) {
+                    message = Localizer.Diagnostic.protocolVarianceCovariant().format({
+                        variable: param.details.name,
+                        class: classType.details.name,
+                    });
+                } else if (expectedVariance === Variance.Contravariant) {
+                    message = Localizer.Diagnostic.protocolVarianceContravariant().format({
+                        variable: param.details.name,
+                        class: classType.details.name,
+                    });
+                } else {
+                    message = Localizer.Diagnostic.protocolVarianceInvariant().format({
+                        variable: param.details.name,
+                        class: classType.details.name,
+                    });
+                }
+
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportInvalidTypeVarUse,
+                    DiagnosticRule.reportInvalidTypeVarUse,
+                    message,
+                    errorNode.name
                 );
             }
         });

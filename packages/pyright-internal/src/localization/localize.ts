@@ -541,6 +541,18 @@ export namespace Localizer {
         export const protocolIllegal = () => getRawString('Diagnostic.protocolIllegal');
         export const protocolUsedInCall = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.protocolUsedInCall'));
+        export const protocolVarianceContravariant = () =>
+            new ParameterizedString<{ variable: string; class: string }>(
+                getRawString('Diagnostic.protocolVarianceContravariant')
+            );
+        export const protocolVarianceCovariant = () =>
+            new ParameterizedString<{ variable: string; class: string }>(
+                getRawString('Diagnostic.protocolVarianceCovariant')
+            );
+        export const protocolVarianceInvariant = () =>
+            new ParameterizedString<{ variable: string; class: string }>(
+                getRawString('Diagnostic.protocolVarianceInvariant')
+            );
         export const raiseParams = () => getRawString('Diagnostic.raiseParams');
         export const recursiveDefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.recursiveDefinition'));

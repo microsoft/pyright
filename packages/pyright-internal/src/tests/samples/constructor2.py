@@ -17,6 +17,7 @@ from typing import (
 
 
 _T1 = TypeVar("_T1")
+_T1_contra = TypeVar("_T1_contra", contravariant=True)
 _T2 = TypeVar("_T2")
 _T3 = TypeVar("_T3")
 
@@ -34,8 +35,8 @@ class Donkey(Animal[int, int], Generic[_T3]):
     pass
 
 
-class Flyer(Protocol[_T1]):
-    def get_wingspan(self, p1: _T1) -> float:
+class Flyer(Protocol[_T1_contra]):
+    def get_wingspan(self, p1: _T1_contra) -> float:
         raise NotImplemented
 
 

@@ -4,12 +4,13 @@
 from abc import abstractmethod
 from typing import Protocol, TypeVar
 
+_T_contra = TypeVar("_T_contra", contravariant=True)
 _T = TypeVar("_T")
 
 
-class ComparableTo(Protocol[_T]):
+class ComparableTo(Protocol[_T_contra]):
     @abstractmethod
-    def __lt__(self, x: _T) -> bool:
+    def __lt__(self, x: _T_contra) -> bool:
         pass
 
 
