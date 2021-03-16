@@ -1,9 +1,0 @@
-{
-    "executionEnvironments": [
-        {
-            "root": ".",
-            "pythonVersion": "3.5",
-            "pythonPlatform": "Windows"
-        }
-    ]
-}

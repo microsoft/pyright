@@ -70,7 +70,12 @@ export function parseText(
 export function parseSampleFile(
     fileName: string,
     diagSink: DiagnosticSink,
-    execEnvironment = new ExecutionEnvironment('.')
+    execEnvironment = new ExecutionEnvironment(
+        '.',
+        /* defaultPythonVersion */ undefined,
+        /* defaultPythonPlatform */ undefined,
+        /* defaultExtraPaths */ undefined
+    )
 ): FileParseResult {
     const text = readSampleFile(fileName);
     const parseOptions = new ParseOptions();
