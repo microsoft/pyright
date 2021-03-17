@@ -3210,20 +3210,24 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.TypeAnnotation: {
-                const annotationType = getTypeOfAnnotation(
+                const annotationType: Type | undefined = getTypeOfAnnotation(
                     target.typeAnnotation,
                     ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.valueExpression)
                 );
-                const isTypeAliasAnnotation =
-                    isObject(annotationType) && ClassType.isBuiltIn(annotationType.classType, 'TypeAlias');
 
-                if (!isTypeAliasAnnotation) {
-                    if (canAssignType(annotationType, type, new DiagnosticAddendum())) {
-                        // Don't attempt to narrow based on the annotated type if the type
-                        // is a enum because the annotated type in an enum doesn't reflect
-                        // the type of the symbol.
-                        if (!isObject(type) || !ClassType.isEnumClass(type.classType)) {
-                            type = narrowTypeBasedOnAssignment(annotationType, type);
+                // Handle a bare "Final" in a special manner.
+                if (!isObject(annotationType) || !ClassType.isBuiltIn(annotationType.classType, 'Final')) {
+                    const isTypeAliasAnnotation =
+                        isObject(annotationType) && ClassType.isBuiltIn(annotationType.classType, 'TypeAlias');
+
+                    if (!isTypeAliasAnnotation) {
+                        if (canAssignType(annotationType, type, new DiagnosticAddendum())) {
+                            // Don't attempt to narrow based on the annotated type if the type
+                            // is a enum because the annotated type in an enum doesn't reflect
+                            // the type of the symbol.
+                            if (!isObject(type) || !ClassType.isEnumClass(type.classType)) {
+                                type = narrowTypeBasedOnAssignment(annotationType, type);
+                            }
                         }
                     }
                 }
@@ -10606,14 +10610,19 @@ export function createTypeEvaluator(
     }
 
     // Creates a "Final" type.
-    function createFinalType(errorNode: ParseNode, typeArgs: TypeResult[] | undefined, flags: EvaluatorFlags): Type {
+    function createFinalType(
+        classType: ClassType,
+        errorNode: ParseNode,
+        typeArgs: TypeResult[] | undefined,
+        flags: EvaluatorFlags
+    ): Type {
         if (flags & EvaluatorFlags.FinalDisallowed) {
             addError(Localizer.Diagnostic.finalContext(), errorNode);
             return AnyType.create();
         }
 
         if (!typeArgs || typeArgs.length === 0) {
-            return AnyType.create();
+            return classType;
         }
 
         if (typeArgs.length > 1) {
@@ -16359,7 +16368,7 @@ export function createTypeEvaluator(
                 }
 
                 case 'Final': {
-                    return createFinalType(errorNode, typeArgs, flags);
+                    return createFinalType(classType, errorNode, typeArgs, flags);
                 }
 
                 case 'Annotated': {

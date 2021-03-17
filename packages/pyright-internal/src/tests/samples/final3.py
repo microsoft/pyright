@@ -2,7 +2,7 @@
 # introduced in Python 3.8.
 
 import typing
-from typing import Final, List
+from typing import Final, List, Literal
 
 foo1: typing.Final = 3
 
@@ -24,6 +24,10 @@ foo2: Final[str] = 3
 # This should generate an error because
 # we expect only one type argument for Final.
 foo3: Final[str, int] = "hello"
+
+
+foo4: Final = 5
+t_4: Literal["Literal[5]"] = reveal_type(foo4)
 
 
 class Foo:
