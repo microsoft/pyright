@@ -773,6 +773,7 @@ export class Program {
     private _buildModuleSymbolsMap(
         sourceFileToExclude: SourceFileInfo,
         userFileOnly: boolean,
+        includeIndexUserSymbols: boolean,
         token: CancellationToken
     ): ModuleSymbolMap {
         // If we have library map, always use the map for library symbols.
@@ -780,6 +781,7 @@ export class Program {
             this._sourceFileList.filter(
                 (s) => s !== sourceFileToExclude && (userFileOnly ? this._isUserCode(s) : true)
             ),
+            includeIndexUserSymbols,
             token
         );
     }
@@ -1014,7 +1016,12 @@ export class Program {
             }
 
             const writtenWord = fileContents.substr(textRange.start, textRange.length);
-            const map = this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token);
+            const map = this._buildModuleSymbolsMap(
+                sourceFileInfo,
+                !!libraryMap,
+                /* includeIndexUserSymbols */ true,
+                token
+            );
             const autoImporter = new AutoImporter(
                 this._configOptions.findExecEnvironment(filePath),
                 this._importResolver,
@@ -1415,7 +1422,13 @@ export class Program {
                         this._createSourceMapper(execEnv, /* mapCompiled */ true),
                         nameMap,
                         libraryMap,
-                        () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),
+                        () =>
+                            this._buildModuleSymbolsMap(
+                                sourceFileInfo,
+                                !!libraryMap,
+                                /* includeIndexUserSymbols */ false,
+                                token
+                            ),
                         token
                     );
                 });
@@ -1474,7 +1487,13 @@ export class Program {
                 this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 nameMap,
                 libraryMap,
-                () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),
+                () =>
+                    this._buildModuleSymbolsMap(
+                        sourceFileInfo,
+                        !!libraryMap,
+                        /* includeIndexUserSymbols */ false,
+                        token
+                    ),
                 completionItem,
                 token
             );

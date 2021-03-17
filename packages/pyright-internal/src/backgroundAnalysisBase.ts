@@ -244,7 +244,7 @@ export class BackgroundAnalysisBase {
 
 export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
     private _configOptions: ConfigOptions;
-    private _importResolver: ImportResolver;
+    protected _importResolver: ImportResolver;
     private _program: Program;
     protected _logTracker: LogTracker;
 

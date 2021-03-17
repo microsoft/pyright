@@ -104,7 +104,7 @@ export class ImportResolver {
         execEnv: ExecutionEnvironment,
         moduleDescriptor: ImportedModuleDescriptor
     ): ImportResult {
-        const importName = this._formatImportName(moduleDescriptor);
+        const importName = this.formatImportName(moduleDescriptor);
         const importFailureInfo: string[] = [];
 
         const notFoundResult: ImportResult = {
@@ -981,7 +981,7 @@ export class ImportResolver {
         moduleDescriptor: ImportedModuleDescriptor,
         allowPyi: boolean
     ): ImportResult | undefined {
-        const importName = this._formatImportName(moduleDescriptor);
+        const importName = this.formatImportName(moduleDescriptor);
         const importFailureInfo: string[] = [];
 
         // First check for a stdlib typeshed file.
@@ -1638,7 +1638,7 @@ export class ImportResolver {
         return [...implicitImportMap.values()];
     }
 
-    private _formatImportName(moduleDescriptor: ImportedModuleDescriptor) {
+    protected formatImportName(moduleDescriptor: ImportedModuleDescriptor) {
         let name = '';
         for (let i = 0; i < moduleDescriptor.leadingDots; i++) {
             name += '.';
