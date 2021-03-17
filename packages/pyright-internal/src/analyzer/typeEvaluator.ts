@@ -5223,7 +5223,10 @@ export function createTypeEvaluator(
                     } else if (indexValue >= 0 && indexValue < tupleType.tupleTypeArguments.length) {
                         return { node, type: tupleType.tupleTypeArguments[indexValue] };
                     } else if (indexValue < 0 && tupleType.tupleTypeArguments.length + indexValue >= 0) {
-                        return { node, type: tupleType.tupleTypeArguments[tupleType.tupleTypeArguments.length + indexValue] };
+                        return {
+                            node,
+                            type: tupleType.tupleTypeArguments[tupleType.tupleTypeArguments.length + indexValue],
+                        };
                     }
                 }
             }
