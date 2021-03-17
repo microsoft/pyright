@@ -95,11 +95,7 @@ export class HoverProvider {
                 // the first declaration, it will show up as a module rather than
                 // the imported symbol type.
                 let primaryDeclaration = declarations[0];
-                if (
-                    primaryDeclaration.type === DeclarationType.Alias &&
-                    declarations.length > 1 &&
-                    declarations[1].type !== DeclarationType.Alias
-                ) {
+                if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
                     primaryDeclaration = declarations[1];
                 }
 
