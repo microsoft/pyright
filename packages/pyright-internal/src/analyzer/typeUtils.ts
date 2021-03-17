@@ -750,8 +750,6 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
     const declaredTypesOnly = (flags & ClassMemberLookupFlags.DeclaredTypesOnly) !== 0;
 
     if (isClass(classType)) {
-        let foundUnknownBaseClass = false;
-
         let classFlags = ClassIteratorFlags.Default;
         if (flags & ClassMemberLookupFlags.SkipOriginalClass) {
             classFlags = classFlags | ClassIteratorFlags.SkipOriginalClass;
@@ -767,7 +765,17 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
 
         for (const [mroClass, specializedMroClass] of classItr) {
             if (!isClass(mroClass)) {
-                foundUnknownBaseClass = true;
+                if (!declaredTypesOnly) {
+                    // The class derives from an unknown type, so all bets are off
+                    // when trying to find a member. Return an unknown symbol.
+                    const cm: ClassMember = {
+                        symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
+                        isInstanceMember: false,
+                        classType: UnknownType.create(),
+                        isTypeDeclared: false,
+                    };
+                    yield cm;
+                }
                 continue;
             }
 
@@ -822,18 +830,6 @@ export function* getClassMemberIterator(classType: Type, memberName: string, fla
                     yield cm;
                 }
             }
-        }
-
-        if (foundUnknownBaseClass && !declaredTypesOnly) {
-            // The class derives from an unknown type, so all bets are off
-            // when trying to find a member. Return an unknown symbol.
-            const cm: ClassMember = {
-                symbol: Symbol.createWithType(SymbolFlags.None, UnknownType.create()),
-                isInstanceMember: false,
-                classType: UnknownType.create(),
-                isTypeDeclared: false,
-            };
-            yield cm;
         }
     } else if (isAnyOrUnknown(classType)) {
         // The class derives from an unknown type, so all bets are off
