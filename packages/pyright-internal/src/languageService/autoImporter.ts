@@ -46,7 +46,11 @@ export type ModuleSymbolMap = Map<string, ModuleSymbolTable>;
 
 // Build a map of all modules within this program and the module-
 // level scope that contains the symbol table for the module.
-export function buildModuleSymbolsMap(files: SourceFileInfo[], token: CancellationToken): ModuleSymbolMap {
+export function buildModuleSymbolsMap(
+    files: SourceFileInfo[],
+    includeIndexUserSymbols: boolean,
+    token: CancellationToken
+): ModuleSymbolMap {
     const moduleSymbolMap = new Map<string, ModuleSymbolTable>();
 
     files.forEach((file) => {
@@ -105,7 +109,12 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
             return;
         }
 
-        // For now, don't iterate through closed user files using indices.
+        // Iterate through closed user files using indices if asked.
+        const indexResults = file.sourceFile.getCachedIndexResults();
+        if (indexResults && includeIndexUserSymbols && !indexResults.privateOrProtected) {
+            moduleSymbolMap.set(filePath, createModuleSymbolTableFromIndexResult(indexResults, /* library */ false));
+            return;
+        }
     });
 
     return moduleSymbolMap;
