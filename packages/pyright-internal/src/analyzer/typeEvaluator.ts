@@ -5211,16 +5211,19 @@ export function createTypeEvaluator(
         ) {
             const baseTypeClass = baseType.classType;
             const index0Expr = node.items[0].valueExpression;
+            const valueType = getTypeOfExpression(index0Expr).type;
 
-            if (index0Expr.nodeType === ParseNodeType.Number && index0Expr.isInteger && !index0Expr.isImaginary) {
+            if (isObject(valueType) && ClassType.isBuiltIn(valueType.classType, 'int') && isLiteralType(valueType)) {
+                const indexValue = valueType.classType.literalValue as number;
                 const tupleType = getSpecializedTupleType(baseTypeClass);
-                if (tupleType && tupleType.tupleTypeArguments && tupleType.tupleTypeArguments.length > 0) {
-                    if (index0Expr.isInteger && index0Expr.value >= 0) {
-                        if (isOpenEndedTupleClass(tupleType)) {
-                            return { node, type: tupleType.tupleTypeArguments[0] };
-                        } else if (index0Expr.value < tupleType.tupleTypeArguments.length) {
-                            return { node, type: tupleType.tupleTypeArguments[index0Expr.value] };
-                        }
+
+                if (tupleType && tupleType.tupleTypeArguments) {
+                    if (isOpenEndedTupleClass(tupleType)) {
+                        return { node, type: tupleType.tupleTypeArguments[0] };
+                    } else if (indexValue >= 0 && indexValue < tupleType.tupleTypeArguments.length) {
+                        return { node, type: tupleType.tupleTypeArguments[indexValue] };
+                    } else if (indexValue < 0 && tupleType.tupleTypeArguments.length + indexValue >= 0) {
+                        return { node, type: tupleType.tupleTypeArguments[tupleType.tupleTypeArguments.length + indexValue] };
                     }
                 }
             }

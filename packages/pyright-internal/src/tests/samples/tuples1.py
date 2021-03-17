@@ -1,6 +1,6 @@
 # This sample file tests various aspects of type analysis for tuples.
 
-from typing import List, Tuple
+from typing import List, Literal, Tuple
 import os
 
 
@@ -127,7 +127,10 @@ def func12():
 # Tests for index-out-of-range error.
 def func13(a: Tuple[int, str], b: Tuple[()], c: Tuple[int, ...]):
     v1 = a[0]
+    t_v1: Literal["int"] = reveal_type(v1)
+
     v2 = a[1]
+    t_v2: Literal["str"] = reveal_type(v2)
 
     # This should generate an error.
     v3 = a[2]
@@ -136,4 +139,16 @@ def func13(a: Tuple[int, str], b: Tuple[()], c: Tuple[int, ...]):
     v4 = b[0]
 
     v5 = c[100]
+    t_v5: Literal["int"] = reveal_type(v5)
 
+    v6 = a[-2]
+    t_v6: Literal["int"] = reveal_type(v6)
+
+    v7 = a[-1]
+    t_v7: Literal["str"] = reveal_type(v7)
+
+    v8 = a[-3]
+    t_v8: Literal["int | str"] = reveal_type(v8)
+
+    v9 = c[-100]
+    t_v9: Literal["int"] = reveal_type(v9)
