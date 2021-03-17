@@ -16404,7 +16404,8 @@ export function createTypeEvaluator(
         if (
             fileInfo.isStubFile ||
             fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_9 ||
-            isAnnotationEvaluationPostponed(getFileInfo(errorNode))
+            isAnnotationEvaluationPostponed(getFileInfo(errorNode)) ||
+            (flags & EvaluatorFlags.AllowForwardReferences) !== 0
         ) {
             // Handle "type" specially, since it needs to act like "Type"
             // in Python 3.9 and newer.
