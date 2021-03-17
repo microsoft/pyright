@@ -917,8 +917,6 @@ export namespace Localizer {
             new ParameterizedString<{ type: string; name: string }>(
                 getRawString('DiagnosticAddendum.typeConstrainedTypeVar')
             );
-        export const typeConstraint = () =>
-            new ParameterizedString<{ type: string; name: string }>(getRawString('DiagnosticAddendum.typeConstraint'));
         export const typedDictFieldMissing = () =>
             new ParameterizedString<{ name: string; type: string }>(
                 getRawString('DiagnosticAddendum.typedDictFieldMissing')

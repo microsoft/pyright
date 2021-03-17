@@ -18495,14 +18495,14 @@ export function createTypeEvaluator(
 
     // Assigns the source type to the dest type var in the type map. If an existing type is
     // already associated with that type var name, it attempts to either widen or narrow
-    // the type (depending on the value of the canNarrowType parameter). The goal is to
+    // the type (depending on the value of the isContravariant parameter). The goal is to
     // produce the narrowest type that meets all of the requirements. If the type var map
     // has been "locked", it simply validates that the srcType is compatible (with no attempt
     // to widen or narrow).
     function canAssignTypeToTypeVar(
         destType: TypeVarType,
         srcType: Type,
-        canNarrowType: boolean,
+        isContravariant: boolean,
         diag: DiagnosticAddendum,
         typeVarMap: TypeVarMap,
         flags = CanAssignFlags.Default,
@@ -18609,7 +18609,11 @@ export function createTypeEvaluator(
 
                     if (!constrainedSubtype) {
                         // We found a source subtype that is not compatible with the dest.
-                        isCompatible = false;
+                        // This is OK if we're handling the contravariant case because only
+                        // one subtype needs to be assignable in that case.
+                        if (!isContravariant) {
+                            isCompatible = false;
+                        }
                     }
 
                     return constrainedSubtype;
@@ -18625,7 +18629,7 @@ export function createTypeEvaluator(
             // it's an error.
             if (!constrainedType || (isUnion(constrainedType) && !constrainedType.constraints)) {
                 diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeConstraint().format({
+                    Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
                         type: printType(srcType),
                         name: destType.details.name,
                     })
@@ -18644,7 +18648,7 @@ export function createTypeEvaluator(
                         }
                     } else {
                         diag.addMessage(
-                            Localizer.DiagnosticAddendum.typeConstraint().format({
+                            Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
                                 type: printType(constrainedType),
                                 name: printType(curNarrowTypeBound),
                             })
@@ -18674,7 +18678,7 @@ export function createTypeEvaluator(
         let newWideTypeBound = curWideTypeBound;
         const diagAddendum = new DiagnosticAddendum();
 
-        if (canNarrowType) {
+        if (isContravariant) {
             // Update the wide type bound.
             if (!curWideTypeBound) {
                 newWideTypeBound = adjSrcType;
