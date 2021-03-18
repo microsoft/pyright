@@ -1160,9 +1160,13 @@ export function createTypeEvaluator(
                 break;
             }
 
-            case ParseNodeType.Yield:
-            case ParseNodeType.YieldFrom: {
+            case ParseNodeType.Yield: {
                 typeResult = getTypeFromYield(node);
+                break;
+            }
+
+            case ParseNodeType.YieldFrom: {
+                typeResult = getTypeFromYieldFrom(node);
                 break;
             }
 
@@ -10007,7 +10011,25 @@ export function createTypeEvaluator(
         return { type, node };
     }
 
-    function getTypeFromYield(node: YieldNode | YieldFromNode): TypeResult {
+    function getTypeFromYield(node: YieldNode): TypeResult {
+        let sentType: Type | undefined;
+
+        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
+        if (enclosingFunction) {
+            const functionTypeInfo = getTypeOfFunction(enclosingFunction);
+            if (functionTypeInfo) {
+                sentType = getDeclaredGeneratorSendType(functionTypeInfo.functionType);
+            }
+        }
+
+        if (node.expression) {
+            getTypeOfExpression(node.expression).type;
+        }
+
+        return { type: sentType || UnknownType.create(), node };
+    }
+
+    function getTypeFromYieldFrom(node: YieldFromNode): TypeResult {
         let sentType: Type | undefined;
 
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
@@ -10019,12 +10041,10 @@ export function createTypeEvaluator(
         }
 
         let returnedType: Type | undefined;
-        if (node.expression) {
-            const generatorType = getTypeOfExpression(node.expression, sentType).type;
-            const generatorTypeArgs = getGeneratorTypeArgs(generatorType);
-            if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
-                returnedType = generatorTypeArgs[2];
-            }
+        const generatorType = getTypeOfExpression(node.expression, sentType).type;
+        const generatorTypeArgs = getGeneratorTypeArgs(generatorType);
+        if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
+            returnedType = generatorTypeArgs[2];
         }
 
         return { type: returnedType || UnknownType.create(), node };
