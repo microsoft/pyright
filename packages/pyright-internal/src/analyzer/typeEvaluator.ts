@@ -16769,6 +16769,8 @@ export function createTypeEvaluator(
                 doForEachSubtype(baseType, (subtype) => {
                     let symbol: Symbol | undefined;
 
+                    subtype = makeTopLevelTypeVarsConcrete(subtype);
+
                     if (isClass(subtype)) {
                         // Try to find a member that has a declared type. If so, that
                         // overrides any inferred types.
