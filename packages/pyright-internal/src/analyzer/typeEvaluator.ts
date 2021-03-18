@@ -16646,7 +16646,11 @@ export function createTypeEvaluator(
             // search for the symbol in outer scopes.
             if (decls.length === 0) {
                 if (symbolWithScope.scope.parent) {
-                    symbolWithScope = symbolWithScope.scope.parent.lookUpSymbolRecursive(name);
+                    symbolWithScope = symbolWithScope.scope.parent.lookUpSymbolRecursive(
+                        name,
+                        symbolWithScope.isOutsideCallerModule || symbolWithScope.scope.type === ScopeType.Module,
+                        symbolWithScope.isBeyondExecutionScope || symbolWithScope.scope.isIndependentlyExecutable()
+                    );
                 } else {
                     symbolWithScope = undefined;
                 }

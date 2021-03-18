@@ -106,32 +106,10 @@ export class Scope {
         return this.symbolTable.get(name);
     }
 
-    lookUpSymbolRecursive(name: string): SymbolWithScope | undefined {
-        return this._lookUpSymbolRecursiveInternal(
-            name,
-            /* isOutsideCallerModule */ false,
-            /* isBeyondExecutionScope */ false
-        );
-    }
-
-    addSymbol(name: string, flags: SymbolFlags): Symbol {
-        const symbol = new Symbol(flags);
-        this.symbolTable.set(name, symbol);
-        return symbol;
-    }
-
-    getBindingType(name: string) {
-        return this.notLocalBindings.get(name);
-    }
-
-    setBindingType(name: string, bindingType: NameBindingType) {
-        return this.notLocalBindings.set(name, bindingType);
-    }
-
-    private _lookUpSymbolRecursiveInternal(
+    lookUpSymbolRecursive(
         name: string,
-        isOutsideCallerModule: boolean,
-        isBeyondExecutionScope: boolean
+        isOutsideCallerModule = false,
+        isBeyondExecutionScope = false
     ): SymbolWithScope | undefined {
         const symbol = this.symbolTable.get(name);
 
@@ -169,7 +147,7 @@ export class Scope {
             // If our recursion is about to take us outside the scope of the current
             // module (i.e. into a built-in scope), indicate as such with the second
             // parameter.
-            return parentScope._lookUpSymbolRecursiveInternal(
+            return parentScope.lookUpSymbolRecursive(
                 name,
                 isOutsideCallerModule || this.type === ScopeType.Module,
                 isBeyondExecutionScope || this.isIndependentlyExecutable()
@@ -177,5 +155,19 @@ export class Scope {
         }
 
         return undefined;
+    }
+
+    addSymbol(name: string, flags: SymbolFlags): Symbol {
+        const symbol = new Symbol(flags);
+        this.symbolTable.set(name, symbol);
+        return symbol;
+    }
+
+    getBindingType(name: string) {
+        return this.notLocalBindings.get(name);
+    }
+
+    setBindingType(name: string, bindingType: NameBindingType) {
+        return this.notLocalBindings.set(name, bindingType);
     }
 }
