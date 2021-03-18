@@ -247,6 +247,9 @@ interface TypeResult {
     type: Type;
     node: ParseNode;
 
+    // Type consistency errors detected when evaluating this type.
+    typeErrors?: boolean;
+
     // Variadic type arguments allow the shorthand "()" to
     // represent an empty tuple (i.e. Tuple[()]).
     isEmptyTupleShorthand?: boolean;
@@ -5805,15 +5808,18 @@ export function createTypeEvaluator(
                     addError(Localizer.Diagnostic.revealLocalsArgs(), node);
                 }
             } else {
-                returnResult.type =
-                    validateCallArguments(
-                        node,
-                        argList,
-                        baseTypeResult.type,
-                        /* typeVarMap */ undefined,
-                        /* skipUnknownArgCheck */ false,
-                        expectedType
-                    ).returnType || UnknownType.create();
+                const callResult = validateCallArguments(
+                    node,
+                    argList,
+                    baseTypeResult.type,
+                    /* typeVarMap */ undefined,
+                    /* skipUnknownArgCheck */ false,
+                    expectedType
+                );
+                returnResult.type = callResult.returnType || UnknownType.create();
+                if (callResult.argumentErrors) {
+                    returnResult.typeErrors = true;
+                }
             }
 
             if (baseTypeResult.isIncomplete) {
@@ -7786,6 +7792,9 @@ export function createTypeEvaluator(
             argType = exprType.type;
             if (exprType.isIncomplete) {
                 isTypeIncomplete = true;
+            }
+            if (exprType.typeErrors) {
+                return { isCompatible: false };
             }
             expectedTypeDiag = exprType.expectedTypeDiagAddendum;
 
