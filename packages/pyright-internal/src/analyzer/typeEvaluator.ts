@@ -4975,7 +4975,7 @@ export function createTypeEvaluator(
             typeParameters.forEach((param, index) => {
                 const typeArgType: Type =
                     index < typeArgs.length ? convertToInstance(typeArgs[index].type) : UnknownType.create();
-                canAssignTypeToTypeVar(param, typeArgType, /* canNarrowType */ false, diag, typeVarMap);
+                canAssignTypeToTypeVar(param, typeArgType, diag, typeVarMap);
             });
 
             if (!diag.isEmpty()) {
@@ -6379,7 +6379,8 @@ export function createTypeEvaluator(
                 typeVarMap.setTypeVarType(
                     entry.typeVar,
                     entry.typeVar.details.variance === Variance.Covariant ? undefined : typeVarType,
-                    entry.typeVar.details.variance === Variance.Contravariant ? undefined : typeVarType
+                    entry.typeVar.details.variance === Variance.Contravariant ? undefined : typeVarType,
+                    entry.retainLiteral
                 );
             });
             return true;
@@ -6953,14 +6954,15 @@ export function createTypeEvaluator(
             if (expectedType.category !== TypeCategory.Union) {
                 // Prepopulate the typeVarMap based on the specialized expected type if the
                 // callee has a declared return type. This will allow us to more closely match
-                // the expected type if possible. We set the AllowTypeVarNarrowing flag so a
-                // narrower type can be used for TypeVars if possible.
+                // the expected type if possible. We set the AllowTypeVarNarrowing and
+                // SkipStripLiteralForTypeVar flags so the type can be further narrowed
+                // and so literals are not stripped.
                 canAssignType(
                     getFunctionEffectiveReturnType(type),
                     expectedType,
                     new DiagnosticAddendum(),
                     typeVarMap,
-                    CanAssignFlags.AllowTypeVarNarrowing
+                    CanAssignFlags.AllowTypeVarNarrowing | CanAssignFlags.RetainLiteralsForTypeVar
                 );
             }
         }
@@ -9972,7 +9974,12 @@ export function createTypeEvaluator(
         ) {
             // Allocate a fresh typeVarMap before we try again with literals not stripped.
             typeVarMap = new TypeVarMap(expectedTypeScopeId);
-            typeVarMap.setTypeVarType(targetTypeVar, isNarrowable ? undefined : expectedType, expectedType);
+            typeVarMap.setTypeVarType(
+                targetTypeVar,
+                isNarrowable ? undefined : expectedType,
+                expectedType,
+                /* retainLiteral */ true
+            );
             if (entryTypes.some((entryType) => !canAssignType(targetTypeVar!, entryType, diagDummy, typeVarMap))) {
                 return undefined;
             }
@@ -18469,7 +18476,7 @@ export function createTypeEvaluator(
                             destTypeArg,
                             assignmentDiag,
                             typeVarMap,
-                            (flags ^ CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.AllowTypeVarNarrowing,
+                            flags ^ CanAssignFlags.ReverseTypeVarMatching,
                             recursionCount + 1
                         )
                     ) {
@@ -18518,13 +18525,13 @@ export function createTypeEvaluator(
     function canAssignTypeToTypeVar(
         destType: TypeVarType,
         srcType: Type,
-        isContravariant: boolean,
         diag: DiagnosticAddendum,
         typeVarMap: TypeVarMap,
         flags = CanAssignFlags.Default,
         recursionCount = 0
     ): boolean {
         let isTypeVarInScope = true;
+        const isContravariant = (flags & CanAssignFlags.ReverseTypeVarMatching) !== 0;
 
         // If the TypeVar doesn't have a scope ID, then it's being used
         // outside of a valid TypeVar scope. This will be reported as a
@@ -18683,18 +18690,17 @@ export function createTypeEvaluator(
         }
 
         // Handle the unconstrained (but possibly bound) case.
-        let adjSrcType = srcType;
-        if (!curWideTypeBound || !containsLiteralType(curWideTypeBound)) {
-            // Strip literals if the existing value contains no literals. This allows
-            // for explicit (but no implicit) literal specialization of a generic class.
-            adjSrcType = stripLiteralValue(adjSrcType);
-        }
-
         let newNarrowTypeBound = curNarrowTypeBound;
         let newWideTypeBound = curWideTypeBound;
         const diagAddendum = new DiagnosticAddendum();
 
-        if (isContravariant) {
+        // Strip literals if the existing value contains no literals. This allows
+        // for explicit (but no implicit) literal specialization of a generic class.
+        const retainLiterals =
+            (flags & CanAssignFlags.RetainLiteralsForTypeVar) !== 0 || typeVarMap.getRetainLiterals(destType);
+        const adjSrcType = retainLiterals ? srcType : stripLiteralValue(srcType);
+
+        if (isContravariant || (flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0) {
             // Update the wide type bound.
             if (!curWideTypeBound) {
                 newWideTypeBound = adjSrcType;
@@ -18837,7 +18843,7 @@ export function createTypeEvaluator(
         }
 
         if (!typeVarMap.isLocked() && isTypeVarInScope) {
-            typeVarMap.setTypeVarType(destType, newNarrowTypeBound, newWideTypeBound);
+            typeVarMap.setTypeVarType(destType, newNarrowTypeBound, newWideTypeBound, retainLiterals);
         }
 
         return true;
@@ -18883,12 +18889,9 @@ export function createTypeEvaluator(
             return true;
         }
 
-        // Strip the AllowTypeVarNarrowing from the incoming flags.
-        // We don't want to propagate this flag to any nested calls to
-        // canAssignType.
-        const canNarrowType = (flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0;
-        const allowBoolTypeGuard = flags & CanAssignFlags.AllowBoolTypeGuard;
-        flags &= ~(CanAssignFlags.AllowTypeVarNarrowing | CanAssignFlags.AllowBoolTypeGuard);
+        // Strip a few of the flags we don't want to propagate to other calls.
+        const originalFlags = flags;
+        flags &= ~(CanAssignFlags.AllowBoolTypeGuard | CanAssignFlags.AllowTypeVarNarrowing);
 
         // Before performing any other checks, see if the dest type is a
         // TypeVar that we are attempting to match.
@@ -18958,10 +18961,9 @@ export function createTypeEvaluator(
                     return canAssignTypeToTypeVar(
                         destType,
                         srcType,
-                        canNarrowType,
                         diag,
                         typeVarMap || new TypeVarMap(),
-                        flags,
+                        originalFlags,
                         recursionCount + 1
                     );
                 }
@@ -19007,10 +19009,9 @@ export function createTypeEvaluator(
                     return canAssignTypeToTypeVar(
                         srcType,
                         destType,
-                        canNarrowType,
                         diag,
                         typeVarMap || new TypeVarMap(getTypeVarScopeId(srcType)),
-                        flags,
+                        originalFlags,
                         recursionCount + 1
                     );
                 }
@@ -19270,7 +19271,7 @@ export function createTypeEvaluator(
                 }
             } else if (ClassType.isBuiltIn(destClassType, 'TypeGuard')) {
                 // All the source to be a "bool".
-                if (allowBoolTypeGuard) {
+                if ((originalFlags & CanAssignFlags.AllowBoolTypeGuard) !== 0) {
                     if (isObject(srcType) && ClassType.isBuiltIn(srcType.classType, 'bool')) {
                         return true;
                     }
@@ -19609,7 +19610,7 @@ export function createTypeEvaluator(
             destType,
             new DiagnosticAddendum(),
             destTypeVarMap,
-            (flags ^ CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.AllowTypeVarNarrowing,
+            flags ^ CanAssignFlags.ReverseTypeVarMatching,
             recursionCount + 1
         );
 
@@ -20156,7 +20157,7 @@ export function createTypeEvaluator(
                 if (entry.narrowBound) {
                     const specializedType = applySolvedTypeVars(entry.narrowBound, typeVarMap);
                     if (specializedType !== entry.narrowBound) {
-                        typeVarMap.setTypeVarType(entry.typeVar, specializedType, entry.wideBound);
+                        typeVarMap.setTypeVarType(entry.typeVar, specializedType, entry.wideBound, entry.retainLiteral);
                     }
                 }
             });

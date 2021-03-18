@@ -126,8 +126,8 @@ export const enum CanAssignFlags {
     // on dest type vars rather than source type var.
     ReverseTypeVarMatching = 1 << 1,
 
-    // Normally TypeVars cannot be narrowed, only widened, unless
-    // ReverseTypeVarMatching is in effect. This overrides the behavior.
+    // Normally invariant and contravariant TypeVars cannot be
+    // narrowed. This overrides the standard behavior.
     AllowTypeVarNarrowing = 1 << 2,
 
     // Normally type vars are treated as variables that need to
@@ -144,6 +144,10 @@ export const enum CanAssignFlags {
 
     // Allow bool values to be assigned to TypeGuard[x] types.
     AllowBoolTypeGuard = 1 << 6,
+
+    // In most cases, literals are stripped when assigning to a
+    // type variable. This overrides the standard behavior.
+    RetainLiteralsForTypeVar = 1 << 7,
 }
 
 interface TypeVarTransformer {
@@ -1124,7 +1128,7 @@ export function buildTypeVarMap(
                     typeArgType = typeArgs[index];
                 }
 
-                typeVarMap.setTypeVarType(typeParam, typeArgType);
+                typeVarMap.setTypeVarType(typeParam, typeArgType, /* wideBound */ undefined, /* retainLiteral */ true);
             }
         }
     });

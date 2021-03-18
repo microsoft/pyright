@@ -29,6 +29,8 @@ export interface TypeVarMapEntry {
     // wide type bound.
     narrowBound?: Type;
     wideBound?: Type;
+
+    retainLiteral?: boolean;
 }
 
 export interface ParamSpecMapEntry {
@@ -68,7 +70,7 @@ export class TypeVarMap {
         }
 
         this._typeVarMap.forEach((value) => {
-            newTypeVarMap.setTypeVarType(value.typeVar, value.narrowBound, value.wideBound);
+            newTypeVarMap.setTypeVarType(value.typeVar, value.narrowBound, value.wideBound, value.retainLiteral);
         });
 
         this._paramSpecMap.forEach((value) => {
@@ -158,10 +160,10 @@ export class TypeVarMap {
         return entry.narrowBound || entry.wideBound;
     }
 
-    setTypeVarType(reference: TypeVarType, narrowBound: Type | undefined, wideBound?: Type) {
+    setTypeVarType(reference: TypeVarType, narrowBound: Type | undefined, wideBound?: Type, retainLiteral?: boolean) {
         assert(!this._isLocked);
         const key = this._getKey(reference);
-        this._typeVarMap.set(key, { typeVar: reference, narrowBound, wideBound });
+        this._typeVarMap.set(key, { typeVar: reference, narrowBound, wideBound, retainLiteral });
     }
 
     getVariadicTypeVar(reference: TypeVarType): Type[] | undefined {
@@ -218,6 +220,11 @@ export class TypeVarMap {
         }
 
         return undefined;
+    }
+
+    getRetainLiterals(reference: TypeVarType): boolean {
+        const entry = this._typeVarMap.get(this._getKey(reference));
+        return !!entry?.retainLiteral;
     }
 
     lock() {
