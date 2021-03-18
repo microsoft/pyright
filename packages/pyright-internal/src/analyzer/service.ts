@@ -977,7 +977,7 @@ export class AnalyzerService {
         const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg']];
         const results: string[] = [];
 
-        const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
+        const visitDirectoryUnchecked = (absolutePath: string, includeRegExp: RegExp) => {
             if (this._configOptions.autoExcludeVenv) {
                 if (envMarkers.some((f) => this._fs.existsSync(combinePaths(absolutePath, ...f)))) {
                     this._console.info(`Auto-excluding ${absolutePath}`);
@@ -1007,23 +1007,35 @@ export class AnalyzerService {
             }
         };
 
+        const seenDirs = new Set<string>();
+        const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
+            const realDirPath = this._fs.realpathSync(absolutePath);
+            if (seenDirs.has(realDirPath)) {
+                this._console.warn(`Skipping recursive symlink "${absolutePath}" -> "${realDirPath}"`);
+                return;
+            }
+            seenDirs.add(realDirPath);
+
+            try {
+                visitDirectoryUnchecked(absolutePath, includeRegExp);
+            } finally {
+                seenDirs.delete(realDirPath);
+            }
+        };
+
         include.forEach((includeSpec) => {
             let foundFileSpec = false;
 
             if (!this._isInExcludePath(includeSpec.wildcardRoot, exclude)) {
-                try {
-                    const stat = this._fs.statSync(includeSpec.wildcardRoot);
-                    if (stat.isFile()) {
-                        if (includeFileRegex.test(includeSpec.wildcardRoot)) {
-                            results.push(includeSpec.wildcardRoot);
-                            foundFileSpec = true;
-                        }
-                    } else if (stat.isDirectory()) {
-                        visitDirectory(includeSpec.wildcardRoot, includeSpec.regExp);
+                const stat = tryStat(this._fs, includeSpec.wildcardRoot);
+                if (stat?.isFile()) {
+                    if (includeFileRegex.test(includeSpec.wildcardRoot)) {
+                        results.push(includeSpec.wildcardRoot);
                         foundFileSpec = true;
                     }
-                } catch {
-                    // Ignore the exception.
+                } else if (stat?.isDirectory()) {
+                    visitDirectory(includeSpec.wildcardRoot, includeSpec.regExp);
+                    foundFileSpec = true;
                 }
             }
 
