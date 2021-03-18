@@ -18740,7 +18740,7 @@ export function createTypeEvaluator(
                     newNarrowTypeBound = isUnknown(curNarrowTypeBound) ? adjSrcType : curNarrowTypeBound;
                 } else {
                     // We need to widen the type.
-                    if (typeVarMap.isLocked()) {
+                    if (typeVarMap.isLocked() || isTypeVar(adjSrcType)) {
                         diag.addMessage(
                             Localizer.DiagnosticAddendum.typeAssignmentMismatch().format({
                                 sourceType: printType(curNarrowTypeBound),
