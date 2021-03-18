@@ -11344,30 +11344,20 @@ export function createTypeEvaluator(
         // all of the type parameters in the specified order.
         let genericTypeParameters: TypeVarType[] | undefined;
 
-        let sawMetaclass = false;
         const initSubclassArgs: FunctionArgument[] = [];
+        let metaclassNode: ExpressionNode | undefined;
+        let exprFlags =
+            EvaluatorFlags.ExpectingType |
+            EvaluatorFlags.GenericClassTypeAllowed |
+            EvaluatorFlags.DisallowTypeVarsWithScopeId |
+            EvaluatorFlags.AssociateTypeVarsWithCurrentScope;
+        if (fileInfo.isStubFile) {
+            exprFlags |= EvaluatorFlags.AllowForwardReferences;
+        }
 
         node.arguments.forEach((arg) => {
-            // Ignore keyword parameters other than metaclass.
-            if (!arg.name || arg.name.value === 'metaclass') {
-                let exprFlags =
-                    EvaluatorFlags.ExpectingType |
-                    EvaluatorFlags.GenericClassTypeAllowed |
-                    EvaluatorFlags.DisallowTypeVarsWithScopeId |
-                    EvaluatorFlags.AssociateTypeVarsWithCurrentScope;
-                if (fileInfo.isStubFile) {
-                    exprFlags |= EvaluatorFlags.AllowForwardReferences;
-                }
-
+            if (!arg.name) {
                 let argType = getTypeOfExpression(arg.valueExpression, undefined, exprFlags).type;
-                const isMetaclass = !!arg.name;
-
-                if (isMetaclass) {
-                    if (sawMetaclass) {
-                        addError(Localizer.Diagnostic.metaclassDuplicate(), arg);
-                    }
-                    sawMetaclass = true;
-                }
 
                 // In some stub files, classes are conditionally defined (e.g. based
                 // on platform type). We'll assume that the conditional logic is correct
@@ -11439,65 +11429,52 @@ export function createTypeEvaluator(
                     );
                 }
 
-                if (isMetaclass) {
-                    if (isClass(argType) || isUnknown(argType)) {
-                        classType.details.declaredMetaclass = argType;
-                        if (isClass(argType)) {
-                            if (ClassType.isBuiltIn(argType, 'EnumMeta')) {
-                                classType.details.flags |= ClassTypeFlags.EnumClass;
-                            } else if (ClassType.isBuiltIn(argType, 'ABCMeta')) {
-                                classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
-                            }
-                        }
-                    }
-                } else {
-                    // Check for a duplicate class.
-                    if (
-                        classType.details.baseClasses.some((prevBaseClass) => {
-                            return (
-                                isClass(prevBaseClass) &&
-                                isClass(argType) &&
-                                ClassType.isSameGenericClass(argType, prevBaseClass)
-                            );
-                        })
-                    ) {
-                        addDiagnostic(
-                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.duplicateBaseClass(),
-                            arg.name || arg
+                // Check for a duplicate class.
+                if (
+                    classType.details.baseClasses.some((prevBaseClass) => {
+                        return (
+                            isClass(prevBaseClass) &&
+                            isClass(argType) &&
+                            ClassType.isSameGenericClass(argType, prevBaseClass)
                         );
+                    })
+                ) {
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.duplicateBaseClass(),
+                        arg.name || arg
+                    );
+                }
+
+                classType.details.baseClasses.push(argType);
+                if (isClass(argType)) {
+                    if (ClassType.isEnumClass(argType)) {
+                        classType.details.flags |= ClassTypeFlags.EnumClass;
                     }
 
-                    classType.details.baseClasses.push(argType);
-                    if (isClass(argType)) {
-                        if (ClassType.isEnumClass(argType)) {
-                            classType.details.flags |= ClassTypeFlags.EnumClass;
-                        }
+                    // Determine if the class is abstract. Protocol classes support abstract methods
+                    // even though they don't derive from the ABCMeta class. We'll exclude built-in
+                    // protocol classes because these are known not to contain any abstract methods
+                    // and getAbstractMethods causes problems because of dependencies on some of these
+                    // built-in protocol classes.
+                    if (
+                        ClassType.supportsAbstractMethods(argType) ||
+                        (ClassType.isProtocolClass(argType) && !ClassType.isBuiltIn(argType))
+                    ) {
+                        classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
+                    }
 
-                        // Determine if the class is abstract. Protocol classes support abstract methods
-                        // even though they don't derive from the ABCMeta class. We'll exclude built-in
-                        // protocol classes because these are known not to contain any abstract methods
-                        // and getAbstractMethods causes problems because of dependencies on some of these
-                        // built-in protocol classes.
-                        if (
-                            ClassType.supportsAbstractMethods(argType) ||
-                            (ClassType.isProtocolClass(argType) && !ClassType.isBuiltIn(argType))
-                        ) {
-                            classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
-                        }
+                    if (ClassType.isPropertyClass(argType)) {
+                        classType.details.flags |= ClassTypeFlags.PropertyClass;
+                    }
 
-                        if (ClassType.isPropertyClass(argType)) {
-                            classType.details.flags |= ClassTypeFlags.PropertyClass;
-                        }
-
-                        if (ClassType.isFinal(argType)) {
-                            const className = printObjectTypeForClass(argType);
-                            addError(
-                                Localizer.Diagnostic.baseClassFinal().format({ type: className }),
-                                arg.valueExpression
-                            );
-                        }
+                    if (ClassType.isFinal(argType)) {
+                        const className = printObjectTypeForClass(argType);
+                        addError(
+                            Localizer.Diagnostic.baseClassFinal().format({ type: className }),
+                            arg.valueExpression
+                        );
                     }
                 }
 
@@ -11507,6 +11484,12 @@ export function createTypeEvaluator(
                         genericTypeParameters = [];
                         addTypeVarsToListIfUnique(genericTypeParameters, getTypeVarArgumentsRecursive(argType));
                     }
+                }
+            } else if (arg.name.value === 'metaclass') {
+                if (metaclassNode) {
+                    addError(Localizer.Diagnostic.metaclassDuplicate(), arg);
+                } else {
+                    metaclassNode = arg.valueExpression;
                 }
             } else if (arg.name.value === 'total' && ClassType.isTypedDictClass(classType)) {
                 // The "total" parameter name applies only for TypedDict classes.
@@ -11554,58 +11537,6 @@ export function createTypeEvaluator(
         if (!computeMroLinearization(classType)) {
             addError(Localizer.Diagnostic.methodOrdering(), node.name);
         }
-
-        // Determine the effective metaclass and detect metaclass conflicts.
-        let effectiveMetaclass = classType.details.declaredMetaclass;
-        let reportedMetaclassConflict = false;
-
-        if (!effectiveMetaclass || isClass(effectiveMetaclass)) {
-            for (const baseClass of classType.details.baseClasses) {
-                if (isClass(baseClass)) {
-                    const baseClassMeta = baseClass.details.effectiveMetaclass || typeClassType;
-                    if (baseClassMeta && isClass(baseClassMeta)) {
-                        // Make sure there is no metaclass conflict.
-                        if (!effectiveMetaclass) {
-                            effectiveMetaclass = baseClassMeta;
-                        } else if (
-                            derivesFromClassRecursive(baseClassMeta, effectiveMetaclass, /* ignoreUnknown */ false)
-                        ) {
-                            effectiveMetaclass = baseClassMeta;
-                        } else if (
-                            !derivesFromClassRecursive(effectiveMetaclass, baseClassMeta, /* ignoreUnknown */ false)
-                        ) {
-                            if (!reportedMetaclassConflict) {
-                                addDiagnostic(
-                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                    DiagnosticRule.reportGeneralTypeIssues,
-                                    Localizer.Diagnostic.metaclassConflict(),
-                                    node.name
-                                );
-                                // Don't report more than once.
-                                reportedMetaclassConflict = true;
-                            }
-                        }
-                    } else {
-                        effectiveMetaclass = baseClassMeta ? UnknownType.create() : undefined;
-                        break;
-                    }
-                } else {
-                    // If one of the base classes is unknown, then the effective
-                    // metaclass is also unknowable.
-                    effectiveMetaclass = UnknownType.create();
-                    break;
-                }
-            }
-        }
-
-        // If we haven't found an effective metaclass, assume "type", which
-        // is the metaclass for "object".
-        if (!effectiveMetaclass) {
-            const typeMetaclass = getBuiltInType(node, 'type');
-            effectiveMetaclass = typeMetaclass && isClass(typeMetaclass) ? typeMetaclass : UnknownType.create();
-        }
-
-        classType.details.effectiveMetaclass = effectiveMetaclass;
 
         // The scope for this class becomes the "fields" for the corresponding type.
         const innerScope = ScopeUtils.getScopeForNode(node.suite);
@@ -11667,6 +11598,72 @@ export function createTypeEvaluator(
             }
         }
 
+        // Determine the effective metaclass and detect metaclass conflicts.
+        if (metaclassNode) {
+            const metaclassType = getTypeOfExpression(metaclassNode, undefined, exprFlags).type;
+            if (isClass(metaclassType) || isUnknown(metaclassType)) {
+                classType.details.declaredMetaclass = metaclassType;
+                if (isClass(metaclassType)) {
+                    if (ClassType.isBuiltIn(metaclassType, 'EnumMeta')) {
+                        classType.details.flags |= ClassTypeFlags.EnumClass;
+                    } else if (ClassType.isBuiltIn(metaclassType, 'ABCMeta')) {
+                        classType.details.flags |= ClassTypeFlags.SupportsAbstractMethods;
+                    }
+                }
+            }
+        }
+
+        let effectiveMetaclass = classType.details.declaredMetaclass;
+        let reportedMetaclassConflict = false;
+
+        if (!effectiveMetaclass || isClass(effectiveMetaclass)) {
+            for (const baseClass of classType.details.baseClasses) {
+                if (isClass(baseClass)) {
+                    const baseClassMeta = baseClass.details.effectiveMetaclass || typeClassType;
+                    if (baseClassMeta && isClass(baseClassMeta)) {
+                        // Make sure there is no metaclass conflict.
+                        if (!effectiveMetaclass) {
+                            effectiveMetaclass = baseClassMeta;
+                        } else if (
+                            derivesFromClassRecursive(baseClassMeta, effectiveMetaclass, /* ignoreUnknown */ false)
+                        ) {
+                            effectiveMetaclass = baseClassMeta;
+                        } else if (
+                            !derivesFromClassRecursive(effectiveMetaclass, baseClassMeta, /* ignoreUnknown */ false)
+                        ) {
+                            if (!reportedMetaclassConflict) {
+                                addDiagnostic(
+                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.metaclassConflict(),
+                                    node.name
+                                );
+                                // Don't report more than once.
+                                reportedMetaclassConflict = true;
+                            }
+                        }
+                    } else {
+                        effectiveMetaclass = baseClassMeta ? UnknownType.create() : undefined;
+                        break;
+                    }
+                } else {
+                    // If one of the base classes is unknown, then the effective
+                    // metaclass is also unknowable.
+                    effectiveMetaclass = UnknownType.create();
+                    break;
+                }
+            }
+        }
+
+        // If we haven't found an effective metaclass, assume "type", which
+        // is the metaclass for "object".
+        if (!effectiveMetaclass) {
+            const typeMetaclass = getBuiltInType(node, 'type');
+            effectiveMetaclass = typeMetaclass && isClass(typeMetaclass) ? typeMetaclass : UnknownType.create();
+        }
+
+        classType.details.effectiveMetaclass = effectiveMetaclass;
+
         // Determine if the class is abstract.
         if (ClassType.supportsAbstractMethods(classType)) {
             if (getAbstractMethods(classType).length > 0) {
@@ -11700,6 +11697,7 @@ export function createTypeEvaluator(
             }
         }
 
+        // Synthesize dataclass methods.
         if (ClassType.isDataClass(classType)) {
             let skipSynthesizedInit = ClassType.isSkipSynthesizedDataClassInit(classType);
             if (!skipSynthesizedInit) {
