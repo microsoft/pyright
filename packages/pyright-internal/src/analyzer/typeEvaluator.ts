@@ -15364,17 +15364,27 @@ export function createTypeEvaluator(
                     if (curFlowNode.flags & (FlowFlags.TrueNeverCondition | FlowFlags.FalseNeverCondition)) {
                         const conditionalFlowNode = curFlowNode as FlowCondition;
                         if (conditionalFlowNode.reference) {
-                            const typeNarrowingCallback = getTypeNarrowingCallback(
+                            // Make sure the reference type has a declared type. If not,
+                            // don't bother trying to infer its type because that would be
+                            // too expensive.
+                            const symbolWithScope = lookUpSymbolRecursive(
                                 conditionalFlowNode.reference,
-                                conditionalFlowNode
+                                conditionalFlowNode.reference.value,
+                                /* honorCodeFlow */ false
                             );
-                            if (typeNarrowingCallback) {
-                                const refTypeInfo = getTypeOfExpression(conditionalFlowNode.reference!);
-                                const narrowedType = typeNarrowingCallback(refTypeInfo.type) || refTypeInfo.type;
+                            if (symbolWithScope && symbolWithScope.symbol.getTypedDeclarations().length > 0) {
+                                const typeNarrowingCallback = getTypeNarrowingCallback(
+                                    conditionalFlowNode.reference,
+                                    conditionalFlowNode
+                                );
+                                if (typeNarrowingCallback) {
+                                    const refTypeInfo = getTypeOfExpression(conditionalFlowNode.reference!);
+                                    const narrowedType = typeNarrowingCallback(refTypeInfo.type) || refTypeInfo.type;
 
-                                // If the narrowed type is "never", don't allow further exploration.
-                                if (isNever(narrowedType)) {
-                                    return setCacheEntry(curFlowNode, undefined, !!refTypeInfo.isIncomplete);
+                                    // If the narrowed type is "never", don't allow further exploration.
+                                    if (isNever(narrowedType)) {
+                                        return setCacheEntry(curFlowNode, undefined, !!refTypeInfo.isIncomplete);
+                                    }
                                 }
                             }
                         }

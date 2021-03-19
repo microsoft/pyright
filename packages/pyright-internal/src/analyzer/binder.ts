@@ -1023,12 +1023,7 @@ export class Binder extends ParseTreeWalker {
         if (node.elseSuite) {
             this.walk(node.elseSuite);
         } else {
-            // Create a flow node that gates the missing "else" clause based
-            // on whether the narrowing of the expression in th negative case
-            // evaluates to "never".
-            if (this._shouldBindNeverCondition()) {
-                this._bindNeverCondition(node.testExpression, postIfLabel, /* isPositiveTest */ false);
-            }
+            this._bindNeverCondition(node.testExpression, postIfLabel, /* isPositiveTest */ false);
         }
         this._addAntecedent(postIfLabel, this._currentFlowNode);
         this._currentFlowNode = this._finishFlowLabel(postIfLabel);
@@ -2216,26 +2211,6 @@ export class Binder extends ParseTreeWalker {
         return node;
     }
 
-    // The extra code flow nodes required for a "never condition" can result in
-    // significant extra computation at analysis time, especially for code that
-    // doesn't contain any type declarations. We'll disable it if we're within
-    // a function that has no input parameter type annotations.
-    private _shouldBindNeverCondition() {
-        if (this._targetFunctionDeclaration) {
-            // Skip this heuristic for methods with 0 or 1 parameters, since the
-            // param might be a "self" or "cls".
-            const params = this._targetFunctionDeclaration.node.parameters;
-            const isMethod = this._targetFunctionDeclaration.isMethod;
-            if ((isMethod && params.length > 1) || (!isMethod && params.length > 0)) {
-                if (!params.some((param) => !!param.typeAnnotation || !!param.typeAnnotationComment)) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
     // Creates a node that creates a "gate" that is closed (doesn't allow for code
     // flow) if the specified expression is never once it is narrowed (in either the
     // positive or negative case).
@@ -2353,7 +2328,7 @@ export class Binder extends ParseTreeWalker {
         const conditionalFlowNode: FlowCondition = {
             flags,
             id: getUniqueFlowNodeId(),
-            reference: filteredExprList.length > 0 ? filteredExprList[0] : undefined,
+            reference: filteredExprList.length > 0 ? (filteredExprList[0] as NameNode) : undefined,
             expression,
             antecedent,
         };
