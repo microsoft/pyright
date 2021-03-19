@@ -7502,7 +7502,11 @@ export function createTypeEvaluator(
                         if (entry.argsNeeded === 0 && entry.argsReceived === 0) {
                             const paramType = FunctionType.getEffectiveParameterType(type, index);
 
-                            if (param.defaultType && requiresSpecialization(paramType)) {
+                            if (
+                                param.defaultType &&
+                                !isEllipsisType(param.defaultType) &&
+                                requiresSpecialization(paramType)
+                            ) {
                                 validateArgTypeParams.push({
                                     paramCategory: param.category,
                                     paramType: paramType,
