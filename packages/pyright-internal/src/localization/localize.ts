@@ -648,6 +648,8 @@ export namespace Localizer {
         export const typedDictEntryName = () => getRawString('Diagnostic.typedDictEntryName');
         export const typedDictEntryUnique = () => getRawString('Diagnostic.typedDictEntryUnique');
         export const typedDictExtraArgs = () => getRawString('Diagnostic.typedDictExtraArgs');
+        export const typedDictFieldRedefinition = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typedDictFieldRedefinition'));
         export const typedDictFirstArg = () => getRawString('Diagnostic.typedDictFirstArg');
         export const typedDictSecondArgDict = () => getRawString('Diagnostic.typedDictSecondArgDict');
         export const typedDictSecondArgDictEntry = () => getRawString('Diagnostic.typedDictSecondArgDictEntry');
@@ -936,6 +938,10 @@ export namespace Localizer {
         export const typedDictFieldNotRequired = () =>
             new ParameterizedString<{ name: string; type: string }>(
                 getRawString('DiagnosticAddendum.typedDictFieldNotRequired')
+            );
+        export const typedDictFieldRedefinition = () =>
+            new ParameterizedString<{ parentType: string; childType: string }>(
+                getRawString('DiagnosticAddendum.typedDictFieldRedefinition')
             );
         export const typedDictFieldRequired = () =>
             new ParameterizedString<{ name: string; type: string }>(

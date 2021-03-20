@@ -20855,6 +20855,30 @@ export function createTypeEvaluator(
                         isRequired = false;
                     }
 
+                    // If a base class already declares this field, verify that the
+                    // subclass isn't trying to change its type. That's expressly
+                    // forbidden in PEP 589.
+                    const existingEntry = keyMap.get(name);
+                    if (existingEntry) {
+                        if (!isTypeSame(existingEntry.valueType, valueType)) {
+                            const diag = new DiagnosticAddendum();
+                            diag.addMessage(
+                                Localizer.DiagnosticAddendum.typedDictFieldRedefinition().format({
+                                    parentType: printType(existingEntry.valueType),
+                                    childType: printType(valueType),
+                                })
+                            );
+                            addDiagnostic(
+                                getFileInfo(lastDecl.node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.typedDictFieldRedefinition().format({
+                                    name,
+                                }) + diag.getString(),
+                                lastDecl.node
+                            );
+                        }
+                    }
+
                     keyMap.set(name, {
                         valueType,
                         isRequired,

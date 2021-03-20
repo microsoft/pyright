@@ -749,6 +749,12 @@ test('TypedDict12', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypedDict13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typedDict13.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Required1', () => {
     // Analyze with Python 3.10 settings.
     const configOptions = new ConfigOptions('.');
