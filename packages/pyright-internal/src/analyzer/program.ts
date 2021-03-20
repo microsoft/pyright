@@ -606,7 +606,7 @@ export class Program {
         }
 
         if (configOptions.diagnosticRuleSet.absoluteTypeNames) {
-            flags |= PrintTypeFlags.absoluteTypeNames;
+            flags |= PrintTypeFlags.AbsoluteTypeNames;
         }
 
         if (configOptions.diagnosticRuleSet.pep604Printing) {
