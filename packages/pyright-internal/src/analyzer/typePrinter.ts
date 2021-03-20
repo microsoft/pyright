@@ -51,6 +51,10 @@ export const enum PrintTypeFlags {
     // Include a parentheses around a union if there's more than
     // one subtype.
     ParenthesizeUnion = 1 << 4,
+
+    // Include the full name of the module where possible, e.g.
+    // "builtins.int" rather than "int"
+    AbsoluteTypeNames = 1 << 5,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -448,7 +452,10 @@ export function printObjectTypeForClass(
     returnTypeCallback: FunctionReturnTypeCallback,
     recursionCount = 0
 ): string {
-    let objName = type.aliasName || type.details.name;
+    let objName =
+        (printTypeFlags & PrintTypeFlags.AbsoluteTypeNames) === 0
+            ? type.details.fullName
+            : type.aliasName || type.details.name;
 
     // If this is a pseudo-generic class, don't display the type arguments
     // or type parameters because it will confuse users.
