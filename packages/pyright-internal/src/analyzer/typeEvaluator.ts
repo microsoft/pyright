@@ -6137,13 +6137,23 @@ export function createTypeEvaluator(
                                 errorNode,
                                 argList,
                                 initMethodType,
-                                typeVarMap,
+                                typeVarMap.clone(),
                                 skipUnknownArgCheck,
                                 NoneType.createInstance()
                             );
                         });
 
                         if (!callResult?.argumentErrors) {
+                            // Call validateCallArguments again, this time without suppressing
+                            // diagnostics, so any errors are reported.
+                            validateCallArguments(
+                                errorNode,
+                                argList,
+                                initMethodType,
+                                typeVarMap,
+                                skipUnknownArgCheck,
+                                NoneType.createInstance()
+                            );
                             return applyExpectedSubtypeForConstructor(type, expectedSubType, typeVarMap);
                         }
                     }
