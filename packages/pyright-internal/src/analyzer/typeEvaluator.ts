@@ -18831,7 +18831,10 @@ export function createTypeEvaluator(
         // Strip literals if the existing value contains no literals. This allows
         // for explicit (but no implicit) literal specialization of a generic class.
         const retainLiterals =
-            (flags & CanAssignFlags.RetainLiteralsForTypeVar) !== 0 || typeVarMap.getRetainLiterals(destType);
+            (flags & CanAssignFlags.RetainLiteralsForTypeVar) !== 0 ||
+            typeVarMap.getRetainLiterals(destType) ||
+            (destType.details.boundType && containsLiteralType(destType.details.boundType)) ||
+            destType.details.constraints.some((t) => containsLiteralType(t));
         const adjSrcType = retainLiterals ? srcType : stripLiteralValue(srcType);
 
         if (isContravariant || (flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0) {
