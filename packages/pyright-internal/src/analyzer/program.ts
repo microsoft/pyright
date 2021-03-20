@@ -605,6 +605,10 @@ export class Program {
             flags |= PrintTypeFlags.OmitUnannotatedParamType;
         }
 
+        if (configOptions.diagnosticRuleSet.absoluteTypeNames) {
+            flags |= PrintTypeFlags.absoluteTypeNames;
+        }
+
         if (configOptions.diagnosticRuleSet.pep604Printing) {
             flags |= PrintTypeFlags.PEP604;
         }
