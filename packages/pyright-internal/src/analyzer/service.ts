@@ -688,7 +688,7 @@ export class AnalyzerService {
 
         if (configOptions.stubPath) {
             if (!this._fs.existsSync(configOptions.stubPath) || !isDirectory(this._fs, configOptions.stubPath)) {
-                this._console.error(`stubPath ${configOptions.stubPath} is not a valid directory.`);
+                this._console.warn(`stubPath ${configOptions.stubPath} is not a valid directory.`);
             }
         }
 
