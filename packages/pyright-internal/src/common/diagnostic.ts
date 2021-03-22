@@ -42,6 +42,11 @@ export interface DiagnosticAction {
     action: string;
 }
 
+export interface DiagnosticWithinFile {
+    filePath: string;
+    diagnostic: Diagnostic;
+}
+
 export interface CreateTypeStubFileAction extends DiagnosticAction {
     action: Commands.createTypeStub;
     moduleName: string;

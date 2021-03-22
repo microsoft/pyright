@@ -10,7 +10,7 @@
             "preLaunchTask": "npm: build:cli:dev",
             "args": [
                 "--verifytypes",
-                "pandas.core.reshape.concat",
+                "torch"
             ],
             "internalConsoleOptions": "openOnSessionStart",
             "outFiles": [

@@ -6950,6 +6950,7 @@ export function createTypeEvaluator(
                             newClassName,
                             '',
                             '',
+                            getFileInfo(errorNode).filePath,
                             ClassTypeFlags.None,
                             getTypeSourceId(errorNode),
                             returnType.classType,
@@ -8276,6 +8277,7 @@ export function createTypeEvaluator(
             className,
             getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
+            fileInfo.filePath,
             ClassTypeFlags.EnumClass,
             getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
@@ -8376,6 +8378,7 @@ export function createTypeEvaluator(
                     className,
                     getClassFullName(errorNode, fileInfo.moduleName, className),
                     fileInfo.moduleName,
+                    fileInfo.filePath,
                     classFlags,
                     getTypeSourceId(errorNode),
                     /* declaredMetaclass */ undefined,
@@ -8448,6 +8451,7 @@ export function createTypeEvaluator(
             className,
             getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
+            fileInfo.filePath,
             ClassTypeFlags.None,
             getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
@@ -8499,6 +8503,7 @@ export function createTypeEvaluator(
             className,
             getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
+            fileInfo.filePath,
             ClassTypeFlags.TypedDictClass,
             getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
@@ -8669,6 +8674,7 @@ export function createTypeEvaluator(
             className,
             getClassFullName(errorNode, fileInfo.moduleName, className),
             fileInfo.moduleName,
+            fileInfo.filePath,
             ClassTypeFlags.None,
             getTypeSourceId(errorNode),
             /* declaredMetaclass */ undefined,
@@ -11136,6 +11142,7 @@ export function createTypeEvaluator(
             assignedName,
             getClassFullName(node, fileInfo.moduleName, assignedName),
             fileInfo.moduleName,
+            fileInfo.filePath,
             ClassTypeFlags.BuiltInClass | ClassTypeFlags.SpecialBuiltIn,
             /* typeSourceId */ 0,
             /* declaredMetaclass */ undefined,
@@ -11506,6 +11513,7 @@ export function createTypeEvaluator(
             node.name.value,
             getClassFullName(node, fileInfo.moduleName, node.name.value),
             fileInfo.moduleName,
+            fileInfo.filePath,
             classFlags,
             /* typeSourceId */ 0,
             /* declaredMetaclass */ undefined,
@@ -12615,7 +12623,7 @@ export function createTypeEvaluator(
                     } else if (memberName === 'deleter') {
                         if (isFunction(inputFunctionType)) {
                             validatePropertyMethod(inputFunctionType, decoratorNode);
-                            return clonePropertyWithDeleter(baseType, inputFunctionType);
+                            return clonePropertyWithDeleter(baseType, inputFunctionType, functionNode);
                         } else {
                             return inputFunctionType;
                         }
@@ -12689,6 +12697,7 @@ export function createTypeEvaluator(
             className,
             getClassFullName(decoratorNode, fileInfo.moduleName, `__property_${fget.details.name}`),
             fileInfo.moduleName,
+            fileInfo.filePath,
             ClassTypeFlags.PropertyClass,
             typeSourceId,
             /* declaredMetaclass */ undefined,
@@ -12818,6 +12827,7 @@ export function createTypeEvaluator(
             classType.details.name,
             classType.details.fullName,
             classType.details.moduleName,
+            getFileInfo(errorNode).filePath,
             classType.details.flags,
             classType.details.typeSourceId,
             classType.details.declaredMetaclass,
@@ -12906,7 +12916,7 @@ export function createTypeEvaluator(
         return propertyObject;
     }
 
-    function clonePropertyWithDeleter(prop: Type, fdel: FunctionType): Type {
+    function clonePropertyWithDeleter(prop: Type, fdel: FunctionType, errorNode: FunctionNode): Type {
         if (!isProperty(prop)) {
             return prop;
         }
@@ -12916,6 +12926,7 @@ export function createTypeEvaluator(
             classType.details.name,
             classType.details.fullName,
             classType.details.moduleName,
+            getFileInfo(errorNode).filePath,
             classType.details.flags,
             classType.details.typeSourceId,
             classType.details.declaredMetaclass,
@@ -17286,7 +17297,7 @@ export function createTypeEvaluator(
                 loaderActions.implicitImports.forEach((implicitImport, name) => {
                     // Recursively apply loader actions.
                     const moduleName = moduleType.moduleName ? moduleType.moduleName + '.' + name : '';
-                    const importedModuleType = ModuleType.create(moduleName);
+                    const importedModuleType = ModuleType.create(moduleName, implicitImport.path);
                     const symbolType = applyLoaderActionsToModuleType(importedModuleType, implicitImport, importLookup);
 
                     const importedModuleSymbol = Symbol.createWithType(SymbolFlags.None, symbolType);
@@ -17303,7 +17314,28 @@ export function createTypeEvaluator(
         if (resolvedDecl.type === DeclarationType.Alias) {
             // Build a module type that corresponds to the declaration and
             // its associated loader actions.
-            const moduleType = ModuleType.create(resolvedDecl.moduleName);
+            let moduleName = resolvedDecl.moduleName;
+            if (decl.type === DeclarationType.Alias) {
+                if (decl.symbolName) {
+                    moduleName += '.' + decl.symbolName;
+                }
+
+                // If the module name is relative to the current file, use that
+                // file's module name as a reference.
+                if (moduleName.startsWith('.')) {
+                    const fileInfo = getFileInfo(decl.node);
+                    const nameParts = fileInfo.moduleName.split('.');
+                    moduleName = moduleName.substr(1);
+
+                    while (moduleName.startsWith('.') && nameParts.length > 0) {
+                        moduleName = moduleName.substr(1);
+                        nameParts.pop();
+                    }
+
+                    moduleName = nameParts.join('.') + '.' + moduleName;
+                }
+            }
+            const moduleType = ModuleType.create(moduleName, resolvedDecl.path);
             if (resolvedDecl.symbolName && resolvedDecl.submoduleFallback) {
                 return applyLoaderActionsToModuleType(moduleType, resolvedDecl.submoduleFallback, importLookup);
             } else {
