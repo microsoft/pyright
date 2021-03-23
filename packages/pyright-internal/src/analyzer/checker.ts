@@ -516,7 +516,7 @@ export class Checker extends ParseTreeWalker {
                     this._fileInfo.diagnosticRuleSet.reportUnknownLambdaType,
                     DiagnosticRule.reportUnknownLambdaType,
                     Localizer.Diagnostic.lambdaReturnTypePartiallyUnknown().format({
-                        returnType: this._evaluator.printType(returnType, /* expandTypeAlias */ false),
+                        returnType: this._evaluator.printType(returnType, /* expandTypeAlias */ true),
                     }),
                     node.expression
                 );
