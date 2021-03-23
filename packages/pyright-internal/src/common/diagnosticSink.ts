@@ -105,10 +105,13 @@ export class TextRangeDiagnosticSink extends DiagnosticSink {
         switch (level) {
             case 'error':
                 return this.addError(message, positionRange);
+
             case 'warning':
                 return this.addWarning(message, positionRange);
+
             case 'information':
                 return this.addInformation(message, positionRange);
+
             default:
                 throw new Error(`${level} is not expected value`);
         }

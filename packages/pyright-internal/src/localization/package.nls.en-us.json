@@ -196,6 +196,7 @@
         "namedExceptAfterCatchAll": "A named except clause cannot appear after catch-all except clause",
         "namedParamAfterParamSpecArgs": "Keyword parameter \"{name}\" cannot appear in signature after ParamSpec args parameter",
         "namedTupleEmptyName": "Names within a named tuple cannot be empty",
+        "namedTupleMultipleInheritance": "Multiple inheritance with NamedTuple is not supported",
         "namedTupleFirstArg": "Expected named tuple class name as first argument",
         "namedTupleNameString": "Expected string literal for tuple entry name",
         "namedTupleNameType": "Expected two-entry tuple specifying entry name and type",

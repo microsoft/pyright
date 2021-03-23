@@ -864,6 +864,12 @@ test('NamedTuples2', () => {
     TestUtils.validateResults(analysisResults, 8);
 });
 
+test('NamedTuples3', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['namedTuples3.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Module1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['module1.py']);
 

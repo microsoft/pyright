@@ -11560,6 +11560,22 @@ export function createTypeEvaluator(
             }
         });
 
+        // Check for NamedTuple multiple inheritance.
+        if (classType.details.baseClasses.length > 1) {
+            if (
+                classType.details.baseClasses.some(
+                    (baseClass) => isClass(baseClass) && ClassType.isBuiltIn(baseClass, 'NamedTuple')
+                )
+            ) {
+                addDiagnostic(
+                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.namedTupleMultipleInheritance(),
+                    node.name
+                );
+            }
+        }
+
         // Make sure we don't have 'object' derive from itself. Infinite
         // recursion will result.
         if (!ClassType.isBuiltIn(classType, 'object')) {
