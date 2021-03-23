@@ -6977,8 +6977,9 @@ export function createTypeEvaluator(
 
         if (expectedType && !requiresSpecialization(expectedType) && type.details.declaredReturnType) {
             // If the expected type is a union, we don't know which type is expected,
-            // so avoid using the expected type.
-            if (expectedType.category !== TypeCategory.Union) {
+            // so avoid using the expected type. The exception is if there are literals
+            // in the union, where it's important to prepopulate the literals.
+            if (!isUnion(expectedType) || containsLiteralType(expectedType)) {
                 // Prepopulate the typeVarMap based on the specialized expected type if the
                 // callee has a declared return type. This will allow us to more closely match
                 // the expected type if possible. We set the AllowTypeVarNarrowing and
