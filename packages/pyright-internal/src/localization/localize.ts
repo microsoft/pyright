@@ -220,6 +220,10 @@ export namespace Localizer {
         export const classGetItemClsParam = () => getRawString('Diagnostic.classGetItemClsParam');
         export const classVarFirstArgMissing = () => getRawString('Diagnostic.classVarFirstArgMissing');
         export const classVarTooManyArgs = () => getRawString('Diagnostic.classVarTooManyArgs');
+        export const comparisonAlwaysFalse = () =>
+            new ParameterizedString<{ leftType: string; rightType: string }>(
+                getRawString('Diagnostic.comparisonAlwaysFalse')
+            );
         export const comprehensionInDict = () => getRawString('Diagnostic.comprehensionInDict');
         export const comprehensionInSet = () => getRawString('Diagnostic.comprehensionInSet');
         export const concatenateParamSpecMissing = () => getRawString('Diagnostic.concatenateParamSpecMissing');

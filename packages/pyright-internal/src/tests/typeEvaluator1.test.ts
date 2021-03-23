@@ -1411,3 +1411,8 @@ test('List1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['list1.py']);
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('Comparison1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['comparison1.py']);
+    TestUtils.validateResults(analysisResults, 3);
+});

@@ -45,6 +45,7 @@
         "classNotRuntimeSubscriptable": "Subscript for class \"{name}\" will generate runtime exception; enclose type annotation in quotes",
         "classVarFirstArgMissing": "Expected a type argument after \"ClassVar\"",
         "classVarTooManyArgs": "Expected only one type argument after \"ClassVar\"",
+        "comparisonAlwaysFalse": "Condition will always evaluate to False since the types \"{leftType}\" and \"{rightType}\" have no overlap",
         "comprehensionInDict": "Comprehension cannot be used with other dictionary entries",
         "comprehensionInSet": "Comprehension cannot be used with other set entries",
         "concatenateParamSpecMissing": "Last type argument for \"Concatenate\" must be a ParamSpec",

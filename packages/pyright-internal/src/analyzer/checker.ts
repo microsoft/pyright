@@ -67,6 +67,7 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
+import { OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { Declaration, DeclarationType } from './declaration';
@@ -116,6 +117,7 @@ import {
     getDeclaredGeneratorReturnType,
     getDeclaredGeneratorYieldType,
     isEllipsisType,
+    isLiteralTypeOrUnion,
     isNoReturnType,
     isOpenEndedTupleClass,
     isPartlyUnknown,
@@ -607,6 +609,40 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitIf(node: IfNode): boolean {
+        // Check for expressions where a variable is being compared to
+        // a literal string or number. Look for a common bug where
+        // the comparison will always be False.
+        if (
+            node.testExpression.nodeType === ParseNodeType.BinaryOperation &&
+            node.testExpression.operator === OperatorType.Equals
+        ) {
+            const rightType = this._evaluator.getType(node.testExpression.rightExpression);
+            if (rightType && isLiteralTypeOrUnion(rightType)) {
+                const leftType = this._evaluator.getType(node.testExpression.leftExpression);
+                if (leftType && isLiteralTypeOrUnion(leftType)) {
+                    let isPossiblyTrue = false;
+
+                    doForEachSubtype(leftType, (leftSubtype) => {
+                        if (this._evaluator.canAssignType(rightType, leftSubtype, new DiagnosticAddendum())) {
+                            isPossiblyTrue = true;
+                        }
+                    });
+
+                    if (!isPossiblyTrue) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.comparisonAlwaysFalse().format({
+                                leftType: this._evaluator.printType(leftType, /* expandTypeAlias */ true),
+                                rightType: this._evaluator.printType(rightType, /* expandTypeAlias */ true),
+                            }),
+                            node.testExpression
+                        );
+                    }
+                }
+            }
+        }
+
         this._evaluator.getType(node.testExpression);
         return true;
     }
