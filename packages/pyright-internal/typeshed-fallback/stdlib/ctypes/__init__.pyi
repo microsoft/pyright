@@ -72,7 +72,7 @@ pythonapi: PyDLL = ...
 # Anything that implements the read-write buffer interface.
 # The buffer interface is defined purely on the C level, so we cannot define a normal Protocol
 # for it. Instead we have to list the most common stdlib buffer classes in a Union.
-_WritableBuffer = _UnionT[bytearray, memoryview, array, _CData]
+_WritableBuffer = _UnionT[bytearray, memoryview, array[Any], _CData]
 # Same as _WritableBuffer, but also includes read-only buffer types (like bytes).
 _ReadOnlyBuffer = _UnionT[_WritableBuffer, bytes]
 

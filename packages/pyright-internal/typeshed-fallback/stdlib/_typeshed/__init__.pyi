@@ -174,11 +174,11 @@ class SupportsWrite(Protocol[_T_contra]):
     def write(self, __s: _T_contra) -> Any: ...
 
 if sys.version_info >= (3,):
-    ReadableBuffer = Union[bytes, bytearray, memoryview, array.array, mmap.mmap]
-    WriteableBuffer = Union[bytearray, memoryview, array.array, mmap.mmap]
+    ReadableBuffer = Union[bytes, bytearray, memoryview, array.array[Any], mmap.mmap]
+    WriteableBuffer = Union[bytearray, memoryview, array.array[Any], mmap.mmap]
 else:
-    ReadableBuffer = Union[bytes, bytearray, memoryview, array.array, mmap.mmap, buffer]
-    WriteableBuffer = Union[bytearray, memoryview, array.array, mmap.mmap, buffer]
+    ReadableBuffer = Union[bytes, bytearray, memoryview, array.array[Any], mmap.mmap, buffer]
+    WriteableBuffer = Union[bytearray, memoryview, array.array[Any], mmap.mmap, buffer]
 
 if sys.version_info >= (3, 10):
     from types import NoneType as NoneType

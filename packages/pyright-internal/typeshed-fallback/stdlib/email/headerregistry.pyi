@@ -1,7 +1,7 @@
 from datetime import datetime as _datetime
 from email.errors import MessageDefect
 from email.policy import Policy
-from typing import Any, Dict, Mapping, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Mapping, Optional, Tuple, Union
 
 class BaseHeader(str):
     @property
@@ -86,5 +86,5 @@ class Address:
 class Group:
     display_name: Optional[str]
     addresses: Tuple[Address, ...]
-    def __init__(self, display_name: Optional[str] = ..., addresses: Optional[Tuple[Address, ...]] = ...) -> None: ...
+    def __init__(self, display_name: Optional[str] = ..., addresses: Optional[Iterable[Address]] = ...) -> None: ...
     def __str__(self) -> str: ...
