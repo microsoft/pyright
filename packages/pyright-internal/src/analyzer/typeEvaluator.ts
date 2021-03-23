@@ -9576,11 +9576,7 @@ export function createTypeEvaluator(
             }
         }
 
-        const result = getTypeFromDictionaryInferred(
-            node,
-            /* forceStrict */ !!expectedType,
-            /* useAny */ !!expectedType
-        )!;
+        const result = getTypeFromDictionaryInferred(node, expectedType)!;
         return { ...result, expectedTypeDiagAddendum };
     }
 
@@ -9686,9 +9682,9 @@ export function createTypeEvaluator(
     // Attempts to infer the type of a dictionary statement. If an expectedType
     // is provided, the resulting type must be compatible with the expected type.
     // If this isn't possible, undefined is returned.
-    function getTypeFromDictionaryInferred(node: DictionaryNode, forceStrict: boolean, useAny: boolean): TypeResult {
-        let keyType: Type = useAny ? AnyType.create() : UnknownType.create();
-        let valueType: Type = useAny ? AnyType.create() : UnknownType.create();
+    function getTypeFromDictionaryInferred(node: DictionaryNode, expectedType: Type | undefined): TypeResult {
+        let keyType: Type = expectedType ? AnyType.create() : UnknownType.create();
+        let valueType: Type = expectedType ? AnyType.create() : UnknownType.create();
 
         let keyTypes: Type[] = [];
         let valueTypes: Type[] = [];
@@ -9698,16 +9694,16 @@ export function createTypeEvaluator(
             node,
             keyTypes,
             valueTypes,
-            !forceStrict,
-            useAny ? AnyType.create() : undefined,
-            useAny ? AnyType.create() : undefined
+            !expectedType,
+            expectedType ? AnyType.create() : undefined,
+            expectedType ? AnyType.create() : undefined
         );
 
         // Strip any literal values.
         keyTypes = keyTypes.map((t) => stripLiteralValue(t));
         valueTypes = valueTypes.map((t) => stripLiteralValue(t));
 
-        keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : useAny ? AnyType.create() : UnknownType.create();
+        keyType = keyTypes.length > 0 ? combineTypes(keyTypes) : expectedType ? AnyType.create() : UnknownType.create();
 
         // If the value type differs and we're not using "strict inference mode",
         // we need to back off because we can't properly represent the mappings
@@ -9715,13 +9711,17 @@ export function createTypeEvaluator(
         // are the same type, we'll assume that all values in this dictionary should
         // be the same.
         if (valueTypes.length > 0) {
-            if (getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || forceStrict) {
+            if (getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || !!expectedType) {
                 valueType = combineTypes(valueTypes);
             } else {
-                valueType = areTypesSame(valueTypes) ? valueTypes[0] : useAny ? AnyType.create() : UnknownType.create();
+                valueType = areTypesSame(valueTypes)
+                    ? valueTypes[0]
+                    : expectedType
+                    ? AnyType.create()
+                    : UnknownType.create();
             }
         } else {
-            valueType = useAny ? AnyType.create() : UnknownType.create();
+            valueType = expectedType ? AnyType.create() : UnknownType.create();
         }
 
         const type = getBuiltInObject(node, 'dict', [keyType, valueType]);
@@ -9879,7 +9879,7 @@ export function createTypeEvaluator(
             }
         }
 
-        return getTypeFromListInferred(node, /* forceStrict */ !!expectedType, /* useAny */ !!expectedType);
+        return getTypeFromListInferred(node, expectedType);
     }
 
     // Attempts to determine the type of a list statement based on an expected type.
@@ -9938,17 +9938,23 @@ export function createTypeEvaluator(
         return { type, node };
     }
 
-    // Attempts to infer the type of a list statement with no "expected type". If
-    // forceStrict is true, it always includes all of the list subtypes.
-    function getTypeFromListInferred(node: ListNode, forceStrict: boolean, useAny: boolean): TypeResult {
+    // Attempts to infer the type of a list statement with no "expected type".
+    function getTypeFromListInferred(node: ListNode, expectedType: Type | undefined): TypeResult {
+        // If we received an expected entry type that of "object",
+        // allow Any rather than generating an "Unknown".
+        let expectedEntryType: Type | undefined;
+        if (expectedType && isObject(expectedType) && ClassType.isBuiltIn(expectedType.classType, 'object')) {
+            expectedEntryType = AnyType.create();
+        }
+
         let entryTypes: Type[] = [];
         node.entries.forEach((entry, index) => {
             let entryType: Type;
 
             if (entry.nodeType === ParseNodeType.ListComprehension) {
-                entryType = getElementTypeFromListComprehension(entry, useAny ? AnyType.create() : undefined);
+                entryType = getElementTypeFromListComprehension(entry, expectedEntryType);
             } else {
-                entryType = getTypeOfExpression(entry, useAny ? AnyType.create() : undefined).type;
+                entryType = getTypeOfExpression(entry, expectedEntryType).type;
             }
 
             if (index < maxEntriesToUseForInference) {
@@ -9958,19 +9964,15 @@ export function createTypeEvaluator(
 
         entryTypes = entryTypes.map((t) => stripLiteralValue(t));
 
-        let inferredEntryType: Type = useAny ? AnyType.create() : UnknownType.create();
+        let inferredEntryType: Type = expectedType ? AnyType.create() : UnknownType.create();
         if (entryTypes.length > 0) {
             // If there was an expected type or we're using strict list inference,
             // combine the types into a union.
-            if (getFileInfo(node).diagnosticRuleSet.strictListInference || forceStrict) {
+            if (getFileInfo(node).diagnosticRuleSet.strictListInference || !!expectedType) {
                 inferredEntryType = combineTypes(entryTypes, maxSubtypesForInferredType);
             } else {
                 // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
-                inferredEntryType = areTypesSame(entryTypes)
-                    ? entryTypes[0]
-                    : useAny
-                    ? AnyType.create()
-                    : UnknownType.create();
+                inferredEntryType = areTypesSame(entryTypes) ? entryTypes[0] : inferredEntryType;
             }
         }
 

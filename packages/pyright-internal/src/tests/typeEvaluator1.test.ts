@@ -1406,3 +1406,8 @@ test('Match6', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['match6.py'], configOptions);
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('List1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['list1.py']);
+    TestUtils.validateResults(analysisResults, 0);
+});
