@@ -9943,8 +9943,12 @@ export function createTypeEvaluator(
         // If we received an expected entry type that of "object",
         // allow Any rather than generating an "Unknown".
         let expectedEntryType: Type | undefined;
-        if (expectedType && isObject(expectedType) && ClassType.isBuiltIn(expectedType.classType, 'object')) {
-            expectedEntryType = AnyType.create();
+        if (expectedType) {
+            if (isAny(expectedType)) {
+                expectedEntryType = expectedType;
+            } else if (isObject(expectedType) && ClassType.isBuiltIn(expectedType.classType, 'object')) {
+                expectedEntryType = AnyType.create();
+            }
         }
 
         let entryTypes: Type[] = [];

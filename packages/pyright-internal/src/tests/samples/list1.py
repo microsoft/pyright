@@ -2,7 +2,7 @@
 
 # pyright: strict, reportUnknownVariableType=false
 
-from typing import Any, Collection, Generic, Literal, Sequence, TypeVar
+from typing import Any, Collection, Generic, List, Literal, Sequence, TypeVar
 
 
 v1 = [1, 2, 3]
@@ -14,7 +14,7 @@ t_v2: Literal["list[int | float | str]"] = reveal_type(v2)
 v3 = []
 t_v3: Literal["list[Unknown]"] = reveal_type(v3)
 
-v4: list[object] = []
+v4: List[object] = []
 
 v5: object = []
 
@@ -46,3 +46,6 @@ v10 = Bar()
 t_v10_1: Literal["list[Foo]"] = reveal_type(v10.baz)
 v10.baz = [Foo()]
 t_v10_2: Literal["list[Foo]"] = reveal_type(v10.baz)
+
+v11: List[Any] = [["hi", ["hi"], [[{}]]]]
+t_v11: Literal["list[Any]"] = reveal_type(v11)
