@@ -1,7 +1,7 @@
 # This sample tests the type checker's handling of the
 # builtin "Callable" class.
 
-from typing import Callable
+from typing import Callable, Literal
 
 # Test forward declaration
 Callable1 = Callable[["A"], None]
@@ -45,3 +45,9 @@ def func6(a: Callable6):
     a()
     # This should generate an error
     a(1)
+
+
+def func7(a: Callable):
+    t_a: Literal["(*args: Unknown, **kwargs: Unknown) -> Unknown"] = reveal_type(a)
+    b = a(3, 4, 5)
+    t_b: Literal["Unknown"] = reveal_type(b)

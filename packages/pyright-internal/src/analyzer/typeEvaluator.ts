@@ -5474,7 +5474,13 @@ export function createTypeEvaluator(
         hasCustomClassGetItem = false
     ): TypeResult[] {
         const typeArgs: TypeResult[] = [];
-        const adjFlags = flags & ~(EvaluatorFlags.ParamSpecDisallowed | EvaluatorFlags.TypeVarTupleDisallowed);
+        const adjFlags =
+            flags &
+            ~(
+                EvaluatorFlags.DoNotSpecialize |
+                EvaluatorFlags.ParamSpecDisallowed |
+                EvaluatorFlags.TypeVarTupleDisallowed
+            );
 
         // Create a local function that validates a single type argument.
         const getTypeArgTypeResult = (expr: ExpressionNode, argIndex: number) => {
@@ -10328,7 +10334,7 @@ export function createTypeEvaluator(
     // present, should specify the return type.
     function createCallableType(typeArgs: TypeResult[] | undefined, errorNode: ParseNode): FunctionType {
         const functionType = FunctionType.createInstantiable('', '', '', FunctionTypeFlags.None);
-        functionType.details.declaredReturnType = AnyType.create();
+        functionType.details.declaredReturnType = UnknownType.create();
 
         const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(errorNode);
         functionType.details.typeVarScopeId = enclosingScope
