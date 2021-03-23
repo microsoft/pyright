@@ -78,6 +78,7 @@ import * as ParseTreeUtils from './parseTreeUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 import { ScopeType } from './scope';
 import { getScopeForNode } from './scopeUtils';
+import { evaluateStaticBoolExpression } from './staticExpressions';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { getLastTypedDeclaredForSymbol, isFinalVariable } from './symbolUtils';
@@ -611,10 +612,14 @@ export class Checker extends ParseTreeWalker {
     visitIf(node: IfNode): boolean {
         // Check for expressions where a variable is being compared to
         // a literal string or number. Look for a common bug where
-        // the comparison will always be False.
+        // the comparison will always be False. Don't do this for
+        // expressions like 'sys.platform == "win32"' because those
+        // can change based on the execution environment and are therefore
+        // valid.
         if (
             node.testExpression.nodeType === ParseNodeType.BinaryOperation &&
-            node.testExpression.operator === OperatorType.Equals
+            node.testExpression.operator === OperatorType.Equals &&
+            evaluateStaticBoolExpression(node.testExpression, this._fileInfo.executionEnvironment) === undefined
         ) {
             const rightType = this._evaluator.getType(node.testExpression.rightExpression);
             if (rightType && isLiteralTypeOrUnion(rightType)) {
