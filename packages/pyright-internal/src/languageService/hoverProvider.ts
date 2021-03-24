@@ -17,7 +17,6 @@ import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
 import {
     getClassDocString,
-    getFunctionDocStringInherited,
     getModuleDocString,
     getOverloadedFunctionDocStringsInherited,
     getPropertyDocStringInherited,
@@ -42,7 +41,7 @@ import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { getOverloadedFunctionTooltip } from './tooltipUtils';
+import { getFunctionDocStringFromType, getOverloadedFunctionTooltip } from './tooltipUtils';
 
 export interface HoverTextPart {
     python?: boolean;
@@ -360,23 +359,8 @@ export class HoverProvider {
         } else if (isClass(type)) {
             docStrings.push(getClassDocString(type, resolvedDecl, sourceMapper));
         } else if (isFunction(type)) {
-            if (resolvedDecl?.type === DeclarationType.Function) {
-                const enclosingClass = resolvedDecl ? ParseTreeUtils.getEnclosingClass(resolvedDecl.node) : undefined;
-                const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
-
-                docStrings.push(
-                    getFunctionDocStringInherited(type, resolvedDecl, sourceMapper, classResults?.classType)
-                );
-            } else if (resolvedDecl?.type === DeclarationType.Class) {
-                // Special case where hover on Class decl returns __init__ docString
-                const enclosingClass =
-                    resolvedDecl.node.nodeType === ParseNodeType.Class ? resolvedDecl.node : undefined;
-                const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
-                const fieldSymbol = classResults?.classType.details.fields.get(type.details.name);
-                if (fieldSymbol) {
-                    const decl = fieldSymbol.getDeclarations()[0];
-                    docStrings.push(getFunctionDocStringInherited(type, decl, sourceMapper, classResults?.classType));
-                }
+            if (resolvedDecl?.type === DeclarationType.Function || resolvedDecl?.type === DeclarationType.Class) {
+                docStrings.push(getFunctionDocStringFromType(type, sourceMapper, evaluator));
             }
         } else if (isOverloadedFunction(type)) {
             const enclosingClass = resolvedDecl ? ParseTreeUtils.getEnclosingClass(resolvedDecl.node) : undefined;

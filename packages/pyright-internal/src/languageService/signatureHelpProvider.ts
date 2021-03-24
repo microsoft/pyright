@@ -15,11 +15,13 @@ import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../anal
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
+import { SourceMapper } from '../analyzer/sourceMapper';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluator';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
 import { ParseResults } from '../parser/parser';
+import { getFunctionDocStringFromType } from './tooltipUtils';
 
 export interface ParamInfo {
     startOffset: number;
@@ -44,6 +46,7 @@ export class SignatureHelpProvider {
     static getSignatureHelpForPosition(
         parseResults: ParseResults,
         position: Position,
+        sourceMapper: SourceMapper,
         evaluator: TypeEvaluator,
         format: MarkupKind,
         token: CancellationToken
@@ -92,7 +95,9 @@ export class SignatureHelpProvider {
             return undefined;
         }
 
-        const signatures = callSignatureInfo.signatures.map((sig) => this._makeSignature(sig, evaluator, format));
+        const signatures = callSignatureInfo.signatures.map((sig) =>
+            this._makeSignature(sig, sourceMapper, evaluator, format)
+        );
         const callHasParameters = !!callSignatureInfo.callNode.arguments?.length;
 
         return {
@@ -103,13 +108,14 @@ export class SignatureHelpProvider {
 
     private static _makeSignature(
         signature: CallSignature,
+        sourceMapper: SourceMapper,
         evaluator: TypeEvaluator,
         format: MarkupKind
     ): SignatureInfo {
         const functionType = signature.type;
         const stringParts = evaluator.printFunctionParts(functionType);
         const parameters: ParamInfo[] = [];
-        const functionDocString = functionType.details.docString;
+        const functionDocString = getFunctionDocStringFromType(functionType, sourceMapper, evaluator);
         let label = '(';
         const params = functionType.details.parameters;
 

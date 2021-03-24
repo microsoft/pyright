@@ -782,7 +782,7 @@ export class SourceFile {
 
     getSignatureHelpForPosition(
         position: Position,
-        importLookup: ImportLookup,
+        sourceMapper: SourceMapper,
         evaluator: TypeEvaluator,
         format: MarkupKind,
         token: CancellationToken
@@ -795,6 +795,7 @@ export class SourceFile {
         return SignatureHelpProvider.getSignatureHelpForPosition(
             this._parseResults,
             position,
+            sourceMapper,
             evaluator,
             format,
             token
