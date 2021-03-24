@@ -8,8 +8,11 @@
  * hover and completion tooltip.
  */
 
+import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { SourceMapper } from '../analyzer/sourceMapper';
+import { getFunctionDocStringInherited } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
-import { OverloadedFunctionType } from '../analyzer/types';
+import { FunctionType, OverloadedFunctionType } from '../analyzer/types';
 
 // 70 is vscode's default hover width size.
 export function getOverloadedFunctionTooltip(
@@ -36,4 +39,12 @@ export function getOverloadedFunctionTooltip(
     }
 
     return content;
+}
+
+export function getFunctionDocStringFromType(type: FunctionType, sourceMapper: SourceMapper, evaluator: TypeEvaluator) {
+    const decl = type.details.declaration;
+    const enclosingClass = decl ? ParseTreeUtils.getEnclosingClass(decl.node) : undefined;
+    const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
+
+    return getFunctionDocStringInherited(type, decl, sourceMapper, classResults?.classType);
 }

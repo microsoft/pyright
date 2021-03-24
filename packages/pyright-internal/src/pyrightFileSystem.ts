@@ -23,6 +23,7 @@ import {
 } from './common/fileSystem';
 import { stubsSuffix } from './common/pathConsts';
 import {
+    changeAnyExtension,
     combinePaths,
     ensureTrailingDirectorySeparator,
     getDirectoryPath,
@@ -46,6 +47,10 @@ export class PyrightFileSystem implements FileSystem {
 
     // Partial stub package paths processed
     private readonly _partialStubPackagePaths = new Set<string>();
+
+    // Conflicted files. We keep these in case we want something such as doc string
+    // from files.
+    private readonly _conflictMap = new Map<string, string>();
 
     constructor(private _realFS: FileSystem) {}
 
@@ -212,26 +217,34 @@ export class PyrightFileSystem implements FileSystem {
                         // 3. Merge partial stub packages to the library (py.typed not exist or partially typed).
                         partialStubs = partialStubs ?? this._getRelativePathPartialStubs(partialStubPackagePath);
                         for (const partialStub of partialStubs) {
+                            const originalPyiFile = combinePaths(partialStubPackagePath, partialStub);
                             const mappedPyiFile = combinePaths(packagePath, partialStub);
+
                             if (this.existsSync(mappedPyiFile)) {
-                                // Found existing pyi file, skip.
+                                // If we have a conflict, first check whether we should save
+                                // the partial stub for later such as doc string for compiled module,
+                                // otherwise, just skip it.
+                                const mappedPyFile = changeAnyExtension(mappedPyiFile, 'py');
+                                const tmpPyFile = changeAnyExtension(
+                                    combinePaths(this.tmpdir(), 'conflictFiles', packageName, partialStub),
+                                    'py'
+                                );
+
+                                // If no source file exists and never saved the conflict file before,
+                                // save it for doc string.
+                                if (
+                                    !this._conflictMap.has(mappedPyiFile) &&
+                                    !this.existsSync(mappedPyFile) &&
+                                    !this.existsSync(tmpPyFile)
+                                ) {
+                                    this._recordVirtualFile(tmpPyFile, originalPyiFile);
+
+                                    this._conflictMap.set(mappedPyiFile, tmpPyFile);
+                                }
                                 continue;
                             }
 
-                            const originalPyiFile = combinePaths(partialStubPackagePath, partialStub);
-                            this._fileMap.set(mappedPyiFile, originalPyiFile);
-                            this._reverseFileMap.set(originalPyiFile, mappedPyiFile);
-
-                            const directory = ensureTrailingDirectorySeparator(getDirectoryPath(mappedPyiFile));
-                            let folderInfo = this._folderMap.get(directory);
-                            if (!folderInfo) {
-                                folderInfo = [];
-                                this._folderMap.set(directory, folderInfo);
-                            }
-                            const pyiFileName = getFileName(mappedPyiFile);
-                            if (!folderInfo.some((entry) => entry === pyiFileName)) {
-                                folderInfo.push(pyiFileName);
-                            }
+                            this._recordVirtualFile(mappedPyiFile, originalPyiFile);
                         }
                     } catch {
                         // ignore
@@ -247,6 +260,8 @@ export class PyrightFileSystem implements FileSystem {
 
         this._rootSearched.clear();
         this._partialStubPackagePaths.clear();
+
+        this._conflictMap.clear();
     }
 
     // See whether the file is mapped to another location.
@@ -262,6 +277,29 @@ export class PyrightFileSystem implements FileSystem {
     // Get mapped filepath if the given filepath is mapped.
     getMappedFilePath(originalFilepath: string) {
         return this._reverseFileMap.get(originalFilepath) ?? originalFilepath;
+    }
+
+    // If we have a conflict file from the partial stub packages for the given file path,
+    // return it.
+    getConflictedFile(filepath: string) {
+        return this._conflictMap.get(filepath);
+    }
+
+    private _recordVirtualFile(mappedFile: string, originalFile: string) {
+        this._fileMap.set(mappedFile, originalFile);
+        this._reverseFileMap.set(originalFile, mappedFile);
+
+        const directory = ensureTrailingDirectorySeparator(getDirectoryPath(mappedFile));
+        let folderInfo = this._folderMap.get(directory);
+        if (!folderInfo) {
+            folderInfo = [];
+            this._folderMap.set(directory, folderInfo);
+        }
+
+        const fileName = getFileName(mappedFile);
+        if (!folderInfo.some((entry) => entry === fileName)) {
+            folderInfo.push(fileName);
+        }
     }
 
     private _getRelativePathPartialStubs(path: string) {

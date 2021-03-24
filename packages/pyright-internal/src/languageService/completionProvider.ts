@@ -38,7 +38,6 @@ import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
 import {
     getClassDocString,
-    getFunctionDocStringInherited,
     getModuleDocString,
     getOverloadedFunctionDocStringsInherited,
     getPropertyDocStringInherited,
@@ -101,7 +100,7 @@ import { ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
 import { AbbreviationInfo, AutoImporter, AutoImportResult, ModuleSymbolMap } from './autoImporter';
 import { IndexResults } from './documentSymbolProvider';
-import { getOverloadedFunctionTooltip } from './tooltipUtils';
+import { getFunctionDocStringFromType, getOverloadedFunctionTooltip } from './tooltipUtils';
 
 const _keywords: string[] = [
     // Expression keywords
@@ -223,10 +222,16 @@ export interface AutoImportInfo {
     additionTimeInMS: number;
 }
 
+export interface ExtensionInfo {
+    correlationId: string;
+    totalTimeInMS: number;
+}
+
 export interface CompletionResults {
     completionList: CompletionList | undefined;
     memberAccessInfo?: MemberAccessInfo;
     autoImportInfo?: AutoImportInfo;
+    extensionInfo?: ExtensionInfo;
 }
 
 export interface CompletionOptions {
@@ -1825,18 +1830,7 @@ export class CompletionProvider {
                             } else if (isClass(type)) {
                                 documentation = getClassDocString(type, primaryDecl, this._sourceMapper);
                             } else if (isFunction(type)) {
-                                const enclosingClass = isFunctionDeclaration(primaryDecl)
-                                    ? ParseTreeUtils.getEnclosingClass(primaryDecl.node.name, false)
-                                    : undefined;
-                                const classResults = enclosingClass
-                                    ? this._evaluator.getTypeOfClass(enclosingClass)
-                                    : undefined;
-                                documentation = getFunctionDocStringInherited(
-                                    type,
-                                    primaryDecl,
-                                    this._sourceMapper,
-                                    classResults?.classType
-                                );
+                                documentation = getFunctionDocStringFromType(type, this._sourceMapper, this._evaluator);
                             } else if (isOverloadedFunction(type)) {
                                 const enclosingClass = isFunctionDeclaration(primaryDecl)
                                     ? ParseTreeUtils.getEnclosingClass(primaryDecl.node.name, false)

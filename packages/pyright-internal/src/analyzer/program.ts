@@ -1380,9 +1380,10 @@ export class Program {
 
             this._bindFile(sourceFileInfo);
 
+            const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
                 position,
-                this._lookUpImport,
+                this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 this._evaluator!,
                 format,
                 token
@@ -1447,12 +1448,11 @@ export class Program {
         if (pr?.parseTree && content !== undefined) {
             const offset = convertPositionToOffset(position, pr.tokenizerOutput.lines);
             if (offset !== undefined) {
-                completionResult.completionList = await this._extension.completionListExtension.updateCompletionList(
-                    completionResult.completionList,
+                await this._extension.completionListExtension.updateCompletionResults(
+                    completionResult,
                     pr.parseTree,
                     content,
                     offset,
-                    this._configOptions,
                     token
                 );
             }
