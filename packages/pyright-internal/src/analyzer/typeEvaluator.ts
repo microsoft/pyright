@@ -11424,7 +11424,7 @@ export function createTypeEvaluator(
             isIncomplete,
             node.rightExpression,
             /* ignoreEmptyContainers */ true,
-            expectedTypeDiagAddendum,
+            expectedTypeDiagAddendum
         );
 
         writeTypeCache(node, rightHandType, isIncomplete);
@@ -13341,12 +13341,7 @@ export function createTypeEvaluator(
         });
 
         if (node.name) {
-            assignTypeToExpression(
-                node.name,
-                targetType,
-                /* isIncomplete */ false,
-                node.name
-            );
+            assignTypeToExpression(node.name, targetType, /* isIncomplete */ false, node.name);
         }
 
         writeTypeCache(node, targetType, /* isIncomplete */ false);
@@ -13469,12 +13464,7 @@ export function createTypeEvaluator(
         });
 
         if (node.target) {
-            assignTypeToExpression(
-                node.target,
-                scopedType,
-                !!exprTypeResult.isIncomplete,
-                node.target
-            );
+            assignTypeToExpression(node.target, scopedType, !!exprTypeResult.isIncomplete, node.target);
         }
 
         writeTypeCache(node, scopedType, !!exprTypeResult.isIncomplete);
