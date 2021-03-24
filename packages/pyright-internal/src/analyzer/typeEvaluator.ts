@@ -19016,7 +19016,7 @@ export function createTypeEvaluator(
             if (curWideTypeBound) {
                 if (
                     !canAssignType(
-                        curWideTypeBound,
+                        makeTopLevelTypeVarsConcrete(curWideTypeBound),
                         newNarrowTypeBound!,
                         new DiagnosticAddendum(),
                         typeVarMap,
