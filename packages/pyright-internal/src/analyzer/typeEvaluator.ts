@@ -1153,14 +1153,21 @@ export function createTypeEvaluator(
                     node.leftExpression,
                     typeResult.type,
                     /* isTypeIncomplete */ false,
-                    node.rightExpression
+                    node.rightExpression,
+                    /* ignoreEmptyContainers */ true
                 );
                 break;
             }
 
             case ParseNodeType.AssignmentExpression: {
                 typeResult = getTypeOfExpression(node.rightExpression);
-                assignTypeToExpression(node.name, typeResult.type, /* isTypeIncomplete */ false, node.rightExpression);
+                assignTypeToExpression(
+                    node.name,
+                    typeResult.type,
+                    /* isTypeIncomplete */ false,
+                    node.rightExpression,
+                    /* ignoreEmptyContainers */ true
+                );
                 break;
             }
 
@@ -2979,7 +2986,8 @@ export function createTypeEvaluator(
                     DiagnosticRule.reportUnknownMemberType,
                     node.memberName,
                     srcType,
-                    node
+                    node,
+                    /* ignoreEmptyContainers */ true
                 );
             }
         }
@@ -3076,7 +3084,7 @@ export function createTypeEvaluator(
                 }
             }
 
-            assignTypeToExpression(expr, targetType, isTypeIncomplete, srcExpr);
+            assignTypeToExpression(expr, targetType, isTypeIncomplete, srcExpr, /* ignoreEmptyContainers */ true);
         });
 
         writeTypeCache(target, type, isTypeIncomplete);
@@ -3194,6 +3202,7 @@ export function createTypeEvaluator(
         type: Type,
         isTypeIncomplete: boolean,
         srcExpr: ExpressionNode,
+        ignoreEmptyContainers = false,
         expectedTypeDiagAddendum?: DiagnosticAddendum
     ) {
         // Is the source expression a TypeVar() call?
@@ -3235,7 +3244,8 @@ export function createTypeEvaluator(
                         DiagnosticRule.reportUnknownVariableType,
                         target,
                         type,
-                        target
+                        target,
+                        ignoreEmptyContainers
                     );
                 }
 
@@ -3304,6 +3314,7 @@ export function createTypeEvaluator(
                     type,
                     /* isIncomplete */ false,
                     srcExpr,
+                    ignoreEmptyContainers,
                     expectedTypeDiagAddendum
                 );
                 break;
@@ -3321,7 +3332,13 @@ export function createTypeEvaluator(
                 const iteratedType = getTypeFromIterator(type, /* isAsync */ false, srcExpr) || UnknownType.create();
 
                 target.entries.forEach((entry) => {
-                    assignTypeToExpression(entry, iteratedType, /* isIncomplete */ false, srcExpr);
+                    assignTypeToExpression(
+                        entry,
+                        iteratedType,
+                        /* isIncomplete */ false,
+                        srcExpr,
+                        ignoreEmptyContainers
+                    );
                 });
                 break;
             }
@@ -4385,7 +4402,8 @@ export function createTypeEvaluator(
                         DiagnosticRule.reportUnknownMemberType,
                         node.memberName,
                         type,
-                        node
+                        node,
+                        /* ignoreEmptyContainers */ false
                     );
                 }
             }
@@ -9761,6 +9779,8 @@ export function createTypeEvaluator(
         let keyTypes: Type[] = [];
         let valueTypes: Type[] = [];
 
+        let isEmptyContainer = false;
+
         // Infer the key and value types if possible.
         getKeyAndValueTypesFromDictionary(
             node,
@@ -9794,9 +9814,23 @@ export function createTypeEvaluator(
             }
         } else {
             valueType = expectedType ? AnyType.create() : UnknownType.create();
+            isEmptyContainer = true;
         }
 
-        const type = getBuiltInObject(node, 'dict', [keyType, valueType]);
+        const dictClass = getBuiltInType(node, 'dict');
+        const type = isClass(dictClass)
+            ? ObjectType.create(
+                  ClassType.cloneForSpecialization(
+                      dictClass,
+                      [keyType, valueType],
+                      /* isTypeArgumentExplicit */ true,
+                      /* skipAbstractClassTest */ false,
+                      /* TupleTypeArguments */ undefined,
+                      isEmptyContainer
+                  )
+              )
+            : UnknownType.create();
+
         return { type, node };
     }
 
@@ -10012,6 +10046,8 @@ export function createTypeEvaluator(
 
     // Attempts to infer the type of a list statement with no "expected type".
     function getTypeFromListInferred(node: ListNode, expectedType: Type | undefined): TypeResult {
+        let isEmptyContainer = false;
+
         // If we received an expected entry type that of "object",
         // allow Any rather than generating an "Unknown".
         let expectedEntryType: Type | undefined;
@@ -10050,9 +10086,24 @@ export function createTypeEvaluator(
                 // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
                 inferredEntryType = areTypesSame(entryTypes) ? entryTypes[0] : inferredEntryType;
             }
+        } else {
+            isEmptyContainer = true;
         }
 
-        const type = getBuiltInObject(node, 'list', [inferredEntryType]);
+        const listClass = getBuiltInType(node, 'list');
+        const type = isClass(listClass)
+            ? ObjectType.create(
+                  ClassType.cloneForSpecialization(
+                      listClass,
+                      [inferredEntryType],
+                      /* isTypeArgumentExplicit */ true,
+                      /* skipAbstractClassTest */ false,
+                      /* TupleTypeArguments */ undefined,
+                      isEmptyContainer
+                  )
+              )
+            : UnknownType.create();
+
         return { type, node };
     }
 
@@ -10258,7 +10309,8 @@ export function createTypeEvaluator(
         rule: string,
         target: NameNode,
         type: Type,
-        errorNode: ExpressionNode
+        errorNode: ExpressionNode,
+        ignoreEmptyContainers: boolean
     ) {
         // Don't bother if the feature is disabled.
         if (diagLevel === 'none') {
@@ -10275,19 +10327,24 @@ export function createTypeEvaluator(
         if (isUnknown(simplifiedType)) {
             addDiagnostic(diagLevel, rule, Localizer.Diagnostic.typeUnknown().format({ name: nameValue }), errorNode);
         } else if (isPartlyUnknown(simplifiedType)) {
-            const diagAddendum = new DiagnosticAddendum();
-            diagAddendum.addMessage(
-                Localizer.DiagnosticAddendum.typeOfSymbol().format({
-                    name: nameValue,
-                    type: printType(simplifiedType, /* expandTypeAlias */ true),
-                })
-            );
-            addDiagnostic(
-                diagLevel,
-                rule,
-                Localizer.Diagnostic.typePartiallyUnknown().format({ name: nameValue }) + diagAddendum.getString(),
-                errorNode
-            );
+            // If ignoreEmptyContainers is true, don't report the problem for
+            // empty containers(lists or dictionaries). We'll report the problem
+            // only if the assigned value is used later.
+            if (!ignoreEmptyContainers || !isObject(type) || !type.classType.isEmptyContainer) {
+                const diagAddendum = new DiagnosticAddendum();
+                diagAddendum.addMessage(
+                    Localizer.DiagnosticAddendum.typeOfSymbol().format({
+                        name: nameValue,
+                        type: printType(simplifiedType, /* expandTypeAlias */ true),
+                    })
+                );
+                addDiagnostic(
+                    diagLevel,
+                    rule,
+                    Localizer.Diagnostic.typePartiallyUnknown().format({ name: nameValue }) + diagAddendum.getString(),
+                    errorNode
+                );
+            }
         }
     }
 
@@ -11366,7 +11423,8 @@ export function createTypeEvaluator(
             rightHandType,
             isIncomplete,
             node.rightExpression,
-            expectedTypeDiagAddendum
+            /* ignoreEmptyContainers */ true,
+            expectedTypeDiagAddendum,
         );
 
         writeTypeCache(node, rightHandType, isIncomplete);
@@ -13283,7 +13341,12 @@ export function createTypeEvaluator(
         });
 
         if (node.name) {
-            assignTypeToExpression(node.name, targetType, /* isIncomplete */ false, node.name);
+            assignTypeToExpression(
+                node.name,
+                targetType,
+                /* isIncomplete */ false,
+                node.name
+            );
         }
 
         writeTypeCache(node, targetType, /* isIncomplete */ false);
@@ -13406,7 +13469,12 @@ export function createTypeEvaluator(
         });
 
         if (node.target) {
-            assignTypeToExpression(node.target, scopedType, !!exprTypeResult.isIncomplete, node.target);
+            assignTypeToExpression(
+                node.target,
+                scopedType,
+                !!exprTypeResult.isIncomplete,
+                node.target
+            );
         }
 
         writeTypeCache(node, scopedType, !!exprTypeResult.isIncomplete);

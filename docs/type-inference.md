@@ -107,6 +107,20 @@ var5 = (3,)                     # Type is assumed to be Tuple[int]
 var6: Tuple[float, ...] = (3,)  # Type of RHS is now Tuple[float, ...]
 ```
 
+### Empty List and Dictionary Type Inference
+
+It is common to initialize a local variable or instance variable to an empty list (`[]`) or empty dictionary (`{}`) on one code path but initialize it to a non-empty list or dictionary on other code paths. In such cases, Pyright will infer the type based on the non-empty list or dictionary and suppress errors about a “partially unknown type”.
+
+```python
+if some_condition:
+    my_list = []
+else:
+    my_list = ["a", "b"]
+
+reveal_type(my_list) # list[str]
+```
+
+
 ### Return Type Inference
 
 As with variable assignments, function return types can be inferred from the `return` statements found within that function. The returned type is assumed to be the union of all types returned from all `return` statements. If a `return` statement is not followed by an expression, it is assumed to return `None`. Likewise, if the function does not end in a `return` statement, and the end of the function is reachable, an implicit `return None` is assumed.
@@ -221,7 +235,7 @@ def func1(a: int):
 
 When inferring the type of a list expression (in the absence of bidirectional inference hints), Pyright uses the following heuristics:
 
-1. If the list is empty (`[]`), assume `List[Unknown]`.
+1. If the list is empty (`[]`), assume `List[Unknown]` (unless a known list type is assigned to the same variable along another code path).
 2. If the list contains at least one element and all elements are the same type T, infer the type `List[T]`.
 3. If the list contains multiple elements that are of different types, the behavior depends on the `strictListInference` configuration setting. By default this setting is off.
 

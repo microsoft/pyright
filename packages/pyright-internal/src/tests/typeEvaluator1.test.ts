@@ -1428,3 +1428,8 @@ test('Comparison1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['comparison1.py']);
     TestUtils.validateResults(analysisResults, 3);
 });
+
+test('EmptyContainers1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['emptyContainers1.py']);
+    TestUtils.validateResults(analysisResults, 5);
+});
