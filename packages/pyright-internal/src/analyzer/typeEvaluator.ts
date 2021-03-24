@@ -477,9 +477,11 @@ const binaryOperatorMap: { [operator: number]: [string, string, boolean] } = {
     [OperatorType.GreaterThanOrEqual]: ['__ge__', '__le__', true],
 };
 
+// Maps boolean operators to a boolean value indicating whether
+// the operators "chain" together with other comparison operators.
 const booleanOperatorMap: { [operator: number]: boolean } = {
-    [OperatorType.And]: true,
-    [OperatorType.Or]: true,
+    [OperatorType.And]: false,
+    [OperatorType.Or]: false,
     [OperatorType.Is]: true,
     [OperatorType.IsNot]: true,
     [OperatorType.In]: true,
@@ -8993,6 +8995,18 @@ export function createTypeEvaluator(
         return { type, node };
     }
 
+    function operatorSupportsComparisonChaining(op: OperatorType) {
+        if (binaryOperatorMap[op] && binaryOperatorMap[op][2]) {
+            return true;
+        }
+
+        if (booleanOperatorMap[op]) {
+            return true;
+        }
+
+        return false;
+    }
+
     function getTypeFromBinaryOperation(
         node: BinaryOperationNode,
         expectedType: Type | undefined,
@@ -9005,12 +9019,11 @@ export function createTypeEvaluator(
         // If this is a comparison and the left expression is also a comparison,
         // we need to change the behavior to accommodate python's "chained
         // comparisons" feature.
-        if (binaryOperatorMap[node.operator] && binaryOperatorMap[node.operator][2]) {
+        if (operatorSupportsComparisonChaining(node.operator)) {
             if (
                 rightExpression.nodeType === ParseNodeType.BinaryOperation &&
                 !rightExpression.parenthesized &&
-                binaryOperatorMap[rightExpression.operator] &&
-                binaryOperatorMap[rightExpression.operator][2]
+                operatorSupportsComparisonChaining(rightExpression.operator)
             ) {
                 // Evaluate the right expression so it is type checked.
                 getTypeFromBinaryOperation(rightExpression, expectedType, flags);
@@ -9224,7 +9237,7 @@ export function createTypeEvaluator(
 
         let concreteLeftType = makeTopLevelTypeVarsConcrete(leftType);
 
-        if (booleanOperatorMap[operator]) {
+        if (booleanOperatorMap[operator] !== undefined) {
             // If it's an AND or OR, we need to handle short-circuiting by
             // eliminating any known-truthy or known-falsy types.
             if (operator === OperatorType.And) {

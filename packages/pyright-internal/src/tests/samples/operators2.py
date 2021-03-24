@@ -27,6 +27,4 @@ foo4 = (date1 < date2) < 3
 
 foo5 = "1" == "1" in "1"
 
-# Commenting out this one for now because of a bug
-# in the parser that generates a false positive error.
-# foo6 = "1" in "1" == "1"
+foo6 = "1" in "1" == "1"
