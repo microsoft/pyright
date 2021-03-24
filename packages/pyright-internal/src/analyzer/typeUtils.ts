@@ -1234,25 +1234,14 @@ export function removeTruthinessFromType(type: Type): Type {
 }
 
 // Returns the declared yield type if provided, or undefined otherwise.
-export function getDeclaredGeneratorYieldType(functionType: FunctionType, iterableType: Type): Type | undefined {
+export function getDeclaredGeneratorYieldType(functionType: FunctionType): Type | undefined {
     const returnType = FunctionType.getSpecializedReturnType(functionType);
     if (returnType) {
         const generatorTypeArgs = getGeneratorTypeArgs(returnType);
 
-        if (generatorTypeArgs && generatorTypeArgs.length >= 1 && isClass(iterableType)) {
-            // The yield type is the first type arg. Wrap it in an iterable.
-            return ObjectType.create(
-                ClassType.cloneForSpecialization(
-                    iterableType,
-                    [generatorTypeArgs[0]],
-                    /* isTypeArgumentExplicit */ true
-                )
-            );
+        if (generatorTypeArgs && generatorTypeArgs.length >= 1) {
+            return generatorTypeArgs[0];
         }
-
-        // If the return type isn't a Generator, assume that it's the
-        // full return type.
-        return returnType;
     }
 
     return undefined;
@@ -2017,23 +2006,14 @@ function _transformTypeVarsInFunctionType(
     return newFunctionType;
 }
 
-// If the declared return type for the function is a Generator, AsyncGenerator,
-// Iterator, or AsyncIterator, returns the type arguments for the type.
+// If the declared return type for the function is a Generator or AsyncGenerator,
+// returns the type arguments for the type.
 export function getGeneratorTypeArgs(returnType: Type): Type[] | undefined {
     if (isObject(returnType)) {
         const classType = returnType.classType;
         if (ClassType.isBuiltIn(classType)) {
             const className = classType.details.name;
             if (className === 'Generator' || className === 'AsyncGenerator') {
-                return classType.typeArguments;
-            }
-
-            if (
-                className === 'Iterator' ||
-                className === 'Iterable' ||
-                className === 'AsyncIterator' ||
-                className === 'AsyncIterable'
-            ) {
                 return classType.typeArguments;
             }
         }

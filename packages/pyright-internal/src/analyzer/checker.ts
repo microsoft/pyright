@@ -116,7 +116,7 @@ import {
     derivesFromClassRecursive,
     doForEachSubtype,
     getDeclaredGeneratorReturnType,
-    getDeclaredGeneratorYieldType,
+    getGeneratorTypeArgs,
     isEllipsisType,
     isLiteralTypeOrUnion,
     isNoReturnType,
@@ -738,28 +738,27 @@ export class Checker extends ParseTreeWalker {
 
     visitYield(node: YieldNode) {
         const yieldType = node.expression ? this._evaluator.getType(node.expression) : NoneType.createInstance();
-
-        // Wrap the yield type in an Iterator.
-        let adjYieldType = yieldType;
-        const iteratorType = this._evaluator.getBuiltInType(node, 'Iterator');
-        if (yieldType && isClass(iteratorType)) {
-            adjYieldType = ObjectType.create(
-                ClassType.cloneForSpecialization(iteratorType, [yieldType], /* isTypeArgumentExplicit */ true)
-            );
-        } else {
-            adjYieldType = UnknownType.create();
-        }
-
-        this._validateYieldType(node, adjYieldType);
-
+        this._validateYieldType(node, yieldType || UnknownType.create());
         return true;
     }
 
     visitYieldFrom(node: YieldFromNode) {
-        const yieldType = this._evaluator.getType(node.expression);
-        if (yieldType) {
-            this._validateYieldType(node, yieldType);
+        const yieldFromType = this._evaluator.getType(node.expression) || UnknownType.create();
+        let yieldType =
+            this._evaluator.getTypeFromIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
+
+        // Does the iterator return a Generator? If so, get the yield type from it.
+        // If the iterator doesn't return a Generator, use the iterator return type
+        // directly.
+        const generatorTypeArgs = getGeneratorTypeArgs(yieldType);
+        if (generatorTypeArgs) {
+            yieldType = generatorTypeArgs.length >= 1 ? generatorTypeArgs[0] : UnknownType.create();
+        } else {
+            yieldType =
+                this._evaluator.getTypeFromIterator(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
         }
+
+        this._validateYieldType(node, yieldType);
 
         return true;
     }
@@ -1403,7 +1402,9 @@ export class Checker extends ParseTreeWalker {
                 }
                 resultingExceptionType = ObjectType.create(exceptionType);
             } else if (isObject(exceptionType)) {
-                const iterableType = this._evaluator.getTypeFromIterable(exceptionType, /* isAsync */ false, errorNode);
+                const iterableType =
+                    this._evaluator.getTypeFromIterator(exceptionType, /* isAsync */ false, errorNode) ||
+                    UnknownType.create();
 
                 resultingExceptionType = mapSubtypes(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {
@@ -2994,43 +2995,57 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    private _validateYieldType(node: YieldNode | YieldFromNode, adjustedYieldType: Type) {
+    private _validateYieldType(node: YieldNode | YieldFromNode, yieldType: Type) {
+        let declaredReturnType: Type | undefined;
         let declaredYieldType: Type | undefined;
-        let declaredGeneratorType: Type | undefined;
         const enclosingFunctionNode = ParseTreeUtils.getEnclosingFunction(node);
 
         if (enclosingFunctionNode) {
             const functionTypeResult = this._evaluator.getTypeOfFunction(enclosingFunctionNode);
             if (functionTypeResult) {
                 assert(isFunction(functionTypeResult.functionType));
-                const iterableType = this._evaluator.getBuiltInType(node, 'Iterable');
-                declaredYieldType = FunctionType.getSpecializedReturnType(functionTypeResult.functionType);
-                declaredGeneratorType = getDeclaredGeneratorYieldType(functionTypeResult.functionType, iterableType);
+                declaredReturnType = FunctionType.getSpecializedReturnType(functionTypeResult.functionType);
+                if (declaredReturnType) {
+                    declaredYieldType = this._evaluator.getTypeFromIterator(
+                        declaredReturnType,
+                        !!enclosingFunctionNode.isAsync,
+                        /* errorNode */ undefined
+                    );
+                }
+
+                if (declaredYieldType && !declaredYieldType && enclosingFunctionNode.returnTypeAnnotation) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        enclosingFunctionNode.isAsync
+                            ? Localizer.Diagnostic.generatorAsyncReturnType()
+                            : Localizer.Diagnostic.generatorSyncReturnType(),
+                        enclosingFunctionNode.returnTypeAnnotation
+                    );
+                }
             }
         }
 
         if (this._evaluator.isNodeReachable(node)) {
-            if (declaredGeneratorType && declaredYieldType) {
-                if (isNoReturnType(declaredGeneratorType)) {
+            if (declaredReturnType && isNoReturnType(declaredReturnType)) {
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.noReturnContainsYield(),
+                    node
+                );
+            } else if (declaredYieldType) {
+                const diagAddendum = new DiagnosticAddendum();
+                if (!this._evaluator.canAssignType(declaredYieldType, yieldType, diagAddendum)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.noReturnContainsYield(),
-                        node
+                        Localizer.Diagnostic.yieldTypeMismatch().format({
+                            exprType: this._evaluator.printType(yieldType, /* expandTypeAlias */ false),
+                            yieldType: this._evaluator.printType(declaredYieldType, /* expandTypeAlias */ false),
+                        }) + diagAddendum.getString(),
+                        node.expression || node
                     );
-                } else {
-                    const diagAddendum = new DiagnosticAddendum();
-                    if (!this._evaluator.canAssignType(declaredGeneratorType, adjustedYieldType, diagAddendum)) {
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.yieldTypeMismatch().format({
-                                exprType: this._evaluator.printType(adjustedYieldType, /* expandTypeAlias */ false),
-                                yieldType: this._evaluator.printType(declaredYieldType, /* expandTypeAlias */ false),
-                            }) + diagAddendum.getString(),
-                            node.expression || node
-                        );
-                    }
                 }
             }
         }

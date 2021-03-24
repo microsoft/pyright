@@ -24,11 +24,13 @@ def func3() -> NoReturn:
 
 def func4(x: bool) -> str:
     if x:
-        return 'hello'
+        return "hello"
     else:
         func3()
 
 
+# This should generate an error because a generator
+# function must return an iterable type.
 def func5(x: bool) -> NoReturn:
     if x:
         # This should generate an error because the function
@@ -36,4 +38,3 @@ def func5(x: bool) -> NoReturn:
         yield 4
 
     raise Exception()
-

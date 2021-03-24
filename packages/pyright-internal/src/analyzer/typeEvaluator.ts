@@ -568,7 +568,8 @@ export interface TypeEvaluator {
     getDeclarationsForNameNode: (node: NameNode) => Declaration[] | undefined;
     getTypeForDeclaration: (declaration: Declaration) => Type | undefined;
     resolveAliasDeclaration: (declaration: Declaration, resolveLocalNames: boolean) => Declaration | undefined;
-    getTypeFromIterable: (type: Type, isAsync: boolean, errorNode: ParseNode) => Type;
+    getTypeFromIterable: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
+    getTypeFromIterator: (type: Type, isAsync: boolean, errorNode: ParseNode | undefined) => Type | undefined;
     getTypedDictMembersForClass: (classType: ClassType, allowNarrowed: boolean) => Map<string, TypedDictEntry>;
     getGetterTypeFromProperty: (propertyClass: ClassType, inferTypeIfNeeded: boolean) => Type | undefined;
     markNamesAccessed: (node: ParseNode, names: string[]) => void;
@@ -1194,7 +1195,7 @@ export function createTypeEvaluator(
                 ) {
                     typeResult = { type: TypeVarType.cloneForUnpacked(iterType), node };
                 } else {
-                    const type = getTypeFromIterable(iterType, /* isAsync */ false, node);
+                    const type = getTypeFromIterator(iterType, /* isAsync */ false, node) || UnknownType.create();
                     typeResult = { type, unpackedType: iterType, node };
                 }
                 break;
@@ -1886,10 +1887,12 @@ export function createTypeEvaluator(
         });
     }
 
-    // Validates that the type is iterable and returns the iterated type.
-    function getTypeFromIterable(type: Type, isAsync: boolean, errorNode: ParseNode | undefined): Type {
+    // Validates that the type is an iterator and returns the iterated type
+    // (i.e. the type returned from the '__next__' or '__anext__' method).
+    function getTypeFromIterator(type: Type, isAsync: boolean, errorNode: ParseNode | undefined): Type | undefined {
         const iterMethodName = isAsync ? '__aiter__' : '__iter__';
         const nextMethodName = isAsync ? '__anext__' : '__next__';
+        let isValidIterator = true;
 
         type = makeTopLevelTypeVarsConcrete(type);
 
@@ -1905,73 +1908,7 @@ export function createTypeEvaluator(
             type = removeNoneFromUnion(type);
         }
 
-        const getIteratorReturnType = (
-            baseType: ObjectType | ClassType,
-            diag: DiagnosticAddendum
-        ): Type | undefined => {
-            let iterReturnType: Type | undefined;
-
-            if (isObject(baseType)) {
-                iterReturnType = getSpecializedReturnType(baseType, iterMethodName, errorNode);
-            } else if (
-                isClass(baseType) &&
-                baseType.details.effectiveMetaclass &&
-                isClass(baseType.details.effectiveMetaclass)
-            ) {
-                iterReturnType = getSpecializedReturnType(
-                    ObjectType.create(baseType.details.effectiveMetaclass),
-                    iterMethodName,
-                    errorNode,
-                    baseType
-                );
-            }
-
-            if (!iterReturnType) {
-                // There was no __iter__. See if we can fall back to
-                // the __getitem__ method instead.
-                if (isObject(baseType)) {
-                    const getItemReturnType = getSpecializedReturnType(baseType, '__getitem__', errorNode);
-                    if (getItemReturnType) {
-                        return getItemReturnType;
-                    }
-                }
-
-                diag.addMessage(Localizer.Diagnostic.methodNotDefined().format({ name: iterMethodName }));
-            } else {
-                const concreteIterReturnType = makeTopLevelTypeVarsConcrete(iterReturnType);
-
-                if (isAnyOrUnknown(concreteIterReturnType)) {
-                    return concreteIterReturnType;
-                }
-
-                if (isObject(concreteIterReturnType)) {
-                    const nextReturnType = getSpecializedReturnType(concreteIterReturnType, nextMethodName, errorNode);
-
-                    if (!nextReturnType) {
-                        diag.addMessage(
-                            Localizer.Diagnostic.methodNotDefinedOnType().format({
-                                name: nextMethodName,
-                                type: printType(iterReturnType),
-                            })
-                        );
-                    } else {
-                        if (!isAsync) {
-                            return nextReturnType;
-                        }
-
-                        // If it's an async iteration, there's an implicit
-                        // 'await' operator applied.
-                        return getTypeFromAwaitable(nextReturnType, errorNode);
-                    }
-                } else {
-                    diag.addMessage(Localizer.Diagnostic.methodReturnsNonObject().format({ name: iterMethodName }));
-                }
-            }
-
-            return undefined;
-        };
-
-        return mapSubtypes(type, (subtype) => {
+        const iterableType = mapSubtypes(type, (subtype) => {
             subtype = transformTypeObjectToClass(subtype);
 
             if (isAnyOrUnknown(subtype)) {
@@ -1980,9 +1917,67 @@ export function createTypeEvaluator(
 
             const diag = new DiagnosticAddendum();
             if (isObject(subtype) || isClass(subtype)) {
-                const returnType = getIteratorReturnType(subtype, diag);
-                if (returnType) {
-                    return returnType;
+                let iterReturnType: Type | undefined;
+
+                if (isObject(subtype)) {
+                    iterReturnType = getSpecializedReturnType(subtype, iterMethodName, errorNode);
+                } else if (
+                    isClass(subtype) &&
+                    subtype.details.effectiveMetaclass &&
+                    isClass(subtype.details.effectiveMetaclass)
+                ) {
+                    iterReturnType = getSpecializedReturnType(
+                        ObjectType.create(subtype.details.effectiveMetaclass),
+                        iterMethodName,
+                        errorNode,
+                        subtype
+                    );
+                }
+
+                if (!iterReturnType) {
+                    // There was no __iter__. See if we can fall back to
+                    // the __getitem__ method instead.
+                    if (isObject(subtype)) {
+                        const getItemReturnType = getSpecializedReturnType(subtype, '__getitem__', errorNode);
+                        if (getItemReturnType) {
+                            return getItemReturnType;
+                        }
+                    }
+
+                    diag.addMessage(Localizer.Diagnostic.methodNotDefined().format({ name: iterMethodName }));
+                } else {
+                    const concreteIterReturnType = makeTopLevelTypeVarsConcrete(iterReturnType);
+
+                    if (isAnyOrUnknown(concreteIterReturnType)) {
+                        return concreteIterReturnType;
+                    }
+
+                    if (isObject(concreteIterReturnType)) {
+                        const nextReturnType = getSpecializedReturnType(
+                            concreteIterReturnType,
+                            nextMethodName,
+                            errorNode
+                        );
+
+                        if (!nextReturnType) {
+                            diag.addMessage(
+                                Localizer.Diagnostic.methodNotDefinedOnType().format({
+                                    name: nextMethodName,
+                                    type: printType(iterReturnType),
+                                })
+                            );
+                        } else {
+                            if (!isAsync) {
+                                return nextReturnType;
+                            }
+
+                            // If it's an async iteration, there's an implicit
+                            // 'await' operator applied.
+                            return getTypeFromAwaitable(nextReturnType, errorNode);
+                        }
+                    } else {
+                        diag.addMessage(Localizer.Diagnostic.methodReturnsNonObject().format({ name: iterMethodName }));
+                    }
                 }
             }
 
@@ -1995,8 +1990,74 @@ export function createTypeEvaluator(
                 );
             }
 
-            return UnknownType.create();
+            isValidIterator = false;
         });
+
+        return isValidIterator ? iterableType : undefined;
+    }
+
+    // Validates that the type is an iterable and returns the iterable type argument.
+    function getTypeFromIterable(type: Type, isAsync: boolean, errorNode: ParseNode | undefined): Type | undefined {
+        const iterMethodName = isAsync ? '__aiter__' : '__iter__';
+        let isValidIterable = true;
+
+        type = makeTopLevelTypeVarsConcrete(type);
+
+        if (isOptionalType(type)) {
+            if (errorNode) {
+                addDiagnostic(
+                    getFileInfo(errorNode).diagnosticRuleSet.reportOptionalIterable,
+                    DiagnosticRule.reportOptionalIterable,
+                    Localizer.Diagnostic.noneNotIterable(),
+                    errorNode
+                );
+            }
+            type = removeNoneFromUnion(type);
+        }
+
+        const iterableType = mapSubtypes(type, (subtype) => {
+            subtype = transformTypeObjectToClass(subtype);
+
+            if (isAnyOrUnknown(subtype)) {
+                return subtype;
+            }
+
+            if (isObject(subtype) || isClass(subtype)) {
+                let iterReturnType: Type | undefined;
+
+                if (isObject(subtype)) {
+                    iterReturnType = getSpecializedReturnType(subtype, iterMethodName, errorNode);
+                } else if (
+                    isClass(subtype) &&
+                    subtype.details.effectiveMetaclass &&
+                    isClass(subtype.details.effectiveMetaclass)
+                ) {
+                    iterReturnType = getSpecializedReturnType(
+                        ObjectType.create(subtype.details.effectiveMetaclass),
+                        iterMethodName,
+                        errorNode,
+                        subtype
+                    );
+                }
+
+                if (iterReturnType) {
+                    return makeTopLevelTypeVarsConcrete(iterReturnType);
+                }
+            }
+
+            if (errorNode) {
+                addDiagnostic(
+                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    Localizer.Diagnostic.typeNotIterable().format({ type: printType(subtype) }),
+                    errorNode
+                );
+            }
+
+            isValidIterable = false;
+        });
+
+        return isValidIterable ? iterableType : undefined;
     }
 
     // Validates fields for compatibility with a dataclass and synthesizes
@@ -2500,10 +2561,6 @@ export function createTypeEvaluator(
             return false;
         }
 
-        // if (!isFlowNodeReachableUsingNeverNarrowing(node, flowNode)) {
-        //     return false;
-        // }
-
         return true;
     }
 
@@ -2994,7 +3051,7 @@ export function createTypeEvaluator(
             } else {
                 // The assigned expression isn't a tuple, so it had better
                 // be some iterable type.
-                const iterableType = getTypeFromIterable(subtype, /* isAsync */ false, srcExpr);
+                const iterableType = getTypeFromIterator(subtype, /* isAsync */ false, srcExpr) || UnknownType.create();
                 for (let index = 0; index < target.expressions.length; index++) {
                     targetTypes[index].push({ type: iterableType, constraints });
                 }
@@ -3259,7 +3316,7 @@ export function createTypeEvaluator(
 
             case ParseNodeType.List: {
                 // The assigned expression had better be some iterable type.
-                const iteratedType = getTypeFromIterable(type, /* isAsync */ false, srcExpr);
+                const iteratedType = getTypeFromIterator(type, /* isAsync */ false, srcExpr) || UnknownType.create();
 
                 target.entries.forEach((entry) => {
                     assignTypeToExpression(entry, iteratedType, /* isIncomplete */ false, srcExpr);
@@ -5271,7 +5328,7 @@ export function createTypeEvaluator(
             });
             unpackedListArgs.forEach((arg) => {
                 const exprType = getTypeOfExpression(arg.valueExpression).type;
-                const iterableType = getTypeFromIterable(exprType, /* isAsync */ false, arg);
+                const iterableType = getTypeFromIterator(exprType, /* isAsync */ false, arg) || UnknownType.create();
                 tupleEntries.push(iterableType);
             });
 
@@ -7220,11 +7277,9 @@ export function createTypeEvaluator(
                     listElementType = argType;
                     isArgCompatibleWithVariadic = true;
                 } else {
-                    listElementType = getTypeFromIterable(
-                        argType,
-                        /* isAsync */ false,
-                        argList[argIndex].valueExpression!
-                    );
+                    listElementType =
+                        getTypeFromIterator(argType, /* isAsync */ false, argList[argIndex].valueExpression!) ||
+                        UnknownType.create();
 
                     if (isParamSpec(listElementType)) {
                         // Handle the case where the arg came from *P.args parameter.
@@ -9227,7 +9282,7 @@ export function createTypeEvaluator(
                             if (!returnType) {
                                 // If __contains__ was not supported, fall back
                                 // on an iterable.
-                                const iteratorType = getTypeFromIterable(
+                                const iteratorType = getTypeFromIterator(
                                     rightSubtypeExpanded,
                                     /* isAsync */ false,
                                     /* errorNode */ undefined
@@ -10058,21 +10113,24 @@ export function createTypeEvaluator(
     }
 
     function getTypeFromYieldFrom(node: YieldFromNode): TypeResult {
-        let sentType: Type | undefined;
-
-        const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
-        if (enclosingFunction) {
-            const functionTypeInfo = getTypeOfFunction(enclosingFunction);
-            if (functionTypeInfo) {
-                sentType = getDeclaredGeneratorSendType(functionTypeInfo.functionType);
-            }
-        }
+        const yieldFromType = getTypeOfExpression(node.expression).type;
+        let generatorTypeArgs = getGeneratorTypeArgs(yieldFromType);
 
         let returnedType: Type | undefined;
-        const generatorType = getTypeOfExpression(node.expression, sentType).type;
-        const generatorTypeArgs = getGeneratorTypeArgs(generatorType);
-        if (generatorTypeArgs && generatorTypeArgs.length >= 2) {
-            returnedType = generatorTypeArgs[2];
+
+        // Is the expression a Generator type?
+        if (generatorTypeArgs) {
+            returnedType = generatorTypeArgs.length >= 2 ? generatorTypeArgs[2] : UnknownType.create();
+        } else {
+            const iterableType = getTypeFromIterable(yieldFromType, /* isAsync */ false, node) || UnknownType.create();
+
+            // Does the iterable return a Generator?
+            generatorTypeArgs = getGeneratorTypeArgs(iterableType);
+            if (generatorTypeArgs) {
+                returnedType = generatorTypeArgs.length >= 2 ? generatorTypeArgs[2] : UnknownType.create();
+            } else {
+                returnedType = UnknownType.create();
+            }
         }
 
         return { type: returnedType || UnknownType.create(), node };
@@ -10229,11 +10287,9 @@ export function createTypeEvaluator(
             if (comprehension.nodeType === ParseNodeType.ListComprehensionFor) {
                 const iterableTypeInfo = getTypeOfExpression(comprehension.iterableExpression);
                 const iterableType = stripLiteralValue(iterableTypeInfo.type);
-                const itemType = getTypeFromIterable(
-                    iterableType,
-                    !!comprehension.isAsync,
-                    comprehension.iterableExpression
-                );
+                const itemType =
+                    getTypeFromIterator(iterableType, !!comprehension.isAsync, comprehension.iterableExpression) ||
+                    UnknownType.create();
 
                 const targetExpr = comprehension.targetExpression;
                 assignTypeToExpression(
@@ -13052,7 +13108,7 @@ export function createTypeEvaluator(
                             if (isNodeReachable(yieldNode)) {
                                 if (yieldNode.nodeType === ParseNodeType.YieldFrom) {
                                     const iteratorType = getTypeOfExpression(yieldNode.expression).type;
-                                    const yieldType = getTypeFromIterable(iteratorType, /* isAsync */ false, yieldNode);
+                                    const yieldType = getTypeFromIterator(iteratorType, /* isAsync */ false, yieldNode);
                                     inferredYieldTypes.push(yieldType || UnknownType.create());
                                 } else {
                                     if (yieldNode.expression) {
@@ -13136,7 +13192,9 @@ export function createTypeEvaluator(
         }
 
         const iteratorTypeResult = getTypeOfExpression(node.iterableExpression);
-        const iteratedType = getTypeFromIterable(iteratorTypeResult.type, !!node.isAsync, node.iterableExpression);
+        const iteratedType =
+            getTypeFromIterator(iteratorTypeResult.type, !!node.isAsync, node.iterableExpression) ||
+            UnknownType.create();
 
         assignTypeToExpression(
             node.targetExpression,
@@ -13174,7 +13232,8 @@ export function createTypeEvaluator(
             }
 
             if (isObject(exceptionType)) {
-                const iterableType = getTypeFromIterable(exceptionType, /* isAsync */ false, errorNode);
+                const iterableType =
+                    getTypeFromIterator(exceptionType, /* isAsync */ false, errorNode) || UnknownType.create();
 
                 return mapSubtypes(iterableType, (subtype) => {
                     if (isAnyOrUnknown(subtype)) {
@@ -21214,6 +21273,7 @@ export function createTypeEvaluator(
         getTypeForDeclaration,
         resolveAliasDeclaration,
         getTypeFromIterable,
+        getTypeFromIterator,
         getTypedDictMembersForClass,
         getGetterTypeFromProperty,
         markNamesAccessed,
