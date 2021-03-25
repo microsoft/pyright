@@ -6215,7 +6215,7 @@ export function createTypeEvaluator(
                         )
                     ) {
                         let callResult: CallResult | undefined;
-                        suppressDiagnostics(errorNode, () => {
+                        useSpeculativeMode(errorNode, () => {
                             callResult = validateCallArguments(
                                 errorNode,
                                 argList,
@@ -6227,8 +6227,8 @@ export function createTypeEvaluator(
                         });
 
                         if (!callResult?.argumentErrors) {
-                            // Call validateCallArguments again, this time without suppressing
-                            // diagnostics, so any errors are reported.
+                            // Call validateCallArguments again, this time without speculative
+                            // mode, so any errors are reported.
                             validateCallArguments(
                                 errorNode,
                                 argList,
@@ -9532,7 +9532,7 @@ export function createTypeEvaluator(
 
                 let callResult: CallResult | undefined;
 
-                suppressDiagnostics(errorNode, () => {
+                useSpeculativeMode(errorNode, () => {
                     callResult = validateCallArguments(
                         errorNode,
                         functionArgs,
@@ -14018,7 +14018,7 @@ export function createTypeEvaluator(
                             // Determine if we assignment is supported for this combination of
                             // value subtype and matching subtype.
                             const magicMethodName = binaryOperatorMap[OperatorType.Equals][0];
-                            const returnType = suppressDiagnostics(pattern.expression, () =>
+                            const returnType = useSpeculativeMode(pattern.expression, () =>
                                 getTypeFromMagicMethodReturn(
                                     leftSubtypeExpanded,
                                     [rightSubtypeUnexpanded],
