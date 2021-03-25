@@ -6332,12 +6332,13 @@ export function createTypeEvaluator(
                                     if (
                                         isObject(newReturnType) &&
                                         ClassType.isTupleClass(newReturnType.classType) &&
-                                        newReturnType.classType.tupleTypeArguments &&
-                                        newReturnType.classType.tupleTypeArguments.length === 1
+                                        !newReturnType.classType.tupleTypeArguments &&
+                                        newReturnType.classType.typeArguments &&
+                                        newReturnType.classType.typeArguments.length === 1
                                     ) {
                                         newReturnType = ObjectType.create(
                                             specializeTupleClass(newReturnType.classType, [
-                                                newReturnType.classType.tupleTypeArguments[0],
+                                                newReturnType.classType.typeArguments[0],
                                                 AnyType.create(/* isEllipsis */ true),
                                             ])
                                         );
