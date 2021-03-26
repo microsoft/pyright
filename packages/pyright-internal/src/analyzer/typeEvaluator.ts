@@ -19095,7 +19095,22 @@ export function createTypeEvaluator(
                     ) {
                         newNarrowTypeBound = adjSrcType;
                     } else {
-                        newNarrowTypeBound = combineTypes([curNarrowTypeBound, adjSrcType]);
+                        // In some extreme edge cases, the narrow type bound can become
+                        // a union with so many subtypes that performance grinds to a
+                        // halt. We'll detect this case and widen the resulting type
+                        // to an 'object' instead of making the union even bigger. This
+                        // is still a valid solution to the TypeVar.
+                        if (
+                            isUnion(curNarrowTypeBound) &&
+                            curNarrowTypeBound.subtypes.length > maxSubtypesForInferredType &&
+                            (destType as TypeVarType).details.boundType !== undefined &&
+                            objectType &&
+                            isObject(objectType)
+                        ) {
+                            newNarrowTypeBound = combineTypes([curNarrowTypeBound, objectType]);
+                        } else {
+                            newNarrowTypeBound = combineTypes([curNarrowTypeBound, adjSrcType]);
+                        }
                     }
                 }
             }
