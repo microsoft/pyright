@@ -9057,6 +9057,22 @@ export function createTypeEvaluator(
         // have no magic method, so we apply the expected type directly to both operands.
         let expectedOperandType =
             node.operator === OperatorType.Or || node.operator === OperatorType.And ? expectedType : undefined;
+
+        // Handle the very special case where the expected type is a list
+        // and the operator is a multiply. This comes up in the common case
+        // of "x: List[Optional[X]] = [None] * y".
+        if (
+            node.operator === OperatorType.Multiply &&
+            expectedType &&
+            isObject(expectedType) &&
+            ClassType.isBuiltIn(expectedType.classType, 'list') &&
+            expectedType.classType.typeArguments &&
+            expectedType.classType.typeArguments.length >= 1 &&
+            node.leftExpression.nodeType === ParseNodeType.List
+        ) {
+            expectedOperandType = expectedType;
+        }
+
         const leftTypeResult = getTypeOfExpression(leftExpression, expectedOperandType, flags);
         let leftType = leftTypeResult.type;
 
