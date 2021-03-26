@@ -6346,6 +6346,8 @@ export function createTypeEvaluator(
 
                                     returnType = newReturnType;
                                 }
+                            } else if (!returnType && !isUnknown(newReturnType)) {
+                                returnType = newReturnType;
                             }
                         }
                     }
