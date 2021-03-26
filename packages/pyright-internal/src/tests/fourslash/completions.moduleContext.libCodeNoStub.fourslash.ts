@@ -22,7 +22,7 @@ await helper.verifyCompletion('included', 'markdown', {
     marker1: {
         completions: [],
         memberAccessInfo: {
-            lastKnownModule: 'testnumpy',
+            lastKnownModule: 'testnumpy.random',
             lastKnownMemberName: 'random',
             unknownMemberName: 'randint',
         },

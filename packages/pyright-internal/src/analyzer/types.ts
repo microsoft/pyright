@@ -197,16 +197,19 @@ export interface ModuleType extends TypeBase {
 
     // The period-delimited import name of this module.
     moduleName: string;
+
+    filePath: string;
 }
 
 export namespace ModuleType {
-    export function create(moduleName: string, symbolTable?: SymbolTable) {
+    export function create(moduleName: string, filePath: string, symbolTable?: SymbolTable) {
         const newModuleType: ModuleType = {
             category: TypeCategory.Module,
             fields: symbolTable || new Map<string, Symbol>(),
             loaderFields: new Map<string, Symbol>(),
             flags: TypeFlags.Instantiable | TypeFlags.Instantiable,
             moduleName,
+            filePath,
         };
         return newModuleType;
     }
@@ -330,6 +333,7 @@ interface ClassDetails {
     name: string;
     fullName: string;
     moduleName: string;
+    filePath: string;
     flags: ClassTypeFlags;
     typeSourceId: TypeSourceId;
     baseClasses: Type[];
@@ -397,6 +401,7 @@ export namespace ClassType {
         name: string,
         fullName: string,
         moduleName: string,
+        filePath: string,
         flags: ClassTypeFlags,
         typeSourceId: TypeSourceId,
         declaredMetaclass: ClassType | UnknownType | undefined,
@@ -409,6 +414,7 @@ export namespace ClassType {
                 name,
                 fullName,
                 moduleName,
+                filePath,
                 flags,
                 typeSourceId,
                 baseClasses: [],
