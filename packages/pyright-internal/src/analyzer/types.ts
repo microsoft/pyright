@@ -1750,28 +1750,31 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             }
 
             // Make sure the type args match.
-            const type1TypeArgs = type1.typeArguments || [];
-            const type2TypeArgs = classType2.typeArguments || [];
-            const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
-
-            for (let i = 0; i < typeArgCount; i++) {
-                // Assume that missing type args are "Any".
-                const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
-                const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
-
-                if (!isTypeSame(typeArg1, typeArg2, recursionCount + 1)) {
+            if (type1.tupleTypeArguments && classType2.tupleTypeArguments) {
+                const type1TupleTypeArgs = type1.tupleTypeArguments || [];
+                const type2TupleTypeArgs = classType2.tupleTypeArguments || [];
+                if (type1TupleTypeArgs.length !== type2TupleTypeArgs.length) {
                     return false;
                 }
-            }
 
-            const type1TupleTypeArgs = type1.tupleTypeArguments || [];
-            const type2TupleTypeArgs = classType2.tupleTypeArguments || [];
-            if (type1TupleTypeArgs.length !== type2TupleTypeArgs.length) {
-                return false;
-            }
-            for (let i = 0; i < type1TupleTypeArgs.length; i++) {
-                if (!isTypeSame(type1TupleTypeArgs[i], type2TupleTypeArgs[i], recursionCount + 1)) {
-                    return false;
+                for (let i = 0; i < type1TupleTypeArgs.length; i++) {
+                    if (!isTypeSame(type1TupleTypeArgs[i], type2TupleTypeArgs[i], recursionCount + 1)) {
+                        return false;
+                    }
+                }
+            } else {
+                const type1TypeArgs = type1.typeArguments || [];
+                const type2TypeArgs = classType2.typeArguments || [];
+                const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
+
+                for (let i = 0; i < typeArgCount; i++) {
+                    // Assume that missing type args are "Any".
+                    const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
+                    const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
+
+                    if (!isTypeSame(typeArg1, typeArg2, recursionCount + 1)) {
+                        return false;
+                    }
                 }
             }
 

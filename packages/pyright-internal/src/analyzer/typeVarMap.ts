@@ -260,12 +260,17 @@ export class TypeVarMap {
 
             case TypeCategory.Union: {
                 let minScore = 1;
-                doForEachSubtype(type, (subtype) => {
-                    const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount + 1);
-                    if (subtypeScore < minScore) {
-                        minScore = subtypeScore;
-                    }
-                });
+
+                // If this union has a very large number of subtypes, don't bother
+                // accurately computing the score. Assume a fixed value.
+                if (type.subtypes.length < 16) {
+                    doForEachSubtype(type, (subtype) => {
+                        const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount + 1);
+                        if (subtypeScore < minScore) {
+                            minScore = subtypeScore;
+                        }
+                    });
+                }
 
                 // Assume that a union is more complex than a non-union,
                 // and return half of the minimum score of the subtypes.
@@ -291,7 +296,12 @@ export class TypeVarMap {
         let typeArgScoreSum = 0;
         let typeArgCount = 0;
 
-        if (classType.typeArguments) {
+        if (classType.tupleTypeArguments) {
+            classType.tupleTypeArguments.forEach((type) => {
+                typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount + 1);
+                typeArgCount++;
+            });
+        } else if (classType.typeArguments) {
             classType.typeArguments.forEach((type) => {
                 typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount + 1);
                 typeArgCount++;
