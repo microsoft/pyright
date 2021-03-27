@@ -10290,7 +10290,7 @@ export function createTypeEvaluator(
         // If we're speculatively evaluating the lambda, create another speculative
         // evaluation scope for the return expression and do not allow retention
         // of the cached types.
-        if (speculativeTypeTracker.isSpeculative()) {
+        if (speculativeTypeTracker.isSpeculative(node)) {
             useSpeculativeMode(
                 node.expression,
                 () => {

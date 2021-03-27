@@ -89,7 +89,7 @@ export class SpeculativeTypeTracker {
         });
     }
 
-    isSpeculative(node?: ParseNode) {
+    isSpeculative(node: ParseNode | undefined) {
         if (this._speculativeContextStack.length === 0) {
             return false;
         }
