@@ -239,6 +239,12 @@
       "title": "Controls reporting of attempts to use an Optional type as an operand for a binary or unary operator",
       "default": "none"
     },
+    "reportTypedDictNotRequiredAccess": {
+      "$id": "#/properties/reportTypedDictNotRequiredAccess",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to access a non-required key in a TypedDict without a check for its presence",
+      "default": "error"
+    },
     "reportUntypedFunctionDecorator": {
       "$id": "#/properties/reportUntypedFunctionDecorator",
       "$ref": "#/definitions/diagnostic",

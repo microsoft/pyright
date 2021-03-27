@@ -147,8 +147,11 @@ export interface DiagnosticRuleSet {
     // Report attempts to use an Optional type in a "with" statement?
     reportOptionalContextManager: DiagnosticLevel;
 
-    // Report attempts to use an Optional type in a binary or unary operation.
+    // Report attempts to use an Optional type in a binary or unary operation?
     reportOptionalOperand: DiagnosticLevel;
+
+    // Report accesses to non-required TypedDict fields?
+    reportTypedDictNotRequiredAccess: DiagnosticLevel;
 
     // Report untyped function decorators that obscure the function type?
     reportUntypedFunctionDecorator: DiagnosticLevel;
@@ -288,6 +291,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportOptionalIterable,
         DiagnosticRule.reportOptionalContextManager,
         DiagnosticRule.reportOptionalOperand,
+        DiagnosticRule.reportTypedDictNotRequiredAccess,
         DiagnosticRule.reportUntypedFunctionDecorator,
         DiagnosticRule.reportUntypedClassDecorator,
         DiagnosticRule.reportUntypedBaseClass,
@@ -355,6 +359,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportOptionalIterable: 'none',
         reportOptionalContextManager: 'none',
         reportOptionalOperand: 'none',
+        reportTypedDictNotRequiredAccess: 'none',
         reportUntypedFunctionDecorator: 'none',
         reportUntypedClassDecorator: 'none',
         reportUntypedBaseClass: 'none',
@@ -418,6 +423,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportOptionalIterable: 'none',
         reportOptionalContextManager: 'none',
         reportOptionalOperand: 'none',
+        reportTypedDictNotRequiredAccess: 'error',
         reportUntypedFunctionDecorator: 'none',
         reportUntypedClassDecorator: 'none',
         reportUntypedBaseClass: 'none',
@@ -481,6 +487,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportOptionalIterable: 'error',
         reportOptionalContextManager: 'error',
         reportOptionalOperand: 'error',
+        reportTypedDictNotRequiredAccess: 'error',
         reportUntypedFunctionDecorator: 'error',
         reportUntypedClassDecorator: 'error',
         reportUntypedBaseClass: 'error',
@@ -958,6 +965,13 @@ export class ConfigOptions {
                 configObj.reportOptionalOperand,
                 DiagnosticRule.reportOptionalOperand,
                 defaultSettings.reportOptionalOperand
+            ),
+
+            // Read the "reportTypedDictNotRequiredAccess" entry.
+            reportTypedDictNotRequiredAccess: this._convertDiagnosticLevel(
+                configObj.reportTypedDictNotRequiredAccess,
+                DiagnosticRule.reportTypedDictNotRequiredAccess,
+                defaultSettings.reportTypedDictNotRequiredAccess
             ),
 
             // Read the "reportUntypedFunctionDecorator" entry.

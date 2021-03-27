@@ -35,6 +35,7 @@ export enum DiagnosticRule {
     reportOptionalIterable = 'reportOptionalIterable',
     reportOptionalContextManager = 'reportOptionalContextManager',
     reportOptionalOperand = 'reportOptionalOperand',
+    reportTypedDictNotRequiredAccess = 'reportTypedDictNotRequiredAccess',
     reportUntypedFunctionDecorator = 'reportUntypedFunctionDecorator',
     reportUntypedClassDecorator = 'reportUntypedClassDecorator',
     reportUntypedBaseClass = 'reportUntypedBaseClass',

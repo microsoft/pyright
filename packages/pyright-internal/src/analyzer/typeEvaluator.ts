@@ -5463,6 +5463,7 @@ export function createTypeEvaluator(
         const indexTypeResult = getTypeOfExpression(node.items[0].valueExpression);
         const indexType = indexTypeResult.type;
         let diag = new DiagnosticAddendum();
+        let allDiagsInvolveNotRequiredKeys = true;
 
         const resultingType = mapSubtypes(indexType, (subtype) => {
             if (isAnyOrUnknown(subtype)) {
@@ -5486,6 +5487,7 @@ export function createTypeEvaluator(
                             type: printType(baseType),
                         })
                     );
+                    allDiagsInvolveNotRequiredKeys = false;
                     return UnknownType.create();
                 } else if (!entry.isRequired && usage.method === 'get') {
                     diag.addMessage(
@@ -5499,19 +5501,19 @@ export function createTypeEvaluator(
                 if (usage.method === 'set') {
                     canAssignType(entry.valueType, usage.setType!, diag);
                 } else if (usage.method === 'del' && entry.isRequired) {
-                    const fileInfo = getFileInfo(node);
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.keyRequiredDeleted().format({ name: entryName }),
-                        node
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.keyRequiredDeleted().format({
+                            name: entryName,
+                        })
                     );
+                    allDiagsInvolveNotRequiredKeys = false;
                 }
 
                 return entry.valueType;
             }
 
             diag.addMessage(Localizer.DiagnosticAddendum.typeNotStringLiteral().format({ type: printType(subtype) }));
+            allDiagsInvolveNotRequiredKeys = false;
             return UnknownType.create();
         });
 
@@ -5534,8 +5536,12 @@ export function createTypeEvaluator(
 
             const fileInfo = getFileInfo(node);
             addDiagnostic(
-                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                DiagnosticRule.reportGeneralTypeIssues,
+                allDiagsInvolveNotRequiredKeys
+                    ? fileInfo.diagnosticRuleSet.reportTypedDictNotRequiredAccess
+                    : fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                allDiagsInvolveNotRequiredKeys
+                    ? DiagnosticRule.reportTypedDictNotRequiredAccess
+                    : DiagnosticRule.reportGeneralTypeIssues,
                 typedDictDiag + diag.getString(),
                 node
             );

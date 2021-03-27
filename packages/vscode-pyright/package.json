@@ -323,6 +323,17 @@
                                 "error"
                             ]
                         },
+                        "reportTypedDictNotRequiredAccess": {
+                            "type": "string",
+                            "description": "Diagnostics for an attempt to access a non-required key within a TypedDict without a check for its presence.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportUntypedFunctionDecorator": {
                             "type": "string",
                             "description": "Diagnostics for function decorators that have no type annotations. These obscure the function type, defeating many type analysis features.",

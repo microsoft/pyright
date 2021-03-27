@@ -388,8 +388,6 @@ export namespace Localizer {
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.isInstanceInvalidType'));
         export const isSubclassInvalidType = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.isSubclassInvalidType'));
-        export const keyRequiredDeleted = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.keyRequiredDeleted'));
         export const keyValueInSet = () => getRawString('Diagnostic.keyValueInSet');
         export const keywordArgInTypeArgument = () => getRawString('Diagnostic.keywordArgInTypeArgument');
         export const keywordSubscriptIllegal = () => getRawString('Diagnostic.keywordSubscriptIllegal');
@@ -831,6 +829,8 @@ export namespace Localizer {
             );
         export const keyNotRequired = () =>
             new ParameterizedString<{ name: string; type: string }>(getRawString('DiagnosticAddendum.keyNotRequired'));
+        export const keyRequiredDeleted = () =>
+            new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.keyRequiredDeleted'));
         export const keyUndefined = () =>
             new ParameterizedString<{ name: string; type: string }>(getRawString('DiagnosticAddendum.keyUndefined'));
         export const literalAssignmentMismatch = () =>

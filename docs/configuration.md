@@ -86,6 +86,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportOptionalOperand** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to use an Optional type as an operand to a binary or unary operator (like '+', '==', 'or', 'not'). The default value for this setting is 'none'.
 
+**reportTypedDictNotRequiredAccess** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to access a non-required field within a TypedDict without first checking whether it is present. The default value for this setting is 'error'.
+
 **reportUntypedFunctionDecorator** [boolean or string, optional]: Generate or suppress diagnostics for function decorators that have no type annotations. These obscure the function type, defeating many type analysis features. The default value for this setting is 'none'.
 
 **reportUntypedClassDecorator** [boolean or string, optional]: Generate or suppress diagnostics for class decorators that have no type annotations. These obscure the class type, defeating many type analysis features. The default value for this setting is 'none'.
@@ -249,6 +251,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportOptionalIterable                    | "none"     | "none"     | "error"    |
 | reportOptionalContextManager              | "none"     | "none"     | "error"    |
 | reportOptionalOperand                     | "none"     | "none"     | "error"    |
+| reportTypedDictNotRequiredAccess          | "none"     | "error"    | "error"    |
 | reportUntypedFunctionDecorator            | "none"     | "none"     | "error"    |
 | reportUntypedClassDecorator               | "none"     | "none"     | "error"    |
 | reportUntypedBaseClass                    | "none"     | "none"     | "error"    |
@@ -257,7 +260,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportConstantRedefinition                | "none"     | "none"     | "error"    |
 | reportIncompatibleMethodOverride          | "none"     | "none"     | "error"    |
 | reportIncompatibleVariableOverride        | "none"     | "none"     | "error"    |
-| reportOverlappingOverload                 | "none"     | "none"     | "error"     |
+| reportOverlappingOverload                 | "none"     | "none"     | "error"    |
 | reportInvalidStringEscapeSequence         | "none"     | "warning"  | "error"    |
 | reportUnknownParameterType                | "none"     | "none"     | "error"    |
 | reportUnknownArgumentType                 | "none"     | "none"     | "error"    |
