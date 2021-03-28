@@ -17172,7 +17172,11 @@ export function createTypeEvaluator(
                         const iterableType = getBuiltInType(declaration.node, 'Iterable');
                         if (isClass(iterableType)) {
                             return ObjectType.create(
-                                ClassType.cloneForSpecialization(iterableType, [strType], /* isTypeArgumentExplicit */ true)
+                                ClassType.cloneForSpecialization(
+                                    iterableType,
+                                    [strType],
+                                    /* isTypeArgumentExplicit */ true
+                                )
                             );
                         }
                     }
