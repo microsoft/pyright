@@ -229,7 +229,7 @@ export class Binder extends ParseTreeWalker {
                 this._addBuiltInSymbolToCurrentScope('__loader__', node, 'Any');
                 this._addBuiltInSymbolToCurrentScope('__package__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__spec__', node, 'Any');
-                this._addBuiltInSymbolToCurrentScope('__path__', node, 'List[str]');
+                this._addBuiltInSymbolToCurrentScope('__path__', node, 'Iterable[str]');
                 this._addBuiltInSymbolToCurrentScope('__file__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__cached__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');

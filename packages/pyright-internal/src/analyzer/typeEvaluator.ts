@@ -17168,11 +17168,11 @@ export function createTypeEvaluator(
                         return intType;
                     }
 
-                    if (declaration.intrinsicType === 'List[str]') {
-                        const listType = getBuiltInType(declaration.node, 'list');
-                        if (isClass(listType)) {
+                    if (declaration.intrinsicType === 'Iterable[str]') {
+                        const iterableType = getBuiltInType(declaration.node, 'Iterable');
+                        if (isClass(iterableType)) {
                             return ObjectType.create(
-                                ClassType.cloneForSpecialization(listType, [strType], /* isTypeArgumentExplicit */ true)
+                                ClassType.cloneForSpecialization(iterableType, [strType], /* isTypeArgumentExplicit */ true)
                             );
                         }
                     }
