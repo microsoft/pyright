@@ -44,6 +44,7 @@ import {
     isDirectory,
     normalizePath,
     stripFileExtension,
+    tryRealpath,
     tryStat,
 } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
@@ -1009,7 +1010,12 @@ export class AnalyzerService {
 
         const seenDirs = new Set<string>();
         const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
-            const realDirPath = this._fs.realpathSync(absolutePath);
+            const realDirPath = tryRealpath(this._fs, absolutePath);
+            if (!realDirPath) {
+                this._console.warn(`Skipping broken link "${absolutePath}"`);
+                return;
+            }
+
             if (seenDirs.has(realDirPath)) {
                 this._console.warn(`Skipping recursive symlink "${absolutePath}" -> "${realDirPath}"`);
                 return;
