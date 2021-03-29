@@ -45,6 +45,7 @@
         "classNotRuntimeSubscriptable": "Subscript for class \"{name}\" will generate runtime exception; enclose type annotation in quotes",
         "classVarFirstArgMissing": "Expected a type argument after \"ClassVar\"",
         "classVarTooManyArgs": "Expected only one type argument after \"ClassVar\"",
+        "clsSelfParamTypeMismatch": "Type of parameter \"{name}\" must be a supertype of its class \"{classType}\"",
         "comparisonAlwaysFalse": "Condition will always evaluate to False since the types \"{leftType}\" and \"{rightType}\" have no overlap",
         "comprehensionInDict": "Comprehension cannot be used with other dictionary entries",
         "comprehensionInSet": "Comprehension cannot be used with other set entries",

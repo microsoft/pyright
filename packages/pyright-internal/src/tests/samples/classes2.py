@@ -77,7 +77,8 @@ class ParentClass:
     def my_method19(self, a: str, b: int, c: float, d: bool) -> None:
         ...
 
-    def my_method20(self: Type[T_ParentClass], a: str) -> T_ParentClass:
+    @classmethod
+    def my_method20(cls: Type[T_ParentClass], a: str) -> T_ParentClass:
         ...
 
     def _protected_method1(self, a: int):
@@ -163,7 +164,8 @@ class ChildClass(ParentClass):
     def my_method19(self, b: str, *args: object, **kwargs: object) -> None:
         ...
 
-    def my_method20(self: Type[T_ChildClass], a: str) -> T_ChildClass:
+    @classmethod
+    def my_method20(cls: Type[T_ChildClass], a: str) -> T_ChildClass:
         ...
 
     # This should generate an error.

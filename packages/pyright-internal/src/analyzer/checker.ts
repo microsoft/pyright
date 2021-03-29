@@ -112,6 +112,7 @@ import {
 import {
     CanAssignFlags,
     ClassMemberLookupFlags,
+    convertToInstance,
     derivesFromAnyOrUnknown,
     derivesFromClassRecursive,
     doForEachSubtype,
@@ -2881,6 +2882,9 @@ export class Checker extends ParseTreeWalker {
     // Performs checks on a function that is located within a class
     // and has been determined not to be a property accessor.
     private _validateMethod(node: FunctionNode, functionType: FunctionType, classNode: ClassNode) {
+        const classTypeInfo = this._evaluator.getTypeOfClass(classNode);
+        const classType = classTypeInfo?.classType;
+
         if (node.name && node.name.value === '__new__') {
             // __new__ overrides should have a "cls" parameter.
             if (
@@ -2895,6 +2899,10 @@ export class Checker extends ParseTreeWalker {
                     node.parameters.length > 0 ? node.parameters[0] : node.name
                 );
             }
+
+            if (classType) {
+                this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
+            }
         } else if (node.name && node.name.value === '__init_subclass__') {
             // __init_subclass__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name || node.parameters[0].name.value !== 'cls') {
@@ -2905,6 +2913,10 @@ export class Checker extends ParseTreeWalker {
                     node.parameters.length > 0 ? node.parameters[0] : node.name
                 );
             }
+
+            if (classType) {
+                this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
+            }
         } else if (node.name && node.name.value === '__class_getitem__') {
             // __class_getitem__ overrides should have a "cls" parameter.
             if (node.parameters.length === 0 || !node.parameters[0].name || node.parameters[0].name.value !== 'cls') {
@@ -2914,6 +2926,10 @@ export class Checker extends ParseTreeWalker {
                     Localizer.Diagnostic.classGetItemClsParam(),
                     node.parameters.length > 0 ? node.parameters[0] : node.name
                 );
+            }
+
+            if (classType) {
+                this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
             }
         } else if (FunctionType.isStaticMethod(functionType)) {
             // Static methods should not have "self" or "cls" parameters.
@@ -2945,6 +2961,10 @@ export class Checker extends ParseTreeWalker {
                         node.parameters.length > 0 ? node.parameters[0] : node.name
                     );
                 }
+            }
+
+            if (classType) {
+                this._validateClsSelfParameterType(functionType, classType, /* isCls */ true);
             }
         } else {
             // The presence of a decorator can change the behavior, so we need
@@ -2992,6 +3012,56 @@ export class Checker extends ParseTreeWalker {
                     }
                 }
             }
+
+            if (classType) {
+                this._validateClsSelfParameterType(functionType, classType, /* isCls */ false);
+            }
+        }
+    }
+
+    // Validates that the annotated type of a "self" or "cls" parameter is
+    // compatible with the type of the class that contains it.
+    private _validateClsSelfParameterType(functionType: FunctionType, classType: ClassType, isCls: boolean) {
+        if (functionType.details.parameters.length < 1) {
+            return;
+        }
+
+        // If there is no type annotation, there's nothing to check because
+        // the type will be inferred.
+        const paramInfo = functionType.details.parameters[0];
+        if (!paramInfo.typeAnnotation || !paramInfo.name) {
+            return;
+        }
+
+        // If this is a protocol class, the self and cls parameters can be bound
+        // to something other than the class.
+        if (ClassType.isProtocolClass(classType)) {
+            return;
+        }
+
+        const paramType = this._evaluator.makeTopLevelTypeVarsConcrete(transformTypeObjectToClass(paramInfo.type));
+        const expectedType = isCls ? classType : convertToInstance(classType);
+        const diag = new DiagnosticAddendum();
+
+        // If the declared type is a protocol class or instance, skip
+        // the check. This has legitimate uses for mix-in classes.
+        if (isClass(paramType) && ClassType.isProtocolClass(paramType)) {
+            return;
+        }
+        if (isObject(paramType) && ClassType.isProtocolClass(paramType.classType)) {
+            return;
+        }
+
+        if (!this._evaluator.canAssignType(paramType, expectedType, diag)) {
+            this._evaluator.addDiagnostic(
+                this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.clsSelfParamTypeMismatch().format({
+                    name: paramInfo.name,
+                    classType: this._evaluator.printType(expectedType, /* expandTypeAlias */ false),
+                }),
+                paramInfo.typeAnnotation
+            );
         }
     }
 

@@ -262,6 +262,11 @@ test('ParamName1', () => {
     TestUtils.validateResults(analysisResults, 4, 0);
 });
 
+test('ParamType1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramType1.py']);
+    TestUtils.validateResults(analysisResults, 7);
+});
+
 test('Python2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['python2.py']);
 
