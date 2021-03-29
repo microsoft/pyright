@@ -555,6 +555,14 @@ export function tryStat(fs: FileSystem, path: string): Stats | undefined {
     }
 }
 
+export function tryRealpath(fs: FileSystem, path: string): string | undefined {
+    try {
+        return fs.realpathSync(path);
+    } catch (e) {
+        return undefined;
+    }
+}
+
 export function getFileSystemEntries(fs: FileSystem, path: string): FileSystemEntries {
     try {
         return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(path || '.'), fs, path);

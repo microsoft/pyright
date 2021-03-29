@@ -31,6 +31,7 @@ import {
     resolvePaths,
     stripFileExtension,
     stripTrailingDirectorySeparator,
+    tryRealpath,
     tryStat,
 } from '../common/pathUtils';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
@@ -505,8 +506,8 @@ export class ImportResolver {
         }
 
         if (entry?.isSymbolicLink()) {
-            const realPath = this.fileSystem.realpathSync(path);
-            if (this.fileSystem.existsSync(realPath) && isFile(this.fileSystem, realPath)) {
+            const realPath = tryRealpath(this.fileSystem, path);
+            if (realPath && this.fileSystem.existsSync(realPath) && isFile(this.fileSystem, realPath)) {
                 return true;
             }
         }
@@ -531,8 +532,8 @@ export class ImportResolver {
         }
 
         if (entry?.isSymbolicLink()) {
-            const realPath = this.fileSystem.realpathSync(path);
-            if (this.fileSystem.existsSync(realPath) && isDirectory(this.fileSystem, realPath)) {
+            const realPath = tryRealpath(this.fileSystem, path);
+            if (realPath && this.fileSystem.existsSync(realPath) && isDirectory(this.fileSystem, realPath)) {
                 return true;
             }
         }
