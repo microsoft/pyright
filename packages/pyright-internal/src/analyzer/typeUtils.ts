@@ -153,7 +153,7 @@ export const enum CanAssignFlags {
 interface TypeVarTransformer {
     transformTypeVar: (typeVar: TypeVarType) => Type;
     transformVariadicTypeVar: (paramSpec: TypeVarType) => Type[] | undefined;
-    transformParamSpec: (paramSpec: TypeVarType) => ParamSpecEntry[] | undefined;
+    transformParamSpec: (paramSpec: TypeVarType) => ParamSpecValue | undefined;
 }
 
 let synthesizedTypeVarIndexForExpectedType = 1;
@@ -1104,11 +1104,10 @@ export function buildTypeVarMap(
 
         if (typeArgs) {
             if (isParamSpec(typeParam)) {
-                const paramSpecEntries: ParamSpecValue = [];
-
                 if (index < typeArgs.length) {
                     typeArgType = typeArgs[index];
                     if (isFunction(typeArgType) && FunctionType.isParamSpecValue(typeArgType)) {
+                        const paramSpecEntries: ParamSpecEntry[] = [];
                         typeArgType.details.parameters.forEach((param) => {
                             paramSpecEntries.push({
                                 category: param.category,
@@ -1117,10 +1116,11 @@ export function buildTypeVarMap(
                                 type: param.type,
                             });
                         });
+                        typeVarMap.setParamSpec(typeParam, { parameters: paramSpecEntries });
+                    } else if (isParamSpec(typeArgType)) {
+                        typeVarMap.setParamSpec(typeParam, { paramSpec: typeArgType });
                     }
                 }
-
-                typeVarMap.setParamSpec(typeParam, paramSpecEntries);
             } else {
                 if (index >= typeArgs.length) {
                     typeArgType = AnyType.create();
@@ -1776,9 +1776,41 @@ function _transformTypeVarsInClassType(
     let specializationNeeded = false;
     const typeParams = ClassType.getTypeParameters(classType);
 
+    const transformParamSpec = (paramSpec: TypeVarType) => {
+        const paramSpecEntries = callbacks.transformParamSpec(paramSpec);
+        if (paramSpecEntries) {
+            if (paramSpecEntries.parameters) {
+                // Create a function type from the param spec entries.
+                const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
+
+                paramSpecEntries.parameters.forEach((entry) => {
+                    FunctionType.addParameter(functionType, {
+                        category: entry.category,
+                        name: entry.name,
+                        hasDefault: entry.hasDefault,
+                        hasDeclaredType: true,
+                        type: entry.type,
+                    });
+                });
+
+                return functionType;
+            }
+
+            if (paramSpecEntries.paramSpec) {
+                return paramSpecEntries.paramSpec;
+            }
+        }
+
+        return paramSpec;
+    };
+
     // If type args were previously provided, specialize them.
     if (classType.typeArguments) {
         newTypeArgs = classType.typeArguments.map((oldTypeArgType) => {
+            if (isTypeVar(oldTypeArgType) && oldTypeArgType.details.isParamSpec) {
+                return transformParamSpec(oldTypeArgType);
+            }
+
             const newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);
             if (newTypeArgType !== oldTypeArgType) {
                 specializationNeeded = true;
@@ -1790,22 +1822,7 @@ function _transformTypeVarsInClassType(
             let replacementType: Type = typeParam;
 
             if (typeParam.details.isParamSpec) {
-                const paramSpecEntries = callbacks.transformParamSpec(typeParam);
-                if (paramSpecEntries) {
-                    // Create a function type from the param spec entries.
-                    const functionType = FunctionType.createInstance('', '', '', FunctionTypeFlags.ParamSpecValue);
-                    paramSpecEntries.forEach((entry) => {
-                        FunctionType.addParameter(functionType, {
-                            category: entry.category,
-                            name: entry.name,
-                            hasDefault: entry.hasDefault,
-                            hasDeclaredType: true,
-                            type: entry.type,
-                        });
-                    });
-
-                    replacementType = functionType;
-                }
+                replacementType = transformParamSpec(typeParam);
             } else {
                 const typeParamName = TypeVarType.getNameWithScope(typeParam);
                 if (!recursionMap.has(typeParamName)) {

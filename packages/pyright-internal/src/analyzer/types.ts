@@ -887,7 +887,14 @@ export interface ParamSpecEntry {
     type: Type;
 }
 
-export type ParamSpecValue = ParamSpecEntry[];
+export interface ParamSpecValue {
+    parameters?: ParamSpecEntry[];
+
+    // If the param spec is assigned to another param spec,
+    // this will contain that type, and the params array will
+    // be empty.
+    paramSpec?: TypeVarType;
+}
 
 export namespace FunctionType {
     export function createInstance(
@@ -1049,6 +1056,8 @@ export namespace FunctionType {
             type.details.docString
         );
 
+        newFunction.specializedTypes = type.specializedTypes;
+
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
 
@@ -1057,19 +1066,30 @@ export namespace FunctionType {
         delete newFunction.details.paramSpec;
 
         if (paramTypes) {
-            newFunction.details.parameters = [
-                ...type.details.parameters,
-                ...paramTypes.map((specEntry) => {
-                    return {
-                        category: specEntry.category,
-                        name: specEntry.name,
-                        hasDefault: specEntry.hasDefault,
-                        isNameSynthesized: false,
-                        hasDeclaredType: true,
-                        type: specEntry.type,
-                    };
-                }),
-            ];
+            if (paramTypes.parameters) {
+                newFunction.details.parameters = [
+                    ...type.details.parameters,
+                    ...paramTypes.parameters.map((specEntry) => {
+                        return {
+                            category: specEntry.category,
+                            name: specEntry.name,
+                            hasDefault: specEntry.hasDefault,
+                            isNameSynthesized: false,
+                            hasDeclaredType: true,
+                            type: specEntry.type,
+                        };
+                    }),
+                ];
+
+                // Update the specialized parameter types as well.
+                if (newFunction.specializedTypes) {
+                    paramTypes.parameters.forEach((paramInfo) => {
+                        newFunction.specializedTypes!.parameterTypes.push(paramInfo.type);
+                    });
+                }
+            } else if (paramTypes.paramSpec) {
+                newFunction.details.paramSpec = paramTypes.paramSpec;
+            }
         }
 
         return newFunction;
@@ -1088,22 +1108,26 @@ export namespace FunctionType {
         // Make a shallow clone of the details.
         newFunction.details = { ...type.details };
 
-        // Remove the last two parameters, which are the *args and **kwargs.
-        newFunction.details.parameters = newFunction.details.parameters.slice(
-            0,
-            newFunction.details.parameters.length - 2
-        );
+        if (paramTypes.parameters) {
+            // Remove the last two parameters, which are the *args and **kwargs.
+            newFunction.details.parameters = newFunction.details.parameters.slice(
+                0,
+                newFunction.details.parameters.length - 2
+            );
 
-        paramTypes.forEach((specEntry) => {
-            newFunction.details.parameters.push({
-                category: specEntry.category,
-                name: specEntry.name,
-                hasDefault: specEntry.hasDefault,
-                isNameSynthesized: false,
-                hasDeclaredType: true,
-                type: specEntry.type,
+            paramTypes.parameters.forEach((specEntry) => {
+                newFunction.details.parameters.push({
+                    category: specEntry.category,
+                    name: specEntry.name,
+                    hasDefault: specEntry.hasDefault,
+                    isNameSynthesized: false,
+                    hasDeclaredType: true,
+                    type: specEntry.type,
+                });
             });
-        });
+        } else if (paramTypes.paramSpec) {
+            newFunction.details.paramSpec = paramTypes.paramSpec;
+        }
 
         return newFunction;
     }

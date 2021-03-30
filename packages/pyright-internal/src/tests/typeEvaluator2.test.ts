@@ -1317,6 +1317,14 @@ test('ParamSpec12', () => {
     TestUtils.validateResults(results, 11);
 });
 
+test('ParamSpec13', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_10;
+    const results = TestUtils.typeAnalyzeSampleFiles(['paramSpec13.py'], configOptions);
+    TestUtils.validateResults(results, 5);
+});
+
 test('ClassVar1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['classVar1.py']);
 

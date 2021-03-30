@@ -7777,7 +7777,7 @@ export function createTypeEvaluator(
     ): boolean {
         const paramSpecValue = typeVarMap.getParamSpec(paramSpec);
 
-        if (!paramSpecValue) {
+        if (!paramSpecValue || !paramSpecValue.parameters) {
             addDiagnostic(
                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -7791,7 +7791,8 @@ export function createTypeEvaluator(
 
         // Build a map of all named parameters.
         const paramMap = new Map<string, ParamSpecEntry>();
-        paramSpecValue.forEach((param) => {
+        const paramSpecParams = paramSpecValue.parameters;
+        paramSpecParams.forEach((param) => {
             if (param.name) {
                 paramMap.set(param.name, param);
             }
@@ -7817,8 +7818,8 @@ export function createTypeEvaluator(
                         reportedArgError = true;
                     }
                 } else {
-                    if (positionalIndex < paramSpecValue.length) {
-                        const paramInfo = paramSpecValue[positionalIndex];
+                    if (positionalIndex < paramSpecParams.length) {
+                        const paramInfo = paramSpecParams[positionalIndex];
                         paramType = paramInfo.type;
                         if (paramInfo.name) {
                             paramMap.delete(paramInfo.name);
@@ -7827,10 +7828,10 @@ export function createTypeEvaluator(
                         addDiagnostic(
                             getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
-                            paramSpecValue.length === 1
+                            paramSpecParams.length === 1
                                 ? Localizer.Diagnostic.argPositionalExpectedOne()
                                 : Localizer.Diagnostic.argPositionalExpectedCount().format({
-                                      expected: paramSpecValue.length,
+                                      expected: paramSpecParams.length,
                                   }),
                             arg.valueExpression || errorNode
                         );
@@ -10464,7 +10465,12 @@ export function createTypeEvaluator(
     }
 
     // Verifies that a type argument's type is not disallowed.
-    function validateTypeArg(argResult: TypeResult, allowEmptyTuple = false, allowVariadicTypeVar = false): boolean {
+    function validateTypeArg(
+        argResult: TypeResult,
+        allowEmptyTuple = false,
+        allowVariadicTypeVar = false,
+        allowParamSpec = false
+    ): boolean {
         if (argResult.typeList) {
             addError(Localizer.Diagnostic.typeArgListNotAllowed(), argResult.node);
             return false;
@@ -10481,8 +10487,10 @@ export function createTypeEvaluator(
         }
 
         if (isParamSpec(argResult.type)) {
-            addError(Localizer.Diagnostic.paramSpecContext(), argResult.node);
-            return false;
+            if (!allowParamSpec) {
+                addError(Localizer.Diagnostic.paramSpecContext(), argResult.node);
+                return false;
+            }
         }
 
         if (isVariadicTypeVar(argResult.type)) {
@@ -10553,7 +10561,7 @@ export function createTypeEvaluator(
                 FunctionType.addDefaultParameters(functionType);
                 functionType.details.flags |= FunctionTypeFlags.SkipParamCompatibilityCheck;
             } else if (isParamSpec(typeArgs[0].type)) {
-                functionType.details.paramSpec = typeArgs[0].type as TypeVarType;
+                functionType.details.paramSpec = typeArgs[0].type;
             } else {
                 if (isClass(typeArgs[0].type) && ClassType.isBuiltIn(typeArgs[0].type, 'Concatenate')) {
                     const concatTypeArgs = typeArgs[0].type.typeArguments;
@@ -10561,7 +10569,7 @@ export function createTypeEvaluator(
                         concatTypeArgs.forEach((typeArg, index) => {
                             if (index === concatTypeArgs.length - 1) {
                                 if (isParamSpec(typeArg)) {
-                                    functionType.details.paramSpec = typeArg as TypeVarType;
+                                    functionType.details.paramSpec = typeArg;
                                 }
                             } else {
                                 FunctionType.addParameter(functionType, {
@@ -16795,7 +16803,12 @@ export function createTypeEvaluator(
                     }
                 }
 
-                validateTypeArg(typeArg);
+                validateTypeArg(
+                    typeArg,
+                    /* allowEmptyTuple */ false,
+                    /* allowVariadicTypeVar */ false,
+                    /* allowParamSpec */ true
+                );
             });
         }
 
@@ -18966,6 +18979,21 @@ export function createTypeEvaluator(
         }
 
         if (destType.details.isParamSpec) {
+            if (isTypeVar(srcType) && srcType.details.isParamSpec) {
+                const existingEntry = typeVarMap.getParamSpec(destType);
+                if (existingEntry) {
+                    if (!existingEntry.parameters && existingEntry.paramSpec) {
+                        // If there's an existing entry that matches, that's fine.
+                        if (isTypeSame(existingEntry.paramSpec, srcType)) {
+                            return true;
+                        }
+                    }
+                } else {
+                    typeVarMap.setParamSpec(destType, { paramSpec: srcType });
+                    return true;
+                }
+            }
+
             diag.addMessage(
                 Localizer.DiagnosticAddendum.typeParamSpec().format({
                     type: printType(srcType),
@@ -20588,9 +20616,8 @@ export function createTypeEvaluator(
 
             // Are we assigning to a function with a ParamSpec?
             if (destType.details.paramSpec) {
-                typeVarMap.setParamSpec(
-                    destType.details.paramSpec,
-                    srcType.details.parameters
+                typeVarMap.setParamSpec(destType.details.paramSpec, {
+                    parameters: srcType.details.parameters
                         .map((p, index) => {
                             const paramSpecEntry: ParamSpecEntry = {
                                 category: p.category,
@@ -20600,8 +20627,8 @@ export function createTypeEvaluator(
                             };
                             return paramSpecEntry;
                         })
-                        .slice(destType.details.parameters.length, srcType.details.parameters.length)
-                );
+                        .slice(destType.details.parameters.length, srcType.details.parameters.length),
+                });
             }
         }
 
@@ -20934,27 +20961,36 @@ export function createTypeEvaluator(
             }
         }
 
-        // If there are no constraints, we're done.
-        const constraints = destType.details.constraints;
-        if (constraints.length === 0) {
-            return true;
-        }
-
-        // Try to find a match among the constraints.
-        for (const constraint of constraints) {
-            if (isAnyOrUnknown(constraint)) {
+        if (destType.details.isParamSpec) {
+            if (isParamSpec(srcType)) {
                 return true;
-            } else if (isUnion(effectiveSrcType)) {
-                // Does it match at least one of the constraints?
-                if (
-                    findSubtype(effectiveSrcType, (subtype) =>
-                        canAssignType(constraint, subtype, new DiagnosticAddendum())
-                    )
-                ) {
+            }
+        } else if (isParamSpec(srcType)) {
+            diag.addMessage(Localizer.Diagnostic.paramSpecContext());
+            return false;
+        } else {
+            // If there are no constraints, we're done.
+            const constraints = destType.details.constraints;
+            if (constraints.length === 0) {
+                return true;
+            }
+
+            // Try to find a match among the constraints.
+            for (const constraint of constraints) {
+                if (isAnyOrUnknown(constraint)) {
+                    return true;
+                } else if (isUnion(effectiveSrcType)) {
+                    // Does it match at least one of the constraints?
+                    if (
+                        findSubtype(effectiveSrcType, (subtype) =>
+                            canAssignType(constraint, subtype, new DiagnosticAddendum())
+                        )
+                    ) {
+                        return true;
+                    }
+                } else if (canAssignType(constraint, effectiveSrcType, new DiagnosticAddendum())) {
                     return true;
                 }
-            } else if (canAssignType(constraint, effectiveSrcType, new DiagnosticAddendum())) {
-                return true;
             }
         }
 
