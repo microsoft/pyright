@@ -3123,8 +3123,15 @@ export function createTypeEvaluator(
                     return combineConstrainedTypes(constrainedTypes);
                 }
 
-                const objType = objectType || AnyType.create();
-                return TypeBase.isInstantiable(subtype) ? convertToInstantiable(objType) : objType;
+                // Convert to an "object" or "type" instance depending on whether
+                // it's instantiable.
+                if (TypeBase.isInstantiable(subtype)) {
+                    return typeClassType && isClass(typeClassType)
+                        ? ObjectType.create(typeClassType)
+                        : AnyType.create();
+                }
+
+                return objectType || AnyType.create();
             }
 
             return subtype;
@@ -16249,6 +16256,40 @@ export function createTypeEvaluator(
                             // If the variable type is a superclass of the isinstance
                             // filter, we can narrow the type to the subclass.
                             filteredTypes.push(filterType);
+                        }
+                    }
+                } else if (isTypeVar(filterType) && TypeBase.isInstantiable(filterType)) {
+                    // Handle the case where the filter type is Type[T] and the unexpanded
+                    // subtype is some instance type, possibly T.
+                    if (isInstanceCheck && TypeBase.isInstance(unexpandedType)) {
+                        if (isTypeVar(unexpandedType) && isTypeSame(convertToInstance(filterType), unexpandedType)) {
+                            // If the unexpanded subtype is T, we can definitively filter
+                            // in both the positive and negative cases.
+                            if (isPositiveTest) {
+                                filteredTypes.push(unexpandedType);
+                            }
+                        } else {
+                            if (isPositiveTest) {
+                                filteredTypes.push(convertToInstance(filterType));
+                            } else {
+                                // If the unexpanded subtype is some other instance, we can't
+                                // filter anything because it might be an instance.
+                                filteredTypes.push(unexpandedType);
+                                isClassRelationshipIndeterminate = true;
+                            }
+                        }
+                    } else if (!isInstanceCheck && TypeBase.isInstantiable(unexpandedType)) {
+                        if (isTypeVar(unexpandedType) && isTypeSame(filterType, unexpandedType)) {
+                            if (isPositiveTest) {
+                                filteredTypes.push(unexpandedType);
+                            }
+                        } else {
+                            if (isPositiveTest) {
+                                filteredTypes.push(filterType);
+                            } else {
+                                filteredTypes.push(unexpandedType);
+                                isClassRelationshipIndeterminate = true;
+                            }
                         }
                     }
                 }

@@ -1,7 +1,7 @@
 # This sample validates that parameter types specified for "self"
 # and "cls" parameters are compatible with the containing class.
 
-from typing import Type, TypeVar
+from typing import Iterator, Type, TypeVar
 
 
 class Parent:
@@ -63,4 +63,9 @@ class Child1:
 
     @classmethod
     def cm6(cls: Type[_T]) -> _T:
+        ...
+
+
+class MyMeta(type):
+    def m1(self: Type[_T]) -> Iterator[_T]:
         ...
