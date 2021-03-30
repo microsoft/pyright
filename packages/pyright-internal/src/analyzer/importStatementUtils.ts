@@ -212,7 +212,7 @@ export function getTextEditsForAutoImportSymbolAddition(
                 const eol = parseResults.tokenizerOutput.predominantEndOfLineSequence;
                 replacementText = priorImport
                     ? `,${eol}${indentText}${insertText}`
-                    : `${eol}${indentText}${insertText},`;
+                    : `${insertText},${eol}${indentText}`;
             } else {
                 replacementText = priorImport ? `, ${insertText}` : `${insertText}, `;
             }
