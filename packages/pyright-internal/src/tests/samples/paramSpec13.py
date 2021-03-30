@@ -1,8 +1,7 @@
 # This sample tests cases where a ParamSpec is used as a type parameter
 # for a generic type alias, a generic function, and a generic class.
 
-from typing import Callable, Generic, List, Literal, TypeVar
-from typing_extensions import Concatenate, ParamSpec
+from typing import Callable, Concatenate, Generic, List, Literal, ParamSpec, TypeVar
 
 
 _P = ParamSpec("_P")
