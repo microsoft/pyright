@@ -192,10 +192,6 @@ export class AnalyzerService {
         this._applyConfigOptions(reanalyze);
     }
 
-    ensurePartialStubPackages(path: string) {
-        return this._backgroundAnalysisProgram.ensurePartialStubPackages(path);
-    }
-
     setFileOpened(path: string, version: number | null, contents: string) {
         this._backgroundAnalysisProgram.setFileOpened(path, version, contents);
         this._scheduleReanalysis(false);

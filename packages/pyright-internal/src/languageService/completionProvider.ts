@@ -32,7 +32,7 @@ import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../anal
 import { ImportedModuleDescriptor, ImportResolver } from '../analyzer/importResolver';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
-import { SourceMapper } from '../analyzer/sourceMapper';
+import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { Symbol, SymbolTable } from '../analyzer/symbol';
 import * as SymbolNameUtils from '../analyzer/symbolNameUtils';
 import { getLastTypedDeclaredForSymbol } from '../analyzer/symbolUtils';
@@ -213,17 +213,16 @@ export interface AutoImportInfo {
 
     itemCount: number;
     symbolCount: number;
-    userIndexCount: number;
     indexCount: number;
     importAliasCount: number;
 
-    editTimeInMS: number;
-    moduleResolveTimeInMS: number;
     additionTimeInMS: number;
 }
 
 export interface ExtensionInfo {
     correlationId: string;
+    selectedItemTelemetryTimeInMS: number;
+    itemTelemetryTimeInMS: number;
     totalTimeInMS: number;
 }
 
@@ -274,6 +273,8 @@ interface CompletionDetail {
     autoImportText?: string;
     edits?: Edits;
 }
+
+export const autoImportDetail = 'Auto-import';
 
 // We'll use a somewhat-arbitrary cutoff value here to determine
 // whether it's sufficiently similar.
@@ -865,18 +866,22 @@ export class CompletionProvider {
                         return;
                     }
 
-                    const methodSignature = this._printMethodSignature(decl.node) + ':';
-                    const methodBody = this._printOverriddenMethodBody(
-                        classResults.classType,
-                        isDeclaredStaticMethod,
-                        isProperty,
-                        decl
-                    );
-                    const textEdit = this._createReplaceEdits(
-                        priorWord,
-                        partialName,
-                        `${methodSignature}\n${methodBody}`
-                    );
+                    const methodSignature = this._printMethodSignature(decl.node);
+
+                    let text: string;
+                    if (isStubFile(this._filePath)) {
+                        text = `${methodSignature}: ...`;
+                    } else {
+                        const methodBody = this._printOverriddenMethodBody(
+                            classResults.classType,
+                            isDeclaredStaticMethod,
+                            isProperty,
+                            decl
+                        );
+                        text = `${methodSignature}:\n${methodBody}`;
+                    }
+
+                    const textEdit = this._createReplaceEdits(priorWord, partialName, text);
 
                     this._addSymbol(name, symbol, partialName.value, completionList, {
                         // method signature already contains ()
@@ -1504,12 +1509,9 @@ export class CompletionProvider {
 
             itemCount: results.length,
             symbolCount: perfInfo.symbolCount,
-            userIndexCount: perfInfo.userIndexCount,
             indexCount: perfInfo.indexCount,
-            importAliasCount: perfInfo.userIndexCount,
+            importAliasCount: perfInfo.importAliasCount,
 
-            editTimeInMS: perfInfo.editTimeInMS,
-            moduleResolveTimeInMS: perfInfo.moduleResolveTimeInMS,
             additionTimeInMS: additionDuration.getDurationInMilliseconds(),
         };
     }
@@ -1970,7 +1972,7 @@ export class CompletionProvider {
             // Force auto-import entries to the end.
             completionItem.sortText = this._makeSortText(SortCategory.AutoImport, name, detail.autoImportText);
             completionItemData.autoImportText = detail.autoImportText;
-            completionItem.detail = 'Auto-import';
+            completionItem.detail = autoImportDetail;
         } else if (SymbolNameUtils.isDunderName(name)) {
             // Force dunder-named symbols to appear after all other symbols.
             completionItem.sortText = this._makeSortText(SortCategory.DunderSymbol, name);

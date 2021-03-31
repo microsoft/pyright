@@ -9,7 +9,7 @@
 import { CancellationToken } from 'vscode-languageserver';
 
 import { CompletionResults } from '../languageService/completionProvider';
-import { ModuleNode } from '../parser/parseNodes';
+import { ParseResults } from '../parser/parser';
 
 export interface LanguageServiceExtension {
     readonly completionListExtension: CompletionListExtension;
@@ -19,8 +19,7 @@ export interface CompletionListExtension {
     // Extension updates completion list provided by the application.
     updateCompletionResults(
         completionResults: CompletionResults,
-        ast: ModuleNode,
-        content: string,
+        parseResults: ParseResults,
         position: number,
         token: CancellationToken
     ): Promise<void>;

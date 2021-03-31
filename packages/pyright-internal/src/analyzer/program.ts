@@ -1443,15 +1443,13 @@ export class Program {
             return completionResult;
         }
 
-        const pr = sourceFileInfo.sourceFile.getParseResults();
-        const content = sourceFileInfo.sourceFile.getFileContents();
-        if (pr?.parseTree && content !== undefined) {
-            const offset = convertPositionToOffset(position, pr.tokenizerOutput.lines);
+        const parseResults = sourceFileInfo.sourceFile.getParseResults();
+        if (parseResults?.parseTree && parseResults?.text) {
+            const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
             if (offset !== undefined) {
                 await this._extension.completionListExtension.updateCompletionResults(
                     completionResult,
-                    pr.parseTree,
-                    content,
+                    parseResults,
                     offset,
                     token
                 );

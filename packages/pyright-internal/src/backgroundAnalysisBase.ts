@@ -94,8 +94,8 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType: 'setAllowedThirdPartyImports', data: importNames });
     }
 
-    ensurePartialStubPackages(filePath: string) {
-        this.enqueueRequest({ requestType: 'ensurePartialStubPackages', data: { filePath } });
+    ensurePartialStubPackages(executionRoot: string) {
+        this.enqueueRequest({ requestType: 'ensurePartialStubPackages', data: { executionRoot } });
     }
 
     setFileOpened(filePath: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
@@ -370,8 +370,11 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
             }
 
             case 'ensurePartialStubPackages': {
-                const { filePath } = msg.data;
-                this._importResolver.ensurePartialStubPackages(this._configOptions.findExecEnvironment(filePath));
+                const { executionRoot } = msg.data;
+                const execEnv = this._configOptions.getExecutionEnvironments().find((e) => e.root === executionRoot);
+                if (execEnv) {
+                    this._importResolver.ensurePartialStubPackages(execEnv);
+                }
                 break;
             }
 
@@ -541,7 +544,8 @@ export interface AnalysisRequest {
         | 'restart'
         | 'getDiagnosticsForRange'
         | 'writeTypeStub'
-        | 'getSemanticTokens';
+        | 'getSemanticTokens'
+        | 'setExperimentOptions';
 
     data: any;
     port?: MessagePort;

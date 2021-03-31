@@ -650,28 +650,6 @@ export class ConfigOptions {
         return getBasicDiagnosticRuleSet();
     }
 
-    // Finds the best execution environment for a given file path. The
-    // specified file path should be absolute.
-    // If no matching execution environment can be found, a default
-    // execution environment is used.
-    findExecEnvironment(filePath: string): ExecutionEnvironment {
-        let execEnv = this.executionEnvironments.find((env) => {
-            const envRoot = ensureTrailingDirectorySeparator(normalizePath(combinePaths(this.projectRoot, env.root)));
-            return filePath.startsWith(envRoot);
-        });
-
-        if (!execEnv) {
-            execEnv = new ExecutionEnvironment(
-                this.projectRoot,
-                this.defaultPythonVersion,
-                this.defaultPythonPlatform,
-                this.defaultExtraPaths
-            );
-        }
-
-        return execEnv;
-    }
-
     getDefaultExecEnvironment(): ExecutionEnvironment {
         return new ExecutionEnvironment(
             this.projectRoot,
@@ -679,6 +657,29 @@ export class ConfigOptions {
             this.defaultPythonPlatform,
             this.defaultExtraPaths
         );
+    }
+
+    // Finds the best execution environment for a given file path. The
+    // specified file path should be absolute.
+    // If no matching execution environment can be found, a default
+    // execution environment is used.
+    findExecEnvironment(filePath: string): ExecutionEnvironment {
+        return (
+            this.executionEnvironments.find((env) => {
+                const envRoot = ensureTrailingDirectorySeparator(
+                    normalizePath(combinePaths(this.projectRoot, env.root))
+                );
+                return filePath.startsWith(envRoot);
+            }) ?? this.getDefaultExecEnvironment()
+        );
+    }
+
+    getExecutionEnvironments(): ExecutionEnvironment[] {
+        if (this.executionEnvironments.length > 0) {
+            return this.executionEnvironments;
+        }
+
+        return [this.getDefaultExecEnvironment()];
     }
 
     // Initialize the structure from a JSON object.

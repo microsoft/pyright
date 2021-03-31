@@ -174,12 +174,8 @@ export class AutoImporter {
         importAliasTimeInMS: 0,
 
         symbolCount: 0,
-        userIndexCount: 0,
         indexCount: 0,
         importAliasCount: 0,
-
-        editTimeInMS: 0,
-        moduleResolveTimeInMS: 0,
     };
 
     constructor(
@@ -661,13 +657,7 @@ export class AutoImporter {
     // convert to a module name that can be used in an
     // 'import from' statement.
     private _getModuleNameAndTypeFromFilePath(filePath: string): ModuleNameAndType {
-        const startTime = this._stopWatch.getDurationInMilliseconds();
-        try {
-            return this._importResolver.getModuleNameForImport(filePath, this._execEnvironment);
-        } finally {
-            const endTime = this._stopWatch.getDurationInMilliseconds();
-            this._perfInfo.moduleResolveTimeInMS += endTime - startTime;
-        }
+        return this._importResolver.getModuleNameForImport(filePath, this._execEnvironment);
     }
 
     private _getImportGroupFromModuleNameAndType(moduleNameAndType: ModuleNameAndType): ImportGroup {
@@ -682,30 +672,6 @@ export class AutoImporter {
     }
 
     private _getTextEditsForAutoImportByFilePath(
-        moduleName: string,
-        importName: string | undefined,
-        abbrFromUsers: string | undefined,
-        insertionText: string,
-        importGroup: ImportGroup,
-        filePath: string
-    ) {
-        const startTime = this._stopWatch.getDurationInMilliseconds();
-        try {
-            return this._getTextEditsForAutoImportByFilePathInternal(
-                moduleName,
-                importName,
-                abbrFromUsers,
-                insertionText,
-                importGroup,
-                filePath
-            );
-        } finally {
-            const endTime = this._stopWatch.getDurationInMilliseconds();
-            this._perfInfo.editTimeInMS += endTime - startTime;
-        }
-    }
-
-    private _getTextEditsForAutoImportByFilePathInternal(
         moduleName: string,
         importName: string | undefined,
         abbrFromUsers: string | undefined,
@@ -835,8 +801,6 @@ export class AutoImporter {
             this._perfInfo.symbolCount++;
         } else if (library) {
             this._perfInfo.indexCount++;
-        } else {
-            this._perfInfo.userIndexCount++;
         }
     }
 
