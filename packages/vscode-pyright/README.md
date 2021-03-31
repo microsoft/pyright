@@ -11,6 +11,7 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 ### Type Checking Features
 
 * [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints including generics
+* [PEP 487](https://www.python.org/dev/peps/pep-0487/) simpler customization of class creation
 * [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
 * [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
 * [PEP 561](https://www.python.org/dev/peps/pep-0561/) distributing and packaging type information
