@@ -825,15 +825,8 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         });
 
         this._connection.onDidOpenTextDocument(async (params) => {
-            let filePath = convertUriToPath(this.fs, params.textDocument.uri);
+            const filePath = convertUriToPath(this.fs, params.textDocument.uri);
             const workspace = await this.getWorkspaceForFile(filePath);
-
-            // Make sure partial stub packages are processed for the given exe environment.
-            // This can happen if a user opens file inside of a partial stub package directly out of band.
-            if (workspace.serviceInstance.ensurePartialStubPackages(filePath)) {
-                // If mapping happened, re-check mapped file path.
-                filePath = convertUriToPath(this.fs, params.textDocument.uri);
-            }
 
             workspace.serviceInstance.setFileOpened(filePath, params.textDocument.version, params.textDocument.text);
         });

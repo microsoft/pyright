@@ -11,7 +11,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
-import { ConfigOptions } from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
@@ -62,6 +62,8 @@ export class BackgroundAnalysisProgram {
         this._configOptions = configOptions;
         this._backgroundAnalysis?.setConfigOptions(configOptions);
         this._program.setConfigOptions(configOptions);
+
+        configOptions.getExecutionEnvironments().forEach((e) => this._ensurePartialStubPackages(e));
     }
 
     setImportResolver(importResolver: ImportResolver) {
@@ -83,11 +85,6 @@ export class BackgroundAnalysisProgram {
     setAllowedThirdPartyImports(importNames: string[]) {
         this._backgroundAnalysis?.setAllowedThirdPartyImports(importNames);
         this._program.setAllowedThirdPartyImports(importNames);
-    }
-
-    ensurePartialStubPackages(path: string) {
-        this._backgroundAnalysis?.ensurePartialStubPackages(path);
-        return this._importResolver.ensurePartialStubPackages(this._configOptions.findExecEnvironment(path));
     }
 
     setFileOpened(filePath: string, version: number | null, contents: string) {
@@ -224,6 +221,11 @@ export class BackgroundAnalysisProgram {
 
     restart() {
         this._backgroundAnalysis?.restart();
+    }
+
+    private _ensurePartialStubPackages(execEnv: ExecutionEnvironment) {
+        this._backgroundAnalysis?.ensurePartialStubPackages(execEnv.root);
+        return this._importResolver.ensurePartialStubPackages(execEnv);
     }
 
     private _getIndices(): Indices {
