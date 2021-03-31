@@ -7770,6 +7770,18 @@ export function createTypeEvaluator(
         const returnType = getFunctionEffectiveReturnType(type, validateArgTypeParams, !reportedArgError);
         const specializedReturnType = applySolvedTypeVars(returnType, typeVarMap);
 
+        // If the return type includes a generic Callable type, set the type var
+        // scope to a wildcard to allow these type vars to be solved. This won't
+        // work with overloads or unions of callables. It's intended for a
+        // specific use case. We may need to make this more sophisticated in
+        // the future.
+        if (isFunction(specializedReturnType) && !specializedReturnType.details.name) {
+            specializedReturnType.details = {
+                ...specializedReturnType.details,
+                typeVarScopeId: WildcardTypeVarScopeId,
+            };
+        }
+
         return { argumentErrors: reportedArgError, returnType: specializedReturnType, isTypeIncomplete, activeParam };
     }
 
@@ -10525,6 +10537,10 @@ export function createTypeEvaluator(
         functionType.details.declaredReturnType = UnknownType.create();
 
         const enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(errorNode);
+
+        // Handle the case where the Callable has no enclosing scope. This can
+        // happen in the case where a generic function return type is annotated
+        // with a generic type alias that includes a Callable in its definition.
         functionType.details.typeVarScopeId = enclosingScope
             ? getScopeIdForNode(enclosingScope)
             : WildcardTypeVarScopeId;
