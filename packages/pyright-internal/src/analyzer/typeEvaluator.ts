@@ -444,6 +444,9 @@ export const enum MemberAccessFlags {
     // (__getattr__, etc.) may provide the missing attribute type.
     // This disables this check.
     SkipAttributeAccessOverride = 1 << 6,
+
+    // Do not include the class itself, only base classes.
+    SkipOriginalClass = 1 << 7,
 }
 
 interface ParamAssignmentInfo {
@@ -4439,6 +4442,9 @@ export function createTypeEvaluator(
         }
         if (flags & MemberAccessFlags.SkipObjectBaseClass) {
             classLookupFlags |= ClassMemberLookupFlags.SkipObjectBaseClass;
+        }
+        if (flags & MemberAccessFlags.SkipOriginalClass) {
+            classLookupFlags |= ClassMemberLookupFlags.SkipOriginalClass;
         }
 
         // Always look for a member with a declared type first.
@@ -11971,9 +11977,7 @@ export function createTypeEvaluator(
         writeTypeCache(node, decoratedType, /* isIncomplete */ false);
 
         // Validate __init_subclass__ call.
-        if (initSubclassArgs.length > 0) {
-            validateInitSubclassArgs(node, classType, initSubclassArgs);
-        }
+        validateInitSubclassArgs(node, classType, initSubclassArgs);
 
         return { classType, decoratedType };
     }
@@ -12061,14 +12065,16 @@ export function createTypeEvaluator(
     }
 
     function validateInitSubclassArgs(node: ClassNode, classType: ClassType, argList: FunctionArgument[]) {
-        const errorNode = argList[0].node!.name!;
+        const errorNode = argList.length > 0 ? argList[0].node!.name! : node.name;
         const initSubclassMethodInfo = getTypeFromClassMemberName(
             errorNode,
             classType,
             '__init_subclass__',
             { method: 'get' },
             new DiagnosticAddendum(),
-            MemberAccessFlags.AccessClassMembersOnly | MemberAccessFlags.SkipObjectBaseClass,
+            MemberAccessFlags.AccessClassMembersOnly |
+                MemberAccessFlags.SkipObjectBaseClass |
+                MemberAccessFlags.SkipOriginalClass,
             classType
         );
 

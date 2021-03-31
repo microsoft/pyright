@@ -39,3 +39,8 @@ class Bar4:
 
 def func(klass: Type[Bar4], arg: int):
     pass
+
+
+class Bar5(Foo, param1="hi", param2=3.4):
+    def __init_subclass__(cls, param_alt1: int):
+        super().__init_subclass__(param1="yo", param2=param_alt1)
