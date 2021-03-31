@@ -147,6 +147,7 @@ def func13(a: Tuple[int, str], b: Tuple[()], c: Tuple[int, ...]):
     v7 = a[-1]
     t_v7: Literal["str"] = reveal_type(v7)
 
+    # This should generate an error.
     v8 = a[-3]
     t_v8: Literal["int | str"] = reveal_type(v8)
 

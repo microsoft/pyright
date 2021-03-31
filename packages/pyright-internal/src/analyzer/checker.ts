@@ -20,6 +20,7 @@ import { DiagnosticRule } from '../common/diagnosticRules';
 import { TextRange } from '../common/textRange';
 import { Localizer } from '../localization/localize';
 import {
+    ArgumentCategory,
     AssertNode,
     AssignmentExpressionNode,
     AssignmentNode,
@@ -119,6 +120,7 @@ import {
     getDeclaredGeneratorReturnType,
     getGeneratorTypeArgs,
     isEllipsisType,
+    isLiteralType,
     isLiteralTypeOrUnion,
     isNoReturnType,
     isOpenEndedTupleClass,
@@ -880,27 +882,44 @@ export class Checker extends ParseTreeWalker {
 
         // If the index is a literal integer, see if this is a tuple with
         // a known length and the integer value exceeds the length.
-        const subscriptValue = ParseTreeUtils.getIntegerSubscriptValue(node);
-        if (subscriptValue !== undefined) {
-            const baseType = this._evaluator.getType(node.baseExpression);
-            if (
-                baseType &&
-                isObject(baseType) &&
-                baseType.classType.tupleTypeArguments &&
-                !isOpenEndedTupleClass(baseType.classType)
-            ) {
-                const tupleLength = baseType.classType.tupleTypeArguments.length;
+        const baseType = this._evaluator.getType(node.baseExpression);
+        if (
+            baseType &&
+            isObject(baseType) &&
+            baseType.classType.tupleTypeArguments &&
+            !isOpenEndedTupleClass(baseType.classType)
+        ) {
+            const tupleLength = baseType.classType.tupleTypeArguments.length;
 
-                if (subscriptValue >= tupleLength) {
-                    this._evaluator.addDiagnostic(
-                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.tupleIndexOutOfRange().format({
-                            length: tupleLength,
-                            index: subscriptValue,
-                        }),
-                        node
-                    );
+            if (
+                node.items.length === 1 &&
+                !node.trailingComma &&
+                node.items[0].argumentCategory === ArgumentCategory.Simple &&
+                !node.items[0].name
+            ) {
+                const subscriptType = this._evaluator.getType(node.items[0].valueExpression);
+                if (
+                    subscriptType &&
+                    isObject(subscriptType) &&
+                    ClassType.isBuiltIn(subscriptType.classType, 'int') &&
+                    isLiteralType(subscriptType)
+                ) {
+                    const subscriptValue = subscriptType.classType.literalValue as number;
+
+                    if (
+                        (subscriptValue >= 0 && subscriptValue >= tupleLength) ||
+                        (subscriptValue < 0 && subscriptValue + tupleLength < 0)
+                    ) {
+                        this._evaluator.addDiagnostic(
+                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.tupleIndexOutOfRange().format({
+                                length: tupleLength,
+                                index: subscriptValue,
+                            }),
+                            node
+                        );
+                    }
                 }
             }
         }
