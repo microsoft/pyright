@@ -1,5 +1,8 @@
 # This sample tests the Python 3.8 "positional-only parameter" feature.
 
+from typing import Any
+
+
 def f0(a: int, b: int):
     return 3
 
@@ -78,3 +81,12 @@ class A:
 a = A()
 
 a.f(hello="world")
+
+
+def f7(name: str, /, **kwargs: Any):
+    return 3
+
+f7("hi", name=3)
+
+# This should generate an error
+f7("hi", name=3, name=4)

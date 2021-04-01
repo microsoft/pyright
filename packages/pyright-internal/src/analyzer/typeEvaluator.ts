@@ -452,6 +452,7 @@ export const enum MemberAccessFlags {
 interface ParamAssignmentInfo {
     argsNeeded: number;
     argsReceived: number;
+    isPositionalOnly: boolean;
 }
 
 export type SetAnalysisChangedCallback = (reason: string) => void;
@@ -7102,13 +7103,20 @@ export function createTypeEvaluator(
         const varArgDictParam = typeParams.find((param) => param.category === ParameterCategory.VarArgDictionary);
         let reportedArgError = false;
 
+        // Is there a positional-only "/" parameter? If so, it separates the
+        // positional-only from positional or keyword parameters.
+        let positionalOnlyIndex = typeParams.findIndex(
+            (param) => param.category === ParameterCategory.Simple && !param.name
+        );
+
         // Build a map of parameters by name.
         const paramMap = new Map<string, ParamAssignmentInfo>();
-        typeParams.forEach((param) => {
+        typeParams.forEach((param, index) => {
             if (param.name && param.category === ParameterCategory.Simple) {
                 paramMap.set(param.name, {
                     argsNeeded: param.category === ParameterCategory.Simple && !param.hasDefault ? 1 : 0,
                     argsReceived: 0,
+                    isPositionalOnly: positionalOnlyIndex >= 0 && index < positionalOnlyIndex,
                 });
             }
         });
@@ -7122,12 +7130,6 @@ export function createTypeEvaluator(
         const varArgListParamIndex = typeParams.findIndex((param) => param.category === ParameterCategory.VarArgList);
         const varArgDictParamIndex = typeParams.findIndex(
             (param) => param.category === ParameterCategory.VarArgDictionary
-        );
-
-        // Is there a positional-only "/" parameter? If so, it separates the
-        // positional-only from positional or keyword parameters.
-        let positionalOnlyIndex = typeParams.findIndex(
-            (param) => param.category === ParameterCategory.Simple && !param.name
         );
 
         // Is there a var-arg (named "*") parameter? If so, it is the last of
@@ -7493,7 +7495,7 @@ export function createTypeEvaluator(
                     if (paramName) {
                         const paramNameValue = paramName.value;
                         const paramEntry = paramMap.get(paramNameValue);
-                        if (paramEntry) {
+                        if (paramEntry && !paramEntry.isPositionalOnly) {
                             if (paramEntry.argsReceived > 0) {
                                 addDiagnostic(
                                     getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
@@ -7503,7 +7505,7 @@ export function createTypeEvaluator(
                                 );
                                 reportedArgError = true;
                             } else {
-                                paramMap.get(paramName.value)!.argsReceived++;
+                                paramEntry.argsReceived++;
 
                                 const paramInfoIndex = typeParams.findIndex((param) => param.name === paramNameValue);
                                 assert(paramInfoIndex >= 0);
@@ -7524,35 +7526,22 @@ export function createTypeEvaluator(
                             if (paramSpecArgList) {
                                 paramSpecArgList.push(argList[argIndex]);
                             } else {
-                                let paramInfo = paramMap.get(paramNameValue);
-                                if (paramInfo && paramInfo.argsReceived > 0) {
-                                    addDiagnostic(
-                                        getFileInfo(paramName).diagnosticRuleSet.reportGeneralTypeIssues,
-                                        DiagnosticRule.reportGeneralTypeIssues,
-                                        Localizer.Diagnostic.paramAlreadyAssigned().format({ name: paramNameValue }),
-                                        paramName
-                                    );
-                                    reportedArgError = true;
-                                } else {
-                                    const paramType = FunctionType.getEffectiveParameterType(
-                                        type,
-                                        varArgDictParamIndex
-                                    );
-                                    validateArgTypeParams.push({
-                                        paramCategory: ParameterCategory.VarArgDictionary,
-                                        paramType,
-                                        requiresTypeVarMatching: requiresSpecialization(varArgDictParam.type),
-                                        argument: argList[argIndex],
-                                        errorNode: argList[argIndex].valueExpression || errorNode,
-                                        paramName: paramNameValue,
-                                    });
+                                const paramType = FunctionType.getEffectiveParameterType(type, varArgDictParamIndex);
+                                validateArgTypeParams.push({
+                                    paramCategory: ParameterCategory.VarArgDictionary,
+                                    paramType,
+                                    requiresTypeVarMatching: requiresSpecialization(varArgDictParam.type),
+                                    argument: argList[argIndex],
+                                    errorNode: argList[argIndex].valueExpression || errorNode,
+                                    paramName: paramNameValue,
+                                });
 
-                                    // Remember that this parameter has already received a value.
-                                    if (!paramInfo) {
-                                        paramInfo = { argsNeeded: 1, argsReceived: 1 };
-                                    }
-                                    paramMap.set(paramNameValue, paramInfo);
-                                }
+                                // Remember that this parameter has already received a value.
+                                paramMap.set(paramNameValue, {
+                                    argsNeeded: 1,
+                                    argsReceived: 1,
+                                    isPositionalOnly: false,
+                                });
                             }
                             trySetActive(argList[argIndex], varArgDictParam);
                         } else {
