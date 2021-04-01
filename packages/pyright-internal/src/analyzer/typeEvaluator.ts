@@ -10167,10 +10167,9 @@ export function createTypeEvaluator(
         targetTypeVar.details.boundType = expectedType;
 
         // Use a dummy scope ID. It needs to be a non-empty string.
-        const expectedTypeScopeId = '__typeArgScopeId';
-        targetTypeVar.scopeId = expectedTypeScopeId;
+        targetTypeVar.scopeId = '__typeArgScopeId';
 
-        let typeVarMap = new TypeVarMap(expectedTypeScopeId);
+        let typeVarMap = new TypeVarMap(WildcardTypeVarScopeId);
         typeVarMap.setTypeVarType(targetTypeVar, isNarrowable ? undefined : expectedType, expectedType);
 
         // First, try to assign entries with their literal values stripped.
@@ -10182,7 +10181,7 @@ export function createTypeEvaluator(
             )
         ) {
             // Allocate a fresh typeVarMap before we try again with literals not stripped.
-            typeVarMap = new TypeVarMap(expectedTypeScopeId);
+            typeVarMap = new TypeVarMap(WildcardTypeVarScopeId);
             typeVarMap.setTypeVarType(
                 targetTypeVar,
                 isNarrowable ? undefined : expectedType,

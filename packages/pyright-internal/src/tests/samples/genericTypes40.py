@@ -8,5 +8,5 @@ def filter_fn(value: object):
     ...
 
 
-foo = filter(filter_fn, {1: ...})
+foo = filter(filter_fn, [1, 2, 3])
 t1: Literal["Iterator[int]"] = reveal_type(foo)
