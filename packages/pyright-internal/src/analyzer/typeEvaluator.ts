@@ -9093,7 +9093,7 @@ export function createTypeEvaluator(
 
         // Handle the very special case where the expected type is a list
         // and the operator is a multiply. This comes up in the common case
-        // of "x: List[Optional[X]] = [None] * y".
+        // of "x: List[Optional[X]] = [None] * y" where y is an integer literal.
         if (
             node.operator === OperatorType.Multiply &&
             expectedType &&
@@ -9101,7 +9101,9 @@ export function createTypeEvaluator(
             ClassType.isBuiltIn(expectedType.classType, 'list') &&
             expectedType.classType.typeArguments &&
             expectedType.classType.typeArguments.length >= 1 &&
-            node.leftExpression.nodeType === ParseNodeType.List
+            node.leftExpression.nodeType === ParseNodeType.List &&
+            node.rightExpression.nodeType === ParseNodeType.Number &&
+            node.rightExpression.isInteger
         ) {
             expectedOperandType = expectedType;
         }
