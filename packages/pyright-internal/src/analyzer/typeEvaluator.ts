@@ -11730,8 +11730,10 @@ export function createTypeEvaluator(
             classType.details.baseClasses.push(getBuiltInType(node, 'object'));
         }
 
-        // TODO - if genericTypeParameters are provided, make sure that
-        // typeParameters is a proper subset.
+        // If genericTypeParameters are provided, make sure that typeParameters is a proper subset.
+        if (genericTypeParameters) {
+            verifyGenericTypeParameters(node.name, typeParameters, genericTypeParameters);
+        }
         classType.details.typeParameters = genericTypeParameters || typeParameters;
 
         // Make sure there's at most one variadic type parameter.
@@ -11944,6 +11946,35 @@ export function createTypeEvaluator(
         validateInitSubclassArgs(node, classType, initSubclassArgs);
 
         return { classType, decoratedType };
+    }
+
+    // Verifies that the type variables provided outside of "Generic" are also
+    // provided within the "Generic". For example:
+    //    class Foo(Mapping[K, V], Generic[V])
+    // is illegal because K is not included in Generic.
+    function verifyGenericTypeParameters(
+        errorNode: ExpressionNode,
+        typeVars: TypeVarType[],
+        genericTypeVars: TypeVarType[]
+    ) {
+        const missingFromGeneric = typeVars.filter((typeVar) => {
+            return !genericTypeVars.some((genericTypeVar) => genericTypeVar.details.name === typeVar.details.name);
+        });
+
+        if (missingFromGeneric.length > 0) {
+            const diag = new DiagnosticAddendum();
+            diag.addMessage(
+                Localizer.DiagnosticAddendum.typeVarsMissing().format({
+                    names: missingFromGeneric.map((typeVar) => `"${typeVar.details.name}"`).join(', '),
+                })
+            );
+            addDiagnostic(
+                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.typeVarsNotInGeneric() + diag.getString(),
+                errorNode
+            );
+        }
     }
 
     function applyClassDecorator(

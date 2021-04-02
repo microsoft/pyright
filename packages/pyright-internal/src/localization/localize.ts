@@ -709,6 +709,7 @@ export namespace Localizer {
         export const typeVarNotUsedByOuterScope = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarNotUsedByOuterScope'));
         export const typeVarSingleConstraint = () => getRawString('Diagnostic.typeVarSingleConstraint');
+        export const typeVarsNotInGeneric = () => getRawString('Diagnostic.typeVarsNotInGeneric');
         export const typeVarTupleContext = () => getRawString('Diagnostic.typeVarTupleContext');
         export const typeVarUnknownParam = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeVarUnknownParam'));
@@ -991,6 +992,8 @@ export namespace Localizer {
         export const typeVarTupleRequiresKnownLength = () =>
             getRawString('DiagnosticAddendum.typeVarTupleRequiresKnownLength');
         export const typeVarNotAllowed = () => getRawString('DiagnosticAddendum.typeVarNotAllowed');
+        export const typeVarsMissing = () =>
+            new ParameterizedString<{ names: string }>(getRawString('DiagnosticAddendum.typeVarsMissing'));
         export const useDictInstead = () => getRawString('DiagnosticAddendum.useDictInstead');
         export const useListInstead = () => getRawString('DiagnosticAddendum.useListInstead');
         export const useTupleInstead = () => getRawString('DiagnosticAddendum.useTupleInstead');

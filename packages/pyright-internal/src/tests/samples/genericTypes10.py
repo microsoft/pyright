@@ -1,7 +1,7 @@
 # This sample tests that a Generic base class overrides the type parameter
 # ordering of other type parameters.
 
-from typing import Generic, Iterable, TypeVar
+from typing import Container, Generic, Iterable, Mapping, Protocol, TypeVar
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar(
@@ -25,3 +25,11 @@ b: str = a.foo(4, "")
 class Bar(Generic[_T1], Generic[_T2]):
     pass
 
+
+K = TypeVar("K", covariant=True)
+V = TypeVar("V")
+
+# This should generate an error because V isn't included
+# in the Generic type variable list.
+class A(Mapping[K, V], Generic[K]):
+    ...
