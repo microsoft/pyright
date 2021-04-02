@@ -605,7 +605,12 @@ export function partiallySpecializeType(type: Type, contextClassType: ClassType)
 
 // Specializes a (potentially generic) type by substituting
 // type variables from a type var map.
-export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, unknownIfNotFound = false): Type {
+export function applySolvedTypeVars(
+    type: Type,
+    typeVarMap: TypeVarMap,
+    unknownIfNotFound = false,
+    useNarrowBoundOnly = false
+): Type {
     if (typeVarMap.isEmpty() && !unknownIfNotFound) {
         return type;
     }
@@ -615,7 +620,7 @@ export function applySolvedTypeVars(type: Type, typeVarMap: TypeVarMap, unknownI
             // If the type variable is unrelated to the scopes we're solving,
             // don't transform that type variable.
             if (typeVar.scopeId && typeVarMap.hasSolveForScope(typeVar.scopeId)) {
-                const replacement = typeVarMap.getTypeVarType(typeVar);
+                const replacement = typeVarMap.getTypeVarType(typeVar, useNarrowBoundOnly);
                 if (replacement) {
                     return replacement;
                 }

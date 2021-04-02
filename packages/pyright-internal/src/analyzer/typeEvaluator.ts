@@ -7902,10 +7902,18 @@ export function createTypeEvaluator(
             // If the param type is a "bare" TypeVar, don't use it as an expected
             // type. This causes problems for cases where the the call expression
             // result can influence the type of the TypeVar, such as in
-            // the expression "min(1, max(2, 0.5))"
+            // the expression "min(1, max(2, 0.5))". We set useNarrowBoundOnly
+            // to true here because a wide bound on a TypeVar (if a narrow bound
+            // has not yet been established) will unnecessarily constrain the
+            // expected type.
             let expectedType: Type | undefined = isTypeVar(argParam.paramType)
                 ? undefined
-                : applySolvedTypeVars(argParam.paramType, typeVarMap);
+                : applySolvedTypeVars(
+                      argParam.paramType,
+                      typeVarMap,
+                      /* unknownIfNotFound */ false,
+                      /* useNarrowBoundOnly */ true
+                  );
 
             // If the expected type is unknown, don't use an expected type. Instead,
             // use default rules for evaluating the expression type.
@@ -9739,13 +9747,19 @@ export function createTypeEvaluator(
             expectedDiagAddendum
         );
 
-        const isExpectedTypeDict = isObject(expectedType) && ClassType.isBuiltIn(expectedType.classType, 'dict');
+        // Dict and MutableMapping types have invariant value types, so they
+        // cannot be narrowed further. Other super-types like Mapping, Collection,
+        // and Iterable use covariant value types, so they can be narrowed.
+        const isValueTypeInvariant =
+            isObject(expectedType) &&
+            (ClassType.isBuiltIn(expectedType.classType, 'dict') ||
+                ClassType.isBuiltIn(expectedType.classType, 'MutableMapping'));
 
         const specializedKeyType = inferTypeArgFromExpectedType(expectedKeyType, keyTypes, /* isNarrowable */ false);
         const specializedValueType = inferTypeArgFromExpectedType(
             expectedValueType,
             valueTypes,
-            /* isNarrowable */ !isExpectedTypeDict
+            /* isNarrowable */ !isValueTypeInvariant
         );
         if (!specializedKeyType || !specializedValueType) {
             return undefined;

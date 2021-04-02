@@ -152,12 +152,18 @@ export class TypeVarMap {
         return this._typeVarMap.has(this._getKey(reference));
     }
 
-    getTypeVarType(reference: TypeVarType): Type | undefined {
+    getTypeVarType(reference: TypeVarType, useNarrowBoundOnly = false): Type | undefined {
         const entry = this._typeVarMap.get(this._getKey(reference));
         if (!entry) {
             return undefined;
         }
-        return entry.narrowBound || entry.wideBound;
+        if (entry.narrowBound) {
+            return entry.narrowBound;
+        }
+        if (!useNarrowBoundOnly) {
+            return entry.wideBound;
+        }
+        return undefined;
     }
 
     setTypeVarType(reference: TypeVarType, narrowBound: Type | undefined, wideBound?: Type, retainLiteral?: boolean) {
