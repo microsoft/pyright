@@ -3071,6 +3071,12 @@ export class Checker extends ParseTreeWalker {
             return;
         }
 
+        // Don't enforce this for an overloaded method because the "self" param
+        // annotation can be used as a filter for the overload.
+        if (FunctionType.isOverloaded(functionType)) {
+            return;
+        }
+
         if (!this._evaluator.canAssignType(paramType, expectedType, diag)) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
