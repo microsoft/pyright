@@ -18420,6 +18420,7 @@ export function createTypeEvaluator(
         destType.details.baseClasses.forEach((baseClass) => {
             if (
                 isClass(baseClass) &&
+                ClassType.isProtocolClass(baseClass) &&
                 !ClassType.isBuiltIn(baseClass, 'object') &&
                 !ClassType.isBuiltIn(baseClass, 'Protocol') &&
                 baseClass.details.typeParameters.length > 0
