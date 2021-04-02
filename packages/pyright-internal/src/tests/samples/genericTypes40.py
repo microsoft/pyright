@@ -8,5 +8,12 @@ def filter_fn(value: object):
     ...
 
 
-foo = filter(filter_fn, [1, 2, 3])
-t1: Literal["Iterator[int]"] = reveal_type(foo)
+v1 = filter(filter_fn, [1, 2, 3])
+t1: Literal["Iterator[int]"] = reveal_type(v1)
+
+v2 = filter(filter_fn, {1, 2})
+t2: Literal["Iterator[int]"] = reveal_type(v2)
+
+# This case does not work as expected.
+# v3 = filter(filter_fn, {1: 2})
+# t3: Literal["Iterator[int]"] = reveal_type(v3)

@@ -1107,8 +1107,9 @@ export function createTypeEvaluator(
                 break;
             }
 
-            case ParseNodeType.List: {
-                typeResult = getTypeFromList(node, expectedTypeAlt);
+            case ParseNodeType.List:
+            case ParseNodeType.Set: {
+                typeResult = getTypeFromListOrSet(node, expectedTypeAlt);
                 break;
             }
 
@@ -1143,11 +1144,6 @@ export function createTypeEvaluator(
 
             case ParseNodeType.Lambda: {
                 typeResult = getTypeFromLambda(node, expectedTypeAlt);
-                break;
-            }
-
-            case ParseNodeType.Set: {
-                typeResult = getTypeFromSet(node, expectedTypeAlt);
                 break;
             }
 
@@ -9626,62 +9622,6 @@ export function createTypeEvaluator(
         return returnType;
     }
 
-    function getTypeFromSet(node: SetNode, expectedType: Type | undefined): TypeResult {
-        const entryTypes: Type[] = [];
-
-        node.entries.forEach((entryNode, index) => {
-            let elementType: Type;
-            if (entryNode.nodeType === ParseNodeType.ListComprehension) {
-                elementType = getElementTypeFromListComprehension(entryNode, expectedType);
-            } else {
-                elementType = getTypeOfExpression(entryNode).type;
-            }
-
-            if (index < maxEntriesToUseForInference || expectedType !== undefined) {
-                entryTypes.push(elementType);
-            }
-        });
-
-        // If there is an expected type, see if we can match it.
-        if (expectedType && entryTypes.length > 0) {
-            const narrowedExpectedType = mapSubtypes(expectedType, (subtype) => {
-                if (isObject(subtype)) {
-                    if (ClassType.isBuiltIn(subtype.classType, 'set') && subtype.classType.typeArguments) {
-                        const typeArg = subtype.classType.typeArguments[0];
-                        const typeVarMap = new TypeVarMap(getTypeVarScopeId(subtype));
-
-                        for (const entryType of entryTypes) {
-                            if (!canAssignType(typeArg, entryType, new DiagnosticAddendum(), typeVarMap)) {
-                                return undefined;
-                            }
-                        }
-
-                        return applySolvedTypeVars(subtype, typeVarMap);
-                    }
-                }
-
-                return undefined;
-            });
-
-            if (!isNever(narrowedExpectedType)) {
-                return { type: narrowedExpectedType, node };
-            }
-        }
-
-        let inferredEntryType =
-            entryTypes.length > 0 ? combineTypes(entryTypes.map((t) => stripLiteralValue(t))) : UnknownType.create();
-
-        // If we weren't provided an expected type, strip away any
-        // literals from the set.
-        if (!expectedType) {
-            inferredEntryType = stripLiteralValue(inferredEntryType);
-        }
-
-        const type = getBuiltInObject(node, 'set', [inferredEntryType]);
-
-        return { type, node };
-    }
-
     function getTypeFromDictionary(node: DictionaryNode, expectedType: Type | undefined): TypeResult {
         // If the expected type is a union, analyze for each of the subtypes
         // to find one that matches.
@@ -10001,7 +9941,7 @@ export function createTypeEvaluator(
         });
     }
 
-    function getTypeFromList(node: ListNode, expectedType: Type | undefined): TypeResult {
+    function getTypeFromListOrSet(node: ListNode | SetNode, expectedType: Type | undefined): TypeResult {
         // If the expected type is a union, recursively call for each of the subtypes
         // to find one that matches.
         let effectiveExpectedType = expectedType;
@@ -10012,7 +9952,7 @@ export function createTypeEvaluator(
             doForEachSubtype(expectedType, (subtype) => {
                 if (!matchingSubtype) {
                     const subtypeResult = useSpeculativeMode(node, () => {
-                        return getTypeFromListExpected(node, subtype);
+                        return getTypeFromListOrSetExpected(node, subtype);
                     });
 
                     if (subtypeResult) {
@@ -10025,47 +9965,48 @@ export function createTypeEvaluator(
         }
 
         if (effectiveExpectedType) {
-            const result = getTypeFromListExpected(node, effectiveExpectedType);
+            const result = getTypeFromListOrSetExpected(node, effectiveExpectedType);
             if (result) {
                 return result;
             }
         }
 
-        return getTypeFromListInferred(node, expectedType);
+        return getTypeFromListOrSetInferred(node, expectedType);
     }
 
-    // Attempts to determine the type of a list statement based on an expected type.
+    // Attempts to determine the type of a list or set statement based on an expected type.
     // Returns undefined if that type cannot be honored.
-    function getTypeFromListExpected(node: ListNode, expectedType: Type): TypeResult | undefined {
+    function getTypeFromListOrSetExpected(node: ListNode | SetNode, expectedType: Type): TypeResult | undefined {
+        const builtInClassName = node.nodeType === ParseNodeType.List ? 'list' : 'set';
         expectedType = transformPossibleRecursiveTypeAlias(expectedType);
 
         if (!isObject(expectedType)) {
             return undefined;
         }
 
-        const builtInList = getBuiltInObject(node, 'list');
-        if (!isObject(builtInList)) {
+        const builtInListOrSet = getBuiltInObject(node, builtInClassName);
+        if (!isObject(builtInListOrSet)) {
             return undefined;
         }
 
-        const listTypeVarMap = new TypeVarMap(getTypeVarScopeId(builtInList.classType));
+        const typeVarMap = new TypeVarMap(getTypeVarScopeId(builtInListOrSet.classType));
         if (
             !populateTypeVarMapBasedOnExpectedType(
-                builtInList.classType,
+                builtInListOrSet.classType,
                 expectedType,
-                listTypeVarMap,
+                typeVarMap,
                 getTypeVarScopesForNode(node)
             )
         ) {
             return undefined;
         }
 
-        const specializedList = applySolvedTypeVars(builtInList.classType, listTypeVarMap) as ClassType;
-        if (!specializedList.typeArguments || specializedList.typeArguments.length !== 1) {
+        const specializedListOrSet = applySolvedTypeVars(builtInListOrSet.classType, typeVarMap) as ClassType;
+        if (!specializedListOrSet.typeArguments || specializedListOrSet.typeArguments.length !== 1) {
             return undefined;
         }
 
-        const expectedEntryType = specializedList.typeArguments[0];
+        const expectedEntryType = specializedListOrSet.typeArguments[0];
 
         const entryTypes: Type[] = [];
         node.entries.forEach((entry) => {
@@ -10076,22 +10017,24 @@ export function createTypeEvaluator(
             }
         });
 
-        const isExpectedTypeList = isObject(expectedType) && ClassType.isBuiltIn(expectedType.classType, 'list');
+        const isExpectedTypeListOrSet =
+            isObject(expectedType) && ClassType.isBuiltIn(expectedType.classType, builtInClassName);
         const specializedEntryType = inferTypeArgFromExpectedType(
             expectedEntryType,
             entryTypes,
-            /* isNarrowable */ !isExpectedTypeList
+            /* isNarrowable */ !isExpectedTypeListOrSet
         );
         if (!specializedEntryType) {
             return undefined;
         }
 
-        const type = getBuiltInObject(node, 'list', [specializedEntryType]);
+        const type = getBuiltInObject(node, builtInClassName, [specializedEntryType]);
         return { type, node };
     }
 
-    // Attempts to infer the type of a list statement with no "expected type".
-    function getTypeFromListInferred(node: ListNode, expectedType: Type | undefined): TypeResult {
+    // Attempts to infer the type of a list or set statement with no "expected type".
+    function getTypeFromListOrSetInferred(node: ListNode | SetNode, expectedType: Type | undefined): TypeResult {
+        const builtInClassName = node.nodeType === ParseNodeType.List ? 'list' : 'set';
         let isEmptyContainer = false;
 
         // If we received an expected entry type that of "object",
@@ -10126,21 +10069,24 @@ export function createTypeEvaluator(
         if (entryTypes.length > 0) {
             // If there was an expected type or we're using strict list inference,
             // combine the types into a union.
-            if (getFileInfo(node).diagnosticRuleSet.strictListInference || !!expectedType) {
+            if (
+                (builtInClassName === 'list' && getFileInfo(node).diagnosticRuleSet.strictListInference) ||
+                !!expectedType
+            ) {
                 inferredEntryType = combineTypes(entryTypes, maxSubtypesForInferredType);
             } else {
-                // Is the list homogeneous? If so, use stricter rules. Otherwise relax the rules.
+                // Is the list or set homogeneous? If so, use stricter rules. Otherwise relax the rules.
                 inferredEntryType = areTypesSame(entryTypes) ? entryTypes[0] : inferredEntryType;
             }
         } else {
             isEmptyContainer = true;
         }
 
-        const listClass = getBuiltInType(node, 'list');
-        const type = isClass(listClass)
+        const listOrSetClass = getBuiltInType(node, builtInClassName);
+        const type = isClass(listOrSetClass)
             ? ObjectType.create(
                   ClassType.cloneForSpecialization(
-                      listClass,
+                      listOrSetClass,
                       [inferredEntryType],
                       /* isTypeArgumentExplicit */ true,
                       /* skipAbstractClassTest */ false,
