@@ -51,6 +51,9 @@ export const enum PrintTypeFlags {
     // Include a parentheses around a union if there's more than
     // one subtype.
     ParenthesizeUnion = 1 << 4,
+
+    // Expand type aliases to display their individual parts?
+    ExpandTypeAlias = 1 << 5,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -59,7 +62,6 @@ export function printType(
     type: Type,
     printTypeFlags: PrintTypeFlags,
     returnTypeCallback: FunctionReturnTypeCallback,
-    expandTypeAlias = false,
     recursionCount = 0
 ): string {
     const parenthesizeUnion = (printTypeFlags & PrintTypeFlags.ParenthesizeUnion) !== 0;
@@ -71,7 +73,7 @@ export function printType(
 
     // If this is a type alias, use its name rather than the type
     // it represents.
-    if (type.typeAliasInfo && !expandTypeAlias) {
+    if (type.typeAliasInfo && (printTypeFlags & PrintTypeFlags.ExpandTypeAlias) === 0) {
         let aliasName = type.typeAliasInfo.name;
         const typeParams = type.typeAliasInfo.typeParameters;
 
@@ -99,24 +101,12 @@ export function printType(
                         ) {
                             typeArg.classType.tupleTypeArguments.forEach((tupleTypeArg) => {
                                 argumentStrings!.push(
-                                    printType(
-                                        tupleTypeArg,
-                                        printTypeFlags,
-                                        returnTypeCallback,
-                                        /* expandTypeAlias */ false,
-                                        recursionCount + 1
-                                    )
+                                    printType(tupleTypeArg, printTypeFlags, returnTypeCallback, recursionCount + 1)
                                 );
                             });
                         } else {
                             argumentStrings!.push(
-                                printType(
-                                    typeArg,
-                                    printTypeFlags,
-                                    returnTypeCallback,
-                                    /* expandTypeAlias */ false,
-                                    recursionCount + 1
-                                )
+                                printType(typeArg, printTypeFlags, returnTypeCallback, recursionCount + 1)
                             );
                         }
                     });
@@ -129,13 +119,7 @@ export function printType(
                     argumentStrings = [];
                     typeParams.forEach((typeParam) => {
                         argumentStrings!.push(
-                            printType(
-                                typeParam,
-                                printTypeFlags,
-                                returnTypeCallback,
-                                /* expandTypeAlias */ false,
-                                recursionCount + 1
-                            )
+                            printType(typeParam, printTypeFlags, returnTypeCallback, recursionCount + 1)
                         );
                     });
                 }
@@ -213,7 +197,7 @@ export function printType(
         case TypeCategory.OverloadedFunction: {
             const overloadedType = type;
             const overloads = overloadedType.overloads.map((overload) =>
-                printType(overload, printTypeFlags, returnTypeCallback, /* expandTypeAlias */ false, recursionCount + 1)
+                printType(overload, printTypeFlags, returnTypeCallback, recursionCount + 1)
             );
             return `Overload[${overloads.join(', ')}]`;
         }
@@ -230,7 +214,6 @@ export function printType(
                     removeNoneFromUnion(type),
                     printTypeFlags,
                     returnTypeCallback,
-                    /* expandTypeAlias */ false,
                     recursionCount + 1
                 );
 
@@ -304,15 +287,7 @@ export function printType(
                         subtypes = subtypes.filter((t) => !isLiteralClass(t));
                     }
                 } else {
-                    subtypeStrings.push(
-                        printType(
-                            subtype,
-                            printTypeFlags,
-                            returnTypeCallback,
-                            /* expandTypeAlias */ false,
-                            recursionCount + 1
-                        )
-                    );
+                    subtypeStrings.push(printType(subtype, printTypeFlags, returnTypeCallback, recursionCount + 1));
                 }
             }
 
@@ -351,12 +326,11 @@ export function printType(
                 // If it's a synthesized type var used to implement recursive type
                 // aliases, return the type alias name.
                 if (type.details.recursiveTypeAliasName) {
-                    if (expandTypeAlias && type.details.boundType) {
+                    if ((printTypeFlags & PrintTypeFlags.ExpandTypeAlias) !== 0 && type.details.boundType) {
                         return printType(
                             type.details.boundType,
                             printTypeFlags,
                             returnTypeCallback,
-                            expandTypeAlias,
                             recursionCount + 1
                         );
                     }
@@ -366,9 +340,8 @@ export function printType(
                 if (type.details.boundType) {
                     const boundTypeString = printType(
                         type.details.boundType,
-                        printTypeFlags,
+                        printTypeFlags & ~PrintTypeFlags.ExpandTypeAlias,
                         returnTypeCallback,
-                        /* expandTypeAlias */ false,
                         recursionCount + 1
                     );
 
@@ -488,13 +461,7 @@ export function printObjectTypeForClass(
                                         isAllAny = false;
                                     }
 
-                                    return printType(
-                                        typeArg,
-                                        printTypeFlags,
-                                        returnTypeCallback,
-                                        /* expandTypeAlias */ false,
-                                        recursionCount + 1
-                                    );
+                                    return printType(typeArg, printTypeFlags, returnTypeCallback, recursionCount + 1);
                                 })
                             );
                         }
@@ -503,15 +470,7 @@ export function printObjectTypeForClass(
                             isAllAny = false;
                         }
 
-                        typeArgStrings.push(
-                            printType(
-                                typeArg,
-                                printTypeFlags,
-                                returnTypeCallback,
-                                /* expandTypeAlias */ false,
-                                recursionCount + 1
-                            )
-                        );
+                        typeArgStrings.push(printType(typeArg, printTypeFlags, returnTypeCallback, recursionCount + 1));
                     }
                 });
 
@@ -533,13 +492,7 @@ export function printObjectTypeForClass(
                         '[' +
                         typeParams
                             .map((typeParam) => {
-                                return printType(
-                                    typeParam,
-                                    printTypeFlags,
-                                    returnTypeCallback,
-                                    /* expandTypeAlias */ false,
-                                    recursionCount + 1
-                                );
+                                return printType(typeParam, printTypeFlags, returnTypeCallback, recursionCount + 1);
                             })
                             .join(', ') +
                         ']';
@@ -576,7 +529,6 @@ export function printFunctionParts(
                         paramType,
                         printTypeFlags,
                         returnTypeCallback,
-                        /* expandTypeAlias */ false,
                         recursionCount + 1
                     )}`;
                     paramTypeStrings.push(paramString);
@@ -603,13 +555,7 @@ export function printFunctionParts(
                 const paramType = FunctionType.getEffectiveParameterType(type, index);
                 const paramTypeString =
                     recursionCount < maxTypeRecursionCount
-                        ? printType(
-                              paramType,
-                              printTypeFlags,
-                              returnTypeCallback,
-                              /* expandTypeAlias */ false,
-                              recursionCount + 1
-                          )
+                        ? printType(paramType, printTypeFlags, returnTypeCallback, recursionCount + 1)
                         : '';
                 paramString += ': ' + paramTypeString;
 
@@ -653,7 +599,6 @@ export function printFunctionParts(
                   returnType,
                   printTypeFlags | PrintTypeFlags.ParenthesizeUnion,
                   returnTypeCallback,
-                  /* expandTypeAlias */ false,
                   recursionCount + 1
               )
             : '';

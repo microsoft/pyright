@@ -21440,12 +21440,13 @@ export function createTypeEvaluator(
     }
 
     function printType(type: Type, expandTypeAlias = false): string {
-        return TypePrinter.printType(
-            type,
-            evaluatorOptions.printTypeFlags,
-            getFunctionEffectiveReturnType,
-            expandTypeAlias
-        );
+        let flags = evaluatorOptions.printTypeFlags;
+
+        if (expandTypeAlias) {
+            flags |= TypePrinter.PrintTypeFlags.ExpandTypeAlias;
+        }
+
+        return TypePrinter.printType(type, flags, getFunctionEffectiveReturnType);
     }
 
     // Calls back into the parser to parse the contents of a string literal.
