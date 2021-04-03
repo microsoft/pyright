@@ -1235,6 +1235,15 @@ export class Checker extends ParseTreeWalker {
     }
 
     private _isOverlappingOverload(functionType: FunctionType, prevOverload: FunctionType) {
+        // According to precedent, the __get__ method is special-cased and is
+        // exempt from overlapping overload checks. It's not clear why this is
+        // the case, but for consistency with other type checkers, we'll honor
+        // this rule. See https://github.com/python/typing/issues/253#issuecomment-389262904
+        // for details.
+        if (FunctionType.isInstanceMethod(functionType) && functionType.details.name === '__get__') {
+            return false;
+        }
+
         return this._evaluator.canAssignType(
             functionType,
             prevOverload,
