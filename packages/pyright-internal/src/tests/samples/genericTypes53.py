@@ -1,7 +1,7 @@
 # This sample tests situations where bidirectional type inference
 # influences the type of a generic function call.
 
-from typing import List, Literal, TypeVar
+from typing import Callable, Iterable, List, Literal, TypeVar
 
 _T = TypeVar("_T")
 
@@ -28,3 +28,15 @@ t_v4: Literal["str"] = reveal_type(v4)
 
 v5 = func2("test")
 t_v5: Literal["List[str]"] = reveal_type(v5)
+
+
+def reduce(function: Callable[[_T, _T], _T], sequence: Iterable[_T]) -> _T:
+    ...
+
+
+dicts = [{"a": "b"}, {"c": "d"}]
+v6 = reduce(lambda x, y: x | y, dicts)
+t_v6: Literal["dict[str, str]"] = reveal_type(v6)
+
+v7 = reduce(lambda x, y: {**x, **y}, dicts)
+t_v7: Literal["dict[str, str]"] = reveal_type(v7)
