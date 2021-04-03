@@ -107,6 +107,12 @@
       "title": "Infer strict types for list expressions",
       "default": false
     },
+    "strictSetInference": {
+      "$id": "#/properties/strictSetInference",
+      "type": "boolean",
+      "title": "Infer strict types for set expressions",
+      "default": false
+    },
     "strictDictionaryInference": {
       "$id": "#/properties/strictDictionaryInference",
       "type": "boolean",

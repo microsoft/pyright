@@ -84,6 +84,9 @@ export interface DiagnosticRuleSet {
     // Use strict inference rules for list expressions?
     strictListInference: boolean;
 
+    // Use strict inference rules for set expressions?
+    strictSetInference: boolean;
+
     // Use strict inference rules for dictionary expressions?
     strictDictionaryInference: boolean;
 
@@ -260,6 +263,7 @@ export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): Diagnos
 export function getBooleanDiagnosticRules() {
     return [
         DiagnosticRule.strictListInference,
+        DiagnosticRule.strictSetInference,
         DiagnosticRule.strictDictionaryInference,
         DiagnosticRule.strictParameterNoneValue,
 
@@ -337,6 +341,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         omitUnannotatedParamType: true,
         pep604Printing: true,
         strictListInference: false,
+        strictSetInference: false,
         strictDictionaryInference: false,
         strictParameterNoneValue: false,
         enableTypeIgnoreComments: true,
@@ -401,6 +406,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         omitUnannotatedParamType: true,
         pep604Printing: true,
         strictListInference: false,
+        strictSetInference: false,
         strictDictionaryInference: false,
         strictParameterNoneValue: false,
         enableTypeIgnoreComments: true,
@@ -465,6 +471,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         omitUnannotatedParamType: false,
         pep604Printing: true,
         strictListInference: true,
+        strictSetInference: true,
         strictDictionaryInference: true,
         strictParameterNoneValue: true,
         enableTypeIgnoreComments: true, // Not overridden by strict mode
@@ -811,6 +818,13 @@ export class ConfigOptions {
                 configObj.strictListInference,
                 DiagnosticRule.strictListInference,
                 defaultSettings.strictListInference
+            ),
+
+            // Use strict inference rules for set expressions?
+            strictSetInference: this._convertBoolean(
+                configObj.strictSetInference,
+                DiagnosticRule.strictSetInference,
+                defaultSettings.strictSetInference
             ),
 
             // Use strict inference rules for dictionary expressions?

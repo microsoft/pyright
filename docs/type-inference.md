@@ -257,6 +257,29 @@ var4: List[float] = [1, 3.4]    # Infer List[float]
 ```
 
 
+### Set Expressions
+
+When inferring the type of a set expression (in the absence of bidirectional inference hints), Pyright uses the following heuristics:
+
+1. If the set contains at least one element and all elements are the same type T, infer the type `Set[T]`.
+2. If the set contains multiple elements that are of different types, the behavior depends on the `strictSetInference` configuration setting. By default this setting is off.
+
+    * If `strictSetInference` is off, infer `Set[Unknown]`.
+    * Otherwise use the union of all element types and infer `Set[Union[(elements)]]`.
+
+These heuristics can be overridden through the use of bidirectional inference hints (e.g. by providing a declared type for the target of the assignment expression).
+
+```python
+var1 = {1, 2}                   # Infer Set[int]
+
+# Type depends on strictSetInference config setting
+var2 = {1, 3.4}                 # Infer Set[Unknown] (off)
+var2 = {1, 3.4}                 # Infer Set[Union[int, float]] (on)
+
+var3: Set[float] = {1, 3.4}    # Infer Set[float]
+```
+
+
 ### Dictionary Expressions
 
 When inferring the type of a dictionary expression (in the absence of bidirectional inference hints), Pyright uses the following heuristics:

@@ -10083,10 +10083,12 @@ export function createTypeEvaluator(
 
         let inferredEntryType: Type = expectedType ? AnyType.create() : UnknownType.create();
         if (entryTypes.length > 0) {
+            const fileInfo = getFileInfo(node);
             // If there was an expected type or we're using strict list inference,
             // combine the types into a union.
             if (
-                (builtInClassName === 'list' && getFileInfo(node).diagnosticRuleSet.strictListInference) ||
+                (builtInClassName === 'list' && fileInfo.diagnosticRuleSet.strictListInference) ||
+                (builtInClassName === 'set' && fileInfo.diagnosticRuleSet.strictSetInference) ||
                 !!expectedType
             ) {
                 inferredEntryType = combineTypes(entryTypes, maxSubtypesForInferredType);

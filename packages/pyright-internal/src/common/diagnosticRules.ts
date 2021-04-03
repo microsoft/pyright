@@ -12,6 +12,7 @@
 // to match declaration of user-visible settings in package.json
 export enum DiagnosticRule {
     strictListInference = 'strictListInference',
+    strictSetInference = 'strictSetInference',
     strictDictionaryInference = 'strictDictionaryInference',
     strictParameterNoneValue = 'strictParameterNoneValue',
     enableTypeIgnoreComments = 'enableTypeIgnoreComments',
