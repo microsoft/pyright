@@ -19483,6 +19483,43 @@ export function createTypeEvaluator(
                 return true;
             }
 
+            // Handle the case where the source and dest are both unions and
+            // invariance is being enforced and the dest contains a type variable.
+            // In this case, the non-matched subtypes in the source will get assigned
+            // to the remaining type variable.
+            if (flags & CanAssignFlags.EnforceInvariance) {
+                if (
+                    isUnion(destType) &&
+                    destType.subtypes.some((t) => isTypeVar(t) && !t.details.recursiveTypeAliasName)
+                ) {
+                    const remainingDestSubtypes: Type[] = [...destType.subtypes];
+                    const remainingSrcSubtypes: Type[] = [];
+
+                    srcType.subtypes.forEach((srcSubtype) => {
+                        const destIndex = remainingDestSubtypes.findIndex((t) => isTypeSame(t, srcSubtype));
+                        if (destIndex >= 0) {
+                            remainingDestSubtypes.splice(destIndex, 1);
+                        } else {
+                            remainingSrcSubtypes.push(srcSubtype);
+                        }
+                    });
+
+                    if (remainingDestSubtypes.length === 1) {
+                        const remainingDestType = remainingDestSubtypes[0];
+                        if (isTypeVar(remainingDestType) && !remainingDestType.details.recursiveTypeAliasName) {
+                            return canAssignType(
+                                remainingDestSubtypes[0],
+                                combineTypes(remainingSrcSubtypes),
+                                diag.createAddendum(),
+                                typeVarMap,
+                                flags,
+                                recursionCount + 1
+                            );
+                        }
+                    }
+                }
+            }
+
             let isIncompatible = false;
 
             // For union sources, all of the types need to be assignable to the dest.
