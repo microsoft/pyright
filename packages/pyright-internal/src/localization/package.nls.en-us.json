@@ -56,7 +56,7 @@
         "continueOutsideLoop": "\"continue\" can be used only within a loop",
         "constructorNoArgs": "Expected no arguments to \"{type}\" constructor",
         "dataClassBaseClassNotFrozen": "A frozen dataclass cannot inherit from a dataclass that is not frozen",
-        "dataClassFieldWithDefault": "Dataclass fields without default value cannot appear after data fields with default values",
+        "dataClassFieldWithDefault": "Dataclass fields without default values cannot appear after fields with default values",
         "declaredReturnTypePartiallyUnknown": "Declared return type, \"{returnType}\", is partially unknown",
         "declaredReturnTypeUnknown": "Declared return type is unknown",
         "defaultValueContainsCall": "Function calls within default value initializer are not permitted",
