@@ -138,6 +138,7 @@ import {
     combineConstrainedTypes,
     combineTypes,
     ConstrainedSubtype,
+    DataClassBehaviors,
     DataClassEntry,
     EnumLiteral,
     findSubtype,
@@ -2143,14 +2144,17 @@ export function createTypeEvaluator(
 
                         hasDefaultValue = true;
                         defaultValueExpression = statement.rightExpression;
+                        let isFieldAssignment = false;
 
                         // If the RHS of the assignment is assigning a field instance where the
                         // "init" parameter is set to false, do not include it in the init method.
                         if (statement.rightExpression.nodeType === ParseNodeType.Call) {
                             const callType = getTypeOfExpression(statement.rightExpression.leftExpression).type;
                             if (
-                                isOverloadedFunction(callType) &&
-                                callType.overloads[0].details.builtInName === 'field'
+                                isDataclassFieldConstructor(
+                                    callType,
+                                    classType.details.dataClassBehaviors?.fieldDefinitionFunctions || []
+                                )
                             ) {
                                 const initArg = statement.rightExpression.arguments.find(
                                     (arg) => arg.name?.value === 'init'
@@ -2168,13 +2172,22 @@ export function createTypeEvaluator(
                                 hasDefaultValue = statement.rightExpression.arguments.some(
                                     (arg) => arg.name?.value === 'default' || arg.name?.value === 'default_factory'
                                 );
+                                isFieldAssignment = true;
                             }
                         }
+
+                        // If the assignment wasn't a field descriptor and "auto detect" isn't enabled,
+                        // this field shouldn't be considered.
+                        if (ClassType.isExplicitDataClassFieldsOnly(classType) && !isFieldAssignment) {
+                            variableNameNode = undefined;
+                        }
                     } else if (statement.nodeType === ParseNodeType.TypeAnnotation) {
-                        if (statement.valueExpression.nodeType === ParseNodeType.Name) {
-                            variableNameNode = statement.valueExpression;
-                            variableTypeEvaluator = () =>
-                                getTypeOfAnnotation(statement.typeAnnotation, /* allowFinal */ true);
+                        if (!ClassType.isExplicitDataClassFieldsOnly(classType)) {
+                            if (statement.valueExpression.nodeType === ParseNodeType.Name) {
+                                variableNameNode = statement.valueExpression;
+                                variableTypeEvaluator = () =>
+                                    getTypeOfAnnotation(statement.typeAnnotation, /* allowFinal */ true);
+                            }
                         }
                     }
 
@@ -3562,6 +3575,7 @@ export function createTypeEvaluator(
                 allAncestorsAreKnown = false;
             }
         }
+
         return allAncestorsAreKnown;
     }
 
@@ -11981,6 +11995,47 @@ export function createTypeEvaluator(
         }
     }
 
+    function getDataclassDecoratorBehaviors(type: Type): DataClassBehaviors | undefined {
+        let functionType: FunctionType | undefined;
+        if (isFunction(type)) {
+            functionType = type;
+        } else if (isOverloadedFunction(type)) {
+            functionType = type.overloads[0];
+        }
+
+        if (!functionType) {
+            return undefined;
+        }
+
+        const dataclassDefault: DataClassBehaviors = {
+            generateEq: true,
+            generateOrder: false,
+            autoDetectFields: true,
+            fieldDefinitionFunctions: ['dataclasses.field'],
+        };
+
+        const dataclassAliases: { [name: string]: DataClassBehaviors } = {
+            'dataclasses.dataclass': dataclassDefault,
+        };
+
+        return dataclassAliases[functionType.details.fullName];
+    }
+
+    function isDataclassFieldConstructor(type: Type, fieldDefFunctionNames: string[]) {
+        let functionType: FunctionType | undefined;
+        if (isFunction(type)) {
+            functionType = type;
+        } else if (isOverloadedFunction(type)) {
+            functionType = type.overloads[0];
+        }
+
+        if (!functionType) {
+            return false;
+        }
+
+        return fieldDefFunctionNames.some((name) => name === functionType!.details.fullName);
+    }
+
     function applyClassDecorator(
         inputClassType: Type,
         originalClassType: ClassType,
@@ -11989,66 +12044,18 @@ export function createTypeEvaluator(
         const decoratorType = getTypeOfExpression(decoratorNode.expression).type;
 
         if (isOverloadedFunction(decoratorType)) {
-            if (decoratorType.overloads[0].details.builtInName === 'dataclass') {
-                originalClassType.details.flags |= ClassTypeFlags.DataClass;
+            const dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorType);
+            if (dataclassBehaviors) {
+                applyDataClassDecorator(originalClassType, dataclassBehaviors, /* callNode */ undefined);
             }
         } else if (isFunction(decoratorType)) {
             // Is this a @dataclass call?
             if (decoratorNode.expression.nodeType === ParseNodeType.Call) {
                 const decoratorCallType = getTypeOfExpression(decoratorNode.expression.leftExpression).type;
+                const dataclassBehaviors = getDataclassDecoratorBehaviors(decoratorCallType);
 
-                if (
-                    isOverloadedFunction(decoratorCallType) &&
-                    decoratorCallType.overloads[0].details.builtInName === 'dataclass'
-                ) {
-                    originalClassType.details.flags |= ClassTypeFlags.DataClass;
-
-                    if (decoratorNode.expression.arguments) {
-                        decoratorNode.expression.arguments.forEach((arg) => {
-                            if (arg.name) {
-                                if (arg.valueExpression) {
-                                    const fileInfo = getFileInfo(decoratorNode);
-                                    const value = evaluateStaticBoolExpression(
-                                        arg.valueExpression,
-                                        fileInfo.executionEnvironment
-                                    );
-                                    if (value === true) {
-                                        if (arg.name.value === 'order') {
-                                            originalClassType.details.flags |= ClassTypeFlags.SynthesizedDataClassOrder;
-                                        } else if (arg.name.value === 'frozen') {
-                                            originalClassType.details.flags |= ClassTypeFlags.FrozenDataClass;
-
-                                            // A dataclass cannot derive from a non-frozen dataclass.
-                                            if (
-                                                originalClassType.details.baseClasses.some(
-                                                    (baseClass) =>
-                                                        isClass(baseClass) &&
-                                                        ClassType.isDataClass(baseClass) &&
-                                                        !ClassType.isFrozenDataClass(baseClass)
-                                                )
-                                            ) {
-                                                addDiagnostic(
-                                                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                                                    DiagnosticRule.reportGeneralTypeIssues,
-                                                    Localizer.Diagnostic.dataClassBaseClassNotFrozen(),
-                                                    arg
-                                                );
-                                            }
-                                        }
-                                    } else if (value === false) {
-                                        if (arg.name.value === 'init') {
-                                            originalClassType.details.flags |=
-                                                ClassTypeFlags.SkipSynthesizedDataClassInit;
-                                        } else if (arg.name.value === 'eq') {
-                                            originalClassType.details.flags |=
-                                                ClassTypeFlags.SkipSynthesizedDataClassEq;
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    }
-
+                if (dataclassBehaviors) {
+                    applyDataClassDecorator(originalClassType, dataclassBehaviors, decoratorNode.expression);
                     return inputClassType;
                 }
             }
@@ -12061,6 +12068,96 @@ export function createTypeEvaluator(
         }
 
         return getTypeFromDecorator(decoratorNode, inputClassType);
+    }
+
+    function applyDataClassDecorator(
+        classType: ClassType,
+        defaultBehaviors: DataClassBehaviors,
+        callNode: CallNode | undefined
+    ) {
+        classType.details.dataClassBehaviors = defaultBehaviors;
+        classType.details.flags |= ClassTypeFlags.DataClass;
+
+        if (!defaultBehaviors.autoDetectFields) {
+            classType.details.flags |= ClassTypeFlags.ExplicitDataClassFieldsOnly;
+        }
+
+        if (!defaultBehaviors.generateEq) {
+            classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassEq;
+        }
+
+        if (defaultBehaviors.generateOrder) {
+            classType.details.flags |= ClassTypeFlags.SynthesizedDataClassOrder;
+        }
+
+        if (callNode?.arguments) {
+            callNode.arguments.forEach((arg) => {
+                if (arg.name) {
+                    if (arg.valueExpression) {
+                        const fileInfo = getFileInfo(callNode);
+                        const value = evaluateStaticBoolExpression(arg.valueExpression, fileInfo.executionEnvironment);
+                        switch (arg.name.value) {
+                            case 'order':
+                                if (value === true) {
+                                    classType.details.flags |= ClassTypeFlags.SynthesizedDataClassOrder;
+                                } else if (value === false) {
+                                    classType.details.flags &= ~ClassTypeFlags.SynthesizedDataClassOrder;
+                                }
+                                break;
+
+                            case 'auto_attribs':
+                                if (value === false) {
+                                    classType.details.flags |= ClassTypeFlags.ExplicitDataClassFieldsOnly;
+                                } else if (value === true) {
+                                    classType.details.flags &= ~ClassTypeFlags.ExplicitDataClassFieldsOnly;
+                                }
+                                break;
+
+                            case 'frozen':
+                                if (value === true) {
+                                    if (arg.name.value === 'frozen') {
+                                        classType.details.flags |= ClassTypeFlags.FrozenDataClass;
+
+                                        // A dataclass cannot derive from a non-frozen dataclass.
+                                        if (
+                                            classType.details.baseClasses.some(
+                                                (baseClass) =>
+                                                    isClass(baseClass) &&
+                                                    ClassType.isDataClass(baseClass) &&
+                                                    !ClassType.isFrozenDataClass(baseClass)
+                                            )
+                                        ) {
+                                            addDiagnostic(
+                                                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                                                DiagnosticRule.reportGeneralTypeIssues,
+                                                Localizer.Diagnostic.dataClassBaseClassNotFrozen(),
+                                                arg
+                                            );
+                                        }
+                                    }
+                                }
+                                break;
+
+                            case 'init':
+                                if (value === false) {
+                                    classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassInit;
+                                } else if (value === true) {
+                                    classType.details.flags &= ~ClassTypeFlags.SkipSynthesizedDataClassInit;
+                                }
+                                break;
+
+                            case 'eq':
+                                if (value === false) {
+                                    classType.details.flags |= ClassTypeFlags.SkipSynthesizedDataClassEq;
+                                } else if (value === true) {
+                                    classType.details.flags &= ~ClassTypeFlags.SkipSynthesizedDataClassEq;
+                                }
+                                break;
+                        }
+                    }
+                }
+            });
+        }
     }
 
     function validateInitSubclassArgs(node: ClassNode, classType: ClassType, argList: FunctionArgument[]) {

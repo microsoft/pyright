@@ -327,6 +327,17 @@ export const enum ClassTypeFlags {
     // The class has a metaclass of EnumMet or derives from
     // a class that has this metaclass.
     EnumClass = 1 << 20,
+
+    // For dataclasses, should fields be included only
+    // if they have a dataclass.field initializer?
+    ExplicitDataClassFieldsOnly = 1 << 21,
+}
+
+export interface DataClassBehaviors {
+    generateEq: boolean;
+    generateOrder: boolean;
+    autoDetectFields: boolean;
+    fieldDefinitionFunctions: string[];
 }
 
 interface ClassDetails {
@@ -345,6 +356,7 @@ interface ClassDetails {
     typeVarScopeId?: TypeVarScopeId;
     docString?: string;
     dataClassEntries?: DataClassEntry[];
+    dataClassBehaviors?: DataClassBehaviors;
     typedDictEntries?: Map<string, TypedDictEntry>;
 }
 
@@ -561,6 +573,10 @@ export namespace ClassType {
 
     export function isSynthesizedDataclassOrder(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.SynthesizedDataClassOrder);
+    }
+
+    export function isExplicitDataClassFieldsOnly(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.ExplicitDataClassFieldsOnly);
     }
 
     export function isTypedDictClass(classType: ClassType) {
