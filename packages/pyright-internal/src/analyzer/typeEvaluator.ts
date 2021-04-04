@@ -14650,8 +14650,11 @@ export function createTypeEvaluator(
                 return true;
             }
 
-            // Arguments are contextual only for call nodes.
-            if (node.nodeType === ParseNodeType.Argument && node.parent?.nodeType === ParseNodeType.Call) {
+            // Arguments are contextual only for call and index nodes.
+            if (
+                node.nodeType === ParseNodeType.Argument &&
+                (node.parent?.nodeType === ParseNodeType.Call || node.parent?.nodeType === ParseNodeType.Index)
+            ) {
                 return true;
             }
 
