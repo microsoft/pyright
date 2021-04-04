@@ -3391,7 +3391,7 @@ export function createTypeEvaluator(
         const baseExceptionType = getBuiltInType(node, 'BaseException');
 
         if (node.typeExpression) {
-            const exceptionType = getType(node.typeExpression);
+            const exceptionType = getTypeOfExpression(node.typeExpression).type;
 
             // Validate that the argument of "raise" is an exception object or class.
             // If it is a class, validate that the class's constructor accepts zero
@@ -17250,7 +17250,7 @@ export function createTypeEvaluator(
             const argNode = node.parent;
             const paramName = node.value;
             if (argNode.parent && argNode.parent.nodeType === ParseNodeType.Call) {
-                const baseType = getType(argNode.parent.leftExpression);
+                const baseType = getTypeOfExpression(argNode.parent.leftExpression).type;
 
                 if (baseType) {
                     if (isFunction(baseType) && baseType.details.declaration) {
