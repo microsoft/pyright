@@ -454,7 +454,17 @@ export class AnalyzerService {
                 }
             }
         } else if (projectRoot) {
-            configFilePath = this._findConfigFileHereOrUp(projectRoot);
+            // In a project-based IDE like VS Code, we should assume that the
+            // project root directory contains the config file. If pyright is
+            // being executed from the command line, the working directory
+            // may be deep within a project, and we need to walk up the directory
+            // hierarchy to find the project root.
+            if (commandLineOptions.fromVsCodeExtension) {
+                configFilePath = this._findConfigFile(projectRoot);
+            } else {
+                configFilePath = this._findConfigFileHereOrUp(projectRoot);
+            }
+
             if (configFilePath) {
                 projectRoot = getDirectoryPath(configFilePath);
             } else {
