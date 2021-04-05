@@ -65,9 +65,14 @@ export class SignatureHelpProvider {
         // node.
         const initialNode = node;
         const initialDepth = node ? ParseTreeUtils.getNodeDepth(node) : 0;
-        let curOffset = offset;
+        let curOffset = offset - 1;
         while (curOffset >= 0) {
-            curOffset--;
+            // Don't scan back across a comma because commas separate
+            // arguments, and we don't want to mistakenly think that we're
+            // pointing to a previous argument.
+            if (parseResults.text.substr(curOffset, 1) === ',') {
+                break;
+            }
             const curNode = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, curOffset);
             if (curNode && curNode !== initialNode) {
                 if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
@@ -75,6 +80,8 @@ export class SignatureHelpProvider {
                 }
                 break;
             }
+
+            curOffset--;
         }
 
         if (node === undefined) {
