@@ -1,7 +1,7 @@
 # This sample tests that the type checker properly handles
 # types of args and kwargs correctly.
 
-from typing import Any, Dict, Hashable, Mapping, Tuple
+from typing import Any, Dict, Hashable, Mapping, Protocol, Tuple
 
 
 def requires_hashable_tuple(p1: Tuple[Hashable, ...]):
@@ -44,3 +44,29 @@ def test_kwargs2(
 
     # This should generate an error
     test_kwargs(**f)
+
+
+class Callback1(Protocol):
+    def __call__(self) -> None: ...
+
+def func1(
+    value: str = ...,
+    *args: object,
+) -> None: ...
+
+def func2(
+    value: str = ...,
+    **kwargs: object,
+) -> None: ...
+
+def func3(
+    value: str = ...,
+    *args: object,
+    **kwargs: object,
+) -> None: ...
+
+
+v1: Callback1 = func1
+v2: Callback1 = func2
+v3: Callback1 = func3
+

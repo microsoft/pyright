@@ -1,6 +1,6 @@
 # This sample tests the handling of unpack operators
 # used in argument expressions when used in conjunction with
-# Tuples and varg parameters.
+# Tuples and *args parameters.
 
 
 from typing import Tuple

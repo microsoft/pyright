@@ -20469,7 +20469,9 @@ export function createTypeEvaluator(
                 // If the dest type includes a ParamSpec, the additional parameters
                 // can be assigned to it, so no need to report an error here.
                 if (!destType.details.paramSpec) {
-                    const nonDefaultSrcParamCount = srcParams.filter((p) => !!p.name && !p.hasDefault).length;
+                    const nonDefaultSrcParamCount = srcParams.filter(
+                        (p) => !!p.name && !p.hasDefault && p.category === ParameterCategory.Simple
+                    ).length;
                     if (destArgsIndex < 0) {
                         if (destPositionals.length < nonDefaultSrcParamCount) {
                             diag.createAddendum().addMessage(
