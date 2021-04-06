@@ -970,6 +970,9 @@ export function createTypeEvaluator(
 
             case ParseNodeType.Call: {
                 if ((flags & EvaluatorFlags.ExpectingTypeAnnotation) !== 0) {
+                    // Evaluate the expression still so symbols are marked as accessed.
+                    getTypeFromCall(node, expectedTypeAlt);
+
                     addDiagnostic(
                         getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
