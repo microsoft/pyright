@@ -1058,7 +1058,7 @@ export class ImportResolver {
                 allowPyi,
                 /* lookForPyTyped */ false
             );
-            bestResultSoFar = this._pickBestImport(bestResultSoFar, localImport);
+            bestResultSoFar = this._pickBestImport(bestResultSoFar, localImport, moduleDescriptor);
         }
 
         // Look for the import in the list of third-party packages.
@@ -1087,7 +1087,7 @@ export class ImportResolver {
                         return thirdPartyImport;
                     }
 
-                    bestResultSoFar = this._pickBestImport(bestResultSoFar, thirdPartyImport);
+                    bestResultSoFar = this._pickBestImport(bestResultSoFar, thirdPartyImport, moduleDescriptor);
                 }
             }
         } else {
@@ -1127,7 +1127,11 @@ export class ImportResolver {
         return bestResultSoFar;
     }
 
-    private _pickBestImport(bestImportSoFar: ImportResult | undefined, newImport: ImportResult | undefined) {
+    private _pickBestImport(
+        bestImportSoFar: ImportResult | undefined,
+        newImport: ImportResult | undefined,
+        moduleDescriptor: ImportedModuleDescriptor
+    ) {
         if (!bestImportSoFar) {
             return newImport;
         }
@@ -1145,6 +1149,20 @@ export class ImportResolver {
             // Prefer traditional over namespace imports.
             if (bestImportSoFar.isNamespacePackage && !newImport.isNamespacePackage) {
                 return newImport;
+            }
+
+            // If both are namespace imports, select the one that resolves the symbols.
+            if (
+                bestImportSoFar.isNamespacePackage &&
+                newImport.isNamespacePackage &&
+                moduleDescriptor.importedSymbols
+            ) {
+                if (
+                    !this._isNamespacePackageResolved(moduleDescriptor, bestImportSoFar.implicitImports) &&
+                    this._isNamespacePackageResolved(moduleDescriptor, newImport.implicitImports)
+                ) {
+                    return newImport;
+                }
             }
 
             // All else equal, prefer shorter resolution paths.
