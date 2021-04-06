@@ -19,6 +19,9 @@ _HostType = Union[Tuple[str, Dict[str, str]], str]
 
 def escape(s: str) -> str: ...  # undocumented
 
+MAXINT: int  # undocumented
+MININT: int  # undocumented
+
 PARSE_ERROR: int  # undocumented
 SERVER_ERROR: int  # undocumented
 APPLICATION_ERROR: int  # undocumented

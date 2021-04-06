@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable, Mapping, MutableMapping, Sequenc
 from string import Template
 from time import struct_time
 from types import FrameType, TracebackType
-from typing import IO, Any, Optional, Tuple, Union
+from typing import IO, Any, ClassVar, Optional, Tuple, Type, Union
 
 _SysExcInfoType = Union[Tuple[type, BaseException, Optional[TracebackType]], Tuple[None, None, None]]
 _ExcInfoType = Union[None, bool, _SysExcInfoType, BaseException]
@@ -31,6 +31,18 @@ class Filterer(object):
     def removeFilter(self, filter: _FilterType) -> None: ...
     def filter(self, record: LogRecord) -> bool: ...
 
+class Manager(object):
+    root: RootLogger
+    disable: int
+    emittedNoHandlerWarning: bool
+    loggerDict: dict[str, Union[Logger, PlaceHolder]]
+    loggerClass: Optional[Type[Logger]]
+    logRecordFactory: Optional[Callable[..., LogRecord]]
+    def __init__(self, rootnode: RootLogger) -> None: ...
+    def getLogger(self, name: str) -> Logger: ...
+    def setLoggerClass(self, klass: Type[Logger]) -> None: ...
+    def setLogRecordFactory(self, factory: Callable[..., LogRecord]) -> None: ...
+
 class Logger(Filterer):
     name: str
     level: int
@@ -38,6 +50,8 @@ class Logger(Filterer):
     propagate: bool
     handlers: list[Handler]
     disabled: int
+    root: ClassVar[RootLogger]  # undocumented
+    manager: ClassVar[Manager]  # undocumented
     def __init__(self, name: str, level: _Level = ...) -> None: ...
     def setLevel(self, level: _Level) -> None: ...
     def isEnabledFor(self, level: int) -> bool: ...

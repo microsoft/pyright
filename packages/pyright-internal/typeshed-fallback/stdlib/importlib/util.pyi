@@ -20,12 +20,11 @@ def spec_from_loader(
     loader: Optional[importlib.abc.Loader],
     *,
     origin: Optional[str] = ...,
-    loader_state: Optional[Any] = ...,
     is_package: Optional[bool] = ...,
 ) -> importlib.machinery.ModuleSpec: ...
 def spec_from_file_location(
     name: str,
-    location: Union[str, bytes, os.PathLike[str], os.PathLike[bytes]],
+    location: Optional[Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]] = ...,
     *,
     loader: Optional[importlib.abc.Loader] = ...,
     submodule_search_locations: Optional[List[str]] = ...,

@@ -219,7 +219,7 @@ class DuplicateOptionError(Error):
     option: str
     source: Optional[str]
     lineno: Optional[int]
-    def __init__(self, section: str, option: str, source: Optional[str] = ..., lineno: Optional[str] = ...) -> None: ...
+    def __init__(self, section: str, option: str, source: Optional[str] = ..., lineno: Optional[int] = ...) -> None: ...
 
 class NoOptionError(Error):
     section: str

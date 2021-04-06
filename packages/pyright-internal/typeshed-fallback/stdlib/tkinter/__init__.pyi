@@ -872,6 +872,7 @@ class Toplevel(BaseWidget, Wm):
         highlightcolor: _Color = ...,
         highlightthickness: _ScreenUnits = ...,
         menu: Menu = ...,
+        name: str = ...,
         padx: _ScreenUnits = ...,
         pady: _ScreenUnits = ...,
         relief: _Relief = ...,
@@ -2646,7 +2647,7 @@ class PhotoImage(Image):
         cnf: Dict[str, Any] = ...,
         master: Optional[Union[Misc, _tkinter.TkappType]] = ...,
         *,
-        data: str = ...,  # not same as data argument of put()
+        data: Union[str, bytes] = ...,  # not same as data argument of put()
         format: str = ...,
         file: AnyPath = ...,
         gamma: float = ...,
@@ -2657,7 +2658,7 @@ class PhotoImage(Image):
     def configure(
         self,
         *,
-        data: str = ...,
+        data: Union[str, bytes] = ...,
         format: str = ...,
         file: AnyPath = ...,
         gamma: float = ...,
@@ -2689,7 +2690,7 @@ class BitmapImage(Image):
         master: Optional[Union[Misc, _tkinter.TkappType]] = ...,
         *,
         background: _Color = ...,
-        data: str = ...,
+        data: Union[str, bytes] = ...,
         file: AnyPath = ...,
         foreground: _Color = ...,
         maskdata: str = ...,
