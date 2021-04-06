@@ -70,6 +70,18 @@ export function resolveAliasDeclaration(
 
         // Make sure we don't follow a circular list indefinitely.
         if (alreadyVisited.find((decl) => decl === curDeclaration)) {
+            // If the path path of the alias points back to the original path, use the submodule
+            // fallback instead. This happens in the case where a module's __init__.py file
+            // imports a submodule using itself as the import target. For example, if
+            // the module is foo, and the foo.__init__.py file contains the statement
+            // "from foo import bar", we want to import the foo/bar.py submodule.
+            if (
+                curDeclaration.path === declaration.path &&
+                curDeclaration.type === DeclarationType.Alias &&
+                curDeclaration.submoduleFallback
+            ) {
+                return resolveAliasDeclaration(importLookup, curDeclaration.submoduleFallback, resolveLocalNames);
+            }
             return declaration;
         }
         alreadyVisited.push(curDeclaration);
