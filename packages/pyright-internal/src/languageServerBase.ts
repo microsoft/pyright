@@ -1032,7 +1032,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
                 documentHighlightProvider: { workDoneProgress: true },
                 renameProvider: { workDoneProgress: true },
                 completionProvider: {
-                    triggerCharacters: ['.', '['],
+                    triggerCharacters: this.client.hasVisualStudioExtensionsCapability ? ['.', '[', '@'] : ['.', '['],
                     resolveProvider: true,
                     workDoneProgress: true,
                 },

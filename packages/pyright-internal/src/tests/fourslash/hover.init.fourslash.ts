@@ -32,8 +32,8 @@
 
 helper.verifyHover('markdown', {
     marker1: '```python\n(class) C1(name: Unknown = "hello")\n```\n---\n\\_\\_init\\_\\_ docs',
-    marker2: '```python\n(type alias) unionType: Type[C1] | Type[C2]\n```\n',
-    marker3: '```python\n(class) G(value: int)\n```\n',
-    marker4: '```python\n(class) G\n```\n',
+    marker2: '```python\n(type alias) unionType: Type[C1] | Type[C2]\n```',
+    marker3: '```python\n(class) G(value: int)\n```',
+    marker4: '```python\n(class) G\n```',
     marker5: '```python\n(class) C1(name: Unknown = "hello")\n```\n---\n\\_\\_init\\_\\_ docs',
 });

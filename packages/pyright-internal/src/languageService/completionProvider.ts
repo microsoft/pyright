@@ -1873,6 +1873,8 @@ export class CompletionProvider {
                                     markdownString += convertDocStringToMarkdown(documentation);
                                 }
 
+                                markdownString = markdownString.trimEnd();
+
                                 this._itemToResolve.documentation = {
                                     kind: MarkupKind.Markdown,
                                     value: markdownString,
@@ -1884,6 +1886,8 @@ export class CompletionProvider {
                                     plainTextString += '\n';
                                     plainTextString += convertDocStringToPlainText(documentation);
                                 }
+
+                                plainTextString = plainTextString.trimEnd();
 
                                 this._itemToResolve.documentation = {
                                     kind: MarkupKind.PlainText,

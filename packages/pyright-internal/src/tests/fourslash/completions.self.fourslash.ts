@@ -26,7 +26,7 @@ await helper.verifyCompletion('included', 'markdown', {
             {
                 label: 'new_method',
                 kind: Consts.CompletionItemKind.Method,
-                documentation: '```python\nnew_method: () -> None\n```\n',
+                documentation: '```python\nnew_method: () -> None\n```',
             },
             {
                 label: 'prop1',
@@ -36,7 +36,7 @@ await helper.verifyCompletion('included', 'markdown', {
             {
                 label: 'var1',
                 kind: Consts.CompletionItemKind.Variable,
-                documentation: '```python\nvar1: int\n```\n',
+                documentation: '```python\nvar1: int\n```',
             },
         ],
     },

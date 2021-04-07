@@ -445,7 +445,8 @@ export function convertHoverResults(format: MarkupKind, hoverResults: HoverResul
             }
             return part.text;
         })
-        .join('');
+        .join('')
+        .trimEnd();
 
     return {
         contents: {
