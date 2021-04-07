@@ -21,7 +21,7 @@ await helper.verifyCompletion('included', 'markdown', {
             {
                 label: 'displayhook',
                 kind: Consts.CompletionItemKind.Variable,
-                documentation: '```python\ndisplayhook: () -> Unknown\n```\n',
+                documentation: '```python\ndisplayhook: () -> Unknown\n```',
             },
         ],
     },

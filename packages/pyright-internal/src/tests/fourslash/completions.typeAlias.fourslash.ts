@@ -13,7 +13,7 @@ await helper.verifyCompletion('includes', 'markdown', {
             {
                 label: 'AliasT',
                 kind: Consts.CompletionItemKind.Variable,
-                documentation: '```python\nAliasT: Type[list[int]]\n```\n',
+                documentation: '```python\nAliasT: Type[list[int]]\n```',
             },
         ],
     },
@@ -22,7 +22,7 @@ await helper.verifyCompletion('includes', 'markdown', {
             {
                 label: 'y',
                 kind: Consts.CompletionItemKind.Variable,
-                documentation: '```python\ny: AliasT\n```\n',
+                documentation: '```python\ny: AliasT\n```',
             },
         ],
     },

@@ -1624,6 +1624,7 @@ export class ImportResolver {
                         );
                         if (nativeStubPath) {
                             implicitImport.path = nativeStubPath;
+                            implicitImport.isNativeLib = false;
                         }
                     }
                     implicitImportMap.set(implicitImport.name, implicitImport);

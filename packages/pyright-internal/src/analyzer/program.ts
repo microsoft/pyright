@@ -1254,6 +1254,7 @@ export class Program {
             if (
                 options.indexingForAutoImportMode &&
                 !sourceFileInfo.sourceFile.isStubFile() &&
+                !sourceFileInfo.sourceFile.isThirdPartyPyTypedPresent() &&
                 sourceFileInfo.sourceFile.getClientVersion() === undefined
             ) {
                 try {
