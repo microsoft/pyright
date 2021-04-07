@@ -1,6 +1,6 @@
 # This sample exercises the type analyzer's isinstance type narrowing logic.
 
-from typing import Optional, Type, Union, Any
+from typing import Optional, Type, TypeVar, Union, Any
 
 class UnrelatedClass:
     class_var1: int
@@ -78,3 +78,24 @@ def func1(instance: TestClass2) -> None:
 
 def func2(val: Union[int, None, str]) -> Optional[int]:
     return None if isinstance((z := val), str) else z
+
+# Test the special-case handling of isinstance with a
+# "type" class.
+def func3(ty: Type[int]) -> Type[int]:
+    assert isinstance(ty, (type, str))
+    return ty
+
+def func4(ty: Type[int]) -> Type[int]:
+    assert not isinstance(ty, str)
+    return ty
+
+T = TypeVar("T")
+
+def func5(ty: Type[T]) -> Type[T]:
+    assert isinstance(ty, (type, str))
+    return ty
+
+def func6(ty: Type[T]) -> Type[T]:
+    assert not isinstance(ty, str)
+    return ty
+

@@ -16449,23 +16449,30 @@ export function createTypeEvaluator(
                 // on a constrained TypeVar that they want to filter based on its constrained
                 // parts.
                 const negativeFallback = constraints ? subtype : unexpandedSubtype;
+                const isSubtypeTypeObject = isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'type');
 
-                if (isInstanceCheck && isObject(subtype)) {
+                if (isInstanceCheck && isObject(subtype) && !isSubtypeTypeObject) {
                     return combineTypes(
                         filterType(subtype.classType, convertToInstance(unexpandedSubtype), negativeFallback)
                     );
+                } else if (isInstanceCheck && (isClass(subtype) || isSubtypeTypeObject)) {
+                    // Handle the special case of isinstance(x, type).
+                    const includesTypeType = classTypeList.some(
+                        (classType) => isClass(classType) && ClassType.isBuiltIn(classType, 'type')
+                    );
+                    if (isPositiveTest) {
+                        return includesTypeType ? negativeFallback : undefined;
+                    } else {
+                        return includesTypeType ? undefined : negativeFallback;
+                    }
                 } else if (!isInstanceCheck && isClass(subtype)) {
                     return combineTypes(filterType(subtype, unexpandedSubtype, negativeFallback));
-                } else if (
-                    !isInstanceCheck &&
-                    isObject(subtype) &&
-                    ClassType.isBuiltIn(subtype.classType, 'type') &&
-                    objectType &&
-                    isObject(objectType)
-                ) {
-                    return combineTypes(
-                        filterType(objectType.classType, convertToInstantiable(unexpandedSubtype), negativeFallback)
-                    );
+                } else if (!isInstanceCheck && isSubtypeTypeObject) {
+                    if (objectType && isObject(objectType)) {
+                        return combineTypes(
+                            filterType(objectType.classType, convertToInstantiable(unexpandedSubtype), negativeFallback)
+                        );
+                    }
                 } else if (isPositiveTest && isAnyOrUnknown(subtype)) {
                     // If this is a positive test and the effective type is Any or
                     // Unknown, we can assume that the type matches one of the
