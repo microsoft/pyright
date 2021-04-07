@@ -16344,6 +16344,9 @@ export function createTypeEvaluator(
                     const filterIsSuperclass =
                         !isTypeVar(filterType) &&
                         (ClassType.isDerivedFrom(varType, concreteFilterType) ||
+                            (isInstanceCheck &&
+                                ClassType.isProtocolClass(concreteFilterType) &&
+                                canAssignType(concreteFilterType, varType, new DiagnosticAddendum())) ||
                             (ClassType.isBuiltIn(concreteFilterType, 'dict') && ClassType.isTypedDictClass(varType)));
                     const filterIsSubclass = ClassType.isDerivedFrom(concreteFilterType, varType);
 
