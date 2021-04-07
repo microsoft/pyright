@@ -824,8 +824,13 @@ export function isSuiteEmpty(node: SuiteNode): boolean {
 }
 
 export function isMatchingExpression(reference: ExpressionNode, expression: ExpressionNode): boolean {
-    if (reference.nodeType === ParseNodeType.Name && expression.nodeType === ParseNodeType.Name) {
-        return reference.value === expression.value;
+    if (reference.nodeType === ParseNodeType.Name) {
+        if (expression.nodeType === ParseNodeType.Name) {
+            return reference.value === expression.value;
+        } else if (expression.nodeType === ParseNodeType.AssignmentExpression) {
+            return reference.value === expression.name.value;
+        }
+        return false;
     } else if (
         reference.nodeType === ParseNodeType.MemberAccess &&
         expression.nodeType === ParseNodeType.MemberAccess

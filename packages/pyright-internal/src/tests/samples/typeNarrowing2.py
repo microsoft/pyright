@@ -1,6 +1,6 @@
 # This sample exercises the type analyzer's isinstance type narrowing logic.
 
-from typing import Type, Union, Any
+from typing import Optional, Type, Union, Any
 
 class UnrelatedClass:
     class_var1: int
@@ -66,7 +66,7 @@ class TestClass1:
 class TestClass2(TestClass1):
     pass
 
-def function(instance: TestClass2) -> None:
+def func1(instance: TestClass2) -> None:
     # Although it's redundant for code to check for either
     # TestClass1 or TestClass2, the analyzer should be fine with it.
     if isinstance(instance, TestClass2):
@@ -75,3 +75,6 @@ def function(instance: TestClass2) -> None:
     if isinstance(instance, TestClass1):
         print(instance.property)
 
+
+def func2(val: Union[int, None, str]) -> Optional[int]:
+    return None if isinstance((z := val), str) else z
