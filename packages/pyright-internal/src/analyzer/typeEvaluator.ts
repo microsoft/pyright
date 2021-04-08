@@ -5517,12 +5517,14 @@ export function createTypeEvaluator(
                     allDiagsInvolveNotRequiredKeys = false;
                     return UnknownType.create();
                 } else if (!entry.isRequired && usage.method === 'get') {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.keyNotRequired().format({
-                            name: entryName,
-                            type: printType(baseType),
-                        })
-                    );
+                    if (!ParseTreeUtils.isWithinTryBlock(node)) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.keyNotRequired().format({
+                                name: entryName,
+                                type: printType(baseType),
+                            })
+                        );
+                    }
                 }
 
                 if (usage.method === 'set') {
