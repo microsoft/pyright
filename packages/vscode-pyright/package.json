@@ -554,6 +554,17 @@
                                 "error"
                             ]
                         },
+                        "reportUnnecessaryComparison": {
+                            "type": "string",
+                            "description": "Diagnostics for '==' and '!=' comparisons that are statically determined to be unnecessary. Such calls are sometimes indicative of a programming error.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportAssertAlwaysTrue": {
                             "type": "string",
                             "description": "Diagnostics for 'assert' statement that will provably always assert. This can be indicative of a programming error.",

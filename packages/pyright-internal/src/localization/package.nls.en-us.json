@@ -47,6 +47,7 @@
         "classVarTooManyArgs": "Expected only one type argument after \"ClassVar\"",
         "clsSelfParamTypeMismatch": "Type of parameter \"{name}\" must be a supertype of its class \"{classType}\"",
         "comparisonAlwaysFalse": "Condition will always evaluate to False since the types \"{leftType}\" and \"{rightType}\" have no overlap",
+        "comparisonAlwaysTrue": "Condition will always evaluate to True since the types \"{leftType}\" and \"{rightType}\" have no overlap",
         "comprehensionInDict": "Comprehension cannot be used with other dictionary entries",
         "comprehensionInSet": "Comprehension cannot be used with other set entries",
         "concatenateParamSpecMissing": "Last type argument for \"Concatenate\" must be a ParamSpec",

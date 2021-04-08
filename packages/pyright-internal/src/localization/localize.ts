@@ -228,6 +228,10 @@ export namespace Localizer {
             new ParameterizedString<{ leftType: string; rightType: string }>(
                 getRawString('Diagnostic.comparisonAlwaysFalse')
             );
+        export const comparisonAlwaysTrue = () =>
+            new ParameterizedString<{ leftType: string; rightType: string }>(
+                getRawString('Diagnostic.comparisonAlwaysTrue')
+            );
         export const comprehensionInDict = () => getRawString('Diagnostic.comprehensionInDict');
         export const comprehensionInSet = () => getRawString('Diagnostic.comprehensionInSet');
         export const concatenateParamSpecMissing = () => getRawString('Diagnostic.concatenateParamSpecMissing');

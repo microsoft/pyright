@@ -130,6 +130,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportUnnecessaryCast** [boolean or string, optional]: Generate or suppress diagnostics for 'cast' calls that are statically determined to be unnecessary. Such calls are sometimes indicative of a programming error. The default value for this setting is 'none'.
 
+**reportUnnecessaryComparison** [boolean or string, optional]: Generate or suppress diagnostics for '==' or '!=' comparisons that are statically determined to always evaluate to False or True. Such comparisons are sometimes indicative of a programming error. The default value for this setting is 'none'.
+
 **reportAssertAlwaysTrue** [boolean or string, optional]: Generate or suppress diagnostics for 'assert' statement that will provably always assert. This can be indicative of a programming error. The default value for this setting is 'warning'.
 
 **reportSelfClsParameterName** [boolean or string, optional]: Generate or suppress diagnostics for a missing or misnamed “self” parameter in instance methods and “cls” parameter in class methods. Instance methods in metaclasses (classes that derive from “type”) are allowed to use “cls” for instance methods. The default value for this setting is 'warning'.
@@ -274,6 +276,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportCallInDefaultInitializer            | "none"     | "none"     | "none"     |
 | reportUnnecessaryIsInstance               | "none"     | "none"     | "error"    |
 | reportUnnecessaryCast                     | "none"     | "none"     | "error"    |
+| reportUnnecessaryComparison               | "none"     | "none"     | "error"    |
 | reportAssertAlwaysTrue                    | "none"     | "warning"  | "error"    |
 | reportSelfClsParameterName                | "none"     | "warning"  | "error"    |
 | reportImplicitStringConcatenation         | "none"     | "none"     | "none"     |

@@ -92,6 +92,7 @@ import {
     isAnyOrUnknown,
     isClass,
     isFunction,
+    isModule,
     isNever,
     isNone,
     isObject,
@@ -613,44 +614,6 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitIf(node: IfNode): boolean {
-        // Check for expressions where a variable is being compared to
-        // a literal string or number. Look for a common bug where
-        // the comparison will always be False. Don't do this for
-        // expressions like 'sys.platform == "win32"' because those
-        // can change based on the execution environment and are therefore
-        // valid.
-        if (
-            node.testExpression.nodeType === ParseNodeType.BinaryOperation &&
-            node.testExpression.operator === OperatorType.Equals &&
-            evaluateStaticBoolExpression(node.testExpression, this._fileInfo.executionEnvironment) === undefined
-        ) {
-            const rightType = this._evaluator.getType(node.testExpression.rightExpression);
-            if (rightType && isLiteralTypeOrUnion(rightType)) {
-                const leftType = this._evaluator.getType(node.testExpression.leftExpression);
-                if (leftType && isLiteralTypeOrUnion(leftType)) {
-                    let isPossiblyTrue = false;
-
-                    doForEachSubtype(leftType, (leftSubtype) => {
-                        if (this._evaluator.canAssignType(rightType, leftSubtype, new DiagnosticAddendum())) {
-                            isPossiblyTrue = true;
-                        }
-                    });
-
-                    if (!isPossiblyTrue) {
-                        this._evaluator.addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.comparisonAlwaysFalse().format({
-                                leftType: this._evaluator.printType(leftType, /* expandTypeAlias */ true),
-                                rightType: this._evaluator.printType(rightType, /* expandTypeAlias */ true),
-                            }),
-                            node.testExpression
-                        );
-                    }
-                }
-            }
-        }
-
         this._evaluator.getType(node.testExpression);
         return true;
     }
@@ -928,6 +891,13 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitBinaryOperation(node: BinaryOperationNode): boolean {
+        if (node.operator === OperatorType.Equals || node.operator === OperatorType.NotEquals) {
+            // Don't apply this rule if it's within an assert.
+            if (!ParseTreeUtils.isWithinAssertExpression(node)) {
+                this._validateComparisonTypes(node);
+            }
+        }
+
         this._evaluator.getType(node);
         return true;
     }
@@ -1066,6 +1036,169 @@ export class Checker extends ParseTreeWalker {
 
         // Don't explore further.
         return false;
+    }
+
+    // Determines whether the types of the two operands for an == or != operation
+    // have overlapping types.
+    private _validateComparisonTypes(node: BinaryOperationNode) {
+        const leftType = this._evaluator.getType(node.leftExpression);
+        const rightType = this._evaluator.getType(node.rightExpression);
+
+        if (!leftType || !rightType) {
+            return;
+        }
+
+        // Check for the special case where the LHS and RHS are both literals.
+        if (isLiteralTypeOrUnion(rightType) && isLiteralTypeOrUnion(leftType)) {
+            if (evaluateStaticBoolExpression(node, this._fileInfo.executionEnvironment) === undefined) {
+                let isPossiblyTrue = false;
+
+                doForEachSubtype(leftType, (leftSubtype) => {
+                    if (this._evaluator.canAssignType(rightType, leftSubtype, new DiagnosticAddendum())) {
+                        isPossiblyTrue = true;
+                    }
+                });
+
+                if (!isPossiblyTrue) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
+                        DiagnosticRule.reportUnnecessaryComparison,
+                        Localizer.Diagnostic.comparisonAlwaysFalse().format({
+                            leftType: this._evaluator.printType(leftType, /* expandTypeAlias */ true),
+                            rightType: this._evaluator.printType(rightType, /* expandTypeAlias */ true),
+                        }),
+                        node
+                    );
+                }
+            }
+        } else {
+            let isComparable = false;
+
+            doForEachSubtype(leftType, (leftSubtype) => {
+                if (isComparable) {
+                    return;
+                }
+
+                leftSubtype = transformTypeObjectToClass(leftSubtype);
+                leftSubtype = this._evaluator.makeTopLevelTypeVarsConcrete(leftSubtype);
+                doForEachSubtype(rightType, (rightSubtype) => {
+                    if (isComparable) {
+                        return;
+                    }
+
+                    rightSubtype = transformTypeObjectToClass(rightSubtype);
+                    rightSubtype = this._evaluator.makeTopLevelTypeVarsConcrete(rightSubtype);
+
+                    if (this._isTypeComparable(leftSubtype, rightSubtype)) {
+                        isComparable = true;
+                    }
+                });
+            });
+
+            if (!isComparable) {
+                const leftTypeText = this._evaluator.printType(leftType, /* expandTypeAlias */ true);
+                const rightTypeText = this._evaluator.printType(rightType, /* expandTypeAlias */ true);
+
+                const message =
+                    node.operator === OperatorType.Equals
+                        ? Localizer.Diagnostic.comparisonAlwaysFalse()
+                        : Localizer.Diagnostic.comparisonAlwaysTrue();
+
+                this._evaluator.addDiagnostic(
+                    this._fileInfo.diagnosticRuleSet.reportUnnecessaryComparison,
+                    DiagnosticRule.reportUnnecessaryComparison,
+                    message.format({
+                        leftType: leftTypeText,
+                        rightType: rightTypeText,
+                    }),
+                    node
+                );
+            }
+        }
+    }
+
+    // Determines whether the two types are potentially comparable -- i.e.
+    // their types overlap in such a way that it makes sense for them to
+    // be compared with an == or != operator.
+    private _isTypeComparable(leftType: Type, rightType: Type) {
+        if (isAnyOrUnknown(leftType) || isAnyOrUnknown(rightType)) {
+            return true;
+        }
+
+        if (isNever(leftType) || isNever(rightType)) {
+            return false;
+        }
+
+        if (isModule(leftType) || isModule(rightType)) {
+            return !isTypeSame(leftType, rightType);
+        }
+
+        if (isNone(leftType) || isNone(rightType)) {
+            return !isTypeSame(leftType, rightType);
+        }
+
+        if (isClass(leftType)) {
+            if (isClass(rightType)) {
+                const genericLeftType = ClassType.cloneForSpecialization(
+                    leftType,
+                    /* typeArguments */ undefined,
+                    /* isTypeArgumentExplicit */ false
+                );
+                const genericRightType = ClassType.cloneForSpecialization(
+                    rightType,
+                    /* typeArguments */ undefined,
+                    /* isTypeArgumentExplicit */ false
+                );
+
+                if (
+                    this._evaluator.canAssignType(genericLeftType, genericRightType, new DiagnosticAddendum()) ||
+                    this._evaluator.canAssignType(genericRightType, genericLeftType, new DiagnosticAddendum())
+                ) {
+                    return true;
+                }
+            }
+
+            // Does the class have an operator overload for eq?
+            const metaclass = leftType.details.effectiveMetaclass;
+            if (metaclass && isClass(metaclass)) {
+                if (lookUpClassMember(metaclass, '__eq__', ClassMemberLookupFlags.SkipObjectBaseClass)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (isObject(leftType)) {
+            if (isObject(rightType)) {
+                const genericLeftType = ClassType.cloneForSpecialization(
+                    leftType.classType,
+                    /* typeArguments */ undefined,
+                    /* isTypeArgumentExplicit */ false
+                );
+                const genericRightType = ClassType.cloneForSpecialization(
+                    rightType.classType,
+                    /* typeArguments */ undefined,
+                    /* isTypeArgumentExplicit */ false
+                );
+
+                if (
+                    this._evaluator.canAssignType(genericLeftType, genericRightType, new DiagnosticAddendum()) ||
+                    this._evaluator.canAssignType(genericRightType, genericLeftType, new DiagnosticAddendum())
+                ) {
+                    return true;
+                }
+            }
+
+            // Does the class have an operator overload for eq?
+            if (lookUpClassMember(leftType.classType, '__eq__', ClassMemberLookupFlags.SkipObjectBaseClass)) {
+                return true;
+            }
+
+            return false;
+        }
+
+        return true;
     }
 
     // Determines whether the specified type is one that should trigger

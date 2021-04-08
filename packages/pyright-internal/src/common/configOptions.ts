@@ -223,6 +223,9 @@ export interface DiagnosticRuleSet {
     // to always unnecessary.
     reportUnnecessaryCast: DiagnosticLevel;
 
+    // Report == or != operators that always evaluate to True or False.
+    reportUnnecessaryComparison: DiagnosticLevel;
+
     // Report assert expressions that will always evaluate to true.
     reportAssertAlwaysTrue: DiagnosticLevel;
 
@@ -316,6 +319,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportCallInDefaultInitializer,
         DiagnosticRule.reportUnnecessaryIsInstance,
         DiagnosticRule.reportUnnecessaryCast,
+        DiagnosticRule.reportUnnecessaryComparison,
         DiagnosticRule.reportAssertAlwaysTrue,
         DiagnosticRule.reportSelfClsParameterName,
         DiagnosticRule.reportImplicitStringConcatenation,
@@ -385,6 +389,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
+        reportUnnecessaryComparison: 'none',
         reportAssertAlwaysTrue: 'none',
         reportSelfClsParameterName: 'none',
         reportImplicitStringConcatenation: 'none',
@@ -450,6 +455,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
+        reportUnnecessaryComparison: 'none',
         reportAssertAlwaysTrue: 'warning',
         reportSelfClsParameterName: 'warning',
         reportImplicitStringConcatenation: 'none',
@@ -515,6 +521,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'error',
         reportUnnecessaryCast: 'error',
+        reportUnnecessaryComparison: 'error',
         reportAssertAlwaysTrue: 'error',
         reportSelfClsParameterName: 'error',
         reportImplicitStringConcatenation: 'none',
@@ -1127,6 +1134,13 @@ export class ConfigOptions {
                 configObj.reportUnnecessaryCast,
                 DiagnosticRule.reportUnnecessaryCast,
                 defaultSettings.reportUnnecessaryCast
+            ),
+
+            // Read the "reportUnnecessaryComparison" entry.
+            reportUnnecessaryComparison: this._convertDiagnosticLevel(
+                configObj.reportUnnecessaryComparison,
+                DiagnosticRule.reportUnnecessaryComparison,
+                defaultSettings.reportUnnecessaryComparison
             ),
 
             // Read the "reportAssertAlwaysTrue" entry.

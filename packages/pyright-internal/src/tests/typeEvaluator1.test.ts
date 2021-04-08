@@ -1425,8 +1425,14 @@ test('List1', () => {
 });
 
 test('Comparison1', () => {
-    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['comparison1.py']);
-    TestUtils.validateResults(analysisResults, 3);
+    const configOptions = new ConfigOptions('.');
+
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 0);
+
+    configOptions.diagnosticRuleSet.reportUnnecessaryComparison = 'error';
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['comparison1.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 6);
 });
 
 test('EmptyContainers1', () => {
