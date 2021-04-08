@@ -16722,7 +16722,9 @@ export function createTypeEvaluator(
     // it's not callable.
     function narrowTypeForCallable(type: Type, isPositiveTest: boolean, errorNode: ExpressionNode): Type {
         return mapSubtypes(type, (subtype) => {
-            switch (subtype.category) {
+            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+
+            switch (concreteSubtype.category) {
                 case TypeCategory.Function:
                 case TypeCategory.OverloadedFunction:
                 case TypeCategory.Class: {
@@ -16735,14 +16737,14 @@ export function createTypeEvaluator(
                 }
 
                 case TypeCategory.Object: {
-                    const classFromTypeObject = transformTypeObjectToClass(subtype);
+                    const classFromTypeObject = transformTypeObjectToClass(concreteSubtype);
                     if (TypeBase.isInstantiable(classFromTypeObject)) {
                         // It's a Type object, which is a class.
                         return isPositiveTest ? subtype : undefined;
                     }
 
                     // See if the object is callable.
-                    const callMemberType = getTypeFromObjectMember(errorNode, subtype, '__call__');
+                    const callMemberType = getTypeFromObjectMember(errorNode, concreteSubtype, '__call__');
                     if (!callMemberType) {
                         return isPositiveTest ? undefined : subtype;
                     } else {

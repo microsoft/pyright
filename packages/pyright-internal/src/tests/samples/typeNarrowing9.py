@@ -1,7 +1,7 @@
 # This sample tests the type engine's narrowing logic for
 # callable expressions.
 
-from typing import Callable, Optional, Type, Union
+from typing import Callable, Optional, Type, TypeVar, Union
 
 
 class CallableObj:
@@ -33,4 +33,11 @@ if not callable(q):
 def g(a: Optional[Callable[[int], int]]):
     if callable(a):
         a(3)
+
+T = TypeVar('T')
+
+def test(arg: Union[T, Callable[[], T]]) -> T:
+    if callable(arg):
+        return arg()
+    return arg
 
