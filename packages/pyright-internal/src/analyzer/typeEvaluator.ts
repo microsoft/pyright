@@ -713,7 +713,7 @@ export function createTypeEvaluator(
     const incompleteTypeTracker = new IncompleteTypeTracker();
     let cancellationToken: CancellationToken | undefined;
     let flowIncompleteGeneration = 1;
-    let initializedBasicTypes = false;
+    let isBasicTypesInitialized = false;
     let noneType: Type | undefined;
     let objectType: Type | undefined;
     let typeClassType: Type | undefined;
@@ -902,6 +902,24 @@ export function createTypeEvaluator(
         })?.type;
     }
 
+    function initializedBasicTypes(node: ParseNode) {
+        if (!isBasicTypesInitialized) {
+            // Some of these types have cyclical dependencies on each other,
+            // so don't re-enter this block once we start executing it.
+            isBasicTypesInitialized = true;
+
+            objectType = getBuiltInObject(node, 'object') || AnyType.create();
+            typeClassType = getBuiltInType(node, 'type') || AnyType.create();
+
+            // Initialize and cache "Collection" to break a cyclical dependency
+            // that occurs when resolving tuple below.
+            getTypingType(node, 'Collection');
+
+            noneType = getTypeshedType(node, 'NoneType') || AnyType.create();
+            tupleClassType = getBuiltInType(node, 'tuple') || AnyType.create();
+        }
+    }
+
     const getTypeOfExpression = evaluatorOptions.logCalls
         ? (n: ExpressionNode, t?: Type, f = EvaluatorFlags.None) =>
               logInternalCall('getTypeOfExpression', () => getTypeOfExpressionInternal(n, t, f), n)
@@ -931,18 +949,11 @@ export function createTypeEvaluator(
 
         const expectedTypeAlt = transformPossibleRecursiveTypeAlias(expectedType);
 
-        // If we haven't already fetched some core type definition from the
-        // _typeshed stub, do so here. It would be better to fetch this when it's
+        // If we haven't already fetched some core type definitions from the
+        // typeshed stubs, do so here. It would be better to fetch this when it's
         // needed in canAssignType, but we don't have access to the parse tree
         // at that point.
-        if (!initializedBasicTypes) {
-            noneType = getTypeshedType(node, 'NoneType') || AnyType.create();
-            objectType = getBuiltInObject(node, 'object') || AnyType.create();
-            typeClassType = getBuiltInType(node, 'type') || AnyType.create();
-            tupleClassType = getBuiltInType(node, 'tuple') || AnyType.create();
-
-            initializedBasicTypes = true;
-        }
+        initializedBasicTypes(node);
 
         let typeResult: TypeResult | undefined;
         let reportExpectingTypeErrors = (flags & EvaluatorFlags.ExpectingType) !== 0;
@@ -14880,6 +14891,8 @@ export function createTypeEvaluator(
     // be evaluated to provide sufficient context for the type. Evaluated types
     // are written back to the type cache for later retrieval.
     function evaluateTypesForStatement(node: ParseNode): void {
+        initializedBasicTypes(node);
+
         let curNode: ParseNode | undefined = node;
 
         while (curNode) {
