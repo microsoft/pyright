@@ -50,7 +50,7 @@ If the “--outputjson” option is specified on the command line, diagnostics a
 {
     version: string,
     time: string,
-    diagnostics: Diagnostic[],
+    generalDiagnostics: Diagnostic[],
     summary: {
         filesAnalyzed: number,
         errorCount: number,
