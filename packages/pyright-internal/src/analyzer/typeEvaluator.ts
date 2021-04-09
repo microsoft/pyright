@@ -5109,22 +5109,19 @@ export function createTypeEvaluator(
                 );
             }
 
-            let type = applySolvedTypeVars(baseType, typeVarMap);
-            if (baseType.typeAliasInfo && type !== baseType) {
-                const typeArgs: Type[] = [];
-                baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
-                    typeArgs.push(typeVarMap.getTypeVarType(typeParam) || UnknownType.create());
-                });
+            const aliasTypeArgs: Type[] = [];
+            baseType.typeAliasInfo.typeParameters?.forEach((typeParam) => {
+                aliasTypeArgs.push(typeVarMap.getTypeVarType(typeParam) || UnknownType.create());
+            });
 
-                type = TypeBase.cloneForTypeAlias(
-                    type,
-                    baseType.typeAliasInfo.name,
-                    baseType.typeAliasInfo.fullName,
-                    baseType.typeAliasInfo.typeVarScopeId,
-                    baseType.typeAliasInfo.typeParameters,
-                    typeArgs
-                );
-            }
+            const type = TypeBase.cloneForTypeAlias(
+                applySolvedTypeVars(baseType, typeVarMap),
+                baseType.typeAliasInfo.name,
+                baseType.typeAliasInfo.fullName,
+                baseType.typeAliasInfo.typeVarScopeId,
+                baseType.typeAliasInfo.typeParameters,
+                aliasTypeArgs
+            );
 
             return { type, node };
         }
@@ -9124,6 +9121,7 @@ export function createTypeEvaluator(
         // Handle the very special case where the expected type is a list
         // and the operator is a multiply. This comes up in the common case
         // of "x: List[Optional[X]] = [None] * y" where y is an integer literal.
+        let expectedLeftOperandType: Type | undefined;
         if (
             node.operator === OperatorType.Multiply &&
             expectedType &&
@@ -9131,14 +9129,16 @@ export function createTypeEvaluator(
             ClassType.isBuiltIn(expectedType.classType, 'list') &&
             expectedType.classType.typeArguments &&
             expectedType.classType.typeArguments.length >= 1 &&
-            node.leftExpression.nodeType === ParseNodeType.List &&
-            node.rightExpression.nodeType === ParseNodeType.Number &&
-            node.rightExpression.isInteger
+            node.leftExpression.nodeType === ParseNodeType.List
         ) {
-            expectedOperandType = expectedType;
+            expectedLeftOperandType = expectedType;
         }
 
-        const leftTypeResult = getTypeOfExpression(leftExpression, expectedOperandType, flags);
+        const leftTypeResult = getTypeOfExpression(
+            leftExpression,
+            expectedOperandType || expectedLeftOperandType,
+            flags
+        );
         let leftType = leftTypeResult.type;
 
         // If there is no expected type, use the type of the left operand. This

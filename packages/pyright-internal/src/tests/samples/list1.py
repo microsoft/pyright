@@ -2,7 +2,7 @@
 
 # pyright: strict, reportUnknownVariableType=false
 
-from typing import Any, Collection, Generic, List, Literal, Optional, Sequence, TypeVar
+from typing import Any, Collection, Dict, Generic, List, Literal, Optional, Sequence, TypeVar
 
 
 v1 = [1, 2, 3]
@@ -55,3 +55,17 @@ t_v12: Literal["List[int | None]"] = reveal_type(v12)
 
 v13: List[Optional[str]] = ["3", None] * 2
 t_v13: Literal["List[str | None]"] = reveal_type(v13)
+
+x1 = 3
+v14: List[Optional[str]] = [None] * x1
+
+x2 = [1, 2, 3]
+v15: List[Optional[str]] = [None] * sum(x2)
+
+v16: Dict[str, List[Optional[str]]] = {
+    n: [None] * len(n)
+    for n in ['a', 'aa', 'aaa']
+}
+
+
+  
