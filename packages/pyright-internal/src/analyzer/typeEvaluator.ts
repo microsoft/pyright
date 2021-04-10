@@ -13230,7 +13230,7 @@ export function createTypeEvaluator(
             awaitableFunctionType.details.declaredReturnType = createAwaitableReturnType(
                 node,
                 functionType.details.declaredReturnType,
-                !!functionType.details.declaration?.yieldStatements
+                !!functionType.details.declaration?.isGenerator
             );
         }
 
@@ -13377,24 +13377,30 @@ export function createTypeEvaluator(
                     }
 
                     // Is it a generator?
-                    if (functionDecl?.yieldStatements) {
+                    if (functionDecl?.isGenerator) {
                         const inferredYieldTypes: Type[] = [];
-                        functionDecl.yieldStatements.forEach((yieldNode) => {
-                            if (isNodeReachable(yieldNode)) {
-                                if (yieldNode.nodeType === ParseNodeType.YieldFrom) {
-                                    const iteratorType = getTypeOfExpression(yieldNode.expression).type;
-                                    const yieldType = getTypeFromIterator(iteratorType, /* isAsync */ false, yieldNode);
-                                    inferredYieldTypes.push(yieldType || UnknownType.create());
-                                } else {
-                                    if (yieldNode.expression) {
-                                        const yieldType = getTypeOfExpression(yieldNode.expression).type;
+                        if (functionDecl.yieldStatements) {
+                            functionDecl.yieldStatements.forEach((yieldNode) => {
+                                if (isNodeReachable(yieldNode)) {
+                                    if (yieldNode.nodeType === ParseNodeType.YieldFrom) {
+                                        const iteratorType = getTypeOfExpression(yieldNode.expression).type;
+                                        const yieldType = getTypeFromIterator(
+                                            iteratorType,
+                                            /* isAsync */ false,
+                                            yieldNode
+                                        );
                                         inferredYieldTypes.push(yieldType || UnknownType.create());
                                     } else {
-                                        inferredYieldTypes.push(NoneType.createInstance());
+                                        if (yieldNode.expression) {
+                                            const yieldType = getTypeOfExpression(yieldNode.expression).type;
+                                            inferredYieldTypes.push(yieldType || UnknownType.create());
+                                        } else {
+                                            inferredYieldTypes.push(NoneType.createInstance());
+                                        }
                                     }
                                 }
-                            }
-                        });
+                            });
+                        }
 
                         if (inferredYieldTypes.length === 0) {
                             inferredYieldTypes.push(NoneType.createInstance());
@@ -17974,7 +17980,7 @@ export function createTypeEvaluator(
                     returnType = createAwaitableReturnType(
                         functionNode,
                         returnType,
-                        !!type.details.declaration?.yieldStatements
+                        !!type.details.declaration?.isGenerator
                     );
                 }
             }
@@ -18119,7 +18125,7 @@ export function createTypeEvaluator(
                 contextualReturnType = createAwaitableReturnType(
                     functionNode,
                     contextualReturnType,
-                    !!type.details.declaration?.yieldStatements
+                    !!type.details.declaration?.isGenerator
                 );
             }
 
