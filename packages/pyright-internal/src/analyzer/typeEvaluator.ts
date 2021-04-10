@@ -396,6 +396,9 @@ export const enum EvaluatorFlags {
 
     // Do not emit an error if the symbol is potentially unbound
     SkipUnboundCheck = 1 << 14,
+
+    // Used for PEP 526-style variable type annotations
+    VariableTypeAnnotation = 1 << 15,
 }
 
 interface EvaluatorUsage {
@@ -1233,7 +1236,8 @@ export function createTypeEvaluator(
                         EvaluatorFlags.ParamSpecDisallowed |
                         EvaluatorFlags.TypeVarTupleDisallowed |
                         EvaluatorFlags.ExpectingType |
-                        EvaluatorFlags.ExpectingTypeAnnotation
+                        EvaluatorFlags.ExpectingTypeAnnotation |
+                        EvaluatorFlags.VariableTypeAnnotation
                 );
                 break;
             }
@@ -1304,6 +1308,7 @@ export function createTypeEvaluator(
 
     function getTypeOfAnnotation(
         node: ExpressionNode,
+        isVariableAnnotation: boolean,
         allowFinal = false,
         associateTypeVarsWithScope = false,
         allowTypeVarTuple = false
@@ -1325,6 +1330,10 @@ export function createTypeEvaluator(
             EvaluatorFlags.ConvertEllipsisToAny |
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.ParamSpecDisallowed;
+
+        if (isVariableAnnotation) {
+            evaluatorFlags |= EvaluatorFlags.VariableTypeAnnotation;
+        }
 
         if (!allowTypeVarTuple) {
             evaluatorFlags |= EvaluatorFlags.TypeVarTupleDisallowed;
@@ -2152,6 +2161,7 @@ export function createTypeEvaluator(
                             variableTypeEvaluator = () =>
                                 getTypeOfAnnotation(
                                     (statement.leftExpression as TypeAnnotationNode).typeAnnotation,
+                                    /* isVariableAnnotation */ true,
                                     /* allowFinal */ true
                                 );
                         }
@@ -2200,7 +2210,11 @@ export function createTypeEvaluator(
                             if (statement.valueExpression.nodeType === ParseNodeType.Name) {
                                 variableNameNode = statement.valueExpression;
                                 variableTypeEvaluator = () =>
-                                    getTypeOfAnnotation(statement.typeAnnotation, /* allowFinal */ true);
+                                    getTypeOfAnnotation(
+                                        statement.typeAnnotation,
+                                        /* isVariableAnnotation */ true,
+                                        /* allowFinal */ true
+                                    );
                             }
                         }
                     }
@@ -3323,6 +3337,7 @@ export function createTypeEvaluator(
             case ParseNodeType.TypeAnnotation: {
                 const annotationType: Type | undefined = getTypeOfAnnotation(
                     target.typeAnnotation,
+                    /* isVariableAnnotation */ true,
                     ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.valueExpression)
                 );
 
@@ -4062,6 +4077,7 @@ export function createTypeEvaluator(
             (flags &
                 (EvaluatorFlags.ExpectingType |
                     EvaluatorFlags.ExpectingTypeAnnotation |
+                    EvaluatorFlags.VariableTypeAnnotation |
                     EvaluatorFlags.AllowForwardReferences |
                     EvaluatorFlags.DisallowTypeVarsWithScopeId |
                     EvaluatorFlags.DisallowTypeVarsWithoutScopeId |
@@ -4950,24 +4966,29 @@ export function createTypeEvaluator(
 
         // Check for builtin classes that will generate runtime exceptions if subscripted.
         if ((flags & EvaluatorFlags.AllowForwardReferences) === 0) {
-            const fileInfo = getFileInfo(node);
-            if (
-                isClass(baseTypeResult.type) &&
-                ClassType.isBuiltIn(baseTypeResult.type) &&
-                !baseTypeResult.type.aliasName
-            ) {
-                const minPythonVersion = nonSubscriptableBuiltinTypes[baseTypeResult.type.details.fullName];
+            // We can skip this check if the class is used within a PEP 526 variable
+            // type annotation. For some reason, they don't result in runtime exceptions
+            // when used in this manner.
+            if ((flags & EvaluatorFlags.VariableTypeAnnotation) === 0) {
+                const fileInfo = getFileInfo(node);
                 if (
-                    minPythonVersion !== undefined &&
-                    fileInfo.executionEnvironment.pythonVersion < minPythonVersion &&
-                    !fileInfo.isStubFile
+                    isClass(baseTypeResult.type) &&
+                    ClassType.isBuiltIn(baseTypeResult.type) &&
+                    !baseTypeResult.type.aliasName
                 ) {
-                    addError(
-                        Localizer.Diagnostic.classNotRuntimeSubscriptable().format({
-                            name: baseTypeResult.type.aliasName || baseTypeResult.type.details.name,
-                        }),
-                        node.baseExpression
-                    );
+                    const minPythonVersion = nonSubscriptableBuiltinTypes[baseTypeResult.type.details.fullName];
+                    if (
+                        minPythonVersion !== undefined &&
+                        fileInfo.executionEnvironment.pythonVersion < minPythonVersion &&
+                        !fileInfo.isStubFile
+                    ) {
+                        addError(
+                            Localizer.Diagnostic.classNotRuntimeSubscriptable().format({
+                                name: baseTypeResult.type.aliasName || baseTypeResult.type.details.name,
+                            }),
+                            node.baseExpression
+                        );
+                    }
                 }
             }
         }
@@ -12346,6 +12367,7 @@ export function createTypeEvaluator(
             if (paramTypeNode) {
                 annotatedType = getTypeOfAnnotation(
                     paramTypeNode,
+                    /* isVariableAnnotation */ false,
                     /* allowFinal */ false,
                     /* associateTypeVarsWithScope */ true,
                     /* allowTypeVarType */ param.category === ParameterCategory.VarArgList
@@ -12496,6 +12518,7 @@ export function createTypeEvaluator(
 
             const returnType = getTypeOfAnnotation(
                 node.returnTypeAnnotation,
+                /* isVariableAnnotation */ false,
                 /* allowFinal */ false,
                 /* associateTypeVarsWithScope */ true
             );
@@ -12506,6 +12529,7 @@ export function createTypeEvaluator(
 
             const returnType = getTypeOfAnnotation(
                 node.functionAnnotationComment.returnTypeAnnotation,
+                /* isVariableAnnotation */ false,
                 /* allowFinal */ false,
                 /* associateTypeVarsWithScope */ true
             );
@@ -13004,7 +13028,7 @@ export function createTypeEvaluator(
                     // Verify consistency of the type.
                     const fgetType = getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);
                     if (fgetType && !isAnyOrUnknown(fgetType)) {
-                        const fsetType = getTypeOfAnnotation(typeAnnotation);
+                        const fsetType = getTypeOfAnnotation(typeAnnotation, /* isVariableAnnotation */ false);
 
                         // The setter type should be assignable to the getter type.
                         const diag = new DiagnosticAddendum();
@@ -14748,6 +14772,7 @@ export function createTypeEvaluator(
             if (lastContextualExpression === parent.typeAnnotationComment) {
                 getTypeOfAnnotation(
                     lastContextualExpression,
+                    /* isVariableAnnotation */ true,
                     ParseTreeUtils.isFinalAllowedForAssignmentTarget(parent.leftExpression)
                 );
             } else {
@@ -14768,6 +14793,7 @@ export function createTypeEvaluator(
             } else {
                 const annotationType = getTypeOfAnnotation(
                     node.typeAnnotation,
+                    /* isVariableAnnotation */ true,
                     ParseTreeUtils.isFinalAllowedForAssignmentTarget(node.valueExpression)
                 );
                 if (annotationType) {
@@ -14851,6 +14877,7 @@ export function createTypeEvaluator(
                     node.category,
                     getTypeOfAnnotation(
                         typeAnnotation,
+                        /* isVariableAnnotation */ false,
                         /* allowFinal */ false,
                         /* associateTypeVarsWithScope */ true,
                         /* allowTypeVarTuple */ functionNode.parameters[paramIndex].category ===
@@ -17401,7 +17428,7 @@ export function createTypeEvaluator(
             }
 
             case DeclarationType.SpecialBuiltInClass: {
-                return getTypeOfAnnotation(declaration.node.typeAnnotation);
+                return getTypeOfAnnotation(declaration.node.typeAnnotation, /* isVariableAnnotation */ false);
             }
 
             case DeclarationType.Function: {
@@ -17431,6 +17458,7 @@ export function createTypeEvaluator(
                 if (typeAnnotationNode) {
                     const declaredType = getTypeOfAnnotation(
                         typeAnnotationNode,
+                        /* isVariableAnnotation */ false,
                         /* allowFinal */ false,
                         /* associateTypeVarsWithScope */ true,
                         /* allowTypeVarTuple */ declaration.node.category === ParameterCategory.VarArgList
@@ -17448,7 +17476,7 @@ export function createTypeEvaluator(
                     const typeAliasNode = isDeclaredTypeAlias(typeAnnotationNode)
                         ? ParseTreeUtils.getTypeAnnotationNode(typeAnnotationNode)
                         : undefined;
-                    let declaredType = getTypeOfAnnotation(typeAnnotationNode);
+                    let declaredType = getTypeOfAnnotation(typeAnnotationNode, /* isVariableAnnotation */ true);
 
                     if (declaredType) {
                         // Apply enum transform if appropriate.
