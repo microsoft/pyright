@@ -13205,7 +13205,8 @@ export function createTypeEvaluator(
         if (functionType.details.declaredReturnType) {
             awaitableFunctionType.details.declaredReturnType = createAwaitableReturnType(
                 node,
-                functionType.details.declaredReturnType
+                functionType.details.declaredReturnType,
+                !!functionType.details.declaration?.yieldStatements
             );
         }
 
@@ -13216,7 +13217,7 @@ export function createTypeEvaluator(
         return awaitableFunctionType;
     }
 
-    function createAwaitableReturnType(node: ParseNode, returnType: Type): Type {
+    function createAwaitableReturnType(node: ParseNode, returnType: Type, isGenerator: boolean): Type {
         let awaitableReturnType: Type | undefined;
 
         if (isObject(returnType)) {
@@ -13252,7 +13253,7 @@ export function createTypeEvaluator(
             }
         }
 
-        if (!awaitableReturnType) {
+        if (!awaitableReturnType || !isGenerator) {
             // Wrap in a Coroutine, which is a subclass of Awaitable.
             const coroutineType = getTypingType(node, 'Coroutine');
             if (coroutineType && isClass(coroutineType)) {
@@ -17942,7 +17943,11 @@ export function createTypeEvaluator(
 
                 // Do we need to wrap this in an awaitable?
                 if (returnType && FunctionType.isWrapReturnTypeInAwait(type)) {
-                    returnType = createAwaitableReturnType(functionNode, returnType);
+                    returnType = createAwaitableReturnType(
+                        functionNode,
+                        returnType,
+                        !!type.details.declaration?.yieldStatements
+                    );
                 }
             }
 
@@ -18083,7 +18088,11 @@ export function createTypeEvaluator(
 
             // Do we need to wrap this in an awaitable?
             if (FunctionType.isWrapReturnTypeInAwait(type) && !isNoReturnType(contextualReturnType)) {
-                contextualReturnType = createAwaitableReturnType(functionNode, contextualReturnType);
+                contextualReturnType = createAwaitableReturnType(
+                    functionNode,
+                    contextualReturnType,
+                    !!type.details.declaration?.yieldStatements
+                );
             }
 
             return contextualReturnType;
