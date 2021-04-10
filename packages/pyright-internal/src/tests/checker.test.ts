@@ -10,6 +10,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
+import { PythonVersion } from '../common/pythonVersion';
 import * as TestUtils from './testUtils';
 
 test('BadToken1', () => {
@@ -129,6 +130,18 @@ test('With3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with3.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('With4', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['with4.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 4);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['with4.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 0);
 });
 
 test('Mro1', () => {

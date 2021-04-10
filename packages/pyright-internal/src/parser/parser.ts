@@ -1792,6 +1792,10 @@ export class Parser {
                     if (!this._consumeTokenIfType(TokenType.Comma)) {
                         break;
                     }
+
+                    if (this._peekToken().type === TokenType.CloseParenthesis) {
+                        break;
+                    }
                 }
 
                 if (
@@ -1807,7 +1811,7 @@ export class Parser {
 
         if (isParenthesizedWithItemList) {
             this._consumeTokenIfType(TokenType.OpenParenthesis);
-            if (this._getLanguageVersion() < PythonVersion.V3_10) {
+            if (this._getLanguageVersion() < PythonVersion.V3_9) {
                 this._addError(Localizer.Diagnostic.parenthesizedContextManagerIllegal(), possibleParen);
             }
         }
@@ -1816,6 +1820,10 @@ export class Parser {
             withItemList.push(this._parseWithItem());
 
             if (!this._consumeTokenIfType(TokenType.Comma)) {
+                break;
+            }
+
+            if (this._peekToken().type === TokenType.CloseParenthesis) {
                 break;
             }
         }
