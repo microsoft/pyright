@@ -2262,6 +2262,7 @@ export function createTypeEvaluator(
                             );
                             if (
                                 includeInInit &&
+                                !skipSynthesizeInit &&
                                 !hasDefaultValue &&
                                 firstDefaultValueIndex >= 0 &&
                                 firstDefaultValueIndex < insertIndex

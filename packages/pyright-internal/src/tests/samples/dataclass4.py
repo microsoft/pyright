@@ -40,9 +40,19 @@ class Baz1():
     # This should generate an error because variables
     # with no default cannot come after those with
     # defaults.
-    [ccc]: str
+    ccc: str
 
 @dataclass
 class Baz2():
     aaa: str
     ddd: InitVar[int] = 3
+
+
+@dataclass(init=False)
+class Baz3():
+    bbb: int
+    aaa: str = 'string'
+    # This should not generate an error because
+    # the ordering requirement is not enforced when
+    # init=False.
+    ccc: str
