@@ -2820,9 +2820,23 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 if (overrideFunction) {
-                    // Don't check magic functions or private symbols.
-                    if (!SymbolNameUtils.isDunderName(name) && !SymbolNameUtils.isPrivateName(name)) {
-                        if (!this._evaluator.canOverrideMethod(baseClassSymbolType, overrideFunction, diagAddendum)) {
+                    const exemptMethods = ['__init__', '__new__', '__init_subclass__'];
+
+                    // Don't enforce parameter names for dundered methods. Many of them
+                    // are misnamed in typeshed stubs, so this would result in many
+                    // false positives.
+                    const enforceParamNameMatch = !SymbolNameUtils.isDunderName(name);
+
+                    // Don't check certain magic functions or private symbols.
+                    if (!exemptMethods.some((exempt) => exempt === name) && !SymbolNameUtils.isPrivateName(name)) {
+                        if (
+                            !this._evaluator.canOverrideMethod(
+                                baseClassSymbolType,
+                                overrideFunction,
+                                diagAddendum,
+                                enforceParamNameMatch
+                            )
+                        ) {
                             const decl = overrideFunction.details.declaration;
                             if (decl && decl.type === DeclarationType.Function) {
                                 const diag = this._evaluator.addDiagnostic(

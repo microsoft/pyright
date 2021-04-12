@@ -605,7 +605,12 @@ export interface TypeEvaluator {
         typeVarMap?: TypeVarMap,
         flags?: CanAssignFlags
     ) => boolean;
-    canOverrideMethod: (baseMethod: Type, overrideMethod: FunctionType, diag: DiagnosticAddendum) => boolean;
+    canOverrideMethod: (
+        baseMethod: Type,
+        overrideMethod: FunctionType,
+        diag: DiagnosticAddendum,
+        enforceParamNames?: boolean
+    ) => boolean;
     canAssignProtocolClassToSelf: (destType: ClassType, srcType: ClassType) => boolean;
 
     addError: (message: string, node: ParseNode) => Diagnostic | undefined;
@@ -20981,7 +20986,12 @@ export function createTypeEvaluator(
         return narrowedType;
     }
 
-    function canOverrideMethod(baseMethod: Type, overrideMethod: FunctionType, diag: DiagnosticAddendum): boolean {
+    function canOverrideMethod(
+        baseMethod: Type,
+        overrideMethod: FunctionType,
+        diag: DiagnosticAddendum,
+        enforceParamNames = true
+    ): boolean {
         // If we're overriding an overloaded method, uses the last overload.
         if (isOverloadedFunction(baseMethod)) {
             baseMethod = baseMethod.overloads[baseMethod.overloads.length - 1];
@@ -21068,14 +21078,16 @@ export function createTypeEvaluator(
                 baseParam.name !== overrideParam.name
             ) {
                 if (overrideParam.category === ParameterCategory.Simple) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.overrideParamName().format({
-                            index: i + 1,
-                            baseName: baseParam.name || '*',
-                            overrideName: overrideParam.name || '*',
-                        })
-                    );
-                    canOverride = false;
+                    if (enforceParamNames) {
+                        diag.addMessage(
+                            Localizer.DiagnosticAddendum.overrideParamName().format({
+                                index: i + 1,
+                                baseName: baseParam.name || '*',
+                                overrideName: overrideParam.name || '*',
+                            })
+                        );
+                        canOverride = false;
+                    }
                 }
             } else {
                 const baseParamType = FunctionType.getEffectiveParameterType(baseMethod, i);
