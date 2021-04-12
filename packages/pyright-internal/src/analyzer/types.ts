@@ -229,6 +229,7 @@ export namespace ModuleType {
 
 export interface DataClassEntry {
     name: string;
+    alias?: string;
     hasDefault?: boolean;
     defaultValueExpression?: ExpressionNode;
     includeInInit: boolean;
@@ -328,16 +329,16 @@ export const enum ClassTypeFlags {
     // a class that has this metaclass.
     EnumClass = 1 << 20,
 
-    // For dataclasses, should fields be included only
-    // if they have a dataclass.field initializer?
-    ExplicitDataClassFieldsOnly = 1 << 21,
+    // For dataclasses, should __init__ method always be generated
+    // with keyword-only parameters?
+    DataClassKeywordOnlyParams = 1 << 21,
 }
 
 export interface DataClassBehaviors {
+    keywordOnlyParams: boolean;
     generateEq: boolean;
     generateOrder: boolean;
-    autoDetectFields: boolean;
-    fieldDefinitionFunctions: string[];
+    fieldDescriptorNames: string[];
 }
 
 interface ClassDetails {
@@ -358,6 +359,9 @@ interface ClassDetails {
     dataClassEntries?: DataClassEntry[];
     dataClassBehaviors?: DataClassBehaviors;
     typedDictEntries?: Map<string, TypedDictEntry>;
+
+    // Transforms to apply if this class is used as a metaclass.
+    metaclassDataClassTransform?: DataClassBehaviors;
 }
 
 export interface ClassType extends TypeBase {
@@ -575,8 +579,8 @@ export namespace ClassType {
         return !!(classType.details.flags & ClassTypeFlags.SynthesizedDataClassOrder);
     }
 
-    export function isExplicitDataClassFieldsOnly(classType: ClassType) {
-        return !!(classType.details.flags & ClassTypeFlags.ExplicitDataClassFieldsOnly);
+    export function isDataClassKeywordOnlyParams(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.DataClassKeywordOnlyParams);
     }
 
     export function isTypedDictClass(classType: ClassType) {
@@ -859,6 +863,10 @@ interface FunctionDetails {
     typeVarScopeId?: TypeVarScopeId;
     builtInName?: string;
     docString?: string;
+
+    // Transforms to apply if this function is used
+    // as a decorator.
+    decoratorDataClassBehaviors?: DataClassBehaviors;
 
     // Parameter specification used only for Callable types created
     // with a ParamSpec representing the parameters.
