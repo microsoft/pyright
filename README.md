@@ -93,8 +93,6 @@ To update to the latest version:
 ## Using Pyright with VS Code Python Extension
 Pyright’s type-checking functionality and language features are now incorporated into a VS Code extension called [Pylance](https://github.com/microsoft/pylance-release), the officially supported Python Language Server from Microsoft. Pylance is designed to work with the Python extension for VS Code. In addition to Pyright’s functionality, Pylance adds compatibility with several advanced features including IntelliCode for AI-assisted completions. If you are a VS Code user, we recommend that you uninstall Pyright and instead install Pylance. You will get all the benefits of Pyright and more! 
 
-Installing both Pyright and Pylance at the same time is not recommended. If both are installed and enabled, you will see duplicate errors, hover text, and completion suggestions. 
-
 
 ## Documentation
 * [Getting Started with Type Checking](/docs/getting-started.md)
