@@ -1664,12 +1664,7 @@ export class ImportResolver {
     }
 
     protected formatImportName(moduleDescriptor: ImportedModuleDescriptor) {
-        let name = '';
-        for (let i = 0; i < moduleDescriptor.leadingDots; i++) {
-            name += '.';
-        }
-
-        return name + moduleDescriptor.nameParts.map((part) => part).join('.');
+        return '.'.repeat(moduleDescriptor.leadingDots) + moduleDescriptor.nameParts.join('.');
     }
 
     private _resolveNativeModuleStub(

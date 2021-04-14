@@ -11,7 +11,7 @@
 
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
-import { Declaration, DeclarationType, FunctionDeclaration } from '../analyzer/declaration';
+import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
@@ -20,6 +20,7 @@ import {
     getModuleDocString,
     getOverloadedFunctionDocStringsInherited,
     getPropertyDocStringInherited,
+    getVariableInStubFileDocStrings,
 } from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import {
@@ -375,19 +376,12 @@ export class HoverProvider {
                     classResults?.classType
                 )
             );
+        } else if (resolvedDecl?.type === DeclarationType.Variable) {
+            // See whether a variable symbol on the stub is actually a variable. If not, take the doc string.
+            docStrings.push(...getVariableInStubFileDocStrings(resolvedDecl, sourceMapper));
         } else if (resolvedDecl?.type === DeclarationType.Function) {
             // @property functions
-            const enclosingClass =
-                resolvedDecl?.type === DeclarationType.Function
-                    ? ParseTreeUtils.getEnclosingClass((resolvedDecl as FunctionDeclaration).node.name, false)
-                    : undefined;
-            const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
-
-            if (classResults) {
-                docStrings.push(
-                    getPropertyDocStringInherited(resolvedDecl, sourceMapper, evaluator, classResults.classType)
-                );
-            }
+            docStrings.push(getPropertyDocStringInherited(resolvedDecl, sourceMapper, evaluator));
         }
 
         let addedDoc = false;

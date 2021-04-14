@@ -41,6 +41,7 @@ import {
     getModuleDocString,
     getOverloadedFunctionDocStringsInherited,
     getPropertyDocStringInherited,
+    getVariableInStubFileDocStrings,
 } from '../analyzer/typeDocStringUtils';
 import { CallSignatureInfo, TypeEvaluator } from '../analyzer/typeEvaluator';
 import {
@@ -139,7 +140,6 @@ const _keywords: string[] = [
     'return',
     'try',
     'while',
-    'yield',
 ];
 
 enum SortCategory {
@@ -1849,20 +1849,15 @@ export class CompletionProvider {
                                 ).find((doc) => doc);
                             } else if (primaryDecl?.type === DeclarationType.Function) {
                                 // @property functions
-                                const enclosingClass = isFunctionDeclaration(primaryDecl)
-                                    ? ParseTreeUtils.getEnclosingClass(primaryDecl.node.name, false)
-                                    : undefined;
-                                const classResults = enclosingClass
-                                    ? this._evaluator.getTypeOfClass(enclosingClass)
-                                    : undefined;
-                                if (classResults) {
-                                    documentation = getPropertyDocStringInherited(
-                                        primaryDecl,
-                                        this._sourceMapper,
-                                        this._evaluator,
-                                        classResults?.classType
-                                    );
-                                }
+                                documentation = getPropertyDocStringInherited(
+                                    primaryDecl,
+                                    this._sourceMapper,
+                                    this._evaluator
+                                );
+                            } else if (primaryDecl?.type === DeclarationType.Variable) {
+                                documentation = getVariableInStubFileDocStrings(primaryDecl, this._sourceMapper).find(
+                                    (doc) => doc
+                                );
                             }
 
                             if (this._options.format === MarkupKind.Markdown) {
