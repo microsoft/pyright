@@ -11,15 +11,18 @@
 
 import { CancellationToken, MarkupContent, MarkupKind } from 'vscode-languageserver';
 
+import { isVariableDeclaration } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
+import { getVariableInStubFileDocStrings } from '../analyzer/typeDocStringUtils';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluator';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
+import { CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { getFunctionDocStringFromType } from './tooltipUtils';
 
@@ -103,7 +106,7 @@ export class SignatureHelpProvider {
         }
 
         const signatures = callSignatureInfo.signatures.map((sig) =>
-            this._makeSignature(sig, sourceMapper, evaluator, format)
+            this._makeSignature(callSignatureInfo.callNode, sig, sourceMapper, evaluator, format)
         );
         const callHasParameters = !!callSignatureInfo.callNode.arguments?.length;
 
@@ -114,6 +117,7 @@ export class SignatureHelpProvider {
     }
 
     private static _makeSignature(
+        callNode: CallNode,
         signature: CallSignature,
         sourceMapper: SourceMapper,
         evaluator: TypeEvaluator,
@@ -122,7 +126,10 @@ export class SignatureHelpProvider {
         const functionType = signature.type;
         const stringParts = evaluator.printFunctionParts(functionType);
         const parameters: ParamInfo[] = [];
-        const functionDocString = getFunctionDocStringFromType(functionType, sourceMapper, evaluator);
+        const functionDocString =
+            getFunctionDocStringFromType(functionType, sourceMapper, evaluator) ??
+            this._getDocStringFromCallNode(callNode, sourceMapper, evaluator);
+
         let label = '(';
         const params = functionType.details.parameters;
 
@@ -178,5 +185,35 @@ export class SignatureHelpProvider {
         }
 
         return sigInfo;
+    }
+
+    private static _getDocStringFromCallNode(
+        callNode: CallNode,
+        sourceMapper: SourceMapper,
+        evaluator: TypeEvaluator
+    ): string | undefined {
+        // This is a heuristic to see whether we can get some docstring
+        // from call node when all other methods failed.
+        // It only works if call is off a name node.
+        let name: NameNode | undefined;
+        const expr = callNode.leftExpression;
+        if (expr.nodeType === ParseNodeType.Name) {
+            name = expr;
+        } else if (expr.nodeType === ParseNodeType.MemberAccess) {
+            name = expr.memberName;
+        }
+
+        if (!name) {
+            return undefined;
+        }
+
+        for (const decl of evaluator.getDeclarationsForNameNode(name) ?? []) {
+            const resolveDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+            if (!resolveDecl || !isVariableDeclaration(resolveDecl)) {
+                continue;
+            }
+
+            return getVariableInStubFileDocStrings(resolveDecl, sourceMapper).find((doc) => doc);
+        }
     }
 }

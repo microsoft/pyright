@@ -16,6 +16,7 @@ import {
     FunctionDeclaration,
     isClassDeclaration,
     isFunctionDeclaration,
+    VariableDeclaration,
 } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
@@ -39,54 +40,6 @@ import {
     isProperty,
 } from './typeUtils';
 
-export function getPropertyDocStringInherited(
-    resolvedDecl: Declaration | undefined,
-    sourceMapper: SourceMapper,
-    evaluator: TypeEvaluator,
-    classType: ClassType
-) {
-    if (!resolvedDecl || !isFunctionDeclaration(resolvedDecl)) {
-        return;
-    }
-
-    const declaredType = evaluator.getTypeForDeclaration(resolvedDecl);
-    if (!declaredType || !isProperty(declaredType)) {
-        return;
-    }
-
-    const fieldName = resolvedDecl.node.nodeType === ParseNodeType.Function ? resolvedDecl.node.name.value : undefined;
-    if (!fieldName) {
-        return;
-    }
-
-    const classItr = getClassIterator(classType, ClassIteratorFlags.Default);
-    // Walk the inheritance list starting with the current class searching for docStrings
-    for (const [mroClass] of classItr) {
-        if (!isClass(mroClass)) {
-            continue;
-        }
-
-        const symbol = mroClass.details.fields.get(fieldName);
-        // Get both the setter and getter declarations
-        const decls = symbol?.getDeclarations();
-        if (decls) {
-            for (const decl of decls) {
-                if (isFunctionDeclaration(decl)) {
-                    const declaredType = evaluator.getTypeForDeclaration(decl);
-                    if (declaredType && isProperty(declaredType)) {
-                        const docString = getFunctionDocStringFromDeclaration(decl, sourceMapper);
-                        if (docString) {
-                            return docString;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    return;
-}
-
 const DefaultClassIteratorFlagsForFunctions =
     ClassMemberLookupFlags.SkipInstanceVariables |
     ClassMemberLookupFlags.SkipOriginalClass |
@@ -101,7 +54,7 @@ export function getFunctionDocStringInherited(
     let docString: string | undefined;
 
     if (resolvedDecl && isFunctionDeclaration(resolvedDecl)) {
-        docString = getFunctionDocString(type, resolvedDecl, sourceMapper);
+        docString = _getFunctionDocString(type, resolvedDecl, sourceMapper);
     }
 
     // Search mro
@@ -114,7 +67,7 @@ export function getFunctionDocStringInherited(
             if (decls.length > 0) {
                 const inheritedDecl = classMember.symbol.getDeclarations().slice(-1)[0];
                 if (isFunctionDeclaration(inheritedDecl)) {
-                    docString = getFunctionDocStringFromDeclaration(inheritedDecl, sourceMapper);
+                    docString = _getFunctionDocStringFromDeclaration(inheritedDecl, sourceMapper);
                     if (docString) {
                         break;
                     }
@@ -133,7 +86,7 @@ export function getOverloadedFunctionDocStringsInherited(
     evaluator: TypeEvaluator,
     classType?: ClassType
 ) {
-    let docStrings = getOverloadedFunctionDocStrings(type, resolvedDecl, sourceMapper);
+    let docStrings = _getOverloadedFunctionDocStrings(type, resolvedDecl, sourceMapper);
     if (docStrings && docStrings.length > 0) {
         return docStrings;
     }
@@ -147,7 +100,7 @@ export function getOverloadedFunctionDocStringsInherited(
             const inheritedDecl = classMember.symbol.getDeclarations().slice(-1)[0];
             const declType = evaluator.getTypeForDeclaration(inheritedDecl);
             if (declType) {
-                docStrings = getOverloadedFunctionDocStrings(declType, inheritedDecl, sourceMapper);
+                docStrings = _getOverloadedFunctionDocStrings(declType, inheritedDecl, sourceMapper);
                 if (docStrings && docStrings.length > 0) {
                     break;
                 }
@@ -158,27 +111,31 @@ export function getOverloadedFunctionDocStringsInherited(
     return docStrings ?? [];
 }
 
-function getOverloadedFunctionDocStrings(
-    type: Type,
-    resolvedDecl: Declaration | undefined,
-    sourceMapper: SourceMapper
+export function getPropertyDocStringInherited(
+    decl: FunctionDeclaration,
+    sourceMapper: SourceMapper,
+    evaluator: TypeEvaluator
 ) {
-    if (!isOverloadedFunction(type)) {
-        return undefined;
+    const enclosingClass = ParseTreeUtils.getEnclosingClass(decl.node.name, /* stopAtFunction */ false);
+    const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
+    if (classResults) {
+        return _getPropertyDocStringInherited(decl, sourceMapper, evaluator, classResults.classType);
+    }
+}
+
+export function getVariableInStubFileDocStrings(decl: VariableDeclaration, sourceMapper: SourceMapper) {
+    const docStrings: string[] = [];
+    if (!isStubFile(decl.path)) {
+        return docStrings;
     }
 
-    const docStrings: string[] = [];
-    if (type.overloads.some((o) => o.details.docString)) {
-        type.overloads.forEach((overload) => {
-            if (overload.details.docString) {
-                docStrings.push(overload.details.docString);
+    // See whether a variable symbol on the stub is actually a variable. If not, take the doc string.
+    for (const implDecl of sourceMapper.findDeclarations(decl)) {
+        if (isClassDeclaration(implDecl) || isFunctionDeclaration(implDecl)) {
+            const docString = getFunctionOrClassDeclDocString(implDecl);
+            if (docString) {
+                docStrings.push(docString);
             }
-        });
-    } else if (resolvedDecl && isStubFile(resolvedDecl.path) && isFunctionDeclaration(resolvedDecl)) {
-        const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
-        const docString = _getFunctionOrClassDeclDocString(implDecls);
-        if (docString) {
-            docStrings.push(docString);
         }
     }
 
@@ -208,7 +165,7 @@ export function getClassDocString(
 ) {
     let docString = classType.details.docString;
     if (!docString && resolvedDecl && isClassDeclaration(resolvedDecl)) {
-        docString = _getFunctionOrClassDeclDocString([resolvedDecl]);
+        docString = _getFunctionOrClassDeclsDocString([resolvedDecl]);
         if (
             !docString &&
             resolvedDecl &&
@@ -216,7 +173,7 @@ export function getClassDocString(
             resolvedDecl.type === DeclarationType.Class
         ) {
             const implDecls = sourceMapper.findClassDeclarations(resolvedDecl);
-            docString = _getFunctionOrClassDeclDocString(implDecls);
+            docString = _getFunctionOrClassDeclsDocString(implDecls);
         }
     }
 
@@ -224,43 +181,122 @@ export function getClassDocString(
         const implDecls = sourceMapper.findClassDeclarationsByType(resolvedDecl.path, classType);
         if (implDecls) {
             const classDecls = implDecls.filter((d) => isClassDeclaration(d)).map((d) => d);
-            docString = _getFunctionOrClassDeclDocString(classDecls);
+            docString = _getFunctionOrClassDeclsDocString(classDecls);
         }
     }
 
     return docString;
 }
 
-function getFunctionDocString(type: Type, resolvedDecl: FunctionDeclaration | undefined, sourceMapper: SourceMapper) {
+export function getFunctionOrClassDeclDocString(decl: FunctionDeclaration | ClassDeclaration): string | undefined {
+    return ParseTreeUtils.getDocString(decl.node?.suite?.statements ?? []);
+}
+
+function _getOverloadedFunctionDocStrings(
+    type: Type,
+    resolvedDecl: Declaration | undefined,
+    sourceMapper: SourceMapper
+) {
+    if (!isOverloadedFunction(type)) {
+        return undefined;
+    }
+
+    const docStrings: string[] = [];
+    if (type.overloads.some((o) => o.details.docString)) {
+        type.overloads.forEach((overload) => {
+            if (overload.details.docString) {
+                docStrings.push(overload.details.docString);
+            }
+        });
+    } else if (resolvedDecl && isStubFile(resolvedDecl.path) && isFunctionDeclaration(resolvedDecl)) {
+        const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
+        const docString = _getFunctionOrClassDeclsDocString(implDecls);
+        if (docString) {
+            docStrings.push(docString);
+        }
+    }
+
+    return docStrings;
+}
+
+function _getPropertyDocStringInherited(
+    decl: Declaration | undefined,
+    sourceMapper: SourceMapper,
+    evaluator: TypeEvaluator,
+    classType: ClassType
+) {
+    if (!decl || !isFunctionDeclaration(decl)) {
+        return;
+    }
+
+    const declaredType = evaluator.getTypeForDeclaration(decl);
+    if (!declaredType || !isProperty(declaredType)) {
+        return;
+    }
+
+    const fieldName = decl.node.nodeType === ParseNodeType.Function ? decl.node.name.value : undefined;
+    if (!fieldName) {
+        return;
+    }
+
+    const classItr = getClassIterator(classType, ClassIteratorFlags.Default);
+    // Walk the inheritance list starting with the current class searching for docStrings
+    for (const [mroClass] of classItr) {
+        if (!isClass(mroClass)) {
+            continue;
+        }
+
+        const symbol = mroClass.details.fields.get(fieldName);
+        // Get both the setter and getter declarations
+        const decls = symbol?.getDeclarations();
+        if (decls) {
+            for (const decl of decls) {
+                if (isFunctionDeclaration(decl)) {
+                    const declaredType = evaluator.getTypeForDeclaration(decl);
+                    if (declaredType && isProperty(declaredType)) {
+                        const docString = _getFunctionDocStringFromDeclaration(decl, sourceMapper);
+                        if (docString) {
+                            return docString;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return;
+}
+
+function _getFunctionDocString(type: Type, resolvedDecl: FunctionDeclaration | undefined, sourceMapper: SourceMapper) {
     if (!isFunction(type)) {
         return undefined;
     }
 
     let docString = type.details.docString;
     if (!docString && resolvedDecl) {
-        docString = getFunctionDocStringFromDeclaration(resolvedDecl, sourceMapper);
+        docString = _getFunctionDocStringFromDeclaration(resolvedDecl, sourceMapper);
     }
 
     if (!docString && type.details.declaration) {
-        docString = getFunctionDocStringFromDeclaration(type.details.declaration, sourceMapper);
+        docString = _getFunctionDocStringFromDeclaration(type.details.declaration, sourceMapper);
     }
 
     return docString;
 }
 
-function getFunctionDocStringFromDeclaration(resolvedDecl: FunctionDeclaration, sourceMapper: SourceMapper) {
-    let docString = _getFunctionOrClassDeclDocString([resolvedDecl]);
+function _getFunctionDocStringFromDeclaration(resolvedDecl: FunctionDeclaration, sourceMapper: SourceMapper) {
+    let docString = _getFunctionOrClassDeclsDocString([resolvedDecl]);
     if (!docString && isStubFile(resolvedDecl.path)) {
         const implDecls = sourceMapper.findFunctionDeclarations(resolvedDecl);
-        docString = _getFunctionOrClassDeclDocString(implDecls);
+        docString = _getFunctionOrClassDeclsDocString(implDecls);
     }
 
     return docString;
 }
 
-function _getFunctionOrClassDeclDocString(decls: FunctionDeclaration[] | ClassDeclaration[]): string | undefined {
+function _getFunctionOrClassDeclsDocString(decls: FunctionDeclaration[] | ClassDeclaration[]): string | undefined {
     for (const decl of decls) {
-        const docString = ParseTreeUtils.getDocString(decl.node?.suite?.statements ?? []);
+        const docString = getFunctionOrClassDeclDocString(decl);
         if (docString) {
             return docString;
         }

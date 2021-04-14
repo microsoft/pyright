@@ -139,7 +139,7 @@ export class SourceMapper {
     private _findVariableDeclarations(
         stubDecl: VariableDeclaration,
         recursiveDeclCache = new Set<string>()
-    ): VariableDeclaration[] {
+    ): ClassOrFunctionOrVariableDeclaration[] {
         if (stubDecl.node.nodeType !== ParseNodeType.Name) {
             return [];
         }
@@ -241,8 +241,12 @@ export class SourceMapper {
             variableName,
             (decl, cache, result) => {
                 if (isVariableDeclaration(decl)) {
-                    if (isStubFile(decl.path)) {
-                        result.push(...this._findVariableDeclarations(decl, cache));
+                    if (this._isStubFile(decl.path)) {
+                        for (const implDecl of this._findVariableDeclarations(decl, cache)) {
+                            if (isVariableDeclaration(implDecl)) {
+                                result.push(implDecl);
+                            }
+                        }
                     } else {
                         result.push(decl);
                     }
@@ -276,7 +280,7 @@ export class SourceMapper {
             functionName,
             (decl, cache, result) => {
                 if (isFunctionDeclaration(decl)) {
-                    if (isStubFile(decl.path)) {
+                    if (this._isStubFile(decl.path)) {
                         result.push(...this._findFunctionOrTypeAliasDeclarations(decl, cache));
                     } else {
                         result.push(decl);
@@ -294,8 +298,8 @@ export class SourceMapper {
         sourceFile: SourceFile,
         variableName: string,
         recursiveDeclCache: Set<string>
-    ): VariableDeclaration[] {
-        const result: VariableDeclaration[] = [];
+    ): ClassOrFunctionOrVariableDeclaration[] {
+        const result: ClassOrFunctionOrVariableDeclaration[] = [];
 
         const uniqueId = `@${sourceFile.getFilePath()}/v/${variableName}`;
         if (recursiveDeclCache.has(uniqueId)) {
@@ -304,9 +308,20 @@ export class SourceMapper {
 
         recursiveDeclCache.add(uniqueId);
 
-        const decls = this._lookUpSymbolDeclarations(sourceFile.getParseResults()?.parseTree, variableName);
-        for (const decl of decls) {
-            this._addVariableDeclarations(decl, result, recursiveDeclCache);
+        const moduleNode = sourceFile.getParseResults()?.parseTree;
+        if (!moduleNode) {
+            // Don't bother deleting from the cache; we'll never get any info from this
+            // file if it has no tree.
+            return result;
+        }
+
+        const decls = this._lookUpSymbolDeclarations(moduleNode, variableName);
+        if (decls.length === 0) {
+            this._addDeclarationsFollowingWildcardImports(moduleNode, variableName, result, recursiveDeclCache);
+        } else {
+            for (const decl of decls) {
+                this._addVariableDeclarations(decl, result, recursiveDeclCache);
+            }
         }
 
         recursiveDeclCache.delete(uniqueId);
@@ -327,9 +342,20 @@ export class SourceMapper {
 
         recursiveDeclCache.add(uniqueId);
 
-        const decls = this._lookUpSymbolDeclarations(sourceFile.getParseResults()?.parseTree, functionName);
-        for (const decl of decls) {
-            this._addClassOrFunctionDeclarations(decl, result, recursiveDeclCache);
+        const moduleNode = sourceFile.getParseResults()?.parseTree;
+        if (!moduleNode) {
+            // Don't bother deleting from the cache; we'll never get any info from this
+            // file if it has no tree.
+            return result;
+        }
+
+        const decls = this._lookUpSymbolDeclarations(moduleNode, functionName);
+        if (decls.length === 0) {
+            this._addDeclarationsFollowingWildcardImports(moduleNode, functionName, result, recursiveDeclCache);
+        } else {
+            for (const decl of decls) {
+                this._addClassOrFunctionDeclarations(decl, result, recursiveDeclCache);
+            }
         }
 
         recursiveDeclCache.delete(uniqueId);
@@ -378,8 +404,12 @@ export class SourceMapper {
         recursiveDeclCache.add(uniqueId);
 
         const decls = this._lookUpSymbolDeclarations(parentNode, className);
-        for (const decl of decls) {
-            this._addClassOrFunctionDeclarations(decl, result, recursiveDeclCache);
+        if (decls.length === 0 && parentNode.nodeType === ParseNodeType.Module) {
+            this._addDeclarationsFollowingWildcardImports(parentNode, className, result, recursiveDeclCache);
+        } else {
+            for (const decl of decls) {
+                this._addClassOrFunctionDeclarations(decl, result, recursiveDeclCache);
+            }
         }
 
         recursiveDeclCache.delete(uniqueId);
@@ -392,7 +422,7 @@ export class SourceMapper {
         recursiveDeclCache: Set<string>
     ) {
         if (isVariableDeclaration(decl)) {
-            if (isStubFile(decl.path)) {
+            if (this._isStubFile(decl.path)) {
                 result.push(...this._findVariableDeclarations(decl, recursiveDeclCache));
             } else {
                 result.push(decl);
@@ -400,7 +430,11 @@ export class SourceMapper {
         } else if (isAliasDeclaration(decl)) {
             const resolvedDecl = this._evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
             if (resolvedDecl) {
-                this._addVariableDeclarations(resolvedDecl, result, recursiveDeclCache);
+                if (isVariableDeclaration(resolvedDecl)) {
+                    this._addVariableDeclarations(resolvedDecl, result, recursiveDeclCache);
+                } else if (isClassDeclaration(resolvedDecl) || isFunctionDeclaration(resolvedDecl)) {
+                    this._addClassOrFunctionDeclarations(resolvedDecl, result, recursiveDeclCache);
+                }
             }
         }
     }
@@ -411,13 +445,13 @@ export class SourceMapper {
         recursiveDeclCache: Set<string>
     ) {
         if (isClassDeclaration(decl)) {
-            if (isStubFile(decl.path)) {
+            if (this._isStubFile(decl.path)) {
                 result.push(...this._findClassOrTypeAliasDeclarations(decl, recursiveDeclCache));
             } else {
                 result.push(decl);
             }
         } else if (isFunctionDeclaration(decl)) {
-            if (isStubFile(decl.path)) {
+            if (this._isStubFile(decl.path)) {
                 result.push(...this._findFunctionOrTypeAliasDeclarations(decl, recursiveDeclCache));
             } else {
                 result.push(decl);
@@ -465,16 +499,7 @@ export class SourceMapper {
 
         if (importResult.isImportFound && importResult.resolvedPaths.length > 0) {
             const filePath = importResult.resolvedPaths[importResult.resolvedPaths.length - 1];
-            const sourceFiles = [];
-
-            if (isStubFile(filePath)) {
-                sourceFiles.push(...this._getBoundSourceFilesFromStubFile(filePath));
-            } else {
-                const sourceFile = this._boundSourceGetter(filePath);
-                if (sourceFile) {
-                    sourceFiles.push(sourceFile);
-                }
-            }
+            const sourceFiles = this._getSourceFiles(filePath);
 
             const fullClassName = type.details.fullName.substring(
                 type.details.moduleName.length + 1 /* +1 for trailing dot */
@@ -486,13 +511,105 @@ export class SourceMapper {
         }
     }
 
+    private _getSourceFiles(filePath: string) {
+        const sourceFiles: SourceFile[] = [];
+
+        if (this._isStubFile(filePath)) {
+            sourceFiles.push(...this._getBoundSourceFilesFromStubFile(filePath));
+        } else {
+            const sourceFile = this._boundSourceGetter(filePath);
+            if (sourceFile) {
+                sourceFiles.push(sourceFile);
+            }
+        }
+
+        return sourceFiles;
+    }
+
+    private _addDeclarationsFollowingWildcardImports(
+        moduleNode: ModuleNode,
+        symbolName: string,
+        result: ClassOrFunctionOrVariableDeclaration[],
+        recursiveDeclCache: Set<string>
+    ) {
+        // Symbol exists in a stub doesn't exist in a python file. Use some heuristic
+        // to find one from sources.
+        const table = AnalyzerNodeInfo.getScope(moduleNode)?.symbolTable;
+        if (!table) {
+            return;
+        }
+
+        // Dig down imports with wildcard imports.
+        for (const symbol of table.values()) {
+            for (const decl of symbol.getDeclarations()) {
+                if (
+                    !isAliasDeclaration(decl) ||
+                    !decl.path ||
+                    decl.node.nodeType !== ParseNodeType.ImportFrom ||
+                    !decl.node.isWildcardImport
+                ) {
+                    continue;
+                }
+
+                const uniqueId = `@${decl.path}/l/${symbolName}`;
+                if (recursiveDeclCache.has(uniqueId)) {
+                    continue;
+                }
+
+                // While traversing these tables, we may encounter the same decl
+                // more than once (via different files' wildcard imports). To avoid this,
+                // add an ID unique to this function to the recursiveDeclCache to deduplicate
+                // them.
+                //
+                // The ID is not deleted to avoid needing a second Set to track all decls
+                // seen in this function. This is safe beacuse the ID here is unique to this
+                // function.
+                recursiveDeclCache.add(uniqueId);
+
+                const sourceFiles = this._getSourceFiles(decl.path);
+                for (const sourceFile of sourceFiles) {
+                    const moduleNode = sourceFile.getParseResults()?.parseTree;
+                    if (!moduleNode) {
+                        continue;
+                    }
+
+                    const decls = this._lookUpSymbolDeclarations(moduleNode, symbolName);
+                    if (decls.length === 0) {
+                        this._addDeclarationsFollowingWildcardImports(
+                            moduleNode,
+                            symbolName,
+                            result,
+                            recursiveDeclCache
+                        );
+                    } else {
+                        for (const decl of decls) {
+                            const resolvedDecl = this._evaluator.resolveAliasDeclaration(
+                                decl,
+                                /* resolveLocalNames */ true
+                            );
+                            if (!resolvedDecl) {
+                                continue;
+                            }
+
+                            if (isFunctionDeclaration(resolvedDecl) || isClassDeclaration(resolvedDecl)) {
+                                this._addClassOrFunctionDeclarations(resolvedDecl, result, recursiveDeclCache);
+                            } else if (isVariableDeclaration(resolvedDecl)) {
+                                this._addVariableDeclarations(resolvedDecl, result, recursiveDeclCache);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private _lookUpSymbolDeclarations(node: ParseNode | undefined, symbolName: string): Declaration[] {
         if (node === undefined) {
             return [];
         }
 
-        const moduleScope = AnalyzerNodeInfo.getScope(node);
-        const symbol = moduleScope?.lookUpSymbol(symbolName);
+        const containingScope = AnalyzerNodeInfo.getScope(node);
+        const symbol = containingScope?.lookUpSymbol(symbolName);
         const decls = symbol?.getDeclarations();
 
         return decls ?? [];
@@ -513,6 +630,18 @@ export class SourceMapper {
     private _getBoundSourceFilesFromStubFile(stubFilePath: string): SourceFile[] {
         const paths = this._importResolver.getSourceFilesFromStub(stubFilePath, this._execEnv, this._mapCompiled);
         return paths.map((fp) => this._fileBinder(stubFilePath, fp)).filter(isDefined);
+    }
+
+    private _isStubFile(filePath: string): boolean {
+        const stub = isStubFile(filePath);
+        if (!stub) {
+            return false;
+        }
+
+        // If we get the same file as a source file, then we treat the file as a regular file even if it has "pyi" extension.
+        return this._importResolver
+            .getSourceFilesFromStub(filePath, this._execEnv, this._mapCompiled)
+            .every((f) => f !== filePath);
     }
 }
 
