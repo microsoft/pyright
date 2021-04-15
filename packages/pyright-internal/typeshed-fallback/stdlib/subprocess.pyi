@@ -23,12 +23,12 @@ if sys.version_info >= (3, 9):
 #    reveal_type(e.cmd)  # Any, but morally is _CMD
 _FILE = Union[None, int, IO[Any]]
 _TXT = Union[bytes, str]
-if sys.version_info < (3, 8):
+if sys.version_info >= (3, 8):
+    _CMD = Union[AnyPath, Sequence[AnyPath]]
+else:
     # Python 3.6 doesn't support _CMD being a single PathLike.
     # See: https://bugs.python.org/issue31961
     _CMD = Union[_TXT, Sequence[AnyPath]]
-else:
-    _CMD = Union[AnyPath, Sequence[AnyPath]]
 if sys.platform == "win32":
     _ENV = Mapping[str, str]
 else:

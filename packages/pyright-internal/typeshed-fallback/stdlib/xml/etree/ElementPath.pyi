@@ -19,7 +19,7 @@ def prepare_predicate(next: _next, token: _token) -> _callback: ...
 ops: Dict[str, Callable[[_next, _token], _callback]]
 
 class _SelectorContext:
-    parent_map: Dict[Element, Element]
+    parent_map: Optional[Dict[Element, Element]]
     root: Element
     def __init__(self, root: Element) -> None: ...
 

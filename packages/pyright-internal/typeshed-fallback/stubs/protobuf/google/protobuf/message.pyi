@@ -10,10 +10,10 @@ class EncodeError(Error): ...
 
 _M = TypeVar("_M", bound=Message)  # message type (of self)
 
-if sys.version_info < (3,):
-    _Serialized = Union[bytes, buffer, unicode]
-else:
+if sys.version_info >= (3, 0):
     _Serialized = ByteString
+else:
+    _Serialized = Union[bytes, buffer, unicode]
 
 class Message:
     DESCRIPTOR: Descriptor

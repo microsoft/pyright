@@ -119,6 +119,7 @@ class Command(BaseCommand):
     short_help: Optional[str]
     options_metavar: str
     add_help_option: bool
+    no_args_is_help: bool
     hidden: bool
     deprecated: bool
     def __init__(
@@ -132,6 +133,7 @@ class Command(BaseCommand):
         short_help: Optional[str] = ...,
         options_metavar: str = ...,
         add_help_option: bool = ...,
+        no_args_is_help: bool = ...,
         hidden: bool = ...,
         deprecated: bool = ...,
     ) -> None: ...

@@ -20,9 +20,7 @@ AUDIO_FILE_ENCODING_ADPCM_G723_5: int
 AUDIO_FILE_ENCODING_ALAW_8: int
 AUDIO_UNKNOWN_SIZE: int
 
-if sys.version_info < (3, 0):
-    _sunau_params = Tuple[int, int, int, int, str, str]
-else:
+if sys.version_info >= (3, 0):
     class _sunau_params(NamedTuple):
         nchannels: int
         sampwidth: int
@@ -30,6 +28,9 @@ else:
         nframes: int
         comptype: str
         compname: str
+
+else:
+    _sunau_params = Tuple[int, int, int, int, str, str]
 
 class Au_read:
     def __init__(self, f: _File) -> None: ...

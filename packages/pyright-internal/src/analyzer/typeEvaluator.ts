@@ -9260,7 +9260,15 @@ export function createTypeEvaluator(
         }
 
         const memberInfo = lookUpClassMember(metaclass, methodName);
-        return !!memberInfo;
+        if (!memberInfo) {
+            return false;
+        }
+
+        if (isClass(memberInfo.classType) && ClassType.isBuiltIn(memberInfo.classType, 'type')) {
+            return false;
+        }
+
+        return true;
     }
 
     function getTypeFromAugmentedAssignment(node: AugmentedAssignmentNode, expectedType: Type | undefined): TypeResult {

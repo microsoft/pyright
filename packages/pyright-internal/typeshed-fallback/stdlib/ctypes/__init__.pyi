@@ -36,15 +36,25 @@ class CDLL(object):
     _name: str = ...
     _handle: int = ...
     _FuncPtr: Type[_FuncPointer] = ...
-    def __init__(
-        self,
-        name: Optional[str],
-        mode: int = ...,
-        handle: Optional[int] = ...,
-        use_errno: bool = ...,
-        use_last_error: bool = ...,
-        winmode: Optional[int] = ...,
-    ) -> None: ...
+    if sys.version_info >= (3, 8):
+        def __init__(
+            self,
+            name: Optional[str],
+            mode: int = ...,
+            handle: Optional[int] = ...,
+            use_errno: bool = ...,
+            use_last_error: bool = ...,
+            winmode: Optional[int] = ...,
+        ) -> None: ...
+    else:
+        def __init__(
+            self,
+            name: Optional[str],
+            mode: int = ...,
+            handle: Optional[int] = ...,
+            use_errno: bool = ...,
+            use_last_error: bool = ...,
+        ) -> None: ...
     def __getattr__(self, name: str) -> _NamedFuncPointer: ...
     def __getitem__(self, name: str) -> _NamedFuncPointer: ...
 
@@ -151,7 +161,7 @@ def byref(obj: _CData, offset: int = ...) -> _CArgObject: ...
 
 _CastT = TypeVar("_CastT", bound=_CanCastTo)
 
-def cast(obj: _UnionT[_CData, _CArgObject, int], type: Type[_CastT]) -> _CastT: ...
+def cast(obj: _UnionT[_CData, _CArgObject, int], typ: Type[_CastT]) -> _CastT: ...
 def create_string_buffer(init: _UnionT[int, bytes], size: Optional[int] = ...) -> Array[c_char]: ...
 
 c_buffer = create_string_buffer

@@ -1,4 +1,5 @@
 import sys
+import types
 from _typeshed import (
     AnyPath,
     OpenBinaryMode,
@@ -156,6 +157,8 @@ class type(object):
     def __subclasscheck__(self, subclass: type) -> bool: ...
     @classmethod
     def __prepare__(metacls, __name: str, __bases: Tuple[type, ...], **kwds: Any) -> Mapping[str, Any]: ...
+    if sys.version_info >= (3, 10):
+        def __or__(self, t: Any) -> types.Union: ...
 
 class super(object):
     @overload

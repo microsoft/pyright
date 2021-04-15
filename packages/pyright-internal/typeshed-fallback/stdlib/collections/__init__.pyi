@@ -1,9 +1,7 @@
 import sys
 from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union, overload
 
-if sys.version_info < (3, 10):
-    from _collections_abc import *
-else:
+if sys.version_info >= (3, 10):
     from typing import (
         Callable,
         ItemsView,
@@ -17,6 +15,8 @@ else:
         Sequence,
         ValuesView,
     )
+else:
+    from _collections_abc import *
 
 _S = TypeVar("_S")
 _T = TypeVar("_T")

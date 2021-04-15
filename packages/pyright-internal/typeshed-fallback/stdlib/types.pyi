@@ -1,20 +1,6 @@
 import sys
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    Generic,
-    Iterable,
-    Iterator,
-    Mapping,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    overload,
-)
+import typing
+from typing import Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, Mapping, Optional, Tuple, Type, TypeVar, overload
 from typing_extensions import Literal, final
 
 # ModuleType is exported from this module, but for circular import
@@ -160,7 +146,7 @@ class GeneratorType:
     def send(self, __arg: Any) -> Any: ...
     @overload
     def throw(
-        self, __typ: Type[BaseException], __val: Union[BaseException, object] = ..., __tb: Optional[TracebackType] = ...
+        self, __typ: Type[BaseException], __val: typing.Union[BaseException, object] = ..., __tb: Optional[TracebackType] = ...
     ) -> Any: ...
     @overload
     def throw(self, __typ: BaseException, __val: None = ..., __tb: Optional[TracebackType] = ...) -> Any: ...
@@ -175,7 +161,7 @@ class AsyncGeneratorType(Generic[_T_co, _T_contra]):
     def asend(self, __val: _T_contra) -> Awaitable[_T_co]: ...
     @overload
     def athrow(
-        self, __typ: Type[BaseException], __val: Union[BaseException, object] = ..., __tb: Optional[TracebackType] = ...
+        self, __typ: Type[BaseException], __val: typing.Union[BaseException, object] = ..., __tb: Optional[TracebackType] = ...
     ) -> Awaitable[_T_co]: ...
     @overload
     def athrow(self, __typ: BaseException, __val: None = ..., __tb: Optional[TracebackType] = ...) -> Awaitable[_T_co]: ...
@@ -190,7 +176,7 @@ class CoroutineType:
     def send(self, __arg: Any) -> Any: ...
     @overload
     def throw(
-        self, __typ: Type[BaseException], __val: Union[BaseException, object] = ..., __tb: Optional[TracebackType] = ...
+        self, __typ: Type[BaseException], __val: typing.Union[BaseException, object] = ..., __tb: Optional[TracebackType] = ...
     ) -> Any: ...
     @overload
     def throw(self, __typ: BaseException, __val: None = ..., __tb: Optional[TracebackType] = ...) -> Any: ...
@@ -220,7 +206,7 @@ class MethodType:
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 
 class BuiltinFunctionType:
-    __self__: Union[object, ModuleType]
+    __self__: typing.Union[object, ModuleType]
     __name__: str
     __qualname__: str
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
@@ -334,3 +320,5 @@ if sys.version_info >= (3, 10):
     from builtins import _NotImplementedType
 
     NotImplementedType = _NotImplementedType  # noqa F811 from builtins
+    class Union:
+        __args__: Tuple[Any, ...]

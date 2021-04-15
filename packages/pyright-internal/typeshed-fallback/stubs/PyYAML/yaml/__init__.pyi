@@ -11,10 +11,10 @@ from yaml.tokens import *  # noqa: F403
 from . import resolver as resolver  # Help mypy a bit; this is implied by loader and dumper
 from .cyaml import *
 
-if sys.version_info < (3,):
-    _Str = Union[Text, str]
-else:
+if sys.version_info >= (3, 0):
     _Str = str
+else:
+    _Str = Union[Text, str]
 # FIXME: the functions really return py2:unicode/py3:str if encoding is None, otherwise py2:str/py3:bytes. Waiting for python/mypy#5621
 _Yaml = Any
 

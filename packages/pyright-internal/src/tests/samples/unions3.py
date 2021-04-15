@@ -42,13 +42,6 @@ def requires_class_with_meta1(val: Type[ClassWithMeta1]):
     pass
 
 
-def requires_class_with_meta2(val: Type[ClassWithMeta2]):
-    pass
-
-
 MetaOr1 = ClassWithMeta1 | ClassWithNoMeta1
 requires_class_with_meta1(MetaOr1)
 
-
-MetaOr2 = ClassWithNoMeta2 | ClassWithMeta2
-requires_class_with_meta2(MetaOr2)
