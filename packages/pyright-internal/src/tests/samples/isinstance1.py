@@ -1,7 +1,7 @@
 # This sample tests basic type narrowing behavior for
 # the isinstance call.
 
-from typing import Any, List, Literal, Type, TypedDict, Union
+from typing import Any, List, Literal, Optional, Type, TypedDict, Union
 
 
 def func1(x: Union[List[str], int]):
@@ -48,3 +48,10 @@ def func6(x: Type[int] | Type[str] | Type[complex]):
         t1: Literal["Type[int] | Type[str]"] = reveal_type(x)
     else:
         t2: Literal["Type[complex]"] = reveal_type(x)
+
+
+def func7(x: Optional[Union[int, SomeTypedDict]]):
+    if isinstance(x, (dict, type(None))):
+        t1: Literal["SomeTypedDict | None"] = reveal_type(x)
+    else:
+        t2: Literal["int"] = reveal_type(x)

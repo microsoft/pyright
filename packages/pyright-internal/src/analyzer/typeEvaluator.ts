@@ -6849,7 +6849,11 @@ export function createTypeEvaluator(
                                 // The one-parameter form of "type" returns the class
                                 // for the specified object.
                                 const argType = getTypeForArgument(argList[0]);
-                                if (isObject(argType) || (isTypeVar(argType) && TypeBase.isInstance(argType))) {
+                                if (
+                                    isObject(argType) ||
+                                    (isTypeVar(argType) && TypeBase.isInstance(argType)) ||
+                                    isNone(argType)
+                                ) {
                                     return convertToInstantiable(stripLiteralValue(argType));
                                 }
                             } else if (argList.length >= 2) {
@@ -16323,7 +16327,7 @@ export function createTypeEvaluator(
     // that accepts a single class, and a more complex form that accepts a tuple
     // of classes. This method determines which form and returns a list of classes
     // or undefined.
-    function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType)[] | undefined {
+    function getIsInstanceClassTypes(argType: Type): (ClassType | TypeVarType | NoneType)[] | undefined {
         argType = transformTypeObjectToClass(argType);
 
         if (isClass(argType) || (isTypeVar(argType) && TypeBase.isInstantiable(argType))) {
@@ -16334,10 +16338,12 @@ export function createTypeEvaluator(
             const objClass = argType.classType;
             if (isTupleClass(objClass) && objClass.tupleTypeArguments) {
                 let foundNonClassType = false;
-                const classTypeList: (ClassType | TypeVarType)[] = [];
+                const classTypeList: (ClassType | TypeVarType | NoneType)[] = [];
                 objClass.tupleTypeArguments.forEach((typeArg) => {
                     typeArg = transformTypeObjectToClass(typeArg);
                     if (isClass(typeArg) || (isTypeVar(typeArg) && TypeBase.isInstantiable(typeArg))) {
+                        classTypeList.push(typeArg);
+                    } else if (isNone(typeArg) && TypeBase.isInstantiable(typeArg)) {
                         classTypeList.push(typeArg);
                     } else {
                         foundNonClassType = true;
@@ -16377,7 +16383,7 @@ export function createTypeEvaluator(
     // we can conclude that x must be constrained to "Cow".
     function narrowTypeForIsInstance(
         type: Type,
-        classTypeList: (ClassType | TypeVarType)[],
+        classTypeList: (ClassType | TypeVarType | NoneType)[],
         isInstanceCheck: boolean,
         isPositiveTest: boolean
     ): Type {
@@ -16517,29 +16523,7 @@ export function createTypeEvaluator(
                 const negativeFallback = constraints ? subtype : unexpandedSubtype;
                 const isSubtypeTypeObject = isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'type');
 
-                if (isInstanceCheck && isObject(subtype) && !isSubtypeTypeObject) {
-                    return combineTypes(
-                        filterType(subtype.classType, convertToInstance(unexpandedSubtype), negativeFallback)
-                    );
-                } else if (isInstanceCheck && (isClass(subtype) || isSubtypeTypeObject)) {
-                    // Handle the special case of isinstance(x, type).
-                    const includesTypeType = classTypeList.some(
-                        (classType) => isClass(classType) && ClassType.isBuiltIn(classType, 'type')
-                    );
-                    if (isPositiveTest) {
-                        return includesTypeType ? negativeFallback : undefined;
-                    } else {
-                        return includesTypeType ? undefined : negativeFallback;
-                    }
-                } else if (!isInstanceCheck && isClass(subtype)) {
-                    return combineTypes(filterType(subtype, unexpandedSubtype, negativeFallback));
-                } else if (!isInstanceCheck && isSubtypeTypeObject) {
-                    if (objectType && isObject(objectType)) {
-                        return combineTypes(
-                            filterType(objectType.classType, convertToInstantiable(unexpandedSubtype), negativeFallback)
-                        );
-                    }
-                } else if (isPositiveTest && isAnyOrUnknown(subtype)) {
+                if (isPositiveTest && isAnyOrUnknown(subtype)) {
                     // If this is a positive test and the effective type is Any or
                     // Unknown, we can assume that the type matches one of the
                     // specified types.
@@ -16553,6 +16537,51 @@ export function createTypeEvaluator(
 
                     anyOrUnknown.push(subtype);
                     return undefined;
+                }
+
+                if (isInstanceCheck) {
+                    if (isNone(subtype)) {
+                        const containsNoneType = classTypeList.some((t) => isNone(t) && TypeBase.isInstantiable(t));
+                        if (isPositiveTest) {
+                            return containsNoneType ? subtype : undefined;
+                        } else {
+                            return containsNoneType ? undefined : subtype;
+                        }
+                    }
+
+                    if (isObject(subtype) && !isSubtypeTypeObject) {
+                        return combineTypes(
+                            filterType(subtype.classType, convertToInstance(unexpandedSubtype), negativeFallback)
+                        );
+                    }
+
+                    if (isClass(subtype) || isSubtypeTypeObject) {
+                        // Handle the special case of isinstance(x, type).
+                        const includesTypeType = classTypeList.some(
+                            (classType) => isClass(classType) && ClassType.isBuiltIn(classType, 'type')
+                        );
+                        if (isPositiveTest) {
+                            return includesTypeType ? negativeFallback : undefined;
+                        } else {
+                            return includesTypeType ? undefined : negativeFallback;
+                        }
+                    }
+                } else {
+                    if (isClass(subtype)) {
+                        return combineTypes(filterType(subtype, unexpandedSubtype, negativeFallback));
+                    }
+
+                    if (isSubtypeTypeObject) {
+                        if (objectType && isObject(objectType)) {
+                            return combineTypes(
+                                filterType(
+                                    objectType.classType,
+                                    convertToInstantiable(unexpandedSubtype),
+                                    negativeFallback
+                                )
+                            );
+                        }
+                    }
                 }
 
                 return isPositiveTest ? undefined : negativeFallback;
@@ -18390,7 +18419,7 @@ export function createTypeEvaluator(
                     diag,
                     typeVarMap,
                     flags,
-                    recursionCount
+                    recursionCount + 1
                 )
             ) {
                 typesAreConsistent = false;
@@ -20222,7 +20251,7 @@ export function createTypeEvaluator(
                     typeVarMap,
                     flags,
                     /* allowMetaclassForProtocols */ false,
-                    recursionCount
+                    recursionCount + 1
                 );
             }
         }
