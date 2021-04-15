@@ -233,6 +233,7 @@ export class Binder extends ParseTreeWalker {
                 this._addBuiltInSymbolToCurrentScope('__file__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__cached__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');
+                this._addBuiltInSymbolToCurrentScope('__annotations__', node, 'Dict[str, Any]');
 
                 // Create a start node for the module.
                 this._currentFlowNode = this._createStartFlowNode();
