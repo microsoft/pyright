@@ -1,6 +1,9 @@
 # This sample tests function parameter matching logic.
 
 
+from typing import Any
+
+
 def func1(a: int, *b: int):
     pass
 
@@ -58,3 +61,16 @@ func2(a="", a="")
 
 # This should generate an error because c is assigned twice.
 func2("", c=4, d=5, c=5)
+
+
+def func6(param1: int, param2: str):
+    pass
+
+
+def func7(*args: Any, param0: int, param1: int, param2: str):
+    func6(*args, param1=param1, param2=param2)
+
+    func6(param0, param2=param2)
+
+    # This should generate an error because param0 has no match.
+    func6(param0, param1=param1)

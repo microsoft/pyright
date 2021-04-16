@@ -7241,6 +7241,26 @@ export function createTypeEvaluator(
             }
         }
 
+        // If there are keyword arguments present, they may target one or
+        // more parameters that are positional. In this case, we will limit
+        // the number of positional parameters.
+        argList.forEach((arg) => {
+            if (arg.name) {
+                const namedParamIndex = typeParams.findIndex(
+                    (param) => param.name === arg.name!.value && param.category === ParameterCategory.Simple
+                );
+
+                // Is this a parameter that can be interpreted as either a keyword or a positional?
+                // If so, we'll treat it as a keyword parameter in this case because it's being
+                // targeted by a keyword argument.
+                if (namedParamIndex >= 0 && namedParamIndex > positionalOnlyIndex) {
+                    if (positionalParamCount < 0 || namedParamIndex < positionalParamCount) {
+                        positionalParamCount = namedParamIndex;
+                    }
+                }
+            }
+        });
+
         // If we didn't see any special cases, then all parameters are positional.
         if (positionalParamCount < 0) {
             positionalParamCount = typeParams.length;
