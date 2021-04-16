@@ -980,6 +980,10 @@ export class CompletionProvider {
             sb += 'return ';
         }
 
+        if (decl.node.isAsync) {
+            sb += 'await ';
+        }
+
         if (isProperty) {
             return sb + `super().${decl.node.name.value}`;
         }
