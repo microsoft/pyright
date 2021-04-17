@@ -19440,8 +19440,23 @@ export function createTypeEvaluator(
                     canAssignType(curNarrowTypeBound, adjSrcType, diagAddendum, typeVarMap, flags, recursionCount + 1)
                 ) {
                     // No need to widen. Stick with the existing type unless it's unknown
-                    // or partly unknown, in which case we'll replace it with a known type.
-                    newNarrowTypeBound = isPartlyUnknown(curNarrowTypeBound) ? adjSrcType : curNarrowTypeBound;
+                    // or partly unknown, in which case we'll replace it with a known type
+                    // as long as it doesn't violate the current narrow bound.
+                    if (
+                        isPartlyUnknown(curNarrowTypeBound) &&
+                        canAssignType(
+                            adjSrcType,
+                            curNarrowTypeBound,
+                            new DiagnosticAddendum(),
+                            typeVarMap,
+                            flags,
+                            recursionCount + 1
+                        )
+                    ) {
+                        newNarrowTypeBound = adjSrcType;
+                    } else {
+                        newNarrowTypeBound = curNarrowTypeBound;
+                    }
                 } else {
                     // We need to widen the type.
                     if (typeVarMap.isLocked() || isTypeVar(adjSrcType)) {
