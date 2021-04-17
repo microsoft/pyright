@@ -14699,7 +14699,9 @@ export function createTypeEvaluator(
         // case, we want to choose the last declaration.
         const filteredDecls = symbolWithScope.symbol
             .getDeclarations()
-            .filter((decl) => ParseTreeUtils.isNodeContainedWithin(node, decl.node) && decl.type === DeclarationType.Alias);
+            .filter(
+                (decl) => ParseTreeUtils.isNodeContainedWithin(node, decl.node) && decl.type === DeclarationType.Alias
+            );
         let aliasDecl = filteredDecls.length > 0 ? filteredDecls[filteredDecls.length - 1] : undefined;
 
         // If we didn't find an exact match, look for any alias associated with
@@ -18349,7 +18351,9 @@ export function createTypeEvaluator(
                                 const boundSrcFunction = bindFunctionToClassOrObject(
                                     ObjectType.create(srcType),
                                     srcMemberType,
-                                    memberInfo.classType
+                                    memberInfo.classType,
+                                    /* errorNode */ undefined,
+                                    recursionCount + 1
                                 );
                                 if (boundSrcFunction) {
                                     srcMemberType = boundSrcFunction;
@@ -18502,7 +18506,9 @@ export function createTypeEvaluator(
                                 const boundDeclaredType = bindFunctionToClassOrObject(
                                     ObjectType.create(destType),
                                     declaredType,
-                                    destType
+                                    destType,
+                                    /* errorNode */ undefined,
+                                    recursionCount + 1
                                 );
                                 if (boundDeclaredType) {
                                     declaredType = boundDeclaredType;
