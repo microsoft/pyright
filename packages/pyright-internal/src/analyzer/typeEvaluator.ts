@@ -11620,8 +11620,8 @@ export function createTypeEvaluator(
         if (decl) {
             classDecl = decl as ClassDeclaration;
         }
-        if (classDecl) {
-            setSymbolResolutionPartialType(classSymbol!, classDecl, classType);
+        if (classDecl && classSymbol) {
+            setSymbolResolutionPartialType(classSymbol, classDecl, classType);
         }
         classType.details.flags |= ClassTypeFlags.PartiallyConstructed;
         writeTypeCache(node, classType, /* isIncomplete */ false);
