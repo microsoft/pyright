@@ -105,7 +105,8 @@ export function createTypeEvaluatorWithTracker(
         getTypeAnnotationForParameter: (n, p) =>
             run('getTypeAnnotationForParameter', () => typeEvaluator.getTypeAnnotationForParameter(n, p), n),
         canAssignType: (d, s, a, m, f) => run('canAssignType', () => typeEvaluator.canAssignType(d, s, a, m, f), d),
-        canOverrideMethod: (b, o, d) => run('canOverrideMethod', () => typeEvaluator.canOverrideMethod(b, o, d), o),
+        canOverrideMethod: (b, o, d, e) =>
+            run('canOverrideMethod', () => typeEvaluator.canOverrideMethod(b, o, d, e), o),
         canAssignProtocolClassToSelf: (d, s) =>
             run('canAssignProtocolClassToSelf', () => typeEvaluator.canAssignProtocolClassToSelf(d, s)),
         addError: (m, n) => run('addError', () => typeEvaluator.addError(m, n), n),
