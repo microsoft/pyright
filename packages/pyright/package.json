@@ -18,8 +18,8 @@
     },
     "scripts": {
         "build": "webpack --mode production --progress",
-        "clean": "shx rm -rf ./dist ./out README.md",
-        "prepack": "npm run clean && shx cp ../../README.md . && npm run build",
+        "clean": "shx rm -rf ./dist ./out README.md LICENSE.txt",
+        "prepack": "npm run clean && shx cp ../../README.md . && shx cp ../../LICENSE.txt . && npm run build",
         "webpack": "webpack --mode development --progress"
     },
     "devDependencies": {
@@ -34,7 +34,8 @@
         "webpack-cli": "^4.5.0"
     },
     "files": [
-        "/dist"
+        "/dist",
+        "LICENSE.txt"
     ],
     "main": "index.js",
     "bin": {
