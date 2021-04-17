@@ -20124,6 +20124,8 @@ export function createTypeEvaluator(
                 }
             } else if (isAnyOrUnknown(concreteSrcType)) {
                 return (flags & CanAssignFlags.DisallowAssignFromAny) === 0;
+            } else if (isUnion(concreteSrcType)) {
+                return canAssignType(destType, concreteSrcType, diag, typeVarMap, flags, recursionCount + 1);
             }
         }
 
