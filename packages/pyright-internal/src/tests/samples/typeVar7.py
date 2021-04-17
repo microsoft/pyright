@@ -134,3 +134,38 @@ def custom_add(a: _T3, b: _T4) -> float:
     c = a + b
     t1: Literal["float | int"] = reveal_type(c)
     return c
+
+
+class Thing1:
+    def __add__(self, value: float) -> "Thing1":
+        ...
+
+    def __radd__(self, value: float) -> "Thing1":
+        ...
+
+
+class Thing2:
+    def __add__(self, value: float) -> "Thing2":
+        ...
+
+    def __radd__(self, value: float) -> "Thing2":
+        ...
+
+
+TThing = TypeVar("TThing", Thing1, Thing2)
+
+
+def func1(x: TThing) -> TThing:
+    if isinstance(x, Thing1):
+        return 2 + x
+    else:
+        assert isinstance(x, Thing2)
+        return 3 + x
+
+
+def func2(x: TThing) -> TThing:
+    if isinstance(x, Thing1):
+        return x + 2
+    else:
+        assert isinstance(x, Thing2)
+        return x + 3

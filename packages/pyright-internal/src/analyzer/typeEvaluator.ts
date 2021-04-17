@@ -3193,12 +3193,14 @@ export function createTypeEvaluator(
         const newSubtypes: ConstrainedSubtype[] = [];
         let typeChanged = false;
 
-        const expandSubtype = (unexpandedType: Type) => {
-            const expandedType = makeTopLevelTypeVarsConcrete(unexpandedType);
+        const expandSubtype = (unexpandedType: Type, constraints: SubtypeConstraints) => {
+            const expandedType = isUnion(unexpandedType)
+                ? unexpandedType
+                : makeTopLevelTypeVarsConcrete(unexpandedType);
 
             if (isUnion(expandedType)) {
                 expandedType.subtypes.forEach((subtype, index) => {
-                    const subtypeConstraints = expandedType.constraints ? expandedType.constraints[index] : undefined;
+                    const subtypeConstraints = expandedType.constraints ? expandedType.constraints[index] : constraints;
                     if (constraintFilter) {
                         if (!SubtypeConstraint.isCompatible(subtypeConstraints, constraintFilter)) {
                             return undefined;
@@ -3215,23 +3217,23 @@ export function createTypeEvaluator(
                     return undefined;
                 });
             } else {
-                const transformedType = callback(expandedType, unexpandedType, undefined);
+                const transformedType = callback(expandedType, unexpandedType, constraints);
                 if (transformedType !== unexpandedType) {
                     typeChanged = true;
                 }
 
                 if (transformedType) {
-                    newSubtypes.push({ type: transformedType, constraints: undefined });
+                    newSubtypes.push({ type: transformedType, constraints: constraints });
                 }
             }
         };
 
         if (isUnion(type)) {
-            type.subtypes.forEach((subtype) => {
-                expandSubtype(subtype);
+            type.subtypes.forEach((subtype, index) => {
+                expandSubtype(subtype, type.constraints ? type.constraints[index] : undefined);
             });
         } else {
-            expandSubtype(type);
+            expandSubtype(type, /* constraints */ undefined);
         }
 
         return typeChanged ? combineConstrainedTypes(newSubtypes) : type;
@@ -16417,7 +16419,12 @@ export function createTypeEvaluator(
         // Filters the varType by the parameters of the isinstance
         // and returns the list of types the varType could be after
         // applying the filter.
-        const filterType = (varType: ClassType, unexpandedType: Type, negativeFallbackType: Type): Type[] => {
+        const filterType = (
+            varType: ClassType,
+            unexpandedType: Type,
+            constraints: SubtypeConstraints,
+            negativeFallbackType: Type
+        ): Type[] => {
             const filteredTypes: Type[] = [];
 
             let foundSuperclass = false;
@@ -16465,7 +16472,7 @@ export function createTypeEvaluator(
                             if (isTypeVar(unexpandedType) && unexpandedType.details.constraints.length === 0) {
                                 filteredTypes.push(unexpandedType);
                             } else {
-                                filteredTypes.push(varType);
+                                filteredTypes.push(combineConstrainedTypes([{ type: varType, constraints }]));
                             }
                         } else if (filterIsSubclass) {
                             // If the variable type is a superclass of the isinstance
@@ -16571,7 +16578,12 @@ export function createTypeEvaluator(
 
                     if (isObject(subtype) && !isSubtypeTypeObject) {
                         return combineTypes(
-                            filterType(subtype.classType, convertToInstance(unexpandedSubtype), negativeFallback)
+                            filterType(
+                                subtype.classType,
+                                convertToInstance(unexpandedSubtype),
+                                constraints,
+                                negativeFallback
+                            )
                         );
                     }
 
@@ -16588,7 +16600,7 @@ export function createTypeEvaluator(
                     }
                 } else {
                     if (isClass(subtype)) {
-                        return combineTypes(filterType(subtype, unexpandedSubtype, negativeFallback));
+                        return combineTypes(filterType(subtype, unexpandedSubtype, constraints, negativeFallback));
                     }
 
                     if (isSubtypeTypeObject) {
@@ -16597,6 +16609,7 @@ export function createTypeEvaluator(
                                 filterType(
                                     objectType.classType,
                                     convertToInstantiable(unexpandedSubtype),
+                                    constraints,
                                     negativeFallback
                                 )
                             );
