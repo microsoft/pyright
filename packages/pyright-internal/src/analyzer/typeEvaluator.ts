@@ -14699,7 +14699,7 @@ export function createTypeEvaluator(
         // case, we want to choose the last declaration.
         const filteredDecls = symbolWithScope.symbol
             .getDeclarations()
-            .filter((decl) => ParseTreeUtils.isNodeContainedWithin(node, decl.node));
+            .filter((decl) => ParseTreeUtils.isNodeContainedWithin(node, decl.node) && decl.type === DeclarationType.Alias);
         let aliasDecl = filteredDecls.length > 0 ? filteredDecls[filteredDecls.length - 1] : undefined;
 
         // If we didn't find an exact match, look for any alias associated with

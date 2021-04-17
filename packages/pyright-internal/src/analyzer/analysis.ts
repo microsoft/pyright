@@ -52,8 +52,6 @@ export function analyzeProgram(
         moreToAnalyze = program.analyze(maxTime, token);
 
         const filesLeftToAnalyze = program.getFilesToAnalyzeCount();
-        debug.assert(filesLeftToAnalyze === 0 || moreToAnalyze);
-
         const diagnostics = program.getDiagnostics(configOptions);
         const diagnosticFileCount = diagnostics.length;
         const elapsedTime = duration.getDurationInSeconds();
