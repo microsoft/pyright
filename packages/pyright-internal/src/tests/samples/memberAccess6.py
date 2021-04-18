@@ -3,7 +3,7 @@
 
 # pyright: strict
 
-from typing import Generic, Optional, Type, TypeVar, overload
+from typing import Any, Generic, Optional, Type, TypeVar, overload
 
 
 _T = TypeVar("_T")
@@ -18,18 +18,14 @@ class Column(Generic[_T]):
         ...
 
     @overload
-    def __get__(
-        self: "Column[_T]", instance: None, type: Optional[Type[_T]]
-    ) -> "Column[_T]":
+    def __get__(self: "Column[_T]", instance: None, type: Any) -> "Column[_T]":
         ...
 
     @overload
-    def __get__(self: "Column[_T]", instance: FooBase, type: Optional[Type[_T]]) -> _T:
+    def __get__(self: "Column[_T]", instance: FooBase, type: Any) -> _T:
         ...
 
-    def __get__(
-        self, instance: Optional[FooBase], type: Optional[Type[_T]]
-    ) -> Optional[_T]:
+    def __get__(self, instance: Optional[FooBase], type: Any) -> Optional[_T]:
         ...
 
 

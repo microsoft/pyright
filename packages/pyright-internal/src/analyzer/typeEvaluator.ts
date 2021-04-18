@@ -4729,7 +4729,7 @@ export function createTypeEvaluator(
                             type: subtype,
                         },
                         {
-                            // Provide "obj" argument.
+                            // Provide "instance" argument.
                             argumentCategory: ArgumentCategory.Simple,
                             type: isAccessedThroughObject
                                 ? bindToType || ObjectType.create(baseTypeClass)
@@ -4738,7 +4738,7 @@ export function createTypeEvaluator(
                     ];
 
                     if (usage.method === 'get') {
-                        // Provide "type" argument.
+                        // Provide "owner" argument.
                         argList.push({
                             argumentCategory: ArgumentCategory.Simple,
                             type: baseTypeClass,
@@ -4770,34 +4770,25 @@ export function createTypeEvaluator(
                         accessMethodType = partiallySpecializeType(accessMethodType, memberInfo.classType);
                     }
 
-                    // If it's an overloaded function, determine which overload to use.
-                    if (isOverloadedFunction(accessMethodType)) {
-                        const overload = findOverloadedFunctionType(
-                            errorNode,
-                            argList,
-                            accessMethodType,
-                            /* expectedType */ undefined,
-                            new TypeVarMap(getTypeVarScopeId(accessMethod.classType))
-                        );
-                        if (overload) {
-                            accessMethodType = overload;
-                        }
-                    }
+                    if (accessMethodType && (isFunction(accessMethodType) || isOverloadedFunction(accessMethodType))) {
+                        const methodType = accessMethodType;
 
-                    if (accessMethodType && isFunction(accessMethodType)) {
                         // Don't emit separate diagnostics for these method calls because
                         // they will be redundant.
                         const returnType = suppressDiagnostics(errorNode, () => {
                             // Bind the accessor to the base object type.
                             const boundMethodType = bindFunctionToClassOrObject(
                                 subtype,
-                                accessMethodType as FunctionType,
+                                methodType,
                                 memberInfo && isClass(memberInfo.classType) ? memberInfo.classType : undefined,
                                 errorNode
                             );
 
-                            if (boundMethodType && isFunction(boundMethodType)) {
-                                const callResult = validateFunctionArguments(
+                            if (
+                                boundMethodType &&
+                                (isFunction(boundMethodType) || isOverloadedFunction(boundMethodType))
+                            ) {
+                                const callResult = validateCallArguments(
                                     errorNode,
                                     argList.slice(1),
                                     boundMethodType,
