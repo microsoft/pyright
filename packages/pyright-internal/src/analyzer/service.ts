@@ -1262,7 +1262,7 @@ export class AnalyzerService {
             const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
             for (const execEnv of this._configOptions.getExecutionEnvironments()) {
                 log(this._console, logLevel, `Search paths for ${execEnv.root}`);
-                const roots = importResolver.getImportRoots(execEnv);
+                const roots = importResolver.getImportRoots(execEnv, /* forLogging */ true);
                 roots.forEach((path) => {
                     log(this._console, logLevel, `  ${path}`);
                 });
