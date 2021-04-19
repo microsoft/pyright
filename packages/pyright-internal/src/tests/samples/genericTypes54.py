@@ -7,8 +7,9 @@
 # result = filter(os.path.exists, ["hello", "world"])
 
 from typing import Any, Callable, Iterable, Iterator, TypeVar
+from functools import reduce
 
-_T = TypeVar("_T")
+_T1 = TypeVar("_T1")
 AnyStr = TypeVar("AnyStr", str, bytes)
 
 
@@ -16,10 +17,15 @@ def exists2(path: AnyStr) -> bool:
     ...
 
 
-def filter2(f: Callable[[_T], Any], i: Iterable[_T]) -> Iterator[_T]:
+def filter2(f: Callable[[_T1], Any], i: Iterable[_T1]) -> Iterator[_T1]:
     ...
 
 
 result = filter2(exists2, ["hello", "world"])
 
 
+_T2 = TypeVar("_T2", set, frozenset)
+
+
+def merge_sets(sets: Iterable[_T2]) -> _T2:
+    return reduce(lambda x, y: x.union(y), sets)
