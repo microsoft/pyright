@@ -212,13 +212,6 @@ export class BackgroundAnalysisProgram {
         this._program.markAllFilesDirty(true);
     }
 
-    invalidateCache() {
-        // Invalidate import resolver because it could have cached
-        // imports that are no longer valid because a source file has
-        // been deleted or added.
-        this._importResolver.invalidateCache();
-    }
-
     restart() {
         this._backgroundAnalysis?.restart();
     }
