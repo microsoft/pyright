@@ -6701,25 +6701,6 @@ export function createTypeEvaluator(
                         return createNamedTupleType(errorNode, argList, false);
                     }
 
-                    if (concreteSubtype.details.builtInName === 'NewType') {
-                        const callResult = validateFunctionArguments(
-                            errorNode,
-                            argList,
-                            concreteSubtype,
-                            new TypeVarMap(getTypeVarScopeId(concreteSubtype)),
-                            skipUnknownArgCheck,
-                            expectedType
-                        );
-
-                        if (callResult.isTypeIncomplete) {
-                            isTypeIncomplete = true;
-                        }
-
-                        // If the call's arguments were validated, replace the
-                        // type with a new synthesized subclass.
-                        return callResult.argumentErrors ? callResult.returnType : createNewType(errorNode, argList);
-                    }
-
                     const functionResult = validateFunctionArguments(
                         errorNode,
                         argList,
@@ -6733,6 +6714,11 @@ export function createTypeEvaluator(
                     }
                     if (functionResult.isTypeIncomplete) {
                         isTypeIncomplete = true;
+                    }
+
+                    // Handle the NewType specially, replacing the normal return type.
+                    if (!functionResult.argumentErrors && concreteSubtype.details.builtInName === 'NewType') {
+                        return createNewType(errorNode, argList);
                     }
 
                     if (concreteSubtype.details.builtInName === '__import__') {
