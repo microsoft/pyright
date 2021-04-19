@@ -8075,7 +8075,13 @@ export function createTypeEvaluator(
         let diag = new DiagnosticAddendum();
 
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
-            if (!isDiagnosticSuppressedForNode(argParam.errorNode)) {
+            // Mismatching parameter types are common in untyped code; don't bother spending time
+            // printing types if the diagnostic is disabled.
+            const fileInfo = getFileInfo(argParam.errorNode);
+            if (
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues !== 'none' &&
+                !isDiagnosticSuppressedForNode(argParam.errorNode)
+            ) {
                 const fileInfo = getFileInfo(argParam.errorNode);
                 const argTypeText = printType(argType);
                 const paramTypeText = printType(argParam.paramType);
@@ -8147,7 +8153,8 @@ export function createTypeEvaluator(
             };
 
             // Do not check for unknown types if the expected type is "Any".
-            if (!isAny(argParam.paramType)) {
+            // Don't print types if reportUnknownArgumentType is disabled for performance.
+            if (fileInfo.diagnosticRuleSet.reportUnknownArgumentType !== 'none' && !isAny(argParam.paramType)) {
                 if (isUnknown(simplifiedType)) {
                     const diagAddendum = getDiagAddendum();
                     addDiagnostic(
