@@ -7697,20 +7697,19 @@ export function createTypeEvaluator(
         };
     }
 
-    // Tries to assign the call arguments to the function parameter
-    // list and reports any mismatches in types or counts. Returns the
-    // specialized return type of the call.
-    function validateFunctionArguments(
+    // After having matched arguments with parameters, this function evaluates the
+    // types of each argument expression and validates that the resulting type is
+    // compatible with the declared type of the corresponding parameter.
+    function validateFunctionArgumentTypes(
         errorNode: ExpressionNode,
-        argList: FunctionArgument[],
+        matchResults: MatchArgsToParamsResult,
         type: FunctionType,
         typeVarMap: TypeVarMap,
         skipUnknownArgCheck = false,
         expectedType?: Type
     ): CallResult {
-        const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, type);
         let isTypeIncomplete = false;
-        let reportedArgError = matchResults.argumentErrors;
+        let argumentErrors = false;
 
         // If the function was bound to a class or object, it's possible that
         // some of that class's type variables have not yet been solved. Add
@@ -7768,70 +7767,55 @@ export function createTypeEvaluator(
             skipUnknownArgCheck = true;
         }
 
-        if (!reportedArgError || !speculativeTypeTracker.isSpeculative(undefined)) {
-            // Run through all args and validate them against their matched parameter.
-            // We'll do two passes. The first one will match any type arguments. The second
-            // will perform the actual validation. We can skip the first pass if there
-            // are no type vars to match.
-            const typeVarMatchingCount = matchResults.argParams.filter((arg) => arg.requiresTypeVarMatching).length;
-            if (typeVarMatchingCount > 0) {
-                // In theory, we may need to do up to n passes where n is the number of
-                // arguments that need type var matching. That's because later matches
-                // can provide bidirectional type hints for earlier matches. The best
-                // example of this is the built-in "map" method whose first parameter is
-                // a lambda and second parameter indicates what type the lambda should accept.
-                // In practice, we will limit the number of passes to 2 because it can get
-                // very expensive to go beyond this, and we don't see generally see cases
-                // where more than two passes are needed.
-                const passCount = Math.min(typeVarMatchingCount, 2);
-                for (let i = 0; i < passCount; i++) {
-                    useSpeculativeMode(errorNode, () => {
-                        matchResults.argParams.forEach((argParam) => {
-                            if (argParam.requiresTypeVarMatching) {
-                                const argResult = validateArgType(
-                                    argParam,
-                                    typeVarMap,
-                                    type.details.name,
-                                    skipUnknownArgCheck
-                                );
-                                if (argResult.isTypeIncomplete) {
-                                    isTypeIncomplete = true;
-                                }
+        // Run through all args and validate them against their matched parameter.
+        // We'll do two passes. The first one will match any type arguments. The second
+        // will perform the actual validation. We can skip the first pass if there
+        // are no type vars to match.
+        const typeVarMatchingCount = matchResults.argParams.filter((arg) => arg.requiresTypeVarMatching).length;
+        if (typeVarMatchingCount > 0) {
+            // In theory, we may need to do up to n passes where n is the number of
+            // arguments that need type var matching. That's because later matches
+            // can provide bidirectional type hints for earlier matches. The best
+            // example of this is the built-in "map" method whose first parameter is
+            // a lambda and second parameter indicates what type the lambda should accept.
+            // In practice, we will limit the number of passes to 2 because it can get
+            // very expensive to go beyond this, and we don't see generally see cases
+            // where more than two passes are needed.
+            const passCount = Math.min(typeVarMatchingCount, 2);
+            for (let i = 0; i < passCount; i++) {
+                useSpeculativeMode(errorNode, () => {
+                    matchResults.argParams.forEach((argParam) => {
+                        if (argParam.requiresTypeVarMatching) {
+                            const argResult = validateArgType(
+                                argParam,
+                                typeVarMap,
+                                type.details.name,
+                                skipUnknownArgCheck
+                            );
+                            if (argResult.isTypeIncomplete) {
+                                isTypeIncomplete = true;
                             }
-                        });
-                    });
-                }
-
-                // Lock the type var map so it cannot be modified and revalidate the
-                // arguments in a second pass.
-                typeVarMap.lock();
-            }
-
-            matchResults.argParams.forEach((argParam) => {
-                const argResult = validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck);
-                if (!argResult.isCompatible) {
-                    reportedArgError = true;
-                } else if (argResult.isTypeIncomplete) {
-                    isTypeIncomplete = true;
-                }
-            });
-
-            // Run through all the args that were not validated and evaluate their types
-            // to ensure that we haven't missed any (due to arg/param mismatches). This will
-            // ensure that referenced symbols are not reported as unaccessed.
-            if (!incompleteTypeTracker.isUndoTrackingEnabled()) {
-                argList.forEach((arg) => {
-                    if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
-                        if (!matchResults.argParams.some((validatedArg) => validatedArg.argument === arg)) {
-                            getTypeOfExpression(arg.valueExpression);
                         }
-                    }
+                    });
                 });
             }
+
+            // Lock the type var map so it cannot be modified and revalidate the
+            // arguments in a second pass.
+            typeVarMap.lock();
         }
 
+        matchResults.argParams.forEach((argParam) => {
+            const argResult = validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck);
+            if (!argResult.isCompatible) {
+                argumentErrors = true;
+            } else if (argResult.isTypeIncomplete) {
+                isTypeIncomplete = true;
+            }
+        });
+
         // Handle the assignment of additional arguments that map to a param spec.
-        if (!reportedArgError && matchResults.paramSpecArgList && matchResults.paramSpecTarget) {
+        if (matchResults.paramSpecArgList && matchResults.paramSpecTarget) {
             if (
                 !validateFunctionArgumentsForParamSpec(
                     errorNode,
@@ -7840,13 +7824,13 @@ export function createTypeEvaluator(
                     typeVarMap
                 )
             ) {
-                reportedArgError = true;
+                argumentErrors = true;
             }
         }
 
-        // Calculate the return type. If there was an error matching arguments to
-        // parameters, don't bother attempting to infer the return type.
-        const returnType = getFunctionEffectiveReturnType(type, matchResults.argParams, !reportedArgError);
+        // Calculate the return type. If there was a type error detected,
+        // don't bother attempting to infer the return type.
+        const returnType = getFunctionEffectiveReturnType(type, matchResults.argParams, !argumentErrors);
         const specializedReturnType = applySolvedTypeVars(returnType, typeVarMap);
 
         // If the return type includes a generic Callable type, set the type var
@@ -7862,11 +7846,51 @@ export function createTypeEvaluator(
         }
 
         return {
-            argumentErrors: reportedArgError,
+            argumentErrors,
             returnType: specializedReturnType,
             isTypeIncomplete,
             activeParam: matchResults.activeParam,
         };
+    }
+
+    // Tries to assign the call arguments to the function parameter
+    // list and reports any mismatches in types or counts. Returns the
+    // specialized return type of the call.
+    function validateFunctionArguments(
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        type: FunctionType,
+        typeVarMap: TypeVarMap,
+        skipUnknownArgCheck = false,
+        expectedType?: Type
+    ): CallResult {
+        const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, type);
+
+        if (matchResults.argumentErrors) {
+            // Evaluate types of all args. This will ensure that referenced symbols are
+            // not reported as unaccessed.
+            if (!incompleteTypeTracker.isUndoTrackingEnabled()) {
+                argList.forEach((arg) => {
+                    if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
+                        getTypeOfExpression(arg.valueExpression);
+                    }
+                });
+            }
+
+            return {
+                argumentErrors: true,
+                activeParam: matchResults.activeParam,
+            };
+        }
+
+        return validateFunctionArgumentTypes(
+            errorNode,
+            matchResults,
+            type,
+            typeVarMap,
+            skipUnknownArgCheck,
+            expectedType
+        );
     }
 
     // Determines whether the specified argument list satisfies the function
