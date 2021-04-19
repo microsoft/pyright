@@ -207,8 +207,13 @@ class Employee:
     # Field that uses field descriptor class instance
     age: Optional[int] = field(default=None, init=False)
 
-    # Field with simple initializer to describe default value
+    # Field with type annotation and simple initializer to
+    # describe default value
     is_paid_hourly: bool = True
+
+    # Field with inferred type and simple initializer to
+    # describe default value
+    office_number = "unassigned"
 ```
 
 Libraries that support dataclass-like semantics and support field descriptor
@@ -321,6 +326,11 @@ this requirement in this situation. Likewise, there is no need to enforce
 this ordering when keyword-only parameters are used for `__init__`, so the
 rule is not enforced if `kw_only` semantics are in effect.
 
+As with dataclass, method synthesis is skipped if it would overwrite
+a method that is explicitly declared within the class. For example, if a class
+declares an `__init__` method explicitly, an `__init__` method will not be
+synthesized for that class.
+
 
 Alternate Form
 --------------
@@ -351,8 +361,8 @@ def __dataclass_transform__(
 ```
 
 
-Rejected Ideas
-==============
+Limitations
+===========
 
 The attrs library supports an "auto_attribs" parameter that indicates whether
 class members decorated with PEP 526 variable annotations but with no assignment
@@ -362,4 +372,28 @@ because it is specific to attrs and appears to be a legacy behavior. Instead
 of supporting this in the new standard, we recommend that the maintainers of
 attrs move away from the legacy semantics and adopt "auto_attribs" behaviors
 by default.
+
+The attrs library also supports a concept called "converters", which we
+propose not to support in this proposal. Converters can still be used, but
+an explicit type annotation must be provided.
+
+```python
+@attr.s
+class C:
+    x: int = attr.ib(converter=int)
+```
+
+The attrs library also performs automatic aliasing of field names that start
+with a single underscore. This proposal omits this behavior.
+
+The attrs library determines the order of fields within a class hierarchy
+based not on MRO but based on some other algorithm. It allows callers to
+specify MRO behavior by specifying `collect_by_mro=True`. Dataclass field
+order is based on MRO, and this proposal would not support the legacy attrs
+ordering. This affects only cases of multiple inheritance and only when
+`collect_by_mro=False`.
+
+The attrs library supports a bool parameter `cmp` that is the equivalent of
+setting `eq` and `order` to True. This is not supported in this proposal.
+Attrs users should use the dataclass-standard parameter names.
 
