@@ -59,7 +59,7 @@ import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
 import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
 import { MaxAnalysisTime } from './program';
-import { findPythonSearchPaths, getPythonPathFromPythonInterpreter } from './pythonPathUtils';
+import { findPythonSearchPaths } from './pythonPathUtils';
 import { TypeEvaluator } from './typeEvaluator';
 
 export const configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
@@ -645,36 +645,6 @@ export class AnalyzerService {
                     }
                 }
             }
-        } else {
-            const importFailureInfo: string[] = [];
-            const pythonPaths = getPythonPathFromPythonInterpreter(
-                this._fs,
-                configOptions.pythonPath,
-                importFailureInfo
-            ).paths;
-            if (pythonPaths.length === 0) {
-                const logLevel = configOptions.verboseOutput ? LogLevel.Error : LogLevel.Log;
-                if (commandLineOptions.fromVsCodeExtension || configOptions.verboseOutput) {
-                    log(this._console, logLevel, `No search paths found for configured python interpreter.`);
-                }
-            } else {
-                if (commandLineOptions.fromVsCodeExtension || configOptions.verboseOutput) {
-                    const logLevel = configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
-                    log(this._console, logLevel, `Search paths found for configured python interpreter:`);
-                    pythonPaths.forEach((path) => {
-                        log(this._console, logLevel, `  ${path}`);
-                    });
-                }
-            }
-
-            if (configOptions.verboseOutput) {
-                if (importFailureInfo.length > 0) {
-                    this._console.info(`When attempting to get search paths from python interpreter:`);
-                    importFailureInfo.forEach((diag) => {
-                        this._console.info(`  ${diag}`);
-                    });
-                }
-            }
         }
 
         // Is there a reference to a venv? If so, there needs to be a valid venvPath.
@@ -1069,8 +1039,6 @@ export class AnalyzerService {
     private _updateSourceFileWatchers() {
         this._removeSourceFileWatchers();
 
-        this._backgroundAnalysisProgram.invalidateCache();
-
         if (!this._watchForSourceChanges) {
             return;
         }
@@ -1148,8 +1116,6 @@ export class AnalyzerService {
 
     private _updateLibraryFileWatcher() {
         this._removeLibraryFileWatcher();
-
-        this._backgroundAnalysisProgram.invalidateCache();
 
         if (!this._watchForLibraryChanges) {
             return;
@@ -1291,6 +1257,17 @@ export class AnalyzerService {
         // cached based on the previous config options.
         const importResolver = this._importResolverFactory(this._fs, this._backgroundAnalysisProgram.configOptions);
         this._backgroundAnalysisProgram.setImportResolver(importResolver);
+
+        if (this._commandLineOptions?.fromVsCodeExtension || this._configOptions.verboseOutput) {
+            const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
+            for (const execEnv of this._configOptions.getExecutionEnvironments()) {
+                log(this._console, logLevel, `Search paths for ${execEnv.root}`);
+                const roots = importResolver.getImportRoots(execEnv, /* forLogging */ true);
+                roots.forEach((path) => {
+                    log(this._console, logLevel, `  ${path}`);
+                });
+            }
+        }
 
         this._updateLibraryFileWatcher();
         this._updateConfigFileWatcher();

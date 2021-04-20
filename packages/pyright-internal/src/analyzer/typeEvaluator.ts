@@ -554,6 +554,14 @@ export interface CallResult {
     overloadUsed?: FunctionType;
 }
 
+export interface MatchArgsToParamsResult {
+    argumentErrors: boolean;
+    argParams: ValidateArgTypeParams[];
+    activeParam?: FunctionParameter;
+    paramSpecTarget?: TypeVarType;
+    paramSpecArgList?: FunctionArgument[];
+}
+
 export interface ArgResult {
     isCompatible: boolean;
     isTypeIncomplete?: boolean;
@@ -6707,25 +6715,6 @@ export function createTypeEvaluator(
                         return createNamedTupleType(errorNode, argList, false);
                     }
 
-                    if (concreteSubtype.details.builtInName === 'NewType') {
-                        const callResult = validateFunctionArguments(
-                            errorNode,
-                            argList,
-                            concreteSubtype,
-                            new TypeVarMap(getTypeVarScopeId(concreteSubtype)),
-                            skipUnknownArgCheck,
-                            expectedType
-                        );
-
-                        if (callResult.isTypeIncomplete) {
-                            isTypeIncomplete = true;
-                        }
-
-                        // If the call's arguments were validated, replace the
-                        // type with a new synthesized subclass.
-                        return callResult.argumentErrors ? callResult.returnType : createNewType(errorNode, argList);
-                    }
-
                     const functionResult = validateFunctionArguments(
                         errorNode,
                         argList,
@@ -6739,6 +6728,11 @@ export function createTypeEvaluator(
                     }
                     if (functionResult.isTypeIncomplete) {
                         isTypeIncomplete = true;
+                    }
+
+                    // Handle the NewType specially, replacing the normal return type.
+                    if (!functionResult.argumentErrors && concreteSubtype.details.builtInName === 'NewType') {
+                        return createNewType(errorNode, argList);
                     }
 
                     if (concreteSubtype.details.builtInName === '__import__') {
@@ -7094,71 +7088,17 @@ export function createTypeEvaluator(
         };
     }
 
-    // Tries to assign the call arguments to the function parameter
-    // list and reports any mismatches in types or counts. Returns the
-    // specialized return type of the call.
+    // Matches the arguments passed to a function to the corresponding parameters in that
+    // function. This matching is done based on positions and keywords. Type evaluation and
+    // validation is left to the caller.
     // This logic is based on PEP 3102: https://www.python.org/dev/peps/pep-3102/
-    function validateFunctionArguments(
+    function matchFunctionArgumentsToParameters(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
-        type: FunctionType,
-        typeVarMap: TypeVarMap,
-        skipUnknownArgCheck = false,
-        expectedType?: Type
-    ): CallResult {
+        type: FunctionType
+    ): MatchArgsToParamsResult {
         let argIndex = 0;
         const typeParams = type.details.parameters;
-        let isTypeIncomplete = false;
-
-        // If the function was bound to a class or object, it's possible that
-        // some of that class's type variables have not yet been solved. Add
-        // that class's TypeVar scope ID.
-        if (type.boundTypeVarScopeId) {
-            typeVarMap.addSolveForScope(type.boundTypeVarScopeId);
-
-            // Some typeshed stubs use specialized type annotations in the "self" parameter
-            // of an overloaded __init__ method to specify which specialized type should
-            // be constructed. Although this isn't part of the official Python spec, other
-            // type checkers appear to honor it.
-            if (
-                type.details.name === '__init__' &&
-                FunctionType.isOverloaded(type) &&
-                type.strippedFirstParamType &&
-                type.boundToType &&
-                isObject(type.strippedFirstParamType) &&
-                isObject(type.boundToType) &&
-                ClassType.isSameGenericClass(type.strippedFirstParamType.classType, type.boundToType.classType) &&
-                type.strippedFirstParamType.classType.typeArguments
-            ) {
-                const typeParams = type.strippedFirstParamType!.classType.details.typeParameters;
-                type.strippedFirstParamType.classType.typeArguments.forEach((typeArg, index) => {
-                    const typeParam = typeParams[index];
-                    if (!isTypeSame(typeParam, typeArg)) {
-                        typeVarMap.setTypeVarType(typeParams[index], typeArg);
-                    }
-                });
-            }
-        }
-
-        if (expectedType && !requiresSpecialization(expectedType) && type.details.declaredReturnType) {
-            // If the expected type is a union, we don't know which type is expected,
-            // so avoid using the expected type. The exception is if there are literals
-            // in the union, where it's important to prepopulate the literals.
-            if (!isUnion(expectedType) || containsLiteralType(expectedType)) {
-                // Prepopulate the typeVarMap based on the specialized expected type if the
-                // callee has a declared return type. This will allow us to more closely match
-                // the expected type if possible. We set the AllowTypeVarNarrowing and
-                // SkipStripLiteralForTypeVar flags so the type can be further narrowed
-                // and so literals are not stripped.
-                canAssignType(
-                    getFunctionEffectiveReturnType(type),
-                    expectedType,
-                    new DiagnosticAddendum(),
-                    typeVarMap,
-                    CanAssignFlags.AllowTypeVarNarrowing | CanAssignFlags.RetainLiteralsForTypeVar
-                );
-            }
-        }
 
         // The last parameter might be a var arg dictionary. If so, strip it off.
         const varArgDictParam = typeParams.find((param) => param.category === ParameterCategory.VarArgDictionary);
@@ -7713,12 +7653,6 @@ export function createTypeEvaluator(
             }
         }
 
-        // Special-case a few built-in calls that are often used for
-        // casting or checking for unknown types.
-        if (['cast', 'isinstance', 'issubclass'].some((name) => name === type.details.builtInName)) {
-            skipUnknownArgCheck = true;
-        }
-
         // If we're in speculative mode and an arg/param mismatch has already been reported, don't
         // bother doing the extra work here. This occurs frequently when attempting to find the
         // correct overload.
@@ -7766,78 +7700,151 @@ export function createTypeEvaluator(
                     }
                 }
             }
+        }
 
-            // Run through all args and validate them against their matched parameter.
-            // We'll do two passes. The first one will match any type arguments. The second
-            // will perform the actual validation. We can skip the first pass if there
-            // are no type vars to match.
-            const typeVarMatchingCount = validateArgTypeParams.filter((arg) => arg.requiresTypeVarMatching).length;
-            if (typeVarMatchingCount > 0) {
-                // In theory, we may need to do up to n passes where n is the number of
-                // arguments that need type var matching. That's because later matches
-                // can provide bidirectional type hints for earlier matches. The best
-                // example of this is the built-in "map" method whose first parameter is
-                // a lambda and second parameter indicates what type the lambda should accept.
-                // In practice, we will limit the number of passes to 2 because it can get
-                // very expensive to go beyond this, and we don't see generally see cases
-                // where more than two passes are needed.
-                const passCount = Math.min(typeVarMatchingCount, 2);
-                for (let i = 0; i < passCount; i++) {
-                    useSpeculativeMode(errorNode, () => {
-                        validateArgTypeParams.forEach((argParam) => {
-                            if (argParam.requiresTypeVarMatching) {
-                                const argResult = validateArgType(
-                                    argParam,
-                                    typeVarMap,
-                                    type.details.name,
-                                    skipUnknownArgCheck
-                                );
-                                if (argResult.isTypeIncomplete) {
-                                    isTypeIncomplete = true;
-                                }
-                            }
-                        });
-                    });
-                }
+        return {
+            argumentErrors: reportedArgError,
+            argParams: validateArgTypeParams,
+            paramSpecTarget,
+            paramSpecArgList,
+            activeParam,
+        };
+    }
 
-                // Lock the type var map so it cannot be modified and revalidate the
-                // arguments in a second pass.
-                typeVarMap.lock();
-            }
+    // After having matched arguments with parameters, this function evaluates the
+    // types of each argument expression and validates that the resulting type is
+    // compatible with the declared type of the corresponding parameter.
+    function validateFunctionArgumentTypes(
+        errorNode: ExpressionNode,
+        matchResults: MatchArgsToParamsResult,
+        type: FunctionType,
+        typeVarMap: TypeVarMap,
+        skipUnknownArgCheck = false,
+        expectedType?: Type
+    ): CallResult {
+        let isTypeIncomplete = false;
+        let argumentErrors = false;
 
-            validateArgTypeParams.forEach((argParam) => {
-                const argResult = validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck);
-                if (!argResult.isCompatible) {
-                    reportedArgError = true;
-                } else if (argResult.isTypeIncomplete) {
-                    isTypeIncomplete = true;
-                }
-            });
+        // If the function was bound to a class or object, it's possible that
+        // some of that class's type variables have not yet been solved. Add
+        // that class's TypeVar scope ID.
+        if (type.boundTypeVarScopeId) {
+            typeVarMap.addSolveForScope(type.boundTypeVarScopeId);
 
-            // Run through all the args that were not validated and evaluate their types
-            // to ensure that we haven't missed any (due to arg/param mismatches). This will
-            // ensure that referenced symbols are not reported as unaccessed.
-            if (!incompleteTypeTracker.isUndoTrackingEnabled()) {
-                argList.forEach((arg) => {
-                    if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
-                        if (!validateArgTypeParams.some((validatedArg) => validatedArg.argument === arg)) {
-                            getTypeOfExpression(arg.valueExpression);
-                        }
+            // Some typeshed stubs use specialized type annotations in the "self" parameter
+            // of an overloaded __init__ method to specify which specialized type should
+            // be constructed. Although this isn't part of the official Python spec, other
+            // type checkers appear to honor it.
+            if (
+                type.details.name === '__init__' &&
+                FunctionType.isOverloaded(type) &&
+                type.strippedFirstParamType &&
+                type.boundToType &&
+                isObject(type.strippedFirstParamType) &&
+                isObject(type.boundToType) &&
+                ClassType.isSameGenericClass(type.strippedFirstParamType.classType, type.boundToType.classType) &&
+                type.strippedFirstParamType.classType.typeArguments
+            ) {
+                const typeParams = type.strippedFirstParamType!.classType.details.typeParameters;
+                type.strippedFirstParamType.classType.typeArguments.forEach((typeArg, index) => {
+                    const typeParam = typeParams[index];
+                    if (!isTypeSame(typeParam, typeArg)) {
+                        typeVarMap.setTypeVarType(typeParams[index], typeArg);
                     }
                 });
             }
         }
 
-        // Handle the assignment of additional arguments that map to a param spec.
-        if (!reportedArgError && paramSpecArgList && paramSpecTarget) {
-            if (!validateFunctionArgumentsForParamSpec(errorNode, paramSpecArgList, paramSpecTarget, typeVarMap)) {
-                reportedArgError = true;
+        if (expectedType && !requiresSpecialization(expectedType) && type.details.declaredReturnType) {
+            // If the expected type is a union, we don't know which type is expected,
+            // so avoid using the expected type. The exception is if there are literals
+            // in the union, where it's important to prepopulate the literals.
+            if (!isUnion(expectedType) || containsLiteralType(expectedType)) {
+                // Prepopulate the typeVarMap based on the specialized expected type if the
+                // callee has a declared return type. This will allow us to more closely match
+                // the expected type if possible. We set the AllowTypeVarNarrowing and
+                // SkipStripLiteralForTypeVar flags so the type can be further narrowed
+                // and so literals are not stripped.
+                canAssignType(
+                    getFunctionEffectiveReturnType(type),
+                    expectedType,
+                    new DiagnosticAddendum(),
+                    typeVarMap,
+                    CanAssignFlags.AllowTypeVarNarrowing | CanAssignFlags.RetainLiteralsForTypeVar
+                );
             }
         }
 
-        // Calculate the return type. If there was an error matching arguments to
-        // parameters, don't bother attempting to infer the return type.
-        const returnType = getFunctionEffectiveReturnType(type, validateArgTypeParams, !reportedArgError);
+        // Special-case a few built-in calls that are often used for
+        // casting or checking for unknown types.
+        if (['cast', 'isinstance', 'issubclass'].some((name) => name === type.details.builtInName)) {
+            skipUnknownArgCheck = true;
+        }
+
+        // Run through all args and validate them against their matched parameter.
+        // We'll do two passes. The first one will match any type arguments. The second
+        // will perform the actual validation. We can skip the first pass if there
+        // are no type vars to match.
+        const typeVarMatchingCount = matchResults.argParams.filter((arg) => arg.requiresTypeVarMatching).length;
+        if (typeVarMatchingCount > 0) {
+            // In theory, we may need to do up to n passes where n is the number of
+            // arguments that need type var matching. That's because later matches
+            // can provide bidirectional type hints for earlier matches. The best
+            // example of this is the built-in "map" method whose first parameter is
+            // a lambda and second parameter indicates what type the lambda should accept.
+            // In practice, we will limit the number of passes to 2 because it can get
+            // very expensive to go beyond this, and we don't see generally see cases
+            // where more than two passes are needed.
+            const passCount = Math.min(typeVarMatchingCount, 2);
+            for (let i = 0; i < passCount; i++) {
+                useSpeculativeMode(errorNode, () => {
+                    matchResults.argParams.forEach((argParam) => {
+                        if (argParam.requiresTypeVarMatching) {
+                            const argResult = validateArgType(
+                                argParam,
+                                typeVarMap,
+                                type.details.name,
+                                skipUnknownArgCheck
+                            );
+                            if (argResult.isTypeIncomplete) {
+                                isTypeIncomplete = true;
+                            }
+                        }
+                    });
+                });
+            }
+
+            // Lock the type var map so it cannot be modified and revalidate the
+            // arguments in a second pass.
+            typeVarMap.lock();
+        }
+
+        matchResults.argParams.forEach((argParam) => {
+            const argResult = validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck);
+            if (!argResult.isCompatible) {
+                argumentErrors = true;
+            } else if (argResult.isTypeIncomplete) {
+                isTypeIncomplete = true;
+            }
+        });
+
+        // Handle the assignment of additional arguments that map to a param spec.
+        if (matchResults.paramSpecArgList && matchResults.paramSpecTarget) {
+            if (
+                !validateFunctionArgumentsForParamSpec(
+                    errorNode,
+                    matchResults.paramSpecArgList,
+                    matchResults.paramSpecTarget,
+                    typeVarMap
+                )
+            ) {
+                argumentErrors = true;
+            }
+        }
+
+        // Calculate the return type. If there was a type error detected,
+        // don't bother attempting to infer the return type.
+        const returnType = getFunctionEffectiveReturnType(type, matchResults.argParams, !argumentErrors);
         const specializedReturnType = applySolvedTypeVars(returnType, typeVarMap);
 
         // If the return type includes a generic Callable type, set the type var
@@ -7852,7 +7859,52 @@ export function createTypeEvaluator(
             };
         }
 
-        return { argumentErrors: reportedArgError, returnType: specializedReturnType, isTypeIncomplete, activeParam };
+        return {
+            argumentErrors,
+            returnType: specializedReturnType,
+            isTypeIncomplete,
+            activeParam: matchResults.activeParam,
+        };
+    }
+
+    // Tries to assign the call arguments to the function parameter
+    // list and reports any mismatches in types or counts. Returns the
+    // specialized return type of the call.
+    function validateFunctionArguments(
+        errorNode: ExpressionNode,
+        argList: FunctionArgument[],
+        type: FunctionType,
+        typeVarMap: TypeVarMap,
+        skipUnknownArgCheck = false,
+        expectedType?: Type
+    ): CallResult {
+        const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, type);
+
+        if (matchResults.argumentErrors) {
+            // Evaluate types of all args. This will ensure that referenced symbols are
+            // not reported as unaccessed.
+            if (!incompleteTypeTracker.isUndoTrackingEnabled()) {
+                argList.forEach((arg) => {
+                    if (arg.valueExpression && !speculativeTypeTracker.isSpeculative(arg.valueExpression)) {
+                        getTypeOfExpression(arg.valueExpression);
+                    }
+                });
+            }
+
+            return {
+                argumentErrors: true,
+                activeParam: matchResults.activeParam,
+            };
+        }
+
+        return validateFunctionArgumentTypes(
+            errorNode,
+            matchResults,
+            type,
+            typeVarMap,
+            skipUnknownArgCheck,
+            expectedType
+        );
     }
 
     // Determines whether the specified argument list satisfies the function
@@ -8037,7 +8089,13 @@ export function createTypeEvaluator(
         let diag = new DiagnosticAddendum();
 
         if (!canAssignType(argParam.paramType, argType, diag.createAddendum(), typeVarMap)) {
-            if (!isDiagnosticSuppressedForNode(argParam.errorNode)) {
+            // Mismatching parameter types are common in untyped code; don't bother spending time
+            // printing types if the diagnostic is disabled.
+            const fileInfo = getFileInfo(argParam.errorNode);
+            if (
+                fileInfo.diagnosticRuleSet.reportGeneralTypeIssues !== 'none' &&
+                !isDiagnosticSuppressedForNode(argParam.errorNode)
+            ) {
                 const fileInfo = getFileInfo(argParam.errorNode);
                 const argTypeText = printType(argType);
                 const paramTypeText = printType(argParam.paramType);
@@ -8109,7 +8167,8 @@ export function createTypeEvaluator(
             };
 
             // Do not check for unknown types if the expected type is "Any".
-            if (!isAny(argParam.paramType)) {
+            // Don't print types if reportUnknownArgumentType is disabled for performance.
+            if (fileInfo.diagnosticRuleSet.reportUnknownArgumentType !== 'none' && !isAny(argParam.paramType)) {
                 if (isUnknown(simplifiedType)) {
                     const diagAddendum = getDiagAddendum();
                     addDiagnostic(
@@ -12558,6 +12617,38 @@ export function createTypeEvaluator(
             let annotatedType: Type | undefined;
             let isNoneWithoutOptional = false;
             let paramTypeNode: ExpressionNode | undefined;
+
+            if (param.name) {
+                let markParamAccessed = false;
+
+                if (
+                    index === 0 &&
+                    containingClassType &&
+                    (FunctionType.isClassMethod(functionType) ||
+                        FunctionType.isInstanceMethod(functionType) ||
+                        FunctionType.isConstructorMethod(functionType))
+                ) {
+                    // Mark "self/cls" as accessed.
+                    markParamAccessed = true;
+                } else if (FunctionType.isAbstractMethod(functionType)) {
+                    // Mark all parameters in abstract methods as accessed.
+                    markParamAccessed = true;
+                } else if (containingClassType && ClassType.isProtocolClass(containingClassType)) {
+                    // Mark all parameters in protocol methods as accessed.
+                    markParamAccessed = true;
+                }
+
+                if (markParamAccessed) {
+                    const symbolWithScope = lookUpSymbolRecursive(
+                        param.name,
+                        param.name.value,
+                        /* honorCodeFlow */ false
+                    );
+                    if (symbolWithScope) {
+                        setSymbolAccessed(fileInfo, symbolWithScope.symbol, param.name);
+                    }
+                }
+            }
 
             if (param.typeAnnotation) {
                 paramTypeNode = param.typeAnnotation;
