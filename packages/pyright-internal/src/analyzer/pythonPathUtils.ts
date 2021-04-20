@@ -33,7 +33,7 @@ const extractSys = [
     'import os, os.path, sys',
     'normalize = lambda p: os.path.normcase(os.path.normpath(p))',
     'cwd = normalize(os.getcwd())',
-    'sys.path[:] = (p for p in sys.path if p != "" and normalize(p) != cwd)',
+    'sys.path[:] = [p for p in sys.path if p != "" and normalize(p) != cwd]',
     'import json',
     'json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
 ].join('; ');
