@@ -12443,6 +12443,37 @@ export function createTypeEvaluator(
             let isNoneWithoutOptional = false;
             let paramTypeNode: ExpressionNode | undefined;
 
+            if (param.name) {
+                let markParamAccessed = false;
+
+                if (
+                    index === 0 &&
+                    (FunctionType.isClassMethod(functionType) ||
+                        FunctionType.isInstanceMethod(functionType) ||
+                        FunctionType.isConstructorMethod(functionType))
+                ) {
+                    // Mark "self/cls" as accessed.
+                    markParamAccessed = true;
+                } else if (FunctionType.isAbstractMethod(functionType)) {
+                    // Mark all parameters in abstract methods as accessed.
+                    markParamAccessed = true;
+                } else if (containingClassType && ClassType.isProtocolClass(containingClassType)) {
+                    // Mark all parameters in protocol methods as accessed.
+                    markParamAccessed = true;
+                }
+
+                if (markParamAccessed) {
+                    const symbolWithScope = lookUpSymbolRecursive(
+                        param.name,
+                        param.name.value,
+                        /* honorCodeFlow */ false
+                    );
+                    if (symbolWithScope) {
+                        setSymbolAccessed(fileInfo, symbolWithScope.symbol, param.name);
+                    }
+                }
+            }
+
             if (param.typeAnnotation) {
                 paramTypeNode = param.typeAnnotation;
             } else if (param.typeAnnotationComment) {
