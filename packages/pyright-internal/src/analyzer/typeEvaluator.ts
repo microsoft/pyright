@@ -12448,6 +12448,7 @@ export function createTypeEvaluator(
 
                 if (
                     index === 0 &&
+                    containingClassType &&
                     (FunctionType.isClassMethod(functionType) ||
                         FunctionType.isInstanceMethod(functionType) ||
                         FunctionType.isConstructorMethod(functionType))
