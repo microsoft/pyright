@@ -397,3 +397,69 @@ The attrs library supports a bool parameter `cmp` that is the equivalent of
 setting `eq` and `order` to True. This is not supported in this proposal.
 Attrs users should use the dataclass-standard parameter names.
 
+
+Applying To Attrs
+=================
+
+This section explains which modifications need to be made to attrs to
+incorporate support for this specification. This assumes recent versions of
+attrs (I used 20.3.0).
+
+Step 1: Open `attr/__init__.pyi` and paste the following function declaration
+somewhere within the file:
+
+```python
+def __dataclass_transform__(
+    *,
+    eq_default: bool = True,
+    order_default: bool = False,
+    kw_only_default: bool = False,
+    field_descriptors: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+) -> Callable[[_T], _T]: ...
+```
+
+Step 2: Within the same file, search for the definition of the `attrs` function.
+It is an overloaded function with two overloads. Paste the following line
+between `@overload` and `def attrs(`. Repeat this for each of the two overloads.
+
+```python
+@__dataclass_transform__(order_default=True, field_descriptors=(attrib, field))
+```
+
+Step 3: Within the same file, search for the definition of the `define`
+function. Paste the following line between `@overload` and `def define(`. Repeat
+this for each of the two overloads.
+
+```python
+@__dataclass_transform__(field_descriptors=(attrib, field))
+```
+
+
+Applying To Pydantic
+====================
+
+This section explains which modifications need to be made to pydantic to
+incorporate support for this specification. This assumes recent versions of
+attrs (I used 1.8.1).
+
+Step 1: Open `pydantic/main.py` and search for the class definition for
+`ModelMetaclass`. Before this class definition, paste the following function
+declaration:
+
+```python
+def __dataclass_transform__(
+    *,
+    eq_default: bool = True,
+    order_default: bool = False,
+    kw_only_default: bool = False,
+    field_descriptors: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+) -> Callable[[_T], _T]:
+    return lambda a: a
+```
+
+Step 2: Add the following decorator to the `ModelMetaclass` class definition:
+
+```python
+@__dataclass_transform__(kw_only_default=True, field_descriptors=(Field, FieldInfo))
+```
+
