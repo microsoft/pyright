@@ -12455,8 +12455,9 @@ export function createTypeEvaluator(
                 ) {
                     // Mark "self/cls" as accessed.
                     markParamAccessed = true;
-                } else if (FunctionType.isAbstractMethod(functionType)) {
-                    // Mark all parameters in abstract methods as accessed.
+                } else if (FunctionType.isAbstractMethod(functionType) || FunctionType.isOverloaded(functionType)) {
+                    // Mark all parameters in abstract methods and overloaded
+                    // functions as accessed.
                     markParamAccessed = true;
                 } else if (containingClassType && ClassType.isProtocolClass(containingClassType)) {
                     // Mark all parameters in protocol methods as accessed.
