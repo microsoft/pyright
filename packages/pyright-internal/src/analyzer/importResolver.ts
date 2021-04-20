@@ -439,7 +439,7 @@ export class ImportResolver {
         return this._getStdlibTypeshedPath(execEnv, unused);
     }
 
-    getImportRoots(execEnv: ExecutionEnvironment) {
+    getImportRoots(execEnv: ExecutionEnvironment, forLogging = false) {
         const importFailureInfo: string[] = [];
         const roots = [];
 
@@ -455,8 +455,18 @@ export class ImportResolver {
             roots.push(this._configOptions.stubPath);
         }
 
-        const thirdPartyPaths = this._getThirdPartyTypeshedPackagePaths(execEnv, importFailureInfo);
-        roots.push(...thirdPartyPaths);
+        if (forLogging) {
+            // There's one path for each third party package, which blows up logging.
+            // Just get the root directly and show it with `...` to indicate that this
+            // is where the third party folder is in the roots.
+            const thirdPartyRoot = this._getThirdPartyTypeshedPath(execEnv, importFailureInfo);
+            if (thirdPartyRoot) {
+                roots.push(combinePaths(thirdPartyRoot, '...'));
+            }
+        } else {
+            const thirdPartyPaths = this._getThirdPartyTypeshedPackagePaths(execEnv, importFailureInfo);
+            roots.push(...thirdPartyPaths);
+        }
 
         const typeshedPathEx = this.getTypeshedPathEx(execEnv, importFailureInfo);
         if (typeshedPathEx) {

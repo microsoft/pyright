@@ -62,13 +62,13 @@ export class BackgroundAnalysisProgram {
         this._configOptions = configOptions;
         this._backgroundAnalysis?.setConfigOptions(configOptions);
         this._program.setConfigOptions(configOptions);
-
-        configOptions.getExecutionEnvironments().forEach((e) => this._ensurePartialStubPackages(e));
     }
 
     setImportResolver(importResolver: ImportResolver) {
         this._importResolver = importResolver;
         this._program.setImportResolver(importResolver);
+
+        this._configOptions.getExecutionEnvironments().forEach((e) => this._ensurePartialStubPackages(e));
 
         // Do nothing for background analysis.
         // Background analysis updates importer when configOptions is changed rather than
@@ -210,13 +210,6 @@ export class BackgroundAnalysisProgram {
 
         // Mark all files with one or more errors dirty.
         this._program.markAllFilesDirty(true);
-    }
-
-    invalidateCache() {
-        // Invalidate import resolver because it could have cached
-        // imports that are no longer valid because a source file has
-        // been deleted or added.
-        this._importResolver.invalidateCache();
     }
 
     restart() {
