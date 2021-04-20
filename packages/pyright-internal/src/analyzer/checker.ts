@@ -438,6 +438,9 @@ export class Checker extends ParseTreeWalker {
         if (functionTypeResult) {
             // Validate that the function returns the declared type.
             this._validateFunctionReturn(node, functionTypeResult.functionType);
+
+            // Verify common dunder signatures.
+            this._validateDunderSignatures(node, functionTypeResult.functionType, containingClassNode !== undefined);
         }
 
         // If we're at the module level within a stub file, report a diagnostic
@@ -2518,6 +2521,41 @@ export class Checker extends ParseTreeWalker {
                 }
             }
         });
+    }
+
+    private _validateDunderSignatures(node: FunctionNode, functionType: FunctionType, isMethod: boolean) {
+        const functionName = functionType.details.name;
+
+        // Is this an '__init__' method? Verify that it returns None.
+        if (isMethod && functionName === '__init__') {
+            const returnAnnotation = node.returnTypeAnnotation || node.functionAnnotationComment?.returnTypeAnnotation;
+            const declaredReturnType = functionType.details.declaredReturnType;
+
+            if (returnAnnotation && declaredReturnType) {
+                if (!isNone(declaredReturnType)) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.initMustReturnNone(),
+                        returnAnnotation
+                    );
+                }
+            } else {
+                const inferredReturnType = this._evaluator.getFunctionInferredReturnType(functionType);
+                if (
+                    !isNoReturnType(inferredReturnType) &&
+                    !isNone(inferredReturnType) &&
+                    !isAnyOrUnknown(inferredReturnType)
+                ) {
+                    this._evaluator.addDiagnostic(
+                        this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.initMustReturnNone(),
+                        node.name
+                    );
+                }
+            }
+        }
     }
 
     private _validateFunctionReturn(node: FunctionNode, functionType: FunctionType) {
