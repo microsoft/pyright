@@ -15,6 +15,7 @@ import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { NullConsole } from '../common/console';
 import { createFromRealFileSystem } from '../common/fileSystem';
 import { combinePaths, getBaseFileName, normalizePath, normalizeSlashes } from '../common/pathUtils';
+import { PythonVersion } from '../common/pythonVersion';
 
 test('FindFilesWithConfigFile', () => {
     const cwd = normalizePath(process.cwd());
@@ -270,4 +271,17 @@ test('AutoSearchPathsOnAndExtraPaths', () => {
     ];
 
     assert.deepStrictEqual(configOptions.defaultExtraPaths, expectedExtraPaths);
+});
+
+test('BasicPyprojectTomlParsing', () => {
+    const cwd = normalizePath(combinePaths(process.cwd(), 'src/tests/samples/project_with_pyproject_toml'));
+    const service = new AnalyzerService('<default>', createFromRealFileSystem(), new NullConsole());
+    const commandLineOptions = new CommandLineOptions(cwd, /* fromVsCodeExtension */ true);
+
+    service.setOptions(commandLineOptions);
+
+    const configOptions = service.test_getConfigOptions(commandLineOptions);
+    assert.strictEqual(configOptions.defaultPythonVersion!, PythonVersion.V3_9);
+    assert.strictEqual(configOptions.diagnosticRuleSet.reportMissingImports, 'error');
+    assert.strictEqual(configOptions.diagnosticRuleSet.reportUnusedClass, 'warning');
 });

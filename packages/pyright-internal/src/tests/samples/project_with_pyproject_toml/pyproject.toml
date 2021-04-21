@@ -1,0 +1,7 @@
+[tool.pyright]
+include = ["test*.py"]
+
+reportMissingImports = true
+reportUnusedClass = "warning"
+
+pythonVersion = "3.9"
