@@ -2,7 +2,7 @@
     "name": "pyright-internal",
     "displayName": "pyright",
     "description": "Type checker for the Python language",
-    "version": "1.1.132",
+    "version": "1.1.133",
     "license": "MIT",
     "private": true,
     "files": [
@@ -15,6 +15,7 @@
         "test:coverage": "jest --forceExit --reporters=jest-junit --reporters=default --coverage --coverageReporters=cobertura --coverageReporters=html --coverageReporters=json"
     },
     "dependencies": {
+        "@iarna/toml": "2.2.5",
         "assert": "^2.0.0",
         "chalk": "^4.1.0",
         "chokidar": "^3.5.1",
