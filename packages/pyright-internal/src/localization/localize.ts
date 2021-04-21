@@ -378,6 +378,7 @@ export namespace Localizer {
             );
         export const inconsistentIndent = () => getRawString('Diagnostic.inconsistentIndent');
         export const inconsistentTabs = () => getRawString('Diagnostic.inconsistentTabs');
+        export const initMustReturnNone = () => getRawString('Diagnostic.initMustReturnNone');
         export const initSubclassClsParam = () => getRawString('Diagnostic.initSubclassClsParam');
         export const instanceMethodSelfParam = () => getRawString('Diagnostic.instanceMethodSelfParam');
         export const internalBindError = () =>

@@ -163,6 +163,7 @@
         "importSymbolUnknown": "\"{name}\" is unknown import symbol",
         "incompatibleMethodOverride": "Method \"{name}\" overrides class \"{className}\" in an incompatible manner",
         "inconsistentIndent": "Unindent amount does not match previous indent",
+        "initMustReturnNone": "Return type of \"__init__\" must be None",
         "inconsistentTabs": "Inconsistent use of tabs and spaces in indentation",
         "initSubclassClsParam": "__init_subclass__ override should take a \"cls\" parameter",
         "instanceMethodSelfParam": "Instance methods should take a \"self\" parameter",
