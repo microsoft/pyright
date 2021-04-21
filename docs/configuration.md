@@ -2,6 +2,8 @@
 
 Pyright offers flexible configuration options specified in a JSON-formatted text configuration. By default, the file is called “pyrightconfig.json” and is located within the root directory of your project. Multi-root workspaces (“Add Folder to Workspace…”) are supported, and each workspace root can have its own “pyrightconfig.json” file.
 
+Pyright settings can also be specified in a `[tool.pyright]` section of a “pyproject.toml” file. A “pyrightconfig.json” file always takes precedent over “pyproject.toml” if both are present.
+
 Relative paths specified within the config file are relative to the config file’s location. Paths with shell variables (including `~`) are not supported.
 
 ## Main Pyright Config Options
@@ -223,6 +225,32 @@ The following is an example of a pyright config file:
 }
 ```
 
+## Sample Pyproject.toml File
+```toml
+[tool.pyright]
+include = ["src"]
+exclude = ["**/node_modules",
+    "**/__pycache__",
+    "src/experimental",
+    "src/typestubs"
+]
+ignore = ["src/oldstuff"]
+stubPath = "src/stubs"
+venv = "env367"
+
+reportMissingImports = true
+reportMissingTypeStubs = false
+
+pythonVersion = "3.6"
+pythonPlatform = "Linux"
+
+executionEnvironments = [
+  { root = "src/web", pythonVersion = "3.5", pythonPlatform = "Windows", extraPaths = [ "src/service_libs" ] },
+  { root = "src/sdk", pythonVersion = "3.0", extraPaths = [ "src/backend" ] },
+  { root = "src/tests", extraPaths = ["src/tests/e2e", "src/sdk" ]},
+  { root = "src" }
+]
+```
 
 ## Diagnostic Rule Defaults
 
