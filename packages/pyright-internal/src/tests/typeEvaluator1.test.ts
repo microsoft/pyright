@@ -1618,3 +1618,15 @@ test('Decorator5', () => {
 
     TestUtils.validateResults(analysisResults, 0);
 });
+
+test('DataclassTransform1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform1.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('DataclassTransform2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclassTransform2.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
