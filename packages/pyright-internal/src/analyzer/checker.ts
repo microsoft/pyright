@@ -2532,7 +2532,7 @@ export class Checker extends ParseTreeWalker {
             const declaredReturnType = functionType.details.declaredReturnType;
 
             if (returnAnnotation && declaredReturnType) {
-                if (!isNone(declaredReturnType)) {
+                if (!isNone(declaredReturnType) && !isNoReturnType(declaredReturnType)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
