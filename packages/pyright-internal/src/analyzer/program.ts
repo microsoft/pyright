@@ -68,7 +68,6 @@ import { SourceFile } from './sourceFile';
 import { SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
-import { NameTypeWalker } from './testWalker';
 import { createTracePrinter } from './tracePrinter';
 import { TypeEvaluator } from './typeEvaluator';
 import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
