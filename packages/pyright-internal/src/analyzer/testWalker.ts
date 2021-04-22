@@ -7,7 +7,8 @@
 import { ParseTreeWalker } from '../analyzer/parseTreeWalker';
 import { fail } from '../common/debug';
 import { TextRange } from '../common/textRange';
-import { ParseNode, ParseNodeArray, ParseNodeType } from '../parser/parseNodes';
+import { NameNode, ParseNode, ParseNodeArray, ParseNodeType } from '../parser/parseNodes';
+import { TypeEvaluator } from './typeEvaluator';
 
 export class TestWalker extends ParseTreeWalker {
     constructor() {
@@ -79,5 +80,22 @@ export class TestWalker extends ParseTreeWalker {
                 }
             }
         });
+    }
+}
+
+// Custom parse node walker that evaluates the types of all
+// NameNodes. This helps find bugs in evaluation ordering.
+export class NameTypeWalker extends ParseTreeWalker {
+    constructor(private _evaluator: TypeEvaluator) {
+        super();
+    }
+
+    visitName(node: NameNode) {
+        if (node.parent?.nodeType !== ParseNodeType.ImportFromAs && node.parent?.nodeType !== ParseNodeType.ImportAs) {
+            if (this._evaluator.isNodeReachable(node)) {
+                this._evaluator.getType(node);
+            }
+        }
+        return true;
     }
 }

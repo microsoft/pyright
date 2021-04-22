@@ -1386,7 +1386,14 @@ export function createTypeEvaluator(
     }
 
     function getTypeFromDecorator(node: DecoratorNode, functionOrClassType: Type): Type {
-        const decoratorTypeResult = getTypeOfExpression(node.expression);
+        // Evaluate the type of the decorator expression. Do not specialize
+        // if it's not a call expression because it could evaluate to a generic
+        // class that we are instantiating.
+        const decoratorTypeResult = getTypeOfExpression(
+            node.expression,
+            /* expectedType */ undefined,
+            node.expression.nodeType === ParseNodeType.Call ? EvaluatorFlags.None : EvaluatorFlags.DoNotSpecialize
+        );
 
         // Special-case the combination of a classmethod decorator applied
         // to a property. This is allowed in Python 3.9, but it's not reflected
@@ -5936,7 +5943,11 @@ export function createTypeEvaluator(
     }
 
     function getTypeFromCall(node: CallNode, expectedType: Type | undefined): TypeResult {
-        const baseTypeResult = getTypeOfExpression(node.leftExpression, undefined, EvaluatorFlags.DoNotSpecialize);
+        const baseTypeResult = getTypeOfExpression(
+            node.leftExpression,
+            /* expectedType */ undefined,
+            EvaluatorFlags.DoNotSpecialize
+        );
 
         const argList = node.arguments.map((arg) => {
             const functionArg: FunctionArgument = {
@@ -15027,6 +15038,7 @@ export function createTypeEvaluator(
 
             return (
                 node.nodeType === ParseNodeType.Call ||
+                node.nodeType === ParseNodeType.Index ||
                 node.nodeType === ParseNodeType.Dictionary ||
                 node.nodeType === ParseNodeType.FormatString ||
                 node.nodeType === ParseNodeType.List ||
@@ -15044,10 +15056,13 @@ export function createTypeEvaluator(
                 node.nodeType === ParseNodeType.PatternSequence ||
                 node.nodeType === ParseNodeType.PatternLiteral ||
                 node.nodeType === ParseNodeType.PatternClass ||
+                node.nodeType === ParseNodeType.PatternClassArgument ||
                 node.nodeType === ParseNodeType.PatternAs ||
                 node.nodeType === ParseNodeType.PatternCapture ||
                 node.nodeType === ParseNodeType.PatternMapping ||
-                node.nodeType === ParseNodeType.PatternValue
+                node.nodeType === ParseNodeType.PatternValue ||
+                node.nodeType === ParseNodeType.PatternMappingKeyEntry ||
+                node.nodeType === ParseNodeType.PatternMappingExpandEntry
             );
         }
 
@@ -15067,7 +15082,11 @@ export function createTypeEvaluator(
             ) {
                 // For global and nonlocal statements, allow forward references so
                 // we don't use code flow during symbol lookups.
-                getTypeOfExpression(node, /* expectedType */ undefined, EvaluatorFlags.AllowForwardReferences);
+                getTypeOfExpression(
+                    node,
+                    /* expectedType */ undefined,
+                    EvaluatorFlags.AllowForwardReferences | EvaluatorFlags.SkipUnboundCheck
+                );
                 return;
             }
         }
@@ -15098,10 +15117,22 @@ export function createTypeEvaluator(
                 evaluateTypesForAssignmentStatement(parent);
             }
             return;
+        } else if (parent.nodeType === ParseNodeType.Del) {
+            verifyDeleteExpression(lastContextualExpression);
+            return;
         }
 
         if (parent.nodeType === ParseNodeType.AugmentedAssignment) {
             evaluateTypesForAugmentedAssignment(parent);
+            return;
+        }
+
+        if (parent.nodeType === ParseNodeType.Decorator) {
+            if (parent.parent?.nodeType === ParseNodeType.Class) {
+                getTypeOfClass(parent.parent);
+            } else if (parent.parent?.nodeType === ParseNodeType.Function) {
+                getTypeOfFunction(parent.parent);
+            }
             return;
         }
 

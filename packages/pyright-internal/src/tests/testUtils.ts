@@ -15,7 +15,8 @@ import { AnalyzerFileInfo } from '../analyzer/analyzerFileInfo';
 import { Binder } from '../analyzer/binder';
 import { ImportResolver } from '../analyzer/importResolver';
 import { Program } from '../analyzer/program';
-import { TestWalker } from '../analyzer/testWalker';
+import { NameTypeWalker, TestWalker } from '../analyzer/testWalker';
+import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import { cloneDiagnosticRuleSet, ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { fail } from '../common/debug';
 import { Diagnostic, DiagnosticCategory } from '../common/diagnostic';
@@ -155,6 +156,14 @@ export function typeAnalyzeSampleFiles(
     const program = new Program(importResolver, configOptions);
     const filePaths = fileNames.map((name) => resolveSampleFilePath(name));
     program.setTrackedFiles(filePaths);
+
+    // Set a "pre-check callback" so we can evaluate the types of each NameNode
+    // prior to checking the full document.This will exercise the contextual
+    // evaluation logic.
+    program.setPreCheckCallback((parseResults: ParseResults, evaluator: TypeEvaluator) => {
+        const nameTypeWalker = new NameTypeWalker(evaluator);
+        nameTypeWalker.walk(parseResults.parseTree);
+    });
 
     while (program.analyze()) {
         // Continue to call analyze until it completes. Since we're not

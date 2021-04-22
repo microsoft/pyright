@@ -36,6 +36,7 @@ import {
     FormatStringNode,
     ForNode,
     FunctionNode,
+    GlobalNode,
     IfNode,
     ImportAsNode,
     ImportFromAsNode,
@@ -48,6 +49,7 @@ import {
     MemberAccessNode,
     ModuleNode,
     NameNode,
+    NonlocalNode,
     ParameterCategory,
     ParseNode,
     ParseNodeType,
@@ -953,6 +955,20 @@ export class Checker extends ParseTreeWalker {
             this._evaluator.getType(formatExpr);
         });
 
+        return true;
+    }
+
+    visitGlobal(node: GlobalNode): boolean {
+        node.nameList.forEach((name) => {
+            this._evaluator.getType(name);
+        });
+        return true;
+    }
+
+    visitNonlocal(node: NonlocalNode): boolean {
+        node.nameList.forEach((name) => {
+            this._evaluator.getType(name);
+        });
         return true;
     }
 
