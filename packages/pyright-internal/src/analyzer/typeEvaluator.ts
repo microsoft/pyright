@@ -19969,30 +19969,6 @@ export function createTypeEvaluator(
             }
         }
 
-        if (isAnyOrUnknown(destType)) {
-            return true;
-        }
-
-        if (isAnyOrUnknown(srcType)) {
-            if (typeVarMap) {
-                // If it's an ellipsis type, convert it to a regular "Any"
-                // type. These are functionally equivalent, but "Any" looks
-                // better in the text representation.
-                const typeVarSubstitution = isEllipsisType(srcType) ? AnyType.create() : srcType;
-                setTypeArgumentsRecursive(destType, typeVarSubstitution, typeVarMap);
-            }
-            if ((flags & CanAssignFlags.DisallowAssignFromAny) === 0) {
-                return true;
-            }
-        }
-
-        if (isNever(srcType)) {
-            if (typeVarMap) {
-                setTypeArgumentsRecursive(destType, UnknownType.create(), typeVarMap);
-            }
-            return true;
-        }
-
         if (isTypeVar(srcType)) {
             if ((flags & CanAssignFlags.ReverseTypeVarMatching) !== 0) {
                 if ((flags & CanAssignFlags.SkipSolveTypeVars) !== 0) {
@@ -20015,6 +19991,30 @@ export function createTypeEvaluator(
                     );
                 }
             }
+        }
+
+        if (isAnyOrUnknown(destType)) {
+            return true;
+        }
+
+        if (isAnyOrUnknown(srcType)) {
+            if (typeVarMap) {
+                // If it's an ellipsis type, convert it to a regular "Any"
+                // type. These are functionally equivalent, but "Any" looks
+                // better in the text representation.
+                const typeVarSubstitution = isEllipsisType(srcType) ? AnyType.create() : srcType;
+                setTypeArgumentsRecursive(destType, typeVarSubstitution, typeVarMap);
+            }
+            if ((flags & CanAssignFlags.DisallowAssignFromAny) === 0) {
+                return true;
+            }
+        }
+
+        if (isNever(srcType)) {
+            if (typeVarMap) {
+                setTypeArgumentsRecursive(destType, UnknownType.create(), typeVarMap);
+            }
+            return true;
         }
 
         if (isUnion(srcType)) {
