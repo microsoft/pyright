@@ -322,6 +322,8 @@ export class CompletionProvider {
 
         if (!initialNode || initialNode.nodeType !== ParseNodeType.Name) {
             let curOffset = offset;
+            let sawComma = false;
+
             while (curOffset >= 0) {
                 curOffset--;
 
@@ -330,11 +332,20 @@ export class CompletionProvider {
                 if (curChar === '(' || curChar === '\n') {
                     break;
                 }
+                if (curChar === ',') {
+                    sawComma = true;
+                }
 
                 const curNode = ParseTreeUtils.findNodeByOffset(this._parseResults.parseTree, curOffset);
                 if (curNode && curNode !== initialNode) {
                     if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
                         node = curNode;
+
+                        // If we're at the end of a list with a hanging comma, handle the
+                        // special case of "from x import y, ".
+                        if (sawComma && node.parent?.nodeType === ParseNodeType.ImportFromAs) {
+                            node = node.parent;
+                        }
                     }
                     break;
                 }
