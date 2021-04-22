@@ -694,11 +694,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             }
 
             if (this.client.hasActiveParameterCapability || activeSignature === null) {
-                // A value of -1 is out of bounds but is legal within the LSP (should be treated
-                // as undefined). It produces a better result in VS Code by preventing it from
-                // highlighting the first parameter when no parameter works, since the LSP client
-                // converts null into zero.
-                activeParameter = -1;
+                activeParameter = null;
             }
 
             return { signatures, activeSignature, activeParameter };
