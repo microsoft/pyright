@@ -15162,6 +15162,11 @@ export function createTypeEvaluator(
             return;
         }
 
+        if (parent.nodeType === ParseNodeType.Parameter) {
+            evaluateTypeOfParameter(parent);
+            return;
+        }
+
         if (parent.nodeType === ParseNodeType.ModuleName) {
             // A name within a module name isn't an expression,
             // so there's nothing we can evaluate here.
