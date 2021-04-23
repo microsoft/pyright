@@ -551,7 +551,6 @@ export interface CallResult {
     isTypeIncomplete?: boolean;
     argumentErrors: boolean;
     activeParam?: FunctionParameter;
-    overloadUsed?: FunctionType;
 }
 
 export interface MatchArgsToParamsResult {
@@ -6213,16 +6212,17 @@ export function createTypeEvaluator(
         };
     }
 
-    function findOverloadedFunctionType(
+    function validateOverloadedFunctionArguments(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
-        callType: OverloadedFunctionType,
-        expectedType: Type | undefined,
-        typeVarMap?: TypeVarMap
-    ): FunctionType | undefined {
+        type: OverloadedFunctionType,
+        typeVarMap: TypeVarMap | undefined,
+        skipUnknownArgCheck = false,
+        expectedType?: Type
+    ): CallResult {
         let validOverload: FunctionType | undefined;
 
-        for (const overload of callType.overloads) {
+        for (const overload of type.overloads) {
             // Only iterate through the functions that have the @overload
             // decorator, not the final function that omits the overload.
             // This is the intended behavior according to PEP 484.
@@ -6255,7 +6255,39 @@ export function createTypeEvaluator(
             }
         }
 
-        return validOverload;
+        if (validOverload) {
+            const effectiveTypeVarMap = typeVarMap || new TypeVarMap(getTypeVarScopeId(type));
+            effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(validOverload));
+            return validateFunctionArguments(
+                errorNode,
+                argList,
+                validOverload,
+                effectiveTypeVarMap,
+                skipUnknownArgCheck,
+                expectedType
+            );
+        }
+
+        // We couldn't find any valid overloads. Skip the error message if we're
+        // in speculative mode because it's very expensive, and we're going to
+        // suppress the diagnostic anyway.
+        if (!isDiagnosticSuppressedForNode(errorNode)) {
+            const functionName = type.overloads[0].details.name || '<anonymous function>';
+            const diagAddendum = new DiagnosticAddendum();
+            const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
+
+            diagAddendum.addMessage(
+                Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
+            );
+            addDiagnostic(
+                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                DiagnosticRule.reportGeneralTypeIssues,
+                Localizer.Diagnostic.noOverload().format({ name: functionName }) + diagAddendum.getString(),
+                errorNode
+            );
+        }
+
+        return { argumentErrors: true };
     }
 
     // Tries to match the arguments of a call to the constructor for a class.
@@ -6665,7 +6697,6 @@ export function createTypeEvaluator(
         expectedType?: Type
     ): CallResult {
         let argumentErrors = false;
-        let overloadUsed: FunctionType | undefined;
         let isTypeIncomplete = false;
 
         const returnType = mapSubtypes(callType, (subtype) => {
@@ -6703,9 +6734,6 @@ export function createTypeEvaluator(
                     );
                     if (callResult.argumentErrors) {
                         argumentErrors = true;
-                    }
-                    if (callResult.overloadUsed) {
-                        overloadUsed = callResult.overloadUsed;
                     }
                     if (callResult.isTypeIncomplete) {
                         isTypeIncomplete = true;
@@ -6757,78 +6785,45 @@ export function createTypeEvaluator(
                 }
 
                 case TypeCategory.OverloadedFunction: {
-                    const functionType = findOverloadedFunctionType(
+                    // Handle the 'cast' call as a special case.
+                    let castResultType: Type | undefined;
+                    if (concreteSubtype.overloads[0].details.builtInName === 'cast' && argList.length === 2) {
+                        // Verify that the cast is necessary.
+                        const castToType = getTypeForArgumentExpectingType(argList[0]);
+                        const castFromType = getTypeForArgument(argList[1]);
+                        if (isClass(castToType) && isObject(castFromType)) {
+                            if (isTypeSame(castToType, castFromType.classType)) {
+                                addDiagnostic(
+                                    getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
+                                    DiagnosticRule.reportUnnecessaryCast,
+                                    Localizer.Diagnostic.unnecessaryCast().format({
+                                        type: printType(castFromType),
+                                    }),
+                                    errorNode
+                                );
+                            }
+                        }
+
+                        castResultType = convertToInstance(castToType);
+                    }
+
+                    const functionResult = validateOverloadedFunctionArguments(
                         errorNode,
                         argList,
                         concreteSubtype,
-                        expectedType,
-                        typeVarMap
+                        typeVarMap,
+                        skipUnknownArgCheck,
+                        expectedType
                     );
 
-                    if (functionType) {
-                        if (functionType.details.builtInName === 'cast' && argList.length === 2) {
-                            // Verify that the cast is necessary.
-                            const castToType = getTypeForArgumentExpectingType(argList[0]);
-                            const castFromType = getTypeForArgument(argList[1]);
-                            if (isClass(castToType) && isObject(castFromType)) {
-                                if (isTypeSame(castToType, castFromType.classType)) {
-                                    addDiagnostic(
-                                        getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
-                                        DiagnosticRule.reportUnnecessaryCast,
-                                        Localizer.Diagnostic.unnecessaryCast().format({
-                                            type: printType(castFromType),
-                                        }),
-                                        errorNode
-                                    );
-                                }
-                            }
-
-                            return convertToInstance(castToType);
-                        }
-
-                        const effectiveTypeVarMap = typeVarMap || new TypeVarMap(getTypeVarScopeId(concreteSubtype));
-                        effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(functionType));
-                        const functionResult = validateFunctionArguments(
-                            errorNode,
-                            argList,
-                            functionType,
-                            effectiveTypeVarMap,
-                            skipUnknownArgCheck,
-                            expectedType
-                        );
-
-                        overloadUsed = functionType;
-                        if (functionResult.argumentErrors) {
-                            argumentErrors = true;
-                        }
-                        if (functionResult.isTypeIncomplete) {
-                            isTypeIncomplete = true;
-                        }
-
-                        return functionResult.returnType || UnknownType.create();
+                    if (functionResult.argumentErrors) {
+                        argumentErrors = true;
+                    }
+                    if (functionResult.isTypeIncomplete) {
+                        isTypeIncomplete = true;
                     }
 
-                    // We couldn't find any valid overloads. Skip the error message if we're
-                    // in speculative mode because it's very expensive, and we're going to
-                    // suppress the diagnostic anyway.
-                    if (!isDiagnosticSuppressedForNode(errorNode)) {
-                        const functionName = concreteSubtype.overloads[0].details.name || '<anonymous function>';
-                        const diagAddendum = new DiagnosticAddendum();
-                        const argTypes = argList.map((t) => printType(getTypeForArgument(t)));
-
-                        diagAddendum.addMessage(
-                            Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
-                        );
-                        addDiagnostic(
-                            getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            Localizer.Diagnostic.noOverload().format({ name: functionName }) + diagAddendum.getString(),
-                            errorNode
-                        );
-                    }
-
-                    argumentErrors = true;
-                    return UnknownType.create();
+                    return castResultType || functionResult.returnType || UnknownType.create();
                 }
 
                 case TypeCategory.Class: {
@@ -7094,7 +7089,6 @@ export function createTypeEvaluator(
         return {
             argumentErrors,
             returnType: isNever(returnType) ? undefined : returnType,
-            overloadUsed,
             isTypeIncomplete,
         };
     }
