@@ -1457,7 +1457,7 @@ export class Binder extends ParseTreeWalker {
         // declaration list because it should "win" when resolving the alias.
         const fileName = stripFileExtension(getFileName(this._fileInfo.filePath));
         const isModuleInitFile =
-            fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length > 0;
+            fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length === 1;
 
         let isTypingImport = false;
         if (node.module.nameParts.length === 1) {
