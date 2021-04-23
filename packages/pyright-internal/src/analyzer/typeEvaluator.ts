@@ -6786,25 +6786,13 @@ export function createTypeEvaluator(
 
                 case TypeCategory.OverloadedFunction: {
                     // Handle the 'cast' call as a special case.
-                    let castResultType: Type | undefined;
-                    if (concreteSubtype.overloads[0].details.builtInName === 'cast' && argList.length === 2) {
-                        // Verify that the cast is necessary.
-                        const castToType = getTypeForArgumentExpectingType(argList[0]);
-                        const castFromType = getTypeForArgument(argList[1]);
-                        if (isClass(castToType) && isObject(castFromType)) {
-                            if (isTypeSame(castToType, castFromType.classType)) {
-                                addDiagnostic(
-                                    getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
-                                    DiagnosticRule.reportUnnecessaryCast,
-                                    Localizer.Diagnostic.unnecessaryCast().format({
-                                        type: printType(castFromType),
-                                    }),
-                                    errorNode
-                                );
-                            }
-                        }
+                    const isCast = concreteSubtype.overloads[0].details.builtInName === 'cast' && argList.length === 2;
 
-                        castResultType = convertToInstance(castToType);
+                    if (isCast) {
+                        // Precalculate the type of the first argument using special semantics,
+                        // since we are expecting a type here. This allows us to support quoted
+                        // types, etc.
+                        getTypeForArgumentExpectingType(argList[0]);
                     }
 
                     const functionResult = validateOverloadedFunctionArguments(
@@ -6823,7 +6811,27 @@ export function createTypeEvaluator(
                         isTypeIncomplete = true;
                     }
 
-                    return castResultType || functionResult.returnType || UnknownType.create();
+                    if (isCast) {
+                        // Verify that the cast is necessary.
+                        const castToType = getTypeForArgumentExpectingType(argList[0]);
+                        const castFromType = getTypeForArgument(argList[1]);
+                        if (isClass(castToType) && isObject(castFromType)) {
+                            if (isTypeSame(castToType, castFromType.classType)) {
+                                addDiagnostic(
+                                    getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
+                                    DiagnosticRule.reportUnnecessaryCast,
+                                    Localizer.Diagnostic.unnecessaryCast().format({
+                                        type: printType(castFromType),
+                                    }),
+                                    errorNode
+                                );
+                            }
+                        }
+
+                        return convertToInstance(castToType);
+                    }
+
+                    return functionResult.returnType || UnknownType.create();
                 }
 
                 case TypeCategory.Class: {
