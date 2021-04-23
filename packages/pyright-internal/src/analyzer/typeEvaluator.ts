@@ -15036,6 +15036,13 @@ export function createTypeEvaluator(
                 return true;
             }
 
+            if (
+                node.parent?.nodeType === ParseNodeType.Parameter &&
+                (node === node.parent.typeAnnotation || node === node.parent.typeAnnotationComment)
+            ) {
+                return true;
+            }
+
             return (
                 node.nodeType === ParseNodeType.Call ||
                 node.nodeType === ParseNodeType.Index ||
