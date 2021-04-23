@@ -298,6 +298,7 @@ interface ValidateArgTypeParams {
     paramType: Type;
     requiresTypeVarMatching: boolean;
     argument: FunctionArgument;
+    argType?: Type;
     errorNode: ExpressionNode;
     paramName?: string;
     mapsToVarArgList?: boolean;
@@ -6221,51 +6222,64 @@ export function createTypeEvaluator(
         expectedType?: Type
     ): CallResult {
         let validOverload: FunctionType | undefined;
+        const filteredOverloads: FunctionType[] = [];
+        const filteredMatchResults: MatchArgsToParamsResult[] = [];
 
-        for (const overload of type.overloads) {
-            // Only iterate through the functions that have the @overload
-            // decorator, not the final function that omits the overload.
-            // This is the intended behavior according to PEP 484.
-            if (FunctionType.isOverloaded(overload)) {
-                // Clone the typeVarMap so we don't modify the original.
-                const effectiveTypeVarMap = typeVarMap
-                    ? typeVarMap.clone()
-                    : new TypeVarMap(getTypeVarScopeId(overload));
-
-                effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(overload));
-
-                // Temporarily disable diagnostic output.
-                useSpeculativeMode(errorNode, () => {
-                    const callResult = validateFunctionArguments(
-                        errorNode,
-                        argList,
-                        overload,
-                        effectiveTypeVarMap,
-                        /* skipUnknownArgCheck */ true,
-                        expectedType
-                    );
-                    if (!callResult.argumentErrors) {
-                        validOverload = overload;
+        // Start by evaluating the types of the arguments without any expected
+        // type. Also, filter the list of overloads based on the number of
+        // positional and named arguments that are present. We do all of this
+        // speculatively because we don't want to record any types in the type
+        // cache or record any diagnostics at this stage.
+        useSpeculativeMode(errorNode, () => {
+            type.overloads.forEach((overload) => {
+                // Consider only the functions that have the @overload decorator,
+                // not the final function that omits the overload. This is the
+                // intended behavior according to PEP 484.
+                if (FunctionType.isOverloaded(overload)) {
+                    const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, overload);
+                    if (!matchResults.argumentErrors) {
+                        filteredOverloads.push(overload);
+                        filteredMatchResults.push(matchResults);
                     }
-                });
-
-                if (validOverload) {
-                    break;
                 }
-            }
-        }
+            });
+        });
 
-        if (validOverload) {
-            const effectiveTypeVarMap = typeVarMap || new TypeVarMap(getTypeVarScopeId(type));
-            effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(validOverload));
-            return validateFunctionArguments(
-                errorNode,
-                argList,
-                validOverload,
-                effectiveTypeVarMap,
-                skipUnknownArgCheck,
-                expectedType
-            );
+        for (let index = 0; index < filteredOverloads.length; index++) {
+            const overload = filteredOverloads[index];
+
+            // Clone the typeVarMap so we don't modify the original.
+            const effectiveTypeVarMap = typeVarMap ? typeVarMap.clone() : new TypeVarMap(getTypeVarScopeId(overload));
+            effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(overload));
+
+            // Use speculative mode so we don't output any diagnostics or
+            // record any final types in the type cache.
+            useSpeculativeMode(errorNode, () => {
+                const callResult = validateFunctionArgumentTypes(
+                    errorNode,
+                    filteredMatchResults[index],
+                    overload,
+                    effectiveTypeVarMap,
+                    /* skipUnknownArgCheck */ true,
+                    expectedType
+                );
+                if (!callResult.argumentErrors) {
+                    validOverload = overload;
+                }
+            });
+
+            if (validOverload) {
+                const effectiveTypeVarMap = typeVarMap || new TypeVarMap(getTypeVarScopeId(type));
+                effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(validOverload));
+                return validateFunctionArguments(
+                    errorNode,
+                    argList,
+                    validOverload,
+                    effectiveTypeVarMap,
+                    skipUnknownArgCheck,
+                    expectedType
+                );
+            }
         }
 
         // We couldn't find any valid overloads. Skip the error message if we're
@@ -8071,22 +8085,27 @@ export function createTypeEvaluator(
                 expectedType = undefined;
             }
 
-            const exprType = getTypeOfExpression(argParam.argument.valueExpression, expectedType);
-            argType = exprType.type;
-            if (exprType.isIncomplete) {
-                isTypeIncomplete = true;
+            // was the argument's type precomputed by the caller?
+            if (argParam.argType) {
+                argType = argParam.argType;
+            } else {
+                const exprType = getTypeOfExpression(argParam.argument.valueExpression, expectedType);
+                argType = exprType.type;
+                if (exprType.isIncomplete) {
+                    isTypeIncomplete = true;
+                }
+                if (exprType.typeErrors) {
+                    return { isCompatible: false };
+                }
+                expectedTypeDiag = exprType.expectedTypeDiagAddendum;
             }
-            if (exprType.typeErrors) {
-                return { isCompatible: false };
-            }
-            expectedTypeDiag = exprType.expectedTypeDiagAddendum;
 
             if (
                 argParam.argument &&
                 argParam.argument.name &&
                 !speculativeTypeTracker.isSpeculative(argParam.errorNode)
             ) {
-                writeTypeCache(argParam.argument.name, expectedType || argType, !!exprType.isIncomplete);
+                writeTypeCache(argParam.argument.name, expectedType || argType, isTypeIncomplete);
             }
         } else {
             argType = getTypeForArgument(argParam.argument);
