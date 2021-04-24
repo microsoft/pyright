@@ -440,7 +440,7 @@ Applying To Pydantic
 
 This section explains which modifications need to be made to pydantic to
 incorporate support for this specification. This assumes recent versions of
-attrs (I used 1.8.1).
+pydantic (I used 1.8.1).
 
 Step 1: Open `pydantic/main.py` and search for the class definition for
 `ModelMetaclass`. Before this class definition, paste the following function
