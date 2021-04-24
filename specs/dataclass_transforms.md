@@ -23,7 +23,7 @@ The desired behaviors include:
 1. Optionally synthesizing an `__init__` method based on declared data fields.
 2. Optionally synthesizing `__eq__` and `__ne__` methods.
 3. Optionally synthesizing `__lt__`, `__le__`, `__gt__`, and `__ge__` methods.
-4. Supporting class "freezing", effectively making it immutable.
+4. Supporting "frozen" classes, a way to enforce immutability during static type checking.
 5. Supporting "field descriptors" that describe attributes of individual
 fields that a static type checker must be aware of, such as whether a
 default value is provided for the field.
