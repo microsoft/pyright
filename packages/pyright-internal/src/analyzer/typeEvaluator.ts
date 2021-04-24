@@ -4821,7 +4821,7 @@ export function createTypeEvaluator(
                                     errorNode,
                                     argList.slice(1),
                                     boundMethodType,
-                                    new TypeVarMap(getTypeVarScopeId(boundMethodType)),
+                                    /* typeVarMap */ undefined,
                                     /* skipUnknownArgCheck */ true
                                 );
 
@@ -5476,12 +5476,7 @@ export function createTypeEvaluator(
         // type with 'int', and we don't want to emit errors before we know
         // which type to use.
         useSpeculativeMode(node, () => {
-            callResult = validateCallArguments(
-                node,
-                argList,
-                itemMethodType,
-                new TypeVarMap(getTypeVarScopeId(itemMethodType))
-            );
+            callResult = validateCallArguments(node, argList, itemMethodType);
 
             if (callResult.argumentErrors) {
                 // If the object supports "__index__" magic method, convert
@@ -5498,12 +5493,7 @@ export function createTypeEvaluator(
                         }
                     }
 
-                    callResult = validateCallArguments(
-                        node,
-                        altArgList,
-                        itemMethodType,
-                        new TypeVarMap(getTypeVarScopeId(itemMethodType))
-                    );
+                    callResult = validateCallArguments(node, altArgList, itemMethodType);
 
                     // We were successful, so replace the arg list.
                     if (!callResult.argumentErrors) {
@@ -5513,12 +5503,7 @@ export function createTypeEvaluator(
             }
         });
 
-        callResult = validateCallArguments(
-            node,
-            argList,
-            itemMethodType,
-            new TypeVarMap(getTypeVarScopeId(itemMethodType))
-        );
+        callResult = validateCallArguments(node, argList, itemMethodType);
 
         return {
             node,
@@ -6247,6 +6232,7 @@ export function createTypeEvaluator(
 
         for (let index = 0; index < filteredOverloads.length; index++) {
             const overload = filteredOverloads[index];
+            const matchResults = filteredMatchResults[index];
 
             // Clone the typeVarMap so we don't modify the original.
             const effectiveTypeVarMap = typeVarMap ? typeVarMap.clone() : new TypeVarMap(getTypeVarScopeId(overload));
@@ -6257,7 +6243,7 @@ export function createTypeEvaluator(
             useSpeculativeMode(errorNode, () => {
                 const callResult = validateFunctionArgumentTypes(
                     errorNode,
-                    filteredMatchResults[index],
+                    matchResults,
                     overload,
                     effectiveTypeVarMap,
                     /* skipUnknownArgCheck */ true,
@@ -9775,7 +9761,7 @@ export function createTypeEvaluator(
                         errorNode,
                         functionArgs,
                         magicMethodType!,
-                        new TypeVarMap(getTypeVarScopeId(magicMethodType!)),
+                        /* typeVarMap */ undefined,
                         /* skipUnknownArgCheck */ true,
                         expectedType
                     );
@@ -12516,7 +12502,7 @@ export function createTypeEvaluator(
                     errorNode,
                     argList,
                     initSubclassMethodType,
-                    new TypeVarMap(getTypeVarScopeId(initSubclassMethodType)),
+                    /* typeVarMap */ undefined,
                     /* skipUnknownArgCheck */ false,
                     NoneType.createInstance()
                 );
