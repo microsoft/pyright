@@ -23,7 +23,8 @@ The desired behaviors include:
 1. Optionally synthesizing an `__init__` method based on declared data fields.
 2. Optionally synthesizing `__eq__` and `__ne__` methods.
 3. Optionally synthesizing `__lt__`, `__le__`, `__gt__`, and `__ge__` methods.
-4. Supporting "frozen" classes, a way to enforce immutability during static type checking.
+4. Supporting "frozen" classes, a way to enforce immutability during static type
+checking.
 5. Supporting "field descriptors" that describe attributes of individual
 fields that a static type checker must be aware of, such as whether a
 default value is provided for the field.
@@ -340,9 +341,9 @@ has been added to the `typing` module, type checkers may support an alternative
 form `__dataclass_transform__`. This form can be defined locally without any
 reliance on the `typing` or `typing_extensions` modules. It allows immediate
 adoption of the specification by library authors. Type checkers that have
-not yet adopted the this specification will retain their current behavior.
+not yet adopted this specification will retain their current behavior.
 
-To use this alternate form, library authors can include the following
+To use this alternate form, library authors should include the following
 declaration within their type stubs or source files.
 
 ```python
@@ -398,8 +399,11 @@ setting `eq` and `order` to True. This is not supported in this proposal.
 Attrs users should use the dataclass-standard parameter names.
 
 
+Using Dataclass Transform In Existing Libraries
+===============================================
+
 Applying To Attrs
-=================
+-----------------
 
 This section explains which modifications need to be made to attrs to
 incorporate support for this specification. This assumes recent versions of
@@ -436,7 +440,7 @@ this for each of the two overloads.
 
 
 Applying To Pydantic
-====================
+--------------------
 
 This section explains which modifications need to be made to pydantic to
 incorporate support for this specification. This assumes recent versions of
