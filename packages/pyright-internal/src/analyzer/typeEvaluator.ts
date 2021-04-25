@@ -6393,9 +6393,7 @@ export function createTypeEvaluator(
                 Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
             );
             if (expandedArgTypes && expandedArgTypes.length > maxOverloadUnionExpansionCount) {
-                diagAddendum.addMessage(
-                    Localizer.DiagnosticAddendum.overloadTooManyUnions()
-                );
+                diagAddendum.addMessage(Localizer.DiagnosticAddendum.overloadTooManyUnions());
             }
             addDiagnostic(
                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
