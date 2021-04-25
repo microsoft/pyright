@@ -61,12 +61,14 @@ The implementation details of `create_model` are omitted for brevity.
 # The `create_model` decorator is defined by a library. This could be
 # in a type stub or inline.
 @typing.dataclass_transform()
-def create_model(cls: type) -> Callable[[_T], _T]: ...
-
+def create_model(cls: type) -> Callable[[_T], _T]:
+    cls.__init__ = ...
+    cls.__eq__ = ...
+    return cls
 
 # The `create_model` decorator can now be used to create new model 
 # classes, like this:
-@create_model
+@create_model()
 class CustomerModel:
     id: int
     name: str
