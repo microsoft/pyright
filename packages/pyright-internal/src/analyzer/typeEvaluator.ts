@@ -184,6 +184,7 @@ import {
     TypeVarScopeId,
     TypeVarType,
     UnboundType,
+    UnionType,
     UnknownType,
     Variance,
     WildcardTypeVarScopeId,
@@ -702,6 +703,10 @@ const maxEntriesToUseForInference = 64;
 // Maximum number of unioned subtypes for an inferred type (e.g.
 // a list) before the type is considered an "Any".
 const maxSubtypesForInferredType = 64;
+
+// Maximum number of combinatoric union type expansions allowed
+// when resolving an overload.
+const maxOverloadUnionExpansionCount = 64;
 
 export interface EvaluatorOptions {
     disableInferenceForPyTypedSources: boolean;
@@ -6198,17 +6203,130 @@ export function createTypeEvaluator(
         };
     }
 
+    // Attempts to find an overloaded function for each set of argument
+    // types in the expandedArgTypes list. If an argument type is undefined,
+    // its type is evaluated from the argument's expression using the
+    // corresponding parameter's expected type. The first time this is called,
+    // there will be only one argument list in expandedArgTypes, and all entries
+    // (one for each argument) will be undefined. On subsequent calls, this
+    // list will grow to include union expansions.
+    function validateOverloadsWithExpandedTypes(
+        errorNode: ExpressionNode,
+        expandedArgTypes: (Type | undefined)[][],
+        overloads: FunctionType[],
+        argParamMatches: MatchArgsToParamsResult[],
+        typeVarMap: TypeVarMap | undefined,
+        skipUnknownArgCheck: boolean,
+        expectedType: Type | undefined
+    ) {
+        const returnTypes: Type[] = [];
+        const matchedOverloads: {
+            overload: FunctionType;
+            matchResults: MatchArgsToParamsResult;
+            typeVarMap: TypeVarMap;
+        }[] = [];
+
+        for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
+            let matchedOverload: FunctionType | undefined;
+            const argTypeOverride = expandedArgTypes[expandedTypesIndex];
+            const hasArgTypeOverride = argTypeOverride.some((a) => a !== undefined);
+
+            for (let overloadIndex = 0; overloadIndex < overloads.length; overloadIndex++) {
+                const overload = overloads[overloadIndex];
+
+                let matchResults = argParamMatches[overloadIndex];
+                if (hasArgTypeOverride) {
+                    matchResults = { ...argParamMatches[overloadIndex] };
+                    matchResults.argParams = matchResults.argParams.map((argParam, argIndex) => {
+                        if (!argTypeOverride[argIndex]) {
+                            return argParam;
+                        }
+                        const argParamCopy = { ...argParam };
+                        argParamCopy.argType = argTypeOverride[argIndex];
+                        return argParamCopy;
+                    });
+                }
+
+                // Clone the typeVarMap so we don't modify the original.
+                const effectiveTypeVarMap = typeVarMap
+                    ? typeVarMap.clone()
+                    : new TypeVarMap(getTypeVarScopeId(overload));
+                effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(overload));
+
+                // Use speculative mode so we don't output any diagnostics or
+                // record any final types in the type cache.
+                const callResult = useSpeculativeMode(errorNode, () => {
+                    return validateFunctionArgumentTypes(
+                        errorNode,
+                        matchResults,
+                        overload,
+                        effectiveTypeVarMap,
+                        /* skipUnknownArgCheck */ true,
+                        expectedType
+                    );
+                });
+
+                if (!callResult.argumentErrors && callResult.returnType) {
+                    matchedOverload = overload;
+                    matchedOverloads.push({ overload: matchedOverload, matchResults, typeVarMap: effectiveTypeVarMap });
+                    returnTypes.push(callResult.returnType);
+                    break;
+                }
+            }
+
+            if (!matchedOverload) {
+                return undefined;
+            }
+        }
+
+        // We found a match for all of the expanded argument lists.
+        // Run through them again to populate the original typeVarMap.
+        if (typeVarMap) {
+            for (let expandedTypesIndex = 0; expandedTypesIndex < expandedArgTypes.length; expandedTypesIndex++) {
+                const overload = matchedOverloads[expandedTypesIndex].overload;
+                const matchResults = matchedOverloads[expandedTypesIndex].matchResults;
+
+                useSpeculativeMode(errorNode, () => {
+                    typeVarMap.addSolveForScope(getTypeVarScopeId(overload));
+                    return validateFunctionArgumentTypes(
+                        errorNode,
+                        matchResults,
+                        overload,
+                        typeVarMap,
+                        /* skipUnknownArgCheck */ true,
+                        expectedType
+                    );
+                });
+            }
+        }
+
+        // And run through the first expanded argument list one more time to
+        // populate the type cache.
+        const firstExpansionOverload = matchedOverloads[0].overload;
+        matchedOverloads[0].typeVarMap.unlock();
+        validateFunctionArgumentTypes(
+            errorNode,
+            matchedOverloads[0].matchResults,
+            firstExpansionOverload,
+            matchedOverloads[0].typeVarMap,
+            skipUnknownArgCheck,
+            expectedType
+        );
+
+        return { argumentErrors: false, returnType: combineTypes(returnTypes) };
+    }
+
     function validateOverloadedFunctionArguments(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         type: OverloadedFunctionType,
         typeVarMap: TypeVarMap | undefined,
-        skipUnknownArgCheck = false,
-        expectedType?: Type
+        skipUnknownArgCheck: boolean,
+        expectedType: Type | undefined
     ): CallResult {
-        let validOverload: FunctionType | undefined;
         const filteredOverloads: FunctionType[] = [];
         const filteredMatchResults: MatchArgsToParamsResult[] = [];
+        let contextFreeArgTypes: Type[] = [];
 
         // Start by evaluating the types of the arguments without any expected
         // type. Also, filter the list of overloads based on the number of
@@ -6228,43 +6346,38 @@ export function createTypeEvaluator(
                     }
                 }
             });
+
+            // Also evaluate the types of each argument expression without regard to
+            // the expectedType. We'll use this to determine whether we need to do
+            // union expansion.
+            contextFreeArgTypes = argList.map((arg) =>
+                arg.valueExpression ? getTypeOfExpression(arg.valueExpression).type : AnyType.create()
+            );
         });
 
-        for (let index = 0; index < filteredOverloads.length; index++) {
-            const overload = filteredOverloads[index];
-            const matchResults = filteredMatchResults[index];
+        let expandedArgTypes: (Type | undefined)[][] | undefined = [argList.map((arg) => undefined)];
+        while (true) {
+            const callResult = validateOverloadsWithExpandedTypes(
+                errorNode,
+                expandedArgTypes,
+                filteredOverloads,
+                filteredMatchResults,
+                typeVarMap,
+                skipUnknownArgCheck,
+                expectedType
+            );
 
-            // Clone the typeVarMap so we don't modify the original.
-            const effectiveTypeVarMap = typeVarMap ? typeVarMap.clone() : new TypeVarMap(getTypeVarScopeId(overload));
-            effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(overload));
+            if (callResult) {
+                return callResult;
+            }
 
-            // Use speculative mode so we don't output any diagnostics or
-            // record any final types in the type cache.
-            useSpeculativeMode(errorNode, () => {
-                const callResult = validateFunctionArgumentTypes(
-                    errorNode,
-                    matchResults,
-                    overload,
-                    effectiveTypeVarMap,
-                    /* skipUnknownArgCheck */ true,
-                    expectedType
-                );
-                if (!callResult.argumentErrors) {
-                    validOverload = overload;
-                }
-            });
+            // We didn't find an overload match. Try to expand the next union
+            // argument type into individual types and retry with the expanded types.
+            expandedArgTypes = expandArgumentUnionTypes(contextFreeArgTypes, expandedArgTypes);
 
-            if (validOverload) {
-                const effectiveTypeVarMap = typeVarMap || new TypeVarMap(getTypeVarScopeId(type));
-                effectiveTypeVarMap.addSolveForScope(getTypeVarScopeId(validOverload));
-                return validateFunctionArguments(
-                    errorNode,
-                    argList,
-                    validOverload,
-                    effectiveTypeVarMap,
-                    skipUnknownArgCheck,
-                    expectedType
-                );
+            // Check for combinatoric explosion and break out of loop.
+            if (!expandedArgTypes || expandedArgTypes.length > maxOverloadUnionExpansionCount) {
+                break;
             }
         }
 
@@ -6279,6 +6392,11 @@ export function createTypeEvaluator(
             diagAddendum.addMessage(
                 Localizer.DiagnosticAddendum.argumentTypes().format({ types: argTypes.join(', ') })
             );
+            if (expandedArgTypes && expandedArgTypes.length > maxOverloadUnionExpansionCount) {
+                diagAddendum.addMessage(
+                    Localizer.DiagnosticAddendum.overloadTooManyUnions()
+                );
+            }
             addDiagnostic(
                 getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
                 DiagnosticRule.reportGeneralTypeIssues,
@@ -6288,6 +6406,59 @@ export function createTypeEvaluator(
         }
 
         return { argumentErrors: true };
+    }
+
+    // Replaces each item in the expandedArgTypes with n items where n is
+    // the number of subtypes in a union. The contextFreeArgTypes parameter
+    // represents the types of the arguments evaluated with no bidirectional
+    // type inference (i.e. without the help of the corresponding parameter's
+    // expected type). If the function returns undefined, that indicates that
+    // all unions have been expanded, and no more expansion is possible.
+    function expandArgumentUnionTypes(
+        contextFreeArgTypes: Type[],
+        expandedArgTypes: (Type | undefined)[][]
+    ): (Type | undefined)[][] | undefined {
+        // Find the rightmost already-expanded argument.
+        let indexToExpand = contextFreeArgTypes.length - 1;
+        while (indexToExpand >= 0 && !expandedArgTypes[0][indexToExpand]) {
+            indexToExpand--;
+        }
+
+        // Move to the next candidate for expansion.
+        indexToExpand++;
+
+        if (indexToExpand >= contextFreeArgTypes.length) {
+            return undefined;
+        }
+
+        let unionToExpand: UnionType | undefined;
+        while (indexToExpand < contextFreeArgTypes.length) {
+            // Is this a union type? If so, we can expand it.
+            const argType = contextFreeArgTypes[indexToExpand];
+            if (isUnion(argType)) {
+                unionToExpand = argType;
+                break;
+            }
+            indexToExpand++;
+        }
+
+        // We have nothing left to expand.
+        if (!unionToExpand) {
+            return undefined;
+        }
+
+        // Expand entry indexToExpand.
+        const newExpandedArgTypes: (Type | undefined)[][] = [];
+
+        expandedArgTypes.forEach((preExpandedTypes) => {
+            doForEachSubtype(unionToExpand!, (subtype) => {
+                const expandedTypes = [...preExpandedTypes];
+                expandedTypes[indexToExpand] = subtype;
+                newExpandedArgTypes.push(expandedTypes);
+            });
+        });
+
+        return newExpandedArgTypes;
     }
 
     // Tries to match the arguments of a call to the constructor for a class.

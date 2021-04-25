@@ -881,6 +881,7 @@ export namespace Localizer {
         export const overloadMethod = () => getRawString('DiagnosticAddendum.overloadMethod');
         export const overloadNotAssignable = () =>
             new ParameterizedString<{ name: string }>(getRawString('DiagnosticAddendum.overloadNotAssignable'));
+        export const overloadTooManyUnions = () => getRawString('DiagnosticAddendum.overloadTooManyUnions');
         export const overriddenMethod = () => getRawString('DiagnosticAddendum.overriddenMethod');
         export const overriddenSymbol = () => getRawString('DiagnosticAddendum.overriddenSymbol');
         export const overrideParamCount = () =>

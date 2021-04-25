@@ -239,6 +239,11 @@ export class TypeVarMap {
         this._isLocked = true;
     }
 
+    unlock() {
+        // Unlocks the type var map, allowing further changes.
+        this._isLocked = false;
+    }
+
     isLocked(): boolean {
         return this._isLocked;
     }
