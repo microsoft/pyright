@@ -3172,7 +3172,7 @@ export function createTypeEvaluator(
 
     // Replaces all of the top-level TypeVars (as opposed to TypeVars
     // used as type arguments in other types) with their concrete form.
-    function makeTopLevelTypeVarsConcrete(type: Type): Type {
+    function makeTopLevelTypeVarsConcrete(type: Type, constraintFilter?: SubtypeConstraints): Type {
         return mapSubtypes(type, (subtype) => {
             if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
                 if (subtype.details.boundType) {
@@ -3188,8 +3188,25 @@ export function createTypeEvaluator(
                 }
 
                 if (subtype.details.constraints.length > 0) {
-                    const constrainedTypes = subtype.details.constraints.map((constraintType, constraintIndex) => {
-                        return {
+                    const constrainedTypes: ConstrainedSubtype[] = [];
+
+                    // Expand the list of constrained subtypes, filtering out any that are
+                    // disallowed by the constraintFilter.
+                    subtype.details.constraints.forEach((constraintType, constraintIndex) => {
+                        if (constraintFilter) {
+                            const typeVarName = TypeVarType.getNameWithScope(subtype);
+                            const applicableConstraint = constraintFilter.find(
+                                (filter) => filter.typeVarName === typeVarName
+                            );
+
+                            // If this type variable is being constrained to a single index,
+                            // don't include the other indices.
+                            if (applicableConstraint && applicableConstraint.constraintIndex !== constraintIndex) {
+                                return;
+                            }
+                        }
+
+                        constrainedTypes.push({
                             type: constraintType,
                             constraints: [
                                 {
@@ -3197,7 +3214,7 @@ export function createTypeEvaluator(
                                     constraintIndex,
                                 },
                             ],
-                        };
+                        });
                     });
 
                     return combineConstrainedTypes(constrainedTypes);
@@ -6216,7 +6233,8 @@ export function createTypeEvaluator(
         argParamMatches: MatchArgsToParamsResult[],
         typeVarMap: TypeVarMap | undefined,
         skipUnknownArgCheck: boolean,
-        expectedType: Type | undefined
+        expectedType: Type | undefined,
+        constraintFilter: SubtypeConstraints | undefined
     ) {
         const returnTypes: Type[] = [];
         const matchedOverloads: {
@@ -6261,7 +6279,8 @@ export function createTypeEvaluator(
                         overload,
                         effectiveTypeVarMap,
                         /* skipUnknownArgCheck */ true,
-                        expectedType
+                        expectedType,
+                        constraintFilter
                     );
                 });
 
@@ -6293,7 +6312,8 @@ export function createTypeEvaluator(
                         overload,
                         typeVarMap,
                         /* skipUnknownArgCheck */ true,
-                        expectedType
+                        expectedType,
+                        constraintFilter
                     );
                 });
             }
@@ -6309,7 +6329,8 @@ export function createTypeEvaluator(
             firstExpansionOverload,
             matchedOverloads[0].typeVarMap,
             skipUnknownArgCheck,
-            expectedType
+            expectedType,
+            constraintFilter
         );
 
         return { argumentErrors: false, returnType: combineTypes(returnTypes) };
@@ -6321,7 +6342,8 @@ export function createTypeEvaluator(
         type: OverloadedFunctionType,
         typeVarMap: TypeVarMap | undefined,
         skipUnknownArgCheck: boolean,
-        expectedType: Type | undefined
+        expectedType: Type | undefined,
+        constraintFilter: SubtypeConstraints | undefined
     ): CallResult {
         const filteredOverloads: FunctionType[] = [];
         const filteredMatchResults: MatchArgsToParamsResult[] = [];
@@ -6363,7 +6385,8 @@ export function createTypeEvaluator(
                 filteredMatchResults,
                 typeVarMap,
                 skipUnknownArgCheck,
-                expectedType
+                expectedType,
+                constraintFilter
             );
 
             if (callResult) {
@@ -6912,7 +6935,8 @@ export function createTypeEvaluator(
                             concreteSubtype,
                             typeVarMap || new TypeVarMap(getTypeVarScopeId(concreteSubtype)),
                             skipUnknownArgCheck,
-                            expectedType
+                            expectedType,
+                            constraints
                         );
                         if (functionResult.argumentErrors) {
                             argumentErrors = true;
@@ -6954,7 +6978,8 @@ export function createTypeEvaluator(
                             concreteSubtype,
                             typeVarMap,
                             skipUnknownArgCheck,
-                            expectedType
+                            expectedType,
+                            constraints
                         );
 
                         if (functionResult.argumentErrors) {
@@ -7887,7 +7912,8 @@ export function createTypeEvaluator(
         type: FunctionType,
         typeVarMap: TypeVarMap,
         skipUnknownArgCheck = false,
-        expectedType?: Type
+        expectedType?: Type,
+        constraintFilter?: SubtypeConstraints
     ): CallResult {
         let isTypeIncomplete = false;
         let argumentErrors = false;
@@ -7971,7 +7997,8 @@ export function createTypeEvaluator(
                                 argParam,
                                 typeVarMap,
                                 type.details.name,
-                                skipUnknownArgCheck
+                                skipUnknownArgCheck,
+                                constraintFilter
                             );
                             if (argResult.isTypeIncomplete) {
                                 isTypeIncomplete = true;
@@ -7987,7 +8014,13 @@ export function createTypeEvaluator(
         }
 
         matchResults.argParams.forEach((argParam) => {
-            const argResult = validateArgType(argParam, typeVarMap, type.details.name, skipUnknownArgCheck);
+            const argResult = validateArgType(
+                argParam,
+                typeVarMap,
+                type.details.name,
+                skipUnknownArgCheck,
+                constraintFilter
+            );
             if (!argResult.isCompatible) {
                 argumentErrors = true;
             } else if (argResult.isTypeIncomplete) {
@@ -8002,7 +8035,8 @@ export function createTypeEvaluator(
                     errorNode,
                     matchResults.paramSpecArgList,
                     matchResults.paramSpecTarget,
-                    typeVarMap
+                    typeVarMap,
+                    constraintFilter
                 )
             ) {
                 argumentErrors = true;
@@ -8043,7 +8077,8 @@ export function createTypeEvaluator(
         type: FunctionType,
         typeVarMap: TypeVarMap,
         skipUnknownArgCheck = false,
-        expectedType?: Type
+        expectedType?: Type,
+        constraintFilter?: SubtypeConstraints
     ): CallResult {
         const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, type);
 
@@ -8070,7 +8105,8 @@ export function createTypeEvaluator(
             type,
             typeVarMap,
             skipUnknownArgCheck,
-            expectedType
+            expectedType,
+            constraintFilter
         );
     }
 
@@ -8080,7 +8116,8 @@ export function createTypeEvaluator(
         errorNode: ExpressionNode,
         argList: FunctionArgument[],
         paramSpec: TypeVarType,
-        typeVarMap: TypeVarMap
+        typeVarMap: TypeVarMap,
+        constraintFilter: SubtypeConstraints | undefined
     ): boolean {
         const paramSpecValue = typeVarMap.getParamSpec(paramSpec);
 
@@ -8160,7 +8197,8 @@ export function createTypeEvaluator(
                             },
                             typeVarMap,
                             /* functionName */ '',
-                            /* skipUnknownArgCheck */ false
+                            /* skipUnknownArgCheck */ false,
+                            constraintFilter
                         )
                     ) {
                         reportedArgError = true;
@@ -8196,7 +8234,8 @@ export function createTypeEvaluator(
         argParam: ValidateArgTypeParams,
         typeVarMap: TypeVarMap,
         functionName: string,
-        skipUnknownCheck: boolean
+        skipUnknownCheck: boolean,
+        constraintFilter: SubtypeConstraints | undefined
     ): ArgResult {
         let argType: Type | undefined;
         let expectedTypeDiag: DiagnosticAddendum | undefined;
@@ -8256,6 +8295,15 @@ export function createTypeEvaluator(
         // places like a dict constructor.
         if (argParam.paramCategory === ParameterCategory.VarArgDictionary && isTypeVar(argParam.paramType)) {
             argType = stripLiteralValue(argType);
+        }
+
+        // If there's a constraint filter, apply it to top-level type variables
+        // if appropriate. This doesn't properly handle non-top-level constrained
+        // type variables.
+        if (constraintFilter) {
+            argType = mapSubtypesExpandTypeVars(argType, constraintFilter, (expandedSubtype) => {
+                return expandedSubtype;
+            })
         }
 
         let diag = new DiagnosticAddendum();
