@@ -104,7 +104,30 @@ def func1(points: list[Point[float] | Point[complex]]):
         case _ as e1:
             t_e1: Literal["list[Point[float] | Point[complex]]"] = reveal_type(e1)
 
+
 def func2(subj: object):
     match subj:
         case list() as a1:
             t_a1: Literal["list[Unknown]"] = reveal_type(a1)
+
+
+def func3(subj: Union[int, str, dict[str, str]]):
+    match subj:
+        case int(x):
+            t_x1: Literal["int"] = reveal_type(x)
+
+        case str(x):
+            t_x2: Literal["str"] = reveal_type(x)
+
+        case dict(x):
+            t_x3: Literal["dict[str, str]"] = reveal_type(x)
+
+
+def func4(subj: object):
+    match subj:
+        case int(x):
+            t_x1: Literal["int"] = reveal_type(x)
+
+        case str(x):
+            t_x2: Literal["str"] = reveal_type(x)
+

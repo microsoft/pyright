@@ -8303,7 +8303,7 @@ export function createTypeEvaluator(
         if (constraintFilter) {
             argType = mapSubtypesExpandTypeVars(argType, constraintFilter, (expandedSubtype) => {
                 return expandedSubtype;
-            })
+            });
         }
 
         let diag = new DiagnosticAddendum();
@@ -14708,16 +14708,41 @@ export function createTypeEvaluator(
             argName = positionalArgNames[argIndex];
         }
 
-        let argType: Type | undefined;
-        if (argName) {
-            const argMemberInfo = lookUpClassMember(classType, argName);
-            if (argMemberInfo) {
-                argType = getTypeOfMember(argMemberInfo);
-            }
-        }
+        // PEP 464 indicates that several built-in classes are handled differently
+        // when used with class pattern matching.
+        const classPatternSpecialCases = [
+            'builtins.bool',
+            'builtins.bytearray',
+            'builtins.bytes',
+            'builtins.dict',
+            'builtins.float',
+            'builtins.frozenset',
+            'builtins.int',
+            'builtins.list',
+            'builtins.set',
+            'builtins.str',
+            'builtins.tuple',
+        ];
 
-        if (!argType) {
-            argType = UnknownType.create();
+        const useSelfForPattern =
+            classPatternSpecialCases.some((className) => classType.details.fullName === className) &&
+            argIndex === 0 &&
+            !arg.name;
+
+        let argType: Type | undefined;
+        if (useSelfForPattern) {
+            argType = ObjectType.create(classType);
+        } else {
+            if (argName) {
+                const argMemberInfo = lookUpClassMember(classType, argName);
+                if (argMemberInfo) {
+                    argType = getTypeOfMember(argMemberInfo);
+                }
+            }
+
+            if (!argType) {
+                argType = UnknownType.create();
+            }
         }
 
         return narrowTypeBasedOnPattern(argType, arg.pattern, /* isPositiveTest */ true);
