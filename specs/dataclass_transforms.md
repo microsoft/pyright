@@ -19,7 +19,7 @@ dataclass. This proposal aims to generalize this functionality and provide
 a way for third-party libraries to indicate that certain decorator functions
 or metaclasses provide behaviors similar to dataclass.
 
-The desired behaviors include:
+The desired behaviors include the following:
 1. Optionally synthesizing an `__init__` method based on declared data fields.
 2. Optionally synthesizing `__eq__` and `__ne__` methods.
 3. Optionally synthesizing `__lt__`, `__le__`, `__gt__`, and `__ge__` methods.
@@ -49,29 +49,68 @@ as a decorator will apply dataclass type semantics. If `dataclass_transform`
 is applied to a class, dataclass type semantics will be assumed for any
 class that uses the decorated class as a metaclass.
 
-Example of using `dataclass_transform` to decorate a decorator function:
+Here is an example of using `dataclass_transform` to decorate a decorator
+function named `create_model`. We assume here that this function modifies
+the class that it decorates in the following ways:
+1. It synthesizes an `__init__` method using data fields declared within
+the class and its parent classes.
+2. It synthesizes an `__eq__` and `__ne__` method.
+The implementation details of `create_model` are omitted for brevity.
+
 ```python
+# The `create_model` decorator is defined by a library. This could be
+# in a type stub or inline.
 @typing.dataclass_transform()
 def create_model(cls: type) -> Callable[[_T], _T]: ...
 
 
+# The `create_model` decorator can now be used to create new model 
+# classes, like this:
 @create_model
-class Customer:
+class CustomerModel:
     id: int
     name: str
 ```
 
-Example of using `dataclass_transform` to decorate a metaclass.
+Here is an example of using `dataclass_transform` to decorate a metaclass.
+We assume here that the `ModelMeta` class, when used as a metaclass, modifies
+the classes that it creates in the following ways:
+1. It synthesizes an `__init__` method using data fields declared within
+the class and its parent classes.
+2. It synthesizes an `__eq__` and `__ne__` method.
+The implementation details of `ModelMeta` are omitted for brevity.
+
 ```python
+# The `ModelMeta` metaclass and `ModelBase` class are defined by a library.
+# This could be in a type stub or inline.
 @typing.dataclass_transform()
 class ModelMeta(type): ...
 
 class ModelBase(metaclass=ModelMeta): ...
 
 
-class Customer(ModelBase):
+# The `ModelBase` class can now be used to create new model 
+# subclasses, like this:
+class CustomerModel(ModelBase):
     id: int
     name: str
+```
+
+In both of the above examples, the resulting `CustomerModel` class can now be
+instantiated using the synthesized `__init__` method:
+
+```python
+# Using positional arguments
+c1 = CustomerModel(327, "John Smith")
+
+# Using keyword arguments
+c2 = CustomerModel(id=327, name="John Smith")
+
+# These will generate runtime errors and should likewise be flagged as
+# errors by a static type checker.
+c3 = CustomerModel()
+c4 = CustomerModel(327, first_name="John")
+c5 = CustomerModel(327, "John Smith", 0)
 ```
 
 A decorator function or metaclass that provides dataclass-like functionality
@@ -153,7 +192,7 @@ def create_model(
 # Example of how this decorator would be used by code that imports
 # from this library:
 @create_model(frozen=True, kw_only=False)
-class Customer:
+class CustomerModel:
     id: int
     name: str
 ```
@@ -180,7 +219,7 @@ class ModelBase(metaclass=ModelMeta):
 
 # Example of how this class would be used by code that imports
 # from this library:
-class Customer(ModelBase, init=False, frozen=True, eq=False, order=False):
+class CustomerModel(ModelBase, init=False, frozen=True, eq=False, order=False):
     id: int
     name: str
 ```
@@ -260,7 +299,7 @@ def create_model(cls: type) -> Callable[[_T], _T]: ...
 
 # Code that imports this library:
 @create_model(init=False)
-class Customer:
+class CustomerModel:
     id: int = ModelField(default=0)
     name: str
 ```
