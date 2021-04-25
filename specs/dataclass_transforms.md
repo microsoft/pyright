@@ -60,15 +60,18 @@ The implementation details of `create_model` are omitted for brevity.
 ```python
 # The `create_model` decorator is defined by a library. This could be
 # in a type stub or inline.
+_T = TypeVar("_T")
+
 @typing.dataclass_transform()
-def create_model(cls: type) -> Callable[[_T], _T]:
+def create_model(cls: Type[_T]) -> Type[_T]:
     cls.__init__ = ...
     cls.__eq__ = ...
     return cls
+    
 
 # The `create_model` decorator can now be used to create new model 
 # classes, like this:
-@create_model()
+@create_model
 class CustomerModel:
     id: int
     name: str
@@ -184,11 +187,10 @@ Example of using `dataclass_transform` to decorate a decorator function:
 # and provides no way to override this behavior.
 @typing.dataclass_transform(kw_only_default=True, order_default=True)
 def create_model(
-    cls: type,
     *,
     frozen: bool = False,
     kw_only: bool = True,
-) -> Callable[[_T], _T]: ...
+) -> Callable[[Type[_T]], Type[_T]]: ...
 
 
 # Example of how this decorator would be used by code that imports
@@ -296,7 +298,10 @@ class ModelField:
     ) -> None: ...
 
 @typing.dataclass_transform(kw_only_default=True, field_descriptors=(ModelField, ))
-def create_model(cls: type) -> Callable[[_T], _T]: ...
+def create_model(
+    *,
+    init: bool = True
+) -> Callable[[Type[_T]], Type[_T]]: ...
 
 
 # Code that imports this library:
