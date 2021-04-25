@@ -21026,8 +21026,6 @@ export function createTypeEvaluator(
                     !isPrivateOrProtectedName(srcParamName)
                 ) {
                     const isPositionalOnly =
-                        srcPositionalOnlyIndex >= 0 &&
-                        paramIndex < srcPositionalOnlyIndex &&
                         destPositionalOnlyIndex >= 0 &&
                         paramIndex < destPositionalOnlyIndex;
                     if (!isPositionalOnly && destParamName !== srcParamName) {

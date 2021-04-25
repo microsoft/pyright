@@ -1,6 +1,6 @@
 # This sample tests the Python 3.8 "positional-only parameter" feature.
 
-from typing import Any
+from typing import Any, Protocol
 
 
 def f0(a: int, b: int):
@@ -90,3 +90,33 @@ f7("hi", name=3)
 
 # This should generate an error
 f7("hi", name=3, name=4)
+
+
+class P1(Protocol):
+    def f(self, x: Any, /):
+        ...
+
+
+class C1:
+    def f(
+        self,
+        y: Any,
+    ):
+        ...
+
+
+c1: P1 = C1()
+
+
+class P2(Protocol):
+    def f(self, x: Any):
+        ...
+
+
+class C2:
+    def f(self, y: Any, /):
+        ...
+
+
+# This should generate an error
+c2: P2 = C2()
