@@ -2118,8 +2118,8 @@ export function createTypeEvaluator(
     }
 
     // Validates fields for compatibility with a dataclass and synthesizes
-    // an appropriate __new__ and __init__ methods plus a __dataclass_fields__
-    // class variable.
+    // an appropriate __new__ and __init__ methods plus __dataclass_fields__
+    // and __match_args__ class variables.
     function synthesizeDataClassMethods(node: ClassNode, classType: ClassType, skipSynthesizeInit: boolean) {
         assert(ClassType.isDataClass(classType));
 
@@ -2343,6 +2343,29 @@ export function createTypeEvaluator(
 
             symbolTable.set('__init__', Symbol.createWithType(SymbolFlags.ClassMember, initType));
             symbolTable.set('__new__', Symbol.createWithType(SymbolFlags.ClassMember, newType));
+        }
+
+        // Synthesize the __match_args__ class variable if it doesn't exist.
+        const strType = getBuiltInType(node, 'str');
+        if (
+            tupleClassType &&
+            isClass(tupleClassType) &&
+            strType &&
+            isClass(strType) &&
+            !symbolTable.has('__match_args__')
+        ) {
+            const matchArgsNames: string[] = [];
+            fullDataClassEntries.forEach((entry) => {
+                if (entry.includeInInit) {
+                    // Use the field name, not its alias (if it has one).
+                    matchArgsNames.push(entry.name);
+                }
+            });
+            const literalTypes = matchArgsNames.map((name) => {
+                return ObjectType.create(ClassType.cloneWithLiteral(strType, name));
+            });
+            const matchArgsType = ObjectType.create(specializeTupleClass(tupleClassType, literalTypes));
+            symbolTable.set('__match_args__', Symbol.createWithType(SymbolFlags.ClassMember, matchArgsType));
         }
 
         const synthesizeComparisonMethod = (operator: string, paramType: Type) => {
@@ -9096,6 +9119,8 @@ export function createTypeEvaluator(
             hasDeclaredType: true,
         });
 
+        const matchArgsNames: string[] = [];
+
         const selfParameter: FunctionParameter = {
             category: ParameterCategory.Simple,
             name: 'self',
@@ -9136,6 +9161,7 @@ export function createTypeEvaluator(
 
                             FunctionType.addParameter(constructorType, paramInfo);
                             const newSymbol = Symbol.createWithType(SymbolFlags.InstanceMember, entryType);
+                            matchArgsNames.push(entryName);
 
                             // We need to associate the declaration with a parse node.
                             // In this case it's just part of a string literal value.
@@ -9215,6 +9241,7 @@ export function createTypeEvaluator(
 
                         FunctionType.addParameter(constructorType, paramInfo);
                         entryTypes.push(entryType);
+                        matchArgsNames.push(entryName);
 
                         const newSymbol = Symbol.createWithType(SymbolFlags.InstanceMember, entryType);
                         if (entryNameNode && entryNameNode.nodeType === ParseNodeType.StringList) {
@@ -9294,6 +9321,16 @@ export function createTypeEvaluator(
                 type: getBuiltInObject(errorNode, 'str'),
             });
             classFields.set('__getattribute__', Symbol.createWithType(SymbolFlags.ClassMember, getAttribType));
+        }
+
+        // Synthesize the __match_args__ class variable.
+        const strType = getBuiltInType(errorNode, 'str');
+        if (!addGenericGetAttribute && strType && isClass(strType) && tupleClassType && isClass(tupleClassType)) {
+            const literalTypes = matchArgsNames.map((name) => {
+                return ObjectType.create(ClassType.cloneWithLiteral(strType, name));
+            });
+            const matchArgsType = ObjectType.create(specializeTupleClass(tupleClassType, literalTypes));
+            classFields.set('__match_args__', Symbol.createWithType(SymbolFlags.ClassMember, matchArgsType));
         }
 
         computeMroLinearization(classType);
@@ -11000,9 +11037,7 @@ export function createTypeEvaluator(
         return UnknownType.create();
     }
 
-    // Creates a type that represents a Literal. This is not an officially-supported
-    // feature of Python but is instead a mypy extension described here:
-    // https://mypy.readthedocs.io/en/latest/literal_types.html
+    // Creates a type that represents a Literal.
     function createLiteralType(node: IndexNode, flags: EvaluatorFlags): Type {
         if (node.items.length === 0) {
             addError(Localizer.Diagnostic.literalEmptyArgs(), node.baseExpression);

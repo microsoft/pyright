@@ -1,7 +1,8 @@
 # This sample tests type checking for match statements (as
 # described in PEP 634) that contain class patterns.
 
-from typing import Generic, Literal, TypeVar, Union
+from typing import Generic, Literal, NamedTuple, TypeVar, Union
+from dataclasses import dataclass, field
 
 foo = 3
 
@@ -130,4 +131,46 @@ def func4(subj: object):
 
         case str(x):
             t_x2: Literal["str"] = reveal_type(x)
+
+
+# Test the auto-generation of __match_args__ for dataclass.
+@dataclass
+class Dataclass1:
+    val1: int
+    val2: str = field(init=False)
+    val3: complex
+
+@dataclass
+class Dataclass2:
+    val1: int
+    val2: str
+    val3: float
+
+
+def func5(subj: object):
+    match subj:
+        case Dataclass1(a, b):
+            t_a1: Literal['int'] = reveal_type(a)
+            t_b1: Literal['complex'] = reveal_type(b)
+
+        case Dataclass2(a, b, c):
+            t_a2: Literal['int'] = reveal_type(a)
+            t_b2: Literal['str'] = reveal_type(b)
+            t_c2: Literal['float'] = reveal_type(c)
+
+
+# Test the auto-generation of __match_args__ for named tuples.
+NT1 = NamedTuple("NT1", [('val1', int), ('val2', complex)])
+NT2 = NamedTuple("NT2", [('val1', int), ('val2', str), ('val3', float)])
+
+def func6(subj: object):
+    match subj:
+        case NT1(a, b):
+            t_a1: Literal['int'] = reveal_type(a)
+            t_b1: Literal['complex'] = reveal_type(b)
+
+        case NT2(a, b, c):
+            t_a2: Literal['int'] = reveal_type(a)
+            t_b2: Literal['str'] = reveal_type(b)
+            t_c2: Literal['float'] = reveal_type(c)
 
