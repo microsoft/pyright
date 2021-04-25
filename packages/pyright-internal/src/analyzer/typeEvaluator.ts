@@ -14708,7 +14708,7 @@ export function createTypeEvaluator(
             argName = positionalArgNames[argIndex];
         }
 
-        // PEP 464 indicates that several built-in classes are handled differently
+        // PEP 634 indicates that several built-in classes are handled differently
         // when used with class pattern matching.
         const classPatternSpecialCases = [
             'builtins.bool',
