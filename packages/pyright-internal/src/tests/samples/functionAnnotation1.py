@@ -46,3 +46,7 @@ def func1f(a):
 
 class Foo:
     pass
+
+def func1g(*args, **kwargs):
+    # type: (*int, **float) -> int
+    return sum(args) + sum(round(kwarg) for kwarg in kwargs.values())

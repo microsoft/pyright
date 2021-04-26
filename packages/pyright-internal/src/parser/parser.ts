@@ -3854,6 +3854,11 @@ export class Parser {
                 break;
             }
 
+            // Consume "*" or "**" indicators but don't do anything with them.
+            // (We don't enforce that these are present, absent, or match
+            // the corresponding parameter types.)
+            this._consumeTokenIfOperator(OperatorType.Multiply) || this._consumeTokenIfOperator(OperatorType.Power);
+
             const paramAnnotation = this._parseTypeAnnotation();
             paramAnnotations.push(paramAnnotation);
 
