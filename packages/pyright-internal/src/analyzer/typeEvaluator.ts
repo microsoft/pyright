@@ -19754,7 +19754,7 @@ export function createTypeEvaluator(
             srcTypeArgs = srcType.typeArguments;
         }
 
-        if (srcTypeArgs && srcType.isTypeArgumentExplicit) {
+        if (srcTypeArgs) {
             for (let srcArgIndex = 0; srcArgIndex < srcTypeArgs.length; srcArgIndex++) {
                 const srcTypeArg = srcTypeArgs[srcArgIndex];
 

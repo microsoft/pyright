@@ -321,7 +321,7 @@ export function transformTypeObjectToClass(type: Type): Type {
         return type;
     }
 
-    if (!classType.typeArguments || classType.typeArguments.length < 1 || !classType.isTypeArgumentExplicit) {
+    if (!classType.typeArguments || classType.typeArguments.length < 1) {
         return UnknownType.create();
     }
 
