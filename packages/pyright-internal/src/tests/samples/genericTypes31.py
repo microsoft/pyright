@@ -4,11 +4,12 @@
 
 from typing import Union, List, TypeVar, Type
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def to_list1(obj_type: Type[T], obj: Union[List[T], T]) -> List[T]:
     return []
+
 
 def to_list2(obj_type: Type[T], obj: Union[T, List[T]]) -> List[T]:
     return []

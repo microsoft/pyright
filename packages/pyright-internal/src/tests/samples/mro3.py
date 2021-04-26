@@ -28,4 +28,3 @@ class Source(QualifiedObject, SubclassableObject):
 
 class ObjectType(InheritingObject, Source):
     pass
-

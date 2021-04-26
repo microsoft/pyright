@@ -9,4 +9,3 @@ from . import import13
 
 t1: Literal["int"] = reveal_type(foo1)
 t2: Literal["int"] = reveal_type(import13.foo2)
-

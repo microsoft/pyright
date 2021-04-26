@@ -16,5 +16,5 @@ async def doit():
     async for i in as_list:
         print(i)
 
-asyncio.run(doit())
 
+asyncio.run(doit())

@@ -3,11 +3,14 @@
 
 from typing import Callable
 
+
 def perform_request(build_req: Callable[[], str]) -> str:
     return "purr"
 
+
 def make_api_request(auth: str) -> str:
     return "meow"
+
 
 def testfunc() -> None:
     resp = open("test")
@@ -20,4 +23,3 @@ def testfunc() -> None:
         return make_api_request(auth)
 
     resp = perform_request(build_req)
-

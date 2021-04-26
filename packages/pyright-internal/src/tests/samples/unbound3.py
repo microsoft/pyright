@@ -11,4 +11,3 @@ def foo(a: bool):
     # These should not.
     d = c
     e = d
-

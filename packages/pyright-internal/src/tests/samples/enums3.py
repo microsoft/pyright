@@ -22,4 +22,3 @@ class Foo:
 
 def test_fn(color: Type[enum.Enum]):
     print(color["RED"])
-

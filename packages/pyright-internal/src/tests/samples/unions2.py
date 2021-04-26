@@ -4,6 +4,7 @@
 
 from typing import Any
 
+
 class my_class:
     def __init__(self, v):
         self._v = v

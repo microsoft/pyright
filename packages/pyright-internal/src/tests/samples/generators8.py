@@ -10,5 +10,3 @@ ints2 = [3, 4]
 def foo() -> Generator[int, None, None]:
     yield from ints1
     yield from ints2
-
-

@@ -85,6 +85,7 @@ class Foo2:
     def baz(self) -> None:
         self.bar()
 
+
 class ClassWithNewOverride:
     def __new__(cls):
         return object.__new__(cls)

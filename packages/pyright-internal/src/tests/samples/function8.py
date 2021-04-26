@@ -47,26 +47,32 @@ def test_kwargs2(
 
 
 class Callback1(Protocol):
-    def __call__(self) -> None: ...
+    def __call__(self) -> None:
+        ...
+
 
 def func1(
     value: str = ...,
     *args: object,
-) -> None: ...
+) -> None:
+    ...
+
 
 def func2(
     value: str = ...,
     **kwargs: object,
-) -> None: ...
+) -> None:
+    ...
+
 
 def func3(
     value: str = ...,
     *args: object,
     **kwargs: object,
-) -> None: ...
+) -> None:
+    ...
 
 
 v1: Callback1 = func1
 v2: Callback1 = func2
 v3: Callback1 = func3
-

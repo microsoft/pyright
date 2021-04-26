@@ -7,7 +7,7 @@ def func1a(a, b):
 
 
 # Too many annotations
-def func1b(a, b): # type: (str, int, int) -> str
+def func1b(a, b):  # type: (str, int, int) -> str
     return ""
 
 
@@ -22,5 +22,5 @@ class ClassA:
         return ""
 
     # Too many annotations
-    def method2(self, a, b): # type: (str, int, int, int) -> str
+    def method2(self, a, b):  # type: (str, int, int, int) -> str
         return ""

@@ -17,4 +17,3 @@ yield 7
 class Foo:
     # This should generate an error
     yield
-

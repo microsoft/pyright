@@ -5,31 +5,29 @@
 
 from typing import List, Optional, Tuple
 
-a = 3 # type: int
+a = 3  # type: int
 
-b = '3' # type: str
+b = "3"  # type: str
 
-c = [1, 2, 3] # type: Optional[List[int]]
+c = [1, 2, 3]  # type: Optional[List[int]]
 
 
 # A type on the next line shouldn't be honored
-d = 'hello'
+d = "hello"
 # type: int
 
 # A type comment with a space between the type and
 # the colon is also not honored.
-e = 'hello' # type : int
+e = "hello"  # type : int
 
 # Neither is a capital "Type"
-f = 'hello' # Type: int
+f = "hello"  # Type: int
 
 
 # This should generate an error because the type doesn't match
-g = 'hello' # type: int
+g = "hello"  # type: int
 
 
 # This should generate an error because the last entry
 # of the tuple is the wrong type.
-h = (1, 'hello', (5 ,)) # type: Tuple[int, str, Tuple[str]]
-
-
+h = (1, "hello", (5,))  # type: Tuple[int, str, Tuple[str]]

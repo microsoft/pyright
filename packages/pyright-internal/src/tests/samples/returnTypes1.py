@@ -1,10 +1,12 @@
 # This sample tests basic return type analysis and error reporting.
 
+
 def add(a: int, b: int) -> int:
     c = float(a + b)
     # This should generate an error:
     # Expression of type 'float' cannot be assigned to return type 'int'
     return c
+
 
 def addf(a: float, b: float) -> float:
     c = float(a + b)
@@ -22,4 +24,3 @@ addf(3, 5)
 def noReturnIsFine() -> bool:
     "Doc strings are allowed"
     ...
-

@@ -1,8 +1,10 @@
 # This sample tests the type checker's ability to handle type
 # inferences within loop constructs.
 
+
 def bar(a: list):
     pass
+
 
 def func1():
     data = None
@@ -24,6 +26,7 @@ def func1():
 
 x = 20 + 20
 
+
 def func2():
     data = None
 
@@ -40,4 +43,3 @@ def func2():
         # type checker should be able to determine that
         # data must contain None at this point.
         bar(data)
-  

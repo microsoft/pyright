@@ -9,4 +9,3 @@ import json
 
 a = json.decoder.JSONDecodeError
 b = json.JSONDecodeError
-

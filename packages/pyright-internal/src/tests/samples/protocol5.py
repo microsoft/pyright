@@ -4,12 +4,14 @@
 
 from typing import Protocol, List
 
+
 class Template(Protocol):
-    name: str        # This is a protocol member
-    value: int = 0   # This one too (with default)
+    name: str  # This is a protocol member
+    value: int = 0  # This one too (with default)
 
     def method(self) -> None:
         pass
+
 
 class Concrete:
     def __init__(self, name: str, value: int) -> None:
@@ -19,5 +21,5 @@ class Concrete:
     def method(self) -> None:
         return
 
-var: Template = Concrete('value', 42)
 
+var: Template = Concrete("value", 42)

@@ -3,6 +3,7 @@
 
 from typing import ClassVar, List, Protocol
 
+
 class Template(Protocol):
     a: int
     b: ClassVar[str]
@@ -19,5 +20,3 @@ class Template(Protocol):
 
         # This should be an error
         cls.test2 = 3
-
-

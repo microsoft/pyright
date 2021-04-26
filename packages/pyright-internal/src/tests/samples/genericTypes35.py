@@ -43,4 +43,3 @@ x2: Optional[int] = 0
 # T2 is bound to str, so there is no solution that satisfies
 # all of the constraints.
 y2 = fmap(identity2, x2)
-

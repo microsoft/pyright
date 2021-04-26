@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+
 class ClassA:
     # This should generate an error because ClassA
     # is not yet defined at the time it's used.
@@ -31,6 +32,3 @@ class ClassB(ClassA):
 
 class ClassC:
     pass
-
-
-

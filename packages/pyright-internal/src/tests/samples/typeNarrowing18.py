@@ -73,4 +73,3 @@ def f6(p: Union[TD1, TD2, TD3]):
 
     # This should generate an error
     v6 = p["d"]
-

@@ -6,18 +6,21 @@
 
 from typing import Callable, Iterator, TypeVar
 
-_T = TypeVar('_T')
+_T = TypeVar("_T")
+
 
 class Foo(Iterator[_T]):
     pass
 
-def foo(func: Callable[..., Iterator[_T]]) -> Callable[..., Foo[_T]]: ...
+
+def foo(func: Callable[..., Iterator[_T]]) -> Callable[..., Foo[_T]]:
+    ...
 
 
 @foo
 def f() -> Iterator[str]:
-    yield ''
+    yield ""
+
 
 a = f()
 b: Foo[str] = a
-

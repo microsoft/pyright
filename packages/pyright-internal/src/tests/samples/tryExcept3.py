@@ -10,4 +10,3 @@ try:
     1 / 0
 except exc:
     print("exc")
-

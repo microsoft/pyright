@@ -33,4 +33,3 @@ homogen_tuple: Tuple[int, ...] = (1, 5, 3)
 
 foo2(*homogen_tuple)
 foo2(*homogen_tuple, 2)
-

@@ -33,6 +33,5 @@ class ClassA:
         return self.foo
 
 
-
 class ClassB:
     ...

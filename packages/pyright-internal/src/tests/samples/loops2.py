@@ -2,7 +2,11 @@
 # of cyclical dependencies for type resolution.
 
 from typing import Tuple
-def needs_str(a: str) -> Tuple[str, str]: ...
+
+
+def needs_str(a: str) -> Tuple[str, str]:
+    ...
+
 
 def xxx():
     v1 = ""
@@ -19,5 +23,3 @@ def xxx():
         assert v4 is not None
         v1, v2 = needs_str(v4)
         v3 = v1
-
- 

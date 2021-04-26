@@ -44,4 +44,3 @@ def requires_class_with_meta1(val: Type[ClassWithMeta1]):
 
 MetaOr1 = ClassWithMeta1 | ClassWithNoMeta1
 requires_class_with_meta1(MetaOr1)
-

@@ -2,14 +2,23 @@
 
 # pyright: strict
 
-class Foo: ...
-class Bar: ...
 
-a = [1, 'hello', 3.4, Foo()]
+class Foo:
+    ...
+
+
+class Bar:
+    ...
+
+
+a = [1, "hello", 3.4, Foo()]
 
 b = [*a]
 
-def int_only(a: int): ...
+
+def int_only(a: int):
+    ...
+
 
 for c in b:
     if not isinstance(c, (float, str)):

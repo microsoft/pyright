@@ -6,12 +6,11 @@ a: Union[str, int]
 if 2 + 3:
     a = 3
 else:
-    a = 'hello'
+    a = "hello"
 reveal_type(a)
 
 a = 5
 reveal_type(a)
 
-a = 'yup'
+a = "yup"
 reveal_type(a)
-

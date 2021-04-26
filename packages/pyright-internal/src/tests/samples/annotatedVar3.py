@@ -52,4 +52,3 @@ def func2():
 
     # This should generate an error.
     (local_var, local_var2) = ("hello", b"h")
-

@@ -10,4 +10,3 @@ msgs = [{"Id": "1", "Handle": "2"}]
 list2: List[MessageTypeDef] = [
     {"Id": msg["Id"], "Handle": msg["Handle"]} for msg in msgs
 ]
-

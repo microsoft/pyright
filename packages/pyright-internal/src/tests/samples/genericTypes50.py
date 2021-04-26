@@ -7,17 +7,30 @@ from typing import Any, Literal, Protocol, TypeVar, overload
 _X_co = TypeVar("_X_co", covariant=True)
 _X_contra = TypeVar("_X_contra", contravariant=True)
 
+
 class SupportsDivMod(Protocol[_X_contra, _X_co]):
-    def __divmod__(self, __other: _X_contra) -> _X_co: ...
+    def __divmod__(self, __other: _X_contra) -> _X_co:
+        ...
+
 
 class SupportsRDivMod(Protocol[_X_contra, _X_co]):
-    def __rdivmod__(self, __other: _X_contra) -> _X_co: ...
+    def __rdivmod__(self, __other: _X_contra) -> _X_co:
+        ...
+
 
 @overload
-def divmod(__x: SupportsDivMod[_X_contra, _X_co], __y: _X_contra) -> _X_co: ...
+def divmod(__x: SupportsDivMod[_X_contra, _X_co], __y: _X_contra) -> _X_co:
+    ...
+
+
 @overload
-def divmod(__x: _X_contra, __y: SupportsRDivMod[_X_contra, _X_co]) -> _X_co: ...
-def divmod(__x: Any, __y: Any) -> Any: ...
+def divmod(__x: _X_contra, __y: SupportsRDivMod[_X_contra, _X_co]) -> _X_co:
+    ...
+
+
+def divmod(__x: Any, __y: Any) -> Any:
+    ...
+
 
 t1: Literal["Tuple[int, timedelta]"] = reveal_type(
     divmod(timedelta(minutes=90), timedelta(hours=1))

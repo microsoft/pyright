@@ -46,4 +46,3 @@ x: List[_Xs] = []
 
 # This should generate an error.
 y: _Xs = ()
-

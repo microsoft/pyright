@@ -11,4 +11,3 @@ b = __foo
 
 c = bar
 d = _bar
-

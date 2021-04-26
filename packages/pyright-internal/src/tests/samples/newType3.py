@@ -32,4 +32,3 @@ require_user_id(2)
 
 var5 = 4 + var2
 var6 = var2 * 2
-

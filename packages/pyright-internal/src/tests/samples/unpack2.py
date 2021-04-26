@@ -25,4 +25,3 @@ def foo3() -> Tuple[Any, ...]:
 
 def requires_list(a: List[int]):
     return None
-

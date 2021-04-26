@@ -2,6 +2,7 @@
 # symbols are potentially unbound.
 
 if True:
+
     class X:
         # This should generate an error because 'X' is not yet declared.
         def foo(self) -> X:
@@ -15,5 +16,3 @@ if True:
 
         def fn(self) -> X:
             return X()
-
-

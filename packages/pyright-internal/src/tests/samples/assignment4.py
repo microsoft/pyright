@@ -5,11 +5,13 @@
 # pyright: strict
 
 from typing import Dict, Callable, Sequence, Tuple
+
 AAA = float
 BBB = int
 CCC = str
 DDD = str
 AAATuple = Tuple[AAA, BBB, Callable[[Sequence[int], AAA], Sequence[float]]]
+
 
 def foo():
     var1: Dict[str, Tuple[AAA, BBB, CCC, DDD]] = {}

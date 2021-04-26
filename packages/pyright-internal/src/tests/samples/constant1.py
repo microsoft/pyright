@@ -11,6 +11,7 @@ _ = 234
 
 a = True
 
+
 def foo():
     LOCALVAR = 3
 
@@ -20,6 +21,7 @@ def foo():
 
 
 from typing import TYPE_CHECKING
+
 # This should generate an error if the feature is enabled.
 TYPE_CHECKING = True
 
@@ -31,11 +33,8 @@ class Foo(object):
     CONST_VAR = 4
 
     def __init__(self):
-        self.HELLO = '3'
-
+        self.HELLO = "3"
 
     def foo(self):
         # This should generate an error if the feature is enabled.
-        self.HELLO = '324'
-
-
+        self.HELLO = "324"

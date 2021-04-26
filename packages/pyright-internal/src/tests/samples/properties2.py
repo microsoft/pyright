@@ -2,6 +2,7 @@
 
 import abc
 
+
 def requires_int(x: int):
     pass
 

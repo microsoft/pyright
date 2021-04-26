@@ -38,4 +38,3 @@ if y in [2]:
     # This should generate an error because y should
     # be narrowed to an int.
     verify_str(y)
-

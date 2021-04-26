@@ -2,10 +2,10 @@
 
 from typing import TypeVar, Generic
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class Foo(Generic[T]):
-
     def __init__(self, bar: T):
         self._bar = bar
 

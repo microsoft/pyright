@@ -1,9 +1,11 @@
 # This file validates type narrowing that involve
 # conditional binary expressions.
 
+
 class Foo:
     def bar(self):
         return
+
 
 maybe = True
 
@@ -44,7 +46,7 @@ else:
 
 if a or b:
     a.bar()
-    b.bar() 
+    b.bar()
 else:
     # This should be flagged as an error
     a.bar()

@@ -3,9 +3,10 @@
 
 from typing import Union
 
+
 class Foo(object):
     def __eq__(self, Foo):
-        return 'equal'
+        return "equal"
 
 
 class Bar(object):
@@ -13,22 +14,25 @@ class Bar(object):
         return self
 
     def __lt__(self, Bar):
-        return 'string'
+        return "string"
 
     def __gt__(self, Bar):
-        return 'string'
+        return "string"
 
     def __ge__(self, Bar):
-        return 'string'
+        return "string"
 
     def __le__(self, Bar):
-        return 'string'
+        return "string"
+
 
 def needs_a_string(val: str):
     pass
 
+
 def needs_a_string_or_bool(val: Union[bool, str]):
     pass
+
 
 def test():
     a = Foo()
@@ -58,5 +62,3 @@ def test():
     needs_a_string(b > b)
     needs_a_string(b <= b)
     needs_a_string(b >= b)
-
-

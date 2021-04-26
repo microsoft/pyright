@@ -27,4 +27,3 @@ type_b1: Literal["B"] = reveal_type(b1)
 
 b2 = B.factoryB()
 type_b2: Literal["B"] = reveal_type(b2)
-

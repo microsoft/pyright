@@ -3,11 +3,13 @@
 
 from typing import Tuple
 
-def bar(values: Tuple[str, ...]): ...
+
+def bar(values: Tuple[str, ...]):
+    ...
+
 
 # This should generate an error
-bar(('', False))
+bar(("", False))
 
 # This should generate an error
-bar((False, ''))
-
+bar((False, ""))

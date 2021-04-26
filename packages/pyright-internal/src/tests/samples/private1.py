@@ -4,6 +4,7 @@ from .private2 import TestClass, _TestClass, TestClass as _Foo
 
 _Test = 1
 
+
 class Foo(object):
     _my_var1 = 1
 

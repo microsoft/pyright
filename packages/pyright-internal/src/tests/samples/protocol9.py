@@ -33,4 +33,3 @@ class SimpleTree:
 
 
 root: TreeLike = SimpleTree(0)
- 

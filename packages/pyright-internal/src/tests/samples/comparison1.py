@@ -26,13 +26,22 @@ def func1(os: OS, val: Literal[1, "linux"]):
     if val == 1:
         return True
 
-class ClassA: ...
-class ClassB: ...
+
+class ClassA:
+    ...
+
+
+class ClassB:
+    ...
+
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2", bound=ClassB)
 
-def func2(a: ClassA, b: ClassB, c: _T1, d: _T2, e: Union[ClassA, ClassB]) -> Union[None, _T1, _T2]:
+
+def func2(
+    a: ClassA, b: ClassB, c: _T1, d: _T2, e: Union[ClassA, ClassB]
+) -> Union[None, _T1, _T2]:
     # This should generate an error because there is no overlap in types.
     if a == b:
         return

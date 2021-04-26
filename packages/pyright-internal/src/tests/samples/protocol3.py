@@ -93,4 +93,3 @@ class MockFoo4:
 # This should generate an error because it is missing
 # a deleter.
 g: Foo4 = MockFoo4(batch_shape=1)
-

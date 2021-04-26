@@ -34,10 +34,11 @@ def g(a: Optional[Callable[[int], int]]):
     if callable(a):
         a(3)
 
-T = TypeVar('T')
+
+T = TypeVar("T")
+
 
 def test(arg: Union[T, Callable[[], T]]) -> T:
     if callable(arg):
         return arg()
     return arg
-

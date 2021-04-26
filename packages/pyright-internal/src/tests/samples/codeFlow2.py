@@ -15,5 +15,3 @@ class FakeOsModule(object):
 
     def stat(self):
         return None
-
-

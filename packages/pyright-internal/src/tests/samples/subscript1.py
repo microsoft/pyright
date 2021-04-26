@@ -17,9 +17,10 @@ def func1(
     f1: set[int],
     g1: deque[int],
     h1: frozenset[int],
-    i1: PathLike[str]
+    i1: PathLike[str],
 ) -> None:
     pass
+
 
 def func2(
     a1: "Queue[int]",
@@ -30,9 +31,10 @@ def func2(
     f1: "set[int]",
     g1: "deque[int]",
     h1: "frozenset[int]",
-    i1: "PathLike[str]"
+    i1: "PathLike[str]",
 ) -> None:
     pass
+
 
 # These should not generate errors because they are used
 # in variable types.
@@ -55,4 +57,3 @@ f2: "set[int]" = set()
 g2: "deque[int]" = deque()
 h2: "frozenset[int]" = frozenset()
 i2: "PathLike[str]"
-

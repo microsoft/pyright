@@ -8,10 +8,9 @@ a: Tuple[()] = ()
 # This should generate an error because the assigned
 # tuple has one element, but the destination is
 # expecting zero.
-b: Tuple[()] = (1, )
+b: Tuple[()] = (1,)
 
 # This should generate an error because the assigned
 # tuple has zero elements, but the destination is
 # expecting two.
 c: Tuple[int, str] = ()
-

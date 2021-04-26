@@ -25,4 +25,3 @@ v7: str = foo.pop("bar", "none")
 v8: Union[str, int] = foo.pop("bar", 3)
 
 foo.__delitem__("bar")
-

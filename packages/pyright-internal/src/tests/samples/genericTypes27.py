@@ -12,4 +12,3 @@ class Gen(Generic[D]):
 
 
 GenAlias = Gen[E]
-

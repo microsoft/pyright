@@ -41,6 +41,7 @@ def puts_p_into_scope(f: Callable[P, int]) -> None:
 def out_of_scope(*args: P.args, **kwargs: P.kwargs) -> None:
     pass
 
+
 # This should generate an error because ParamSpec isn't allowed in this context
 out_of_scope_var2: P = 12
 

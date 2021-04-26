@@ -7,6 +7,7 @@ from typing import List
 def a():
     pass
 
+
 # This should generate two errors - one for
 # overriding the function declaration and another
 # for an incompatible assignment.
@@ -15,6 +16,8 @@ a = 1
 # This should generate an error for an obscured type.
 def b():
     pass
+
+
 b: int = 1
 
 # This should generate an error for an obscured type.
@@ -24,6 +27,8 @@ c: float = 1.1
 # This should generate two errors - one for an
 # obscured type, the second for an incompatible assignment.
 d: int = 2
+
+
 def d():
     pass
 
@@ -34,7 +39,7 @@ class Foo:
 
     def aa(self):
         return 3
-    
+
 
 # This should generate two errors, one for each param.
 def my_func(param1: int, param2):
@@ -47,5 +52,3 @@ def my_func(param1: int, param2):
 e: List[int]
 e = [3]
 e: List[int]
-
-

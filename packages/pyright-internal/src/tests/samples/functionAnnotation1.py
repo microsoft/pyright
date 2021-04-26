@@ -46,4 +46,3 @@ def func1f(a):
 
 class Foo:
     pass
-

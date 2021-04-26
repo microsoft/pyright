@@ -11,41 +11,42 @@ def func1(length: int) -> int:
     else:
         # This should not be flagged as an error
         # because we should never get here.
-        return 'hello'
+        return "hello"
 
     # This should not be flagged as an error
     # because we should never get here.
-    return 'not_returned'
+    return "not_returned"
 
 
 def func2() -> int:
     while None:
         # This should not be flagged as an error
         # because we should never get here.
-        return 'hello'
+        return "hello"
     else:
         # This should be an error because the return
         # type doesn't match.
-        return 'hello'
+        return "hello"
 
     # This should not be an error because we
     # should never get here.
-    return 'not_returned'
+    return "not_returned"
 
 
 def func3() -> str:
     if True:
-        return 'hello'
+        return "hello"
     else:
         # This should not be flagged as an error
         # because we should never get here.
         return 21
-    
+
     raise BaseException()
 
     # This should not be flagged as an error
     # because we should never get here.
     return 52
+
 
 def func4(length: int) -> int:
     n = 0
@@ -55,12 +56,10 @@ def func4(length: int) -> int:
         n += 3
         break
     else:
-        return 'hello'
+        return "hello"
 
     # This should be flagged as an error because
     # the break in the while True loop means that
     # we might get here, and the return type does
     # not match.
-    return 'not_returned'
-
-
+    return "not_returned"

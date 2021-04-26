@@ -1,7 +1,7 @@
-
 # This sample tests the a class-based decorator that uses
 # a __get__ method as a way to provide access to a __call__
 # method. Very contorted, but it's legal Python.
+
 
 class Wrapper:
     def __init__(self, func):
@@ -16,5 +16,5 @@ class Foo:
     def __init__(self, **kwargs):
         print(f"{kwargs}")
 
-Foo(bar=3)
 
+Foo(bar=3)

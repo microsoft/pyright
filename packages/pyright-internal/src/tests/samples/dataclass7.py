@@ -3,9 +3,18 @@
 
 from dataclasses import dataclass
 
-class C1: ...
-class C2: ...
-class C3: ...
+
+class C1:
+    ...
+
+
+class C2:
+    ...
+
+
+class C3:
+    ...
+
 
 @dataclass
 class DC1:
@@ -13,14 +22,17 @@ class DC1:
     bb: C2
     cc: C3
 
+
 class NonDC2:
     ff: int
+
 
 @dataclass
 class DC2(NonDC2, DC1):
     ee: C2
     aa: C2
     dd: C2
+
 
 dc2_1 = DC2(C2(), C2(), C3(), C2(), C2())
 
@@ -37,11 +49,13 @@ class DC3:
     bb: C2 = C2()
     cc: C3 = C3()
 
+
 @dataclass
 class DC4(DC3):
     # This should generate an error because
     # previous parameters have default values.
     dd: C1
+
 
 @dataclass
 class DC5(DC3):
@@ -49,4 +63,3 @@ class DC5(DC3):
     # aa replaces aa in DC3, and it's ordered
     # before the params with default values.
     aa: C2
-

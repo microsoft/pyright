@@ -3,12 +3,11 @@
 
 import typing
 
+
 def func1(a: object):
     pass
+
 
 func1(typing)
 
 dir(typing)
-
-
-

@@ -8,4 +8,3 @@ import typing as typ
 a: typing.Literal[True] = True
 b: t.Literal["Hello"] = "Hello"
 c: typ.Literal[True, "Hello"] = True
-

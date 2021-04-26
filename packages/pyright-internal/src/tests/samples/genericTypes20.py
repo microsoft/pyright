@@ -8,6 +8,7 @@
 
 from logging import Handler, NOTSET
 
+
 class Foo(Handler):
     def __init__(self, a, b="hello", level=NOTSET):
         super().__init__(level)

@@ -12,8 +12,6 @@ class Bar(Bar):
 class ClassA(ClassB):
     pass
 
+
 class ClassB(ClassA):
     pass
-
-
- 

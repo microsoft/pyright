@@ -3,10 +3,12 @@
 
 from typing import AsyncIterator, List, Iterator
 
+
 def requires_int(val: int):
     pass
 
-list1 = [1, 2, 3] # type: List[int]
+
+list1 = [1, 2, 3]  # type: List[int]
 
 for a in list1:
     requires_int(a)
@@ -31,7 +33,8 @@ class AsyncIterable1(object):
         return self
 
     async def __anext__(self):
-        return 1 
+        return 1
+
 
 iter1 = AsyncIterable1()
 
@@ -48,11 +51,11 @@ for e in [b async for b in iter1]:
 
 class ClassWithGetItem(object):
     def __getitem__(self, item) -> str:
-        return 'hello'
+        return "hello"
+
 
 def testGetItemIterator() -> str:
     objWithGetItem = ClassWithGetItem()
     for f in objWithGetItem:
         return f
-    return 'none'
-
+    return "none"

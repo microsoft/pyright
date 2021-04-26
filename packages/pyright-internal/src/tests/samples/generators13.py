@@ -36,7 +36,8 @@ async def demo_bug1() -> None:
     t_gen: Literal["AsyncGenerator[str, None]"] = reveal_type(gen)
     async for s in gen:
         print(s)
-    
+
+
 async def demo_bug2() -> None:
     v1 = get_generator2()
     t_v1: Literal["Coroutine[Any, Any, AsyncIterator[str]]"] = reveal_type(v1)
@@ -44,11 +45,8 @@ async def demo_bug2() -> None:
     t_gen: Literal["AsyncIterator[str]"] = reveal_type(gen)
     async for s in gen:
         print(s)
-    
+
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(demo_bug1())
 loop.run_until_complete(demo_bug2())
-
-
- 

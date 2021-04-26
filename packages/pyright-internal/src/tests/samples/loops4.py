@@ -15,4 +15,3 @@ while len(input()) < 42:
         continue
 
     x += 44
-

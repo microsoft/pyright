@@ -116,8 +116,10 @@ d4_3 = d4(3j, "hi", 4)
 def func4(func: Callable[[Unpack[_Xs], int], int]) -> Callable[[Unpack[_Xs]], int]:
     ...
 
+
 def callback8(a: int, b: str, c: complex, d: int) -> int:
     ...
+
 
 d5_1 = func4(callback1)
 t_d5_1: Literal["() -> int"] = reveal_type(d5_1)
@@ -127,4 +129,3 @@ d5_2 = func4(callback4)
 
 d5_3 = func4(callback8)
 t_d5_3: Literal["(_p0: int, _p1: str, _p2: complex) -> int"] = reveal_type(d5_3)
-

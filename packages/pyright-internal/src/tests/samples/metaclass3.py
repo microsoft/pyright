@@ -1,5 +1,6 @@
 # This sample tests the detection of metaclass conflicts.
 
+
 class Meta1(type):
     pass
 

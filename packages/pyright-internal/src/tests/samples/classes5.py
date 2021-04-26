@@ -13,7 +13,7 @@ class ParentClass:
     var6: int
     var7: List[float]
     var8: List[int]
-    
+
     _var1: int
     __var1: int
 
