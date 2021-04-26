@@ -20466,35 +20466,35 @@ export function createTypeEvaluator(
                 let isIncompatible = false;
 
                 doForEachSubtype(destType, (subtype, index) => {
-                    // First determine whether this subtype is assignable to
-                    // another subtype elsewhere in the union. If so, we'll skip
-                    // this one.
-                    let skipSubtype = false;
-
-                    if (!isAnyOrUnknown(subtype)) {
-                        doForEachSubtype(destType, (otherSubtype, otherIndex) => {
-                            if (index !== otherIndex && !skipSubtype) {
-                                if (
-                                    canAssignType(
-                                        otherSubtype,
-                                        subtype,
-                                        new DiagnosticAddendum(),
-                                        /* typeVarMap */ undefined,
-                                        CanAssignFlags.Default,
-                                        recursionCount + 1
-                                    )
-                                ) {
-                                    skipSubtype = true;
-                                }
-                            }
-                        });
-                    }
-
                     if (
-                        !skipSubtype &&
+                        !isIncompatible &&
                         !canAssignType(subtype, srcType, diag.createAddendum(), typeVarMap, flags, recursionCount + 1)
                     ) {
-                        isIncompatible = true;
+                        // Determine whether this subtype is assignable to
+                        // another subtype elsewhere in the union. If so, we can ignore
+                        // the incompatibility.
+                        let skipSubtype = false;
+                        if (!isAnyOrUnknown(subtype)) {
+                            doForEachSubtype(destType, (otherSubtype, otherIndex) => {
+                                if (index !== otherIndex && !skipSubtype) {
+                                    if (
+                                        canAssignType(
+                                            otherSubtype,
+                                            subtype,
+                                            new DiagnosticAddendum(),
+                                            /* typeVarMap */ undefined,
+                                            CanAssignFlags.Default,
+                                            recursionCount + 1
+                                        )
+                                    ) {
+                                        skipSubtype = true;
+                                    }
+                                }
+                            });
+                        }
+                        if (!skipSubtype) {
+                            isIncompatible = true;
+                        }
                     }
                 });
 
