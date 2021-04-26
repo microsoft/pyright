@@ -17702,16 +17702,19 @@ export function createTypeEvaluator(
             if (index < typeArgCount) {
                 const diag = new DiagnosticAddendum();
                 if (!canAssignToTypeVar(typeParameters[index], typeArgType, diag)) {
-                    const fileInfo = getFileInfo(typeArgs![index].node);
-                    addDiagnostic(
-                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.typeVarAssignmentMismatch().format({
-                            type: printType(typeArgType),
-                            name: TypeVarType.getReadableName(typeParameters[index]),
-                        }) + diag.getString(),
-                        typeArgs![index].node
-                    );
+                    // Avoid emitting this error for a partially-constructed class.
+                    if (!isObject(typeArgType) || !ClassType.isPartiallyConstructed(typeArgType.classType)) {
+                        const fileInfo = getFileInfo(typeArgs![index].node);
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeVarAssignmentMismatch().format({
+                                type: printType(typeArgType),
+                                name: TypeVarType.getReadableName(typeParameters[index]),
+                            }) + diag.getString(),
+                            typeArgs![index].node
+                        );
+                    }
                 }
             }
         });
