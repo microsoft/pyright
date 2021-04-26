@@ -1897,6 +1897,7 @@ export namespace MatchNode {
 export interface CaseNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Case;
     pattern: PatternAtomNode;
+    isIrrefutable: boolean;
     guardExpression?: ExpressionNode;
     suite: SuiteNode;
 }
@@ -1905,6 +1906,7 @@ export namespace CaseNode {
     export function create(
         caseToken: TextRange,
         pattern: PatternAtomNode,
+        isIrrefutable: boolean,
         guardExpression: ExpressionNode | undefined,
         suite: SuiteNode
     ) {
@@ -1914,6 +1916,7 @@ export namespace CaseNode {
             nodeType: ParseNodeType.Case,
             id: _nextNodeId++,
             pattern,
+            isIrrefutable,
             guardExpression,
             suite,
         };

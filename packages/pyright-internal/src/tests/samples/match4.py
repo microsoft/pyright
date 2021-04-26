@@ -28,34 +28,30 @@ def test_unknown(value_to_match):
     match value_to_match:
         case MyEnum.V1 as a1:
             t_a1: Literal["Unknown"] = reveal_type(a1)
+            t_v1: Literal["Unknown"] = reveal_type(value_to_match)
 
 
 def test_enum(value_to_match: MyEnum):
     match value_to_match:
         case MyEnum.V1 as a1:
             t_a1: Literal["Literal[MyEnum.V1]"] = reveal_type(a1)
+            t_v1: Literal["Literal[MyEnum.V1]"] = reveal_type(value_to_match)
+
 
 def test_class_var(value_to_match: str):
     match value_to_match:
         case MyClass.class_var_1 as a1:
             t_a1: Literal["Never"] = reveal_type(a1)
+            t_v1: Literal["Never"] = reveal_type(value_to_match)
 
 
 TInt = TypeVar("TInt", bound=MyEnum)
-
-def test_bound_typevar(value_to_match: TInt) -> TInt:
-    match value_to_match:
-        case MyEnum.V1 as a1:
-            t_a1: Literal["Literal[MyEnum.V1]"] = reveal_type(a1)
-
-    return value_to_match
 
 def test_union(value_to_match: Union[TInt, MyEnum]) -> Union[TInt, MyEnum]:
     match value_to_match:
         case MyEnum.V1 as a1:
             t_a1: Literal["Literal[MyEnum.V1]"] = reveal_type(a1)
+            t_v1: Literal["Literal[MyEnum.V1]"] = reveal_type(value_to_match)
 
     return value_to_match
-
-
 

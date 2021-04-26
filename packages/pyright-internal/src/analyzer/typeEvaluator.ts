@@ -91,6 +91,7 @@ import {
     FlowCondition,
     FlowFlags,
     FlowLabel,
+    FlowNarrowForPattern,
     FlowNode,
     FlowPostContextManagerLabel,
     FlowPostFinally,
@@ -527,6 +528,22 @@ const typePromotions: { [destType: string]: string[] } = {
     'builtins.complex': ['builtins.float', 'builtins.int'],
     'builtins.bytes': ['builtins.bytearray', 'builtins.memoryview'],
 };
+
+// PEP 634 indicates that several built-in classes are handled differently
+// when used with class pattern matching.
+const classPatternSpecialCases = [
+    'builtins.bool',
+    'builtins.bytearray',
+    'builtins.bytes',
+    'builtins.dict',
+    'builtins.float',
+    'builtins.frozenset',
+    'builtins.int',
+    'builtins.list',
+    'builtins.set',
+    'builtins.str',
+    'builtins.tuple',
+];
 
 export interface ClassTypeResult {
     classType: ClassType;
@@ -14362,9 +14379,24 @@ export function createTypeEvaluator(
         }
 
         const subjectTypeResult = getTypeOfExpression(node.parent.subjectExpression);
-        assignTypeToPatternTargets(subjectTypeResult.type, !!subjectTypeResult.isIncomplete, node.pattern);
+        let subjectType = subjectTypeResult.type;
 
-        writeTypeCache(node, subjectTypeResult.type, !!subjectTypeResult.isIncomplete);
+        // Apply negative narrowing for each of the cases prior to the current one
+        // except for those that have a guard expression.
+        for (const caseStatement of node.parent.cases) {
+            if (caseStatement === node) {
+                break;
+            }
+            if (!caseStatement.guardExpression) {
+                subjectType = narrowTypeBasedOnPattern(subjectType, caseStatement.pattern, /* isPositiveTest */ false);
+            }
+        }
+
+        // Apply positive narrowing for the current case statement.
+        subjectType = narrowTypeBasedOnPattern(subjectType, node.pattern, /* isPositiveTest */ true);
+        assignTypeToPatternTargets(subjectType, !!subjectTypeResult.isIncomplete, node.pattern);
+
+        writeTypeCache(node, subjectType, !!subjectTypeResult.isIncomplete);
     }
 
     function narrowTypeBasedOnPattern(type: Type, pattern: PatternAtomNode, isPositiveTest: boolean): Type {
@@ -14593,7 +14625,13 @@ export function createTypeEvaluator(
 
         if (!isPositiveTest) {
             return mapSubtypes(type, (subtype) => {
-                if (canAssignType(literalType, subtype, new DiagnosticAddendum())) {
+                if (
+                    isObject(literalType) &&
+                    isLiteralType(literalType) &&
+                    isObject(subtype) &&
+                    isLiteralType(subtype) &&
+                    canAssignType(literalType, subtype, new DiagnosticAddendum())
+                ) {
                     return undefined;
                 }
 
@@ -14630,13 +14668,22 @@ export function createTypeEvaluator(
         const classType = getTypeOfExpression(pattern.className).type;
 
         if (!isPositiveTest) {
-            // Don't attempt to narrow if there are arguments.
-            if (pattern.arguments.length > 0) {
+            // Don't attempt to narrow if the class type is a more complex type (e.g. a TypeVar or union).
+            if (!isClass(classType)) {
                 return type;
             }
 
-            // Don't attempt to narrow if the class type is a more complex type (e.g. a TypeVar or union).
-            if (!isClass(classType)) {
+            // Don't attempt to narrow if there are arguments.
+            let hasArguments = pattern.arguments.length > 0;
+            if (
+                pattern.arguments.length === 1 &&
+                !pattern.arguments[0].name &&
+                classPatternSpecialCases.some((className) => classType.details.fullName === className)
+            ) {
+                hasArguments = false;
+            }
+
+            if (hasArguments) {
                 return type;
             }
 
@@ -14742,22 +14789,6 @@ export function createTypeEvaluator(
         } else if (argIndex < positionalArgNames.length) {
             argName = positionalArgNames[argIndex];
         }
-
-        // PEP 634 indicates that several built-in classes are handled differently
-        // when used with class pattern matching.
-        const classPatternSpecialCases = [
-            'builtins.bool',
-            'builtins.bytearray',
-            'builtins.bytes',
-            'builtins.dict',
-            'builtins.float',
-            'builtins.frozenset',
-            'builtins.int',
-            'builtins.list',
-            'builtins.set',
-            'builtins.str',
-            'builtins.tuple',
-        ];
 
         const useSelfForPattern =
             classPatternSpecialCases.some((className) => classType.details.fullName === className) &&
@@ -15428,7 +15459,7 @@ export function createTypeEvaluator(
             }
         };
 
-        if (parent.nodeType === ParseNodeType.Case) {
+        if (parent.nodeType === ParseNodeType.Case && lastContextualExpression !== parent.guardExpression) {
             evaluateTypesForCaseNode(parent);
             return;
         }
@@ -16408,6 +16439,23 @@ export function createTypeEvaluator(
                         continue;
                     }
 
+                    if (curFlowNode.flags & FlowFlags.NarrowForPattern) {
+                        const patternFlowNode = curFlowNode as FlowNarrowForPattern;
+                        if (
+                            reference &&
+                            ParseTreeUtils.isMatchingExpression(reference, patternFlowNode.subjectExpression)
+                        ) {
+                            const typeResult = evaluateTypeForSubnode(patternFlowNode.caseStatement, () => {
+                                evaluateTypesForCaseNode(patternFlowNode.caseStatement);
+                            });
+                            if (typeResult) {
+                                return setCacheEntry(curFlowNode, typeResult.type, !!typeResult.isIncomplete);
+                            }
+                        }
+                        curFlowNode = patternFlowNode.antecedent;
+                        continue;
+                    }
+
                     if (curFlowNode.flags & FlowFlags.PreFinallyGate) {
                         const preFinallyFlowNode = curFlowNode as FlowPreFinallyGate;
                         if (preFinallyFlowNode.isGateClosed) {
@@ -16525,7 +16573,8 @@ export function createTypeEvaluator(
                         FlowFlags.FalseCondition |
                         FlowFlags.WildcardImport |
                         FlowFlags.TrueNeverCondition |
-                        FlowFlags.FalseNeverCondition)
+                        FlowFlags.FalseNeverCondition |
+                        FlowFlags.NarrowForPattern)
                 ) {
                     const typedFlowNode = curFlowNode as
                         | FlowVariableAnnotation

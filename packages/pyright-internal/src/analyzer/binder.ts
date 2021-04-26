@@ -36,6 +36,7 @@ import {
     BinaryOperationNode,
     BreakNode,
     CallNode,
+    CaseNode,
     ClassNode,
     ContinueNode,
     DelNode,
@@ -88,6 +89,7 @@ import {
     FlowCondition,
     FlowFlags,
     FlowLabel,
+    FlowNarrowForPattern,
     FlowNode,
     FlowPostContextManagerLabel,
     FlowPostFinally,
@@ -1831,6 +1833,15 @@ export class Binder extends ParseTreeWalker {
         // Evaluate the subject expression.
         this.walk(node.subjectExpression);
 
+        const expressionList: CodeFlowReferenceExpressionNode[] = [];
+        const isSubjectNarrowable = this._isNarrowingExpression(node.subjectExpression, expressionList);
+        if (isSubjectNarrowable) {
+            expressionList.forEach((expr) => {
+                const referenceKey = createKeyForReference(expr);
+                this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
+            });
+        }
+
         const postMatchLabel = this._createBranchLabel();
 
         // Model the match statement as a series of if/elif clauses
@@ -1844,13 +1855,7 @@ export class Binder extends ParseTreeWalker {
             // Evaluate the pattern.
             this._addAntecedent(preGuardLabel, this._currentFlowNode!);
 
-            const isWildcardPattern =
-                caseStatement.pattern.nodeType === ParseNodeType.PatternAs &&
-                caseStatement.pattern.orPatterns.length === 1 &&
-                caseStatement.pattern.orPatterns[0].nodeType === ParseNodeType.PatternCapture &&
-                caseStatement.pattern.orPatterns[0].isWildcard;
-
-            if (!isWildcardPattern) {
+            if (!caseStatement.isIrrefutable) {
                 this._addAntecedent(postCaseLabel, this._currentFlowNode!);
             }
 
@@ -1867,6 +1872,10 @@ export class Binder extends ParseTreeWalker {
             }
 
             this._currentFlowNode = this._finishFlowLabel(preSuiteLabel);
+
+            if (isSubjectNarrowable) {
+                this._createFlowNarrowForPattern(node.subjectExpression, caseStatement);
+            }
 
             // Bind the body of the case statement.
             this.walk(caseStatement.suite);
@@ -2175,6 +2184,18 @@ export class Binder extends ParseTreeWalker {
             antecedents: [],
         };
         return flowNode;
+    }
+
+    private _createFlowNarrowForPattern(subjectExpression: ExpressionNode, caseStatement: CaseNode) {
+        const flowNode: FlowNarrowForPattern = {
+            flags: FlowFlags.NarrowForPattern,
+            id: getUniqueFlowNodeId(),
+            subjectExpression,
+            caseStatement,
+            antecedent: this._currentFlowNode!,
+        };
+
+        this._currentFlowNode! = flowNode;
     }
 
     private _createContextManagerLabel(expressions: ExpressionNode[], isAsync: boolean) {

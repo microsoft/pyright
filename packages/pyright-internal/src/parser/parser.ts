@@ -519,7 +519,7 @@ export class Parser {
         // Validate that only the last entry uses an irrefutable pattern.
         for (let i = 0; i < matchNode.cases.length - 1; i++) {
             const caseNode = matchNode.cases[i];
-            if (!caseNode.guardExpression && this._isPatternIrrefutable(caseNode.pattern)) {
+            if (!caseNode.guardExpression && caseNode.isIrrefutable) {
                 this._addError(Localizer.Diagnostic.casePatternIsIrrefutable(), caseNode.pattern);
             }
         }
@@ -564,7 +564,7 @@ export class Parser {
         }
 
         const suite = this._parseSuite(this._isInFunction);
-        return CaseNode.create(caseToken, casePattern, guardExpression, suite);
+        return CaseNode.create(caseToken, casePattern, this._isPatternIrrefutable(casePattern), guardExpression, suite);
     }
 
     // PEP 634 defines the concept of an "irrefutable" pattern - a pattern that

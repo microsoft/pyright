@@ -17,6 +17,7 @@ import { assert } from '../common/debug';
 import {
     ArgumentCategory,
     CallNode,
+    CaseNode,
     ExpressionNode,
     ImportFromNode,
     IndexNode,
@@ -45,6 +46,7 @@ export enum FlowFlags {
     PostContextManager = 1 << 15, // Label that's used for context managers that suppress exceptions
     TrueNeverCondition = 1 << 16, // Condition whose type evaluates to never when narrowed in positive test
     FalseNeverCondition = 1 << 17, // Condition whose type evaluates to never when narrowed in negative test
+    NarrowForPattern = 1 << 18, // Narrow the type of the subject expression within a case statement
 }
 
 let _nextFlowNodeId = 1;
@@ -109,6 +111,12 @@ export interface FlowWildcardImport extends FlowNode {
 export interface FlowCondition extends FlowNode {
     expression: ExpressionNode;
     reference?: NameNode;
+    antecedent: FlowNode;
+}
+
+export interface FlowNarrowForPattern extends FlowNode {
+    subjectExpression: ExpressionNode;
+    caseStatement: CaseNode;
     antecedent: FlowNode;
 }
 
