@@ -2608,8 +2608,7 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 const diag = new DiagnosticAddendum();
-                const scopeId = this._evaluator.getScopeIdForNode(node);
-                if (this._containsContravariantTypeVar(declaredReturnType, scopeId, diag)) {
+                if (this._containsContravariantTypeVar(declaredReturnType, diag)) {
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -2688,19 +2687,21 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    private _containsContravariantTypeVar(type: Type, scopeId: string, diag: DiagnosticAddendum): boolean {
+    private _containsContravariantTypeVar(type: Type, diag: DiagnosticAddendum): boolean {
         let isValid = true;
 
         doForEachSubtype(type, (subtype) => {
-            if (isTypeVar(subtype) && subtype.details.variance === Variance.Contravariant) {
-                if (subtype.scopeId !== scopeId) {
-                    diag.addMessage(
-                        Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
-                            name: TypeVarType.getReadableName(subtype),
-                        })
-                    );
-                    isValid = false;
-                }
+            if (
+                isTypeVar(subtype) &&
+                subtype.details.variance === Variance.Contravariant &&
+                !subtype.details.isSynthesized
+            ) {
+                diag.addMessage(
+                    Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
+                        name: TypeVarType.getReadableName(subtype),
+                    })
+                );
+                isValid = false;
             }
         });
 
