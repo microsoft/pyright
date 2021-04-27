@@ -6637,6 +6637,29 @@ export function createTypeEvaluator(
         // Don't report errors for __new__ if __init__ already generated errors. They're
         // probably going to be entirely redundant anyway.
         if (!reportedErrors) {
+            // See if there is a custom metaclass that defines a __call__ method. If so,
+            // we'll assume that the __new__ method on the class is not used.
+            const metaclass = type.details.effectiveMetaclass;
+            let metaclassCallMethodInfo: ClassMember | undefined;
+            if (metaclass && isClass(metaclass) && !ClassType.isBuiltIn(metaclass, 'type')) {
+                metaclassCallMethodInfo = lookUpClassMember(
+                    metaclass,
+                    '__call__',
+                    ClassMemberLookupFlags.DeclaredTypesOnly |
+                        ClassMemberLookupFlags.SkipObjectBaseClass |
+                        ClassMemberLookupFlags.SkipInstanceVariables
+                );
+
+                // We're not interested in the __call__ method on the 'type' class.
+                if (
+                    metaclassCallMethodInfo &&
+                    isClass(metaclassCallMethodInfo.classType) &&
+                    ClassType.isBuiltIn(metaclassCallMethodInfo.classType, 'type')
+                ) {
+                    metaclassCallMethodInfo = undefined;
+                }
+            }
+
             const constructorMethodInfo = getTypeFromClassMemberName(
                 errorNode,
                 type,
@@ -6648,7 +6671,11 @@ export function createTypeEvaluator(
                     MemberAccessFlags.TreatConstructorAsClassMethod,
                 type
             );
-            if (constructorMethodInfo && !skipConstructorCheck(constructorMethodInfo.type)) {
+            if (
+                !metaclassCallMethodInfo &&
+                constructorMethodInfo &&
+                !skipConstructorCheck(constructorMethodInfo.type)
+            ) {
                 const constructorMethodType = constructorMethodInfo.type;
                 const typeVarMap = new TypeVarMap(getTypeVarScopeId(type));
 
