@@ -20058,7 +20058,12 @@ export function createTypeEvaluator(
             typeVarMap.getRetainLiterals(destType) ||
             (destType.details.boundType && containsLiteralType(destType.details.boundType)) ||
             destType.details.constraints.some((t) => containsLiteralType(t));
-        const adjSrcType = retainLiterals ? srcType : stripLiteralValue(srcType);
+        let adjSrcType = retainLiterals ? srcType : stripLiteralValue(srcType);
+
+        // In case the src type came from a Type[T], convert it to a T.
+        if (isTypeVar(adjSrcType) && TypeBase.isInstantiable(adjSrcType)) {
+            adjSrcType = convertToInstance(adjSrcType);
+        }
 
         if (isContravariant || (flags & CanAssignFlags.AllowTypeVarNarrowing) !== 0) {
             // Update the wide type bound.
