@@ -5619,7 +5619,7 @@ export function createTypeEvaluator(
                     );
                     allDiagsInvolveNotRequiredKeys = false;
                     return UnknownType.create();
-                } else if (!entry.isRequired && usage.method === 'get') {
+                } else if (!(entry.isRequired || entry.isProvided) && usage.method === 'get') {
                     if (!ParseTreeUtils.isWithinTryBlock(node)) {
                         diag.addMessage(
                             Localizer.DiagnosticAddendum.keyNotRequired().format({
@@ -17352,9 +17352,9 @@ export function createTypeEvaluator(
                         return undefined;
                     }
 
-                    // If the entry is currently not required, we can mark it as required
-                    // after this guard expression confirms it is.
-                    if (tdEntry.isRequired) {
+                    // If the entry is currently not required and not marked provided, we can mark
+                    // it as provided after this guard expression confirms it is.
+                    if (tdEntry.isRequired || tdEntry.isProvided) {
                         return subtype;
                     }
 
@@ -17370,7 +17370,7 @@ export function createTypeEvaluator(
                     // Add the new entry.
                     newNarrowedEntriesMap.set(literalKey.literalValue as string, {
                         valueType: tdEntry.valueType,
-                        isRequired: true,
+                        isRequired: false,
                         isProvided: true,
                     });
 
@@ -17379,7 +17379,7 @@ export function createTypeEvaluator(
                         ClassType.cloneForNarrowedTypedDictEntries(subtype.classType, newNarrowedEntriesMap)
                     );
                 } else {
-                    return tdEntry !== undefined && tdEntry.isRequired ? undefined : subtype;
+                    return tdEntry !== undefined && (tdEntry.isRequired || tdEntry.isProvided) ? undefined : subtype;
                 }
             }
 

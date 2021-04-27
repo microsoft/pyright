@@ -73,3 +73,12 @@ def f6(p: Union[TD1, TD2, TD3]):
 
     # This should generate an error
     v6 = p["d"]
+
+
+def f7(p: TD3):
+    pass
+
+def f8(p: TD3):
+    if "a" in p:
+        f7(p)
+
