@@ -15,13 +15,6 @@ import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
-import {
-    getClassDocString,
-    getModuleDocString,
-    getOverloadedFunctionDocStringsInherited,
-    getPropertyDocStringInherited,
-    getVariableInStubFileDocStrings,
-} from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import {
     getTypeAliasInfo,
@@ -42,7 +35,7 @@ import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { getFunctionDocStringFromType, getOverloadedFunctionTooltip } from './tooltipUtils';
+import { getDocumentationPartsForTypeAndDecl, getOverloadedFunctionTooltip } from './tooltipUtils';
 
 export interface HoverTextPart {
     python?: boolean;
@@ -353,37 +346,7 @@ export class HoverProvider {
         resolvedDecl: Declaration | undefined,
         evaluator: TypeEvaluator
     ): boolean {
-        const docStrings: (string | undefined)[] = [];
-
-        if (isModule(type)) {
-            docStrings.push(getModuleDocString(type, resolvedDecl, sourceMapper));
-        } else if (isClass(type)) {
-            docStrings.push(getClassDocString(type, resolvedDecl, sourceMapper));
-        } else if (isFunction(type)) {
-            if (resolvedDecl?.type === DeclarationType.Function || resolvedDecl?.type === DeclarationType.Class) {
-                docStrings.push(getFunctionDocStringFromType(type, sourceMapper, evaluator));
-            }
-        } else if (isOverloadedFunction(type)) {
-            const enclosingClass = resolvedDecl ? ParseTreeUtils.getEnclosingClass(resolvedDecl.node) : undefined;
-            const classResults = enclosingClass ? evaluator.getTypeOfClass(enclosingClass) : undefined;
-
-            docStrings.push(
-                ...getOverloadedFunctionDocStringsInherited(
-                    type,
-                    resolvedDecl,
-                    sourceMapper,
-                    evaluator,
-                    classResults?.classType
-                )
-            );
-        } else if (resolvedDecl?.type === DeclarationType.Variable) {
-            // See whether a variable symbol on the stub is actually a variable. If not, take the doc string.
-            docStrings.push(...getVariableInStubFileDocStrings(resolvedDecl, sourceMapper));
-        } else if (resolvedDecl?.type === DeclarationType.Function) {
-            // @property functions
-            docStrings.push(getPropertyDocStringInherited(resolvedDecl, sourceMapper, evaluator));
-        }
-
+        const docStrings = getDocumentationPartsForTypeAndDecl(sourceMapper, type, resolvedDecl, evaluator);
         let addedDoc = false;
         for (const docString of docStrings) {
             if (docString) {

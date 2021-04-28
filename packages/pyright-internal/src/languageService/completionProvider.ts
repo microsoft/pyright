@@ -2005,7 +2005,11 @@ export class CompletionProvider {
             let markdownString = '';
 
             if (detail?.autoImportText) {
-                markdownString += detail.autoImportText + '\n\n';
+                markdownString += detail.autoImportText;
+                if (detail.typeDetail || detail.documentation) {
+                    // Micro perf optimization to not create new string from trimEnd.
+                    markdownString += '\n\n';
+                }
             }
 
             if (detail?.typeDetail) {
@@ -2029,7 +2033,11 @@ export class CompletionProvider {
             let plainTextString = '';
 
             if (detail?.autoImportText) {
-                plainTextString += detail.autoImportText + '\n\n';
+                plainTextString += detail.autoImportText;
+                if (detail.typeDetail || detail.documentation) {
+                    // Micro perf optimization to not create new string from trimEnd.
+                    plainTextString += '\n\n';
+                }
             }
 
             if (detail?.typeDetail) {
