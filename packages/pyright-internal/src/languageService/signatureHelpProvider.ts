@@ -11,20 +11,18 @@
 
 import { CancellationToken, MarkupContent, MarkupKind } from 'vscode-languageserver';
 
-import { isVariableDeclaration } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
-import { getVariableInStubFileDocStrings } from '../analyzer/typeDocStringUtils';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluator';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
 import { CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
-import { getFunctionDocStringFromType } from './tooltipUtils';
+import { getDocumentationPartsForTypeAndDecl, getFunctionDocStringFromType } from './tooltipUtils';
 
 export interface ParamInfo {
     startOffset: number;
@@ -209,11 +207,19 @@ export class SignatureHelpProvider {
 
         for (const decl of evaluator.getDeclarationsForNameNode(name) ?? []) {
             const resolveDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
-            if (!resolveDecl || !isVariableDeclaration(resolveDecl)) {
+            if (!resolveDecl) {
                 continue;
             }
 
-            return getVariableInStubFileDocStrings(resolveDecl, sourceMapper).find((doc) => doc);
+            const type = evaluator.getType(name);
+            if (!type) {
+                continue;
+            }
+
+            const parts = getDocumentationPartsForTypeAndDecl(sourceMapper, type, resolveDecl, evaluator);
+            if (parts.length > 0) {
+                return parts.join('\n\n');
+            }
         }
     }
 }

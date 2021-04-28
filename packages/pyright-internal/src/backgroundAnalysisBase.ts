@@ -443,7 +443,7 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
             this._analysisPaused(port, msg.data);
         } else {
             this.processIndexing(port, token);
-            this._analysisDone(port, msg.data);
+            this.analysisDone(port, msg.data);
         }
     }
 
@@ -481,7 +481,7 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
         port.postMessage({ requestType: 'analysisPaused', data: cancellationId });
     }
 
-    private _analysisDone(port: MessagePort, cancellationId: string) {
+    protected analysisDone(port: MessagePort, cancellationId: string) {
         port.postMessage({ requestType: 'analysisDone', data: cancellationId });
     }
 }

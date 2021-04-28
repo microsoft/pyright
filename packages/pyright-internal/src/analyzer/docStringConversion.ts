@@ -76,6 +76,7 @@ const TabRegExp = /\t/g;
 const TildeRegExp = /~/g;
 const PlusRegExp = /\+/g;
 const UnescapedMarkdownCharsRegExp = /(?<!\\)([_*~[\]])/g;
+const linkRegExp = /(\[.*\]\(.*\))/g;
 
 const HtmlEscapes: RegExpReplacement[] = [
     { exp: /</g, replacement: '&lt;' },
@@ -357,9 +358,15 @@ class DocStringConverter {
             // TODO: Strip footnote/citation references.
 
             // Escape _, *, and ~, but ignore things like ":param \*\*kwargs:".
-            part = part.replace(UnescapedMarkdownCharsRegExp, '\\$1');
-
-            this._append(part);
+            const subparts = part.split(linkRegExp);
+            subparts.forEach((item) => {
+                // Don't escape links
+                if (linkRegExp.test(item)) {
+                    this._append(item);
+                } else {
+                    this._append(item.replace(UnescapedMarkdownCharsRegExp, '\\$1'));
+                }
+            });
         }
 
         // Go straight to the builder so that _appendLine doesn't think
