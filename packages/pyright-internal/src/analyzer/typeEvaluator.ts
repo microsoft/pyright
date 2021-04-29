@@ -20632,8 +20632,13 @@ export function createTypeEvaluator(
             const srcTypeArgs = srcType.classType.typeArguments;
             if (srcTypeArgs && srcTypeArgs.length >= 1) {
                 if (isAnyOrUnknown(srcTypeArgs[0])) {
+                    if (isObject(destType) && ClassType.isBuiltIn(srcType.classType, 'type')) {
+                        return true;
+                    }
                     return TypeBase.isInstantiable(transformTypeObjectToClass(destType));
-                } else if (isObject(srcTypeArgs[0]) || isTypeVar(srcTypeArgs[0])) {
+                }
+
+                if (isObject(srcTypeArgs[0]) || isTypeVar(srcTypeArgs[0])) {
                     if (
                         canAssignType(
                             transformTypeObjectToClass(destType),
