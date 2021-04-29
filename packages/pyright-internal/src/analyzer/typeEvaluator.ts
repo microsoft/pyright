@@ -7061,7 +7061,7 @@ export function createTypeEvaluator(
                             const castToType = getTypeForArgumentExpectingType(argList[0]);
                             const castFromType = getTypeForArgument(argList[1]);
                             if (isClass(castToType) && isObject(castFromType)) {
-                                if (isTypeSame(castToType, castFromType.classType)) {
+                                if (isTypeSame(castToType, castFromType.classType, /* ignorePseudoGeneric */ true)) {
                                     addDiagnostic(
                                         getFileInfo(errorNode).diagnosticRuleSet.reportUnnecessaryCast,
                                         DiagnosticRule.reportUnnecessaryCast,
@@ -8008,7 +8008,7 @@ export function createTypeEvaluator(
                 const typeParams = type.strippedFirstParamType!.classType.details.typeParameters;
                 type.strippedFirstParamType.classType.typeArguments.forEach((typeArg, index) => {
                     const typeParam = typeParams[index];
-                    if (!isTypeSame(typeParam, typeArg)) {
+                    if (!isTypeSame(typeParam, typeArg, /* ignorePseudoGeneric */ true)) {
                         typeVarMap.setTypeVarType(typeParams[index], typeArg);
                     }
                 });
@@ -10264,7 +10264,7 @@ export function createTypeEvaluator(
             if (getFileInfo(node).diagnosticRuleSet.strictDictionaryInference || !!expectedType) {
                 valueType = combineTypes(valueTypes);
             } else {
-                valueType = areTypesSame(valueTypes)
+                valueType = areTypesSame(valueTypes, /* ignorePseudoGeneric */ true)
                     ? valueTypes[0]
                     : expectedType
                     ? AnyType.create()
@@ -10550,7 +10550,9 @@ export function createTypeEvaluator(
                 inferredEntryType = combineTypes(entryTypes, maxSubtypesForInferredType);
             } else {
                 // Is the list or set homogeneous? If so, use stricter rules. Otherwise relax the rules.
-                inferredEntryType = areTypesSame(entryTypes) ? entryTypes[0] : inferredEntryType;
+                inferredEntryType = areTypesSame(entryTypes, /* ignorePseudoGeneric */ true)
+                    ? entryTypes[0]
+                    : inferredEntryType;
             }
         } else {
             isEmptyContainer = true;
@@ -18934,7 +18936,7 @@ export function createTypeEvaluator(
         // Some protocol definitions include recursive references to themselves.
         // We need to protect against infinite recursion, so we'll check for that here.
         if (ClassType.isSameGenericClass(srcType, destType)) {
-            if (isTypeSame(srcType, destType)) {
+            if (isTypeSame(srcType, destType, /* ignorePseudoGeneric */ true)) {
                 return true;
             }
 
@@ -19426,7 +19428,14 @@ export function createTypeEvaluator(
                     typesAreConsistent = false;
                 }
 
-                if (!isTypeSame(destEntry.valueType, srcEntry.valueType, recursionCount + 1)) {
+                if (
+                    !isTypeSame(
+                        destEntry.valueType,
+                        srcEntry.valueType,
+                        /* ignorePseudoGeneric */ true,
+                        recursionCount + 1
+                    )
+                ) {
                     diag.addMessage(Localizer.DiagnosticAddendum.memberTypeMismatch().format({ name }));
                     typesAreConsistent = false;
                 }
@@ -20303,7 +20312,7 @@ export function createTypeEvaluator(
             if (destTypeVar.details.constraints.length > 0) {
                 if (
                     findSubtype(srcType, (srcSubtype, constraints) => {
-                        if (isTypeSame(destTypeVar, srcSubtype)) {
+                        if (isTypeSame(destTypeVar, srcSubtype, /* ignorePseudoGeneric */ true)) {
                             return false;
                         }
 

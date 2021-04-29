@@ -2359,7 +2359,7 @@ export class Checker extends ParseTreeWalker {
                       }),
                 node
             );
-        } else if (isTypeSame(filteredType, arg0Type)) {
+        } else if (isTypeSame(filteredType, arg0Type, /* ignorePseudoGeneric */ true)) {
             this._evaluator.addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportUnnecessaryIsInstance,
                 DiagnosticRule.reportUnnecessaryIsInstance,
