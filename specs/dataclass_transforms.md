@@ -240,7 +240,7 @@ default values or indicate whether the field should be included in the
 synthesized `__init__` method.
 
 Field descriptors can be omitted in cases where additional metadata is not
-required or the only metadata is a statically-defined default value.
+required.
 
 ```python
 @dataclass
@@ -255,8 +255,8 @@ class Employee:
     # describe default value
     is_paid_hourly: bool = True
 
-    # Field with inferred type and simple initializer to
-    # describe default value
+    # Not a field (but rather a class variable) because type annotation
+    # is not provided.
     office_number = "unassigned"
 ```
 
