@@ -686,7 +686,14 @@ export namespace ClassType {
 
         // Make sure the base classes match.
         for (let i = 0; i < class1Details.baseClasses.length; i++) {
-            if (!isTypeSame(class1Details.baseClasses[i], class2Details.baseClasses[i], recursionCount + 1)) {
+            if (
+                !isTypeSame(
+                    class1Details.baseClasses[i],
+                    class2Details.baseClasses[i],
+                    /* ignorePseudoGeneric */ true,
+                    recursionCount + 1
+                )
+            ) {
                 return false;
             }
         }
@@ -695,14 +702,26 @@ export namespace ClassType {
             if (
                 !class1Details.declaredMetaclass ||
                 !class2Details.declaredMetaclass ||
-                !isTypeSame(class1Details.declaredMetaclass, class2Details.declaredMetaclass, recursionCount + 1)
+                !isTypeSame(
+                    class1Details.declaredMetaclass,
+                    class2Details.declaredMetaclass,
+                    /* ignorePseudoGeneric */ true,
+                    recursionCount + 1
+                )
             ) {
                 return false;
             }
         }
 
         for (let i = 0; i < class1Details.typeParameters.length; i++) {
-            if (!isTypeSame(class1Details.typeParameters[i], class2Details.typeParameters[i], recursionCount + 1)) {
+            if (
+                !isTypeSame(
+                    class1Details.typeParameters[i],
+                    class2Details.typeParameters[i],
+                    /* ignorePseudoGeneric */ true,
+                    recursionCount + 1
+                )
+            ) {
                 return false;
             }
         }
@@ -1525,7 +1544,11 @@ export namespace UnionType {
             }
         }
 
-        return unionType.subtypes.find((t) => isTypeSame(t, subtype, recursionCount + 1)) !== undefined;
+        return (
+            unionType.subtypes.find((t) =>
+                isTypeSame(t, subtype, /* ignorePseudoGeneric */ false, recursionCount + 1)
+            ) !== undefined
+        );
     }
 }
 
@@ -1785,7 +1808,10 @@ export function getTypeAliasInfo(type: Type) {
     return undefined;
 }
 
-export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolean {
+// Determines whether two types are the same. If ignorePseudoGeneric is true,
+// type arguments for "pseudo-generic" classes (non-generic classes whose init
+// methods are not annotated and are therefore treated as generic) are ignored.
+export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false, recursionCount = 0): boolean {
     if (type1.category !== type2.category) {
         return false;
     }
@@ -1803,31 +1829,40 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 return false;
             }
 
-            // Make sure the type args match.
-            if (type1.tupleTypeArguments && classType2.tupleTypeArguments) {
-                const type1TupleTypeArgs = type1.tupleTypeArguments || [];
-                const type2TupleTypeArgs = classType2.tupleTypeArguments || [];
-                if (type1TupleTypeArgs.length !== type2TupleTypeArgs.length) {
-                    return false;
-                }
-
-                for (let i = 0; i < type1TupleTypeArgs.length; i++) {
-                    if (!isTypeSame(type1TupleTypeArgs[i], type2TupleTypeArgs[i], recursionCount + 1)) {
+            if (!ignorePseudoGeneric || !ClassType.isPseudoGenericClass(type1)) {
+                // Make sure the type args match.
+                if (type1.tupleTypeArguments && classType2.tupleTypeArguments) {
+                    const type1TupleTypeArgs = type1.tupleTypeArguments || [];
+                    const type2TupleTypeArgs = classType2.tupleTypeArguments || [];
+                    if (type1TupleTypeArgs.length !== type2TupleTypeArgs.length) {
                         return false;
                     }
-                }
-            } else {
-                const type1TypeArgs = type1.typeArguments || [];
-                const type2TypeArgs = classType2.typeArguments || [];
-                const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
 
-                for (let i = 0; i < typeArgCount; i++) {
-                    // Assume that missing type args are "Any".
-                    const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
-                    const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
+                    for (let i = 0; i < type1TupleTypeArgs.length; i++) {
+                        if (
+                            !isTypeSame(
+                                type1TupleTypeArgs[i],
+                                type2TupleTypeArgs[i],
+                                ignorePseudoGeneric,
+                                recursionCount + 1
+                            )
+                        ) {
+                            return false;
+                        }
+                    }
+                } else {
+                    const type1TypeArgs = type1.typeArguments || [];
+                    const type2TypeArgs = classType2.typeArguments || [];
+                    const typeArgCount = Math.max(type1TypeArgs.length, type2TypeArgs.length);
 
-                    if (!isTypeSame(typeArg1, typeArg2, recursionCount + 1)) {
-                        return false;
+                    for (let i = 0; i < typeArgCount; i++) {
+                        // Assume that missing type args are "Any".
+                        const typeArg1 = i < type1TypeArgs.length ? type1TypeArgs[i] : AnyType.create();
+                        const typeArg2 = i < type2TypeArgs.length ? type2TypeArgs[i] : AnyType.create();
+
+                        if (!isTypeSame(typeArg1, typeArg2, ignorePseudoGeneric, recursionCount + 1)) {
+                            return false;
+                        }
                     }
                 }
             }
@@ -1842,7 +1877,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
         case TypeCategory.Object: {
             const objType2 = type2 as ObjectType;
 
-            return isTypeSame(type1.classType, objType2.classType, recursionCount + 1);
+            return isTypeSame(type1.classType, objType2.classType, ignorePseudoGeneric, recursionCount + 1);
         }
 
         case TypeCategory.Function: {
@@ -1870,7 +1905,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
 
                 const param1Type = FunctionType.getEffectiveParameterType(type1, i);
                 const param2Type = FunctionType.getEffectiveParameterType(functionType2, i);
-                if (!isTypeSame(param1Type, param2Type, recursionCount + 1)) {
+                if (!isTypeSame(param1Type, param2Type, ignorePseudoGeneric, recursionCount + 1)) {
                     return false;
                 }
             }
@@ -1885,7 +1920,11 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
                 return2Type = functionType2.specializedTypes.returnType;
             }
             if (return1Type || return2Type) {
-                if (!return1Type || !return2Type || !isTypeSame(return1Type, return2Type, recursionCount + 1)) {
+                if (
+                    !return1Type ||
+                    !return2Type ||
+                    !isTypeSame(return1Type, return2Type, ignorePseudoGeneric, recursionCount + 1)
+                ) {
                     return false;
                 }
             }
@@ -1907,7 +1946,9 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             // We assume here that overloaded functions always appear
             // in the same order from one analysis pass to another.
             for (let i = 0; i < type1.overloads.length; i++) {
-                if (!isTypeSame(type1.overloads[i], functionType2.overloads[i], recursionCount + 1)) {
+                if (
+                    !isTypeSame(type1.overloads[i], functionType2.overloads[i], ignorePseudoGeneric, recursionCount + 1)
+                ) {
                     return false;
                 }
             }
@@ -1959,7 +2000,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             const boundType1 = type1.details.boundType;
             const boundType2 = type2TypeVar.details.boundType;
             if (boundType1) {
-                if (!boundType2 || !isTypeSame(boundType1, boundType2, recursionCount + 1)) {
+                if (!boundType2 || !isTypeSame(boundType1, boundType2, ignorePseudoGeneric, recursionCount + 1)) {
                     return false;
                 }
             } else {
@@ -1975,7 +2016,7 @@ export function isTypeSame(type1: Type, type2: Type, recursionCount = 0): boolea
             }
 
             for (let i = 0; i < constraints1.length; i++) {
-                if (!isTypeSame(constraints1[i], constraints2[i], recursionCount + 1)) {
+                if (!isTypeSame(constraints1[i], constraints2[i], ignorePseudoGeneric, recursionCount + 1)) {
                     return false;
                 }
             }
