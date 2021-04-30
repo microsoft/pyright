@@ -590,9 +590,11 @@ export function getEnclosingSuiteOrModule(
 
 export function getEvaluationNodeForAssignmentExpression(
     node: AssignmentExpressionNode
-): LambdaNode | FunctionNode | ModuleNode | undefined {
+): LambdaNode | FunctionNode | ModuleNode | ClassNode | undefined {
     // PEP 572 indicates that the evaluation node for an assignment expression
-    // target is the containing lambda, function or module, but not a class.
+    // target within a list comprehension is contained within a lambda,
+    // function or module, but not a class.
+    let sawListComprehension = false;
     let curNode: ParseNode | undefined = getEvaluationScopeNode(node);
 
     while (curNode !== undefined) {
@@ -603,7 +605,11 @@ export function getEvaluationNodeForAssignmentExpression(
                 return curNode;
 
             case ParseNodeType.Class:
-                return undefined;
+                return sawListComprehension ? undefined : curNode;
+
+            case ParseNodeType.ListComprehension:
+                sawListComprehension = true;
+                break;
         }
 
         curNode = curNode.parent;

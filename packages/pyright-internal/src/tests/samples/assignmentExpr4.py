@@ -37,6 +37,12 @@ class Example:
     # scope for the list comprehension is a class.
     [(j := i) for i in range(5)]
 
+    x = ((y := 1), (z := 2))
+
+
+Example.x
+Example.y
+Example.z
 
 # This should generate an error because 'j' is used as a
 # "for target" and the target of an assignment expression.
