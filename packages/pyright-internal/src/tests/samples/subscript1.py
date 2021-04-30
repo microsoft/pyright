@@ -17,7 +17,6 @@ def func1(
     f1: set[int],
     g1: deque[int],
     h1: frozenset[int],
-    i1: PathLike[str],
 ) -> None:
     pass
 
@@ -31,7 +30,6 @@ def func2(
     f1: "set[int]",
     g1: "deque[int]",
     h1: "frozenset[int]",
-    i1: "PathLike[str]",
 ) -> None:
     pass
 
@@ -46,7 +44,6 @@ e1: dict[str, int] = {}
 f1: set[int] = set()
 g1: deque[int] = deque()
 h1: frozenset[int] = frozenset()
-i1: PathLike[str]
 
 a2: "Queue[int]" = Queue()
 b2: "OrderedDict[str, str]" = OrderedDict()
@@ -56,4 +53,3 @@ e2: "dict[str, int]" = {}
 f2: "set[int]" = set()
 g2: "deque[int]" = deque()
 h2: "frozenset[int]" = frozenset()
-i2: "PathLike[str]"

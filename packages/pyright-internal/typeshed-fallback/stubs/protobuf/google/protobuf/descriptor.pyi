@@ -244,59 +244,23 @@ class EnumDescriptor(_NestedDescriptorBase):
     def GetOptions(self) -> EnumOptions: ...
 
 class EnumValueDescriptor(DescriptorBase):
-    def __new__(
-        cls,
-        name,
-        index,
-        number,
-        type=...,
-        options=...,
-        serialized_options=...,
-        create_key=...,
-    ): ...
+    def __new__(cls, name, index, number, type=..., options=..., serialized_options=..., create_key=...): ...
     name: Any
     index: Any
     number: Any
     type: Any
-    def __init__(
-        self,
-        name,
-        index,
-        number,
-        type=...,
-        options=...,
-        serialized_options=...,
-        create_key=...,
-    ) -> None: ...
+    def __init__(self, name, index, number, type=..., options=..., serialized_options=..., create_key=...) -> None: ...
     def GetOptions(self) -> EnumValueOptions: ...
 
 class OneofDescriptor:
-    def __new__(
-        cls,
-        name,
-        full_name,
-        index,
-        containing_type,
-        fields,
-        options=...,
-        serialized_options=...,
-        create_key=...,
-    ): ...
+    def __new__(cls, name, full_name, index, containing_type, fields, options=..., serialized_options=..., create_key=...): ...
     name: Any
     full_name: Any
     index: Any
     containing_type: Any
     fields: Any
     def __init__(
-        self,
-        name,
-        full_name,
-        index,
-        containing_type,
-        fields,
-        options=...,
-        serialized_options=...,
-        create_key=...,
+        self, name, full_name, index, containing_type, fields, options=..., serialized_options=..., create_key=...
     ) -> None: ...
     def GetOptions(self) -> OneofOptions: ...
 

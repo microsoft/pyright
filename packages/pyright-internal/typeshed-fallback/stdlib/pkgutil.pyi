@@ -1,6 +1,6 @@
 import sys
 from _typeshed import SupportsRead
-from typing import IO, Any, Callable, Iterable, Iterator, NamedTuple, Optional, Tuple, Union
+from typing import IO, Any, Callable, Iterable, Iterator, List, NamedTuple, Optional, Tuple, Union
 
 if sys.version_info >= (3,):
     from importlib.abc import Loader, MetaPathFinder, PathEntryFinder
@@ -18,7 +18,7 @@ if sys.version_info >= (3, 6):
 else:
     _ModuleInfoLike = Tuple[Union[MetaPathFinder, PathEntryFinder], str, bool]
 
-def extend_path(path: Iterable[str], name: str) -> Iterable[str]: ...
+def extend_path(path: List[str], name: str) -> List[str]: ...
 
 class ImpImporter:
     def __init__(self, path: Optional[str] = ...) -> None: ...

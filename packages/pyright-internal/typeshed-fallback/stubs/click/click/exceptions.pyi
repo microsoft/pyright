@@ -1,6 +1,6 @@
 from typing import IO, Any, List, Optional
 
-from click.core import Context, Parameter
+from click.core import Command, Context, Parameter
 
 class ClickException(Exception):
     exit_code: int
@@ -11,6 +11,7 @@ class ClickException(Exception):
 
 class UsageError(ClickException):
     ctx: Optional[Context]
+    cmd: Optional[Command]
     def __init__(self, message: str, ctx: Optional[Context] = ...) -> None: ...
     def show(self, file: Optional[IO[Any]] = ...) -> None: ...
 
@@ -44,6 +45,7 @@ class NoSuchOption(UsageError):
     ) -> None: ...
 
 class BadOptionUsage(UsageError):
+    option_name: str
     def __init__(self, option_name: str, message: str, ctx: Optional[Context] = ...) -> None: ...
 
 class BadArgumentUsage(UsageError):
@@ -57,4 +59,5 @@ class FileError(ClickException):
 class Abort(RuntimeError): ...
 
 class Exit(RuntimeError):
+    exit_code: int
     def __init__(self, code: int = ...) -> None: ...

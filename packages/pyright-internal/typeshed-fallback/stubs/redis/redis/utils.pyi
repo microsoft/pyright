@@ -6,6 +6,7 @@ from .client import Pipeline, Redis
 _T = TypeVar("_T")
 
 HIREDIS_AVAILABLE: bool
+
 @overload
 def from_url(url: Text, db: Optional[int] = ..., *, decode_responses: Literal[True], **kwargs: Any) -> Redis[str]: ...
 @overload

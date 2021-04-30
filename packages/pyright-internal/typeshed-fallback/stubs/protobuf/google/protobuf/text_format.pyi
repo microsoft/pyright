@@ -1,6 +1,6 @@
 import sys
 from _typeshed import SupportsWrite
-from typing import Any, Callable, Iterable, Optional, Text, Tuple, TypeVar
+from typing import Any, Callable, Iterable, Optional, Text, Tuple, TypeVar, Union
 
 from .descriptor import FieldDescriptor
 from .descriptor_pool import DescriptorPool
@@ -145,7 +145,7 @@ class _Printer:
     def PrintFieldValue(self, field: FieldDescriptor, value: Any) -> None: ...
 
 def Parse(
-    text: str,
+    text: Union[str, bytes],
     message: _M,
     allow_unknown_extension: bool = ...,
     allow_field_number: bool = ...,
@@ -153,7 +153,7 @@ def Parse(
     allow_unknown_field: bool = ...,
 ) -> _M: ...
 def Merge(
-    text: str,
+    text: Union[str, bytes],
     message: _M,
     allow_unknown_extension: bool = ...,
     allow_field_number: bool = ...,
@@ -161,7 +161,7 @@ def Merge(
     allow_unknown_field: bool = ...,
 ) -> _M: ...
 def MergeLines(
-    lines: Iterable[str],
+    lines: Iterable[Union[str, bytes]],
     message: _M,
     allow_unknown_extension: bool = ...,
     allow_field_number: bool = ...,
@@ -181,8 +181,8 @@ class _Parser:
         descriptor_pool: Optional[DescriptorPool] = ...,
         allow_unknown_field: bool = ...,
     ) -> None: ...
-    def ParseLines(self, lines: Iterable[str], message: _M) -> _M: ...
-    def MergeLines(self, lines: Iterable[str], message: _M) -> _M: ...
+    def ParseLines(self, lines: Iterable[Union[str, bytes]], message: _M) -> _M: ...
+    def MergeLines(self, lines: Iterable[Union[str, bytes]], message: _M) -> _M: ...
 
 class Tokenizer:
     token: str = ...

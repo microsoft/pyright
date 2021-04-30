@@ -13,6 +13,7 @@ from typing import (
     Set,
     Text,
     Tuple,
+    Type,
     TypeVar,
     Union,
     overload,
@@ -20,6 +21,7 @@ from typing import (
 from typing_extensions import Literal
 
 from .connection import ConnectionPool
+from .lock import Lock
 
 SYM_EMPTY: Any
 
@@ -59,6 +61,8 @@ _Key = Union[Text, bytes]
 
 # Lib returns str or bytes depending on Python version and value of decode_responses
 _StrType = TypeVar("_StrType", bound=Union[Text, bytes])
+
+_LockType = TypeVar("_LockType")
 
 class Redis(Generic[_StrType]):
     RESPONSE_CALLBACKS: Any
@@ -355,7 +359,37 @@ class Redis(Generic[_StrType]):
     def set_response_callback(self, command, callback): ...
     def pipeline(self, transaction: bool = ..., shard_hint: Any = ...) -> Pipeline: ...
     def transaction(self, func, *watches, **kwargs): ...
-    def lock(self, name, timeout=..., sleep=..., blocking_timeout=..., lock_class=..., thread_local=...): ...
+    @overload
+    def lock(
+        self,
+        name: _Key,
+        timeout: Optional[float] = ...,
+        sleep: float = ...,
+        blocking_timeout: Optional[float] = ...,
+        lock_class: None = ...,
+        thread_local: bool = ...,
+    ) -> Lock: ...
+    @overload
+    def lock(
+        self,
+        name: _Key,
+        timeout: Optional[float],
+        sleep: float,
+        blocking_timeout: Optional[float],
+        lock_class: Type[_LockType],
+        thread_local: bool = ...,
+    ) -> _LockType: ...
+    @overload
+    def lock(
+        self,
+        name: _Key,
+        timeout: Optional[float] = ...,
+        sleep: float = ...,
+        blocking_timeout: Optional[float] = ...,
+        *,
+        lock_class: Type[_LockType],
+        thread_local: bool = ...,
+    ) -> _LockType: ...
     def pubsub(self, shard_hint: Any = ..., ignore_subscribe_messages: bool = ...) -> PubSub: ...
     def execute_command(self, *args, **options): ...
     def parse_response(self, connection, command_name, **options): ...
@@ -570,17 +604,7 @@ class Redis(Generic[_StrType]):
     def xack(self, name, groupname, *ids): ...
     def xadd(self, name, fields, id=..., maxlen=..., approximate=...): ...
     def xclaim(
-        self,
-        name,
-        groupname,
-        consumername,
-        min_idle_time,
-        message_ids,
-        idle=...,
-        time=...,
-        retrycount=...,
-        force=...,
-        justid=...,
+        self, name, groupname, consumername, min_idle_time, message_ids, idle=..., time=..., retrycount=..., force=..., justid=...
     ): ...
     def xdel(self, name, *ids): ...
     def xgroup_create(self, name, groupname, id=..., mkstream=...): ...
@@ -995,17 +1019,7 @@ class Pipeline(Redis):
     def xack(self, name, groupname, *ids) -> Pipeline: ...  # type: ignore [override]
     def xadd(self, name, fields, id=..., maxlen=..., approximate=...) -> Pipeline: ...  # type: ignore [override]
     def xclaim(
-        self,
-        name,
-        groupname,
-        consumername,
-        min_idle_time,
-        message_ids,
-        idle=...,
-        time=...,
-        retrycount=...,
-        force=...,
-        justid=...,
+        self, name, groupname, consumername, min_idle_time, message_ids, idle=..., time=..., retrycount=..., force=..., justid=...
     ) -> Pipeline: ...  # type: ignore [override]
     def xdel(self, name, *ids) -> Pipeline: ...  # type: ignore [override]
     def xgroup_create(self, name, groupname, id=..., mkstream=...) -> Pipeline: ...  # type: ignore [override]

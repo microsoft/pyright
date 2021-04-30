@@ -26,6 +26,7 @@ def echo_via_pager(
 ) -> None: ...
 
 _T = TypeVar("_T")
+
 @overload
 def progressbar(
     iterable: Iterable[_T],
