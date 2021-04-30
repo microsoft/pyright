@@ -536,16 +536,6 @@
               "Linux"
             ],
             "pattern": "^(Linux|Windows|Darwin|All)$"
-          },
-          "venv": {
-            "$id": "#/properties/venv",
-            "type": "string",
-            "title": "Name of virtual environment subdirectory within venvPath",
-            "default": "",
-            "examples": [
-              "python37"
-            ],
-            "pattern": "^(.*)$"
           }
         }
       }
