@@ -68,6 +68,24 @@ export class StandardConsole implements ConsoleInterface {
     }
 }
 
+export class StderrConsole implements ConsoleInterface {
+    log(message: string) {
+        console.error(message);
+    }
+
+    info(message: string) {
+        console.error(message);
+    }
+
+    warn(message: string) {
+        console.error(message);
+    }
+
+    error(message: string) {
+        console.error(message);
+    }
+}
+
 export class ConsoleWithLogLevel implements ConsoleInterface {
     private _levelMap: Map<string, number> = new Map([
         [LogLevel.Error, 0],
