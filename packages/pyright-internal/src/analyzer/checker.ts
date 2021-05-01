@@ -70,6 +70,7 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
+import { getUnescapedString, UnescapeError, UnescapeErrorType } from '../parser/stringTokenUtils';
 import { OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -933,6 +934,55 @@ export class Checker extends ParseTreeWalker {
     }
 
     visitStringList(node: StringListNode): boolean {
+        for (const stringNode of node.strings) {
+            if (stringNode.hasUnescapeErrors) {
+                const unescapedResult = getUnescapedString(stringNode.token);
+
+                unescapedResult.unescapeErrors.forEach((error: UnescapeError) => {
+                    const start =
+                        stringNode.token.start +
+                        stringNode.token.prefixLength +
+                        stringNode.token.quoteMarkLength +
+                        error.offset;
+                    const textRange = { start, length: error.length };
+
+                    if (error.errorType === UnescapeErrorType.InvalidEscapeSequence) {
+                        this._evaluator.addDiagnosticForTextRange(
+                            this._fileInfo,
+                            this._fileInfo.diagnosticRuleSet.reportInvalidStringEscapeSequence,
+                            DiagnosticRule.reportInvalidStringEscapeSequence,
+                            Localizer.Diagnostic.stringUnsupportedEscape(),
+                            textRange
+                        );
+                    } else if (error.errorType === UnescapeErrorType.EscapeWithinFormatExpression) {
+                        this._evaluator.addDiagnosticForTextRange(
+                            this._fileInfo,
+                            'error',
+                            '',
+                            Localizer.Diagnostic.formatStringEscape(),
+                            textRange
+                        );
+                    } else if (error.errorType === UnescapeErrorType.SingleCloseBraceWithinFormatLiteral) {
+                        this._evaluator.addDiagnosticForTextRange(
+                            this._fileInfo,
+                            'error',
+                            '',
+                            Localizer.Diagnostic.formatStringBrace(),
+                            textRange
+                        );
+                    } else if (error.errorType === UnescapeErrorType.UnterminatedFormatExpression) {
+                        this._evaluator.addDiagnosticForTextRange(
+                            this._fileInfo,
+                            'error',
+                            '',
+                            Localizer.Diagnostic.formatStringUnterminated(),
+                            textRange
+                        );
+                    }
+                });
+            }
+        }
+
         if (node.typeAnnotation) {
             this._evaluator.getType(node);
         }

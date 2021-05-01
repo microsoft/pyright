@@ -2821,7 +2821,9 @@ export function createTypeEvaluator(
         }
 
         const diagnostic = fileInfo.diagnosticSink.addDiagnosticWithTextRange(diagLevel, message, range);
-        diagnostic.setRule(rule);
+        if (rule) {
+            diagnostic.setRule(rule);
+        }
 
         return diagnostic;
     }
