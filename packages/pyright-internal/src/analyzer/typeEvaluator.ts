@@ -6346,6 +6346,7 @@ export function createTypeEvaluator(
 
                 useSpeculativeMode(errorNode, () => {
                     typeVarMap.addSolveForScope(getTypeVarScopeId(overload));
+                    typeVarMap.unlock();
                     return validateFunctionArgumentTypes(
                         errorNode,
                         matchResults,
