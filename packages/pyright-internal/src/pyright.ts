@@ -21,7 +21,7 @@ import * as process from 'process';
 import { PackageTypeVerifier } from './analyzer/packageTypeVerifier';
 import { AnalyzerService } from './analyzer/service';
 import { CommandLineOptions as PyrightCommandLineOptions } from './common/commandLineOptions';
-import { NullConsole } from './common/console';
+import { StderrConsole } from './common/console';
 import { Diagnostic, DiagnosticCategory } from './common/diagnostic';
 import { FileDiagnostics } from './common/diagnosticSink';
 import { combinePaths, normalizePath } from './common/pathUtils';
@@ -248,7 +248,7 @@ function processArgs() {
     }
     options.checkOnlyOpenFiles = false;
 
-    const output = args.outputjson ? new NullConsole() : undefined;
+    const output = args.outputjson ? new StderrConsole() : undefined;
     const fileSystem = new PyrightFileSystem(createFromRealFileSystem(output));
 
     // The package type verification uses a different path.
