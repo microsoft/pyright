@@ -1334,10 +1334,7 @@ export function createTypeEvaluator(
     }
 
     function isAnnotationEvaluationPostponed(fileInfo: AnalyzerFileInfo) {
-        return (
-            fileInfo.futureImports.get('annotations') !== undefined ||
-            fileInfo.isStubFile
-        );
+        return fileInfo.futureImports.get('annotations') !== undefined || fileInfo.isStubFile;
     }
 
     function getTypeOfAnnotation(
