@@ -20570,6 +20570,16 @@ export function createTypeEvaluator(
                 let bestTypeVarMap: TypeVarMap | undefined;
                 let bestTypeVarMapScore: number | undefined;
 
+                // If the srcType is a literal, try to use the fast-path lookup
+                // in case the destType is a union with hundreds of literals.
+                if (
+                    isObject(srcType) &&
+                    isLiteralType(srcType) &&
+                    UnionType.containsType(destType, srcType, /* constraints */ undefined)
+                ) {
+                    return true;
+                }
+
                 doForEachSubtype(destType, (subtype) => {
                     // Make a temporary clone of the typeVarMap. We don't want to modify
                     // the original typeVarMap until we find the "optimal" typeVar mapping.
