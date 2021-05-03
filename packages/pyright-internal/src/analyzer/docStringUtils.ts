@@ -9,7 +9,12 @@
  * (https://www.python.org/dev/peps/pep-0257/).
  */
 
-export function decodeDocString(rawString: string): string {
+// Cleans the a docstring as inspect.cleandoc does.
+export function cleanDocString(rawString: string): string {
+    return cleanAndSplitDocString(rawString).join('\n');
+}
+
+export function cleanAndSplitDocString(rawString: string): string[] {
     // Remove carriage returns and replace tabs.
     const unescaped = rawString.replace(/\r/g, '').replace(/\t/g, '        ');
 
@@ -37,7 +42,7 @@ export function decodeDocString(rawString: string): string {
     const trimmedLines: string[] = [];
     lines.forEach((line, index) => {
         if (index === 0) {
-            trimmedLines.push(line.trimRight());
+            trimmedLines.push(line.trim());
         } else {
             trimmedLines.push(line.substr(leftSpacesToRemove).trimRight());
         }
@@ -52,7 +57,7 @@ export function decodeDocString(rawString: string): string {
         trimmedLines.pop();
     }
 
-    return trimmedLines.join('\n');
+    return trimmedLines;
 }
 
 export function extractParameterDocumentation(functionDocString: string, paramName: string): string | undefined {
@@ -74,7 +79,7 @@ export function extractParameterDocumentation(functionDocString: string, paramNa
     //      Args:
     //          param1 (type): description
 
-    const docStringLines = functionDocString.split('\n');
+    const docStringLines = cleanAndSplitDocString(functionDocString);
     for (const line of docStringLines) {
         const trimmedLine = line.trim();
 

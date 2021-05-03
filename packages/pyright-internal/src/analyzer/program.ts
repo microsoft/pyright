@@ -61,7 +61,7 @@ import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
-import { findNodeByOffset } from './parseTreeUtils';
+import { findNodeByOffset, getDocString } from './parseTreeUtils';
 import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
@@ -768,13 +768,15 @@ export class Program {
             return undefined;
         }
 
-        const docString = sourceFileInfo.sourceFile.getModuleDocString();
         const parseResults = sourceFileInfo.sourceFile.getParseResults();
+        const moduleNode = parseResults!.parseTree;
 
         return {
             symbolTable,
             dunderAllNames: AnalyzerNodeInfo.getDunderAllNames(parseResults!.parseTree),
-            docString,
+            get docString() {
+                return getDocString(moduleNode.statements);
+            },
         };
     };
 

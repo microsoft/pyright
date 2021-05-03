@@ -50,6 +50,9 @@ export class CommandLineOptions {
     // Watch for changes in environment library/search paths.
     watchForLibraryChanges?: boolean;
 
+    // Watch for changes in config files.
+    watchForConfigChanges?: boolean;
+
     // Path of config file. This option cannot be combined with
     // file specs.
     configFilePath?: string;

@@ -8,7 +8,14 @@
  * source file document.
  */
 
-import { CancellationToken, DocumentSymbol, Location, SymbolInformation, SymbolKind } from 'vscode-languageserver';
+import {
+    CancellationToken,
+    CompletionItemKind,
+    DocumentSymbol,
+    Location,
+    SymbolInformation,
+    SymbolKind,
+} from 'vscode-languageserver';
 import { URI } from 'vscode-uri';
 
 import { resolveAliasDeclaration } from '../analyzer/aliasDeclarationUtils';
@@ -24,17 +31,20 @@ import { convertOffsetsToRange } from '../common/positionUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Range } from '../common/textRange';
 import { ParseResults } from '../parser/parser';
+import { convertSymbolKindToCompletionItemKind } from './autoImporter';
 
 export interface IndexAliasData {
     readonly originalName: string;
     readonly modulePath: string;
     readonly kind: SymbolKind;
+    readonly itemKind?: CompletionItemKind;
 }
 
 export interface IndexSymbolData {
     readonly name: string;
     readonly externallyVisible: boolean;
     readonly kind: SymbolKind;
+    readonly itemKind?: CompletionItemKind;
     readonly alias?: IndexAliasData;
     readonly range?: Range;
     readonly selectionRange?: Range;
@@ -66,10 +76,12 @@ export function getIndexAliasData(
         return undefined;
     }
 
+    const symbolKind = getSymbolKind(nameValue, resolved!) ?? SymbolKind.Module;
     return {
         originalName: nameValue,
         modulePath: resolved!.path,
-        kind: getSymbolKind(nameValue, resolved!) ?? SymbolKind.Module,
+        kind: symbolKind,
+        itemKind: convertSymbolKindToCompletionItemKind(symbolKind),
     };
 }
 
@@ -387,6 +399,7 @@ function collectSymbolIndexDataForName(
         name,
         externallyVisible,
         kind: symbolKind,
+        itemKind: convertSymbolKindToCompletionItemKind(symbolKind),
         alias:
             DeclarationType.Alias === declaration.type
                 ? getIndexAliasData(AnalyzerNodeInfo.getFileInfo(parseResults.parseTree)!.importLookup, declaration)

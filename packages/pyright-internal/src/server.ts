@@ -55,6 +55,7 @@ class PyrightServer extends LanguageServerBase {
         const serverSettings: ServerSettings = {
             watchForSourceChanges: true,
             watchForLibraryChanges: true,
+            watchForConfigChanges: true,
             openFilesOnly: true,
             useLibraryCodeForTypes: false,
             disableLanguageServices: false,

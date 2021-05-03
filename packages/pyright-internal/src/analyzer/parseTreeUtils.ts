@@ -37,7 +37,6 @@ import {
 } from '../parser/parseNodes';
 import { KeywordType, OperatorType, StringTokenFlags, Token, TokenType } from '../parser/tokenizerTypes';
 import { getScope } from './analyzerNodeInfo';
-import { decodeDocString } from './docStringUtils';
 import { ParseTreeWalker } from './parseTreeWalker';
 
 export const enum PrintExpressionFlags {
@@ -1080,15 +1079,25 @@ export function getDocString(statements: StatementNode[]): string | undefined {
         return undefined;
     }
 
-    const docStringNode = statementList.statements[0];
-    const docStringToken = docStringNode.strings[0].token;
-
-    // Ignore f-strings.
-    if ((docStringToken.flags & StringTokenFlags.Format) !== 0) {
+    // A docstring can consist of multiple joined strings in a single expression.
+    const strings = statementList.statements[0].strings;
+    if (strings.length === 0) {
         return undefined;
     }
 
-    return decodeDocString(docStringNode.strings[0].value);
+    // Any f-strings invalidate the entire docstring.
+    if (strings.some((n) => (n.token.flags & StringTokenFlags.Format) !== 0)) {
+        return undefined;
+    }
+
+    // It's up to the user to convert normalize/convert this as needed.
+
+    if (strings.length === 1) {
+        // Common case.
+        return strings[0].value;
+    }
+
+    return strings.map((s) => s.value).join('');
 }
 
 // Sometimes a NamedTuple assignment statement is followed by a statement

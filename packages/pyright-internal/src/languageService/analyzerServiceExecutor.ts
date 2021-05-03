@@ -52,9 +52,11 @@ function getEffectiveCommandLineOptions(
     if (!trackFiles) {
         commandLineOptions.watchForSourceChanges = false;
         commandLineOptions.watchForLibraryChanges = false;
+        commandLineOptions.watchForConfigChanges = false;
     } else {
         commandLineOptions.watchForSourceChanges = serverSettings.watchForSourceChanges;
         commandLineOptions.watchForLibraryChanges = serverSettings.watchForLibraryChanges;
+        commandLineOptions.watchForConfigChanges = serverSettings.watchForConfigChanges;
     }
 
     if (serverSettings.venvPath) {
