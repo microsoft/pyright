@@ -1357,7 +1357,7 @@ export class ImportResolver {
             this._cachedTypeshedStdLibModuleVersions = this._readTypeshedStdLibVersions(execEnv, importFailureInfo);
         }
 
-        const versionRange = this._cachedTypeshedStdLibModuleVersions!.get(moduleDescriptor.nameParts[0]);
+        const versionRange = this._cachedTypeshedStdLibModuleVersions.get(moduleDescriptor.nameParts[0]);
         if (versionRange) {
             if (execEnv.pythonVersion < versionRange.min) {
                 return false;
@@ -1387,7 +1387,8 @@ export class ImportResolver {
                 if (fileStats.size > 0 && fileStats.size < 256 * 1024) {
                     const fileContents = this.fileSystem.readFileSync(versionsFilePath, 'utf8');
                     fileContents.split(/\r?\n/).forEach((line) => {
-                        const colonSplit = line.split(':');
+                        const commentSplit = line.split('#');
+                        const colonSplit = commentSplit[0].split(':');
                         if (colonSplit.length !== 2) {
                             return;
                         }
