@@ -83,8 +83,40 @@ function completeUnescapedString(incomplete: IncompleteUnescapedString): Unescap
 export function getUnescapedString(stringToken: StringToken): UnescapedString {
     const escapedString = stringToken.escapedValue;
     const isRaw = (stringToken.flags & StringTokenFlags.Raw) !== 0;
+
+    if (isRaw) {
+        return {
+            value: escapedString,
+            unescapeErrors: [],
+            nonAsciiInBytes: false,
+            formatStringSegments: [],
+        };
+    }
+
+    const charCodes: number[] = [];
+    for (let index = 0; index < escapedString.length; index++) {
+        charCodes.push(escapedString.charCodeAt(index));
+    }
+
     const isBytes = (stringToken.flags & StringTokenFlags.Bytes) !== 0;
     const isFormat = (stringToken.flags & StringTokenFlags.Format) !== 0;
+
+    // Handle the common case in an expedited manner.
+    if (!isFormat) {
+        if (
+            !charCodes.some(
+                (curChar) => curChar === Char.CarriageReturn || curChar === Char.LineFeed || curChar === Char.Backslash
+            )
+        ) {
+            return {
+                value: escapedString,
+                unescapeErrors: [],
+                nonAsciiInBytes: isBytes && charCodes.some((curChar) => curChar >= 128),
+                formatStringSegments: [],
+            };
+        }
+    }
+
     let formatExpressionNestCount = 0;
     let formatSegment: IncompleteFormatStringSegment = {
         offset: 0,
@@ -112,11 +144,11 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
     };
 
     const getEscapedCharacter = (offset = 0) => {
-        if (strOffset + offset >= escapedString.length) {
+        if (strOffset + offset >= charCodes.length) {
             return Char.EndOfText;
         }
 
-        return escapedString.charCodeAt(strOffset + offset);
+        return charCodes[strOffset + offset];
     };
 
     const scanHexEscape = (digitCount: number) => {
