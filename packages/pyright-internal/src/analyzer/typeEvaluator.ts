@@ -1334,7 +1334,11 @@ export function createTypeEvaluator(
     }
 
     function isAnnotationEvaluationPostponed(fileInfo: AnalyzerFileInfo) {
-        return fileInfo.futureImports.get('annotations') !== undefined || fileInfo.isStubFile;
+        return (
+            fileInfo.futureImports.get('annotations') !== undefined ||
+            fileInfo.executionEnvironment.pythonVersion >= PythonVersion.V3_11 ||
+            fileInfo.isStubFile
+        );
     }
 
     function getTypeOfAnnotation(
