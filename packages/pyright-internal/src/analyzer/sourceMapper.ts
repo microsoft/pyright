@@ -235,6 +235,8 @@ export class SourceMapper {
             return result;
         }
 
+        recursiveDeclCache.add(uniqueId);
+
         result = this._findMemberDeclarationsByName(
             sourceFile,
             className,

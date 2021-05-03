@@ -754,6 +754,10 @@ export class AnalyzerService {
         return !!this._commandLineOptions?.watchForLibraryChanges;
     }
 
+    private get _watchForConfigChanges() {
+        return !!this._commandLineOptions?.watchForConfigChanges;
+    }
+
     private get _typeCheckingMode() {
         return this._commandLineOptions?.typeCheckingMode;
     }
@@ -1251,6 +1255,10 @@ export class AnalyzerService {
 
     private _updateConfigFileWatcher() {
         this._removeConfigFileWatcher();
+
+        if (!this._watchForConfigChanges) {
+            return;
+        }
 
         if (this._configFilePath) {
             this._configFileWatcher = this._fs.createFileSystemWatcher([this._configFilePath], (event) => {

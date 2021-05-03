@@ -36,6 +36,7 @@ export interface AutoImportSymbol {
     readonly importAlias?: IndexAliasData;
     readonly symbol?: Symbol;
     readonly kind?: SymbolKind;
+    readonly itemKind?: CompletionItemKind;
 }
 
 export interface ModuleSymbolTable {
@@ -53,9 +54,9 @@ export function buildModuleSymbolsMap(
 ): ModuleSymbolMap {
     const moduleSymbolMap = new Map<string, ModuleSymbolTable>();
 
-    files.forEach((file) => {
-        throwIfCancellationRequested(token);
+    throwIfCancellationRequested(token);
 
+    files.forEach((file) => {
         if (file.shadows.length > 0) {
             // There is corresponding stub file. Don't add
             // duplicated files in the map.
@@ -156,6 +157,7 @@ interface ImportAliasData {
     importGroup: ImportGroup;
     symbol?: Symbol;
     kind?: SymbolKind;
+    itemKind?: CompletionItemKind;
 }
 
 type AutoImportResultMap = Map<string, AutoImportResult[]>;
@@ -334,8 +336,6 @@ export class AutoImporter {
 
         const dotCount = StringUtils.getCharacterCount(importSource, '.');
         topLevelSymbols.forEach((autoImportSymbol, name, library) => {
-            throwIfCancellationRequested(token);
-
             this._perfIndexCount(autoImportSymbol, library);
 
             if (!this._shouldIncludeVariable(autoImportSymbol, name, isStubOrHasInit.isStub, library)) {
@@ -371,6 +371,7 @@ export class AutoImporter {
                         importGroup,
                         symbol: autoImportSymbol.symbol,
                         kind: autoImportSymbol.importAlias.kind,
+                        itemKind: autoImportSymbol.importAlias.itemKind,
                     },
                     importAliasMap
                 );
@@ -391,7 +392,7 @@ export class AutoImporter {
                 alias: abbrFromUsers,
                 symbol: autoImportSymbol.symbol,
                 source: importSource,
-                kind: convertSymbolKindToCompletionItemKind(autoImportSymbol.kind),
+                kind: autoImportSymbol.itemKind ?? convertSymbolKindToCompletionItemKind(autoImportSymbol.kind),
                 insertionText: autoImportTextEdits.insertionText,
                 edits: autoImportTextEdits.edits,
             });
@@ -420,8 +421,13 @@ export class AutoImporter {
         }
 
         this._addToImportAliasMap(
-            { modulePath: filePath, originalName: importParts.importName, kind: SymbolKind.Module },
-            { importParts, importGroup },
+            {
+                modulePath: filePath,
+                originalName: importParts.importName,
+                kind: SymbolKind.Module,
+                itemKind: CompletionItemKind.Module,
+            },
+            { importParts, importGroup, kind: SymbolKind.Module, itemKind: CompletionItemKind.Module },
             importAliasMap
         );
     }
@@ -459,8 +465,6 @@ export class AutoImporter {
             this._perfInfo.importAliasCount += mapPerSymbolName.size;
 
             mapPerSymbolName.forEach((importAliasData) => {
-                throwIfCancellationRequested(token);
-
                 if (abbrFromUsers) {
                     // When alias name is used, our regular exclude mechanism would not work. we need to check
                     // whether import, the alias is referring to, already exists.
@@ -515,7 +519,7 @@ export class AutoImporter {
                     name: importAliasData.importParts.importName,
                     alias: abbrFromUsers,
                     symbol: importAliasData.symbol,
-                    kind: convertSymbolKindToCompletionItemKind(importAliasData.kind),
+                    kind: importAliasData.itemKind ?? convertSymbolKindToCompletionItemKind(importAliasData.kind),
                     source: importAliasData.importParts.importFrom,
                     insertionText: autoImportTextEdits.insertionText,
                     edits: autoImportTextEdits.edits,
@@ -827,6 +831,7 @@ function createModuleSymbolTableFromIndexResult(indexResults: IndexResults, libr
                     {
                         importAlias: data.alias,
                         kind: data.kind,
+                        itemKind: data.itemKind,
                     },
                     data.name,
                     library
@@ -836,7 +841,7 @@ function createModuleSymbolTableFromIndexResult(indexResults: IndexResults, libr
     };
 }
 
-function convertSymbolKindToCompletionItemKind(kind: SymbolKind | undefined) {
+export function convertSymbolKindToCompletionItemKind(kind: SymbolKind | undefined) {
     switch (kind) {
         case SymbolKind.File:
             return CompletionItemKind.File;

@@ -104,6 +104,7 @@ export interface ServerSettings {
     extraPaths?: string[];
     watchForSourceChanges?: boolean;
     watchForLibraryChanges?: boolean;
+    watchForConfigChanges?: boolean;
     diagnosticSeverityOverrides?: DiagnosticSeverityOverridesMap;
     logLevel?: LogLevel;
     autoImportCompletions?: boolean;

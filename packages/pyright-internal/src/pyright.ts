@@ -266,6 +266,7 @@ function processArgs() {
 
     const watch = args.watch !== undefined;
     options.watchForSourceChanges = watch;
+    options.watchForConfigChanges = watch;
 
     const service = new AnalyzerService('<default>', fileSystem, output);
 

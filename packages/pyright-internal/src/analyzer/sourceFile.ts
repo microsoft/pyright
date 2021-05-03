@@ -49,7 +49,7 @@ import { Token } from '../parser/tokenizerTypes';
 import { PyrightFileSystem } from '../pyrightFileSystem';
 import { AnalyzerFileInfo, ImportLookup } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
-import { Binder, BinderResults } from './binder';
+import { Binder } from './binder';
 import { Checker } from './checker';
 import { CircularDependency } from './circularDependency';
 import * as CommentUtils from './commentUtils';
@@ -134,7 +134,6 @@ export class SourceFile {
 
     private _parseResults?: ParseResults;
     private _moduleSymbolTable?: SymbolTable;
-    private _binderResults?: BinderResults;
     private _cachedIndexResults?: IndexResults;
 
     // Reentrancy check for binding.
@@ -333,10 +332,6 @@ export class SourceFile {
         return this._moduleSymbolTable;
     }
 
-    getModuleDocString(): string | undefined {
-        return this._binderResults ? this._binderResults.moduleDocString : undefined;
-    }
-
     // Indicates whether the contents of the file have changed since
     // the last analysis was performed.
     didContentsChangeOnDisk(): boolean {
@@ -379,7 +374,6 @@ export class SourceFile {
         this._parseResults = undefined;
         this._moduleSymbolTable = undefined;
         this._isBindingNeeded = true;
-        this._binderResults = undefined;
     }
 
     markDirty(): void {
@@ -388,7 +382,6 @@ export class SourceFile {
         this._isBindingNeeded = true;
         this._indexingNeeded = true;
         this._moduleSymbolTable = undefined;
-        this._binderResults = undefined;
         this._cachedIndexResults = undefined;
     }
 
@@ -407,7 +400,6 @@ export class SourceFile {
                 this._isBindingNeeded = true;
                 this._indexingNeeded = true;
                 this._moduleSymbolTable = undefined;
-                this._binderResults = undefined;
                 this._cachedIndexResults = undefined;
             }
         }
@@ -934,7 +926,7 @@ export class SourceFile {
 
                     const binder = new Binder(fileInfo);
                     this._isBindingInProgress = true;
-                    this._binderResults = binder.bindModule(this._parseResults!.parseTree);
+                    binder.bindModule(this._parseResults!.parseTree);
 
                     // If we're in "test mode" (used for unit testing), run an additional
                     // "test walker" over the parse tree to validate its internal consistency.
