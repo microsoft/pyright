@@ -65,7 +65,6 @@ import {
     RaiseNode,
     ReturnNode,
     StatementNode,
-    StringListNode,
     SuiteNode,
     TernaryNode,
     TryNode,
@@ -76,7 +75,6 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
-import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
@@ -1287,42 +1285,6 @@ export class Binder extends ParseTreeWalker {
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
             this._addError(Localizer.Diagnostic.awaitNotInAsync(), node);
-        }
-
-        return true;
-    }
-
-    visitStringList(node: StringListNode): boolean {
-        for (const stringNode of node.strings) {
-            if (stringNode.hasUnescapeErrors) {
-                const unescapedResult = StringTokenUtils.getUnescapedString(stringNode.token);
-
-                unescapedResult.unescapeErrors.forEach((error: StringTokenUtils.UnescapeError) => {
-                    const start =
-                        stringNode.token.start +
-                        stringNode.token.prefixLength +
-                        stringNode.token.quoteMarkLength +
-                        error.offset;
-                    const textRange = { start, length: error.length };
-
-                    if (error.errorType === StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence) {
-                        this._addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportInvalidStringEscapeSequence,
-                            DiagnosticRule.reportInvalidStringEscapeSequence,
-                            Localizer.Diagnostic.stringUnsupportedEscape(),
-                            textRange
-                        );
-                    } else if (error.errorType === StringTokenUtils.UnescapeErrorType.EscapeWithinFormatExpression) {
-                        this._addError(Localizer.Diagnostic.formatStringEscape(), textRange);
-                    } else if (
-                        error.errorType === StringTokenUtils.UnescapeErrorType.SingleCloseBraceWithinFormatLiteral
-                    ) {
-                        this._addError(Localizer.Diagnostic.formatStringBrace(), textRange);
-                    } else if (error.errorType === StringTokenUtils.UnescapeErrorType.UnterminatedFormatExpression) {
-                        this._addError(Localizer.Diagnostic.formatStringUnterminated(), textRange);
-                    }
-                });
-            }
         }
 
         return true;
