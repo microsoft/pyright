@@ -331,7 +331,7 @@ export class CompletionProvider {
 
                 // Stop scanning backward if we hit certain stop characters.
                 const curChar = this._fileContents.substr(curOffset, 1);
-                if (curChar === '(' || curChar === '\n') {
+                if (curChar === '(' || curChar === '\n' || curChar === '}') {
                     break;
                 }
                 if (curChar === ',') {
@@ -392,7 +392,7 @@ export class CompletionProvider {
                 return this._getStringLiteralCompletions(curNode, priorWord, priorText, postText);
             }
 
-            if (curNode.nodeType === ParseNodeType.StringList) {
+            if (curNode.nodeType === ParseNodeType.StringList || curNode.nodeType === ParseNodeType.FormatString) {
                 return undefined;
             }
 
