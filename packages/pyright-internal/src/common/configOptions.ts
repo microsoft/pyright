@@ -652,6 +652,9 @@ export class ConfigOptions {
     // Run additional analysis as part of test cases?
     internalTestMode?: boolean;
 
+    // Run program in index generation mode.
+    indexGenerationMode?: boolean;
+
     static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
         if (typeCheckingMode === 'strict') {
             return getStrictDiagnosticRuleSet();

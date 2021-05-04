@@ -200,7 +200,7 @@ export class Binder extends ParseTreeWalker {
     // on whether they are listed in the __all__ list.
     private _potentialPrivateSymbols = new Map<string, Symbol>();
 
-    constructor(fileInfo: AnalyzerFileInfo) {
+    constructor(fileInfo: AnalyzerFileInfo, private _moduleSymbolOnly = false) {
         super();
 
         this._fileInfo = fileInfo;
@@ -373,11 +373,11 @@ export class Binder extends ParseTreeWalker {
         this._createNewScope(ScopeType.Class, parentScope, () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
-            // Analyze the suite.
-            this.walk(node.suite);
+            if (!this._moduleSymbolOnly) {
+                // Analyze the suite.
+                this.walk(node.suite);
+            }
         });
-
-        this._bindNameToScope(this._currentScope, node.name.value);
 
         this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ false, /* unbound */ false);
 
@@ -3344,6 +3344,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _deferBinding(callback: () => void) {
+        if (this._moduleSymbolOnly) {
+            return;
+        }
+
         this._deferredBindingTasks.push({
             scope: this._currentScope,
             codeFlowExpressionMap: this._currentExecutionScopeReferenceMap!,

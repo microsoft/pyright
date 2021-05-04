@@ -539,6 +539,7 @@ export class SourceFile {
                 parseOptions.isStubFile = true;
             }
             parseOptions.pythonVersion = execEnvironment.pythonVersion;
+            parseOptions.skipFunctionAndClassBody = configOptions.indexGenerationMode ?? false;
 
             try {
                 // Parse the token stream, building the abstract syntax tree.
@@ -924,7 +925,7 @@ export class SourceFile {
                     );
                     AnalyzerNodeInfo.setFileInfo(this._parseResults!.parseTree, fileInfo);
 
-                    const binder = new Binder(fileInfo);
+                    const binder = new Binder(fileInfo, configOptions.indexGenerationMode);
                     this._isBindingInProgress = true;
                     binder.bindModule(this._parseResults!.parseTree);
 

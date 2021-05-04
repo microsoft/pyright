@@ -145,11 +145,13 @@ export class ParseOptions {
         this.isStubFile = false;
         this.pythonVersion = latestStablePythonVersion;
         this.reportInvalidStringEscapeSequence = false;
+        this.skipFunctionAndClassBody = false;
     }
 
     isStubFile: boolean;
     pythonVersion: PythonVersion;
     reportInvalidStringEscapeSequence: boolean;
+    skipFunctionAndClassBody: boolean;
 }
 
 export interface ParseResults {
@@ -1165,7 +1167,7 @@ export class Parser {
     }
 
     // suite: ':' (simple_stmt | NEWLINE INDENT stmt+ DEDENT)
-    private _parseSuite(isFunction = false, postColonCallback?: () => void): SuiteNode {
+    private _parseSuite(isFunction = false, skipBody = false, postColonCallback?: () => void): SuiteNode {
         const nextToken = this._peekToken();
         const suite = SuiteNode.create(nextToken);
 
@@ -1177,6 +1179,39 @@ export class Parser {
             if (this._consumeTokensUntilType([TokenType.NewLine, TokenType.Colon])) {
                 this._getNextToken();
             }
+        }
+
+        if (skipBody) {
+            if (this._consumeTokenIfType(TokenType.NewLine)) {
+                let indent = 0;
+                while (true) {
+                    const nextToken = this._getNextToken();
+                    if (nextToken.type === TokenType.Indent) {
+                        indent++;
+                    }
+
+                    if (nextToken.type === TokenType.Dedent) {
+                        indent--;
+
+                        if (indent === 0) {
+                            break;
+                        }
+                    }
+
+                    if (nextToken.type === TokenType.EndOfStream) {
+                        break;
+                    }
+                }
+            } else {
+                // consume tokens
+                this._parseSimpleStatement();
+            }
+
+            if (this._tokenIndex > 0) {
+                extendRange(suite, this._tokenizerOutput!.tokens.getItemAt(this._tokenIndex - 1));
+            }
+
+            return suite;
         }
 
         if (postColonCallback) {
@@ -1536,7 +1571,7 @@ export class Parser {
         }
 
         let functionTypeAnnotationToken: StringToken | undefined;
-        const suite = this._parseSuite(/* isFunction */ true, () => {
+        const suite = this._parseSuite(/* isFunction */ true, this._parseOptions.skipFunctionAndClassBody, () => {
             if (!functionTypeAnnotationToken) {
                 functionTypeAnnotationToken = this._getTypeAnnotationCommentText();
             }
@@ -1964,7 +1999,7 @@ export class Parser {
             }
         }
 
-        const suite = this._parseSuite(/* isFunction */ false);
+        const suite = this._parseSuite(/* isFunction */ false, this._parseOptions.skipFunctionAndClassBody);
 
         const classNode = ClassNode.create(classToken, NameNode.create(nameToken), suite);
         classNode.arguments = argList;

@@ -67,6 +67,7 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     configOptions.checkOnlyOpenFiles = jsonObject.checkOnlyOpenFiles;
     configOptions.useLibraryCodeForTypes = jsonObject.useLibraryCodeForTypes;
     configOptions.internalTestMode = jsonObject.internalTestMode;
+    configOptions.indexGenerationMode = jsonObject.indexGenerationMode;
     configOptions.venvPath = jsonObject.venvPath;
     configOptions.venv = jsonObject.venv;
     configOptions.defaultPythonVersion = jsonObject.defaultPythonVersion;

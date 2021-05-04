@@ -9,7 +9,6 @@
 const path = require('path');
 const CopyPlugin = require('copy-webpack-plugin');
 const { TsconfigPathsPlugin } = require('tsconfig-paths-webpack-plugin');
-const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const { monorepoResourceNameMapper } = require('../../build/lib/webpack');
 
 const outPath = path.resolve(__dirname, 'dist');
@@ -29,6 +28,7 @@ module.exports = (_, { mode }) => {
             path: outPath,
             devtoolModuleFilenameTemplate:
                 mode === 'development' ? '../[resource-path]' : monorepoResourceNameMapper('pyright'),
+            clean: true,
         },
         devtool: mode === 'development' ? 'source-map' : 'nosources-source-map',
         stats: {
@@ -59,10 +59,7 @@ module.exports = (_, { mode }) => {
                 },
             ],
         },
-        plugins: [
-            new CleanWebpackPlugin(),
-            new CopyPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] }),
-        ],
+        plugins: [new CopyPlugin({ patterns: [{ from: typeshedFallback, to: 'typeshed-fallback' }] })],
         optimization: {
             splitChunks: {
                 cacheGroups: {
