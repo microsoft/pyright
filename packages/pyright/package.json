@@ -24,7 +24,6 @@
     },
     "devDependencies": {
         "@types/node": "^12.20.10",
-        "clean-webpack-plugin": "^3.0.0",
         "copy-webpack-plugin": "^8.1.1",
         "shx": "^0.3.3",
         "ts-loader": "^9.1.0",
