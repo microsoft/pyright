@@ -11740,6 +11740,8 @@ export function createTypeEvaluator(
 
         const aliasMapEntry = specialTypes[assignedName];
         if (aliasMapEntry) {
+            // Evaluate the expression so symbols are marked as accessed.
+            getTypeOfExpression(node.rightExpression);
             return createSpecialBuiltInClass(node, assignedName, aliasMapEntry);
         }
 
