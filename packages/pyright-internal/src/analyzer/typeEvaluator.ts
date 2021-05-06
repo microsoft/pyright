@@ -13360,8 +13360,12 @@ export function createTypeEvaluator(
 
         const decoratorType = getTypeOfExpression(decoratorNode.expression, undefined, evaluatorFlags).type;
 
-        // Special-case the "overload" because it has no definition.
-        if (isClass(decoratorType) && ClassType.isSpecialBuiltIn(decoratorType, 'overload')) {
+        // Special-case the "overload" because it has no definition. Older versions of typeshed
+        // defined "overload" as an object, but newer versions define it as a function.
+        if (
+            (isClass(decoratorType) && ClassType.isSpecialBuiltIn(decoratorType, 'overload')) ||
+            (isFunction(decoratorType) && decoratorType.details.builtInName === 'overload')
+        ) {
             if (isFunction(inputFunctionType)) {
                 inputFunctionType.details.flags |= FunctionTypeFlags.Overloaded;
                 undecoratedType.details.flags |= FunctionTypeFlags.Overloaded;
