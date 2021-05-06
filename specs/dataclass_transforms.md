@@ -55,6 +55,7 @@ the class that it decorates in the following ways:
 1. It synthesizes an `__init__` method using data fields declared within
 the class and its parent classes.
 2. It synthesizes an `__eq__` and `__ne__` method.
+
 The implementation details of `create_model` are omitted for brevity.
 
 ```python
@@ -66,6 +67,7 @@ _T = TypeVar("_T")
 def create_model(cls: Type[_T]) -> Type[_T]:
     cls.__init__ = ...
     cls.__eq__ = ...
+    cls.__ne__ = ...
     return cls
     
 
