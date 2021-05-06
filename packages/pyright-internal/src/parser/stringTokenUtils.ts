@@ -83,8 +83,9 @@ function completeUnescapedString(incomplete: IncompleteUnescapedString): Unescap
 export function getUnescapedString(stringToken: StringToken): UnescapedString {
     const escapedString = stringToken.escapedValue;
     const isRaw = (stringToken.flags & StringTokenFlags.Raw) !== 0;
+    const isFormat = (stringToken.flags & StringTokenFlags.Format) !== 0;
 
-    if (isRaw) {
+    if (isRaw && !isFormat) {
         return {
             value: escapedString,
             unescapeErrors: [],
@@ -99,7 +100,6 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
     }
 
     const isBytes = (stringToken.flags & StringTokenFlags.Bytes) !== 0;
-    const isFormat = (stringToken.flags & StringTokenFlags.Format) !== 0;
 
     // Handle the common case in an expedited manner.
     if (!isFormat) {
