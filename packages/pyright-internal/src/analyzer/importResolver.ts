@@ -34,6 +34,7 @@ import {
     tryRealpath,
     tryStat,
 } from '../common/pathUtils';
+import { PythonVersion, versionFromString } from '../common/pythonVersion';
 import { equateStringsCaseInsensitive } from '../common/stringUtils';
 import * as StringUtils from '../common/stringUtils';
 import { isIdentifierChar, isIdentifierStartChar } from '../parser/characters';
@@ -57,6 +58,10 @@ export interface ModuleNameAndType {
 }
 
 type CachedImportResults = Map<string, ImportResult>;
+interface SupportedVersionRange {
+    min: PythonVersion;
+    max?: PythonVersion;
+}
 
 const supportedNativeLibExtensions = ['.pyd', '.so', '.dylib'];
 const supportedFileExtensions = ['.py', '.pyi', ...supportedNativeLibExtensions];
@@ -75,6 +80,7 @@ export class ImportResolver {
     private _cachedImportResults = new Map<string, CachedImportResults>();
     private _cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
     private _cachedTypeshedStdLibPath: string | undefined;
+    private _cachedTypeshedStdLibModuleVersions: Map<string, SupportedVersionRange> | undefined;
     private _cachedTypeshedThirdPartyPath: string | undefined;
     private _cachedTypeshedThirdPartyPackagePaths: Map<string, string> | undefined;
     private _cachedTypeshedThirdPartyPackageRoots: string[] | undefined;
@@ -351,7 +357,15 @@ export class ImportResolver {
         if (stdLibTypeshedPath) {
             moduleName = this._getModuleNameFromPath(stdLibTypeshedPath, filePath);
             if (moduleName) {
-                return { moduleName, importType, isLocalTypingsFile };
+                const moduleDescriptor: ImportedModuleDescriptor = {
+                    leadingDots: 0,
+                    nameParts: moduleName.split('.'),
+                    importedSymbols: undefined,
+                };
+
+                if (this._isStdlibTypeshedStubValidForVersion(moduleDescriptor, execEnv, [])) {
+                    return { moduleName, importType, isLocalTypingsFile };
+                }
             }
         }
 
@@ -1229,7 +1243,7 @@ export class ImportResolver {
         );
 
         const typeshedPath = isStdLib
-            ? this._getStdlibTypeshedPath(execEnv, importFailureInfo)
+            ? this._getStdlibTypeshedPath(execEnv, importFailureInfo, moduleDescriptor)
             : this._getThirdPartyTypeshedPackagePath(moduleDescriptor, execEnv, importFailureInfo);
 
         if (typeshedPath && this.dirExistsCached(typeshedPath)) {
@@ -1298,7 +1312,7 @@ export class ImportResolver {
         const importFailureInfo: string[] = [];
 
         const typeshedPath = isStdLib
-            ? this._getStdlibTypeshedPath(execEnv, importFailureInfo)
+            ? this._getStdlibTypeshedPath(execEnv, importFailureInfo, moduleDescriptor)
             : this._getThirdPartyTypeshedPackagePath(moduleDescriptor, execEnv, importFailureInfo);
 
         if (!typeshedPath) {
@@ -1310,12 +1324,111 @@ export class ImportResolver {
         }
     }
 
-    private _getStdlibTypeshedPath(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
-        return this._getTypeshedSubdirectory(/* isStdLib */ true, execEnv, importFailureInfo);
+    // Returns the directory for a module within the stdlib typeshed directory.
+    // If moduleDescriptor is provided, it is filtered based on the VERSIONS
+    // file in the typeshed stubs.
+    private _getStdlibTypeshedPath(
+        execEnv: ExecutionEnvironment,
+        importFailureInfo: string[],
+        moduleDescriptor?: ImportedModuleDescriptor
+    ) {
+        const subdirectory = this._getTypeshedSubdirectory(/* isStdLib */ true, execEnv, importFailureInfo);
+        if (
+            subdirectory &&
+            moduleDescriptor &&
+            !this._isStdlibTypeshedStubValidForVersion(moduleDescriptor, execEnv, importFailureInfo)
+        ) {
+            return undefined;
+        }
+
+        return subdirectory;
     }
 
     private _getThirdPartyTypeshedPath(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
         return this._getTypeshedSubdirectory(/* isStdLib */ false, execEnv, importFailureInfo);
+    }
+
+    private _isStdlibTypeshedStubValidForVersion(
+        moduleDescriptor: ImportedModuleDescriptor,
+        execEnv: ExecutionEnvironment,
+        importFailureInfo: string[]
+    ) {
+        if (!this._cachedTypeshedStdLibModuleVersions) {
+            this._cachedTypeshedStdLibModuleVersions = this._readTypeshedStdLibVersions(execEnv, importFailureInfo);
+        }
+
+        const versionRange = this._cachedTypeshedStdLibModuleVersions.get(moduleDescriptor.nameParts[0]);
+        if (versionRange) {
+            if (execEnv.pythonVersion < versionRange.min) {
+                return false;
+            }
+
+            if (versionRange.max !== undefined && execEnv.pythonVersion > versionRange.max) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private _readTypeshedStdLibVersions(
+        execEnv: ExecutionEnvironment,
+        importFailureInfo: string[]
+    ): Map<string, SupportedVersionRange> {
+        const versionRangeMap = new Map<string, SupportedVersionRange>();
+
+        // Read the VERSIONS file from typeshed.
+        const typeshedStdLibPath = this._getTypeshedSubdirectory(/* isStdLib */ true, execEnv, importFailureInfo);
+
+        if (typeshedStdLibPath) {
+            const versionsFilePath = combinePaths(typeshedStdLibPath, 'VERSIONS');
+            try {
+                const fileStats = this.fileSystem.statSync(versionsFilePath);
+                if (fileStats.size > 0 && fileStats.size < 256 * 1024) {
+                    const fileContents = this.fileSystem.readFileSync(versionsFilePath, 'utf8');
+                    fileContents.split(/\r?\n/).forEach((line) => {
+                        const commentSplit = line.split('#');
+                        const colonSplit = commentSplit[0].split(':');
+                        if (colonSplit.length !== 2) {
+                            return;
+                        }
+
+                        const versionSplit = colonSplit[1].split('-');
+                        if (versionSplit.length > 2) {
+                            return;
+                        }
+
+                        const moduleName = colonSplit[0].trim();
+                        if (!moduleName) {
+                            return;
+                        }
+
+                        let minVersionString = versionSplit[0].trim();
+                        if (minVersionString.endsWith('+')) {
+                            // If the version ends in "+", strip it off.
+                            minVersionString = minVersionString.substr(0, minVersionString.length - 1);
+                        }
+                        let minVersion = versionFromString(minVersionString);
+                        if (!minVersion) {
+                            minVersion = PythonVersion.V3_0;
+                        }
+
+                        let maxVersion: PythonVersion | undefined;
+                        if (versionSplit.length > 1) {
+                            maxVersion = versionFromString(versionSplit[1].trim());
+                        }
+
+                        versionRangeMap.set(moduleName, { min: minVersion, max: maxVersion });
+                    });
+                } else {
+                    importFailureInfo.push(`Typeshed stdlib VERSIONS file is unexpectedly large`);
+                }
+            } catch (e) {
+                importFailureInfo.push(`Could not read typeshed stdlib VERSIONS file: '${JSON.stringify(e)}'`);
+            }
+        }
+
+        return versionRangeMap;
     }
 
     private _getThirdPartyTypeshedPackagePath(
