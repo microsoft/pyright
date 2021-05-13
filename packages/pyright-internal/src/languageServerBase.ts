@@ -1299,7 +1299,7 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
     protected getDocumentationUrlForDiagnosticRule(rule: string): string | undefined {
         // For now, return the same URL for all rules. We can separate these
         // in the future.
-        return 'https://github.com/microsoft/pyright/blob/master/docs/configuration.md';
+        return 'https://github.com/microsoft/pyright/blob/main/docs/configuration.md';
     }
 
     protected abstract createProgressReporter(): ProgressReporter;

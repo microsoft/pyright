@@ -93,7 +93,7 @@ export function createFromRealFileSystem(
 // File watchers can give "changed" event even for a file open. but for those cases,
 // it will give relative path rather than absolute path. To get rid of such cases,
 // we will drop any event with relative paths. this trick is copied from VS Code
-// (https://github.com/microsoft/vscode/blob/master/src/vs/platform/files/node/watcher/unix/chokidarWatcherService.ts)
+// (https://github.com/microsoft/vscode/blob/main/src/vs/platform/files/node/watcher/unix/chokidarWatcherService.ts)
 export function ignoredWatchEventFunction(paths: string[]) {
     const normalizedPaths = paths.map((p) => p.toLowerCase());
     return (path: string): boolean => {

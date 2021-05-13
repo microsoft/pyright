@@ -52,4 +52,4 @@ The VS Code extension supports many time-saving language features including:
 
 Pyright includes a recent copy of the stdlib type stubs from [Typeshed](https://github.com/python/typeshed). It can be configured to use another (perhaps more recent or modified) copy of the Typeshed type stubs. Of course, it also works with custom type stub files that are part of your project.
 
-For more details, refer to the [README](https://github.com/Microsoft/pyright/blob/master/README.md) on the Pyright GitHub site.
+For more details, refer to the [README](https://github.com/microsoft/pyright/blob/main/README.md) on the Pyright GitHub site.
