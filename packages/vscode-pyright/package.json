@@ -757,18 +757,18 @@
         "vscode-languageserver-protocol": "3.16.0"
     },
     "devDependencies": {
-        "@types/node": "^12.20.10",
-        "@types/vscode": "~1.52.0",
+        "@types/node": "^15.0.3",
+        "@types/vscode": "~1.56.0",
         "chalk": "^4.1.1",
         "copy-webpack-plugin": "^8.1.1",
         "detect-indent": "^6.0.0",
-        "fs-extra": "^9.1.0",
+        "fs-extra": "^10.0.0",
         "shx": "^0.3.3",
-        "ts-loader": "^9.1.0",
+        "ts-loader": "^9.1.2",
         "tsconfig-paths-webpack-plugin": "^3.5.1",
         "typescript": "^4.2.4",
-        "vsce": "^1.87.1",
-        "webpack": "^5.35.0",
-        "webpack-cli": "^4.6.0"
+        "vsce": "^1.88.0",
+        "webpack": "^5.37.0",
+        "webpack-cli": "^4.7.0"
     }
 }

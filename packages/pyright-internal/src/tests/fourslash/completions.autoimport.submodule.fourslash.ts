@@ -17,7 +17,7 @@
             completions: [
                 {
                     label: 'path',
-                    kind: Consts.CompletionItemKind.Module,
+                    kind: Consts.CompletionItemKind.Variable,
                     documentation: '```\nfrom os import path\n```',
                     detail: 'Auto-import',
                     textEdit: { range: helper.getPositionRange('marker1'), newText: 'path' },

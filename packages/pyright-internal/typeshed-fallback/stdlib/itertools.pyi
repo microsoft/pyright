@@ -13,6 +13,7 @@ from typing import (
     Tuple,
     Type,
     TypeVar,
+    Union,
     overload,
 )
 from typing_extensions import Literal, SupportsIndex
@@ -20,7 +21,7 @@ from typing_extensions import Literal, SupportsIndex
 _T = TypeVar("_T")
 _S = TypeVar("_S")
 _N = TypeVar("_N", int, float, SupportsFloat, SupportsInt, SupportsIndex, SupportsComplex)
-_NStep = TypeVar("_NStep", int, float, SupportsFloat, SupportsInt, SupportsIndex, SupportsComplex)
+_Step = Union[int, float, SupportsFloat, SupportsInt, SupportsIndex, SupportsComplex]
 
 Predicate = Callable[[_T], object]
 
@@ -30,7 +31,9 @@ class count(Iterator[_N], Generic[_N]):
     @overload
     def __new__(cls) -> count[int]: ...
     @overload
-    def __new__(cls, start: _N, step: _NStep = ...) -> count[_N]: ...
+    def __new__(cls, start: _N, step: _Step = ...) -> count[_N]: ...
+    @overload
+    def __new__(cls, *, step: _N) -> count[_N]: ...
     def __next__(self) -> _N: ...
     def __iter__(self) -> Iterator[_N]: ...
 
