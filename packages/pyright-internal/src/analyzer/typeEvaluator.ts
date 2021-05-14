@@ -20800,15 +20800,15 @@ export function createTypeEvaluator(
                 }
 
                 return true;
-            } else if (isFunction(concreteSrcType)) {
+            } else if (isFunction(concreteSrcType) || isOverloadedFunction(concreteSrcType)) {
                 // Is the destination a callback protocol (defined in PEP 544)?
-                const callbackType = getCallbackProtocolType(destType);
-                if (callbackType) {
-                    return canAssignFunction(
-                        callbackType,
+                const destCallbackType = getCallbackProtocolType(destType);
+                if (destCallbackType) {
+                    return canAssignType(
+                        destCallbackType,
                         concreteSrcType,
                         diag,
-                        typeVarMap || new TypeVarMap(),
+                        typeVarMap,
                         flags,
                         recursionCount + 1
                     );
@@ -21050,7 +21050,7 @@ export function createTypeEvaluator(
         return false;
     }
 
-    function getCallbackProtocolType(objType: ObjectType): FunctionType | undefined {
+    function getCallbackProtocolType(objType: ObjectType): FunctionType | OverloadedFunctionType | undefined {
         if (!ClassType.isProtocolClass(objType.classType)) {
             return undefined;
         }
@@ -21061,11 +21061,11 @@ export function createTypeEvaluator(
         }
 
         const memberType = getTypeOfMember(callMember);
-        if (isFunction(memberType)) {
+        if (isFunction(memberType) || isOverloadedFunction(memberType)) {
             const boundMethod = bindFunctionToClassOrObject(objType, memberType);
 
             if (boundMethod) {
-                return boundMethod as FunctionType;
+                return boundMethod;
             }
         }
 
