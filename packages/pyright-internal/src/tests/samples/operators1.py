@@ -1,5 +1,5 @@
 # This sample tests the type checker's ability to check
-# custom comparison operator overrides.
+# custom operator overrides.
 
 from typing import Union
 
@@ -62,3 +62,17 @@ def test():
     needs_a_string(b > b)
     needs_a_string(b <= b)
     needs_a_string(b >= b)
+
+
+class ClassA:
+    def __getattr__(self, name: str, /):
+        if name == "__add__":
+            return lambda _: 0
+
+
+a = C()
+a.__add__
+
+# This should generate an error because __getattr__ is not used
+# when looking up operator overload methods.
+b = a + 0

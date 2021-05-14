@@ -10032,7 +10032,7 @@ export function createTypeEvaluator(
                     magicMethodName,
                     /* usage */ undefined,
                     /* diag */ undefined,
-                    /* memberAccessFlags */ undefined,
+                    MemberAccessFlags.SkipAttributeAccessOverride,
                     subtype
                 )?.type;
             } else if (isClass(concreteSubtype)) {
@@ -10042,7 +10042,7 @@ export function createTypeEvaluator(
                     magicMethodName,
                     /* usage */ undefined,
                     /* diag */ undefined,
-                    MemberAccessFlags.ConsiderMetaclassOnly
+                    MemberAccessFlags.SkipAttributeAccessOverride | MemberAccessFlags.ConsiderMetaclassOnly
                 )?.type;
             }
 
