@@ -12796,6 +12796,13 @@ export function createTypeEvaluator(
                 );
             }
         }
+
+        // Evaluate all of the expressions so they are checked and marked referenced.
+        argList.forEach(arg => {
+            if (arg.valueExpression) {
+                getTypeOfExpression(arg.valueExpression);
+            }
+        });
     }
 
     function getTypeOfFunction(node: FunctionNode): FunctionTypeResult | undefined {
