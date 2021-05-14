@@ -17164,7 +17164,10 @@ export function createTypeEvaluator(
                             // If the variable type is a superclass of the isinstance
                             // filter, we can narrow the type to the subclass.
                             filteredTypes.push(filterType);
-                        } else if (ClassType.isProtocolClass(concreteFilterType) && ClassType.isProtocolClass(varType)) {
+                        } else if (
+                            ClassType.isProtocolClass(concreteFilterType) &&
+                            ClassType.isProtocolClass(varType)
+                        ) {
                             // If both the filter type and the variable type are protocol classes,
                             // the correct answer is an intersection of the two types, but we don't
                             // support intersections in the type system, so the best we can do
