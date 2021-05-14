@@ -21292,6 +21292,12 @@ export function createTypeEvaluator(
                     continue;
                 }
 
+                // Handle the special case where the source parameter is a synthesized
+                // TypeVar for "self" or "cls".
+                if (isTypeVar(srcParamType) && srcParamType.details.isSynthesized) {
+                    continue;
+                }
+
                 if (
                     !canAssignFunctionParameter(
                         destParamType,

@@ -4,6 +4,7 @@
 from typing import (
     Any,
     Dict,
+    Generic,
     List,
     Literal,
     Optional,
@@ -117,3 +118,19 @@ def func6(bar: str, /) -> int:
 
 def func6(p0: Union[int, str], /) -> int:
     return 3
+
+
+T = TypeVar("T")
+
+
+class ClassA(Generic[T]):
+    @overload
+    def method1(self: "ClassA[None]") -> None:
+        ...
+
+    @overload
+    def method1(self, value: T) -> None:
+        ...
+
+    def method1(self, value: Any = None) -> None:
+        ...
