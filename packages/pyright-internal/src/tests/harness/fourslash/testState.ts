@@ -1454,9 +1454,10 @@ export class TestState {
         }
     }
 
-    private _tryFindFileWorker(
-        name: string
-    ): { readonly file: FourSlashFile | undefined; readonly availableNames: readonly string[] } {
+    private _tryFindFileWorker(name: string): {
+        readonly file: FourSlashFile | undefined;
+        readonly availableNames: readonly string[];
+    } {
         name = normalizePath(name);
 
         let file: FourSlashFile | undefined;

@@ -704,10 +704,12 @@ export class TestFileSystem implements FileSystem {
             throw createIOError('EROFS');
         }
 
-        const { parent: oldParent, links: oldParentLinks, node, basename: oldBasename } = this._walk(
-            this._resolve(oldpath),
-            /*noFollow*/ true
-        );
+        const {
+            parent: oldParent,
+            links: oldParentLinks,
+            node,
+            basename: oldBasename,
+        } = this._walk(this._resolve(oldpath), /*noFollow*/ true);
 
         if (!oldParent) {
             throw createIOError('EPERM');
@@ -716,10 +718,12 @@ export class TestFileSystem implements FileSystem {
             throw createIOError('ENOENT');
         }
 
-        const { parent: newParent, links: newParentLinks, node: existingNode, basename: newBasename } = this._walk(
-            this._resolve(newpath),
-            /*noFollow*/ true
-        );
+        const {
+            parent: newParent,
+            links: newParentLinks,
+            node: existingNode,
+            basename: newBasename,
+        } = this._walk(this._resolve(newpath), /*noFollow*/ true);
 
         if (!newParent) {
             throw createIOError('EPERM');

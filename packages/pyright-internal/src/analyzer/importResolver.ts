@@ -28,6 +28,7 @@ import {
     getRelativePathComponentsFromDirectory,
     isDirectory,
     isFile,
+    normalizePathCase,
     resolvePaths,
     stripFileExtension,
     stripTrailingDirectorySeparator,
@@ -907,6 +908,7 @@ export class ImportResolver {
         if (this._isNativeModuleFileExtension(fileExtension)) {
             return stripFileExtension(stripFileExtension(fileName));
         }
+        return undefined;
     }
 
     private _lookUpResultsInCache(
@@ -1217,8 +1219,9 @@ export class ImportResolver {
 
         // Find the site packages for the configured virtual environment.
         if (!this._cachedPythonSearchPaths.has(cacheKey)) {
-            let paths =
-                PythonPathUtils.findPythonSearchPaths(this.fileSystem, this._configOptions, importFailureInfo) || [];
+            let paths = (
+                PythonPathUtils.findPythonSearchPaths(this.fileSystem, this._configOptions, importFailureInfo) || []
+            ).map((p) => normalizePathCase(this.fileSystem, p));
 
             // Remove duplicates (yes, it happens).
             paths = [...new Set(paths)];

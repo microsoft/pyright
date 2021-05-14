@@ -221,5 +221,7 @@ export class SignatureHelpProvider {
                 return parts.join('\n\n');
             }
         }
+
+        return undefined;
     }
 }

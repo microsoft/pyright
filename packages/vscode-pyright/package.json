@@ -14,7 +14,7 @@
         "url": "https://github.com/Microsoft/pyright"
     },
     "engines": {
-        "vscode": "^1.56.0"
+        "vscode": "^1.54.0"
     },
     "keywords": [
         "python"
@@ -757,12 +757,12 @@
         "vscode-languageserver-protocol": "3.16.0"
     },
     "devDependencies": {
-        "@types/node": "^15.0.3",
-        "@types/vscode": "~1.56.0",
+        "@types/node": "^12.20.13",
+        "@types/vscode": "~1.54.0",
         "chalk": "^4.1.1",
         "copy-webpack-plugin": "^8.1.1",
         "detect-indent": "^6.0.0",
-        "fs-extra": "^10.0.0",
+        "fs-extra": "^9.1.0",
         "shx": "^0.3.3",
         "ts-loader": "^9.1.2",
         "tsconfig-paths-webpack-plugin": "^3.5.1",

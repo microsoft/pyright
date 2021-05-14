@@ -1068,47 +1068,47 @@ export class Tokenizer {
     private _skipToEndOfStringLiteral(flags: StringTokenFlags): StringScannerOutput {
         const quoteChar = flags & StringTokenFlags.SingleQuote ? Char.SingleQuote : Char.DoubleQuote;
         const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
-        const escapedValueParts: string[] = [];
+        const escapedValueParts: number[] = [];
 
         while (true) {
             if (this._cs.isEndOfStream()) {
                 // Hit the end of file without a termination.
                 flags |= StringTokenFlags.Unterminated;
-                return { escapedValue: escapedValueParts.join(''), flags };
+                return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
             }
 
             if (this._cs.currentChar === Char.Backslash) {
-                escapedValueParts.push(String.fromCharCode(this._cs.currentChar));
+                escapedValueParts.push(this._cs.currentChar);
 
                 // Move past the escape (backslash) character.
                 this._cs.moveNext();
 
                 if (this._cs.getCurrentChar() === Char.CarriageReturn || this._cs.getCurrentChar() === Char.LineFeed) {
                     if (this._cs.getCurrentChar() === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
-                        escapedValueParts.push(String.fromCharCode(this._cs.currentChar));
+                        escapedValueParts.push(this._cs.currentChar);
                         this._cs.moveNext();
                     }
-                    escapedValueParts.push(String.fromCharCode(this._cs.currentChar));
+                    escapedValueParts.push(this._cs.currentChar);
                     this._cs.moveNext();
                     this._addLineRange();
                 } else {
-                    escapedValueParts.push(String.fromCharCode(this._cs.currentChar));
+                    escapedValueParts.push(this._cs.currentChar);
                     this._cs.moveNext();
                 }
             } else if (this._cs.currentChar === Char.LineFeed || this._cs.currentChar === Char.CarriageReturn) {
                 if (!isTriplicate) {
                     // Unterminated single-line string
                     flags |= StringTokenFlags.Unterminated;
-                    return { escapedValue: escapedValueParts.join(''), flags };
+                    return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
                 }
 
                 // Skip over the new line (either one or two characters).
                 if (this._cs.currentChar === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
-                    escapedValueParts.push(String.fromCharCode(this._cs.currentChar));
+                    escapedValueParts.push(this._cs.currentChar);
                     this._cs.moveNext();
                 }
 
-                escapedValueParts.push(String.fromCharCode(this._cs.currentChar));
+                escapedValueParts.push(this._cs.currentChar);
                 this._cs.moveNext();
                 this._addLineRange();
             } else if (!isTriplicate && this._cs.currentChar === quoteChar) {
@@ -1123,12 +1123,12 @@ export class Tokenizer {
                 this._cs.advance(3);
                 break;
             } else {
-                escapedValueParts.push(String.fromCharCode(this._cs.currentChar));
+                escapedValueParts.push(this._cs.currentChar);
                 this._cs.moveNext();
             }
         }
 
-        return { escapedValue: escapedValueParts.join(''), flags };
+        return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
     }
 
     private _skipFloatingPointCandidate(): boolean {

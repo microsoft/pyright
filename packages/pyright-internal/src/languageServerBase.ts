@@ -987,12 +987,12 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         this.client.hasWatchFileCapability = !!capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration;
         this.client.hasWorkspaceFoldersCapability = !!capabilities.workspace?.workspaceFolders;
         this.client.hasVisualStudioExtensionsCapability = !!(capabilities as any).supportsVisualStudioExtensions;
-        this.client.hasActiveParameterCapability = !!capabilities.textDocument?.signatureHelp?.signatureInformation
-            ?.activeParameterSupport;
-        this.client.hasSignatureLabelOffsetCapability = !!capabilities.textDocument?.signatureHelp?.signatureInformation
-            ?.parameterInformation?.labelOffsetSupport;
-        this.client.hasHierarchicalDocumentSymbolCapability = !!capabilities.textDocument?.documentSymbol
-            ?.hierarchicalDocumentSymbolSupport;
+        this.client.hasActiveParameterCapability =
+            !!capabilities.textDocument?.signatureHelp?.signatureInformation?.activeParameterSupport;
+        this.client.hasSignatureLabelOffsetCapability =
+            !!capabilities.textDocument?.signatureHelp?.signatureInformation?.parameterInformation?.labelOffsetSupport;
+        this.client.hasHierarchicalDocumentSymbolCapability =
+            !!capabilities.textDocument?.documentSymbol?.hierarchicalDocumentSymbolSupport;
         this.client.hoverContentFormat = this._getCompatibleMarkupKind(capabilities.textDocument?.hover?.contentFormat);
         this.client.completionDocFormat = this._getCompatibleMarkupKind(
             capabilities.textDocument?.completion?.completionItem?.documentationFormat
@@ -1007,9 +1007,10 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
         );
         this.client.hasWindowProgressCapability = !!capabilities.window?.workDoneProgress;
         this.client.hasGoToDeclarationCapability = !!capabilities.textDocument?.declaration;
-        this.client.completionItemResolveSupportsAdditionalTextEdits = !!capabilities.textDocument?.completion?.completionItem?.resolveSupport?.properties.some(
-            (p) => p === 'additionalTextEdits'
-        );
+        this.client.completionItemResolveSupportsAdditionalTextEdits =
+            !!capabilities.textDocument?.completion?.completionItem?.resolveSupport?.properties.some(
+                (p) => p === 'additionalTextEdits'
+            );
 
         // Create a service instance for each of the workspace folders.
         if (params.workspaceFolders) {

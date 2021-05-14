@@ -121,6 +121,7 @@ export function getPropertyDocStringInherited(
     if (classResults) {
         return _getPropertyDocStringInherited(decl, sourceMapper, evaluator, classResults.classType);
     }
+    return undefined;
 }
 
 export function getVariableInStubFileDocStrings(decl: VariableDeclaration, sourceMapper: SourceMapper) {
