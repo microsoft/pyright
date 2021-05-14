@@ -12798,7 +12798,7 @@ export function createTypeEvaluator(
         }
 
         // Evaluate all of the expressions so they are checked and marked referenced.
-        argList.forEach(arg => {
+        argList.forEach((arg) => {
             if (arg.valueExpression) {
                 getTypeOfExpression(arg.valueExpression);
             }
