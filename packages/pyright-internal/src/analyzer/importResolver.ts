@@ -1120,6 +1120,11 @@ export class ImportResolver {
             importFailureInfo.push('No python interpreter search path');
         }
 
+        if (bestResultSoFar?.pyTypedInfo && !bestResultSoFar.isPartlyResolved) {
+            // If a library is fully py.typed, then we have found the best match.
+            return bestResultSoFar;
+        }
+
         const extraResults = this.resolveImportEx(
             sourceFilePath,
             execEnv,
