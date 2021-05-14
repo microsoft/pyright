@@ -2271,7 +2271,14 @@ export function createTypeEvaluator(
                         // Don't include class vars. PEP 557 indicates that they shouldn't
                         // be considered data class entries.
                         const variableSymbol = classType.details.fields.get(variableName);
-                        if (!variableSymbol?.isClassVar()) {
+                        if (variableSymbol?.isClassVar()) {
+                            // If an ancestor class declared an instance variable but this dataclass
+                            // declares a ClassVar, delete the older one from the full data class entries.
+                            const index = fullDataClassEntries.findIndex((p) => p.name === variableName);
+                            if (index >= 0) {
+                                fullDataClassEntries.splice(index, 1);
+                            }
+                        } else {
                             // Create a new data class entry, but defer evaluation of the type until
                             // we've compiled the full list of data class entries for this class. This
                             // allows us to handle circular references in types.

@@ -419,6 +419,12 @@ test('DataClass13', () => {
     TestUtils.validateResults(analysisResults, 3);
 });
 
+test('DataClass14', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dataclass14.py']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Callable1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['callable1.py']);
 
