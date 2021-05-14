@@ -2323,6 +2323,9 @@ export class Checker extends ParseTreeWalker {
                 // but at runtime, isinstance returns True.
                 const filterIsSuperclass =
                     ClassType.isDerivedFrom(varType, filterType) ||
+                    (isInstanceCheck &&
+                        ClassType.isProtocolClass(filterType) &&
+                        this._evaluator.canAssignType(filterType, varType, new DiagnosticAddendum())) ||
                     (ClassType.isBuiltIn(filterType, 'dict') && ClassType.isTypedDictClass(varType));
                 const filterIsSubclass = ClassType.isDerivedFrom(filterType, varType);
 
@@ -2344,6 +2347,10 @@ export class Checker extends ParseTreeWalker {
                 } else if (filterIsSubclass) {
                     // If the variable type is a superclass of the isinstance
                     // filter, we can narrow the type to the subclass.
+                    filteredTypes.push(filterType);
+                } else if (ClassType.isProtocolClass(filterType) && ClassType.isProtocolClass(varType)) {
+                    // If the both the filter and variable types are protocol classes,
+                    // assume the narrowed type is the filter type.
                     filteredTypes.push(filterType);
                 }
             }
