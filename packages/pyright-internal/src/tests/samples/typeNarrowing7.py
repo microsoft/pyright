@@ -4,7 +4,7 @@
 
 # pyright: strict
 
-from typing import Optional
+from typing import Optional, TypeVar
 
 
 def func1(x: Optional[int]):
@@ -23,3 +23,13 @@ def func1(x: Optional[int]):
         pass
     else:
         x.bit_length()
+
+
+_T = TypeVar("_T", None, str)
+
+
+def func2(val: _T) -> _T:
+    if val is not None:
+        return val
+    else:
+        return val

@@ -16783,20 +16783,24 @@ export function createTypeEvaluator(
                             const expandedType = mapSubtypes(type, (subtype) => {
                                 return transformPossibleRecursiveTypeAlias(subtype);
                             });
-                            return mapSubtypes(expandedType, (subtype) => {
-                                if (isAnyOrUnknown(subtype)) {
-                                    // We need to assume that "Any" is always both None and not None,
-                                    // so it matches regardless of whether the test is positive or negative.
-                                    return subtype;
-                                }
+                            return mapSubtypesExpandTypeVars(
+                                expandedType,
+                                /* constraintFilter */ undefined,
+                                (subtype, unexpandedSubtype) => {
+                                    if (isAnyOrUnknown(subtype)) {
+                                        // We need to assume that "Any" is always both None and not None,
+                                        // so it matches regardless of whether the test is positive or negative.
+                                        return subtype;
+                                    }
 
-                                // See if it's a match for None.
-                                if (isNone(subtype) === adjIsPositiveTest) {
-                                    return subtype;
-                                }
+                                    // See if it's a match for None.
+                                    if (isNone(subtype) === adjIsPositiveTest) {
+                                        return unexpandedSubtype;
+                                    }
 
-                                return undefined;
-                            });
+                                    return undefined;
+                                }
+                            );
                         };
                     }
                 }
