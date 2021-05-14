@@ -200,6 +200,8 @@ function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo
             }
         }
     }
+
+    return undefined;
 }
 
 function getPathResultFromInterpreter(

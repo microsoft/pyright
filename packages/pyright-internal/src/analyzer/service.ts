@@ -44,6 +44,7 @@ import {
     getFileSystemEntries,
     isDirectory,
     normalizePath,
+    normalizeSlashes,
     stripFileExtension,
     tryRealpath,
     tryStat,
@@ -69,6 +70,8 @@ export const pyprojectTomlName = 'pyproject.toml';
 // How long since the last user activity should we wait until running
 // the analyzer on any files that have not yet been analyzed?
 const _userActivityBackoffTimeInMs = 250;
+
+const _gitDirectory = normalizeSlashes('/.git/');
 
 export class AnalyzerService {
     private _instanceName: string;
@@ -904,6 +907,8 @@ export class AnalyzerService {
                 return undefined;
             }
         }
+
+        return undefined;
     }
 
     private _getFileNamesFromFileSpecs(): string[] {
@@ -1126,8 +1131,8 @@ export class AnalyzerService {
                         return;
                     }
 
-                    // Wholesale ignore events that appear to be from tmp file modification.
-                    if (path.endsWith('.tmp') || path.endsWith('.git')) {
+                    // Wholesale ignore events that appear to be from tmp file / .git modification.
+                    if (path.endsWith('.tmp') || path.endsWith('.git') || path.includes(_gitDirectory)) {
                         return;
                     }
 

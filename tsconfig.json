@@ -1,6 +1,6 @@
 {
     "compilerOptions": {
-        "target": "es6",
+        "target": "es2019",
         "module": "commonjs",
         "lib": [
             "es2019"
@@ -14,6 +14,7 @@
         "resolveJsonModule": true,
         "sourceMap": true,
         "outDir": "./out",
+        "noImplicitReturns": true,
     },
     "exclude": [
         "node_modules",

@@ -980,6 +980,8 @@ export class Parser {
                 return PatternLiteralNode.create(this._parseAtom());
             }
         }
+
+        return undefined;
     }
 
     // signed_number: NUMBER | '-' NUMBER
