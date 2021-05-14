@@ -73,6 +73,6 @@ export function convertRangeToTextRange(range: Range, lines: TextRangeCollection
     return TextRange.fromBounds(start, end);
 }
 
-export function convertTextRangeToRange(range: TextRange, lines: TextRangeCollection<TextRange>): Range | undefined {
+export function convertTextRangeToRange(range: TextRange, lines: TextRangeCollection<TextRange>): Range {
     return convertOffsetsToRange(range.start, TextRange.getEnd(range), lines);
 }
