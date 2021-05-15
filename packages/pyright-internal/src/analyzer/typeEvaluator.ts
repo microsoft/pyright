@@ -13003,6 +13003,15 @@ export function createTypeEvaluator(
             }
         }
 
+        const markParamAccessed = (param: ParameterNode) => {
+            if (param.name) {
+                const symbolWithScope = lookUpSymbolRecursive(param.name, param.name.value, /* honorCodeFlow */ false);
+                if (symbolWithScope) {
+                    setSymbolAccessed(fileInfo, symbolWithScope.symbol, param.name);
+                }
+            }
+        };
+
         node.parameters.forEach((param, index) => {
             let paramType: Type | undefined;
             let annotatedType: Type | undefined;
@@ -13010,8 +13019,6 @@ export function createTypeEvaluator(
             let paramTypeNode: ExpressionNode | undefined;
 
             if (param.name) {
-                let markParamAccessed = false;
-
                 if (
                     index === 0 &&
                     containingClassType &&
@@ -13020,25 +13027,13 @@ export function createTypeEvaluator(
                         FunctionType.isConstructorMethod(functionType))
                 ) {
                     // Mark "self/cls" as accessed.
-                    markParamAccessed = true;
-                } else if (FunctionType.isAbstractMethod(functionType) || FunctionType.isOverloaded(functionType)) {
-                    // Mark all parameters in abstract methods and overloaded
-                    // functions as accessed.
-                    markParamAccessed = true;
+                    markParamAccessed(param);
+                } else if (FunctionType.isAbstractMethod(functionType)) {
+                    // Mark all parameters in abstract methods as accessed.
+                    markParamAccessed(param);
                 } else if (containingClassType && ClassType.isProtocolClass(containingClassType)) {
                     // Mark all parameters in protocol methods as accessed.
-                    markParamAccessed = true;
-                }
-
-                if (markParamAccessed) {
-                    const symbolWithScope = lookUpSymbolRecursive(
-                        param.name,
-                        param.name.value,
-                        /* honorCodeFlow */ false
-                    );
-                    if (symbolWithScope) {
-                        setSymbolAccessed(fileInfo, symbolWithScope.symbol, param.name);
-                    }
+                    markParamAccessed(param);
                 }
             }
 
@@ -13268,6 +13263,13 @@ export function createTypeEvaluator(
 
         // See if there are any overloads provided by previous function declarations.
         if (isFunction(decoratedType)) {
+            if (FunctionType.isOverloaded(decoratedType)) {
+                // Mark all the parameters as accessed.
+                node.parameters.forEach((param) => {
+                    markParamAccessed(param);
+                });
+            }
+
             decoratedType = addOverloadsToFunctionType(node, decoratedType);
         }
 
