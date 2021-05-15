@@ -413,6 +413,9 @@ def __dataclass_transform__(
 Limitations
 ===========
 
+Attrs
+-----
+
 The attrs library supports an "auto_attribs" parameter that indicates whether
 class members decorated with PEP 526 variable annotations but with no assignment
 should be treated as data fields. We considered supporting "auto_attribs" and
@@ -445,6 +448,33 @@ ordering. This affects only cases of multiple inheritance and only when
 The attrs library supports a bool parameter `cmp` that is the equivalent of
 setting `eq` and `order` to True. This is not supported in this proposal.
 Attrs users should use the dataclass-standard parameter names.
+
+The attrs library also supports a "kw_only" parameter for individual fields.
+This is not currently supported in this spec, but it could be added in the
+future if there was sufficient demand.
+
+The attrs library also differs from stdlib dataclasses in how it handles
+inherited fields that are redeclared in subclasses. The dataclass specification
+preserves the original order, but attrs defines a new order based on subclasses.
+Users of attrs who rely on this ordering will not see the correct order
+of parameters in the synthesized `__init__` method.
+
+
+Django
+------
+
+Django does not support declaring fields using type annotations only, so
+users of this mechanism would need to know that they should always supply
+assigned values.
+
+Furthermore, django applies additional logic for primary keys and foreign
+keys. For example, it automatically adds an "id" field (and `__init__`
+parameter) if there is no field designated as a primary key. This additional
+logic is not accommodated with this proposal, so users of django would need
+to explicitly declare the id field.
+
+These limitations may make it impractical to use the dataclass_transform
+mechanism with django.
 
 
 Using Dataclass Transform In Existing Libraries
@@ -515,3 +545,13 @@ Step 2: Add the following decorator to the `ModelMetaclass` class definition:
 @__dataclass_transform__(kw_only_default=True, field_descriptors=(Field, FieldInfo))
 ```
 
+
+Change History
+==============
+
+15-May-2021: Documented additional limitations for attrs and django.
+
+29-Apr-2021: Clarified that fields with no type annotation are not included
+in the synthesized `__init__` method.
+
+24-Apr-2021: Fixed bugs in the spec relating to return types of decorators.
