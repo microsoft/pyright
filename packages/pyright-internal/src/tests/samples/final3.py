@@ -2,7 +2,7 @@
 # introduced in Python 3.8.
 
 import typing
-from typing import Final, List
+from typing import Final, List, Literal
 
 foo1: typing.Final = 3
 
@@ -26,6 +26,10 @@ foo2: Final[str] = 3
 foo3: Final[str, int] = "hello"
 
 
+foo4: Final = 5
+t_4: Literal["Literal[5]"] = reveal_type(foo4)
+
+
 class Foo:
     member1: Final = 4
 
@@ -42,6 +46,9 @@ class Foo:
     member5: Final[str]
 
     member6: Final[int]
+
+    _member7: Final = 6
+    __member8: Final = 6
 
     def __init__(self):
         # This should generate an error because a Final
@@ -74,6 +81,13 @@ class Bar(Foo):
     # This should generate an error because we are overriding
     # a member that is marked Final in the parent class.
     member1 = 5
+
+    # This should generate an error because we are overriding
+    # a member that is marked Final in the parent class.
+    _member7: Final = 6
+
+    # This should not generate an error because it's private.
+    __member8: Final = 6
 
     def __init__(self):
         # This should generate an error because we are overriding

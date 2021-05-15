@@ -16,4 +16,3 @@ IntBaseClass = BaseClass[int]
 # base class is used twice.
 class SubClass(BaseClass[float], IntBaseClass):
     pass
-

@@ -9,8 +9,9 @@ from typing import List, Tuple, TypeVar
 
 T = TypeVar("T")
 
+
 def extend_if(xs: List[T], ys: List[Tuple[T, bool]]) -> List[T]:
     raise NotImplementedError()
 
-extend_if(["foo"], [("bar", True), ("baz", True)])
 
+extend_if(["foo"], [("bar", True), ("baz", True)])

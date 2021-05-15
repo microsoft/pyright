@@ -3,11 +3,14 @@
 
 from typing import NamedTuple
 
+
 class Parent(NamedTuple):
     pass
 
+
 class DataTuple2(Parent):
     id: int
+
 
 # This should generate an error because DataTuple2 isn't considered
 # a data class and won't have the associated __new__ or __init__

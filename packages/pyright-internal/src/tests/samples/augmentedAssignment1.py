@@ -40,7 +40,7 @@ list2 *= [4]
 
 # Test __iadd__ override in list class, which accepts
 # any iterator as an argument.
-bar = ('d', )
+bar = ("d",)
 foo = ["a", "b"]
 foo += ["c"]
 foo += bar

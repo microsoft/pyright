@@ -8,6 +8,8 @@
  * Python files.
  */
 
+import * as TOML from '@iarna/toml';
+import * as JSONC from 'jsonc-parser';
 import {
     AbstractCancellationTokenSource,
     CancellationToken,
@@ -42,11 +44,15 @@ import {
     getFileSystemEntries,
     isDirectory,
     normalizePath,
+    normalizeSlashes,
     stripFileExtension,
+    tryRealpath,
+    tryStat,
 } from '../common/pathUtils';
 import { DocumentRange, Position, Range } from '../common/textRange';
 import { timingStats } from '../common/timing';
-import { AbbreviationMap, CompletionResults } from '../languageService/completionProvider';
+import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
+import { DefinitionFilter } from '../languageService/definitionProvider';
 import { IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback } from '../languageService/referencesProvider';
@@ -55,14 +61,17 @@ import { AnalysisCompleteCallback } from './analysis';
 import { BackgroundAnalysisProgram, BackgroundAnalysisProgramFactory } from './backgroundAnalysisProgram';
 import { ImportedModuleDescriptor, ImportResolver, ImportResolverFactory } from './importResolver';
 import { MaxAnalysisTime } from './program';
-import { findPythonSearchPaths, getPythonPathFromPythonInterpreter } from './pythonPathUtils';
+import { findPythonSearchPaths } from './pythonPathUtils';
 import { TypeEvaluator } from './typeEvaluator';
 
 export const configFileNames = ['pyrightconfig.json', 'mspythonconfig.json'];
+export const pyprojectTomlName = 'pyproject.toml';
 
 // How long since the last user activity should we wait until running
 // the analyzer on any files that have not yet been analyzed?
 const _userActivityBackoffTimeInMs = 250;
+
+const _gitDirectory = normalizeSlashes('/.git/');
 
 export class AnalyzerService {
     private _instanceName: string;
@@ -227,6 +236,8 @@ export class AnalyzerService {
         range: Range,
         similarityLimit: number,
         nameMap: AbbreviationMap | undefined,
+        lazyEdit: boolean,
+        allowVariableInAll: boolean,
         token: CancellationToken
     ) {
         return this._program.getAutoImports(
@@ -235,6 +246,8 @@ export class AnalyzerService {
             similarityLimit,
             nameMap,
             this._backgroundAnalysisProgram.getIndexing(filePath),
+            lazyEdit,
+            allowVariableInAll,
             token
         );
     }
@@ -242,9 +255,10 @@ export class AnalyzerService {
     getDefinitionForPosition(
         filePath: string,
         position: Position,
+        filter: DefinitionFilter,
         token: CancellationToken
     ): DocumentRange[] | undefined {
-        return this._program.getDefinitionsForPosition(filePath, position, token);
+        return this._program.getDefinitionsForPosition(filePath, position, filter, token);
     }
 
     reportReferencesForPosition(
@@ -295,7 +309,7 @@ export class AnalyzerService {
         filePath: string,
         position: Position,
         workspacePath: string,
-        format: MarkupKind,
+        options: CompletionOptions,
         nameMap: AbbreviationMap | undefined,
         token: CancellationToken
     ): Promise<CompletionResults | undefined> {
@@ -303,7 +317,7 @@ export class AnalyzerService {
             filePath,
             position,
             workspacePath,
-            format,
+            options,
             nameMap,
             this._backgroundAnalysisProgram.getIndexing(filePath),
             token
@@ -317,10 +331,18 @@ export class AnalyzerService {
     resolveCompletionItem(
         filePath: string,
         completionItem: CompletionItem,
-        format: MarkupKind,
+        options: CompletionOptions,
+        nameMap: AbbreviationMap | undefined,
         token: CancellationToken
     ) {
-        this._program.resolveCompletionItem(filePath, completionItem, format, token);
+        this._program.resolveCompletionItem(
+            filePath,
+            completionItem,
+            options,
+            nameMap,
+            this._backgroundAnalysisProgram.getIndexing(filePath),
+            token
+        );
     }
 
     performQuickAction(
@@ -413,6 +435,7 @@ export class AnalyzerService {
     private _getConfigOptions(commandLineOptions: CommandLineOptions): ConfigOptions {
         let projectRoot = commandLineOptions.executionRoot;
         let configFilePath: string | undefined;
+        let pyprojectFilePath: string | undefined;
 
         if (commandLineOptions.configFilePath) {
             // If the config file path was specified, determine whether it's
@@ -437,7 +460,17 @@ export class AnalyzerService {
                 }
             }
         } else if (projectRoot) {
-            configFilePath = this._findConfigFileHereOrUp(projectRoot);
+            // In a project-based IDE like VS Code, we should assume that the
+            // project root directory contains the config file.
+            configFilePath = this._findConfigFile(projectRoot);
+
+            // If pyright is being executed from the command line, the working
+            // directory may be deep within a project, and we need to walk up the
+            // directory hierarchy to find the project root.
+            if (!configFilePath && !commandLineOptions.fromVsCodeExtension) {
+                configFilePath = this._findConfigFileHereOrUp(projectRoot);
+            }
+
             if (configFilePath) {
                 projectRoot = getDirectoryPath(configFilePath);
             } else {
@@ -446,8 +479,34 @@ export class AnalyzerService {
             }
         }
 
+        if (!configFilePath) {
+            // See if we can find a pyproject.toml file in this directory.
+            pyprojectFilePath = this._findPyprojectTomlFile(projectRoot);
+
+            if (!pyprojectFilePath && !commandLineOptions.fromVsCodeExtension) {
+                pyprojectFilePath = this._findPyprojectTomlFileHereOrUp(projectRoot);
+            }
+
+            if (pyprojectFilePath) {
+                projectRoot = getDirectoryPath(pyprojectFilePath);
+                this._console.info(`pyproject.toml file found at ${projectRoot}.`);
+            } else {
+                this._console.info(`No pyproject.toml file found.`);
+            }
+        }
+
         const configOptions = new ConfigOptions(projectRoot, this._typeCheckingMode);
         const defaultExcludes = ['**/node_modules', '**/__pycache__', '.git'];
+
+        // The pythonPlatform and pythonVersion from the command-line can be overridden
+        // by the config file, so initialize them upfront.
+        configOptions.defaultPythonPlatform = commandLineOptions.pythonPlatform;
+        configOptions.defaultPythonVersion = commandLineOptions.pythonVersion;
+        configOptions.ensureDefaultExtraPaths(
+            this._fs,
+            commandLineOptions.autoSearchPaths || false,
+            commandLineOptions.extraPaths
+        );
 
         if (commandLineOptions.fileSpecs.length > 0) {
             commandLineOptions.fileSpecs.forEach((fileSpec) => {
@@ -467,61 +526,49 @@ export class AnalyzerService {
             }
         }
 
-        this._configFilePath = configFilePath;
+        this._configFilePath = configFilePath || pyprojectFilePath;
 
         // If we found a config file, parse it to compute the effective options.
+        let configJsonObj: object | undefined;
         if (configFilePath) {
             this._console.info(`Loading configuration file at ${configFilePath}`);
-            const configJsonObj = this._parseConfigFile(configFilePath);
-            if (configJsonObj) {
-                configOptions.initializeFromJson(
-                    configJsonObj,
-                    this._typeCheckingMode,
-                    this._console,
-                    commandLineOptions.diagnosticSeverityOverrides,
-                    commandLineOptions.pythonPath,
-                    commandLineOptions.fileSpecs.length > 0
-                );
+            configJsonObj = this._parseJsonConfigFile(configFilePath);
+        } else if (pyprojectFilePath) {
+            this._console.info(`Loading pyproject.toml file at ${pyprojectFilePath}`);
+            configJsonObj = this._parsePyprojectTomlFile(pyprojectFilePath);
+        }
 
-                const configFileDir = getDirectoryPath(configFilePath);
+        if (configJsonObj) {
+            configOptions.initializeFromJson(
+                configJsonObj,
+                this._typeCheckingMode,
+                this._console,
+                commandLineOptions.diagnosticSeverityOverrides,
+                commandLineOptions.pythonPath,
+                commandLineOptions.fileSpecs.length > 0
+            );
 
-                // If no include paths were provided, assume that all files within
-                // the project should be included.
-                if (configOptions.include.length === 0) {
-                    this._console.info(`No include entries specified; assuming ${configFileDir}`);
-                    configOptions.include.push(getFileSpec(configFileDir, '.'));
-                }
+            const configFileDir = getDirectoryPath(this._configFilePath!);
 
-                // If there was no explicit set of excludes, add a few common ones to avoid long scan times.
-                if (configOptions.exclude.length === 0) {
-                    defaultExcludes.forEach((exclude) => {
-                        this._console.info(`Auto-excluding ${exclude}`);
-                        configOptions.exclude.push(getFileSpec(configFileDir, exclude));
-                    });
+            // If no include paths were provided, assume that all files within
+            // the project should be included.
+            if (configOptions.include.length === 0) {
+                this._console.info(`No include entries specified; assuming ${configFileDir}`);
+                configOptions.include.push(getFileSpec(configFileDir, '.'));
+            }
 
-                    if (configOptions.autoExcludeVenv === undefined) {
-                        configOptions.autoExcludeVenv = true;
-                    }
-                }
+            // If there was no explicit set of excludes, add a few common ones to avoid long scan times.
+            if (configOptions.exclude.length === 0) {
+                defaultExcludes.forEach((exclude) => {
+                    this._console.info(`Auto-excluding ${exclude}`);
+                    configOptions.exclude.push(getFileSpec(configFileDir, exclude));
+                });
 
-                // If the user has defined execution environments, then we ignore
-                // autoSearchPaths, extraPaths and leave it up to them to set
-                // extraPaths on the execution environments.
-                if (configOptions.executionEnvironments.length === 0) {
-                    configOptions.addExecEnvironmentForExtraPaths(
-                        this._fs,
-                        commandLineOptions.autoSearchPaths || false,
-                        commandLineOptions.extraPaths || []
-                    );
+                if (configOptions.autoExcludeVenv === undefined) {
+                    configOptions.autoExcludeVenv = true;
                 }
             }
         } else {
-            configOptions.addExecEnvironmentForExtraPaths(
-                this._fs,
-                commandLineOptions.autoSearchPaths || false,
-                commandLineOptions.extraPaths || []
-            );
-
             configOptions.autoExcludeVenv = true;
             configOptions.applyDiagnosticOverrides(commandLineOptions.diagnosticSeverityOverrides);
         }
@@ -567,6 +614,8 @@ export class AnalyzerService {
         configOptions.checkOnlyOpenFiles = !!commandLineOptions.checkOnlyOpenFiles;
         configOptions.autoImportCompletions = !!commandLineOptions.autoImportCompletions;
         configOptions.indexing = !!commandLineOptions.indexing;
+        configOptions.logTypeEvaluationTime = !!commandLineOptions.logTypeEvaluationTime;
+        configOptions.typeEvaluationTimeThreshold = commandLineOptions.typeEvaluationTimeThreshold;
 
         // If useLibraryCodeForTypes was not specified in the config, allow the settings
         // or command line to override it.
@@ -596,24 +645,23 @@ export class AnalyzerService {
                 this._console.error(`venvPath ${configOptions.venvPath} is not a valid directory.`);
             }
 
-            // venvPath without defaultVenv means it won't do anything while resolveImport.
-            // so first, try to set defaultVenv from existing configOption if it is null. if both are null,
+            // venvPath without venv means it won't do anything while resolveImport.
+            // so first, try to set venv from existing configOption if it is null. if both are null,
             // then, resolveImport won't consider venv
-            configOptions.defaultVenv = configOptions.defaultVenv ?? this._configOptions.defaultVenv;
-            if (configOptions.defaultVenv) {
-                const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.defaultVenv);
+            configOptions.venv = configOptions.venv ?? this._configOptions.venv;
+            if (configOptions.venv) {
+                const fullVenvPath = combinePaths(configOptions.venvPath, configOptions.venv);
 
                 if (!this._fs.existsSync(fullVenvPath) || !isDirectory(this._fs, fullVenvPath)) {
                     this._console.error(
-                        `venv ${configOptions.defaultVenv} subdirectory not found ` +
-                            `in venv path ${configOptions.venvPath}.`
+                        `venv ${configOptions.venv} subdirectory not found in venv path ${configOptions.venvPath}.`
                     );
                 } else {
                     const importFailureInfo: string[] = [];
-                    if (findPythonSearchPaths(this._fs, configOptions, undefined, importFailureInfo) === undefined) {
+                    if (findPythonSearchPaths(this._fs, configOptions, importFailureInfo) === undefined) {
                         this._console.error(
                             `site-packages directory cannot be located for venvPath ` +
-                                `${configOptions.venvPath} and venv ${configOptions.defaultVenv}.`
+                                `${configOptions.venvPath} and venv ${configOptions.venv}.`
                         );
 
                         if (configOptions.verboseOutput) {
@@ -624,40 +672,10 @@ export class AnalyzerService {
                     }
                 }
             }
-        } else {
-            const importFailureInfo: string[] = [];
-            const pythonPaths = getPythonPathFromPythonInterpreter(
-                this._fs,
-                configOptions.pythonPath,
-                importFailureInfo
-            ).paths;
-            if (pythonPaths.length === 0) {
-                const logLevel = configOptions.verboseOutput ? LogLevel.Error : LogLevel.Log;
-                if (commandLineOptions.fromVsCodeExtension || configOptions.verboseOutput) {
-                    log(this._console, logLevel, `No search paths found for configured python interpreter.`);
-                }
-            } else {
-                if (commandLineOptions.fromVsCodeExtension || configOptions.verboseOutput) {
-                    const logLevel = configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
-                    log(this._console, logLevel, `Search paths found for configured python interpreter:`);
-                    pythonPaths.forEach((path) => {
-                        log(this._console, logLevel, `  ${path}`);
-                    });
-                }
-            }
-
-            if (configOptions.verboseOutput) {
-                if (importFailureInfo.length > 0) {
-                    this._console.info(`When attempting to get search paths from python interpreter:`);
-                    importFailureInfo.forEach((diag) => {
-                        this._console.info(`  ${diag}`);
-                    });
-                }
-            }
         }
 
         // Is there a reference to a venv? If so, there needs to be a valid venvPath.
-        if (configOptions.defaultVenv || configOptions.executionEnvironments.find((e) => !!e.venv)) {
+        if (configOptions.venv) {
             if (!configOptions.venvPath) {
                 this._console.warn(`venvPath not specified, so venv settings will be ignored.`);
             }
@@ -674,7 +692,7 @@ export class AnalyzerService {
 
         if (configOptions.stubPath) {
             if (!this._fs.existsSync(configOptions.stubPath) || !isDirectory(this._fs, configOptions.stubPath)) {
-                this._console.error(`stubPath ${configOptions.stubPath} is not a valid directory.`);
+                this._console.warn(`stubPath ${configOptions.stubPath} is not a valid directory.`);
             }
         }
 
@@ -706,9 +724,9 @@ export class AnalyzerService {
     // This is called after a new type stub has been created. It allows
     // us to invalidate caches and force reanalysis of files that potentially
     // are affected by the appearance of a new type stub.
-    invalidateAndForceReanalysis() {
+    invalidateAndForceReanalysis(rebuildLibraryIndexing = true) {
         // Mark all files with one or more errors dirty.
-        this._backgroundAnalysisProgram.invalidateAndForceReanalysis();
+        this._backgroundAnalysisProgram.invalidateAndForceReanalysis(rebuildLibraryIndexing);
     }
 
     // Forces the service to stop all analysis, discard all its caches,
@@ -737,6 +755,10 @@ export class AnalyzerService {
 
     private get _watchForLibraryChanges() {
         return !!this._commandLineOptions?.watchForLibraryChanges;
+    }
+
+    private get _watchForConfigChanges() {
+        return !!this._commandLineOptions?.watchForConfigChanges;
     }
 
     private get _typeCheckingMode() {
@@ -812,27 +834,63 @@ export class AnalyzerService {
         return undefined;
     }
 
-    private _parseConfigFile(configPath: string): any | undefined {
-        let configContents = '';
+    private _findPyprojectTomlFileHereOrUp(searchPath: string): string | undefined {
+        return forEachAncestorDirectory(searchPath, (ancestor) => this._findPyprojectTomlFile(ancestor));
+    }
+
+    private _findPyprojectTomlFile(searchPath: string) {
+        const fileName = combinePaths(searchPath, pyprojectTomlName);
+        if (this._fs.existsSync(fileName)) {
+            return fileName;
+        }
+        return undefined;
+    }
+
+    private _parseJsonConfigFile(configPath: string): object | undefined {
+        return this._attemptParseFile(configPath, (fileContents) => {
+            return JSONC.parse(fileContents);
+        });
+    }
+
+    private _parsePyprojectTomlFile(pyprojectPath: string): object | undefined {
+        return this._attemptParseFile(pyprojectPath, (fileContents, attemptCount) => {
+            try {
+                const configObj = TOML.parse(fileContents);
+                if (configObj && configObj.tool && (configObj.tool as TOML.JsonMap).pyright) {
+                    return (configObj.tool as TOML.JsonMap).pyright as object;
+                }
+            } catch (e) {
+                this._console.error(`Pyproject file parse attempt ${attemptCount} error: ${JSON.stringify(e)}`);
+                throw e;
+            }
+
+            this._console.error(`Pyproject file "${pyprojectPath}" is missing "[tool.pyright] section.`);
+            return undefined;
+        });
+    }
+
+    private _attemptParseFile(
+        filePath: string,
+        parseCallback: (contents: string, attempt: number) => object | undefined
+    ): object | undefined {
+        let fileContents = '';
         let parseAttemptCount = 0;
 
         while (true) {
-            // Attempt to read the config file contents.
+            // Attempt to read the file contents.
             try {
-                configContents = this._fs.readFileSync(configPath, 'utf8');
+                fileContents = this._fs.readFileSync(filePath, 'utf8');
             } catch {
-                this._console.error(`Config file "${configPath}" could not be read.`);
+                this._console.error(`Config file "${filePath}" could not be read.`);
                 this._reportConfigParseError();
                 return undefined;
             }
 
-            // Attempt to parse the config file.
-            let configObj: any;
+            // Attempt to parse the file.
             let parseFailed = false;
             try {
-                configObj = JSON.parse(configContents);
-                return configObj;
-            } catch {
+                return parseCallback(fileContents, parseAttemptCount + 1);
+            } catch (e) {
                 parseFailed = true;
             }
 
@@ -840,16 +898,17 @@ export class AnalyzerService {
                 break;
             }
 
-            // If we attempt to read the config file immediately after it
-            // was saved, it may have been partially written when we read it,
-            // resulting in parse errors. We'll give it a little more time and
-            // try again.
+            // If we attempt to read the file immediately after it was saved, it
+            // may have been partially written when we read it, resulting in parse
+            // errors. We'll give it a little more time and try again.
             if (parseAttemptCount++ >= 5) {
-                this._console.error(`Config file "${configPath}" could not be parsed. Verify that JSON is correct.`);
+                this._console.error(`Config file "${filePath}" could not be parsed. Verify that format is correct.`);
                 this._reportConfigParseError();
                 return undefined;
             }
         }
+
+        return undefined;
     }
 
     private _getFileNamesFromFileSpecs(): string[] {
@@ -963,7 +1022,7 @@ export class AnalyzerService {
         const envMarkers = [['bin', 'activate'], ['Scripts', 'activate'], ['pyvenv.cfg']];
         const results: string[] = [];
 
-        const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
+        const visitDirectoryUnchecked = (absolutePath: string, includeRegExp: RegExp) => {
             if (this._configOptions.autoExcludeVenv) {
                 if (envMarkers.some((f) => this._fs.existsSync(combinePaths(absolutePath, ...f)))) {
                     this._console.info(`Auto-excluding ${absolutePath}`);
@@ -993,23 +1052,40 @@ export class AnalyzerService {
             }
         };
 
+        const seenDirs = new Set<string>();
+        const visitDirectory = (absolutePath: string, includeRegExp: RegExp) => {
+            const realDirPath = tryRealpath(this._fs, absolutePath);
+            if (!realDirPath) {
+                this._console.warn(`Skipping broken link "${absolutePath}"`);
+                return;
+            }
+
+            if (seenDirs.has(realDirPath)) {
+                this._console.warn(`Skipping recursive symlink "${absolutePath}" -> "${realDirPath}"`);
+                return;
+            }
+            seenDirs.add(realDirPath);
+
+            try {
+                visitDirectoryUnchecked(absolutePath, includeRegExp);
+            } finally {
+                seenDirs.delete(realDirPath);
+            }
+        };
+
         include.forEach((includeSpec) => {
             let foundFileSpec = false;
 
             if (!this._isInExcludePath(includeSpec.wildcardRoot, exclude)) {
-                try {
-                    const stat = this._fs.statSync(includeSpec.wildcardRoot);
-                    if (stat.isFile()) {
-                        if (includeFileRegex.test(includeSpec.wildcardRoot)) {
-                            results.push(includeSpec.wildcardRoot);
-                            foundFileSpec = true;
-                        }
-                    } else if (stat.isDirectory()) {
-                        visitDirectory(includeSpec.wildcardRoot, includeSpec.regExp);
+                const stat = tryStat(this._fs, includeSpec.wildcardRoot);
+                if (stat?.isFile()) {
+                    if (includeFileRegex.test(includeSpec.wildcardRoot)) {
+                        results.push(includeSpec.wildcardRoot);
                         foundFileSpec = true;
                     }
-                } catch {
-                    // Ignore the exception.
+                } else if (stat?.isDirectory()) {
+                    visitDirectory(includeSpec.wildcardRoot, includeSpec.regExp);
+                    foundFileSpec = true;
                 }
             }
 
@@ -1031,8 +1107,6 @@ export class AnalyzerService {
     private _updateSourceFileWatchers() {
         this._removeSourceFileWatchers();
 
-        this._backgroundAnalysisProgram.invalidateCache();
-
         if (!this._watchForSourceChanges) {
             return;
         }
@@ -1049,18 +1123,29 @@ export class AnalyzerService {
 
                 const isIgnored = ignoredWatchEventFunction(fileList);
                 this._sourceFileWatcher = this._fs.createFileSystemWatcher(fileList, (event, path) => {
-                    if (isIgnored(path)) {
-                        return;
-                    }
-
                     if (this._verboseOutput) {
                         this._console.info(`SourceFile: Received fs event '${event}' for path '${path}'`);
                     }
 
+                    if (isIgnored(path)) {
+                        return;
+                    }
+
+                    // Wholesale ignore events that appear to be from tmp file / .git modification.
+                    if (path.endsWith('.tmp') || path.endsWith('.git') || path.includes(_gitDirectory)) {
+                        return;
+                    }
+
+                    const stats = tryStat(this._fs, path);
+
+                    if (stats && stats.isFile() && !path.endsWith('.py') && !path.endsWith('.pyi')) {
+                        return;
+                    }
+
                     // Delete comes in as a change event, so try to distinguish here.
-                    if (event === 'change' && this._fs.existsSync(path)) {
-                        this._backgroundAnalysisProgram.markFilesDirty([path], false);
-                        this._scheduleReanalysis(false);
+                    if (event === 'change' && stats) {
+                        this._backgroundAnalysisProgram.markFilesDirty([path], /* evenIfContentsAreSame */ false);
+                        this._scheduleReanalysis(/* requireTrackedFileUpdate */ false);
                     } else {
                         // Determine if this is an add or delete event related to a temporary
                         // file. Some tools (like auto-formatters) create temporary files
@@ -1079,8 +1164,8 @@ export class AnalyzerService {
                         if (!isTemporaryFile) {
                             // Added/deleted/renamed files impact imports,
                             // clear the import resolver cache and reanalyze everything.
-                            this.invalidateAndForceReanalysis();
-                            this._scheduleReanalysis(true);
+                            this.invalidateAndForceReanalysis(/* rebuildLibraryIndexing */ false);
+                            this._scheduleReanalysis(/* requireTrackedFileUpdate */ true);
                         }
                     }
                 });
@@ -1100,8 +1185,6 @@ export class AnalyzerService {
     private _updateLibraryFileWatcher() {
         this._removeLibraryFileWatcher();
 
-        this._backgroundAnalysisProgram.invalidateCache();
-
         if (!this._watchForLibraryChanges) {
             return;
         }
@@ -1111,7 +1194,6 @@ export class AnalyzerService {
         const watchList = findPythonSearchPaths(
             this._fs,
             this._backgroundAnalysisProgram.configOptions,
-            undefined,
             importFailureInfo,
             true,
             this._executionRootPath
@@ -1124,12 +1206,12 @@ export class AnalyzerService {
                 }
                 const isIgnored = ignoredWatchEventFunction(watchList);
                 this._libraryFileWatcher = this._fs.createFileSystemWatcher(watchList, (event, path) => {
-                    if (isIgnored(path)) {
-                        return;
-                    }
-
                     if (this._verboseOutput) {
                         this._console.info(`LibraryFile: Received fs event '${event}' for path '${path}'}'`);
+                    }
+
+                    if (isIgnored(path)) {
+                        return;
                     }
 
                     this._scheduleLibraryAnalysis();
@@ -1178,6 +1260,10 @@ export class AnalyzerService {
 
     private _updateConfigFileWatcher() {
         this._removeConfigFileWatcher();
+
+        if (!this._watchForConfigChanges) {
+            return;
+        }
 
         if (this._configFilePath) {
             this._configFileWatcher = this._fs.createFileSystemWatcher([this._configFilePath], (event) => {
@@ -1243,6 +1329,17 @@ export class AnalyzerService {
         // cached based on the previous config options.
         const importResolver = this._importResolverFactory(this._fs, this._backgroundAnalysisProgram.configOptions);
         this._backgroundAnalysisProgram.setImportResolver(importResolver);
+
+        if (this._commandLineOptions?.fromVsCodeExtension || this._configOptions.verboseOutput) {
+            const logLevel = this._configOptions.verboseOutput ? LogLevel.Info : LogLevel.Log;
+            for (const execEnv of this._configOptions.getExecutionEnvironments()) {
+                log(this._console, logLevel, `Search paths for ${execEnv.root}`);
+                const roots = importResolver.getImportRoots(execEnv, /* forLogging */ true);
+                roots.forEach((path) => {
+                    log(this._console, logLevel, `  ${path}`);
+                });
+            }
+        }
 
         this._updateLibraryFileWatcher();
         this._updateConfigFileWatcher();

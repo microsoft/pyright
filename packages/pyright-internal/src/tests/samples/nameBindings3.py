@@ -34,4 +34,3 @@ func()
 # This should generate an error because the
 # type of "bar" is defined in func_1.
 bar = 24
-

@@ -8,8 +8,7 @@ from typing import Dict, Union
 foo: Dict[Union[int, str], str] = {}
 bar: Dict[str, str] = {}
 
-# This should generate an error because 
+# This should generate an error because
 # both type parameters for Dict are invariant,
 # and str isn't assignable to Union[int, str].
 foo = bar
-

@@ -12,20 +12,31 @@
 
 import { CancellationToken } from 'vscode-languageserver';
 
+import { getFileInfo } from '../analyzer/analyzerNodeInfo';
+import { DeclarationType, isFunctionDeclaration } from '../analyzer/declaration';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { isStubFile, SourceMapper } from '../analyzer/sourceMapper';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
+import { isOverloadedFunction } from '../analyzer/types';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
+import { isDefined } from '../common/core';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { DocumentRange, Position, rangesAreEqual } from '../common/textRange';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+
+export enum DefinitionFilter {
+    All = 'all',
+    PreferSource = 'preferSource',
+    PreferStubs = 'preferStubs',
+}
 
 export class DefinitionProvider {
     static getDefinitionsForPosition(
         sourceMapper: SourceMapper,
         parseResults: ParseResults,
         position: Position,
+        filter: DefinitionFilter,
         evaluator: TypeEvaluator,
         token: CancellationToken
     ): DocumentRange[] | undefined {
@@ -47,21 +58,62 @@ export class DefinitionProvider {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             if (declarations) {
                 declarations.forEach((decl) => {
-                    const resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+                    let resolvedDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
                     if (resolvedDecl && resolvedDecl.path) {
+                        // If the decl is an unresolved import, skip it.
+                        if (resolvedDecl.type === DeclarationType.Alias && resolvedDecl.isUnresolved) {
+                            return;
+                        }
+
+                        // If the resolved decl is still an alias, it means it
+                        // resolved to a module. We need to apply loader actions
+                        // to determine its path.
+                        if (
+                            resolvedDecl.type === DeclarationType.Alias &&
+                            resolvedDecl.symbolName &&
+                            resolvedDecl.submoduleFallback &&
+                            resolvedDecl.submoduleFallback.path
+                        ) {
+                            resolvedDecl = resolvedDecl.submoduleFallback;
+                        }
+
                         this._addIfUnique(definitions, {
                             path: resolvedDecl.path,
                             range: resolvedDecl.range,
                         });
 
-                        if (isStubFile(resolvedDecl.path)) {
-                            const implDecls = sourceMapper.findDeclarations(resolvedDecl);
-                            for (const implDecl of implDecls) {
-                                if (implDecl && implDecl.path) {
+                        if (isFunctionDeclaration(resolvedDecl)) {
+                            // Handle overloaded function case
+                            const functionType = evaluator.getTypeForDeclaration(resolvedDecl);
+                            if (functionType && isOverloadedFunction(functionType)) {
+                                for (const overloadDecl of functionType.overloads
+                                    .map((o) => o.details.declaration)
+                                    .filter(isDefined)) {
                                     this._addIfUnique(definitions, {
-                                        path: implDecl.path,
-                                        range: implDecl.range,
+                                        path: overloadDecl.path,
+                                        range: overloadDecl.range,
                                     });
+                                }
+                            }
+                        }
+
+                        if (isStubFile(resolvedDecl.path)) {
+                            if (resolvedDecl.type === DeclarationType.Alias) {
+                                // Add matching source module
+                                sourceMapper
+                                    .findModules(resolvedDecl.path)
+                                    .map((m) => getFileInfo(m)?.filePath)
+                                    .filter(isDefined)
+                                    .forEach((f) => this._addIfUnique(definitions, this._createModuleEntry(f)));
+                            } else {
+                                const implDecls = sourceMapper.findDeclarations(resolvedDecl);
+                                for (const implDecl of implDecls) {
+                                    if (implDecl && implDecl.path) {
+                                        this._addIfUnique(definitions, {
+                                            path: implDecl.path,
+                                            range: implDecl.range,
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -70,7 +122,33 @@ export class DefinitionProvider {
             }
         }
 
-        return definitions.length > 0 ? definitions : undefined;
+        if (definitions.length === 0) {
+            return undefined;
+        }
+
+        if (filter === DefinitionFilter.All) {
+            return definitions;
+        }
+
+        // If go-to-declaration is supported, attempt to only show only pyi files in go-to-declaration
+        // and none in go-to-definition, unless filtering would produce an empty list.
+        const preferStubs = filter === DefinitionFilter.PreferStubs;
+        const wantedFile = (v: DocumentRange) => preferStubs === isStubFile(v.path);
+        if (definitions.find(wantedFile)) {
+            return definitions.filter(wantedFile);
+        }
+
+        return definitions;
+    }
+
+    private static _createModuleEntry(filePath: string): DocumentRange {
+        return {
+            path: filePath,
+            range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 },
+            },
+        };
     }
 
     private static _addIfUnique(definitions: DocumentRange[], itemToAdd: DocumentRange) {

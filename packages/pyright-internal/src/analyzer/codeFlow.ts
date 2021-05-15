@@ -15,11 +15,15 @@
 
 import { assert } from '../common/debug';
 import {
+    ArgumentCategory,
     CallNode,
+    CaseNode,
     ExpressionNode,
     ImportFromNode,
+    IndexNode,
     MemberAccessNode,
     NameNode,
+    NumberNode,
     ParseNodeType,
     SuiteNode,
 } from '../parser/parseNodes';
@@ -40,9 +44,14 @@ export enum FlowFlags {
     AssignmentAlias = 1 << 13, // Assigned symbol is aliased to another symbol with the same name
     VariableAnnotation = 1 << 14, // Separates a variable annotation from its name node
     PostContextManager = 1 << 15, // Label that's used for context managers that suppress exceptions
+    TrueNeverCondition = 1 << 16, // Condition whose type evaluates to never when narrowed in positive test
+    FalseNeverCondition = 1 << 17, // Condition whose type evaluates to never when narrowed in negative test
+    NarrowForPattern = 1 << 18, // Narrow the type of the subject expression within a case statement
 }
 
 let _nextFlowNodeId = 1;
+
+export type CodeFlowReferenceExpressionNode = NameNode | MemberAccessNode | IndexNode;
 
 export function getUniqueFlowNodeId() {
     return _nextFlowNodeId++;
@@ -61,7 +70,7 @@ export interface FlowLabel extends FlowNode {
 
 // FlowAssignment represents a node that assigns a value.
 export interface FlowAssignment extends FlowNode {
-    node: NameNode | MemberAccessNode;
+    node: CodeFlowReferenceExpressionNode;
     antecedent: FlowNode;
     targetSymbolId: number;
 }
@@ -101,6 +110,13 @@ export interface FlowWildcardImport extends FlowNode {
 // be true or false at the node's location in the control flow.
 export interface FlowCondition extends FlowNode {
     expression: ExpressionNode;
+    reference?: NameNode;
+    antecedent: FlowNode;
+}
+
+export interface FlowNarrowForPattern extends FlowNode {
+    subjectExpression: ExpressionNode;
+    caseStatement: CaseNode;
     antecedent: FlowNode;
 }
 
@@ -138,22 +154,40 @@ export function isCodeFlowSupportedForReference(reference: ExpressionNode): bool
         return isCodeFlowSupportedForReference(reference.leftExpression);
     }
 
+    if (reference.nodeType === ParseNodeType.Index) {
+        // Allow index expressions that have a single subscript that is a
+        // literal integer value.
+        if (
+            reference.items.length !== 1 ||
+            reference.trailingComma ||
+            reference.items[0].name !== undefined ||
+            reference.items[0].argumentCategory !== ArgumentCategory.Simple
+        ) {
+            return false;
+        }
+
+        const subscriptNode = reference.items[0].valueExpression;
+        if (subscriptNode.nodeType !== ParseNodeType.Number || subscriptNode.isImaginary || !subscriptNode.isInteger) {
+            return false;
+        }
+
+        return isCodeFlowSupportedForReference(reference.baseExpression);
+    }
+
     return false;
 }
 
-export function createKeyForReference(reference: NameNode | MemberAccessNode): string {
+export function createKeyForReference(reference: CodeFlowReferenceExpressionNode): string {
     let key;
     if (reference.nodeType === ParseNodeType.Name) {
         key = reference.value;
+    } else if (reference.nodeType === ParseNodeType.MemberAccess) {
+        const leftKey = createKeyForReference(reference.leftExpression as CodeFlowReferenceExpressionNode);
+        key = `${leftKey}.${reference.memberName.value}`;
     } else {
-        key = reference.memberName.value;
-        let leftNode = reference.leftExpression;
-        while (leftNode.nodeType === ParseNodeType.MemberAccess) {
-            key = leftNode.memberName.value + `.${key}`;
-            leftNode = leftNode.leftExpression;
-        }
-        assert(leftNode.nodeType === ParseNodeType.Name);
-        key = (leftNode as NameNode).value + `.${key}`;
+        const leftKey = createKeyForReference(reference.baseExpression as CodeFlowReferenceExpressionNode);
+        assert(reference.items.length === 1 && reference.items[0].valueExpression.nodeType === ParseNodeType.Number);
+        key = `${leftKey}[${(reference.items[0].valueExpression as NumberNode).value.toString()}]`;
     }
 
     return key;

@@ -5,7 +5,7 @@ from typing import Literal, Type
 
 
 class MetaFoo(type):
-    def __eq__(self, a: object) -> str:
+    def __eq__(self, a: "Type[Foo]") -> str:
         return "hi"
 
     def __add__(self, a: "Type[Foo]") -> int:
@@ -25,8 +25,9 @@ def func1(a: Foo):
     t5: Literal["bool"] = reveal_type(str != str)
     t6: Literal["str"] = reveal_type(Foo == type(a))
     t7: Literal["bool"] = reveal_type(Foo != type(a))
+    t8: Literal["str"] = reveal_type(type(a) == Foo)
 
     # This should generate an error
     str + str
 
-    t8: Literal["int"] = reveal_type(Foo + Foo)
+    t9: Literal["int"] = reveal_type(Foo + Foo)

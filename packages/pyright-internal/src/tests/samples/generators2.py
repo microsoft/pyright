@@ -3,15 +3,19 @@
 
 from typing import Iterator
 
-class ClassA():
+
+class ClassA:
     pass
 
-class ClassB():
+
+class ClassB:
     def shouldContinue(self):
         return True
 
-class ClassC():
+
+class ClassC:
     pass
+
 
 def generator1() -> Iterator[ClassA]:
     yield from generator1()
@@ -25,5 +29,3 @@ def generator2() -> Iterator[ClassB]:
     # This should also generate an error because it
     # yields the wrong type.
     yield from [1]
-
-

@@ -18,12 +18,12 @@ class Foo1:
 
 
 sample = Foo1()
-a = sample.a('')
-b = sample.b('')
-c = sample.c('')
+a = sample.a("")
+b = sample.b("")
+c = sample.c("")
 
-d = Foo1.a(Foo1(), '')
-e = Foo1.b(Foo1(), '')
+d = Foo1.a(Foo1(), "")
+e = Foo1.b(Foo1(), "")
 
 
 # This class is a data class (because it derives from
@@ -32,12 +32,14 @@ e = Foo1.b(Foo1(), '')
 class Foo2(NamedTuple):
     a: Callable[[int], int]
 
-foo2 = Foo2(a = lambda a: a)
+
+foo2 = Foo2(a=lambda a: a)
 f = foo2.a(3)
 
 
 class Foo3(TypedDict):
     a: Callable[[int], int]
 
-foo3 = Foo3(a = lambda a: a)
-g = foo3['a'](3)
+
+foo3 = Foo3(a=lambda a: a)
+g = foo3["a"](3)

@@ -13,23 +13,29 @@ import { assert } from '../common/debug';
 import {
     ClassType,
     maxTypeRecursionCount,
-    ParamSpecEntry,
+    ParamSpecValue,
     Type,
     TypeCategory,
     TypeVarScopeId,
     TypeVarType,
+    WildcardTypeVarScopeId,
 } from './types';
 import { doForEachSubtype } from './typeUtils';
 
 export interface TypeVarMapEntry {
     typeVar: TypeVarType;
-    type: Type;
-    isNarrowable: boolean;
+
+    // The final type must "fit" between the narrow and
+    // wide type bound.
+    narrowBound?: Type;
+    wideBound?: Type;
+
+    retainLiteral?: boolean;
 }
 
 export interface ParamSpecMapEntry {
     paramSpec: TypeVarType;
-    type: ParamSpecEntry[];
+    type: ParamSpecValue;
 }
 
 export interface VariadicTypeVarMapEntry {
@@ -64,7 +70,7 @@ export class TypeVarMap {
         }
 
         this._typeVarMap.forEach((value) => {
-            newTypeVarMap.setTypeVar(value.typeVar, value.type, this.isNarrowable(value.typeVar));
+            newTypeVarMap.setTypeVarType(value.typeVar, value.narrowBound, value.wideBound, value.retainLiteral);
         });
 
         this._paramSpecMap.forEach((value) => {
@@ -99,7 +105,7 @@ export class TypeVarMap {
         return (
             scopeId !== undefined &&
             this._solveForScopes !== undefined &&
-            this._solveForScopes.some((s) => s === scopeId)
+            this._solveForScopes.some((s) => s === scopeId || s === WildcardTypeVarScopeId)
         );
     }
 
@@ -133,7 +139,8 @@ export class TypeVarMap {
             // Add a fractional amount based on the complexity of the definition.
             // The more complex, the lower the score. In the spirit of Occam's
             // Razor, we always want to favor simple answers.
-            score += this._getComplexityScoreForType(value.type);
+            const typeVarType = this.getTypeVarType(value.typeVar)!;
+            score += this._getComplexityScoreForType(typeVarType);
         });
 
         score += this._paramSpecMap.size;
@@ -145,14 +152,24 @@ export class TypeVarMap {
         return this._typeVarMap.has(this._getKey(reference));
     }
 
-    getTypeVar(reference: TypeVarType): Type | undefined {
-        return this._typeVarMap.get(this._getKey(reference))?.type;
+    getTypeVarType(reference: TypeVarType, useNarrowBoundOnly = false): Type | undefined {
+        const entry = this._typeVarMap.get(this._getKey(reference));
+        if (!entry) {
+            return undefined;
+        }
+        if (entry.narrowBound) {
+            return entry.narrowBound;
+        }
+        if (!useNarrowBoundOnly) {
+            return entry.wideBound;
+        }
+        return undefined;
     }
 
-    setTypeVar(reference: TypeVarType, type: Type, isNarrowable: boolean) {
+    setTypeVarType(reference: TypeVarType, narrowBound: Type | undefined, wideBound?: Type, retainLiteral?: boolean) {
         assert(!this._isLocked);
         const key = this._getKey(reference);
-        this._typeVarMap.set(key, { typeVar: reference, type, isNarrowable });
+        this._typeVarMap.set(key, { typeVar: reference, narrowBound, wideBound, retainLiteral });
     }
 
     getVariadicTypeVar(reference: TypeVarType): Type[] | undefined {
@@ -170,6 +187,11 @@ export class TypeVarMap {
         this._variadicTypeVarMap.set(key, { typeVar: reference, types });
     }
 
+    getTypeVar(reference: TypeVarType): TypeVarMapEntry | undefined {
+        const key = this._getKey(reference);
+        return this._typeVarMap.get(key);
+    }
+
     getTypeVars(): TypeVarMapEntry[] {
         const entries: TypeVarMapEntry[] = [];
 
@@ -184,11 +206,11 @@ export class TypeVarMap {
         return this._paramSpecMap.has(this._getKey(reference));
     }
 
-    getParamSpec(reference: TypeVarType): ParamSpecEntry[] | undefined {
+    getParamSpec(reference: TypeVarType): ParamSpecValue | undefined {
         return this._paramSpecMap.get(this._getKey(reference))?.type;
     }
 
-    setParamSpec(reference: TypeVarType, type: ParamSpecEntry[]) {
+    setParamSpec(reference: TypeVarType, type: ParamSpecValue) {
         assert(!this._isLocked);
         this._paramSpecMap.set(this._getKey(reference), { paramSpec: reference, type });
     }
@@ -197,20 +219,29 @@ export class TypeVarMap {
         return this._typeVarMap.size;
     }
 
-    isNarrowable(reference: TypeVarType): boolean {
+    getWideTypeBound(reference: TypeVarType): Type | undefined {
         const entry = this._typeVarMap.get(this._getKey(reference));
         if (entry) {
-            return entry.isNarrowable;
+            return entry.wideBound;
         }
 
-        // A TypeVar that doesn't yet exist in the map is considered narrowable.
-        return true;
+        return undefined;
+    }
+
+    getRetainLiterals(reference: TypeVarType): boolean {
+        const entry = this._typeVarMap.get(this._getKey(reference));
+        return !!entry?.retainLiteral;
     }
 
     lock() {
         // Locks the type var map, preventing any further changes.
         assert(!this._isLocked);
         this._isLocked = true;
+    }
+
+    unlock() {
+        // Unlocks the type var map, allowing further changes.
+        this._isLocked = false;
     }
 
     isLocked(): boolean {
@@ -240,12 +271,17 @@ export class TypeVarMap {
 
             case TypeCategory.Union: {
                 let minScore = 1;
-                doForEachSubtype(type, (subtype) => {
-                    const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount + 1);
-                    if (subtypeScore < minScore) {
-                        minScore = subtypeScore;
-                    }
-                });
+
+                // If this union has a very large number of subtypes, don't bother
+                // accurately computing the score. Assume a fixed value.
+                if (type.subtypes.length < 16) {
+                    doForEachSubtype(type, (subtype) => {
+                        const subtypeScore = this._getComplexityScoreForType(subtype, recursionCount + 1);
+                        if (subtypeScore < minScore) {
+                            minScore = subtypeScore;
+                        }
+                    });
+                }
 
                 // Assume that a union is more complex than a non-union,
                 // and return half of the minimum score of the subtypes.
@@ -271,7 +307,12 @@ export class TypeVarMap {
         let typeArgScoreSum = 0;
         let typeArgCount = 0;
 
-        if (classType.typeArguments) {
+        if (classType.tupleTypeArguments) {
+            classType.tupleTypeArguments.forEach((type) => {
+                typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount + 1);
+                typeArgCount++;
+            });
+        } else if (classType.typeArguments) {
             classType.typeArguments.forEach((type) => {
                 typeArgScoreSum += this._getComplexityScoreForType(type, recursionCount + 1);
                 typeArgCount++;

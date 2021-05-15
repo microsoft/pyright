@@ -23,6 +23,7 @@ export enum PythonVersion {
     V3_8 = 0x0308,
     V3_9 = 0x0309,
     V3_10 = 0x030a,
+    V3_11 = 0x030b,
 }
 
 export const latestStablePythonVersion = PythonVersion.V3_9;
@@ -70,24 +71,4 @@ export function versionFromMajorMinor(major: number, minor: number): PythonVersi
 
 export function is3x(version: PythonVersion): boolean {
     return version >> 8 === 3;
-}
-
-export function getPythonVersionStrings(pythonVersion: PythonVersion) {
-    const versionStrings: string[] = [];
-
-    let minorVersion = pythonVersion & 0xff;
-    while (true) {
-        const pythonVersionString =
-            minorVersion > 0 ? versionToString(0x300 + minorVersion) : minorVersion === 0 ? '3' : '2and3';
-        versionStrings.push(pythonVersionString);
-
-        // We use -1 to indicate "2and3", which is searched after "3.0".
-        if (minorVersion === -1) {
-            break;
-        }
-
-        minorVersion--;
-    }
-
-    return versionStrings;
 }

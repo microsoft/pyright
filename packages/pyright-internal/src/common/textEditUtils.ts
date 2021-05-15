@@ -8,8 +8,7 @@
 
 import { TextEdit, WorkspaceEdit } from 'vscode-languageserver';
 
-import { FileEditAction, TextEditAction } from '../common/editAction';
-import { convertPathToUri } from '../common/pathUtils';
+import { TextEditAction } from '../common/editAction';
 
 export function convertTextEdits(uri: string, editActions: TextEditAction[] | undefined): WorkspaceEdit {
     if (!editActions) {
@@ -29,18 +28,4 @@ export function convertTextEdits(uri: string, editActions: TextEditAction[] | un
             [uri]: edits,
         },
     };
-}
-
-export function convertWorkspaceEdits(edits: FileEditAction[]) {
-    const workspaceEdits: WorkspaceEdit = {
-        changes: {},
-    };
-
-    edits.forEach((edit) => {
-        const uri = convertPathToUri(edit.filePath);
-        workspaceEdits.changes![uri] = workspaceEdits.changes![uri] || [];
-        workspaceEdits.changes![uri].push({ range: edit.range, newText: edit.replacementText });
-    });
-
-    return workspaceEdits;
 }

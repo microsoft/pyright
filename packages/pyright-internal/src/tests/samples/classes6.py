@@ -1,5 +1,6 @@
 # This sample tests proper scopes for nested classes.
 
+
 class A:
     a = 5
 
@@ -13,7 +14,3 @@ class A:
 
             # This should generate an error
             d = b
-
-
-
-

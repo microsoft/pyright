@@ -29,4 +29,3 @@ my_class = MyClass("test")
 print(my_class.value)
 del my_class.cache
 print(my_class.value)
-

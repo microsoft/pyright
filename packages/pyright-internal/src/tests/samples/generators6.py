@@ -3,10 +3,12 @@
 
 from typing import Iterable, AsyncIterable
 
+
 def foo() -> Iterable[str]:
     return
-    yield ''
+    yield ""
+
 
 async def afoo() -> AsyncIterable[str]:
     return
-    yield ''
+    yield ""

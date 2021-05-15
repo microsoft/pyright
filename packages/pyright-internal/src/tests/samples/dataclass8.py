@@ -3,6 +3,7 @@
 
 from dataclasses import dataclass
 
+
 @dataclass
 class BaseClass:
     my_ref: "ReferredClass"
@@ -19,4 +20,3 @@ class ReferredClass:
 
     def trigger_bug(self):
         SubClass(my_ref=self)
-

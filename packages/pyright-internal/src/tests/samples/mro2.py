@@ -9,9 +9,11 @@ class A:
     def bar(self):
         return None
 
+
 class B(A):
     def foo(self, v1: float):
         return None
+
 
 class C(A):
     def foo(self, v1: A):
@@ -20,12 +22,13 @@ class C(A):
     def bar(self, v1: float):
         return None
 
+
 class D(B, C):
     pass
 
 
 a = A()
-a.foo('hello')
+a.foo("hello")
 
 b = B()
 b.foo(3)
@@ -40,6 +43,3 @@ d.foo(3)
 # the bar method from class C should be
 # selected before the bar method from A.
 d.bar()
-
-
-

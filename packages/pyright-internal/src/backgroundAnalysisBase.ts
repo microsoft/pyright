@@ -94,6 +94,10 @@ export class BackgroundAnalysisBase {
         this.enqueueRequest({ requestType: 'setAllowedThirdPartyImports', data: importNames });
     }
 
+    ensurePartialStubPackages(executionRoot: string) {
+        this.enqueueRequest({ requestType: 'ensurePartialStubPackages', data: { executionRoot } });
+    }
+
     setFileOpened(filePath: string, version: number | null, contents: TextDocumentContentChangeEvent[]) {
         this.enqueueRequest({ requestType: 'setFileOpened', data: { filePath, version, contents } });
     }
@@ -240,8 +244,9 @@ export class BackgroundAnalysisBase {
 
 export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
     private _configOptions: ConfigOptions;
-    private _importResolver: ImportResolver;
+    protected _importResolver: ImportResolver;
     private _program: Program;
+    protected _logTracker: LogTracker;
 
     get program(): Program {
         return this._program;
@@ -256,13 +261,16 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
 
         this._configOptions = new ConfigOptions(data.rootDirectory);
         this._importResolver = this.createImportResolver(this.fs, this._configOptions);
+
         const console = this.getConsole();
+        this._logTracker = new LogTracker(console, `BG(${threadId})`);
+
         this._program = new Program(
             this._importResolver,
             this._configOptions,
             console,
             this._extension,
-            new LogTracker(console, `BG(${threadId})`)
+            this._logTracker
         );
     }
 
@@ -361,6 +369,15 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
                 break;
             }
 
+            case 'ensurePartialStubPackages': {
+                const { executionRoot } = msg.data;
+                const execEnv = this._configOptions.getExecutionEnvironments().find((e) => e.root === executionRoot);
+                if (execEnv) {
+                    this._importResolver.ensurePartialStubPackages(execEnv);
+                }
+                break;
+            }
+
             case 'setFileOpened': {
                 const { filePath, version, contents } = msg.data;
                 this.program.setFileOpened(filePath, version, contents);
@@ -426,7 +443,7 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
             this._analysisPaused(port, msg.data);
         } else {
             this.processIndexing(port, token);
-            this._analysisDone(port, msg.data);
+            this.analysisDone(port, msg.data);
         }
     }
 
@@ -464,7 +481,7 @@ export class BackgroundAnalysisRunnerBase extends BackgroundThreadBase {
         port.postMessage({ requestType: 'analysisPaused', data: cancellationId });
     }
 
-    private _analysisDone(port: MessagePort, cancellationId: string) {
+    protected analysisDone(port: MessagePort, cancellationId: string) {
         port.postMessage({ requestType: 'analysisDone', data: cancellationId });
     }
 }
@@ -518,6 +535,7 @@ export interface AnalysisRequest {
         | 'setConfigOptions'
         | 'setTrackedFiles'
         | 'setAllowedThirdPartyImports'
+        | 'ensurePartialStubPackages'
         | 'setFileOpened'
         | 'setFileClosed'
         | 'markAllFilesDirty'
@@ -526,7 +544,8 @@ export interface AnalysisRequest {
         | 'restart'
         | 'getDiagnosticsForRange'
         | 'writeTypeStub'
-        | 'getSemanticTokens';
+        | 'getSemanticTokens'
+        | 'setExperimentOptions';
 
     data: any;
     port?: MessagePort;

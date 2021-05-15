@@ -2,6 +2,7 @@
 # from "type") is directly instantiated to create a new class,
 # and that class is then used as a base class for another class.
 
+
 class MyMeta(type):
     def do_something(self, p1: str, p2: int):
         pass

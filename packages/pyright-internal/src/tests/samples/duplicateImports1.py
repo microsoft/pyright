@@ -11,5 +11,3 @@ import sys
 
 a: Dict[Any, Any]
 b = sys.api_version
-
-

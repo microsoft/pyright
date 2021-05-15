@@ -9,4 +9,3 @@ b = _foo
 # included in the __all__ assigment.
 c = bar
 d = _bar
-

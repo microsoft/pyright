@@ -4,7 +4,8 @@ from typing import Any, Generator, List
 
 a = [1, 2, 3, 4]
 
-def func1() -> Generator[int]:
+
+def func1() -> Generator[int, None, None]:
     b = (elem for elem in a)
     return b
 
@@ -12,6 +13,7 @@ def func1() -> Generator[int]:
 def func2() -> List[int]:
     c = [elem for elem in a]
     return c
+
 
 def func3() -> List[str]:
     c = [elem for elem in a]
@@ -21,11 +23,12 @@ def func3() -> List[str]:
     # the declared return type.
     return c
 
+
 def generate():
     for i in range(2):
         yield i
 
+
 # Verify that generate returns a Generator.
 s = generate()
 s.close()
-

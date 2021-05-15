@@ -55,21 +55,78 @@ export interface UnescapedString {
     formatStringSegments: FormatStringSegment[];
 }
 
+interface IncompleteUnescapedString {
+    valueParts: string[];
+    unescapeErrors: UnescapeError[];
+    nonAsciiInBytes: boolean;
+    formatStringSegments: IncompleteFormatStringSegment[];
+}
+
+interface IncompleteFormatStringSegment {
+    offset: number;
+    length: number;
+    valueParts: string[];
+    isExpression: boolean;
+}
+
+function completeUnescapedString(incomplete: IncompleteUnescapedString): UnescapedString {
+    return {
+        ...incomplete,
+        value: incomplete.valueParts.join(''),
+        formatStringSegments: incomplete.formatStringSegments.map((segment) => ({
+            ...segment,
+            value: segment.valueParts.join(''),
+        })),
+    };
+}
+
 export function getUnescapedString(stringToken: StringToken): UnescapedString {
     const escapedString = stringToken.escapedValue;
     const isRaw = (stringToken.flags & StringTokenFlags.Raw) !== 0;
-    const isBytes = (stringToken.flags & StringTokenFlags.Bytes) !== 0;
     const isFormat = (stringToken.flags & StringTokenFlags.Format) !== 0;
+
+    if (isRaw && !isFormat) {
+        return {
+            value: escapedString,
+            unescapeErrors: [],
+            nonAsciiInBytes: false,
+            formatStringSegments: [],
+        };
+    }
+
+    const charCodes: number[] = [];
+    for (let index = 0; index < escapedString.length; index++) {
+        charCodes.push(escapedString.charCodeAt(index));
+    }
+
+    const isBytes = (stringToken.flags & StringTokenFlags.Bytes) !== 0;
+
+    // Handle the common case in an expedited manner.
+    if (!isFormat) {
+        if (
+            !charCodes.some(
+                (curChar) => curChar === Char.CarriageReturn || curChar === Char.LineFeed || curChar === Char.Backslash
+            )
+        ) {
+            return {
+                value: escapedString,
+                unescapeErrors: [],
+                nonAsciiInBytes: isBytes && charCodes.some((curChar) => curChar >= 128),
+                formatStringSegments: [],
+            };
+        }
+    }
+
     let formatExpressionNestCount = 0;
-    let formatSegment: FormatStringSegment = {
+    let formatSegment: IncompleteFormatStringSegment = {
         offset: 0,
         length: 0,
-        value: '',
+        valueParts: [],
         isExpression: false,
     };
     let strOffset = 0;
-    const output: UnescapedString = {
-        value: '',
+    const output: IncompleteUnescapedString = {
+        valueParts: [],
         unescapeErrors: [],
         nonAsciiInBytes: false,
         formatStringSegments: [],
@@ -87,11 +144,11 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
     };
 
     const getEscapedCharacter = (offset = 0) => {
-        if (strOffset + offset >= escapedString.length) {
+        if (strOffset + offset >= charCodes.length) {
             return Char.EndOfText;
         }
 
-        return escapedString.charCodeAt(strOffset + offset);
+        return charCodes[strOffset + offset];
     };
 
     const scanHexEscape = (digitCount: number) => {
@@ -122,8 +179,8 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
 
     const appendOutputChar = (charCode: number) => {
         const char = String.fromCharCode(charCode);
-        output.value += char;
-        formatSegment.value += char;
+        output.valueParts.push(char);
+        formatSegment.valueParts.push(char);
     };
 
     while (true) {
@@ -145,7 +202,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                     output.formatStringSegments.push(formatSegment);
                 }
             }
-            return output;
+            return completeUnescapedString(output);
         }
 
         if (curChar === Char.Backslash) {
@@ -305,8 +362,8 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 }
             }
 
-            output.value += localValue;
-            formatSegment.value += localValue;
+            output.valueParts.push(localValue);
+            formatSegment.valueParts.push(localValue);
         } else if (curChar === Char.LineFeed || curChar === Char.CarriageReturn) {
             // Skip over the escaped new line (either one or two characters).
             if (curChar === Char.CarriageReturn && getEscapedCharacter(1) === Char.LineFeed) {
@@ -335,7 +392,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                     formatSegment = {
                         offset: strOffset,
                         length: 0,
-                        value: '',
+                        valueParts: [],
                         isExpression: true,
                     };
                 } else {
@@ -369,7 +426,7 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                     formatSegment = {
                         offset: strOffset,
                         length: 0,
-                        value: '',
+                        valueParts: [],
                         isExpression: false,
                     };
                 } else {
@@ -387,8 +444,8 @@ export function getUnescapedString(stringToken: StringToken): UnescapedString {
                 strOffset += 2;
                 appendOutputChar(curChar);
                 appendOutputChar(curChar);
-                output.value += String.fromCharCode(curChar);
-                output.value += String.fromCharCode(curChar);
+                output.valueParts.push(String.fromCharCode(curChar));
+                output.valueParts.push(String.fromCharCode(curChar));
             }
 
             while (true) {

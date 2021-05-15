@@ -4,12 +4,15 @@
 
 from typing import Protocol, runtime_checkable
 
+
 class P1(Protocol):
     name: str
+
 
 @runtime_checkable
 class P2(Protocol):
     name: str
+
 
 def foo(a: int):
     # This should generate an error because P1 is not

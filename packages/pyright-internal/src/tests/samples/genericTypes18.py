@@ -51,7 +51,7 @@ def response2(query: str) -> Response3[int]:
     return lambda x: x + 2
 
 
-def response2(query: str) -> Response3[datetime]:
+def response3(query: str) -> Response3[datetime]:
     # This should generate an error because datetime doesn't support +
     return lambda x: x + 2
 

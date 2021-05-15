@@ -2,6 +2,8 @@
 
 Pyright offers flexible configuration options specified in a JSON-formatted text configuration. By default, the file is called “pyrightconfig.json” and is located within the root directory of your project. Multi-root workspaces (“Add Folder to Workspace…”) are supported, and each workspace root can have its own “pyrightconfig.json” file.
 
+Pyright settings can also be specified in a `[tool.pyright]` section of a “pyproject.toml” file. A “pyrightconfig.json” file always takes precedent over “pyproject.toml” if both are present.
+
 Relative paths specified within the config file are relative to the config file’s location. Paths with shell variables (including `~`) are not supported.
 
 ## Main Pyright Config Options
@@ -18,11 +20,13 @@ Relative paths specified within the config file are relative to the config file�
 
 **stubPath** [path, optional]: Path to a directory that contains custom type stubs. Each package's type stub file(s) are expected to be in its own subdirectory. The default value of this setting is "./typings". (typingsPath is now deprecated)
 
-**venvPath** [path, optional]: Path to a directory containing one or more subdirectories, each of which contains a virtual environment. Each execution environment (see below for details) can refer to a different virtual environment. When used in conjunction with a **venv** setting (see below), pyright will search for imports in the virtual environment’s site-packages directory rather than the paths specified by the default Python interpreter.
+**venvPath** [path, optional]: Path to a directory containing one or more subdirectories, each of which contains a virtual environment. When used in conjunction with a **venv** setting (see below), pyright will search for imports in the virtual environment’s site-packages directory rather than the paths specified by the default Python interpreter. If you are working on a project with other developers, it is best not to specify this setting in the config file, since this path will typically differ for each developer. Instead, it can be specified on the command line or in a per-user setting.
 
-**venv** [string, optional]: Used in conjunction with the venvPath, specifies the virtual environment to use. Individual execution environments may override this setting.
+**venv** [string, optional]: Used in conjunction with the venvPath, specifies the virtual environment to use.
 
 **verboseOutput** [boolean]: Specifies whether output logs should be verbose. This is useful when diagnosing certain problems like import resolution issues.
+
+**extraPaths** [array of strings, optional]: Additional search paths that will be used when searching for modules imported by files.
 
 **pythonVersion** [string, optional]: Specifies the version of Python that will be used to execute the source code. The version should be specified as a string in the format "M.m" where M is the major version and m is the minor (e.g. `"3.0"` or `"3.6"`). If a version is provided, pyright will generate errors if the source code makes use of language features that are not supported in that version. It will also tailor its use of type stub files, which conditionalizes type definitions based on the version. If no version is specified, pyright will use the version of the current python interpreter, if one is present.
 
@@ -41,6 +45,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 **strictListInference** [boolean]: When inferring the type of a list, use strict type assumptions. For example, the expression `[1, 'a', 3.4]` could be inferred to be of type `List[Any]` or `List[Union[int, str, float]]`. If this setting is true, it will use the latter (stricter) type. The default value for this setting is 'false'.
 
 **strictDictionaryInference** [boolean]: When inferring the type of a dictionary’s keys and values, use strict type assumptions. For example, the expression `{'a': 1, 'b': 'a'}` could be inferred to be of type `Dict[str, Any]` or `Dict[str, Union[int, str]]`. If this setting is true, it will use the latter (stricter) type. The default value for this setting is 'false'.
+
+**strictSetInference** [boolean]: When inferring the type of a set, use strict type assumptions. For example, the expression `{1, 'a', 3.4}` could be inferred to be of type `Set[Any]` or `Set[Union[int, str, float]]`. If this setting is true, it will use the latter (stricter) type. The default value for this setting is 'false'.
 
 **strictParameterNoneValue** [boolean]: PEP 484 indicates that when a function parameter is assigned a default value of None, its type should implicitly be Optional even if the explicit type is not. When enabled, this rule requires that parameter type annotations use Optional explicitly in this case. The default value for this setting is 'false'.
 
@@ -84,6 +90,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportOptionalOperand** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to use an Optional type as an operand to a binary or unary operator (like '+', '==', 'or', 'not'). The default value for this setting is 'none'.
 
+**reportTypedDictNotRequiredAccess** [boolean or string, optional]: Generate or suppress diagnostics for an attempt to access a non-required field within a TypedDict without first checking whether it is present. The default value for this setting is 'error'.
+
 **reportUntypedFunctionDecorator** [boolean or string, optional]: Generate or suppress diagnostics for function decorators that have no type annotations. These obscure the function type, defeating many type analysis features. The default value for this setting is 'none'.
 
 **reportUntypedClassDecorator** [boolean or string, optional]: Generate or suppress diagnostics for class decorators that have no type annotations. These obscure the class type, defeating many type analysis features. The default value for this setting is 'none'.
@@ -99,6 +107,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 **reportIncompatibleMethodOverride** [boolean or string, optional]: Generate or suppress diagnostics for methods that override a method of the same name in a base class in an incompatible manner (wrong number of parameters, incompatible parameter types, or incompatible return type). The default value for this setting is 'none'.
 
 **reportIncompatibleVariableOverride** [boolean or string, optional]: Generate or suppress diagnostics for class variable declarations that override a symbol of the same name in a base class with a type that is incompatible with the base class symbol type. The default value for this setting is 'none'.
+
+**reportOverlappingOverload** [boolean or string, optional]: Generate or suppress diagnostics for function overloads that overlap in signature and obscure each other or have incompatible return types. The default value for this setting is 'none'.
 
 **reportInvalidStringEscapeSequence** [boolean or string, optional]: Generate or suppress diagnostics for invalid escape sequences used within string literals. The Python specification indicates that such sequences will generate a syntax error in future versions. The default value for this setting is 'warning'.
 
@@ -121,6 +131,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 **reportUnnecessaryIsInstance** [boolean or string, optional]: Generate or suppress diagnostics for 'isinstance' or 'issubclass' calls where the result is statically determined to be always true or always false. Such calls are often indicative of a programming error. The default value for this setting is 'none'.
 
 **reportUnnecessaryCast** [boolean or string, optional]: Generate or suppress diagnostics for 'cast' calls that are statically determined to be unnecessary. Such calls are sometimes indicative of a programming error. The default value for this setting is 'none'.
+
+**reportUnnecessaryComparison** [boolean or string, optional]: Generate or suppress diagnostics for '==' or '!=' comparisons that are statically determined to always evaluate to False or True. Such comparisons are sometimes indicative of a programming error. The default value for this setting is 'none'.
 
 **reportAssertAlwaysTrue** [boolean or string, optional]: Generate or suppress diagnostics for 'assert' statement that will provably always assert. This can be indicative of a programming error. The default value for this setting is 'warning'.
 
@@ -148,9 +160,7 @@ The following settings can be specified for each execution environment.
 
 **root** [string, required]: Root path for the code that will execute within this execution environment.
 
-**extraPaths** [array of strings, optional]: Additional search paths (in addition to the root path) that will be used when searching for packages. At runtime, these will be specified in the PYTHONPATH environment variable.
-
-**venv** [string, optional]: The virtual environment to use for this execution environment. If not specified, the global `venv` setting is used instead.
+**extraPaths** [array of strings, optional]: Additional search paths (in addition to the root path) that will be used when searching for modules imported by files within this execution environment. If specified, this overrides the default extraPaths setting when resolving imports for files within this execution environment. Note that each file’s execution environment mapping is independent, so if file A is in one execution environment and imports a second file B within a second execution environment, any imports from B will use the extraPaths in the second execution environment.
 
 **pythonVersion** [string, optional]: The version of Python used for this execution environment. If not specified, the global `pythonVersion` setting is used instead.
 
@@ -177,7 +187,7 @@ The following is an example of a pyright config file:
   ],
 
   "stubPath": "src/stubs",
-  "venvPath": "/home/foo/.venvs",
+  "venv": "env367",
 
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
@@ -199,8 +209,7 @@ The following is an example of a pyright config file:
       "pythonVersion": "3.0",
       "extraPaths": [
         "src/backend"
-      ],
-      "venv": "venv_bar"
+      ]
     },
     {
       "root": "src/tests",
@@ -216,6 +225,32 @@ The following is an example of a pyright config file:
 }
 ```
 
+## Sample Pyproject.toml File
+```toml
+[tool.pyright]
+include = ["src"]
+exclude = ["**/node_modules",
+    "**/__pycache__",
+    "src/experimental",
+    "src/typestubs"
+]
+ignore = ["src/oldstuff"]
+stubPath = "src/stubs"
+venv = "env367"
+
+reportMissingImports = true
+reportMissingTypeStubs = false
+
+pythonVersion = "3.6"
+pythonPlatform = "Linux"
+
+executionEnvironments = [
+  { root = "src/web", pythonVersion = "3.5", pythonPlatform = "Windows", extraPaths = [ "src/service_libs" ] },
+  { root = "src/sdk", pythonVersion = "3.0", extraPaths = [ "src/backend" ] },
+  { root = "src/tests", extraPaths = ["src/tests/e2e", "src/sdk" ]},
+  { root = "src" }
+]
+```
 
 ## Diagnostic Rule Defaults
 
@@ -248,6 +283,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportOptionalIterable                    | "none"     | "none"     | "error"    |
 | reportOptionalContextManager              | "none"     | "none"     | "error"    |
 | reportOptionalOperand                     | "none"     | "none"     | "error"    |
+| reportTypedDictNotRequiredAccess          | "none"     | "error"    | "error"    |
 | reportUntypedFunctionDecorator            | "none"     | "none"     | "error"    |
 | reportUntypedClassDecorator               | "none"     | "none"     | "error"    |
 | reportUntypedBaseClass                    | "none"     | "none"     | "error"    |
@@ -256,6 +292,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportConstantRedefinition                | "none"     | "none"     | "error"    |
 | reportIncompatibleMethodOverride          | "none"     | "none"     | "error"    |
 | reportIncompatibleVariableOverride        | "none"     | "none"     | "error"    |
+| reportOverlappingOverload                 | "none"     | "none"     | "error"    |
 | reportInvalidStringEscapeSequence         | "none"     | "warning"  | "error"    |
 | reportUnknownParameterType                | "none"     | "none"     | "error"    |
 | reportUnknownArgumentType                 | "none"     | "none"     | "error"    |
@@ -267,11 +304,12 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportCallInDefaultInitializer            | "none"     | "none"     | "none"     |
 | reportUnnecessaryIsInstance               | "none"     | "none"     | "error"    |
 | reportUnnecessaryCast                     | "none"     | "none"     | "error"    |
+| reportUnnecessaryComparison               | "none"     | "none"     | "error"    |
 | reportAssertAlwaysTrue                    | "none"     | "warning"  | "error"    |
 | reportSelfClsParameterName                | "none"     | "warning"  | "error"    |
 | reportImplicitStringConcatenation         | "none"     | "none"     | "none"     |
 | reportUndefinedVariable                   | "warning"  | "error"    | "error"    |
-| reportUnboundVariable                     | "warning"  | "error"    | "error"    |
+| reportUnboundVariable                     | "none"     | "error"    | "error"    |
 | reportInvalidStubStatement                | "none"     | "none"     | "error"    |
 | reportUnsupportedDunderAll                | "none"     | "warning"  | "error"    |
 | reportUnusedCallResult                    | "none"     | "none"     | "none"     |

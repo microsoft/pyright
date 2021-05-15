@@ -3,10 +3,12 @@
 
 from typing import Optional
 
-class ClassA():
+
+class ClassA:
     pass
 
-class ClassB():
+
+class ClassB:
     pass
 
 
@@ -15,7 +17,7 @@ def generator1():
 
 
 def generator2():
-    yield 'Hello'
+    yield "Hello"
     yield ClassA()
     return 3
 
@@ -38,4 +40,3 @@ def consumer3() -> Optional[ClassA]:
         print(str)
     else:
         return value
-

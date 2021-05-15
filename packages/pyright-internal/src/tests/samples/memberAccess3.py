@@ -3,6 +3,9 @@
 # the parent class.
 
 
+from typing import Generic, TypeVar
+
+
 class A:
     pi = 3.1415
 
@@ -46,3 +49,16 @@ def require_str(val: str):
 
 def require_float(val: float):
     pass
+
+
+_TParent = TypeVar("_TParent")
+_TChild = TypeVar("_TChild")
+
+
+class Parent(Generic[_TParent]):
+    member1: _TParent
+
+
+class Child(Parent[_TChild]):
+    def __init__(self, val: _TChild):
+        self.member1 = val

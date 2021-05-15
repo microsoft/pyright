@@ -11,7 +11,7 @@ import { CancellationToken } from 'vscode-languageserver';
 import { TextDocumentContentChangeEvent } from 'vscode-languageserver-textdocument';
 
 import { BackgroundAnalysisBase } from '../backgroundAnalysisBase';
-import { ConfigOptions } from '../common/configOptions';
+import { ConfigOptions, ExecutionEnvironment } from '../common/configOptions';
 import { ConsoleInterface } from '../common/console';
 import { Diagnostic } from '../common/diagnostic';
 import { FileDiagnostics } from '../common/diagnosticSink';
@@ -67,6 +67,8 @@ export class BackgroundAnalysisProgram {
     setImportResolver(importResolver: ImportResolver) {
         this._importResolver = importResolver;
         this._program.setImportResolver(importResolver);
+
+        this._configOptions.getExecutionEnvironments().forEach((e) => this._ensurePartialStubPackages(e));
 
         // Do nothing for background analysis.
         // Background analysis updates importer when configOptions is changed rather than
@@ -195,8 +197,10 @@ export class BackgroundAnalysisProgram {
         return this._program.writeTypeStub(targetImportPath, targetIsSingleFile, stubPath, token);
     }
 
-    invalidateAndForceReanalysis() {
-        this.refreshIndexing();
+    invalidateAndForceReanalysis(rebuildLibraryIndexing: boolean) {
+        if (rebuildLibraryIndexing) {
+            this.refreshIndexing();
+        }
 
         this._backgroundAnalysis?.invalidateAndForceReanalysis();
 
@@ -208,15 +212,13 @@ export class BackgroundAnalysisProgram {
         this._program.markAllFilesDirty(true);
     }
 
-    invalidateCache() {
-        // Invalidate import resolver because it could have cached
-        // imports that are no longer valid because a source file has
-        // been deleted or added.
-        this._importResolver.invalidateCache();
-    }
-
     restart() {
         this._backgroundAnalysis?.restart();
+    }
+
+    private _ensurePartialStubPackages(execEnv: ExecutionEnvironment) {
+        this._backgroundAnalysis?.ensurePartialStubPackages(execEnv.root);
+        return this._importResolver.ensurePartialStubPackages(execEnv);
     }
 
     private _getIndices(): Indices {

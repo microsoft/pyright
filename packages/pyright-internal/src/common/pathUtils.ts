@@ -8,14 +8,16 @@
  */
 
 import { randomBytes } from 'crypto';
+import { Dirent } from 'fs';
 import * as path from 'path';
 import Char from 'typescript-char';
 import { URI } from 'vscode-uri';
 
+import { PyrightFileSystem } from '../pyrightFileSystem';
 import { some } from './collectionUtils';
 import { compareValues, Comparison, GetCanonicalFileName, identity } from './core';
 import * as debug from './debug';
-import { FileSystem } from './fileSystem';
+import { FileSystem, Stats } from './fileSystem';
 import {
     compareStringsCaseInsensitive,
     compareStringsCaseSensitive,
@@ -181,13 +183,9 @@ export function makeDirectories(fs: FileSystem, dirPath: string, startingFromDir
 }
 
 export function getFileSize(fs: FileSystem, path: string) {
-    try {
-        const stat = fs.statSync(path);
-        if (stat.isFile()) {
-            return stat.size;
-        }
-    } catch {
-        // Ignore the exception.
+    const stat = tryStat(fs, path);
+    if (stat?.isFile()) {
+        return stat.size;
     }
     return 0;
 }
@@ -200,9 +198,14 @@ export function directoryExists(fs: FileSystem, path: string): boolean {
     return fileSystemEntryExists(fs, path, FileSystemEntryKind.Directory);
 }
 
+const invalidSeparator = path.sep === '/' ? '\\' : '/';
 export function normalizeSlashes(pathString: string): string {
-    const separatorRegExp = /[\\/]/g;
-    return pathString.replace(separatorRegExp, path.sep);
+    if (pathString.includes(invalidSeparator)) {
+        const separatorRegExp = /[\\/]/g;
+        return pathString.replace(separatorRegExp, path.sep);
+    }
+
+    return pathString;
 }
 
 /**
@@ -542,60 +545,76 @@ export function normalizePath(pathString: string): string {
 }
 
 export function isDirectory(fs: FileSystem, path: string): boolean {
-    let stat: any;
-    try {
-        stat = fs.statSync(path);
-    } catch (e) {
-        return false;
-    }
-
-    return stat.isDirectory();
+    return tryStat(fs, path)?.isDirectory() ?? false;
 }
 
 export function isFile(fs: FileSystem, path: string): boolean {
-    let stat: any;
-    try {
-        stat = fs.statSync(path);
-    } catch (e) {
-        return false;
-    }
+    return tryStat(fs, path)?.isFile() ?? false;
+}
 
-    return stat.isFile();
+export function tryStat(fs: FileSystem, path: string): Stats | undefined {
+    try {
+        return fs.statSync(path);
+    } catch (e) {
+        return undefined;
+    }
+}
+
+export function tryRealpath(fs: FileSystem, path: string): string | undefined {
+    try {
+        return fs.realpathSync(path);
+    } catch (e) {
+        return undefined;
+    }
 }
 
 export function getFileSystemEntries(fs: FileSystem, path: string): FileSystemEntries {
     try {
-        const entries = fs.readdirEntriesSync(path || '.').sort((a, b) => {
-            if (a.name < b.name) {
-                return -1;
-            } else if (a.name > b.name) {
-                return 1;
-            } else {
-                return 0;
-            }
-        });
-        const files: string[] = [];
-        const directories: string[] = [];
-        for (const entry of entries) {
-            // This is necessary because on some file system node fails to exclude
-            // "." and "..". See https://github.com/nodejs/node/issues/4002
-            if (entry.name === '.' || entry.name === '..') {
-                continue;
-            }
-
-            if (entry.isFile()) {
-                files.push(entry.name);
-            } else if (entry.isDirectory()) {
-                // Don't traverse symbolic links. They can lead to cycles.
-                if (!entry.isSymbolicLink()) {
-                    directories.push(entry.name);
-                }
-            }
-        }
-        return { files, directories };
+        return getFileSystemEntriesFromDirEntries(fs.readdirEntriesSync(path || '.'), fs, path);
     } catch (e) {
         return { files: [], directories: [] };
     }
+}
+
+// Sorts the entires into files and directories, including any symbolic links.
+export function getFileSystemEntriesFromDirEntries(
+    dirEntries: Dirent[],
+    fs: FileSystem,
+    path: string
+): FileSystemEntries {
+    const entries = dirEntries.sort((a, b) => {
+        if (a.name < b.name) {
+            return -1;
+        } else if (a.name > b.name) {
+            return 1;
+        } else {
+            return 0;
+        }
+    });
+    const files: string[] = [];
+    const directories: string[] = [];
+    for (const entry of entries) {
+        // This is necessary because on some file system node fails to exclude
+        // "." and "..". See https://github.com/nodejs/node/issues/4002
+        if (entry.name === '.' || entry.name === '..') {
+            continue;
+        }
+
+        if (entry.isFile()) {
+            files.push(entry.name);
+        } else if (entry.isDirectory()) {
+            directories.push(entry.name);
+        } else if (entry.isSymbolicLink()) {
+            const entryPath = combinePaths(path, entry.name);
+            const stat = tryStat(fs, entryPath);
+            if (stat?.isFile()) {
+                files.push(entry.name);
+            } else if (stat?.isDirectory()) {
+                directories.push(entry.name);
+            }
+        }
+    }
+    return { files, directories };
 }
 
 // Transforms a relative file spec (one that potentially contains
@@ -854,7 +873,7 @@ function fileSystemEntryExists(fs: FileSystem, path: string, entryKind: FileSyst
     }
 }
 
-export function convertUriToPath(uriString: string): string {
+export function convertUriToPath(fs: FileSystem, uriString: string): string {
     const uri = URI.parse(uriString);
     let convertedPath = normalizePath(uri.path);
     // If this is a DOS-style path with a drive letter, remove
@@ -862,10 +881,19 @@ export function convertUriToPath(uriString: string): string {
     if (convertedPath.match(/^\\[a-zA-Z]:\\/)) {
         convertedPath = convertedPath.substr(1);
     }
+
+    if (fs instanceof PyrightFileSystem) {
+        return fs.getMappedFilePath(convertedPath);
+    }
+
     return convertedPath;
 }
 
-export function convertPathToUri(path: string): string {
+export function convertPathToUri(fs: FileSystem, path: string): string {
+    if (fs instanceof PyrightFileSystem) {
+        path = fs.getOriginalFilePath(path);
+    }
+
     return URI.file(path).toString();
 }
 

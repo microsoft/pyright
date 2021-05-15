@@ -4,4 +4,3 @@
 # This function has no type annotations
 def add(a, b):
     return a + b
-

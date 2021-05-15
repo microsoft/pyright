@@ -16,7 +16,7 @@ class Writer(Protocol[T_contra]):
 
 
 class WriteFile:
-    def write(self, s: bytes) -> None:
+    def write(self, data: bytes) -> None:
         pass
 
 

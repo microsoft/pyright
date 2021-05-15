@@ -39,7 +39,7 @@ export const enum DeclarationType {
     Alias,
 }
 
-export type IntrinsicType = 'Any' | 'str' | 'int' | 'List[str]' | 'class' | 'Dict[str, Any]';
+export type IntrinsicType = 'Any' | 'str' | 'int' | 'Iterable[str]' | 'class' | 'Dict[str, Any]';
 
 export interface DeclarationBase {
     // Category of this symbol (function, variable, etc.).
@@ -112,6 +112,12 @@ export interface VariableDeclaration extends DeclarationBase {
     // constant in that reassignment is not permitted)?
     isFinal?: boolean;
 
+    // Is the declaration annotated with "Required"?
+    isRequired?: boolean;
+
+    // Is the declaration annotated with "NotRequired"?
+    isNotRequired?: boolean;
+
     // Points to the "TypeAlias" annotation described in PEP 613.
     typeAliasAnnotation?: ExpressionNode;
 
@@ -155,6 +161,9 @@ export interface AliasDeclaration extends DeclarationBase {
     // module loader. This can be recursive (e.g. in the case of
     // an "import a.b.c.d" statement).
     implicitImports?: Map<string, ModuleLoaderActions>;
+
+    // Is this a dummy entry for an unresolved import?
+    isUnresolved?: boolean;
 }
 
 // This interface represents a set of actions that the python loader
@@ -177,3 +186,27 @@ export type Declaration =
     | ParameterDeclaration
     | VariableDeclaration
     | AliasDeclaration;
+
+export function isFunctionDeclaration(decl: Declaration): decl is FunctionDeclaration {
+    return decl.type === DeclarationType.Function;
+}
+
+export function isClassDeclaration(decl: Declaration): decl is ClassDeclaration {
+    return decl.type === DeclarationType.Class;
+}
+
+export function isParameterDeclaration(decl: Declaration): decl is ParameterDeclaration {
+    return decl.type === DeclarationType.Parameter;
+}
+
+export function isVariableDeclaration(decl: Declaration): decl is VariableDeclaration {
+    return decl.type === DeclarationType.Variable;
+}
+
+export function isAliasDeclaration(decl: Declaration): decl is AliasDeclaration {
+    return decl.type === DeclarationType.Alias;
+}
+
+export function isSpecialBuiltInClassDeclarations(decl: Declaration): decl is SpecialBuiltInClassDeclaration {
+    return decl.type === DeclarationType.SpecialBuiltInClass;
+}

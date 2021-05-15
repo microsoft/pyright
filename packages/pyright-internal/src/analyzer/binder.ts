@@ -36,6 +36,7 @@ import {
     BinaryOperationNode,
     BreakNode,
     CallNode,
+    CaseNode,
     ClassNode,
     ContinueNode,
     DelNode,
@@ -47,8 +48,10 @@ import {
     IfNode,
     ImportAsNode,
     ImportFromNode,
+    IndexNode,
     LambdaNode,
     ListComprehensionNode,
+    MatchNode,
     MemberAccessNode,
     ModuleNameNode,
     ModuleNode,
@@ -56,10 +59,12 @@ import {
     NonlocalNode,
     ParseNode,
     ParseNodeType,
+    PatternAsNode,
+    PatternCaptureNode,
+    PatternMappingExpandEntryNode,
     RaiseNode,
     ReturnNode,
     StatementNode,
-    StringListNode,
     SuiteNode,
     TernaryNode,
     TryNode,
@@ -70,11 +75,11 @@ import {
     YieldFromNode,
     YieldNode,
 } from '../parser/parseNodes';
-import * as StringTokenUtils from '../parser/stringTokenUtils';
 import { KeywordType, OperatorType } from '../parser/tokenizerTypes';
 import { AnalyzerFileInfo, ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import {
+    CodeFlowReferenceExpressionNode,
     createKeyForReference,
     FlowAssignment,
     FlowAssignmentAlias,
@@ -82,6 +87,7 @@ import {
     FlowCondition,
     FlowFlags,
     FlowLabel,
+    FlowNarrowForPattern,
     FlowNode,
     FlowPostContextManagerLabel,
     FlowPostFinally,
@@ -107,7 +113,7 @@ import { ParseTreeWalker } from './parseTreeWalker';
 import { NameBindingType, Scope, ScopeType } from './scope';
 import * as StaticExpressions from './staticExpressions';
 import { indeterminateSymbolId, Symbol, SymbolFlags } from './symbol';
-import { isConstantName, isPrivateOrProtectedName } from './symbolNameUtils';
+import { isConstantName, isPrivateName, isPrivateOrProtectedName } from './symbolNameUtils';
 
 interface MemberAccessInfo {
     classNode: ClassNode;
@@ -125,12 +131,6 @@ interface DeferredBindingTask {
 interface FinalInfo {
     isFinal: boolean;
     finalTypeNode?: ExpressionNode;
-}
-
-type NarrowingExpressionNode = NameNode | MemberAccessNode;
-
-export interface BinderResults {
-    moduleDocString?: string;
 }
 
 export class Binder extends ParseTreeWalker {
@@ -180,6 +180,9 @@ export class Binder extends ParseTreeWalker {
     // Aliases of "typing" and "typing_extensions".
     private _typingImportAliases: string[] = [];
 
+    // Aliases of "sys".
+    private _sysImportAliases: string[] = [];
+
     // Map of imports of specific symbols imported from "typing" and "typing_extensions"
     // and the names they alias to.
     private _typingSymbolAliases: Map<string, string> = new Map<string, string>();
@@ -197,13 +200,13 @@ export class Binder extends ParseTreeWalker {
     // on whether they are listed in the __all__ list.
     private _potentialPrivateSymbols = new Map<string, Symbol>();
 
-    constructor(fileInfo: AnalyzerFileInfo) {
+    constructor(fileInfo: AnalyzerFileInfo, private _moduleSymbolOnly = false) {
         super();
 
         this._fileInfo = fileInfo;
     }
 
-    bindModule(node: ModuleNode): BinderResults {
+    bindModule(node: ModuleNode): void {
         // We'll assume that if there is no builtins scope provided, we must be
         // binding the builtins module itself.
         const isBuiltInModule = this._fileInfo.builtinsScope === undefined;
@@ -222,10 +225,11 @@ export class Binder extends ParseTreeWalker {
                 this._addBuiltInSymbolToCurrentScope('__loader__', node, 'Any');
                 this._addBuiltInSymbolToCurrentScope('__package__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__spec__', node, 'Any');
-                this._addBuiltInSymbolToCurrentScope('__path__', node, 'List[str]');
+                this._addBuiltInSymbolToCurrentScope('__path__', node, 'Iterable[str]');
                 this._addBuiltInSymbolToCurrentScope('__file__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__cached__', node, 'str');
                 this._addBuiltInSymbolToCurrentScope('__dict__', node, 'Dict[str, Any]');
+                this._addBuiltInSymbolToCurrentScope('__annotations__', node, 'Dict[str, Any]');
 
                 // Create a start node for the module.
                 this._currentFlowNode = this._createStartFlowNode();
@@ -254,9 +258,13 @@ export class Binder extends ParseTreeWalker {
 
         AnalyzerNodeInfo.setDunderAllNames(node, this._dunderAllNames);
 
-        return {
-            moduleDocString: ParseTreeUtils.getDocString(node.statements),
-        };
+        // Set __all__ flags on the module symbols.
+        const scope = AnalyzerNodeInfo.getScope(node);
+        if (scope && this._dunderAllNames) {
+            for (const name of this._dunderAllNames) {
+                scope.symbolTable.get(name)?.setIsInDunderAll();
+            }
+        }
     }
 
     visitModule(node: ModuleNode): boolean {
@@ -293,7 +301,7 @@ export class Binder extends ParseTreeWalker {
         if (
             !importResult.isStubFile &&
             importResult.importType === ImportType.ThirdParty &&
-            !importResult.isPyTypedPresent
+            !importResult.pyTypedInfo
         ) {
             const diagnostic = this._addDiagnostic(
                 this._fileInfo.diagnosticRuleSet.reportMissingTypeStubs,
@@ -365,11 +373,11 @@ export class Binder extends ParseTreeWalker {
         this._createNewScope(ScopeType.Class, parentScope, () => {
             AnalyzerNodeInfo.setScope(node, this._currentScope);
 
-            // Analyze the suite.
-            this.walk(node.suite);
+            if (!this._moduleSymbolOnly) {
+                // Analyze the suite.
+                this.walk(node.suite);
+            }
         });
-
-        this._addSymbolToCurrentScope(node.name.value, /* isInitiallyUnbound */ true);
 
         this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ false, /* unbound */ false);
 
@@ -653,13 +661,17 @@ export class Binder extends ParseTreeWalker {
         this.walk(node.rightExpression);
 
         let isPossibleTypeAlias = true;
-        if (ParseTreeUtils.getEnclosingClass(node) || ParseTreeUtils.getEnclosingFunction(node)) {
-            // We will assume that type aliases are defined only at the module level.
+        if (ParseTreeUtils.getEnclosingFunction(node)) {
+            // We will assume that type aliases are defined only at the module level
+            // or as class variables, not as local variables within a function.
             isPossibleTypeAlias = false;
         } else if (node.rightExpression.nodeType === ParseNodeType.Call && this._fileInfo.isTypingStubFile) {
             // Some special built-in types defined in typing.pyi use
             // assignments of the form List = _Alias(). We don't want to
             // treat these as type aliases.
+            isPossibleTypeAlias = false;
+        } else if (ParseTreeUtils.isWithinLoop(node)) {
+            // Assume that it's not a type alias if it's within a loop.
             isPossibleTypeAlias = false;
         }
 
@@ -732,6 +744,7 @@ export class Binder extends ParseTreeWalker {
         const evaluationNode = ParseTreeUtils.getEvaluationNodeForAssignmentExpression(node);
         if (!evaluationNode) {
             this._addError(Localizer.Diagnostic.assignmentExprContext(), node);
+            this.walk(node.name);
         } else {
             // Bind the name to the containing scope. This special logic is required
             // because of the behavior defined in PEP 572. Targets of assignment
@@ -758,9 +771,8 @@ export class Binder extends ParseTreeWalker {
 
             this._bindNameToScope(containerScope, node.name.value);
             this._addInferredTypeAssignmentForVariable(node.name, node.rightExpression);
+            this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ true, /* unbound */ false);
         }
-
-        this._createAssignmentTargetFlowNodes(node.name, /* walkTargets */ true, /* unbound */ false);
 
         return false;
     }
@@ -853,7 +865,7 @@ export class Binder extends ParseTreeWalker {
         // annotations), we need to populate the reference map. Otherwise the type
         // analyzer's code flow engine won't run and detect cases where the variable
         // is unbound.
-        const expressionList: NarrowingExpressionNode[] = [];
+        const expressionList: CodeFlowReferenceExpressionNode[] = [];
         if (this._isNarrowingExpression(node.valueExpression, expressionList)) {
             expressionList.forEach((expr) => {
                 const referenceKey = createKeyForReference(expr);
@@ -940,11 +952,19 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitYield(node: YieldNode): boolean {
+        if (this._isInListComprehension(node)) {
+            this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
+        }
+
         this._bindYield(node);
         return false;
     }
 
     visitYieldFrom(node: YieldFromNode): boolean {
+        if (this._isInListComprehension(node)) {
+            this._addError(Localizer.Diagnostic.yieldWithinListCompr(), node);
+        }
+
         this._bindYield(node);
         return false;
     }
@@ -961,6 +981,11 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
+    visitIndex(node: IndexNode): boolean {
+        AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+        return true;
+    }
+
     visitIf(node: IfNode): boolean {
         const thenLabel = this._createBranchLabel();
         const elseLabel = this._createBranchLabel();
@@ -971,7 +996,8 @@ export class Binder extends ParseTreeWalker {
         const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             node.testExpression,
             this._fileInfo.executionEnvironment,
-            this._typingImportAliases
+            this._typingImportAliases,
+            this._sysImportAliases
         );
 
         this._bindConditional(node.testExpression, thenLabel, elseLabel);
@@ -989,6 +1015,8 @@ export class Binder extends ParseTreeWalker {
             constExprValue === true ? Binder._unreachableFlowNode : this._finishFlowLabel(elseLabel);
         if (node.elseSuite) {
             this.walk(node.elseSuite);
+        } else {
+            this._bindNeverCondition(node.testExpression, postIfLabel, /* isPositiveTest */ false);
         }
         this._addAntecedent(postIfLabel, this._currentFlowNode);
         this._currentFlowNode = this._finishFlowLabel(postIfLabel);
@@ -1006,7 +1034,8 @@ export class Binder extends ParseTreeWalker {
         const constExprValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             node.testExpression,
             this._fileInfo.executionEnvironment,
-            this._typingImportAliases
+            this._typingImportAliases,
+            this._sysImportAliases
         );
 
         const preLoopLabel = this._createLoopLabel();
@@ -1169,6 +1198,13 @@ export class Binder extends ParseTreeWalker {
             this._addAntecedent(preFinallyLabel, preFinallyGate);
         }
 
+        // Add the finally target as an exception target unless there is
+        // a "bare" except clause that accepts all exception types.
+        const hasBareExceptClause = node.exceptClauses.some((except) => !except.typeExpression);
+        if (!hasBareExceptClause) {
+            curExceptTargets.push(preFinallyReturnOrRaiseLabel);
+        }
+
         // An exception may be generated before the first flow node
         // added by the try block, so all of the exception targets
         // must have the pre-try flow node as an antecedent.
@@ -1241,42 +1277,6 @@ export class Binder extends ParseTreeWalker {
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
             this._addError(Localizer.Diagnostic.awaitNotInAsync(), node);
-        }
-
-        return true;
-    }
-
-    visitStringList(node: StringListNode): boolean {
-        for (const stringNode of node.strings) {
-            if (stringNode.hasUnescapeErrors) {
-                const unescapedResult = StringTokenUtils.getUnescapedString(stringNode.token);
-
-                unescapedResult.unescapeErrors.forEach((error: StringTokenUtils.UnescapeError) => {
-                    const start =
-                        stringNode.token.start +
-                        stringNode.token.prefixLength +
-                        stringNode.token.quoteMarkLength +
-                        error.offset;
-                    const textRange = { start, length: error.length };
-
-                    if (error.errorType === StringTokenUtils.UnescapeErrorType.InvalidEscapeSequence) {
-                        this._addDiagnostic(
-                            this._fileInfo.diagnosticRuleSet.reportInvalidStringEscapeSequence,
-                            DiagnosticRule.reportInvalidStringEscapeSequence,
-                            Localizer.Diagnostic.stringUnsupportedEscape(),
-                            textRange
-                        );
-                    } else if (error.errorType === StringTokenUtils.UnescapeErrorType.EscapeWithinFormatExpression) {
-                        this._addError(Localizer.Diagnostic.formatStringEscape(), textRange);
-                    } else if (
-                        error.errorType === StringTokenUtils.UnescapeErrorType.SingleCloseBraceWithinFormatLiteral
-                    ) {
-                        this._addError(Localizer.Diagnostic.formatStringBrace(), textRange);
-                    } else if (error.errorType === StringTokenUtils.UnescapeErrorType.UnterminatedFormatExpression) {
-                        this._addError(Localizer.Diagnostic.formatStringUnterminated(), textRange);
-                    }
-                });
-            }
         }
 
         return true;
@@ -1387,6 +1387,8 @@ export class Binder extends ParseTreeWalker {
             if (node.module.nameParts.length === 1) {
                 if (firstNamePartValue === 'typing' || firstNamePartValue === 'typing_extensions') {
                     this._typingImportAliases.push(node.alias?.value || firstNamePartValue);
+                } else if (firstNamePartValue === 'sys') {
+                    this._sysImportAliases.push(node.alias?.value || firstNamePartValue);
                 }
             }
         }
@@ -1395,7 +1397,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     visitImportFrom(node: ImportFromNode): boolean {
-        const typingSymbolsOfInterest = ['Final', 'TypeAlias'];
+        const typingSymbolsOfInterest = ['Final', 'TypeAlias', 'ClassVar', 'Required', 'NotRequired'];
         const importInfo = AnalyzerNodeInfo.getImportInfo(node.module);
 
         let resolvedPath = '';
@@ -1411,7 +1413,7 @@ export class Binder extends ParseTreeWalker {
         // declaration list because it should "win" when resolving the alias.
         const fileName = stripFileExtension(getFileName(this._fileInfo.filePath));
         const isModuleInitFile =
-            fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length > 0;
+            fileName === '__init__' && node.module.leadingDots === 1 && node.module.nameParts.length === 1;
 
         let isTypingImport = false;
         if (node.module.nameParts.length === 1) {
@@ -1521,14 +1523,25 @@ export class Binder extends ParseTreeWalker {
                 const symbol = this._bindNameToScope(this._currentScope, nameNode.value);
 
                 if (symbol) {
-                    if (!importSymbolNode.alias || importSymbolNode.alias.value !== importSymbolNode.name.value) {
-                        if (this._fileInfo.isStubFile) {
-                            // PEP 484 indicates that imported symbols should not be
-                            // considered "reexported" from a type stub file unless
-                            // they are imported using the "as" form using a redundant form.
-                            symbol.setIsExternallyHidden();
-                        } else if (this._fileInfo.isInPyTypedPackage && this._currentScope.type === ScopeType.Module) {
-                            this._potentialPrivateSymbols.set(nameNode.value, symbol);
+                    // All import statements of the form `from . import x` treat x
+                    // as an externally-visible (not hidden) symbol.
+                    if (node.module.nameParts.length > 0) {
+                        if (!importSymbolNode.alias || importSymbolNode.alias.value !== importSymbolNode.name.value) {
+                            if (this._fileInfo.isStubFile) {
+                                // PEP 484 indicates that imported symbols should not be
+                                // considered "reexported" from a type stub file unless
+                                // they are imported using the "as" form using a redundant form.
+                                symbol.setIsExternallyHidden();
+                            } else if (
+                                this._fileInfo.isInPyTypedPackage &&
+                                this._currentScope.type === ScopeType.Module
+                            ) {
+                                // Py.typed packages follow the same rule as PEP 484 except
+                                // that if the symbol appears in the __all__ list, it is overridden
+                                // and becomes a externally-visible symbol. For now, add it to
+                                // the "potentially private" map.
+                                this._potentialPrivateSymbols.set(nameNode.value, symbol);
+                            }
                         }
                     }
 
@@ -1549,10 +1562,14 @@ export class Binder extends ParseTreeWalker {
                             moduleName: this._fileInfo.moduleName,
                         };
 
-                        // Handle the case of "from . import X". In this case,
-                        // we want to always resolve to the submodule rather than
-                        // the resolved path.
-                        if (node.module.nameParts.length === 0) {
+                        // Handle the case of "from . import X" within an __init__ file.
+                        // In this case, we want to always resolve to the submodule rather
+                        // than the resolved path.
+                        if (
+                            fileName === '__init__' &&
+                            node.module.leadingDots === 1 &&
+                            node.module.nameParts.length === 0
+                        ) {
                             resolvedPath = '';
                         }
                     }
@@ -1766,6 +1783,148 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
+    visitMatch(node: MatchNode) {
+        // Evaluate the subject expression.
+        this.walk(node.subjectExpression);
+
+        const expressionList: CodeFlowReferenceExpressionNode[] = [];
+        const isSubjectNarrowable = this._isNarrowingExpression(node.subjectExpression, expressionList);
+        if (isSubjectNarrowable) {
+            expressionList.forEach((expr) => {
+                const referenceKey = createKeyForReference(expr);
+                this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
+            });
+        }
+
+        const postMatchLabel = this._createBranchLabel();
+
+        // Model the match statement as a series of if/elif clauses
+        // each of which tests for the specified pattern (and optionally
+        // for the guard condition).
+        node.cases.forEach((caseStatement) => {
+            const postCaseLabel = this._createBranchLabel();
+            const preGuardLabel = this._createBranchLabel();
+            const preSuiteLabel = this._createBranchLabel();
+
+            // Evaluate the pattern.
+            this._addAntecedent(preGuardLabel, this._currentFlowNode!);
+
+            if (!caseStatement.isIrrefutable) {
+                this._addAntecedent(postCaseLabel, this._currentFlowNode!);
+            }
+
+            this._currentFlowNode = this._finishFlowLabel(preGuardLabel);
+
+            // Bind the pattern.
+            this.walk(caseStatement.pattern);
+
+            // Apply the guard expression.
+            if (caseStatement.guardExpression) {
+                this._bindConditional(caseStatement.guardExpression, preSuiteLabel, postCaseLabel);
+            } else {
+                this._addAntecedent(preSuiteLabel, this._currentFlowNode);
+            }
+
+            this._currentFlowNode = this._finishFlowLabel(preSuiteLabel);
+
+            if (isSubjectNarrowable) {
+                this._createFlowNarrowForPattern(node.subjectExpression, caseStatement);
+            }
+
+            // Bind the body of the case statement.
+            this.walk(caseStatement.suite);
+            this._addAntecedent(postMatchLabel, this._currentFlowNode);
+
+            this._currentFlowNode = this._finishFlowLabel(postCaseLabel);
+        });
+
+        this._addAntecedent(postMatchLabel, this._currentFlowNode!);
+        this._currentFlowNode = this._finishFlowLabel(postMatchLabel);
+
+        return false;
+    }
+
+    visitPatternAs(node: PatternAsNode) {
+        const postOrLabel = this._createBranchLabel();
+
+        node.orPatterns.forEach((orPattern) => {
+            this.walk(orPattern);
+            this._addAntecedent(postOrLabel, this._currentFlowNode!);
+        });
+
+        this._currentFlowNode = this._finishFlowLabel(postOrLabel);
+
+        if (node.target) {
+            this.walk(node.target);
+            const symbol = this._bindNameToScope(this._currentScope, node.target.value);
+            this._createAssignmentTargetFlowNodes(node.target, /* walkTargets */ false, /* unbound */ false);
+
+            if (symbol) {
+                const declaration: VariableDeclaration = {
+                    type: DeclarationType.Variable,
+                    node: node.target,
+                    isConstant: isConstantName(node.target.value),
+                    inferredTypeSource: node,
+                    path: this._fileInfo.filePath,
+                    range: convertOffsetsToRange(
+                        node.target.start,
+                        TextRange.getEnd(node.target),
+                        this._fileInfo.lines
+                    ),
+                    moduleName: this._fileInfo.moduleName,
+                };
+                symbol.addDeclaration(declaration);
+            }
+        }
+
+        return false;
+    }
+
+    visitPatternCapture(node: PatternCaptureNode) {
+        if (!node.isWildcard) {
+            this._addPatternCaptureTarget(node.target);
+        }
+
+        return true;
+    }
+
+    visitPatternMappingExpandEntry(node: PatternMappingExpandEntryNode) {
+        if (node.target.value !== '_') {
+            this._addPatternCaptureTarget(node.target);
+        }
+
+        return true;
+    }
+
+    private _isInListComprehension(node: ParseNode) {
+        let curNode: ParseNode | undefined = node;
+        while (curNode) {
+            if (curNode.nodeType === ParseNodeType.ListComprehension) {
+                return true;
+            }
+            curNode = curNode.parent;
+        }
+        return false;
+    }
+
+    private _addPatternCaptureTarget(target: NameNode) {
+        const symbol = this._bindNameToScope(this._currentScope, target.value);
+        this._createAssignmentTargetFlowNodes(target, /* walkTargets */ false, /* unbound */ false);
+
+        if (symbol) {
+            const declaration: VariableDeclaration = {
+                type: DeclarationType.Variable,
+                node: target,
+                isConstant: isConstantName(target.value),
+                inferredTypeSource: target.parent,
+                path: this._fileInfo.filePath,
+                range: convertOffsetsToRange(target.start, TextRange.getEnd(target), this._fileInfo.lines),
+                moduleName: this._fileInfo.moduleName,
+            };
+            symbol.addDeclaration(declaration);
+        }
+    }
+
     private _useExceptTargets(targets: FlowLabel[], callback: () => void) {
         const prevExceptTargets = this._currentExceptTargets;
         this._currentExceptTargets = targets;
@@ -1913,6 +2072,7 @@ export class Binder extends ParseTreeWalker {
                 range: getEmptyRange(),
                 usesLocalName: !!importAlias,
                 moduleName: '',
+                isUnresolved: true,
             };
             symbol.addDeclaration(newDecl);
         }
@@ -1927,7 +2087,7 @@ export class Binder extends ParseTreeWalker {
         // Import all names that don't begin with an underscore.
         const namesToImport: string[] = [];
         lookupInfo.symbolTable.forEach((symbol, name) => {
-            if (!name.startsWith('_') && !symbol.isIgnoredForProtocolMatch()) {
+            if (!symbol.isExternallyHidden()) {
                 namesToImport!.push(name);
             }
         });
@@ -1980,6 +2140,18 @@ export class Binder extends ParseTreeWalker {
         return flowNode;
     }
 
+    private _createFlowNarrowForPattern(subjectExpression: ExpressionNode, caseStatement: CaseNode) {
+        const flowNode: FlowNarrowForPattern = {
+            flags: FlowFlags.NarrowForPattern,
+            id: getUniqueFlowNodeId(),
+            subjectExpression,
+            caseStatement,
+            antecedent: this._currentFlowNode!,
+        };
+
+        this._currentFlowNode! = flowNode;
+    }
+
     private _createContextManagerLabel(expressions: ExpressionNode[], isAsync: boolean) {
         const flowNode: FlowPostContextManagerLabel = {
             flags: FlowFlags.PostContextManager | FlowFlags.BranchLabel,
@@ -2006,13 +2178,74 @@ export class Binder extends ParseTreeWalker {
             return Binder._unreachableFlowNode;
         }
 
-        // If there was only one antecedent, there's no need
-        // for a label to exist.
-        if (node.antecedents.length === 1) {
+        // If there was only one antecedent and this is a simple
+        // branch label, there's no need for a label to exist.
+        if (node.antecedents.length === 1 && node.flags === FlowFlags.BranchLabel) {
             return node.antecedents[0];
         }
 
         return node;
+    }
+
+    // Creates a node that creates a "gate" that is closed (doesn't allow for code
+    // flow) if the specified expression is never once it is narrowed (in either the
+    // positive or negative case).
+    private _bindNeverCondition(node: ExpressionNode, target: FlowLabel, isPositiveTest: boolean) {
+        const expressionList: CodeFlowReferenceExpressionNode[] = [];
+
+        if (node.nodeType === ParseNodeType.UnaryOperation && node.operator === OperatorType.Not) {
+            this._bindNeverCondition(node.expression, target, !isPositiveTest);
+        } else if (
+            node.nodeType === ParseNodeType.BinaryOperation &&
+            (node.operator === OperatorType.And || node.operator === OperatorType.Or)
+        ) {
+            if (node.operator === OperatorType.And) {
+                // In the And case, we need to gate the synthesized else clause if both
+                // of the operands evaluate to never once they are narrowed.
+                const savedCurrentFlowNode = this._currentFlowNode;
+                this._bindNeverCondition(node.leftExpression, target, isPositiveTest);
+                this._currentFlowNode = savedCurrentFlowNode;
+                this._bindNeverCondition(node.rightExpression, target, isPositiveTest);
+            } else {
+                const initialCurrentFlowNode = this._currentFlowNode;
+
+                // In the Or case, we need to gate the synthesized else clause if either
+                // of the operands evaluate to never.
+                const afterLabel = this._createBranchLabel();
+                this._bindNeverCondition(node.leftExpression, afterLabel, isPositiveTest);
+
+                // If the condition didn't result in any new flow nodes, we can skip
+                // checking the other condition.
+                if (initialCurrentFlowNode !== this._currentFlowNode) {
+                    this._currentFlowNode = this._finishFlowLabel(afterLabel);
+
+                    const prevCurrentNode = this._currentFlowNode;
+                    this._bindNeverCondition(node.rightExpression, target, isPositiveTest);
+
+                    // If the second condition resulted in no new control flow node, we can
+                    // eliminate this entire subgraph.
+                    if (prevCurrentNode === this._currentFlowNode) {
+                        this._currentFlowNode = initialCurrentFlowNode;
+                    }
+                }
+            }
+        } else {
+            // Limit only to expressions that contain a narrowable subexpression
+            // that is a name. This avoids complexities with composite expressions like
+            // member access or index expressions.
+            if (this._isNarrowingExpression(node, expressionList, /* neverNarrowingExpressions */ true)) {
+                const filteredExprList = expressionList.filter((expr) => expr.nodeType === ParseNodeType.Name);
+                if (filteredExprList.length > 0) {
+                    this._currentFlowNode = this._createFlowConditional(
+                        isPositiveTest ? FlowFlags.TrueNeverCondition : FlowFlags.FalseNeverCondition,
+                        this._currentFlowNode!,
+                        node
+                    );
+                }
+            }
+
+            this._addAntecedent(target, this._currentFlowNode!);
+        }
     }
 
     private _bindConditional(node: ExpressionNode, trueTarget: FlowLabel, falseTarget: FlowLabel) {
@@ -2045,7 +2278,8 @@ export class Binder extends ParseTreeWalker {
         const staticValue = StaticExpressions.evaluateStaticBoolLikeExpression(
             expression,
             this._fileInfo.executionEnvironment,
-            this._typingImportAliases
+            this._typingImportAliases,
+            this._sysImportAliases
         );
         if (
             (staticValue === true && flags & FlowFlags.FalseCondition) ||
@@ -2054,7 +2288,7 @@ export class Binder extends ParseTreeWalker {
             return Binder._unreachableFlowNode;
         }
 
-        const expressionList: NarrowingExpressionNode[] = [];
+        const expressionList: CodeFlowReferenceExpressionNode[] = [];
         if (!this._isNarrowingExpression(expression, expressionList)) {
             return antecedent;
         }
@@ -2064,9 +2298,13 @@ export class Binder extends ParseTreeWalker {
             this._currentExecutionScopeReferenceMap!.set(referenceKey, referenceKey);
         });
 
+        // Select the first name expression.
+        const filteredExprList = expressionList.filter((expr) => expr.nodeType === ParseNodeType.Name);
+
         const conditionalFlowNode: FlowCondition = {
             flags,
             id: getUniqueFlowNodeId(),
+            reference: filteredExprList.length > 0 ? (filteredExprList[0] as NameNode) : undefined,
             expression,
             antecedent,
         };
@@ -2091,10 +2329,39 @@ export class Binder extends ParseTreeWalker {
         return false;
     }
 
-    private _isNarrowingExpression(expression: ExpressionNode, expressionList: NarrowingExpressionNode[]): boolean {
+    // Determines whether the specified expression can be used for conditional
+    // type narrowing. The expression atoms (names, member accesses and index)
+    // are provided as an output in the expressionList.
+    // If filterForNeverNarrowing is true, we limit some types of narrowing
+    // expressions for performance reasons.
+    // The isComplexExpression parameter is used internally to determine whether
+    // the call is an atom (name, member access, index - plus a "not" form of
+    // these) or something more complex (binary operator, call, etc.).
+    private _isNarrowingExpression(
+        expression: ExpressionNode,
+        expressionList: CodeFlowReferenceExpressionNode[],
+        filterForNeverNarrowing = false,
+        isComplexExpression = false
+    ): boolean {
         switch (expression.nodeType) {
             case ParseNodeType.Name:
-            case ParseNodeType.MemberAccess: {
+            case ParseNodeType.MemberAccess:
+            case ParseNodeType.Index: {
+                if (filterForNeverNarrowing) {
+                    // Never narrowing doesn't support member access or index
+                    // expressions.
+                    if (expression.nodeType !== ParseNodeType.Name) {
+                        return false;
+                    }
+
+                    // Never narrowing doesn't support simple names (falsy
+                    // or truthy narrowing) because it's too expensive and
+                    // provides relatively little utility.
+                    if (!isComplexExpression) {
+                        return false;
+                    }
+                }
+
                 if (isCodeFlowSupportedForReference(expression)) {
                     expressionList.push(expression);
                     return true;
@@ -2121,7 +2388,12 @@ export class Binder extends ParseTreeWalker {
                         expression.rightExpression.nodeType === ParseNodeType.Constant &&
                         expression.rightExpression.constType === KeywordType.None
                     ) {
-                        return this._isNarrowingExpression(expression.leftExpression, expressionList);
+                        return this._isNarrowingExpression(
+                            expression.leftExpression,
+                            expressionList,
+                            filterForNeverNarrowing,
+                            /* isComplexExpression */ true
+                        );
                     }
 
                     // Look for "type(X) is Y" or "type(X) is not Y".
@@ -2135,11 +2407,18 @@ export class Binder extends ParseTreeWalker {
                     ) {
                         return this._isNarrowingExpression(
                             expression.leftExpression.arguments[0].valueExpression,
-                            expressionList
+                            expressionList,
+                            filterForNeverNarrowing,
+                            /* isComplexExpression */ true
                         );
                     }
 
-                    const isLeftNarrowing = this._isNarrowingExpression(expression.leftExpression, expressionList);
+                    const isLeftNarrowing = this._isNarrowingExpression(
+                        expression.leftExpression,
+                        expressionList,
+                        filterForNeverNarrowing,
+                        /* isComplexExpression */ true
+                    );
 
                     // Look for "X is Y" or "X is not Y".
                     if (isOrIsNotOperator) {
@@ -2150,7 +2429,9 @@ export class Binder extends ParseTreeWalker {
                     if (equalsOrNotEqualsOperator) {
                         const isRightNarrowing = this._isNarrowingExpression(
                             expression.rightExpression,
-                            expressionList
+                            expressionList,
+                            filterForNeverNarrowing,
+                            /* isComplexExpression */ true
                         );
                         return isLeftNarrowing || isRightNarrowing;
                     }
@@ -2158,14 +2439,26 @@ export class Binder extends ParseTreeWalker {
 
                 // Look for "<string> in Y" or "<string> not in Y".
                 if (expression.operator === OperatorType.In || expression.operator === OperatorType.NotIn) {
-                    if (this._isNarrowingExpression(expression.rightExpression, expressionList)) {
+                    if (
+                        this._isNarrowingExpression(
+                            expression.rightExpression,
+                            expressionList,
+                            filterForNeverNarrowing,
+                            /* isComplexExpression */ true
+                        )
+                    ) {
                         return true;
                     }
                 }
 
                 // Look for "X in Y".
                 if (expression.operator === OperatorType.In) {
-                    return this._isNarrowingExpression(expression.leftExpression, expressionList);
+                    return this._isNarrowingExpression(
+                        expression.leftExpression,
+                        expressionList,
+                        filterForNeverNarrowing,
+                        /* isComplexExpression */ true
+                    );
                 }
 
                 return false;
@@ -2174,12 +2467,22 @@ export class Binder extends ParseTreeWalker {
             case ParseNodeType.UnaryOperation: {
                 return (
                     expression.operator === OperatorType.Not &&
-                    this._isNarrowingExpression(expression.expression, expressionList)
+                    this._isNarrowingExpression(
+                        expression.expression,
+                        expressionList,
+                        filterForNeverNarrowing,
+                        /* isComplexExpression */ false
+                    )
                 );
             }
 
             case ParseNodeType.AugmentedAssignment: {
-                return this._isNarrowingExpression(expression.rightExpression, expressionList);
+                return this._isNarrowingExpression(
+                    expression.rightExpression,
+                    expressionList,
+                    filterForNeverNarrowing,
+                    /* isComplexExpression */ true
+                );
             }
 
             case ParseNodeType.Call: {
@@ -2189,7 +2492,12 @@ export class Binder extends ParseTreeWalker {
                         expression.leftExpression.value === 'issubclass') &&
                     expression.arguments.length === 2
                 ) {
-                    return this._isNarrowingExpression(expression.arguments[0].valueExpression, expressionList);
+                    return this._isNarrowingExpression(
+                        expression.arguments[0].valueExpression,
+                        expressionList,
+                        filterForNeverNarrowing,
+                        /* isComplexExpression */ true
+                    );
                 }
 
                 if (
@@ -2197,12 +2505,28 @@ export class Binder extends ParseTreeWalker {
                     expression.leftExpression.value === 'callable' &&
                     expression.arguments.length === 1
                 ) {
-                    return this._isNarrowingExpression(expression.arguments[0].valueExpression, expressionList);
+                    return this._isNarrowingExpression(
+                        expression.arguments[0].valueExpression,
+                        expressionList,
+                        filterForNeverNarrowing,
+                        /* isComplexExpression */ true
+                    );
                 }
 
                 // Is this potentially a call to a user-defined type guard function?
                 if (expression.arguments.length >= 1) {
-                    return this._isNarrowingExpression(expression.arguments[0].valueExpression, expressionList);
+                    // Never narrowing doesn't support type guards because they do not
+                    // offer negative narrowing.
+                    if (filterForNeverNarrowing) {
+                        return false;
+                    }
+
+                    return this._isNarrowingExpression(
+                        expression.arguments[0].valueExpression,
+                        expressionList,
+                        filterForNeverNarrowing,
+                        /* isComplexExpression */ true
+                    );
                 }
             }
         }
@@ -2214,6 +2538,14 @@ export class Binder extends ParseTreeWalker {
         switch (target.nodeType) {
             case ParseNodeType.Name:
             case ParseNodeType.MemberAccess: {
+                this._createFlowAssignment(target, unbound);
+                if (walkTargets) {
+                    this.walk(target);
+                }
+                break;
+            }
+
+            case ParseNodeType.Index: {
                 this._createFlowAssignment(target, unbound);
                 if (walkTargets) {
                     this.walk(target);
@@ -2272,6 +2604,10 @@ export class Binder extends ParseTreeWalker {
         }
 
         AnalyzerNodeInfo.setFlowNode(node, this._currentFlowNode!);
+
+        if (!this._isCodeUnreachable()) {
+            this._addExceptTargets(this._currentFlowNode!);
+        }
     }
 
     private _createAssignmentAliasFlowNode(targetSymbolId: number, aliasSymbolId: number) {
@@ -2300,7 +2636,7 @@ export class Binder extends ParseTreeWalker {
         }
     }
 
-    private _createFlowAssignment(node: NameNode | MemberAccessNode, unbound = false) {
+    private _createFlowAssignment(node: CodeFlowReferenceExpressionNode, unbound = false) {
         let targetSymbolId = indeterminateSymbolId;
         if (node.nodeType === ParseNodeType.Name) {
             const symbolWithScope = this._currentScope.lookUpSymbolRecursive(node.value);
@@ -2325,7 +2661,11 @@ export class Binder extends ParseTreeWalker {
                 flowNode.flags |= FlowFlags.Unbind;
             }
 
-            this._addExceptTargets(flowNode);
+            // Assume that an assignment to a member access expression
+            // can potentially generate an exception.
+            if (node.nodeType === ParseNodeType.MemberAccess) {
+                this._addExceptTargets(flowNode);
+            }
             this._currentFlowNode = flowNode;
         }
 
@@ -2392,7 +2732,19 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _bindNameToScope(scope: Scope, name: string, addedSymbols?: Map<string, Symbol>) {
-        if (this._currentScope.getBindingType(name) === undefined) {
+        // Is this name already bound to a scope other than the local one?
+        const bindingType = this._currentScope.getBindingType(name);
+
+        if (bindingType !== undefined) {
+            const scopeToUse =
+                bindingType === NameBindingType.Nonlocal
+                    ? this._currentScope.parent!
+                    : this._currentScope.getGlobalScope();
+            const symbolWithScope = scopeToUse.lookUpSymbolRecursive(name);
+            if (symbolWithScope) {
+                return symbolWithScope.symbol;
+            }
+        } else {
             // Don't overwrite an existing symbol.
             let symbol = scope.lookUpSymbol(name);
             if (!symbol) {
@@ -2409,7 +2761,7 @@ export class Binder extends ParseTreeWalker {
                 }
 
                 if (isPrivateOrProtectedName(name)) {
-                    if (this._fileInfo.isStubFile) {
+                    if (this._fileInfo.isStubFile || isPrivateName(name)) {
                         symbol.setIsExternallyHidden();
                     } else if (this._fileInfo.isInPyTypedPackage && this._currentScope.type === ScopeType.Module) {
                         this._potentialPrivateSymbols.set(name, symbol);
@@ -2657,6 +3009,8 @@ export class Binder extends ParseTreeWalker {
                         node: target,
                         isConstant: isConstantName(name.value),
                         isFinal: finalInfo.isFinal,
+                        isRequired: this._isRequiredAnnotation(typeAnnotationNode),
+                        isNotRequired: this._isNotRequiredAnnotation(typeAnnotationNode),
                         typeAliasAnnotation: isExplicitTypeAlias ? typeAnnotation : undefined,
                         typeAliasName: isExplicitTypeAlias ? target : undefined,
                         path: this._fileInfo.filePath,
@@ -2671,8 +3025,7 @@ export class Binder extends ParseTreeWalker {
                     // "ClassVar" maps to the typing module symbol by this name.
                     const isClassVar =
                         typeAnnotation.nodeType === ParseNodeType.Index &&
-                        typeAnnotation.baseExpression.nodeType === ParseNodeType.Name &&
-                        typeAnnotation.baseExpression.value === 'ClassVar';
+                        this._isTypingAnnotation(typeAnnotation.baseExpression, 'ClassVar');
 
                     if (isClassVar) {
                         symbolWithScope.symbol.setIsClassVar();
@@ -2766,7 +3119,7 @@ export class Binder extends ParseTreeWalker {
     }
 
     // Determines if the specified type annotation expression is a "Final".
-    // It returns two boolean values indicating if the expression is a "Final"
+    // It returns a value indicating whether the expression is a "Final"
     // expression and whether it's a "raw" Final with no type arguments.
     private _isAnnotationFinal(typeAnnotation: ExpressionNode | undefined): FinalInfo {
         let isFinal = false;
@@ -2778,14 +3131,41 @@ export class Binder extends ParseTreeWalker {
             } else if (typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
                 // Recursively call to see if the base expression is "Final".
                 const finalInfo = this._isAnnotationFinal(typeAnnotation.baseExpression);
-                if (finalInfo.isFinal) {
+                if (
+                    finalInfo.isFinal &&
+                    typeAnnotation.items[0].argumentCategory === ArgumentCategory.Simple &&
+                    !typeAnnotation.items[0].name &&
+                    !typeAnnotation.trailingComma
+                ) {
                     isFinal = true;
-                    finalTypeNode = typeAnnotation.items[0];
+                    finalTypeNode = typeAnnotation.items[0].valueExpression;
                 }
             }
         }
 
         return { isFinal, finalTypeNode };
+    }
+
+    // Determines if the specified type annotation is wrapped in a "Required".
+    private _isRequiredAnnotation(typeAnnotation: ExpressionNode | undefined): boolean {
+        if (typeAnnotation && typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
+            if (this._isTypingAnnotation(typeAnnotation.baseExpression, 'Required')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Determines if the specified type annotation is wrapped in a "NotRequired".
+    private _isNotRequiredAnnotation(typeAnnotation: ExpressionNode | undefined): boolean {
+        if (typeAnnotation && typeAnnotation.nodeType === ParseNodeType.Index && typeAnnotation.items.length === 1) {
+            if (this._isTypingAnnotation(typeAnnotation.baseExpression, 'NotRequired')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private _isAnnotationTypeAlias(typeAnnotation: ExpressionNode | undefined) {
@@ -2937,6 +3317,7 @@ export class Binder extends ParseTreeWalker {
             OrderedDict: true,
             Concatenate: true,
             TypeGuard: true,
+            Unpack: true,
         };
 
         const assignedName = assignedNameNode.value;
@@ -2963,6 +3344,10 @@ export class Binder extends ParseTreeWalker {
     }
 
     private _deferBinding(callback: () => void) {
+        if (this._moduleSymbolOnly) {
+            return;
+        }
+
         this._deferredBindingTasks.push({
             scope: this._currentScope,
             codeFlowExpressionMap: this._currentExecutionScopeReferenceMap!,

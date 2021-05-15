@@ -44,7 +44,7 @@ test('Multiple files', () => {
 
     const state = parseAndGetTestState(code).state;
 
-    assert.equal(state.fs.cwd(), normalizeSlashes('/'));
+    assert.equal(state.cwd(), normalizeSlashes('/'));
     assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'file1.py'))));
 });
 
@@ -114,7 +114,7 @@ test('Configuration', () => {
 
     const state = parseAndGetTestState(code).state;
 
-    assert.equal(state.fs.cwd(), normalizeSlashes('/'));
+    assert.equal(state.cwd(), normalizeSlashes('/'));
     assert(state.fs.existsSync(normalizeSlashes(combinePaths(factory.srcFolder, 'file1.py'))));
 
     assert.equal(state.configOptions.diagnosticRuleSet.reportMissingImports, 'error');
@@ -159,7 +159,7 @@ test('ProjectRoot', () => {
 
     const state = parseAndGetTestState(code).state;
 
-    assert.equal(state.fs.cwd(), normalizeSlashes('/'));
+    assert.equal(state.cwd(), normalizeSlashes('/'));
     assert(state.fs.existsSync(normalizeSlashes('/root/file1.py')));
 
     assert.equal(state.configOptions.projectRoot, normalizeSlashes('/root'));

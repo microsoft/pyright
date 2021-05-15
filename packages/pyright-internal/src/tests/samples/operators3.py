@@ -6,5 +6,3 @@
 # is of type Tuple[Literal[0], Literal[0]]. They should both
 # be treated as Tuple[int, int].
 result = [(1, 0)] * 3 + [(0, 0)] * 3
-
-

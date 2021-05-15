@@ -3,6 +3,7 @@
 # scope but are not defined with an explicit class
 # variable statement.
 
+
 class Foo:
     bar: str = "hi"
 
@@ -12,5 +13,3 @@ class Foo:
     @classmethod
     def from_baz(cls, baz: str) -> None:
         cls.str = baz
-
-        

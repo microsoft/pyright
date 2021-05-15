@@ -1,5 +1,6 @@
 # This sample tests various arithmetic expressions.
 
+
 def returnsInt1() -> int:
     a = 1
     b = 2
@@ -34,6 +35,7 @@ def returnsFloat2() -> float:
     # type.
     return a + b % b / a - b // a
 
+
 def returnsComplex1() -> complex:
     a = complex(1, 2)
     b = 2
@@ -49,7 +51,4 @@ b = 4
 
 # This should generate an error because matrix multiply
 # isn't supported for int.
-c = (a @ b)
-
-
-
+c = a @ b

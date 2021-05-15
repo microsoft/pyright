@@ -55,6 +55,7 @@ class PyrightServer extends LanguageServerBase {
         const serverSettings: ServerSettings = {
             watchForSourceChanges: true,
             watchForLibraryChanges: true,
+            watchForConfigChanges: true,
             openFilesOnly: true,
             useLibraryCodeForTypes: false,
             disableLanguageServices: false,
@@ -145,6 +146,17 @@ class PyrightServer extends LanguageServerBase {
                 if (pythonAnalysisSection.autoImportCompletions !== undefined) {
                     serverSettings.autoImportCompletions = pythonAnalysisSection.autoImportCompletions;
                 }
+
+                if (
+                    serverSettings.logLevel === LogLevel.Log &&
+                    pythonAnalysisSection.logTypeEvaluationTime !== undefined
+                ) {
+                    serverSettings.logTypeEvaluationTime = pythonAnalysisSection.logTypeEvaluationTime;
+                }
+
+                if (pythonAnalysisSection.typeEvaluationTimeThreshold !== undefined) {
+                    serverSettings.typeEvaluationTimeThreshold = pythonAnalysisSection.typeEvaluationTimeThreshold;
+                }
             } else {
                 serverSettings.autoSearchPaths = true;
             }
@@ -197,20 +209,20 @@ class PyrightServer extends LanguageServerBase {
     ): Promise<(Command | CodeAction)[] | undefined | null> {
         this.recordUserInteractionTime();
 
-        const filePath = convertUriToPath(params.textDocument.uri);
+        const filePath = convertUriToPath(this.fs, params.textDocument.uri);
         const workspace = await this.getWorkspaceForFile(filePath);
         return CodeActionProvider.getCodeActionsForPosition(workspace, filePath, params.range, token);
     }
 
     protected createProgressReporter(): ProgressReporter {
-        // The old progress notifications are kept for backwards compatiblity with
+        // The old progress notifications are kept for backwards compatibility with
         // clients that do not support work done progress.
 
         let workDoneProgress: Promise<WorkDoneProgressServerReporter> | undefined;
         return {
             isEnabled: (data: AnalysisResults) => true,
             begin: () => {
-                if (this._hasWindowProgressCapability) {
+                if (this.client.hasWindowProgressCapability) {
                     workDoneProgress = this._connection.window.createWorkDoneProgress();
                     workDoneProgress
                         .then((progress) => {

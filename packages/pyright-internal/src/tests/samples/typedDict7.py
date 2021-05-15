@@ -5,7 +5,7 @@ from typing import TypedDict
 UserType1 = TypedDict("UserType", {"name": str, "age": int}, total=False)
 user1: UserType1 = {"name": "Bob", "age": 40}
 
-name1: str = user1.get("name")
+name1: str = user1.get("name", "n/a")
 age1: int = user1.get("age", 42)
 
 UserType2 = TypedDict("UserType", name=str, age=int)

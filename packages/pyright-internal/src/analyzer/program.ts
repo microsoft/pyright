@@ -46,28 +46,31 @@ import {
     AutoImporter,
     AutoImportResult,
     buildModuleSymbolsMap,
-    getAutoImportCandidatesForAbbr,
     ModuleSymbolMap,
 } from '../languageService/autoImporter';
 import { CallHierarchyProvider } from '../languageService/callHierarchyProvider';
-import { AbbreviationMap, CompletionResults } from '../languageService/completionProvider';
+import { AbbreviationMap, CompletionOptions, CompletionResults } from '../languageService/completionProvider';
+import { DefinitionFilter } from '../languageService/definitionProvider';
 import { IndexOptions, IndexResults, WorkspaceSymbolCallback } from '../languageService/documentSymbolProvider';
 import { HoverResults } from '../languageService/hoverProvider';
 import { ReferenceCallback, ReferencesResult } from '../languageService/referencesProvider';
 import { SignatureHelpResults } from '../languageService/signatureHelpProvider';
+import { ParseResults } from '../parser/parser';
 import { ImportLookupResult } from './analyzerFileInfo';
 import * as AnalyzerNodeInfo from './analyzerNodeInfo';
 import { CircularDependency } from './circularDependency';
 import { ImportResolver } from './importResolver';
 import { ImportResult, ImportType } from './importResult';
-import { findNodeByOffset } from './parseTreeUtils';
+import { findNodeByOffset, getDocString } from './parseTreeUtils';
 import { Scope } from './scope';
 import { getScopeForNode } from './scopeUtils';
 import { SourceFile } from './sourceFile';
 import { SourceMapper } from './sourceMapper';
 import { Symbol } from './symbol';
 import { isPrivateOrProtectedName } from './symbolNameUtils';
-import { createTypeEvaluator, TypeEvaluator } from './typeEvaluator';
+import { createTracePrinter } from './tracePrinter';
+import { TypeEvaluator } from './typeEvaluator';
+import { createTypeEvaluatorWithTracker } from './typeEvaluatorWithTracker';
 import { PrintTypeFlags } from './typePrinter';
 import { Type } from './types';
 import { TypeStubWriter } from './typeStubWriter';
@@ -125,6 +128,8 @@ interface UpdateImportInfo {
     isPyTypedPresent: boolean;
 }
 
+export type PreCheckCallback = (parseResults: ParseResults, evaluator: TypeEvaluator) => void;
+
 // Container for all of the files that are being analyzed. Files
 // can fall into one or more of the following categories:
 //  Tracked - specified by the config options
@@ -141,6 +146,7 @@ export class Program {
     private _importResolver: ImportResolver;
     private _logTracker: LogTracker;
     private _parsedFileCount = 0;
+    private _preCheckCallback: PreCheckCallback | undefined;
 
     constructor(
         initialImportResolver: ImportResolver,
@@ -153,6 +159,7 @@ export class Program {
         this._logTracker = logTracker ?? new LogTracker(console, 'FG');
         this._importResolver = initialImportResolver;
         this._configOptions = initialConfigOptions;
+
         this._createNewEvaluator();
     }
 
@@ -169,6 +176,11 @@ export class Program {
 
     setImportResolver(importResolver: ImportResolver) {
         this._importResolver = importResolver;
+
+        // Create a new evaluator with the updated import resolver.
+        // Otherwise, lookup import passed to type evaluator might use
+        // older import resolver when resolving imports after parsing.
+        this._createNewEvaluator();
     }
 
     // Sets the list of tracked files that make up the program.
@@ -194,6 +206,12 @@ export class Program {
         this.addTrackedFiles(filePaths);
 
         return this._removeUnneededFiles();
+    }
+
+    // Allows a caller to set a callback that is called right before
+    // a source file is type checked. It is intended for testing only.
+    setPreCheckCallback(preCheckCallback: PreCheckCallback) {
+        this._preCheckCallback = preCheckCallback;
     }
 
     // By default, no third-party imports are allowed. This enables
@@ -662,10 +680,23 @@ export class Program {
     }
 
     private _createNewEvaluator() {
-        this._evaluator = createTypeEvaluator(this._lookUpImport, {
-            disableInferenceForPyTypedSources: this._configOptions.disableInferenceForPyTypedSources,
-            printTypeFlags: Program._getPrintTypeFlags(this._configOptions),
-        });
+        this._evaluator = createTypeEvaluatorWithTracker(
+            this._lookUpImport,
+            {
+                disableInferenceForPyTypedSources: this._configOptions.disableInferenceForPyTypedSources,
+                printTypeFlags: Program._getPrintTypeFlags(this._configOptions),
+                logCalls: this._configOptions.logTypeEvaluationTime,
+                minimumLoggingThreshold: this._configOptions.typeEvaluationTimeThreshold,
+            },
+            this._logTracker,
+            this._configOptions.logTypeEvaluationTime
+                ? createTracePrinter(
+                      this._importResolver.getImportRoots(
+                          this._configOptions.findExecEnvironment(this._configOptions.projectRoot)
+                      )
+                  )
+                : undefined
+        );
 
         return this._evaluator;
     }
@@ -737,13 +768,15 @@ export class Program {
             return undefined;
         }
 
-        const docString = sourceFileInfo.sourceFile.getModuleDocString();
         const parseResults = sourceFileInfo.sourceFile.getParseResults();
+        const moduleNode = parseResults!.parseTree;
 
         return {
             symbolTable,
             dunderAllNames: AnalyzerNodeInfo.getDunderAllNames(parseResults!.parseTree),
-            docString,
+            get docString() {
+                return getDocString(moduleNode.statements);
+            },
         };
     };
 
@@ -752,6 +785,7 @@ export class Program {
     private _buildModuleSymbolsMap(
         sourceFileToExclude: SourceFileInfo,
         userFileOnly: boolean,
+        includeIndexUserSymbols: boolean,
         token: CancellationToken
     ): ModuleSymbolMap {
         // If we have library map, always use the map for library symbols.
@@ -759,6 +793,7 @@ export class Program {
             this._sourceFileList.filter(
                 (s) => s !== sourceFileToExclude && (userFileOnly ? this._isUserCode(s) : true)
             ),
+            includeIndexUserSymbols,
             token
         );
     }
@@ -799,6 +834,13 @@ export class Program {
             }
 
             this._bindFile(fileToCheck);
+
+            if (this._preCheckCallback) {
+                const parseResults = fileToCheck.sourceFile.getParseResults();
+                if (parseResults) {
+                    this._preCheckCallback(parseResults, this._evaluator!);
+                }
+            }
 
             fileToCheck.sourceFile.check(this._evaluator!);
 
@@ -962,6 +1004,8 @@ export class Program {
         similarityLimit: number,
         nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
+        lazyEdit: boolean,
+        allowVariableInAll: boolean,
         token: CancellationToken
     ): AutoImportResult[] {
         const sourceFileInfo = this._getSourceFileInfoFromPath(filePath);
@@ -991,16 +1035,25 @@ export class Program {
             }
 
             const writtenWord = fileContents.substr(textRange.start, textRange.length);
-            const map = this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token);
+            const map = this._buildModuleSymbolsMap(
+                sourceFileInfo,
+                !!libraryMap,
+                /* includeIndexUserSymbols */ true,
+                token
+            );
             const autoImporter = new AutoImporter(
                 this._configOptions.findExecEnvironment(filePath),
                 this._importResolver,
                 parseTree,
                 range.start,
-                [],
+                new Set(),
                 map,
-                libraryMap,
-                (p, t) => computeCompletionSimilarity(p, t) > similarityLimit
+                {
+                    lazyEdit,
+                    allowVariableInAll,
+                    libraryMap,
+                    patternMatcher: (p, t) => computeCompletionSimilarity(p, t) > similarityLimit,
+                }
             );
 
             // Filter out any name that is already defined in the current scope.
@@ -1011,7 +1064,7 @@ export class Program {
                 const info = nameMap?.get(writtenWord);
                 if (info) {
                     // No scope filter is needed since we only do exact match.
-                    results.push(...getAutoImportCandidatesForAbbr(autoImporter, writtenWord, info, token));
+                    results.push(...autoImporter.getAutoImportCandidatesForAbbr(writtenWord, info, token));
                 }
 
                 results.push(
@@ -1081,6 +1134,7 @@ export class Program {
     getDefinitionsForPosition(
         filePath: string,
         position: Position,
+        filter: DefinitionFilter,
         token: CancellationToken
     ): DocumentRange[] | undefined {
         return this._runEvaluatorWithCancellationToken(token, () => {
@@ -1095,6 +1149,7 @@ export class Program {
             return sourceFileInfo.sourceFile.getDefinitionsForPosition(
                 this._createSourceMapper(execEnv),
                 position,
+                filter,
                 this._evaluator!,
                 token
             );
@@ -1218,6 +1273,7 @@ export class Program {
             if (
                 options.indexingForAutoImportMode &&
                 !sourceFileInfo.sourceFile.isStubFile() &&
+                !sourceFileInfo.sourceFile.isThirdPartyPyTypedPresent() &&
                 sourceFileInfo.sourceFile.getClientVersion() === undefined
             ) {
                 try {
@@ -1344,9 +1400,10 @@ export class Program {
 
             this._bindFile(sourceFileInfo);
 
+            const execEnv = this._configOptions.findExecEnvironment(filePath);
             return sourceFileInfo.sourceFile.getSignatureHelpForPosition(
                 position,
-                this._lookUpImport,
+                this._createSourceMapper(execEnv, /* mapCompiled */ true),
                 this._evaluator!,
                 format,
                 token
@@ -1358,7 +1415,7 @@ export class Program {
         filePath: string,
         position: Position,
         workspacePath: string,
-        format: MarkupKind,
+        options: CompletionOptions,
         nameMap: AbbreviationMap | undefined,
         libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
@@ -1382,11 +1439,17 @@ export class Program {
                         this._importResolver,
                         this._lookUpImport,
                         this._evaluator!,
-                        format,
+                        options,
                         this._createSourceMapper(execEnv, /* mapCompiled */ true),
                         nameMap,
                         libraryMap,
-                        () => this._buildModuleSymbolsMap(sourceFileInfo, !!libraryMap, token),
+                        () =>
+                            this._buildModuleSymbolsMap(
+                                sourceFileInfo,
+                                !!libraryMap,
+                                /* includeIndexUserSymbols */ false,
+                                token
+                            ),
                         token
                     );
                 });
@@ -1400,17 +1463,14 @@ export class Program {
             return completionResult;
         }
 
-        const pr = sourceFileInfo.sourceFile.getParseResults();
-        const content = sourceFileInfo.sourceFile.getFileContents();
-        if (pr?.parseTree && content !== undefined) {
-            const offset = convertPositionToOffset(position, pr.tokenizerOutput.lines);
+        const parseResults = sourceFileInfo.sourceFile.getParseResults();
+        if (parseResults?.parseTree && parseResults?.text) {
+            const offset = convertPositionToOffset(position, parseResults.tokenizerOutput.lines);
             if (offset !== undefined) {
-                completionResult.completionList = await this._extension.completionListExtension.updateCompletionList(
-                    completionResult.completionList,
-                    pr.parseTree,
-                    content,
+                await this._extension.completionListExtension.updateCompletionResults(
+                    completionResult,
+                    parseResults,
                     offset,
-                    this._configOptions,
                     token
                 );
             }
@@ -1422,7 +1482,9 @@ export class Program {
     resolveCompletionItem(
         filePath: string,
         completionItem: CompletionItem,
-        format: MarkupKind,
+        options: CompletionOptions,
+        nameMap: AbbreviationMap | undefined,
+        libraryMap: Map<string, IndexResults> | undefined,
         token: CancellationToken
     ) {
         return this._runEvaluatorWithCancellationToken(token, () => {
@@ -1439,8 +1501,17 @@ export class Program {
                 this._importResolver,
                 this._lookUpImport,
                 this._evaluator!,
-                format,
+                options,
                 this._createSourceMapper(execEnv, /* mapCompiled */ true),
+                nameMap,
+                libraryMap,
+                () =>
+                    this._buildModuleSymbolsMap(
+                        sourceFileInfo,
+                        !!libraryMap,
+                        /* includeIndexUserSymbols */ false,
+                        token
+                    ),
                 completionItem,
                 token
             );
@@ -1840,6 +1911,7 @@ export class Program {
                 this._addShadowedFile(stubFileInfo, implFilePath);
                 return this.getBoundSourceFile(implFilePath);
             },
+            (f) => this.getBoundSourceFile(f),
             mapCompiled ?? false
         );
         return sourceMapper;
@@ -1854,7 +1926,7 @@ export class Program {
 
         let thirdPartyImportAllowed =
             this._configOptions.useLibraryCodeForTypes ||
-            (importResult.importType === ImportType.ThirdParty && !!importResult.isPyTypedPresent) ||
+            (importResult.importType === ImportType.ThirdParty && !!importResult.pyTypedInfo) ||
             (importResult.importType === ImportType.Local && importer.isThirdPartyPyTypedPresent);
 
         if (
@@ -1916,7 +1988,7 @@ export class Program {
 
             if (importResult.importType === ImportType.ThirdParty) {
                 isThirdPartyImport = true;
-                if (importResult.isPyTypedPresent) {
+                if (importResult.pyTypedInfo) {
                     isPyTypedPresent = true;
                 }
             } else if (sourceFileInfo.isThirdPartyImport && importResult.importType === ImportType.Local) {

@@ -2,14 +2,23 @@
 
 # pyright: strict
 
-class Foo: ...
-class Bar: ...
 
-a = [1, 'hello', 3.4, Foo()]
+class Foo:
+    ...
+
+
+class Bar:
+    ...
+
+
+a = [1, "hello", 3.4, Foo()]
 
 b = [*a]
 
-def int_only(a: int): ...
+
+def int_only(a: int):
+    ...
+
 
 for c in b:
     if not isinstance(c, (float, str)):
@@ -21,3 +30,9 @@ for c in b:
             # This should not generate an error.
             int_only(c)
 
+# This should generate an error
+x1 = *(1, 2, 3)
+
+x2 = 2, *(1, 2, 3)
+
+x3 = *(1, 2, 3), 2

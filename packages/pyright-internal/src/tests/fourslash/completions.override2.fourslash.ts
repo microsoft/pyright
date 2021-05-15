@@ -56,8 +56,7 @@
                     kind: Consts.CompletionItemKind.Method,
                     textEdit: {
                         range: helper.getPositionRange('marker3'),
-                        newText:
-                            '__call__(self, *args: Any, **kwds: Any) -> Any:\n    return super().__call__(*args, **kwds)',
+                        newText: '__call__(self, *args: Any, **kwds: Any) -> Any:\n    ${0:pass}',
                     },
                 },
             ],

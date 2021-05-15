@@ -20,4 +20,3 @@ class Foo:
 
     def get_int_value_2(self) -> int:
         return self._int_value_inferred
-

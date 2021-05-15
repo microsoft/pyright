@@ -15,4 +15,3 @@ check1: Tuple[str, str] = (left, right)
 
 # This should generate an error
 check2: Tuple[str, int] = (left, right)
-

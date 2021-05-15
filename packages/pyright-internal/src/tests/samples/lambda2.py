@@ -24,4 +24,3 @@ foo5: Callable[[int, int, int], int] = lambda x, *, y: x + y + 1
 # This should generate an error because there are too many
 # parameters provided by the lambda.
 foo6: Callable[[int], int] = lambda x, *, y: x + y + 1
-

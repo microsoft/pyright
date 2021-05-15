@@ -107,6 +107,20 @@ var5 = (3,)                     # Type is assumed to be Tuple[int]
 var6: Tuple[float, ...] = (3,)  # Type of RHS is now Tuple[float, ...]
 ```
 
+### Empty List and Dictionary Type Inference
+
+It is common to initialize a local variable or instance variable to an empty list (`[]`) or empty dictionary (`{}`) on one code path but initialize it to a non-empty list or dictionary on other code paths. In such cases, Pyright will infer the type based on the non-empty list or dictionary and suppress errors about a “partially unknown type”.
+
+```python
+if some_condition:
+    my_list = []
+else:
+    my_list = ["a", "b"]
+
+reveal_type(my_list) # list[str]
+```
+
+
 ### Return Type Inference
 
 As with variable assignments, function return types can be inferred from the `return` statements found within that function. The returned type is assumed to be the union of all types returned from all `return` statements. If a `return` statement is not followed by an expression, it is assumed to return `None`. Likewise, if the function does not end in a `return` statement, and the end of the function is reachable, an implicit `return None` is assumed.
@@ -221,7 +235,7 @@ def func1(a: int):
 
 When inferring the type of a list expression (in the absence of bidirectional inference hints), Pyright uses the following heuristics:
 
-1. If the list is empty (`[]`), assume `List[Unknown]`.
+1. If the list is empty (`[]`), assume `List[Unknown]` (unless a known list type is assigned to the same variable along another code path).
 2. If the list contains at least one element and all elements are the same type T, infer the type `List[T]`.
 3. If the list contains multiple elements that are of different types, the behavior depends on the `strictListInference` configuration setting. By default this setting is off.
 
@@ -240,6 +254,29 @@ var3 = [1, 3.4]                 # Infer List[Unknown] (off)
 var3 = [1, 3.4]                 # Infer List[Union[int, float]] (on)
 
 var4: List[float] = [1, 3.4]    # Infer List[float]
+```
+
+
+### Set Expressions
+
+When inferring the type of a set expression (in the absence of bidirectional inference hints), Pyright uses the following heuristics:
+
+1. If the set contains at least one element and all elements are the same type T, infer the type `Set[T]`.
+2. If the set contains multiple elements that are of different types, the behavior depends on the `strictSetInference` configuration setting. By default this setting is off.
+
+    * If `strictSetInference` is off, infer `Set[Unknown]`.
+    * Otherwise use the union of all element types and infer `Set[Union[(elements)]]`.
+
+These heuristics can be overridden through the use of bidirectional inference hints (e.g. by providing a declared type for the target of the assignment expression).
+
+```python
+var1 = {1, 2}                   # Infer Set[int]
+
+# Type depends on strictSetInference config setting
+var2 = {1, 3.4}                 # Infer Set[Unknown] (off)
+var2 = {1, 3.4}                 # Infer Set[Union[int, float]] (on)
+
+var3: Set[float] = {1, 3.4}    # Infer Set[float]
 ```
 
 

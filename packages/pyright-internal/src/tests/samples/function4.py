@@ -11,4 +11,3 @@ a: List[str] = ["a", "bc"]
 # is a function that takes a "Sized" and "str" is
 # a "Sized", the result of this should be List[str].
 b: List[str] = sorted(a, key=len)
-

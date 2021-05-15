@@ -14,6 +14,7 @@ import { LogLevel } from './common/console';
 import * as debug from './common/debug';
 import { createFromRealFileSystem, FileSystem } from './common/fileSystem';
 import { FileSpec } from './common/pathUtils';
+import { PyrightFileSystem } from './pyrightFileSystem';
 
 export class BackgroundThreadBase {
     protected fs: FileSystem;
@@ -24,7 +25,7 @@ export class BackgroundThreadBase {
         // Stash the base directory into a global variable.
         (global as any).__rootDirectory = data.rootDirectory;
 
-        this.fs = createFromRealFileSystem(this.getConsole());
+        this.fs = new PyrightFileSystem(createFromRealFileSystem(this.getConsole()));
     }
 
     protected log(level: LogLevel, msg: string) {
@@ -66,14 +67,18 @@ export function createConfigOptionsFrom(jsonObject: any): ConfigOptions {
     configOptions.checkOnlyOpenFiles = jsonObject.checkOnlyOpenFiles;
     configOptions.useLibraryCodeForTypes = jsonObject.useLibraryCodeForTypes;
     configOptions.internalTestMode = jsonObject.internalTestMode;
+    configOptions.indexGenerationMode = jsonObject.indexGenerationMode;
     configOptions.venvPath = jsonObject.venvPath;
-    configOptions.defaultVenv = jsonObject.defaultVenv;
+    configOptions.venv = jsonObject.venv;
     configOptions.defaultPythonVersion = jsonObject.defaultPythonVersion;
     configOptions.defaultPythonPlatform = jsonObject.defaultPythonPlatform;
+    configOptions.defaultExtraPaths = jsonObject.defaultExtraPaths;
     configOptions.diagnosticRuleSet = jsonObject.diagnosticRuleSet;
     configOptions.executionEnvironments = jsonObject.executionEnvironments;
     configOptions.autoImportCompletions = jsonObject.autoImportCompletions;
     configOptions.indexing = jsonObject.indexing;
+    configOptions.logTypeEvaluationTime = jsonObject.logTypeEvaluationTime;
+    configOptions.typeEvaluationTimeThreshold = jsonObject.typeEvaluationTimeThreshold;
     configOptions.include = jsonObject.include.map((f: any) => getFileSpec(f));
     configOptions.exclude = jsonObject.exclude.map((f: any) => getFileSpec(f));
     configOptions.ignore = jsonObject.ignore.map((f: any) => getFileSpec(f));

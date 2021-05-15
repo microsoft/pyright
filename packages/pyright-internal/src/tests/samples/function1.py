@@ -3,48 +3,60 @@
 
 from typing import Callable
 
-#------------------------------------------------------
+# ------------------------------------------------------
 # Test function type matching
+
 
 class FooBase:
     pass
 
+
 class Foo(FooBase):
     pass
+
 
 class Bar(Foo):
     pass
 
+
 def needs_function1(callback: Callable[[Foo], Foo]):
     pass
+
 
 def callback1():
     pass
 
+
 def callback2(a: Foo) -> Foo:
     return Foo()
+
 
 def callback3(a: Foo) -> str:
     return "1"
 
+
 def callback4(a: Foo, b: Foo) -> Foo:
     return Foo()
+
 
 def callback5(a: Foo, b: int = 3) -> Foo:
     return Foo()
 
+
 def callback6(*a) -> Foo:
     return Foo()
+
 
 def callback7(a: str) -> Foo:
     return Foo()
 
+
 def callback8(a: Bar) -> Foo:
     return Foo()
 
+
 def callback9(a: FooBase) -> Foo:
     return Foo()
-
 
 
 # This should generate an error because callback1
@@ -73,4 +85,3 @@ needs_function1(callback7)
 needs_function1(callback8)
 
 needs_function1(callback9)
-

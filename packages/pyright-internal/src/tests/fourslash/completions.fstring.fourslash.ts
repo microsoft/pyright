@@ -5,7 +5,9 @@
 ////
 //// a = f"{[|/*marker1*/|]}"
 //// b = f"{msg.c[|/*marker2*/|]}"
-//// b = f"{msg.[|/*marker3*/|]}"
+//// c = f"{msg.[|/*marker3*/|]}"
+//// d = f"msg.[|/*marker4*/|]{msg}"
+//// e = f"{msg}msg.[|/*marker5*/|]"
 
 // @ts-ignore
 await helper.verifyCompletion('included', 'markdown', {
@@ -17,5 +19,15 @@ await helper.verifyCompletion('included', 'markdown', {
     },
     marker3: {
         completions: [{ label: 'capitalize', kind: Consts.CompletionItemKind.Method }],
+    },
+});
+
+// @ts-ignore
+await helper.verifyCompletion('exact', 'markdown', {
+    marker4: {
+        completions: [],
+    },
+    marker5: {
+        completions: [],
     },
 });

@@ -21,4 +21,3 @@ bad_ellipsis2: Tuple[int, int, ...]
 
 # This should generate an error
 bad_ellipsis3: Tuple[int, ..., int]
-

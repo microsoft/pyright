@@ -3,6 +3,7 @@
 
 from .import5 import *
 
+
 class Foo:
     # This should generate an error.
     from .import5 import *
@@ -11,4 +12,3 @@ class Foo:
 def bar():
     # This should generate an error.
     from .import5 import *
-

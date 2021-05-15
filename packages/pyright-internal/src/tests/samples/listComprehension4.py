@@ -13,5 +13,3 @@ b = [a for a in [len(a)]]
 # point should have the type of "a" in the outer scope,
 # not the int type from the list comprehension.
 c: str = a
-
-

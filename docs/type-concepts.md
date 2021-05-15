@@ -143,9 +143,9 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `callable(x)`
 * `f(x)` (where f is a user-defined type guard as defined in [PEP 647](https://www.python.org/dev/peps/pep-0647/))
 
-* x (where x is any expression that is statically verifiable to be truthy or falsy in all cases)
+* `x` (where x is any expression that is statically verifiable to be truthy or falsy in all cases)
 
-Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, and call expressions. Other operators (such as arithmetic operators or subscripts) are not supported.
+Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, subscripts that are constant numbers (e.g. `a[2]`), and call expressions. Other operators (such as arithmetic operators or other subscripts) are not supported.
 
 Some type guards are able to narrow in both the positive and negative cases. Positive cases are used in `if` statements, and negative cases are used in `else` statements. (Positive and negative cases are flipped if the type guard expression is preceded by a `not` operator.) In some cases, the type can be narrowed only in the positive or negative case but not both. Consider the following examples:
 
@@ -167,6 +167,50 @@ def func2(val: Optional[int]):
 ```
 
 In the example of `func1`, the type was narrowed in both the positive and negative cases. In the example of `func2`, the type was narrowed only the positive case because the type of `val` might be either `int` (specifically, a value of 0) or `None` in the negative case.
+
+### Narrowing for Implied Else
+When an “if” or “elif” clause is used without a corresponding “else”, Pyright will generally assume that the code can “fall through” without executing the “if” or “elif” block. However, there are cases where the analyzer can determine that a fall-through is not possible because the “if” or “elif” is guaranteed to be executed based on type analysis.
+
+```python
+def func1(x: int):
+    if x == 1 or x == 2:
+        y = True
+    
+    print(y) # Error: "y" is possibly unbound
+
+def func2(x: Literal[1, 2]):
+    if x == 1 or x == 2:
+        y = True
+    
+    print(y) # No error
+```
+
+This can be especially useful when exhausting all members in an enum or types in a union.
+
+```python
+from enum import Enum
+
+class Color(Enum):
+    RED = 1
+    BLUE = 2
+    GREEN = 3
+
+def func3(color: Color) -> str:
+    if color == Color.RED or color == Color.BLUE:
+        return "yes"
+    elif color == Color.GREEN:
+        return "no"
+
+def func4(value: str | int) -> str:
+    if isinstance(value, str):
+        return "received a str"
+    elif isinstance(value, int):
+        return "received an int"
+```
+
+If you later added another color to the `Color` enumeration above (e.g. `YELLOW = 4`), Pyright would detect that `func3` no longer exhausts all members of the enumeration and possibly returns `None`, which violates the declared return type. Likewise, if you modify the type of the `value` parameter in `func4` to expand the union, a similar error will be produced.
+
+This “narrowing for implied else” technique works for all narrowing expressions listed above with the exception of simple falsy/truthy statements and type guards. These are excluded because they are not generally used for exhaustive checks, and their inclusion would have a significant impact on analysis performance.
 
 ### Narrowing Any
 

@@ -297,6 +297,7 @@ export class TypeStubWriter extends ParseTreeWalker {
     }
 
     visitAssignment(node: AssignmentNode) {
+        let isTypeAlias = false;
         let line = '';
 
         if (node.leftExpression.nodeType === ParseNodeType.Name) {
@@ -310,6 +311,11 @@ export class TypeStubWriter extends ParseTreeWalker {
                 if (node.typeAnnotationComment) {
                     line += ': ' + this._printExpression(node.typeAnnotationComment, /* treatStringsAsSymbols */ true);
                 }
+            }
+
+            const valueType = this._evaluator.getType(node.leftExpression);
+            if (valueType?.typeAliasInfo) {
+                isTypeAlias = true;
             }
         } else if (node.leftExpression.nodeType === ParseNodeType.TypeAnnotation) {
             const valueExpr = node.leftExpression.valueExpression;
@@ -325,12 +331,11 @@ export class TypeStubWriter extends ParseTreeWalker {
         }
 
         if (line) {
-            const emitValue = this._functionNestCount === 0 && this._classNestCount === 0;
             this._emittedSuite = true;
 
             line += ' = ';
 
-            if (emitValue) {
+            if (isTypeAlias) {
                 line += this._printExpression(node.rightExpression);
             } else {
                 line += '...';

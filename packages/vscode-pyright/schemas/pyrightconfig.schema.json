@@ -1,7 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "description": "Pyright Configuration Schema",
+  "allowComments": true,
+  "allowTrailingCommas": true,
   "type": "object",
-  "title": "Pyright Configuration Schema",
   "definitions": {
     "diagnostic": {
       "anyOf": [
@@ -103,6 +105,12 @@
       "$id": "#/properties/strictListInference",
       "type": "boolean",
       "title": "Infer strict types for list expressions",
+      "default": false
+    },
+    "strictSetInference": {
+      "$id": "#/properties/strictSetInference",
+      "type": "boolean",
+      "title": "Infer strict types for set expressions",
       "default": false
     },
     "strictDictionaryInference": {
@@ -237,6 +245,12 @@
       "title": "Controls reporting of attempts to use an Optional type as an operand for a binary or unary operator",
       "default": "none"
     },
+    "reportTypedDictNotRequiredAccess": {
+      "$id": "#/properties/reportTypedDictNotRequiredAccess",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of attempts to access a non-required key in a TypedDict without a check for its presence",
+      "default": "error"
+    },
     "reportUntypedFunctionDecorator": {
       "$id": "#/properties/reportUntypedFunctionDecorator",
       "$ref": "#/definitions/diagnostic",
@@ -283,6 +297,12 @@
       "$id": "#/properties/reportIncompatibleVariableOverride",
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of overrides in subclasses that redefine a variable in an incompatible way",
+      "default": "none"
+    },
+    "reportOverlappingOverload": {
+      "$id": "#/properties/reportOverlappingOverload",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of function overloads that overlap in signature and obscure each other or do not agree on return type",
       "default": "none"
     },
     "reportInvalidStringEscapeSequence": {
@@ -351,6 +371,12 @@
       "title": "Controls reporting calls to 'cast' that are unnecessary",
       "default": "none"
     },
+    "reportUnnecessaryComparison": {
+      "$id": "#/properties/reportUnnecessaryComparison",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting the use of '==' or '!=' comparisons that are unnecessary",
+      "default": "none"
+    },
     "reportAssertAlwaysTrue": {
       "$id": "#/properties/reportAssertAlwaysTrue",
       "$ref": "#/definitions/diagnostic",
@@ -404,6 +430,18 @@
       "$ref": "#/definitions/diagnostic",
       "title": "Controls reporting of call expressions that returns Coroutine whose results are not consumed",
       "default": "error"
+    },
+    "extraPaths": {
+      "$id": "#/properties/executionEnvironments/items/properties/extraPaths",
+      "type": "array",
+      "title": "Additional import search resolution paths",
+      "items": {
+        "$id": "#/properties/executionEnvironments/items/properties/extraPaths/items",
+        "type": "string",
+        "title": "Additional import search resolution path",
+        "default": "",
+        "pattern": "^(.*)$"
+      }
     },
     "pythonVersion": {
       "$id": "#/properties/pythonVersion",
@@ -498,16 +536,6 @@
               "Linux"
             ],
             "pattern": "^(Linux|Windows|Darwin|All)$"
-          },
-          "venv": {
-            "$id": "#/properties/venv",
-            "type": "string",
-            "title": "Name of virtual environment subdirectory within venvPath",
-            "default": "",
-            "examples": [
-              "python37"
-            ],
-            "pattern": "^(.*)$"
           }
         }
       }

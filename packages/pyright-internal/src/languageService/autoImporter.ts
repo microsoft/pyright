@@ -27,6 +27,7 @@ import { TextEditAction } from '../common/editAction';
 import { combinePaths, getDirectoryPath, getFileName, stripFileExtension } from '../common/pathUtils';
 import * as StringUtils from '../common/stringUtils';
 import { Position } from '../common/textRange';
+import { Duration } from '../common/timing';
 import { ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
 import { IndexAliasData, IndexResults } from './documentSymbolProvider';
@@ -34,23 +35,28 @@ import { IndexAliasData, IndexResults } from './documentSymbolProvider';
 export interface AutoImportSymbol {
     readonly importAlias?: IndexAliasData;
     readonly symbol?: Symbol;
-    readonly kind?: CompletionItemKind;
+    readonly kind?: SymbolKind;
+    readonly itemKind?: CompletionItemKind;
 }
 
 export interface ModuleSymbolTable {
-    forEach(callbackfn: (symbol: AutoImportSymbol, name: string) => void): void;
+    forEach(callbackfn: (symbol: AutoImportSymbol, name: string, library: boolean) => void): void;
 }
 
 export type ModuleSymbolMap = Map<string, ModuleSymbolTable>;
 
 // Build a map of all modules within this program and the module-
 // level scope that contains the symbol table for the module.
-export function buildModuleSymbolsMap(files: SourceFileInfo[], token: CancellationToken): ModuleSymbolMap {
+export function buildModuleSymbolsMap(
+    files: SourceFileInfo[],
+    includeIndexUserSymbols: boolean,
+    token: CancellationToken
+): ModuleSymbolMap {
     const moduleSymbolMap = new Map<string, ModuleSymbolTable>();
 
-    files.forEach((file) => {
-        throwIfCancellationRequested(token);
+    throwIfCancellationRequested(token);
 
+    files.forEach((file) => {
         if (file.shadows.length > 0) {
             // There is corresponding stub file. Don't add
             // duplicated files in the map.
@@ -69,7 +75,7 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
             }
 
             moduleSymbolMap.set(filePath, {
-                forEach(callbackfn: (value: AutoImportSymbol, key: string) => void): void {
+                forEach(callbackfn: (value: AutoImportSymbol, key: string, library: boolean) => void): void {
                     symbolTable.forEach((symbol, name) => {
                         if (symbol.isExternallyHidden()) {
                             return;
@@ -95,18 +101,19 @@ export function buildModuleSymbolsMap(files: SourceFileInfo[], token: Cancellati
                             declaration.type === DeclarationType.Variable &&
                             !declaration.isConstant &&
                             !declaration.isFinal
-                                ? CompletionItemKind.Variable
+                                ? SymbolKind.Variable
                                 : undefined;
-                        callbackfn({ symbol, kind: variableKind }, name);
+                        callbackfn({ symbol, kind: variableKind }, name, /* library */ false);
                     });
                 },
             });
             return;
         }
 
+        // Iterate through closed user files using indices if asked.
         const indexResults = file.sourceFile.getCachedIndexResults();
-        if (indexResults && !indexResults.privateOrProtected) {
-            moduleSymbolMap.set(filePath, createModuleSymbolTableFromIndexResult(indexResults));
+        if (indexResults && includeIndexUserSymbols && !indexResults.privateOrProtected) {
+            moduleSymbolMap.set(filePath, createModuleSymbolTableFromIndexResult(indexResults, /* library */ false));
             return;
         }
     });
@@ -119,26 +126,21 @@ export interface AbbreviationInfo {
     importName: string;
 }
 
-export function getAutoImportCandidatesForAbbr(
-    autoImporter: AutoImporter,
-    abbr: string | undefined,
-    abbrInfo: AbbreviationInfo,
-    token: CancellationToken
-) {
-    const exactMatch = 1;
-    return autoImporter
-        .getAutoImportCandidates(abbrInfo.importName, exactMatch, abbr, token)
-        .filter((r) => r.source === abbrInfo.importFrom && r.name === abbrInfo.importName);
-}
-
 export interface AutoImportResult {
     name: string;
     symbol?: Symbol;
     source?: string;
     insertionText: string;
-    edits: TextEditAction[];
+    edits?: TextEditAction[];
     alias?: string;
     kind?: CompletionItemKind;
+}
+
+export interface AutoImportOptions {
+    libraryMap?: Map<string, IndexResults>;
+    patternMatcher?: (pattern: string, name: string) => boolean;
+    allowVariableInAll?: boolean;
+    lazyEdit?: boolean;
 }
 
 interface ImportParts {
@@ -154,25 +156,53 @@ interface ImportAliasData {
     importParts: ImportParts;
     importGroup: ImportGroup;
     symbol?: Symbol;
-    kind?: CompletionItemKind;
+    kind?: SymbolKind;
+    itemKind?: CompletionItemKind;
 }
+
+type AutoImportResultMap = Map<string, AutoImportResult[]>;
 
 export class AutoImporter {
     private _importStatements: ImportStatements;
-    private _patternMatcher: (pattern: string, name: string) => boolean;
+
+    // Track some auto import internal perf numbers.
+    private _stopWatch = new Duration();
+    private _perfInfo = {
+        indexUsed: false,
+        totalInMs: 0,
+
+        moduleTimeInMS: 0,
+        indexTimeInMS: 0,
+        importAliasTimeInMS: 0,
+
+        symbolCount: 0,
+        indexCount: 0,
+        importAliasCount: 0,
+    };
 
     constructor(
         private _execEnvironment: ExecutionEnvironment,
         private _importResolver: ImportResolver,
         private _parseResults: ParseResults,
         private _invocationPosition: Position,
-        private _excludes: string[],
+        private _excludes: Set<string>,
         private _moduleSymbolMap: ModuleSymbolMap,
-        private _libraryMap?: Map<string, IndexResults>,
-        patternMatcher?: (pattern: string, name: string) => boolean
+        private _options: AutoImportOptions
     ) {
-        this._patternMatcher = patternMatcher ?? StringUtils.isPatternInSymbol;
+        this._options.patternMatcher = this._options.patternMatcher ?? StringUtils.isPatternInSymbol;
         this._importStatements = getTopLevelImports(this._parseResults.parseTree, true);
+
+        this._perfInfo.indexUsed = !!this._options.libraryMap;
+    }
+
+    getAutoImportCandidatesForAbbr(abbr: string | undefined, abbrInfo: AbbreviationInfo, token: CancellationToken) {
+        const map = this._getCandidates(abbrInfo.importName, /* similarityLimit */ 1, abbr, token);
+        const result = map.get(abbrInfo.importName);
+        if (!result) {
+            return [];
+        }
+
+        return result.filter((r) => r.source === abbrInfo.importFrom);
     }
 
     getAutoImportCandidates(
@@ -182,12 +212,31 @@ export class AutoImporter {
         token: CancellationToken
     ) {
         const results: AutoImportResult[] = [];
+        const map = this._getCandidates(word, similarityLimit, abbrFromUsers, token);
+
+        map.forEach((v) => results.push(...v));
+        return results;
+    }
+
+    getPerfInfo() {
+        this._perfInfo.totalInMs = this._stopWatch.getDurationInMilliseconds();
+        return this._perfInfo;
+    }
+
+    private _getCandidates(
+        word: string,
+        similarityLimit: number,
+        abbrFromUsers: string | undefined,
+        token: CancellationToken
+    ) {
+        const resultMap = new Map<string, AutoImportResult[]>();
         const importAliasMap = new Map<string, Map<string, ImportAliasData>>();
 
-        this._addImportsFromModuleMap(word, similarityLimit, abbrFromUsers, importAliasMap, results, token);
-        this._addImportsFromLibraryMap(word, similarityLimit, abbrFromUsers, importAliasMap, results, token);
-        this._addImportsFromImportAliasMap(importAliasMap, abbrFromUsers, results, token);
-        return results;
+        this._addImportsFromModuleMap(word, similarityLimit, abbrFromUsers, importAliasMap, resultMap, token);
+        this._addImportsFromLibraryMap(word, similarityLimit, abbrFromUsers, importAliasMap, resultMap, token);
+        this._addImportsFromImportAliasMap(importAliasMap, abbrFromUsers, resultMap, token);
+
+        return resultMap;
     }
 
     private _addImportsFromLibraryMap(
@@ -195,10 +244,12 @@ export class AutoImporter {
         similarityLimit: number,
         abbrFromUsers: string | undefined,
         aliasMap: Map<string, Map<string, ImportAliasData>>,
-        results: AutoImportResult[],
+        results: AutoImportResultMap,
         token: CancellationToken
     ) {
-        this._libraryMap?.forEach((indexResults, filePath) => {
+        const startTime = this._stopWatch.getDurationInMilliseconds();
+
+        this._options.libraryMap?.forEach((indexResults, filePath) => {
             if (indexResults.privateOrProtected) {
                 return;
             }
@@ -210,9 +261,9 @@ export class AutoImporter {
             }
 
             // See if this file should be offered as an implicit import.
-            const isStubFileOrHasInit = this._isStubFileOrHasInit(this._libraryMap!, filePath);
+            const isStubFileOrHasInit = this._isStubFileOrHasInit(this._options.libraryMap!, filePath);
             this._processModuleSymbolTable(
-                createModuleSymbolTableFromIndexResult(indexResults),
+                createModuleSymbolTableFromIndexResult(indexResults, /* library */ true),
                 filePath,
                 word,
                 similarityLimit,
@@ -223,6 +274,8 @@ export class AutoImporter {
                 token
             );
         });
+
+        this._perfInfo.indexTimeInMS = this._stopWatch.getDurationInMilliseconds() - startTime;
     }
 
     private _addImportsFromModuleMap(
@@ -230,9 +283,11 @@ export class AutoImporter {
         similarityLimit: number,
         abbrFromUsers: string | undefined,
         aliasMap: Map<string, Map<string, ImportAliasData>>,
-        results: AutoImportResult[],
+        results: AutoImportResultMap,
         token: CancellationToken
     ) {
+        const startTime = this._stopWatch.getDurationInMilliseconds();
+
         this._moduleSymbolMap.forEach((topLevelSymbols, filePath) => {
             // See if this file should be offered as an implicit import.
             const isStubFileOrHasInit = this._isStubFileOrHasInit(this._moduleSymbolMap!, filePath);
@@ -248,6 +303,8 @@ export class AutoImporter {
                 token
             );
         });
+
+        this._perfInfo.moduleTimeInMS = this._stopWatch.getDurationInMilliseconds() - startTime;
     }
 
     private _isStubFileOrHasInit<T>(map: Map<string, T>, filePath: string) {
@@ -267,7 +324,7 @@ export class AutoImporter {
         isStubOrHasInit: { isStub: boolean; hasInit: boolean },
         abbrFromUsers: string | undefined,
         importAliasMap: Map<string, Map<string, ImportAliasData>>,
-        results: AutoImportResult[],
+        results: AutoImportResultMap,
         token: CancellationToken
     ) {
         throwIfCancellationRequested(token);
@@ -278,16 +335,10 @@ export class AutoImporter {
         }
 
         const dotCount = StringUtils.getCharacterCount(importSource, '.');
-        topLevelSymbols.forEach((autoImportSymbol, name) => {
-            throwIfCancellationRequested(token);
+        topLevelSymbols.forEach((autoImportSymbol, name, library) => {
+            this._perfIndexCount(autoImportSymbol, library);
 
-            if (
-                !isStubOrHasInit.isStub &&
-                autoImportSymbol.kind === CompletionItemKind.Variable &&
-                !SymbolNameUtils.isPublicConstantOrTypeAlias(name)
-            ) {
-                // If it is not a stub file and symbol is Variable, we only include it if
-                // name is public constant or type alias.
+            if (!this._shouldIncludeVariable(autoImportSymbol, name, isStubOrHasInit.isStub, library)) {
                 return;
             }
 
@@ -299,7 +350,7 @@ export class AutoImporter {
                 return;
             }
 
-            const alreadyIncluded = this._containsName(name, undefined, results);
+            const alreadyIncluded = this._containsName(name, importSource, results);
             if (alreadyIncluded) {
                 return;
             }
@@ -319,7 +370,8 @@ export class AutoImporter {
                         },
                         importGroup,
                         symbol: autoImportSymbol.symbol,
-                        kind: convertSymbolKindToCompletionItemKind(autoImportSymbol.importAlias.kind),
+                        kind: autoImportSymbol.importAlias.kind,
+                        itemKind: autoImportSymbol.importAlias.itemKind,
                     },
                     importAliasMap
                 );
@@ -335,12 +387,12 @@ export class AutoImporter {
                 filePath
             );
 
-            results.push({
+            this._addResult(results, {
                 name,
                 alias: abbrFromUsers,
                 symbol: autoImportSymbol.symbol,
                 source: importSource,
-                kind: autoImportSymbol.kind,
+                kind: autoImportSymbol.itemKind ?? convertSymbolKindToCompletionItemKind(autoImportSymbol.kind),
                 insertionText: autoImportTextEdits.insertionText,
                 edits: autoImportTextEdits.edits,
             });
@@ -369,24 +421,50 @@ export class AutoImporter {
         }
 
         this._addToImportAliasMap(
-            { modulePath: filePath, originalName: importParts.importName, kind: SymbolKind.Module },
-            { importParts, importGroup },
+            {
+                modulePath: filePath,
+                originalName: importParts.importName,
+                kind: SymbolKind.Module,
+                itemKind: CompletionItemKind.Module,
+            },
+            { importParts, importGroup, kind: SymbolKind.Module, itemKind: CompletionItemKind.Module },
             importAliasMap
         );
+    }
+
+    private _shouldIncludeVariable(
+        autoImportSymbol: AutoImportSymbol,
+        name: string,
+        isStub: boolean,
+        library: boolean
+    ) {
+        // If it is not a stub file and symbol is Variable, we only include it if
+        // name is public constant or type alias unless it is in __all__ for user files.
+        if (isStub || autoImportSymbol.kind !== SymbolKind.Variable) {
+            return true;
+        }
+
+        if (this._options.allowVariableInAll && !library && autoImportSymbol.symbol?.isInDunderAll()) {
+            return true;
+        }
+
+        return SymbolNameUtils.isPublicConstantOrTypeAlias(name);
     }
 
     private _addImportsFromImportAliasMap(
         importAliasMap: Map<string, Map<string, ImportAliasData>>,
         abbrFromUsers: string | undefined,
-        results: AutoImportResult[],
+        results: AutoImportResultMap,
         token: CancellationToken
     ) {
         throwIfCancellationRequested(token);
 
-        importAliasMap.forEach((mapPerSymbolName) => {
-            mapPerSymbolName.forEach((importAliasData) => {
-                throwIfCancellationRequested(token);
+        const startTime = this._stopWatch.getDurationInMilliseconds();
 
+        importAliasMap.forEach((mapPerSymbolName) => {
+            this._perfInfo.importAliasCount += mapPerSymbolName.size;
+
+            mapPerSymbolName.forEach((importAliasData) => {
                 if (abbrFromUsers) {
                     // When alias name is used, our regular exclude mechanism would not work. we need to check
                     // whether import, the alias is referring to, already exists.
@@ -419,6 +497,15 @@ export class AutoImporter {
                     }
                 }
 
+                const alreadyIncluded = this._containsName(
+                    importAliasData.importParts.importName,
+                    importAliasData.importParts.importFrom,
+                    results
+                );
+                if (alreadyIncluded) {
+                    return;
+                }
+
                 const autoImportTextEdits = this._getTextEditsForAutoImportByFilePath(
                     importAliasData.importParts.importFrom ?? importAliasData.importParts.importName,
                     importAliasData.importParts.symbolName,
@@ -428,17 +515,19 @@ export class AutoImporter {
                     importAliasData.importParts.filePath
                 );
 
-                results.push({
+                this._addResult(results, {
                     name: importAliasData.importParts.importName,
                     alias: abbrFromUsers,
                     symbol: importAliasData.symbol,
-                    kind: importAliasData.kind,
+                    kind: importAliasData.itemKind ?? convertSymbolKindToCompletionItemKind(importAliasData.kind),
                     source: importAliasData.importParts.importFrom,
                     insertionText: autoImportTextEdits.insertionText,
                     edits: autoImportTextEdits.edits,
                 });
             });
         });
+
+        this._perfInfo.importAliasTimeInMS = this._stopWatch.getDurationInMilliseconds() - startTime;
     }
 
     private _addToImportAliasMap(
@@ -552,15 +641,16 @@ export class AutoImporter {
             return word === name;
         }
 
-        return word.length > 0 && this._patternMatcher(word, name);
+        return word.length > 0 && this._options.patternMatcher!(word, name);
     }
 
-    private _containsName(name: string, source: string | undefined, results: AutoImportResult[]) {
-        if (this._excludes.find((e) => e === name)) {
+    private _containsName(name: string, source: string | undefined, results: AutoImportResultMap) {
+        if (this._excludes.has(name)) {
             return true;
         }
 
-        if (results.find((r) => r.name === name && r.source === source)) {
+        const match = results.get(name);
+        if (match?.some((r) => r.source === source)) {
             return true;
         }
 
@@ -592,7 +682,7 @@ export class AutoImporter {
         insertionText: string,
         importGroup: ImportGroup,
         filePath: string
-    ): { insertionText: string; edits: TextEditAction[] } {
+    ): { insertionText: string; edits?: TextEditAction[] } {
         // If there is no symbolName, there can't be existing import statement.
         const importStatement = this._importStatements.mapByFilePath.get(filePath);
         if (importStatement) {
@@ -638,12 +728,14 @@ export class AutoImporter {
                 if (moduleName === importStatement.moduleName) {
                     return {
                         insertionText: abbrFromUsers ?? insertionText,
-                        edits: getTextEditsForAutoImportSymbolAddition(
-                            importName,
-                            importStatement,
-                            this._parseResults,
-                            abbrFromUsers
-                        ),
+                        edits: this._options.lazyEdit
+                            ? undefined
+                            : getTextEditsForAutoImportSymbolAddition(
+                                  importName,
+                                  importStatement,
+                                  this._parseResults,
+                                  abbrFromUsers
+                              ),
                     };
                 }
             }
@@ -667,12 +759,14 @@ export class AutoImporter {
                     // If not, add what we want at the existing import from statement.
                     return {
                         insertionText: abbrFromUsers ?? insertionText,
-                        edits: getTextEditsForAutoImportSymbolAddition(
-                            importName,
-                            imported,
-                            this._parseResults,
-                            abbrFromUsers
-                        ),
+                        edits: this._options.lazyEdit
+                            ? undefined
+                            : getTextEditsForAutoImportSymbolAddition(
+                                  importName,
+                                  imported,
+                                  this._parseResults,
+                                  abbrFromUsers
+                              ),
                     };
                 }
             }
@@ -692,22 +786,42 @@ export class AutoImporter {
 
         return {
             insertionText: abbrFromUsers ?? insertionText,
-            edits: getTextEditsForAutoImportInsertion(
-                importName,
-                this._importStatements,
-                moduleName,
-                importGroup,
-                this._parseResults,
-                this._invocationPosition,
-                abbrFromUsers
-            ),
+            edits: this._options.lazyEdit
+                ? undefined
+                : getTextEditsForAutoImportInsertion(
+                      importName,
+                      this._importStatements,
+                      moduleName,
+                      importGroup,
+                      this._parseResults,
+                      this._invocationPosition,
+                      abbrFromUsers
+                  ),
         };
+    }
+
+    private _perfIndexCount(autoImportSymbol: AutoImportSymbol, library: boolean) {
+        if (autoImportSymbol.symbol) {
+            this._perfInfo.symbolCount++;
+        } else if (library) {
+            this._perfInfo.indexCount++;
+        }
+    }
+
+    private _addResult(results: AutoImportResultMap, result: AutoImportResult) {
+        let entries = results.get(result.name);
+        if (!entries) {
+            entries = [];
+            results.set(result.name, entries);
+        }
+
+        entries.push(result);
     }
 }
 
-function createModuleSymbolTableFromIndexResult(indexResults: IndexResults): ModuleSymbolTable {
+function createModuleSymbolTableFromIndexResult(indexResults: IndexResults, library: boolean): ModuleSymbolTable {
     return {
-        forEach(callbackfn: (value: AutoImportSymbol, key: string) => void): void {
+        forEach(callbackfn: (value: AutoImportSymbol, key: string, library: boolean) => void): void {
             indexResults.symbols.forEach((data) => {
                 if (!data.externallyVisible) {
                     return;
@@ -716,16 +830,18 @@ function createModuleSymbolTableFromIndexResult(indexResults: IndexResults): Mod
                 callbackfn(
                     {
                         importAlias: data.alias,
-                        kind: convertSymbolKindToCompletionItemKind(data.kind),
+                        kind: data.kind,
+                        itemKind: data.itemKind,
                     },
-                    data.name
+                    data.name,
+                    library
                 );
             });
         },
     };
 }
 
-function convertSymbolKindToCompletionItemKind(kind: SymbolKind) {
+export function convertSymbolKindToCompletionItemKind(kind: SymbolKind | undefined) {
     switch (kind) {
         case SymbolKind.File:
             return CompletionItemKind.File;
@@ -766,7 +882,7 @@ function convertSymbolKindToCompletionItemKind(kind: SymbolKind) {
             return CompletionItemKind.Variable;
 
         case SymbolKind.String:
-            return CompletionItemKind.Text;
+            return CompletionItemKind.Constant;
 
         case SymbolKind.Number:
         case SymbolKind.Boolean:

@@ -2,6 +2,7 @@
 
 from typing import Union, Type
 
+
 def foo(p1: Type[int], p2: Union[Type[int], Type[str]]):
     a = issubclass(p2, str)
 
@@ -20,5 +21,3 @@ def foo(p1: Type[int], p2: Union[Type[int], Type[str]]):
 
     # This should not generate an error because it's within an assert.
     assert issubclass(p1, int)
-
-    

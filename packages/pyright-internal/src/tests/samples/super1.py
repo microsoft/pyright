@@ -1,27 +1,31 @@
 # This sample tests the type analyzer's handling of the super() call.
 
-class FooBase():
+
+class FooBase:
     @staticmethod
     def ccc():
         pass
 
+
 class Foo1(FooBase):
     def __init__(self):
         pass
-    
+
     def hello1(self):
         pass
+
 
 class Foo2(FooBase):
     def __init__(self):
         pass
-    
+
     def hello2(self):
         return self.__class__()
 
     @staticmethod
     def aaa():
         pass
+
 
 class Bar(Foo1, Foo2):
     def __init__(self):
@@ -51,8 +55,3 @@ foo2 = Foo2()
 # This should generate an error because Foo2
 # is not a subclass of Foo1.
 super(Foo1, foo2).ccc()
-
-
-
-
-

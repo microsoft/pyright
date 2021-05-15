@@ -5,7 +5,7 @@
 # includes an overloaded method.
 
 from fractions import Fraction
-from typing import Any, Protocol, TypeVar, overload
+from typing import Any, Optional, Protocol, TypeVar, Union, overload
 
 v1 = round(Fraction(1))
 
@@ -21,6 +21,9 @@ class SupportsRound1(Protocol[_T_co]):
 
     @overload
     def __round__(self, ndigits: int) -> _T_co:
+        ...
+
+    def __round__(self, ndigits: int = 0) -> _T_co:
         ...
 
 
@@ -46,6 +49,9 @@ class Proto2:
 
     @overload
     def __round__(self, ndigits: None = ...) -> int:
+        ...
+
+    def __round__(self, ndigits: Optional[int]) -> Union["Fraction", int]:
         ...
 
 

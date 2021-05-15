@@ -56,4 +56,3 @@ def func4(val: Union[str, int]) -> Union[str, int]:
         # point, it should be assignable to Union[str, int]
         # because Never is assignable to any type.
         return val
-

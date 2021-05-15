@@ -5,4 +5,3 @@
 from .import8 import foo
 
 foo()
-

@@ -14,11 +14,15 @@ import { CancellationToken, MarkupContent, MarkupKind } from 'vscode-languageser
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import { extractParameterDocumentation } from '../analyzer/docStringUtils';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
+import { getCallNodeAndActiveParameterIndex } from '../analyzer/parseTreeUtils';
+import { SourceMapper } from '../analyzer/sourceMapper';
 import { CallSignature, TypeEvaluator } from '../analyzer/typeEvaluator';
 import { throwIfCancellationRequested } from '../common/cancellationUtils';
 import { convertPositionToOffset } from '../common/positionUtils';
 import { Position } from '../common/textRange';
+import { CallNode, NameNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { getDocumentationPartsForTypeAndDecl, getFunctionDocStringFromType } from './tooltipUtils';
 
 export interface ParamInfo {
     startOffset: number;
@@ -43,6 +47,7 @@ export class SignatureHelpProvider {
     static getSignatureHelpForPosition(
         parseResults: ParseResults,
         position: Position,
+        sourceMapper: SourceMapper,
         evaluator: TypeEvaluator,
         format: MarkupKind,
         token: CancellationToken
@@ -61,9 +66,14 @@ export class SignatureHelpProvider {
         // node.
         const initialNode = node;
         const initialDepth = node ? ParseTreeUtils.getNodeDepth(node) : 0;
-        let curOffset = offset;
+        let curOffset = offset - 1;
         while (curOffset >= 0) {
-            curOffset--;
+            // Don't scan back across a comma because commas separate
+            // arguments, and we don't want to mistakenly think that we're
+            // pointing to a previous argument.
+            if (parseResults.text.substr(curOffset, 1) === ',') {
+                break;
+            }
             const curNode = ParseTreeUtils.findNodeByOffset(parseResults.parseTree, curOffset);
             if (curNode && curNode !== initialNode) {
                 if (ParseTreeUtils.getNodeDepth(curNode) > initialDepth) {
@@ -71,18 +81,31 @@ export class SignatureHelpProvider {
                 }
                 break;
             }
+
+            curOffset--;
         }
 
         if (node === undefined) {
             return undefined;
         }
 
-        const callSignatureInfo = evaluator.getCallSignatureInfo(node, offset, parseResults.tokenizerOutput.tokens);
+        const callInfo = getCallNodeAndActiveParameterIndex(node, offset, parseResults.tokenizerOutput.tokens);
+        if (!callInfo) {
+            return;
+        }
+
+        const callSignatureInfo = evaluator.getCallSignatureInfo(
+            callInfo.callNode,
+            callInfo.activeIndex,
+            callInfo.activeOrFake
+        );
         if (!callSignatureInfo) {
             return undefined;
         }
 
-        const signatures = callSignatureInfo.signatures.map((sig) => this._makeSignature(sig, evaluator, format));
+        const signatures = callSignatureInfo.signatures.map((sig) =>
+            this._makeSignature(callSignatureInfo.callNode, sig, sourceMapper, evaluator, format)
+        );
         const callHasParameters = !!callSignatureInfo.callNode.arguments?.length;
 
         return {
@@ -92,18 +115,30 @@ export class SignatureHelpProvider {
     }
 
     private static _makeSignature(
+        callNode: CallNode,
         signature: CallSignature,
+        sourceMapper: SourceMapper,
         evaluator: TypeEvaluator,
         format: MarkupKind
     ): SignatureInfo {
         const functionType = signature.type;
         const stringParts = evaluator.printFunctionParts(functionType);
         const parameters: ParamInfo[] = [];
-        const functionDocString = functionType.details.docString;
+        const functionDocString =
+            getFunctionDocStringFromType(functionType, sourceMapper, evaluator) ??
+            this._getDocStringFromCallNode(callNode, sourceMapper, evaluator);
+
         let label = '(';
+        const params = functionType.details.parameters;
 
         stringParts[0].forEach((paramString: string, paramIndex) => {
-            const paramName = functionType.details.parameters[paramIndex].name || '';
+            let paramName = '';
+            if (paramIndex < params.length) {
+                paramName = params[paramIndex].name || '';
+            } else if (params.length > 0) {
+                paramName = params[params.length - 1].name || '';
+            }
+
             parameters.push({
                 startOffset: label.length,
                 endOffset: label.length + paramString.length,
@@ -121,7 +156,7 @@ export class SignatureHelpProvider {
 
         let activeParameter: number | undefined;
         if (signature.activeParam) {
-            activeParameter = functionType.details.parameters.indexOf(signature.activeParam);
+            activeParameter = params.indexOf(signature.activeParam);
             if (activeParameter === -1) {
                 activeParameter = undefined;
             }
@@ -148,5 +183,45 @@ export class SignatureHelpProvider {
         }
 
         return sigInfo;
+    }
+
+    private static _getDocStringFromCallNode(
+        callNode: CallNode,
+        sourceMapper: SourceMapper,
+        evaluator: TypeEvaluator
+    ): string | undefined {
+        // This is a heuristic to see whether we can get some docstring
+        // from call node when all other methods failed.
+        // It only works if call is off a name node.
+        let name: NameNode | undefined;
+        const expr = callNode.leftExpression;
+        if (expr.nodeType === ParseNodeType.Name) {
+            name = expr;
+        } else if (expr.nodeType === ParseNodeType.MemberAccess) {
+            name = expr.memberName;
+        }
+
+        if (!name) {
+            return undefined;
+        }
+
+        for (const decl of evaluator.getDeclarationsForNameNode(name) ?? []) {
+            const resolveDecl = evaluator.resolveAliasDeclaration(decl, /* resolveLocalNames */ true);
+            if (!resolveDecl) {
+                continue;
+            }
+
+            const type = evaluator.getType(name);
+            if (!type) {
+                continue;
+            }
+
+            const parts = getDocumentationPartsForTypeAndDecl(sourceMapper, type, resolveDecl, evaluator);
+            if (parts.length > 0) {
+                return parts.join('\n\n');
+            }
+        }
+
+        return undefined;
     }
 }

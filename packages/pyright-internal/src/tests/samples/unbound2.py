@@ -1,6 +1,7 @@
 # This sample validates that an unbound variable error is reported
 # even if that variable has a type declaration.
 
+
 def fn1():
     aaa: int
 
@@ -9,4 +10,3 @@ def fn1():
 
 
 fn1()
-

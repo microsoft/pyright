@@ -28,29 +28,35 @@ export function assert(
 export function fail(message?: string, stackCrawlMark?: AnyFunction): never {
     // debugger;
     const e = new Error(message ? `Debug Failure. ${message}` : 'Debug Failure.');
-    if ((Error as any).captureStackTrace) {
-        (Error as any).captureStackTrace(e, stackCrawlMark || fail);
+    if (Error.captureStackTrace) {
+        Error.captureStackTrace(e, stackCrawlMark || fail);
     }
     throw e;
 }
 
-export function assertDefined<T>(value: T | null | undefined, message?: string): T {
+export function assertDefined<T>(
+    value: T,
+    message?: string,
+    stackCrawlMark?: AnyFunction
+): asserts value is NonNullable<T> {
     if (value === undefined || value === null) {
-        return fail(message);
+        fail(message, stackCrawlMark || assertDefined);
     }
-    return value;
 }
 
-export function assertEachDefined<T, A extends readonly T[]>(value: A, message?: string): A {
+export function assertEachDefined<T>(
+    value: T[],
+    message?: string,
+    stackCrawlMark?: AnyFunction
+): asserts value is NonNullable<T>[] {
     for (const v of value) {
-        assertDefined(v, message);
+        assertDefined(v, message, stackCrawlMark || assertEachDefined);
     }
-    return value;
 }
 
 export function assertNever(member: never, message = 'Illegal value:', stackCrawlMark?: AnyFunction): never {
     const detail = JSON.stringify(member);
-    return fail(`${message} ${detail}`, stackCrawlMark || assertNever);
+    fail(`${message} ${detail}`, stackCrawlMark || assertNever);
 }
 
 export function getFunctionName(func: AnyFunction) {

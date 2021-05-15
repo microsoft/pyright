@@ -145,12 +145,57 @@ export function getTextEditsForAutoImportSymbolAddition(
         // Make sure we're not attempting to auto-import a symbol that
         // already exists in the import list.
         if (!importStatement.node.imports.some((importAs) => importAs.name.value === symbolName)) {
+            // Do our best to insert the new symbol in alphabetical order.
             for (const curImport of importStatement.node.imports) {
                 if (curImport.name.value > symbolName) {
                     break;
                 }
 
                 priorImport = curImport;
+            }
+
+            // Are import symbols formatted one per line or multiple per line? We
+            // will honor the existing formatting. We'll use a heuristic to determine
+            // whether symbols are one per line or multiple per line.
+            //   from x import a, b, c
+            // or
+            //   from x import (
+            //      a
+            //   )
+            let useOnePerLineFormatting = false;
+            let indentText = '';
+            if (importStatement.node.imports.length > 0) {
+                const importStatementPos = convertOffsetToPosition(
+                    importStatement.node.start,
+                    parseResults.tokenizerOutput.lines
+                );
+                const firstSymbolPos = convertOffsetToPosition(
+                    importStatement.node.imports[0].start,
+                    parseResults.tokenizerOutput.lines
+                );
+                const secondSymbolPos =
+                    importStatement.node.imports.length > 1
+                        ? convertOffsetToPosition(
+                              importStatement.node.imports[1].start,
+                              parseResults.tokenizerOutput.lines
+                          )
+                        : undefined;
+
+                if (
+                    firstSymbolPos.line > importStatementPos.line &&
+                    (secondSymbolPos === undefined || secondSymbolPos.line > firstSymbolPos.line)
+                ) {
+                    const firstSymbolLineRange = parseResults.tokenizerOutput.lines.getItemAt(firstSymbolPos.line);
+
+                    // Use the same combination of spaces or tabs to match
+                    // existing formatting.
+                    indentText = parseResults.text.substr(firstSymbolLineRange.start, firstSymbolPos.character);
+
+                    // Is the indent text composed of whitespace only?
+                    if (/^\s*$/.test(indentText)) {
+                        useOnePerLineFormatting = true;
+                    }
+                }
             }
 
             const insertionOffset = priorImport
@@ -160,11 +205,21 @@ export function getTextEditsForAutoImportSymbolAddition(
                 : importStatement.node.start + importStatement.node.length;
             const insertionPosition = convertOffsetToPosition(insertionOffset, parseResults.tokenizerOutput.lines);
 
-            const insertText = aliasName ? `${symbolName} as ${aliasName}` : symbolName;
+            const insertText = aliasName ? `${symbolName} as ${aliasName}` : `${symbolName}`;
+            let replacementText: string;
+
+            if (useOnePerLineFormatting) {
+                const eol = parseResults.tokenizerOutput.predominantEndOfLineSequence;
+                replacementText = priorImport
+                    ? `,${eol}${indentText}${insertText}`
+                    : `${insertText},${eol}${indentText}`;
+            } else {
+                replacementText = priorImport ? `, ${insertText}` : `${insertText}, `;
+            }
 
             textEditList.push({
                 range: { start: insertionPosition, end: insertionPosition },
-                replacementText: priorImport ? ', ' + insertText : insertText + ', ',
+                replacementText,
             });
         }
     }

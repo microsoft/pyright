@@ -2,12 +2,13 @@
 
 from typing import final
 
+
 @final
 class ClassA:
     pass
+
 
 # This should generate an error because ClassA is
 # decorated as final.
 class ClassB(ClassA):
     pass
-

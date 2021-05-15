@@ -42,6 +42,7 @@ const _keywords: { [key: string]: KeywordType } = {
     async: KeywordType.Async,
     await: KeywordType.Await,
     break: KeywordType.Break,
+    case: KeywordType.Case,
     class: KeywordType.Class,
     continue: KeywordType.Continue,
     __debug__: KeywordType.Debug,
@@ -59,6 +60,7 @@ const _keywords: { [key: string]: KeywordType } = {
     in: KeywordType.In,
     is: KeywordType.Is,
     lambda: KeywordType.Lambda,
+    match: KeywordType.Match,
     nonlocal: KeywordType.Nonlocal,
     not: KeywordType.Not,
     or: KeywordType.Or,
@@ -1066,47 +1068,47 @@ export class Tokenizer {
     private _skipToEndOfStringLiteral(flags: StringTokenFlags): StringScannerOutput {
         const quoteChar = flags & StringTokenFlags.SingleQuote ? Char.SingleQuote : Char.DoubleQuote;
         const isTriplicate = (flags & StringTokenFlags.Triplicate) !== 0;
-        let escapedValue = '';
+        const escapedValueParts: number[] = [];
 
         while (true) {
             if (this._cs.isEndOfStream()) {
                 // Hit the end of file without a termination.
                 flags |= StringTokenFlags.Unterminated;
-                return { escapedValue, flags };
+                return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
             }
 
             if (this._cs.currentChar === Char.Backslash) {
-                escapedValue += String.fromCharCode(this._cs.currentChar);
+                escapedValueParts.push(this._cs.currentChar);
 
                 // Move past the escape (backslash) character.
                 this._cs.moveNext();
 
                 if (this._cs.getCurrentChar() === Char.CarriageReturn || this._cs.getCurrentChar() === Char.LineFeed) {
                     if (this._cs.getCurrentChar() === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
-                        escapedValue += String.fromCharCode(this._cs.getCurrentChar());
+                        escapedValueParts.push(this._cs.currentChar);
                         this._cs.moveNext();
                     }
-                    escapedValue += String.fromCharCode(this._cs.getCurrentChar());
+                    escapedValueParts.push(this._cs.currentChar);
                     this._cs.moveNext();
                     this._addLineRange();
                 } else {
-                    escapedValue += String.fromCharCode(this._cs.getCurrentChar());
+                    escapedValueParts.push(this._cs.currentChar);
                     this._cs.moveNext();
                 }
             } else if (this._cs.currentChar === Char.LineFeed || this._cs.currentChar === Char.CarriageReturn) {
                 if (!isTriplicate) {
                     // Unterminated single-line string
                     flags |= StringTokenFlags.Unterminated;
-                    return { escapedValue, flags };
+                    return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
                 }
 
                 // Skip over the new line (either one or two characters).
                 if (this._cs.currentChar === Char.CarriageReturn && this._cs.nextChar === Char.LineFeed) {
-                    escapedValue += String.fromCharCode(this._cs.currentChar);
+                    escapedValueParts.push(this._cs.currentChar);
                     this._cs.moveNext();
                 }
 
-                escapedValue += String.fromCharCode(this._cs.currentChar);
+                escapedValueParts.push(this._cs.currentChar);
                 this._cs.moveNext();
                 this._addLineRange();
             } else if (!isTriplicate && this._cs.currentChar === quoteChar) {
@@ -1121,12 +1123,12 @@ export class Tokenizer {
                 this._cs.advance(3);
                 break;
             } else {
-                escapedValue += String.fromCharCode(this._cs.currentChar);
+                escapedValueParts.push(this._cs.currentChar);
                 this._cs.moveNext();
             }
         }
 
-        return { escapedValue, flags };
+        return { escapedValue: String.fromCharCode.apply(undefined, escapedValueParts), flags };
     }
 
     private _skipFloatingPointCandidate(): boolean {

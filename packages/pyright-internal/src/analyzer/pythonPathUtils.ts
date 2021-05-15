@@ -10,6 +10,7 @@
 import * as child_process from 'child_process';
 
 import { ConfigOptions } from '../common/configOptions';
+import { compareComparableValues } from '../common/core';
 import { FileSystem } from '../common/fileSystem';
 import * as pathConsts from '../common/pathConsts';
 import {
@@ -20,6 +21,7 @@ import {
     getFileSystemEntries,
     isDirectory,
     normalizePath,
+    tryStat,
 } from '../common/pathUtils';
 
 interface PythonPathResult {
@@ -27,10 +29,17 @@ interface PythonPathResult {
     prefix: string;
 }
 
-const cachedSearchPaths = new Map<string, PythonPathResult>();
+const extractSys = [
+    'import os, os.path, sys',
+    'normalize = lambda p: os.path.normcase(os.path.normpath(p))',
+    'cwd = normalize(os.getcwd())',
+    'sys.path[:] = [p for p in sys.path if p != "" and normalize(p) != cwd]',
+    'import json',
+    'json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
+].join('; ');
 
 export const stdLibFolderName = 'stdlib';
-export const thirdPartyFolderName = 'third_party';
+export const thirdPartyFolderName = 'stubs';
 
 export function getTypeShedFallbackPath(fs: FileSystem) {
     let moduleDirectory = fs.getModulePath();
@@ -62,24 +71,33 @@ export function getTypeshedSubdirectory(typeshedPath: string, isStdLib: boolean)
 export function findPythonSearchPaths(
     fs: FileSystem,
     configOptions: ConfigOptions,
-    venv: string | undefined,
     importFailureInfo: string[],
     includeWatchPathsOnly?: boolean | undefined,
     workspaceRoot?: string | undefined
 ): string[] | undefined {
     importFailureInfo.push('Finding python search paths');
 
-    if (configOptions.venvPath !== undefined && (venv !== undefined || configOptions.defaultVenv)) {
-        const venvDir = venv !== undefined ? venv : configOptions.defaultVenv;
+    if (configOptions.venvPath !== undefined && configOptions.venv) {
+        const venvDir = configOptions.venv;
         const venvPath = combinePaths(configOptions.venvPath, venvDir);
 
         const foundPaths: string[] = [];
+        const sitePackagesPaths: string[] = [];
 
         [pathConsts.lib, pathConsts.lib64, pathConsts.libAlternate].forEach((libPath) => {
             const sitePackagesPath = findSitePackagesPath(fs, combinePaths(venvPath, libPath), importFailureInfo);
             if (sitePackagesPath) {
-                foundPaths.push(sitePackagesPath);
+                addPathIfUnique(foundPaths, sitePackagesPath);
+                sitePackagesPaths.push(sitePackagesPath);
             }
+        });
+
+        // Now add paths from ".pth" files located in each of the site packages folders.
+        sitePackagesPaths.forEach((sitePackagesPath) => {
+            const pthPaths = getPathsFromPthFiles(fs, sitePackagesPath);
+            pthPaths.forEach((path) => {
+                addPathIfUnique(foundPaths, path);
+            });
         });
 
         if (foundPaths.length > 0) {
@@ -106,6 +124,49 @@ export function findPythonSearchPaths(
     }
 
     return pathResult.paths;
+}
+
+export function getPythonPathFromPythonInterpreter(
+    fs: FileSystem,
+    interpreterPath: string | undefined,
+    importFailureInfo: string[]
+): PythonPathResult {
+    let result: PythonPathResult | undefined;
+
+    if (interpreterPath) {
+        result = getPathResultFromInterpreter(fs, interpreterPath, importFailureInfo);
+    } else {
+        // On non-Windows platforms, always default to python3 first. We want to
+        // avoid this on Windows because it might invoke a script that displays
+        // a dialog box indicating that python can be downloaded from the app store.
+        if (process.platform !== 'win32') {
+            result = getPathResultFromInterpreter(fs, 'python3', importFailureInfo);
+        }
+
+        // On some platforms, 'python3' might not exist. Try 'python' instead.
+        if (!result) {
+            result = getPathResultFromInterpreter(fs, 'python', importFailureInfo);
+        }
+    }
+
+    if (!result) {
+        result = {
+            paths: [],
+            prefix: '',
+        };
+    }
+
+    importFailureInfo.push(`Received ${result.paths.length} paths from interpreter`);
+    result.paths.forEach((path) => {
+        importFailureInfo.push(`  ${path}`);
+    });
+
+    return result;
+}
+
+export function isPythonBinary(p: string): boolean {
+    p = p.trim();
+    return p === 'python' || p === 'python3';
 }
 
 function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo: string[]): string | undefined {
@@ -139,6 +200,8 @@ function findSitePackagesPath(fs: FileSystem, libPath: string, importFailureInfo
             }
         }
     }
+
+    return undefined;
 }
 
 function getPathResultFromInterpreter(
@@ -152,10 +215,7 @@ function getPathResultFromInterpreter(
     };
 
     try {
-        const commandLineArgs: string[] = [
-            '-c',
-            'import sys, json; json.dump(dict(path=sys.path, prefix=sys.prefix), sys.stdout)',
-        ];
+        const commandLineArgs: string[] = ['-c', extractSys];
 
         importFailureInfo.push(`Executing interpreter: '${interpreter}'`);
         const execOutput = child_process.execFileSync(interpreter, commandLineArgs, { encoding: 'utf8' });
@@ -193,54 +253,43 @@ function getPathResultFromInterpreter(
     return result;
 }
 
-export function getPythonPathFromPythonInterpreter(
-    fs: FileSystem,
-    interpreterPath: string | undefined,
-    importFailureInfo: string[]
-): PythonPathResult {
-    const searchKey = interpreterPath || '';
+function getPathsFromPthFiles(fs: FileSystem, parentDir: string): string[] {
+    const searchPaths: string[] = [];
 
-    // If we've seen this request before, return the cached results.
-    const cachedPath = cachedSearchPaths.get(searchKey);
-    if (cachedPath) {
-        return cachedPath;
-    }
+    // Get a list of all *.pth files within the specified directory.
+    const pthFiles = fs
+        .readdirEntriesSync(parentDir)
+        .filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && entry.name.endsWith('.pth'))
+        .sort((a, b) => compareComparableValues(a.name, b.name));
 
-    let result: PythonPathResult | undefined;
+    pthFiles.forEach((pthFile) => {
+        const filePath = combinePaths(parentDir, pthFile.name);
+        const fileStats = tryStat(fs, filePath);
 
-    if (interpreterPath) {
-        result = getPathResultFromInterpreter(fs, interpreterPath, importFailureInfo);
-    } else {
-        // On non-Windows platforms, always default to python3 first. We want to
-        // avoid this on Windows because it might invoke a script that displays
-        // a dialog box indicating that python can be downloaded from the app store.
-        if (process.platform !== 'win32') {
-            result = getPathResultFromInterpreter(fs, 'python3', importFailureInfo);
+        // Skip all files that are much larger than expected.
+        if (fileStats?.isFile() && fileStats.size > 0 && fileStats.size < 64 * 1024) {
+            const data = fs.readFileSync(filePath, 'utf8');
+            const lines = data.split(/\r?\n/);
+            lines.forEach((line) => {
+                const trimmedLine = line.trim();
+                if (trimmedLine.length > 0 && !trimmedLine.startsWith('#') && !trimmedLine.match(/^import\s/)) {
+                    const pthPath = combinePaths(parentDir, trimmedLine);
+                    if (fs.existsSync(pthPath) && isDirectory(fs, pthPath)) {
+                        searchPaths.push(pthPath);
+                    }
+                }
+            });
         }
-
-        // On some platforms, 'python3' might not exist. Try 'python' instead.
-        if (!result) {
-            result = getPathResultFromInterpreter(fs, 'python', importFailureInfo);
-        }
-    }
-
-    if (!result) {
-        result = {
-            paths: [],
-            prefix: '',
-        };
-    }
-
-    cachedSearchPaths.set(searchKey, result);
-    importFailureInfo.push(`Received ${result.paths.length} paths from interpreter`);
-    result.paths.forEach((path) => {
-        importFailureInfo.push(`  ${path}`);
     });
 
-    return result;
+    return searchPaths;
 }
 
-export function isPythonBinary(p: string): boolean {
-    p = p.trim();
-    return p === 'python' || p === 'python3';
+function addPathIfUnique(pathList: string[], pathToAdd: string) {
+    if (!pathList.some((path) => path === pathToAdd)) {
+        pathList.push(pathToAdd);
+        return true;
+    }
+
+    return false;
 }

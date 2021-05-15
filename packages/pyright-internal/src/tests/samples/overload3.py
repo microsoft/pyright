@@ -22,6 +22,7 @@ def mouse_event(
 ) -> Union[int, Tuple[int, int]]:
     return 1
 
+
 # This should generate an error because it doesn't match either
 # of the @overload versions, even though it does match the
 # version of the function that omits the @overload.

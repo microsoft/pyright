@@ -1,20 +1,25 @@
 # This sample tests various type checking operations relating to
 # generator functions (those with a "yield" method).
 
-from typing import Generator, Dict, Iterator
+from typing import Any, Generator, Dict, Iterator
 
-class ClassA():
+
+class ClassA:
     pass
+
 
 s = True
 
-class ClassB():
+
+class ClassB:
     def shouldContinue(self):
         global s
         return s
 
-class ClassC():
+
+class ClassC:
     pass
+
 
 def generator1() -> Generator[ClassA, ClassB, ClassC]:
     cont = ClassB()
@@ -40,7 +45,7 @@ def generator2() -> Generator[ClassA, ClassB, ClassC]:
         yield 3
 
 
-def generator3() -> Generator[ClassA]:
+def generator3() -> Generator[ClassA, int, Any]:
     cont = ClassB()
     if cont.shouldContinue():
         return 3
@@ -66,19 +71,23 @@ def generator5() -> Iterator[ClassA]:
 def generate():
     for i in range(2):
         yield i
+
+
 s = generate()
 
 # Verify that a call to a Generator method succeeds
 s.close()
 
+
 def generator6():
     yield
 
-def generator7() -> Generator[None]:
+
+def generator7() -> Generator[None, None, None]:
     yield
+
 
 def generator8() -> Iterator[Dict[str, int]]:
     # This tests the bidirectional type inference
     # of dict types. It should not generate an error.
-    yield {'hello': 3}
-
+    yield {"hello": 3}

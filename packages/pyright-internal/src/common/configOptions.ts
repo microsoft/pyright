@@ -39,10 +39,16 @@ export enum PythonPlatform {
 
 export class ExecutionEnvironment {
     // Default to "." which indicates every file in the project.
-    constructor(root: string, defaultPythonVersion?: PythonVersion, defaultPythonPlatform?: string) {
+    constructor(
+        root: string,
+        defaultPythonVersion: PythonVersion | undefined,
+        defaultPythonPlatform: string | undefined,
+        defaultExtraPaths: string[] | undefined
+    ) {
         this.root = root;
         this.pythonVersion = defaultPythonVersion || latestStablePythonVersion;
         this.pythonPlatform = defaultPythonPlatform;
+        this.extraPaths = defaultExtraPaths || [];
     }
 
     // Root directory for execution - absolute or relative to the
@@ -57,9 +63,6 @@ export class ExecutionEnvironment {
 
     // Default to no extra paths.
     extraPaths: string[] = [];
-
-    // Name of virtual environment to use.
-    venv?: string;
 }
 
 export type DiagnosticLevel = 'none' | 'information' | 'warning' | 'error';
@@ -80,6 +83,9 @@ export interface DiagnosticRuleSet {
 
     // Use strict inference rules for list expressions?
     strictListInference: boolean;
+
+    // Use strict inference rules for set expressions?
+    strictSetInference: boolean;
 
     // Use strict inference rules for dictionary expressions?
     strictDictionaryInference: boolean;
@@ -144,8 +150,11 @@ export interface DiagnosticRuleSet {
     // Report attempts to use an Optional type in a "with" statement?
     reportOptionalContextManager: DiagnosticLevel;
 
-    // Report attempts to use an Optional type in a binary or unary operation.
+    // Report attempts to use an Optional type in a binary or unary operation?
     reportOptionalOperand: DiagnosticLevel;
+
+    // Report accesses to non-required TypedDict fields?
+    reportTypedDictNotRequiredAccess: DiagnosticLevel;
 
     // Report untyped function decorators that obscure the function type?
     reportUntypedFunctionDecorator: DiagnosticLevel;
@@ -173,6 +182,10 @@ export interface DiagnosticRuleSet {
     // Report usage of variable override that is incompatible with
     // the base class symbol of the same name?
     reportIncompatibleVariableOverride: DiagnosticLevel;
+
+    // Report function overloads that overlap in signature but have
+    // incompatible return types.
+    reportOverlappingOverload: DiagnosticLevel;
 
     // Report usage of invalid escape sequences in string literals?
     reportInvalidStringEscapeSequence: DiagnosticLevel;
@@ -209,6 +222,9 @@ export interface DiagnosticRuleSet {
     // Report calls to cast that are statically determined
     // to always unnecessary.
     reportUnnecessaryCast: DiagnosticLevel;
+
+    // Report == or != operators that always evaluate to True or False.
+    reportUnnecessaryComparison: DiagnosticLevel;
 
     // Report assert expressions that will always evaluate to true.
     reportAssertAlwaysTrue: DiagnosticLevel;
@@ -250,6 +266,7 @@ export function cloneDiagnosticRuleSet(diagSettings: DiagnosticRuleSet): Diagnos
 export function getBooleanDiagnosticRules() {
     return [
         DiagnosticRule.strictListInference,
+        DiagnosticRule.strictSetInference,
         DiagnosticRule.strictDictionaryInference,
         DiagnosticRule.strictParameterNoneValue,
 
@@ -281,6 +298,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportOptionalIterable,
         DiagnosticRule.reportOptionalContextManager,
         DiagnosticRule.reportOptionalOperand,
+        DiagnosticRule.reportTypedDictNotRequiredAccess,
         DiagnosticRule.reportUntypedFunctionDecorator,
         DiagnosticRule.reportUntypedClassDecorator,
         DiagnosticRule.reportUntypedBaseClass,
@@ -289,6 +307,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportConstantRedefinition,
         DiagnosticRule.reportIncompatibleMethodOverride,
         DiagnosticRule.reportIncompatibleVariableOverride,
+        DiagnosticRule.reportOverlappingOverload,
         DiagnosticRule.reportInvalidStringEscapeSequence,
         DiagnosticRule.reportUnknownParameterType,
         DiagnosticRule.reportUnknownArgumentType,
@@ -300,6 +319,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportCallInDefaultInitializer,
         DiagnosticRule.reportUnnecessaryIsInstance,
         DiagnosticRule.reportUnnecessaryCast,
+        DiagnosticRule.reportUnnecessaryComparison,
         DiagnosticRule.reportAssertAlwaysTrue,
         DiagnosticRule.reportSelfClsParameterName,
         DiagnosticRule.reportImplicitStringConcatenation,
@@ -325,6 +345,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         omitUnannotatedParamType: true,
         pep604Printing: true,
         strictListInference: false,
+        strictSetInference: false,
         strictDictionaryInference: false,
         strictParameterNoneValue: false,
         enableTypeIgnoreComments: true,
@@ -347,6 +368,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportOptionalIterable: 'none',
         reportOptionalContextManager: 'none',
         reportOptionalOperand: 'none',
+        reportTypedDictNotRequiredAccess: 'none',
         reportUntypedFunctionDecorator: 'none',
         reportUntypedClassDecorator: 'none',
         reportUntypedBaseClass: 'none',
@@ -355,6 +377,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportConstantRedefinition: 'none',
         reportIncompatibleMethodOverride: 'none',
         reportIncompatibleVariableOverride: 'none',
+        reportOverlappingOverload: 'none',
         reportInvalidStringEscapeSequence: 'none',
         reportUnknownParameterType: 'none',
         reportUnknownArgumentType: 'none',
@@ -366,10 +389,11 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
+        reportUnnecessaryComparison: 'none',
         reportAssertAlwaysTrue: 'none',
         reportSelfClsParameterName: 'none',
         reportImplicitStringConcatenation: 'none',
-        reportUnboundVariable: 'warning',
+        reportUnboundVariable: 'none',
         reportUndefinedVariable: 'warning',
         reportInvalidStubStatement: 'none',
         reportUnsupportedDunderAll: 'none',
@@ -387,6 +411,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         omitUnannotatedParamType: true,
         pep604Printing: true,
         strictListInference: false,
+        strictSetInference: false,
         strictDictionaryInference: false,
         strictParameterNoneValue: false,
         enableTypeIgnoreComments: true,
@@ -409,6 +434,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportOptionalIterable: 'none',
         reportOptionalContextManager: 'none',
         reportOptionalOperand: 'none',
+        reportTypedDictNotRequiredAccess: 'error',
         reportUntypedFunctionDecorator: 'none',
         reportUntypedClassDecorator: 'none',
         reportUntypedBaseClass: 'none',
@@ -417,6 +443,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportConstantRedefinition: 'none',
         reportIncompatibleMethodOverride: 'none',
         reportIncompatibleVariableOverride: 'none',
+        reportOverlappingOverload: 'none',
         reportInvalidStringEscapeSequence: 'warning',
         reportUnknownParameterType: 'none',
         reportUnknownArgumentType: 'none',
@@ -428,6 +455,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'none',
         reportUnnecessaryCast: 'none',
+        reportUnnecessaryComparison: 'none',
         reportAssertAlwaysTrue: 'warning',
         reportSelfClsParameterName: 'warning',
         reportImplicitStringConcatenation: 'none',
@@ -449,6 +477,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         omitUnannotatedParamType: false,
         pep604Printing: true,
         strictListInference: true,
+        strictSetInference: true,
         strictDictionaryInference: true,
         strictParameterNoneValue: true,
         enableTypeIgnoreComments: true, // Not overridden by strict mode
@@ -471,6 +500,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportOptionalIterable: 'error',
         reportOptionalContextManager: 'error',
         reportOptionalOperand: 'error',
+        reportTypedDictNotRequiredAccess: 'error',
         reportUntypedFunctionDecorator: 'error',
         reportUntypedClassDecorator: 'error',
         reportUntypedBaseClass: 'error',
@@ -479,6 +509,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportConstantRedefinition: 'error',
         reportIncompatibleMethodOverride: 'error',
         reportIncompatibleVariableOverride: 'error',
+        reportOverlappingOverload: 'error',
         reportInvalidStringEscapeSequence: 'error',
         reportUnknownParameterType: 'error',
         reportUnknownArgumentType: 'error',
@@ -490,6 +521,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportCallInDefaultInitializer: 'none',
         reportUnnecessaryIsInstance: 'error',
         reportUnnecessaryCast: 'error',
+        reportUnnecessaryComparison: 'error',
         reportAssertAlwaysTrue: 'error',
         reportSelfClsParameterName: 'error',
         reportImplicitStringConcatenation: 'none',
@@ -574,6 +606,12 @@ export class ConfigOptions {
     // Use indexing.
     indexing = false;
 
+    // Use type evaluator call tracking
+    logTypeEvaluationTime = false;
+
+    // Minimum threshold for type eval logging
+    typeEvaluationTimeThreshold = 50;
+
     // Avoid using type inference for files within packages that claim
     // to contain type annotations?
     disableInferenceForPyTypedSources = true;
@@ -596,8 +634,8 @@ export class ConfigOptions {
     // third-party modules.
     venvPath?: string;
 
-    // Default venv environment. Can be overridden by executionEnvironment.
-    defaultVenv?: string;
+    // Default venv environment.
+    venv?: string;
 
     // Default pythonVersion. Can be overridden by executionEnvironment.
     defaultPythonVersion?: PythonVersion;
@@ -605,11 +643,17 @@ export class ConfigOptions {
     // Default pythonPlatform. Can be overridden by executionEnvironment.
     defaultPythonPlatform?: string;
 
+    // Default extraPaths. Can be overridden by executionEnvironment.
+    defaultExtraPaths?: string[];
+
     //---------------------------------------------------------------
     // Internal-only switches
 
     // Run additional analysis as part of test cases?
     internalTestMode?: boolean;
+
+    // Run program in index generation mode.
+    indexGenerationMode?: boolean;
 
     static getDiagnosticRuleSet(typeCheckingMode?: string): DiagnosticRuleSet {
         if (typeCheckingMode === 'strict') {
@@ -623,55 +667,36 @@ export class ConfigOptions {
         return getBasicDiagnosticRuleSet();
     }
 
+    getDefaultExecEnvironment(): ExecutionEnvironment {
+        return new ExecutionEnvironment(
+            this.projectRoot,
+            this.defaultPythonVersion,
+            this.defaultPythonPlatform,
+            this.defaultExtraPaths
+        );
+    }
+
     // Finds the best execution environment for a given file path. The
     // specified file path should be absolute.
     // If no matching execution environment can be found, a default
     // execution environment is used.
     findExecEnvironment(filePath: string): ExecutionEnvironment {
-        let execEnv = this.executionEnvironments.find((env) => {
-            const envRoot = ensureTrailingDirectorySeparator(normalizePath(combinePaths(this.projectRoot, env.root)));
-            return filePath.startsWith(envRoot);
-        });
-
-        if (!execEnv) {
-            execEnv = new ExecutionEnvironment(this.projectRoot, this.defaultPythonVersion, this.defaultPythonPlatform);
-        }
-
-        return execEnv;
+        return (
+            this.executionEnvironments.find((env) => {
+                const envRoot = ensureTrailingDirectorySeparator(
+                    normalizePath(combinePaths(this.projectRoot, env.root))
+                );
+                return filePath.startsWith(envRoot);
+            }) ?? this.getDefaultExecEnvironment()
+        );
     }
 
-    getDefaultExecEnvironment(): ExecutionEnvironment {
-        return new ExecutionEnvironment(this.projectRoot, this.defaultPythonVersion, this.defaultPythonPlatform);
-    }
-
-    addExecEnvironmentForExtraPaths(fs: FileSystem, autoSearchPaths: boolean, extraPaths: string[]) {
-        const paths: string[] = [];
-
-        if (autoSearchPaths) {
-            // Auto-detect the common scenario where the sources are under the src folder
-            const srcPath = resolvePaths(this.projectRoot, pathConsts.src);
-            if (fs.existsSync(srcPath) && !fs.existsSync(resolvePaths(srcPath, '__init__.py'))) {
-                paths.push(srcPath);
-            }
+    getExecutionEnvironments(): ExecutionEnvironment[] {
+        if (this.executionEnvironments.length > 0) {
+            return this.executionEnvironments;
         }
 
-        if (extraPaths.length > 0) {
-            for (const p of extraPaths) {
-                paths.push(resolvePaths(this.projectRoot, p));
-            }
-        }
-
-        if (paths.length > 0) {
-            const execEnv = new ExecutionEnvironment(
-                this.projectRoot,
-                this.defaultPythonVersion,
-                this.defaultPythonPlatform
-            );
-
-            execEnv.extraPaths.push(...paths);
-
-            this.executionEnvironments.push(execEnv);
-        }
+        return [this.getDefaultExecEnvironment()];
     }
 
     // Initialize the structure from a JSON object.
@@ -803,6 +828,13 @@ export class ConfigOptions {
                 configObj.strictListInference,
                 DiagnosticRule.strictListInference,
                 defaultSettings.strictListInference
+            ),
+
+            // Use strict inference rules for set expressions?
+            strictSetInference: this._convertBoolean(
+                configObj.strictSetInference,
+                DiagnosticRule.strictSetInference,
+                defaultSettings.strictSetInference
             ),
 
             // Use strict inference rules for dictionary expressions?
@@ -960,6 +992,13 @@ export class ConfigOptions {
                 defaultSettings.reportOptionalOperand
             ),
 
+            // Read the "reportTypedDictNotRequiredAccess" entry.
+            reportTypedDictNotRequiredAccess: this._convertDiagnosticLevel(
+                configObj.reportTypedDictNotRequiredAccess,
+                DiagnosticRule.reportTypedDictNotRequiredAccess,
+                defaultSettings.reportTypedDictNotRequiredAccess
+            ),
+
             // Read the "reportUntypedFunctionDecorator" entry.
             reportUntypedFunctionDecorator: this._convertDiagnosticLevel(
                 configObj.reportUntypedFunctionDecorator,
@@ -1014,6 +1053,13 @@ export class ConfigOptions {
                 configObj.reportIncompatibleVariableOverride,
                 DiagnosticRule.reportIncompatibleVariableOverride,
                 defaultSettings.reportIncompatibleVariableOverride
+            ),
+
+            // Read the "reportOverlappingOverload" entry.
+            reportOverlappingOverload: this._convertDiagnosticLevel(
+                configObj.reportOverlappingOverload,
+                DiagnosticRule.reportOverlappingOverload,
+                defaultSettings.reportOverlappingOverload
             ),
 
             // Read the "reportInvalidStringEscapeSequence" entry.
@@ -1093,6 +1139,13 @@ export class ConfigOptions {
                 defaultSettings.reportUnnecessaryCast
             ),
 
+            // Read the "reportUnnecessaryComparison" entry.
+            reportUnnecessaryComparison: this._convertDiagnosticLevel(
+                configObj.reportUnnecessaryComparison,
+                DiagnosticRule.reportUnnecessaryComparison,
+                defaultSettings.reportUnnecessaryComparison
+            ),
+
             // Read the "reportAssertAlwaysTrue" entry.
             reportAssertAlwaysTrue: this._convertDiagnosticLevel(
                 configObj.reportAssertAlwaysTrue,
@@ -1167,18 +1220,34 @@ export class ConfigOptions {
             }
         }
 
-        // Read the default "venv".
-        this.defaultVenv = undefined;
+        // Read the "venv" name.
+        this.venv = undefined;
         if (configObj.venv !== undefined) {
             if (typeof configObj.venv !== 'string') {
                 console.error(`Config "venv" field must contain a string.`);
             } else {
-                this.defaultVenv = configObj.venv;
+                this.venv = configObj.venv;
+            }
+        }
+
+        // Read the default "extraPaths".
+        if (configObj.extraPaths !== undefined) {
+            this.defaultExtraPaths = [];
+            if (!Array.isArray(configObj.extraPaths)) {
+                console.error(`Config "extraPaths" field must contain an array.`);
+            } else {
+                const pathList = configObj.extraPaths as string[];
+                pathList.forEach((path, pathIndex) => {
+                    if (typeof path !== 'string') {
+                        console.error(`Config "extraPaths" field ${pathIndex} must be a string.`);
+                    } else {
+                        this.defaultExtraPaths!.push(normalizePath(combinePaths(this.projectRoot, path)));
+                    }
+                });
             }
         }
 
         // Read the default "pythonVersion".
-        this.defaultPythonVersion = undefined;
         if (configObj.pythonVersion !== undefined) {
             if (typeof configObj.pythonVersion === 'string') {
                 const version = versionFromString(configObj.pythonVersion);
@@ -1195,7 +1264,6 @@ export class ConfigOptions {
         this.ensureDefaultPythonVersion(pythonPath, console);
 
         // Read the default "pythonPlatform".
-        this.defaultPythonPlatform = undefined;
         if (configObj.pythonPlatform !== undefined) {
             if (typeof configObj.pythonPlatform !== 'string') {
                 console.error(`Config "pythonPlatform" field must contain a string.`);
@@ -1293,6 +1361,24 @@ export class ConfigOptions {
                 this.indexing = configObj.indexing;
             }
         }
+
+        // Read the "logTypeEvaluationTime" setting.
+        if (configObj.logTypeEvaluationTime !== undefined) {
+            if (typeof configObj.logTypeEvaluationTime !== 'boolean') {
+                console.error(`Config "logTypeEvaluationTime" field must be true or false.`);
+            } else {
+                this.logTypeEvaluationTime = configObj.logTypeEvaluationTime;
+            }
+        }
+
+        // Read the "typeEvaluationTimeThreshold" setting.
+        if (configObj.typeEvaluationTimeThreshold !== undefined) {
+            if (typeof configObj.typeEvaluationTimeThreshold !== 'number') {
+                console.error(`Config "typeEvaluationTimeThreshold" field must be a number.`);
+            } else {
+                this.typeEvaluationTimeThreshold = configObj.typeEvaluationTimeThreshold;
+            }
+        }
     }
 
     ensureDefaultPythonPlatform(console: ConsoleInterface) {
@@ -1325,6 +1411,28 @@ export class ConfigOptions {
         this.defaultPythonVersion = this._getPythonVersionFromPythonInterpreter(pythonPath, console);
         if (this.defaultPythonVersion !== undefined) {
             console.info(`Assuming Python version ${versionToString(this.defaultPythonVersion)}`);
+        }
+    }
+
+    ensureDefaultExtraPaths(fs: FileSystem, autoSearchPaths: boolean, extraPaths: string[] | undefined) {
+        const paths: string[] = [];
+
+        if (autoSearchPaths) {
+            // Auto-detect the common scenario where the sources are under the src folder
+            const srcPath = resolvePaths(this.projectRoot, pathConsts.src);
+            if (fs.existsSync(srcPath) && !fs.existsSync(resolvePaths(srcPath, '__init__.py'))) {
+                paths.push(srcPath);
+            }
+        }
+
+        if (extraPaths && extraPaths.length > 0) {
+            for (const p of extraPaths) {
+                paths.push(resolvePaths(this.projectRoot, p));
+            }
+        }
+
+        if (paths.length > 0) {
+            this.defaultExtraPaths = paths;
         }
     }
 
@@ -1373,7 +1481,8 @@ export class ConfigOptions {
             const newExecEnv = new ExecutionEnvironment(
                 this.projectRoot,
                 this.defaultPythonVersion,
-                this.defaultPythonPlatform
+                this.defaultPythonPlatform,
+                this.defaultExtraPaths
             );
 
             // Validate the root.
@@ -1424,15 +1533,6 @@ export class ConfigOptions {
                     newExecEnv.pythonPlatform = envObj.pythonPlatform;
                 } else {
                     console.error(`Config executionEnvironments index ${index} pythonPlatform must be a string.`);
-                }
-            }
-
-            // Validate the venv.
-            if (envObj.venv) {
-                if (typeof envObj.venv === 'string') {
-                    newExecEnv.venv = envObj.venv;
-                } else {
-                    console.error(`Config executionEnvironments index ${index} venv must be a string.`);
                 }
             }
 

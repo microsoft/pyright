@@ -1,12 +1,12 @@
 # This sample tests the type checker's ability to handle
 # custom subclasses of property.
 
+
 class custom_property(property):
     pass
 
 
 class Custom(object):
-
     @custom_property
     def x(self) -> int:
         return 3
@@ -49,5 +49,3 @@ m.y = 4
 del m.x
 
 del m.y
-
-

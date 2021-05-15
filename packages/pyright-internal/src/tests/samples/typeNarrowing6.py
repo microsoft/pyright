@@ -3,8 +3,10 @@
 
 from typing import List, Optional
 
+
 def only_int(a: int):
     return a < 3
+
 
 def test_break():
     foo1 = None
@@ -13,7 +15,7 @@ def test_break():
             foo1 = 5
             break
         else:
-            foo1 = 'hello'
+            foo1 = "hello"
 
     # This should not generate an error because foo1
     # can only be an int type at this point.
@@ -42,8 +44,4 @@ def test_while_condition():
         if param:
             break
         else:
-            param = 'hello'
-
-
- 
- 
+            param = "hello"

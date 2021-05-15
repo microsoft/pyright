@@ -2,8 +2,9 @@
 # with the walrus operator.
 
 import re
-def foo(s: str) -> str:
-    if m := re.fullmatch('(test).+', s):
-        return m.group(1)
-    return 'oops'
 
+
+def foo(s: str) -> str:
+    if m := re.fullmatch("(test).+", s):
+        return m.group(1)
+    return "oops"

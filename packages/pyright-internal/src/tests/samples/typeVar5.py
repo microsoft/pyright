@@ -42,7 +42,7 @@ class ClassA(Generic[_T1, _T2]):
         _ = a.__class__
         _ = a.__doc__
 
-    async def func1(self, a: _T2):
+    async def func2(self, a: _T2):
         # This should generate an error.
         _ = a.temp
 

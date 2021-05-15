@@ -27,12 +27,12 @@ In many existing type stubs (such as those found in typeshed), default parameter
 ## Library Interface
 [PEP 561](https://www.python.org/dev/peps/pep-0561/) indicates that a “py.typed” marker file must be included in the package if the author wishes to support type checking of their code.
 
-If a “py.typed” module is present, a type checker will treat all modules within that package (i.e. all files that end in “.py” or “.pyi”) as importable unless the file name begins with an underscore. These modules comprise the supported interace for the library.
+If a “py.typed” module is present, a type checker will treat all modules within that package (i.e. all files that end in “.py” or “.pyi”) as importable unless the file name begins with an underscore. These modules comprise the supported interface for the library.
 
 Each module exposes a set of symbols. Some of these symbols are considered “private” — implementation details that are not part of the library’s interface. Type checkers like pyright use the following rules to determine which symbols are visible outside of the package.
 
 * Symbols whose names begin with an underscore (but are not dunder names) are considered private.
-* Imported symbols are considered private by default. If they use the “import A as A” (a redundant module alias), “from A import X as X” (a redundant symbol alias) or “from A import *” forms, they are not private (unless their names begin with an underscore).
+* Imported symbols are considered private by default. If they use the “import A as A” (a redundant module alias), “from X import A as A” (a redundant symbol alias), or “from . import A” forms, symbol “A” is not private unless the name begins with an underscore. If a file `__init__.py` uses form “from .A import X”, symbol “A” is treated likewise. If a wildcard import (of the form “from X import *”) is used, all symbols referenced by the wildcard are not private.
 * A module can expose an `__all__` symbol at the module level that provides a list of names that are considered part of the interface. This overrides all other rules above, allowing imported symbols or symbols whose names begin with an underscore to be included in the interface.
 * Local variables within a function (including nested functions) are always considered private.
 
@@ -81,7 +81,7 @@ Type annotations can be omitted in a few specific cases where the type is obviou
 ### Examples of known and unknown types
 ```python
 
-# Variable with unknown
+# Variable with unknown type
 a = [3, 4, 5]
 
 # Variable with known type
@@ -192,6 +192,8 @@ The `--verifytypes` option can be combined with `--outputjson` to emit the resul
 
 The `--verifytypes` feature can be integrated into a continuous integration (CI) system to verify that a library remains “type complete”.
 
+If the `--verifytypes` option is combined with `--ignoreexternal`, any incomplete types that are imported from other external packages are ignored. This allows library authors to focus on adding type annotations for the code that is directly under their control.
+
 
 ### Improving Type Completeness
 
@@ -210,13 +212,13 @@ In type theory, when comparing two types that are related to each other, the “
 
 In general, a function input parameter should be annotated with the widest possible type supported by the implementation. For example, if the implementation requires the caller to provide an iterable collection of strings, the parameter should be annotated as `Iterable[str]`, not as `List[str]`. The latter type is narrower than necessary, so if a user attempts to pass a tuple of strings (which is supported by the implementation), a type checker will complain about a type incompatibility.
 
-As a specific application of the “use the widest type possible” rule, libraries should generally use immutable forms of container types instead of mutable forms (unless the function needs to modify the container). Use `Sequence` rather than `List`, `Mapping` rather than `Dict`, etc. Immutable containers allow for more flexibility because their type parameters are covariant rather than invariant. A parameter that is typed as `Sequence[Union[str, int]]` can accept a `List[int]`, `Sequence[str]`, and a `Sequence[int]`. But a parameter typed as `List[Union[str, int]]` is much more restrictive and accepts only a `List[Union[str, int]]` or `Sequence[Union[str, int]]`.
+As a specific application of the “use the widest type possible” rule, libraries should generally use immutable forms of container types instead of mutable forms (unless the function needs to modify the container). Use `Sequence` rather than `List`, `Mapping` rather than `Dict`, etc. Immutable containers allow for more flexibility because their type parameters are covariant rather than invariant. A parameter that is typed as `Sequence[Union[str, int]]` can accept a `List[int]`, `Sequence[str]`, and a `Sequence[int]`. But a parameter typed as `List[Union[str, int]]` is much more restrictive and accepts only a `List[Union[str, int]]`.
 
 ### Overloads
 If a function or method can return multiple different types and those types can be determined based on the presence or types of certain parameters, use the `@overload` mechanism defined in [PEP 484](https://www.python.org/dev/peps/pep-0484/#id45). When overloads are used within a “.py” file, they must appear prior to the function implementation, which should not have an `@overload` decorator. 
 
-### Name-only Parameters
-If a function or method is intended to take parameters that are specified only by name, use the name-only indicator.
+### Keyword-only Parameters
+If a function or method is intended to take parameters that are specified only by name, use the keyword-only separator ("*").
 
 ```python
 def create_user(age: int, *, dob: Optional[date] = None):
@@ -224,7 +226,7 @@ def create_user(age: int, *, dob: Optional[date] = None):
 ```
 
 ### Annotating Decorators
-Decorators modify the behavior of a class or a function. Providing annotations for decorators is straightforward if the decorator retrains the original signature of the decorated function.
+Decorators modify the behavior of a class or a function. Providing annotations for decorators is straightforward if the decorator retains the original signature of the decorated function.
 
 ```python
 _F = TypeVar("_F", bound=Callable[..., Any])
@@ -321,11 +323,11 @@ LATEST_VERSION: Final[Tuple[int, int]] = (4, 5)
 ### Typed Dictionaries, Data Classes, and Named Tuples
 If your library runs only on newer versions of Python, you are encouraged to use some of the new type-friendly classes.
 
-NamedTuple (introduced in Python 3.5 and described in [PEP 484](https://www.python.org/dev/peps/pep-0484/)) is preferred over namedtuple. 
+NamedTuple (described in [PEP 484](https://www.python.org/dev/peps/pep-0484/)) is preferred over namedtuple.
 
-Data classes (introduced in Python 3.7 and described in [PEP 557](https://www.python.org/dev/peps/pep-0557/)) is a preferred over untyped dictionaries. The NamedTuple form of data classes is supported in Python 3.6.
+Data classes (described in [PEP 557](https://www.python.org/dev/peps/pep-0557/)) is preferred over untyped dictionaries.
 
-TypedDict (introduced in Python 3.8 and described in [PEP 589](https://www.python.org/dev/peps/pep-0589/)) is a preferred over untyped dictionaries.
+TypedDict (described in [PEP 589](https://www.python.org/dev/peps/pep-0589/)) is preferred over untyped dictionaries.
 
 
 ## Compatibility with Older Python Versions

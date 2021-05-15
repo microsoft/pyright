@@ -1,6 +1,6 @@
 # This sample tests the type analyzer's handling of TypedDict classes.
 
-from typing import Literal, TypedDict, Union
+from typing import Literal, Optional, TypedDict, Union
 
 
 class Movie(TypedDict, total=False):
@@ -15,16 +15,17 @@ class BookBasedMovie(Movie, total=True):
 movie1 = Movie(name="Blade Runner", year=1982)
 
 
-def get_value(movie: Movie, key: Literal["year", "name"]) -> Union[int, str]:
-    return movie[key]
+def get_value(movie: Movie, key: Literal["year", "name"]) -> Optional[Union[int, str]]:
+    if "year" in movie and "name" in movie:
+        return movie[key]
 
 
 def make_movie(name: str, year: int) -> Movie:
     return {"name": name, "year": year}
 
 
-name1 = movie1["name"]
-year1 = movie1["year"]
+name1 = movie1.get("name", "Blue Nile")
+year1 = movie1.get("year", 1921)
 movie2 = make_movie(name1, year1)
 
 # This should generate an error because all indices need

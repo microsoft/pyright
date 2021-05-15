@@ -11,17 +11,10 @@
 
 import { CancellationToken, Hover, MarkupKind } from 'vscode-languageserver';
 
-import { Declaration, DeclarationBase, DeclarationType, FunctionDeclaration } from '../analyzer/declaration';
+import { Declaration, DeclarationType } from '../analyzer/declaration';
 import { convertDocStringToMarkdown, convertDocStringToPlainText } from '../analyzer/docStringConversion';
 import * as ParseTreeUtils from '../analyzer/parseTreeUtils';
 import { SourceMapper } from '../analyzer/sourceMapper';
-import {
-    getClassDocString,
-    getFunctionDocStringFromDeclaration,
-    getFunctionDocStringFromType,
-    getModuleDocString,
-    getOverloadedFunctionDocStrings,
-} from '../analyzer/typeDocStringUtils';
 import { TypeEvaluator } from '../analyzer/typeEvaluator';
 import {
     getTypeAliasInfo,
@@ -42,6 +35,7 @@ import { Position, Range } from '../common/textRange';
 import { TextRange } from '../common/textRange';
 import { NameNode, ParseNode, ParseNodeType } from '../parser/parseNodes';
 import { ParseResults } from '../parser/parser';
+import { getDocumentationPartsForTypeAndDecl, getOverloadedFunctionTooltip } from './tooltipUtils';
 
 export interface HoverTextPart {
     python?: boolean;
@@ -85,7 +79,27 @@ export class HoverProvider {
         if (node.nodeType === ParseNodeType.Name) {
             const declarations = evaluator.getDeclarationsForNameNode(node);
             if (declarations && declarations.length > 0) {
-                this._addResultsForDeclaration(format, sourceMapper, results.parts, declarations[0], node, evaluator);
+                // In most cases, it's best to treat the first declaration as the
+                // "primary". This works well for properties that have setters
+                // which often have doc strings on the getter but not the setter.
+                // The one case where using the first declaration doesn't work as
+                // well is the case where an import statement within an __init__.py
+                // file uses the form "from .A import A". In this case, if we use
+                // the first declaration, it will show up as a module rather than
+                // the imported symbol type.
+                let primaryDeclaration = declarations[0];
+                if (primaryDeclaration.type === DeclarationType.Alias && declarations.length > 1) {
+                    primaryDeclaration = declarations[1];
+                }
+
+                this._addResultsForDeclaration(
+                    format,
+                    sourceMapper,
+                    results.parts,
+                    primaryDeclaration,
+                    node,
+                    evaluator
+                );
             } else if (!node.parent || node.parent.nodeType !== ParseNodeType.ModuleName) {
                 // If we had no declaration, see if we can provide a minimal tooltip. We'll skip
                 // this if it's part of a module name, since a module name part with no declaration
@@ -166,7 +180,7 @@ export class HoverProvider {
                 if (type && TypeBase.isInstantiable(type)) {
                     const typeAliasInfo = getTypeAliasInfo(type);
                     if (typeAliasInfo) {
-                        if (typeAliasInfo.aliasName === typeNode.value) {
+                        if (typeAliasInfo.name === typeNode.value) {
                             expandTypeAlias = true;
                         }
 
@@ -207,7 +221,13 @@ export class HoverProvider {
                     label = declaredType && isProperty(declaredType) ? 'property' : 'method';
                 }
 
-                this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(node, evaluator), true);
+                const type = evaluator.getType(node);
+                if (type && isOverloadedFunction(type)) {
+                    this._addResultsPart(parts, `(${label})\n${getOverloadedFunctionTooltip(type, evaluator)}`, true);
+                } else {
+                    this._addResultsPart(parts, `(${label}) ` + node.value + this._getTypeText(node, evaluator), true);
+                }
+
                 this._addDocumentationPart(format, sourceMapper, parts, node, evaluator, resolvedDecl);
                 break;
             }
@@ -285,9 +305,16 @@ export class HoverProvider {
         const classText = `${node.value}(${functionParts[0].join(', ')})`;
 
         this._addResultsPart(parts, '(class) ' + classText, true);
-        const addedDoc = this._addDocumentationPartForType(format, sourceMapper, parts, initMethodType, declaration);
+        const addedDoc = this._addDocumentationPartForType(
+            format,
+            sourceMapper,
+            parts,
+            initMethodType,
+            declaration,
+            evaluator
+        );
         if (!addedDoc) {
-            this._addDocumentationPartForType(format, sourceMapper, parts, classType, declaration);
+            this._addDocumentationPartForType(format, sourceMapper, parts, classType, declaration, evaluator);
         }
         return true;
     }
@@ -303,11 +330,11 @@ export class HoverProvider {
         parts: HoverTextPart[],
         node: NameNode,
         evaluator: TypeEvaluator,
-        resolvedDecl: DeclarationBase | undefined
+        resolvedDecl: Declaration | undefined
     ) {
         const type = evaluator.getType(node);
         if (type) {
-            this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl);
+            this._addDocumentationPartForType(format, sourceMapper, parts, type, resolvedDecl, evaluator);
         }
     }
 
@@ -316,23 +343,10 @@ export class HoverProvider {
         sourceMapper: SourceMapper,
         parts: HoverTextPart[],
         type: Type,
-        resolvedDecl: DeclarationBase | undefined
+        resolvedDecl: Declaration | undefined,
+        evaluator: TypeEvaluator
     ): boolean {
-        const docStrings: (string | undefined)[] = [];
-
-        if (isModule(type)) {
-            docStrings.push(getModuleDocString(type, resolvedDecl, sourceMapper));
-        } else if (isClass(type)) {
-            docStrings.push(getClassDocString(type, resolvedDecl, sourceMapper));
-        } else if (isFunction(type)) {
-            docStrings.push(getFunctionDocStringFromType(type, sourceMapper));
-        } else if (isOverloadedFunction(type)) {
-            docStrings.push(...getOverloadedFunctionDocStrings(type, resolvedDecl, sourceMapper));
-        } else if (resolvedDecl?.type === DeclarationType.Function) {
-            // @property functions
-            docStrings.push(getFunctionDocStringFromDeclaration(resolvedDecl as FunctionDeclaration, sourceMapper));
-        }
-
+        const docStrings = getDocumentationPartsForTypeAndDecl(sourceMapper, type, resolvedDecl, evaluator);
         let addedDoc = false;
         for (const docString of docStrings) {
             if (docString) {
@@ -347,7 +361,13 @@ export class HoverProvider {
     private static _addDocumentationResultsPart(format: MarkupKind, parts: HoverTextPart[], docString?: string) {
         if (docString) {
             if (format === MarkupKind.Markdown) {
-                this._addResultsPart(parts, convertDocStringToMarkdown(docString));
+                const markDown = convertDocStringToMarkdown(docString);
+
+                if (parts.length > 0 && markDown.length > 0) {
+                    parts.push({ text: '---\n' });
+                }
+
+                this._addResultsPart(parts, markDown);
             } else if (format === MarkupKind.PlainText) {
                 this._addResultsPart(parts, convertDocStringToPlainText(docString));
             } else {
@@ -382,7 +402,8 @@ export function convertHoverResults(format: MarkupKind, hoverResults: HoverResul
             }
             return part.text;
         })
-        .join('');
+        .join('')
+        .trimEnd();
 
     return {
         contents: {

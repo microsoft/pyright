@@ -89,6 +89,10 @@ export function isNumber(x: unknown): x is number {
     return typeof x === 'number';
 }
 
+export function isBoolean(x: unknown): x is number {
+    return typeof x === 'boolean';
+}
+
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 /**
@@ -141,4 +145,8 @@ interface Thenable<T> {
 
 export function isThenable<T>(v: any): v is Thenable<T> {
     return typeof v?.then === 'function';
+}
+
+export function isDefined<T>(element: T | undefined): element is T {
+    return element !== undefined;
 }

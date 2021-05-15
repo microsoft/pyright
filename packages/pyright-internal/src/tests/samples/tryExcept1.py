@@ -16,7 +16,7 @@ def func1():
     raise
 
 
-def foo(x, y) -> bool:
+def func2(x, y) -> bool:
     try:
         z = x / y
     except Exception as e:
@@ -33,3 +33,11 @@ def foo(x, y) -> bool:
     # This should not generate an error
     # because this code is unreachable.
     return "hello"
+
+
+def func3():
+    # This should generate an error because there is no
+    # except or finally clause.
+    try:
+        pass
+    

@@ -46,13 +46,17 @@ function getEffectiveCommandLineOptions(
     commandLineOptions.typeCheckingMode = serverSettings.typeCheckingMode;
     commandLineOptions.autoImportCompletions = serverSettings.autoImportCompletions;
     commandLineOptions.indexing = serverSettings.indexing;
+    commandLineOptions.logTypeEvaluationTime = serverSettings.logTypeEvaluationTime ?? false;
+    commandLineOptions.typeEvaluationTimeThreshold = serverSettings.typeEvaluationTimeThreshold ?? 50;
 
     if (!trackFiles) {
         commandLineOptions.watchForSourceChanges = false;
         commandLineOptions.watchForLibraryChanges = false;
+        commandLineOptions.watchForConfigChanges = false;
     } else {
         commandLineOptions.watchForSourceChanges = serverSettings.watchForSourceChanges;
         commandLineOptions.watchForLibraryChanges = serverSettings.watchForLibraryChanges;
+        commandLineOptions.watchForConfigChanges = serverSettings.watchForConfigChanges;
     }
 
     if (serverSettings.venvPath) {

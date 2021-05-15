@@ -49,9 +49,11 @@ import { DocumentRange, Position, Range as PositionRange, rangesAreEqual, TextRa
 import { TextRangeCollection } from '../../../common/textRangeCollection';
 import { LanguageServerInterface, WorkspaceServiceInstance } from '../../../languageServerBase';
 import { AbbreviationInfo } from '../../../languageService/autoImporter';
+import { DefinitionFilter } from '../../../languageService/definitionProvider';
 import { convertHoverResults } from '../../../languageService/hoverProvider';
 import { ParseResults } from '../../../parser/parser';
 import { Tokenizer } from '../../../parser/tokenizer';
+import { PyrightFileSystem } from '../../../pyrightFileSystem';
 import * as host from '../host';
 import { stringify } from '../utils';
 import { createFromFileSystem } from '../vfs/factory';
@@ -92,8 +94,9 @@ export class TestState {
     private readonly _cancellationToken: TestCancellationToken;
     private readonly _files: string[] = [];
     private readonly _hostSpecificFeatures: HostSpecificFeatures;
+    private readonly _testFS: vfs.TestFileSystem;
 
-    readonly fs: vfs.TestFileSystem;
+    readonly fs: PyrightFileSystem;
     readonly workspace: WorkspaceServiceInstance;
     readonly console: ConsoleInterface;
     readonly rawConfigJson: any | undefined;
@@ -145,12 +148,14 @@ export class TestState {
         }
 
         this.console = nullConsole;
-        this.fs = createFromFileSystem(
+        this._testFS = createFromFileSystem(
             host.HOST,
             ignoreCase,
             { cwd: basePath, files, meta: testData.globalOptions },
             mountPaths
         );
+
+        this.fs = new PyrightFileSystem(this._testFS);
         this._files = sourceFiles;
 
         const service = this._createAnalysisService(
@@ -162,7 +167,7 @@ export class TestState {
         this.workspace = {
             workspaceName: 'test workspace',
             rootPath: this.fs.getModulePath(),
-            rootUri: convertPathToUri(this.fs.getModulePath()),
+            rootUri: convertPathToUri(this.fs, this.fs.getModulePath()),
             serviceInstance: service,
             disableLanguageServices: false,
             disableOrganizeImports: false,
@@ -194,6 +199,10 @@ export class TestState {
         return this.workspace.serviceInstance.test_program;
     }
 
+    cwd() {
+        return this._testFS.cwd();
+    }
+
     // Entry points from fourslash.ts
     goToMarker(nameOrMarker: string | Marker = '') {
         const marker = isString(nameOrMarker) ? this.getMarkerByName(nameOrMarker) : nameOrMarker;
@@ -217,6 +226,11 @@ export class TestState {
             this.goToMarker(markers[i]);
             action(markers[i], i);
         }
+    }
+
+    getMappedFilePath(path: string): string {
+        this.importResolver.ensurePartialStubPackages(this.configOptions.findExecEnvironment(path));
+        return this.fs.getMappedFilePath(path);
     }
 
     getMarkerName(m: Marker): string {
@@ -837,12 +851,14 @@ export class TestState {
             const expectedCompletions = map[markerName].completions;
             const completionPosition = this.convertOffsetToPosition(filePath, marker.position);
 
+            const options = { format: docFormat, snippet: true, lazyEdit: true };
+            const nameMap = abbrMap ? new Map<string, AbbreviationInfo>(Object.entries(abbrMap)) : undefined;
             const result = await this.workspace.serviceInstance.getCompletionsForPosition(
                 filePath,
                 completionPosition,
                 this.workspace.rootPath,
-                docFormat,
-                abbrMap ? new Map<string, AbbreviationInfo>(Object.entries(abbrMap)) : undefined,
+                options,
+                nameMap,
                 CancellationToken.None
             );
 
@@ -873,11 +889,30 @@ export class TestState {
                         }
 
                         const actual: CompletionItem = result.completionList.items[actualIndex];
+
+                        if (expected.additionalTextEdits !== undefined) {
+                            if (actual.additionalTextEdits === undefined) {
+                                this.workspace.serviceInstance.resolveCompletionItem(
+                                    filePath,
+                                    actual,
+                                    options,
+                                    nameMap,
+                                    CancellationToken.None
+                                );
+                            }
+                        }
+
                         this.verifyCompletionItem(expected, actual);
 
                         if (expected.documentation !== undefined) {
                             if (actual.documentation === undefined) {
-                                this.program.resolveCompletionItem(filePath, actual, docFormat, CancellationToken.None);
+                                this.workspace.serviceInstance.resolveCompletionItem(
+                                    filePath,
+                                    actual,
+                                    options,
+                                    nameMap,
+                                    CancellationToken.None
+                                );
                             }
 
                             if (MarkupContent.is(actual.documentation)) {
@@ -1100,11 +1135,14 @@ export class TestState {
         }
     }
 
-    verifyFindDefinitions(map: {
-        [marker: string]: {
-            definitions: DocumentRange[];
-        };
-    }) {
+    verifyFindDefinitions(
+        map: {
+            [marker: string]: {
+                definitions: DocumentRange[];
+            };
+        },
+        filter: DefinitionFilter = DefinitionFilter.All
+    ) {
         this._analyze();
 
         for (const marker of this.getMarkers()) {
@@ -1118,7 +1156,7 @@ export class TestState {
             const expected = map[name].definitions;
 
             const position = this.convertOffsetToPosition(fileName, marker.position);
-            const actual = this.program.getDefinitionsForPosition(fileName, position, CancellationToken.None);
+            const actual = this.program.getDefinitionsForPosition(fileName, position, filter, CancellationToken.None);
 
             assert.equal(actual?.length ?? 0, expected.length);
 
@@ -1195,7 +1233,7 @@ export class TestState {
         // run test in venv mode under root so that
         // under test we can point to local lib folder
         configOptions.venvPath = vfs.MODULE_PATH;
-        configOptions.defaultVenv = vfs.MODULE_PATH;
+        configOptions.venv = vfs.MODULE_PATH;
 
         // make sure we set typing path
         if (configOptions.stubPath === undefined) {
@@ -1207,7 +1245,7 @@ export class TestState {
 
     private _getFileContent(fileName: string): string {
         const files = this.testData.files.filter(
-            (f) => comparePaths(f.fileName, fileName, this.fs.ignoreCase) === Comparison.EqualTo
+            (f) => comparePaths(f.fileName, fileName, this._testFS.ignoreCase) === Comparison.EqualTo
         );
         return files[0].content;
     }
@@ -1416,9 +1454,10 @@ export class TestState {
         }
     }
 
-    private _tryFindFileWorker(
-        name: string
-    ): { readonly file: FourSlashFile | undefined; readonly availableNames: readonly string[] } {
+    private _tryFindFileWorker(name: string): {
+        readonly file: FourSlashFile | undefined;
+        readonly availableNames: readonly string[];
+    } {
         name = normalizePath(name);
 
         let file: FourSlashFile | undefined;

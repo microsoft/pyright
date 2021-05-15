@@ -3,12 +3,15 @@
 
 import abc
 
+
 class MixinA(abc.ABC):
     pass
 
+
 class MixinB(abc.ABC):
     def get_model(self):
-        print('MixinB.get_model')
+        print("MixinB.get_model")
+
 
 class MixinC(abc.ABC):
     @abc.abstractmethod
@@ -16,11 +19,12 @@ class MixinC(abc.ABC):
         pass
 
     def use_model(self):
-        print('MixinC.get_model')
+        print("MixinC.get_model")
+
 
 class Trainer_1b(MixinA, MixinC, MixinB):
     pass
 
+
 # This should generate an error
 trainer = Trainer_1b()
-

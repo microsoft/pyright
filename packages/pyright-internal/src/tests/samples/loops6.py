@@ -23,4 +23,3 @@ class Foo:
                 var1, var2 = foo2.method1()
             else:
                 break
-

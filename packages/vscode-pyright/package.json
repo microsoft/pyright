@@ -2,7 +2,7 @@
     "name": "vscode-pyright",
     "displayName": "Pyright",
     "description": "VS Code static type checking for Python",
-    "version": "1.1.99",
+    "version": "1.1.139",
     "private": true,
     "license": "MIT",
     "author": {
@@ -14,7 +14,7 @@
         "url": "https://github.com/Microsoft/pyright"
     },
     "engines": {
-        "vscode": "^1.48.0"
+        "vscode": "^1.54.0"
     },
     "keywords": [
         "python"
@@ -323,6 +323,17 @@
                                 "error"
                             ]
                         },
+                        "reportTypedDictNotRequiredAccess": {
+                            "type": "string",
+                            "description": "Diagnostics for an attempt to access a non-required key within a TypedDict without a check for its presence.",
+                            "default": "error",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportUntypedFunctionDecorator": {
                             "type": "string",
                             "description": "Diagnostics for function decorators that have no type annotations. These obscure the function type, defeating many type analysis features.",
@@ -403,6 +414,17 @@
                         "reportIncompatibleVariableOverride": {
                             "type": "string",
                             "description": "Diagnostics for overrides in subclasses that redefine a variable in an incompatible way.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
+                        "reportOverlappingOverload": {
+                            "type": "string",
+                            "description": "Diagnostics for function overloads that overlap in signature and obscure each other or have incompatible return types.",
                             "default": "none",
                             "enum": [
                                 "none",
@@ -532,6 +554,17 @@
                                 "error"
                             ]
                         },
+                        "reportUnnecessaryComparison": {
+                            "type": "string",
+                            "description": "Diagnostics for '==' and '!=' comparisons that are statically determined to be unnecessary. Such calls are sometimes indicative of a programming error.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
                         "reportAssertAlwaysTrue": {
                             "type": "string",
                             "description": "Diagnostics for 'assert' statement that will provably always assert. This can be indicative of a programming error.",
@@ -635,7 +668,7 @@
                 },
                 "python.analysis.logLevel": {
                     "type": "string",
-                    "default": "info",
+                    "default": "Information",
                     "description": "Specifies the level of logging for the Output panel",
                     "enum": [
                         "Error",
@@ -717,25 +750,25 @@
         "webpack-dev": "npm run clean && webpack --mode development --watch --progress"
     },
     "dependencies": {
-        "vscode-jsonrpc": "6.0.0-next.7",
-        "vscode-languageclient": "7.0.0-next.14",
-        "vscode-languageserver": "7.0.0-next.11",
-        "vscode-languageserver-protocol": "3.16.0-next.11"
+        "@iarna/toml": "2.2.5",
+        "vscode-jsonrpc": "6.0.0",
+        "vscode-languageclient": "7.0.0",
+        "vscode-languageserver": "7.0.0",
+        "vscode-languageserver-protocol": "3.16.0"
     },
     "devDependencies": {
-        "@types/node": "^12.19.9",
-        "@types/vscode": "~1.48.0",
-        "chalk": "^4.1.0",
-        "clean-webpack-plugin": "^3.0.0",
-        "copy-webpack-plugin": "^7.0.0",
+        "@types/node": "^12.20.13",
+        "@types/vscode": "~1.54.0",
+        "chalk": "^4.1.1",
+        "copy-webpack-plugin": "^8.1.1",
         "detect-indent": "^6.0.0",
-        "fs-extra": "^9.0.1",
+        "fs-extra": "^9.1.0",
         "shx": "^0.3.3",
-        "ts-loader": "^8.0.12",
-        "tsconfig-paths-webpack-plugin": "^3.3.0",
-        "typescript": "^4.1.3",
-        "vsce": "^1.81.1",
-        "webpack": "^5.10.1",
-        "webpack-cli": "^4.2.0"
+        "ts-loader": "^9.1.2",
+        "tsconfig-paths-webpack-plugin": "^3.5.1",
+        "typescript": "^4.2.4",
+        "vsce": "^1.88.0",
+        "webpack": "^5.37.0",
+        "webpack-cli": "^4.7.0"
     }
 }

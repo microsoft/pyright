@@ -91,7 +91,7 @@ export function isExplicitTypeAliasDeclaration(decl: Declaration) {
 }
 
 export function isPossibleTypeAliasDeclaration(decl: Declaration) {
-    return decl.type === DeclarationType.Variable && !!decl.typeAliasName;
+    return decl.type === DeclarationType.Variable && !!decl.typeAliasName && !decl.typeAnnotationNode;
 }
 
 export function getNameFromDeclaration(declaration: Declaration) {

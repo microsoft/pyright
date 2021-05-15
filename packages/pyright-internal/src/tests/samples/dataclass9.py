@@ -11,11 +11,14 @@ class IsDataclass(Protocol):
     # the most reliable way to ascertain that something is a dataclass
     __dataclass_fields__: Dict[str, Any]
 
+
 def dataclass_only(x: IsDataclass):
     ...  # do something that only makes sense with a dataclass
+
 
 @dataclass
 class A:
     pass
+
 
 dataclass_only(A())

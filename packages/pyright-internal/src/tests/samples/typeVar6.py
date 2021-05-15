@@ -74,7 +74,7 @@ class ClassA(Generic[_T1]):
 
         return a
 
-    async def func1(self, a: _T2) -> _T2:
+    async def func2(self, a: _T2) -> _T2:
         _ = a.var1
 
         # This should generate an error.

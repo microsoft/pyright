@@ -11,6 +11,7 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 ### Type Checking Features
 
 * [PEP 484](https://www.python.org/dev/peps/pep-0484/) type hints including generics
+* [PEP 487](https://www.python.org/dev/peps/pep-0487/) simpler customization of class creation
 * [PEP 526](https://www.python.org/dev/peps/pep-0526/) syntax for variable annotations
 * [PEP 544](https://www.python.org/dev/peps/pep-0544/) structural subtyping
 * [PEP 561](https://www.python.org/dev/peps/pep-0561/) distributing and packaging type information
@@ -23,7 +24,11 @@ Pyright supports [configuration files](/docs/configuration.md) that provide gran
 * [PEP 604](https://www.python.org/dev/peps/pep-0604/) complementary syntax for unions
 * [PEP 612](https://www.python.org/dev/peps/pep-0612/) parameter specification variables
 * [PEP 613](https://www.python.org/dev/peps/pep-0613/) explicit type aliases
+* [PEP 635](https://www.python.org/dev/peps/pep-0635/) structural pattern matching
+* [PEP 637](https://www.python.org/dev/peps/pep-0637/) indexing with keyword arguments
+* [PEP 646](https://www.python.org/dev/peps/pep-0646/) variadic generics
 * [PEP 647](https://www.python.org/dev/peps/pep-0647/) user-defined type guards
+* [PEP 655](https://www.python.org/dev/peps/pep-0655/) required typed dictionary items
 * Type inference for function return values, instance variables, class variables, and globals
 * Type guards that understand conditional code flow constructs like if/else statements
 
@@ -47,4 +52,4 @@ The VS Code extension supports many time-saving language features including:
 
 Pyright includes a recent copy of the stdlib type stubs from [Typeshed](https://github.com/python/typeshed). It can be configured to use another (perhaps more recent or modified) copy of the Typeshed type stubs. Of course, it also works with custom type stub files that are part of your project.
 
-For more details, refer to the [README](https://github.com/Microsoft/pyright/blob/master/README.md) on the Pyright GitHub site.
+For more details, refer to the [README](https://github.com/microsoft/pyright/blob/main/README.md) on the Pyright GitHub site.

@@ -13,8 +13,10 @@ nonlocal b
 def func1():
     global a
 
+
 def func2():
     global c
+
 
 def func3():
     a = 3
@@ -44,4 +46,3 @@ def func3():
 
     e = 4
     g = 10
-  

@@ -1,7 +1,7 @@
 # This sample tests handling of tuples and tracking
 # of specific types within a tuple.
 
-from typing import Tuple, TypeVar
+from typing import Literal, Tuple, TypeVar
 
 _T = TypeVar("_T")
 
@@ -19,17 +19,16 @@ bb1: str = b
 cc1: int = c
 dd1: complex = d
 
-aa2: int = objA[0]
-bb2: str = objA[1]
-cc2: int = objA[2]
-dd2: complex = objA[3]
+t_A0: Literal["int"] = reveal_type(objA[0])
+t_A1: Literal["str"] = reveal_type(objA[1])
+t_A2: Literal["int"] = reveal_type(objA[2])
+t_A3: Literal["complex"] = reveal_type(objA[3])
 
-# These should generate errors because
-# these are not the correct types.
-aa3: str = a
-bb3: complex = b
-cc3: str = c
-dd3: int = d
+# This should generate an error because the trailing
+# comma turns the index value into a tuple.
+e = objA[
+    0,
+]
 
 for aaa in objA:
     print(aaa)
@@ -43,17 +42,10 @@ objB = ClassB[complex]()
 
 (x, y, z) = objB
 
-xx1: complex = x
-yy1: complex = y
-zz1: complex = z
+t_x: Literal["complex"] = reveal_type(x)
+t_y: Literal["complex"] = reveal_type(y)
+t_z: Literal["complex"] = reveal_type(z)
 
 xx2: complex = objB[0]
 yy2: complex = objB[1]
 zz2: complex = objB[2]
-
-# These should generate errors because
-# these are not the correct types.
-xx3: int = x
-yy3: int = y
-zz3: int = z
-

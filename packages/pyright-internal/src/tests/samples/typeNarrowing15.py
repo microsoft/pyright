@@ -49,4 +49,3 @@ def func4(a: SomeEnum):
         # This should generate an error because
         # a hasn't been narrowed to Never.
         assert_never(a)
-

@@ -10,6 +10,7 @@
  */
 
 import { ConfigOptions } from '../common/configOptions';
+import { PythonVersion } from '../common/pythonVersion';
 import * as TestUtils from './testUtils';
 
 test('BadToken1', () => {
@@ -89,6 +90,12 @@ test('AbstractClass6', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('AbstractClass7', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['abstractClass7.py']);
+
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('Constants1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['constants1.py']);
 
@@ -99,6 +106,12 @@ test('NoReturn1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn1.py']);
 
     TestUtils.validateResults(analysisResults, 3);
+});
+
+test('NoReturn2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['noreturn2.py']);
+
+    TestUtils.validateResults(analysisResults, 0);
 });
 
 test('With1', () => {
@@ -117,6 +130,18 @@ test('With3', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['with3.py']);
 
     TestUtils.validateResults(analysisResults, 1);
+});
+
+test('With4', () => {
+    const configOptions = new ConfigOptions('.');
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_8;
+    const analysisResults1 = TestUtils.typeAnalyzeSampleFiles(['with4.py'], configOptions);
+    TestUtils.validateResults(analysisResults1, 4);
+
+    configOptions.defaultPythonVersion = PythonVersion.V3_9;
+    const analysisResults2 = TestUtils.typeAnalyzeSampleFiles(['with4.py'], configOptions);
+    TestUtils.validateResults(analysisResults2, 0);
 });
 
 test('Mro1', () => {
@@ -250,6 +275,11 @@ test('ParamName1', () => {
     TestUtils.validateResults(analysisResults, 4, 0);
 });
 
+test('ParamType1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['paramType1.py']);
+    TestUtils.validateResults(analysisResults, 7);
+});
+
 test('Python2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['python2.py']);
 
@@ -258,6 +288,18 @@ test('Python2', () => {
 
 test('InconsistentSpaceTab', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['inconsistentSpaceTab.py']);
+
+    TestUtils.validateResults(analysisResults, 4);
+});
+
+test('DuplicateDeclaration1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['duplicateDeclaration1.py']);
+
+    TestUtils.validateResults(analysisResults, 6);
+});
+
+test('DuplicateDeclaration2', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['duplicateDeclaration2.py']);
 
     TestUtils.validateResults(analysisResults, 4);
 });

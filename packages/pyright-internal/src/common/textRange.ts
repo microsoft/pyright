@@ -41,6 +41,10 @@ export namespace TextRange {
         return position >= range.start && position < getEnd(range);
     }
 
+    export function containsRange(range: TextRange, span: TextRange): boolean {
+        return span.start >= range.start && getEnd(span) <= getEnd(range);
+    }
+
     export function overlaps(range: TextRange, position: number): boolean {
         return position >= range.start && position <= getEnd(range);
     }
@@ -62,6 +66,18 @@ export namespace TextRange {
                 }
             }
         }
+    }
+
+    export function combine(ranges: TextRange[]): TextRange | undefined {
+        if (ranges.length === 0) {
+            return undefined;
+        }
+
+        const combinedRange = ranges[0];
+        for (let i = 1; i < ranges.length; i++) {
+            extend(combinedRange, ranges[i]);
+        }
+        return combinedRange;
     }
 }
 

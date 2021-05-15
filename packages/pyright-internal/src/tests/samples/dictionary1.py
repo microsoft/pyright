@@ -1,7 +1,7 @@
 # This sample tests the type checker's type inference logic for
 # dictionaries.
 
-from typing import Dict, Literal
+from typing import Dict, List, Literal
 
 
 def wantsIntDict(a: Dict[int, int]):
@@ -27,3 +27,9 @@ d1 = {**t1}
 d2 = {"hi": 3}
 d3 = {**d2, "": 4}
 td3: Literal["dict[str, int]"] = reveal_type(d3)
+
+
+LitChoices = Literal["ab", "bcd"]
+
+keys: List[LitChoices] = ["ab", "bcd"]
+d1: Dict[LitChoices, int] = {k: len(k) for k in keys}

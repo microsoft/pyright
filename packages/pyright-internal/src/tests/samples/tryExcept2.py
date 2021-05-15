@@ -4,6 +4,7 @@
 def deallocate(i: int) -> None:
     pass
 
+
 def test():
     aaa = 3
     try:

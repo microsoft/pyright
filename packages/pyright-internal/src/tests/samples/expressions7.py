@@ -38,5 +38,5 @@ def func2(a: Foo and Bar):
     t1: Literal["Bar"] = reveal_type(a)
 
 
-def func2(a: Foo or Bar):
+def func3(a: Foo or Bar):
     t1: Literal["Foo"] = reveal_type(a)

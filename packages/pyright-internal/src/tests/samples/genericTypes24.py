@@ -30,4 +30,3 @@ val2_1: Base2[float] = Derived2[int]()
 # This should generate an error because Derived2[int]
 # isn't assignable to Base2[int].
 val2_2: Base2[int] = Derived2[int]()
-

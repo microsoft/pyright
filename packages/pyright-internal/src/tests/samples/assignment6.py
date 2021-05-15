@@ -7,6 +7,7 @@ a = 0
 b = 1
 c = 4
 
+
 class MyClass:
     # This should not generate an error because
     # the RHS of the assignment refers to a different

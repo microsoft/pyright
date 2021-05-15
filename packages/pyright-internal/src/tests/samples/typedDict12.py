@@ -3,7 +3,7 @@
 
 # pyright: strict
 
-from typing import TypedDict, Union
+from typing import Optional, TypedDict, Union
 
 
 class Foo(TypedDict, total=False):
@@ -12,7 +12,7 @@ class Foo(TypedDict, total=False):
 
 foo: Foo = {}
 
-v1: str = foo["bar"]
+v1: Optional[str] = foo.get("bar")
 
 v2: str = foo.get("bar", "")
 v3: Union[str, int] = foo.get("bar", 3)
@@ -25,4 +25,3 @@ v7: str = foo.pop("bar", "none")
 v8: Union[str, int] = foo.pop("bar", 3)
 
 foo.__delitem__("bar")
-

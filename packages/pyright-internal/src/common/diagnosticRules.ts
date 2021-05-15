@@ -12,6 +12,7 @@
 // to match declaration of user-visible settings in package.json
 export enum DiagnosticRule {
     strictListInference = 'strictListInference',
+    strictSetInference = 'strictSetInference',
     strictDictionaryInference = 'strictDictionaryInference',
     strictParameterNoneValue = 'strictParameterNoneValue',
     enableTypeIgnoreComments = 'enableTypeIgnoreComments',
@@ -35,6 +36,7 @@ export enum DiagnosticRule {
     reportOptionalIterable = 'reportOptionalIterable',
     reportOptionalContextManager = 'reportOptionalContextManager',
     reportOptionalOperand = 'reportOptionalOperand',
+    reportTypedDictNotRequiredAccess = 'reportTypedDictNotRequiredAccess',
     reportUntypedFunctionDecorator = 'reportUntypedFunctionDecorator',
     reportUntypedClassDecorator = 'reportUntypedClassDecorator',
     reportUntypedBaseClass = 'reportUntypedBaseClass',
@@ -43,6 +45,7 @@ export enum DiagnosticRule {
     reportConstantRedefinition = 'reportConstantRedefinition',
     reportIncompatibleMethodOverride = 'reportIncompatibleMethodOverride',
     reportIncompatibleVariableOverride = 'reportIncompatibleVariableOverride',
+    reportOverlappingOverload = 'reportOverlappingOverload',
     reportInvalidStringEscapeSequence = 'reportInvalidStringEscapeSequence',
     reportUnknownParameterType = 'reportUnknownParameterType',
     reportUnknownArgumentType = 'reportUnknownArgumentType',
@@ -54,6 +57,7 @@ export enum DiagnosticRule {
     reportCallInDefaultInitializer = 'reportCallInDefaultInitializer',
     reportUnnecessaryIsInstance = 'reportUnnecessaryIsInstance',
     reportUnnecessaryCast = 'reportUnnecessaryCast',
+    reportUnnecessaryComparison = 'reportUnnecessaryComparison',
     reportAssertAlwaysTrue = 'reportAssertAlwaysTrue',
     reportSelfClsParameterName = 'reportSelfClsParameterName',
     reportImplicitStringConcatenation = 'reportImplicitStringConcatenation',

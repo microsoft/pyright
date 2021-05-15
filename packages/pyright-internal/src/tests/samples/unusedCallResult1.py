@@ -31,9 +31,13 @@ def func6() -> Iterable[int]:
 
 func1()
 
-func2()
+
+def aaa():
+    func2()
+
 
 func3()
+
 
 # This should generate a diagnostic if reportUnusedCallResult is enabled.
 func4()
@@ -52,3 +56,12 @@ _ = func5(func4())
 
 for _ in func6():
     pass
+
+
+async def get_string_async() -> str:
+    return "A string"
+
+
+async def await_string() -> None:
+    # This should generate a diagnostic if reportUnusedCallResult is enabled.
+    await get_string_async()

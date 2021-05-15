@@ -33,4 +33,3 @@ class ClassA(Generic[_T]):
     @prop_3.setter
     def prop_3(self, value: _T) -> None:
         pass
-

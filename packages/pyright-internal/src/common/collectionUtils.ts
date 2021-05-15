@@ -165,7 +165,7 @@ function indicesOf(array: readonly unknown[]): number[] {
 export function stableSort<T>(array: readonly T[], comparer: Comparer<T>): SortedReadonlyArray<T> {
     const indices = indicesOf(array);
     stableSortIndices(array, indices, comparer);
-    return (indices.map((i) => array[i]) as SortedArray<T>) as SortedReadonlyArray<T>;
+    return indices.map((i) => array[i]) as SortedArray<T> as SortedReadonlyArray<T>;
 }
 
 function stableSortIndices<T>(array: readonly T[], indices: number[], comparer: Comparer<T>) {
@@ -300,4 +300,16 @@ export function getNestedProperty(object: any, property: string) {
         return obj && obj[prop];
     }, object);
     return value;
+}
+
+export function getOrAdd<K, V>(map: Map<K, V>, key: K, newValueFactory: () => V): V {
+    const value = map.get(key);
+    if (value !== undefined) {
+        return value;
+    }
+
+    const newValue = newValueFactory();
+    map.set(key, newValue);
+
+    return newValue;
 }

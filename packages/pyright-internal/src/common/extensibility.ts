@@ -6,10 +6,10 @@
 * Language service completion list extensibility.
 */
 
-import { CancellationToken, CompletionList } from 'vscode-languageserver';
+import { CancellationToken } from 'vscode-languageserver';
 
-import { ModuleNode } from '../parser/parseNodes';
-import { ConfigOptions } from './configOptions';
+import { CompletionResults } from '../languageService/completionProvider';
+import { ParseResults } from '../parser/parser';
 
 export interface LanguageServiceExtension {
     readonly completionListExtension: CompletionListExtension;
@@ -17,14 +17,12 @@ export interface LanguageServiceExtension {
 
 export interface CompletionListExtension {
     // Extension updates completion list provided by the application.
-    updateCompletionList(
-        sourceList: CompletionList,
-        ast: ModuleNode,
-        content: string,
+    updateCompletionResults(
+        completionResults: CompletionResults,
+        parseResults: ParseResults,
         position: number,
-        options: ConfigOptions,
         token: CancellationToken
-    ): Promise<CompletionList>;
+    ): Promise<void>;
 
     // Prefix to tell extension commands from others.
     // For example, 'myextension'. Command name then
