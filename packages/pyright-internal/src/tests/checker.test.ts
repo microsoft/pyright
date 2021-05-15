@@ -22,6 +22,11 @@ test('BadToken1', () => {
     TestUtils.validateResults(analysisResults, 1);
 });
 
+test('Unicode1', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['unicode1.py']);
+    TestUtils.validateResults(analysisResults, 1);
+});
+
 test('CircularBaseClass', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['circularBaseClass.py']);
 
