@@ -7754,39 +7754,60 @@ export function createTypeEvaluator(
         }
 
         if (!reportedArgError) {
-            let foundUnpackedDictionaryArg = false;
+            let unpackedDictionaryArgType: Type | undefined;
 
-            // Now consume any named parameters.
+            // Now consume any keyword parameters.
             while (argIndex < argList.length) {
                 if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedDictionary) {
-                    // Verify that the type used in this expression is a mapping.
+                    // Verify that the type used in this expression is a Mapping[str, T].
                     const argType = getTypeForArgument(argList[argIndex]);
-                    const mappingType = getTypingType(errorNode, 'Mapping');
-                    const strObjType = getBuiltInObject(errorNode, 'str');
+                    if (isAnyOrUnknown(argType)) {
+                        unpackedDictionaryArgType = argType;
+                    } else {
+                        const mappingType = getTypingType(errorNode, 'Mapping');
+                        const strObjType = getBuiltInObject(errorNode, 'str');
 
-                    if (mappingType && isClass(mappingType) && strObjType && isObject(strObjType)) {
-                        const strMapObject = ObjectType.create(
-                            ClassType.cloneForSpecialization(
-                                mappingType,
-                                [strObjType, AnyType.create()],
-                                /* isTypeArgumentExplicit */ true
-                            )
-                        );
-                        const diag = new DiagnosticAddendum();
-                        if (!isParamSpec(argType) && !canAssignType(strMapObject, argType, diag)) {
-                            addDiagnostic(
-                                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.unpackedDictArgumentNotMapping() + diag.getString(),
-                                argList[argIndex].valueExpression || errorNode
-                            );
-                            reportedArgError = true;
+                        if (mappingType && isClass(mappingType) && strObjType && isObject(strObjType)) {
+                            const mappingTypeVarMap = new TypeVarMap(getTypeVarScopeId(mappingType));
+                            let isValidMappingType = false;
+                            if (
+                                canAssignType(
+                                    ObjectType.create(mappingType),
+                                    argType,
+                                    new DiagnosticAddendum(),
+                                    mappingTypeVarMap
+                                )
+                            ) {
+                                const specializedMapping = applySolvedTypeVars(
+                                    mappingType,
+                                    mappingTypeVarMap
+                                ) as ClassType;
+                                const typeArgs = specializedMapping.typeArguments;
+                                if (typeArgs && typeArgs.length >= 2) {
+                                    if (canAssignType(strObjType, typeArgs[0], new DiagnosticAddendum())) {
+                                        isValidMappingType = true;
+                                    }
+                                    unpackedDictionaryArgType = typeArgs[1];
+                                } else {
+                                    isValidMappingType = true;
+                                    unpackedDictionaryArgType = UnknownType.create();
+                                }
+                            }
+
+                            if (!isValidMappingType) {
+                                addDiagnostic(
+                                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                    DiagnosticRule.reportGeneralTypeIssues,
+                                    Localizer.Diagnostic.unpackedDictArgumentNotMapping(),
+                                    argList[argIndex].valueExpression || errorNode
+                                );
+                                reportedArgError = true;
+                            }
                         }
                     }
-                    foundUnpackedDictionaryArg = true;
                 } else {
-                    // Protect against the case where a non-named argument appears after
-                    // a named argument. This will have already been reported as a parse
+                    // Protect against the case where a non-keyword argument appears after
+                    // a keyword argument. This will have already been reported as a parse
                     // error, but we need to protect against it here.
                     const paramName = argList[argIndex].name;
                     if (paramName) {
@@ -7868,12 +7889,49 @@ export function createTypeEvaluator(
                 argIndex++;
             }
 
+            // If there are keyword-only parameters that haven't been matched but we
+            // have an unpacked dictionary arg, assume that it applies to them.
+            if (unpackedDictionaryArgType && (!foundUnpackedListArg || varArgListParamIndex >= 0)) {
+                // Don't consider any position-only parameters, since they cannot be matched to
+                // **kwargs arguments. Consider parameters that are either positional or keyword
+                // if there is no *args argument.
+                const firstKeywordArgIndex = foundUnpackedListArg
+                    ? varArgListParamIndex + 1
+                    : positionalOnlyIndex >= 0
+                    ? positionalOnlyIndex + 1
+                    : 0;
+                typeParams.forEach((param, paramIndex) => {
+                    if (
+                        paramIndex >= firstKeywordArgIndex &&
+                        param.category === ParameterCategory.Simple &&
+                        param.name &&
+                        !param.hasDefault &&
+                        paramMap.get(param.name)!.argsReceived === 0
+                    ) {
+                        const paramType = FunctionType.getEffectiveParameterType(type, paramIndex);
+                        validateArgTypeParams.push({
+                            paramCategory: ParameterCategory.Simple,
+                            paramType,
+                            requiresTypeVarMatching: requiresSpecialization(paramType),
+                            argument: {
+                                argumentCategory: ArgumentCategory.Simple,
+                                type: unpackedDictionaryArgType!,
+                            },
+                            errorNode: errorNode,
+                            paramName: param.isNameSynthesized ? undefined : param.name,
+                        });
+
+                        paramMap.get(param.name)!.argsReceived = 1;
+                    }
+                });
+            }
+
             // Determine whether there are any parameters that require arguments
             // but have not yet received them. If we received a dictionary argument
             // (i.e. an arg starting with a "**") or a list argument (i.e. an arg
             // starting with a "*"), we will assume that all parameters are matched.
             if (
-                !foundUnpackedDictionaryArg &&
+                !unpackedDictionaryArgType &&
                 !foundUnpackedListArg &&
                 !FunctionType.isDefaultParameterCheckDisabled(type)
             ) {

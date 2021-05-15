@@ -24,10 +24,14 @@ def test_kwargs(**kwargs: Hashable):
     requires_hashable_dict(kwargs)
 
 
+class StrSubclass(str):
+    ...
+
+
 def test_kwargs2(
     a: Mapping[str, Any],
     b: Mapping[Any, Hashable],
-    c: Dict[str, Hashable],
+    c: Dict[StrSubclass, Hashable],
     d: int,
     e: Mapping[int, Hashable],
     f: Tuple[str, ...],
