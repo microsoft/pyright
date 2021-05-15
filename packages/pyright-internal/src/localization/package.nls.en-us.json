@@ -52,7 +52,7 @@
         "comprehensionInSet": "Comprehension cannot be used with other set entries",
         "concatenateParamSpecMissing": "Last type argument for \"Concatenate\" must be a ParamSpec",
         "concatenateTypeArgsMissing": "\"Concatenate\" requires at least two type arguments",
-        "constantRedefinition": "\"{name}\" is constant and cannot be redefined",
+        "constantRedefinition": "\"{name}\" is constant (because it is uppercase) and cannot be redefined",
         "continueInFinally": "\"continue\" cannot be used within a finally clause",
         "continueOutsideLoop": "\"continue\" can be used only within a loop",
         "constructorNoArgs": "Expected no arguments to \"{type}\" constructor",
