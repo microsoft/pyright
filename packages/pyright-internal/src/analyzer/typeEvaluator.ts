@@ -10781,7 +10781,11 @@ export function createTypeEvaluator(
             }
 
             if (param.name) {
-                writeTypeCache(param.name, transformVariadicParamType(node, param.category, paramType), /* isIncomplete */ false);
+                writeTypeCache(
+                    param.name,
+                    transformVariadicParamType(node, param.category, paramType),
+                    /* isIncomplete */ false
+                );
             }
 
             if (param.defaultValue) {
