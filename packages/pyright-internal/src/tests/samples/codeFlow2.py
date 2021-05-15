@@ -2,8 +2,6 @@
 # an outer scope is redeclared within a class but is referenced
 # within the class before it is declared.
 
-# pyright: strict
-
 import stat
 
 
@@ -15,3 +13,14 @@ class FakeOsModule(object):
 
     def stat(self):
         return None
+
+
+def outer():
+    a = 1
+
+    def inner():
+        # This should generate an error
+        a += 1
+
+    inner()
+    return a

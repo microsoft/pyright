@@ -635,7 +635,7 @@ test('CodeFlow1', () => {
 test('CodeFlow2', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['codeFlow2.py']);
 
-    TestUtils.validateResults(analysisResults, 0);
+    TestUtils.validateResults(analysisResults, 1);
 });
 
 test('CodeFlow3', () => {

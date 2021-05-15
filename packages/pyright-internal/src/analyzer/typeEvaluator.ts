@@ -17942,8 +17942,8 @@ export function createTypeEvaluator(
 
         if (symbolWithScope && honorCodeFlow) {
             // Filter the declarations based on flow reachability.
-            const decls = symbolWithScope.symbol.getDeclarations().filter((decl) => {
-                if (decl.type !== DeclarationType.Alias) {
+            const reachableDecls = symbolWithScope.symbol.getDeclarations().filter((decl) => {
+                if (decl.type !== DeclarationType.Alias && decl.type !== DeclarationType.Intrinsic) {
                     // Is the declaration in the same execution scope as the "usageNode" node?
                     const usageScope = ParseTreeUtils.getExecutionScopeNode(node);
                     const declNode =
@@ -17968,8 +17968,8 @@ export function createTypeEvaluator(
 
             // If none of the declarations are reachable from the current node,
             // search for the symbol in outer scopes.
-            if (decls.length === 0) {
-                if (symbolWithScope.scope.parent) {
+            if (reachableDecls.length === 0) {
+                if (!symbolWithScope.scope.isIndependentlyExecutable() && symbolWithScope.scope.parent) {
                     symbolWithScope = symbolWithScope.scope.parent.lookUpSymbolRecursive(
                         name,
                         symbolWithScope.isOutsideCallerModule || symbolWithScope.scope.type === ScopeType.Module,
