@@ -512,7 +512,6 @@ export namespace Localizer {
         export const paramSpecAssignedName = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.paramSpecAssignedName'));
         export const paramSpecContext = () => getRawString('Diagnostic.paramSpecContext');
-        export const paramSpecIllegal = () => getRawString('Diagnostic.paramSpecIllegal');
         export const paramSpecFirstArg = () => getRawString('Diagnostic.paramSpecFirstArg');
         export const paramSpecKwargsUsage = () => getRawString('Diagnostic.paramSpecKwargsUsage');
         export const paramSpecNotBound = () =>

@@ -251,7 +251,6 @@
         "paramSpecAssignedName": "ParamSpec must be assigned to a variable named \"{name}\"",
         "paramSpecContext": "ParamSpec not allowed in this context",
         "paramSpecFirstArg": "Expected name of ParamSpec as first argument",
-        "paramSpecIllegal": "ParamSpec requires Python 3.10 or newer",
         "paramSpecKwargsUsage": "\"kwargs\" member of ParamSpec is valid only when used with **kwargs parameter",
         "paramSpecNotBound": "Param spec \"{type}\" has no bound value",
         "paramSpecNotUsedByOuterScope": "ParamSpec \"{name}\" has no meaning in this context",

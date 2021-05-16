@@ -8715,11 +8715,6 @@ export function createTypeEvaluator(
     }
 
     function createParamSpecType(errorNode: ExpressionNode, argList: FunctionArgument[]): Type | undefined {
-        const fileInfo = getFileInfo(errorNode);
-        if (!fileInfo.isStubFile && fileInfo.executionEnvironment.pythonVersion < PythonVersion.V3_9) {
-            addError(Localizer.Diagnostic.paramSpecIllegal(), errorNode);
-        }
-
         if (argList.length === 0) {
             addError(Localizer.Diagnostic.paramSpecFirstArg(), errorNode);
             return undefined;
