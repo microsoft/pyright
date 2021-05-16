@@ -13,7 +13,7 @@ _Xs = TypeVarTuple("_Xs")
 
 class Array(Generic[Unpack[_Xs]]):
     def __init__(self, *args: Unpack[_Xs]) -> None:
-        self.x: Tuple[*_Xs] = args
+        self.x: Tuple[Unpack[_Xs]] = args
         t1: Literal["tuple[*_Xs@Array]"] = reveal_type(args)
 
     # This should generate an error because _Xs is not unpacked.
