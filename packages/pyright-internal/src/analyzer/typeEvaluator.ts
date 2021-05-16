@@ -5272,28 +5272,11 @@ export function createTypeEvaluator(
 
         let isIncomplete = false;
 
-        const type = mapSubtypes(baseType, (subtype) => {
-            subtype = transformTypeObjectToClass(subtype);
-            const concreteSubtype = makeTopLevelTypeVarsConcrete(subtype);
+        const type = mapSubtypesExpandTypeVars(baseType, /* constraintFilter */ undefined, (concreteSubtype) => {
+            concreteSubtype = transformTypeObjectToClass(concreteSubtype);
 
             if (isAnyOrUnknown(concreteSubtype)) {
                 return concreteSubtype;
-            }
-
-            if (flags & EvaluatorFlags.ExpectingType) {
-                if (isTypeVar(subtype)) {
-                    addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.typeVarNotSubscriptable().format({ type: printType(subtype) }),
-                        node.baseExpression
-                    );
-
-                    // Evaluate the index expressions as though they are type arguments for error-reporting.
-                    getTypeArgs(node, flags, /* isAnnotatedClass */ false, /* hasCustomClassGetItem */ false);
-
-                    return UnknownType.create();
-                }
             }
 
             if (isClass(concreteSubtype)) {

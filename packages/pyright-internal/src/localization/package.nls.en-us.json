@@ -364,7 +364,6 @@
         "typeVarFirstArg": "Expected name of TypeVar as first argument",
         "typeVarGeneric": "TypeVar bound type cannot be generic",
         "typeVarNoMember": "TypeVar \"{type}\" has no member \"{name}\"",
-        "typeVarNotSubscriptable": "TypeVar \"{type}\" is not subscriptable",
         "typeVarNotUsedByOuterScope": "Type variable \"{name}\" has no meaning in this context",
         "typeVarSingleConstraint": "TypeVar cannot have only a single constraint",
         "typeVarsNotInGeneric": "Generic[] must include all type variables",
