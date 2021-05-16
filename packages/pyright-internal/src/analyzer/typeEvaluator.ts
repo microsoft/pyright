@@ -756,6 +756,7 @@ export function createTypeEvaluator(
     let objectType: Type | undefined;
     let typeClassType: Type | undefined;
     let tupleClassType: Type | undefined;
+    let boolClassType: Type | undefined;
     let incompleteTypeCache: TypeCache | undefined;
 
     const returnTypeInferenceContextStack: ReturnTypeInferenceContext[] = [];
@@ -946,15 +947,16 @@ export function createTypeEvaluator(
             // so don't re-enter this block once we start executing it.
             isBasicTypesInitialized = true;
 
-            objectType = getBuiltInObject(node, 'object') || AnyType.create();
-            typeClassType = getBuiltInType(node, 'type') || AnyType.create();
+            objectType = getBuiltInObject(node, 'object');
+            typeClassType = getBuiltInType(node, 'type');
 
             // Initialize and cache "Collection" to break a cyclical dependency
             // that occurs when resolving tuple below.
             getTypingType(node, 'Collection');
 
             noneType = getTypeshedType(node, 'NoneType') || AnyType.create();
-            tupleClassType = getBuiltInType(node, 'tuple') || AnyType.create();
+            tupleClassType = getBuiltInType(node, 'tuple');
+            boolClassType = getBuiltInType(node, 'bool');
         }
     }
 
@@ -21767,8 +21769,10 @@ export function createTypeEvaluator(
                 const srcReturnType = applySolvedTypeVars(getFunctionEffectiveReturnType(srcType), srcTypeVarMap);
                 const returnDiag = diag.createAddendum();
 
+                let isReturnTypeCompatible = false;
+
                 if (
-                    !canAssignType(
+                    canAssignType(
                         destReturnType,
                         srcReturnType,
                         returnDiag.createAddendum(),
@@ -21777,6 +21781,32 @@ export function createTypeEvaluator(
                         recursionCount + 1
                     )
                 ) {
+                    isReturnTypeCompatible = true;
+                } else {
+                    // Handle the special case where the return type is a TypeGuard[T].
+                    // This should also act as a bool, since that's its type at runtime.
+                    if (
+                        isObject(srcReturnType) &&
+                        ClassType.isBuiltIn(srcReturnType.classType, 'TypeGuard') &&
+                        boolClassType &&
+                        isClass(boolClassType)
+                    ) {
+                        if (
+                            canAssignType(
+                                destReturnType,
+                                ObjectType.create(boolClassType),
+                                returnDiag.createAddendum(),
+                                typeVarMap,
+                                flags,
+                                recursionCount + 1
+                            )
+                        ) {
+                            isReturnTypeCompatible = true;
+                        }
+                    }
+                }
+
+                if (!isReturnTypeCompatible) {
                     returnDiag.addMessage(
                         Localizer.DiagnosticAddendum.functionReturnTypeMismatch().format({
                             sourceType: printType(srcReturnType),
