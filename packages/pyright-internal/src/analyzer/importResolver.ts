@@ -1365,14 +1365,19 @@ export class ImportResolver {
             this._cachedTypeshedStdLibModuleVersions = this._readTypeshedStdLibVersions(execEnv, importFailureInfo);
         }
 
-        const versionRange = this._cachedTypeshedStdLibModuleVersions.get(moduleDescriptor.nameParts[0]);
-        if (versionRange) {
-            if (execEnv.pythonVersion < versionRange.min) {
-                return false;
-            }
+        // Loop through the name parts to make sure the module and submodules
+        // referenced in the import statement are valid for this version of Python.
+        for (let namePartCount = 1; namePartCount <= moduleDescriptor.nameParts.length; namePartCount++) {
+            const namePartsToConsider = moduleDescriptor.nameParts.slice(0, namePartCount);
+            const versionRange = this._cachedTypeshedStdLibModuleVersions.get(namePartsToConsider.join('.'));
+            if (versionRange) {
+                if (execEnv.pythonVersion < versionRange.min) {
+                    return false;
+                }
 
-            if (versionRange.max !== undefined && execEnv.pythonVersion > versionRange.max) {
-                return false;
+                if (versionRange.max !== undefined && execEnv.pythonVersion > versionRange.max) {
+                    return false;
+                }
             }
         }
 
