@@ -245,6 +245,9 @@ export interface DiagnosticRuleSet {
     // have no semantic meaning within a type stub file.
     reportInvalidStubStatement: DiagnosticLevel;
 
+    // Report usage of __getattr__ at the module level in a stub.
+    reportIncompleteStub: DiagnosticLevel;
+
     // Report operations on __all__ symbol that are not supported
     // by a static type checker.
     reportUnsupportedDunderAll: DiagnosticLevel;
@@ -326,6 +329,7 @@ export function getDiagLevelDiagnosticRules() {
         DiagnosticRule.reportUndefinedVariable,
         DiagnosticRule.reportUnboundVariable,
         DiagnosticRule.reportInvalidStubStatement,
+        DiagnosticRule.reportIncompleteStub,
         DiagnosticRule.reportUnsupportedDunderAll,
         DiagnosticRule.reportUnusedCallResult,
         DiagnosticRule.reportUnusedCoroutine,
@@ -396,6 +400,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnboundVariable: 'none',
         reportUndefinedVariable: 'warning',
         reportInvalidStubStatement: 'none',
+        reportIncompleteStub: 'none',
         reportUnsupportedDunderAll: 'none',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'none',
@@ -462,6 +467,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnboundVariable: 'error',
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'none',
+        reportIncompleteStub: 'none',
         reportUnsupportedDunderAll: 'warning',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
@@ -528,6 +534,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         reportUnboundVariable: 'error',
         reportUndefinedVariable: 'error',
         reportInvalidStubStatement: 'error',
+        reportIncompleteStub: 'error',
         reportUnsupportedDunderAll: 'error',
         reportUnusedCallResult: 'none',
         reportUnusedCoroutine: 'error',
@@ -1186,6 +1193,13 @@ export class ConfigOptions {
                 configObj.reportInvalidStubStatement,
                 DiagnosticRule.reportInvalidStubStatement,
                 defaultSettings.reportInvalidStubStatement
+            ),
+
+            // Read the "reportIncompleteStub" entry.
+            reportIncompleteStub: this._convertDiagnosticLevel(
+                configObj.reportIncompleteStub,
+                DiagnosticRule.reportIncompleteStub,
+                defaultSettings.reportIncompleteStub
             ),
 
             // Read the "reportUnsupportedDunderAll" entry.

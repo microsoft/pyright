@@ -413,6 +413,12 @@
       "title": "Controls reporting of type stub statements that do not conform to PEP 484",
       "default": "none"
     },
+    "reportIncompleteStub": {
+      "$id": "#/properties/reportIncompleteStub",
+      "$ref": "#/definitions/diagnostic",
+      "title": "Controls reporting of incomplete type stubs that declare a module-level __getattr__ function",
+      "default": "none"
+    },
     "reportUnsupportedDunderAll": {
       "$id": "#/properties/reportUnsupportedDunderAll",
       "$ref": "#/definitions/diagnostic",

@@ -453,8 +453,8 @@ export class Checker extends ParseTreeWalker {
             const scope = getScopeForNode(node);
             if (scope?.type === ScopeType.Module) {
                 this._evaluator.addDiagnostic(
-                    this._fileInfo.diagnosticRuleSet.reportUnknownMemberType,
-                    DiagnosticRule.reportUnknownMemberType,
+                    this._fileInfo.diagnosticRuleSet.reportIncompleteStub,
+                    DiagnosticRule.reportIncompleteStub,
                     Localizer.Diagnostic.stubUsesGetAttr(),
                     node.name
                 );

@@ -600,7 +600,18 @@
                         },
                         "reportInvalidStubStatement": {
                             "type": "string",
-                            "description": "Diagnostics for type stub statements that do not conform to PEP 484",
+                            "description": "Diagnostics for type stub statements that do not conform to PEP 484.",
+                            "default": "none",
+                            "enum": [
+                                "none",
+                                "information",
+                                "warning",
+                                "error"
+                            ]
+                        },
+                        "reportIncompleteStub": {
+                            "type": "string",
+                            "description": "Diagnostics for the use of a module-level “__getattr__” function, indicating that the stub is incomplete.",
                             "default": "none",
                             "enum": [
                                 "none",

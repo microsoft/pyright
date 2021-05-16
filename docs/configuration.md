@@ -146,6 +146,8 @@ The following settings control pyright’s diagnostic output (warnings or errors
 
 **reportInvalidStubStatement** [boolean or string, optional]: Generate or suppress diagnostics for statements that are syntactically correct but have no purpose within a type stub file. The default value for this setting is 'none'.
 
+**reportIncompleteStub** [boolean or string, optional]: Generate or suppress diagnostics for a module-level `__getattr__` call in a type stub file, indicating that it is incomplete. The default value for this setting is 'none'.
+
 **reportUnsupportedDunderAll** [boolean or string, optional]: Generate or suppress diagnostics for statements that define or manipulate `__all__` in a way that is not allowed by a static type checker, thus rendering the contents of `__all__` to be unknown or incorrect. The default value for this setting is 'warning'.
 
 **reportUnusedCallResult** [boolean or string, optional]: Generate or suppress diagnostics for call statements whose return value is not used in any way and is not None. The default value for this setting is 'none'.
@@ -311,6 +313,7 @@ The following table lists the default severity levels for each diagnostic rule w
 | reportUndefinedVariable                   | "warning"  | "error"    | "error"    |
 | reportUnboundVariable                     | "none"     | "error"    | "error"    |
 | reportInvalidStubStatement                | "none"     | "none"     | "error"    |
+| reportIncompleteStub                      | "none"     | "none"     | "error"    |
 | reportUnsupportedDunderAll                | "none"     | "warning"  | "error"    |
 | reportUnusedCallResult                    | "none"     | "none"     | "none"     |
 | reportUnusedCoroutine                     | "none"     | "error"    | "error"    |
