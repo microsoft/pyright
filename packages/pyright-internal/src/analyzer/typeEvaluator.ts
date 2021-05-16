@@ -5272,119 +5272,129 @@ export function createTypeEvaluator(
 
         let isIncomplete = false;
 
-        const type = mapSubtypesExpandTypeVars(baseType, /* constraintFilter */ undefined, (concreteSubtype, unexpandedSubtype) => {
-            concreteSubtype = transformTypeObjectToClass(concreteSubtype);
+        const type = mapSubtypesExpandTypeVars(
+            baseType,
+            /* constraintFilter */ undefined,
+            (concreteSubtype, unexpandedSubtype) => {
+                concreteSubtype = transformTypeObjectToClass(concreteSubtype);
 
-            if (isAnyOrUnknown(concreteSubtype)) {
-                return concreteSubtype;
-            }
-
-            if (flags & EvaluatorFlags.ExpectingType) {
-                if (isTypeVar(unexpandedSubtype)) {
-                    addDiagnostic(
-                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                        DiagnosticRule.reportGeneralTypeIssues,
-                        Localizer.Diagnostic.typeVarNotSubscriptable().format({ type: printType(unexpandedSubtype) }),
-                        node.baseExpression
-                    );
-
-                    // Evaluate the index expressions as though they are type arguments for error-reporting.
-                    getTypeArgs(node, flags, /* isAnnotatedClass */ false, /* hasCustomClassGetItem */ false);
-
-                    return UnknownType.create();
-                }
-            }
-
-            if (isClass(concreteSubtype)) {
-                // Setting the value of an indexed class will always result
-                // in an exception.
-                if (usage.method === 'set') {
-                    addError(Localizer.Diagnostic.genericClassAssigned(), node.baseExpression);
-                } else if (usage.method === 'del') {
-                    addError(Localizer.Diagnostic.genericClassDeleted(), node.baseExpression);
+                if (isAnyOrUnknown(concreteSubtype)) {
+                    return concreteSubtype;
                 }
 
-                if (ClassType.isSpecialBuiltIn(concreteSubtype, 'Literal')) {
-                    // Special-case Literal types.
-                    return createLiteralType(node, flags);
-                }
-
-                if (ClassType.isBuiltIn(concreteSubtype, 'InitVar')) {
-                    // Special-case InitVar, used in data classes.
-                    const typeArgs = getTypeArgs(node, flags);
-                    if (typeArgs.length === 1) {
-                        return typeArgs[0].type;
-                    } else {
-                        addError(
-                            Localizer.Diagnostic.typeArgsMismatchOne().format({ received: typeArgs.length }),
+                if (flags & EvaluatorFlags.ExpectingType) {
+                    if (isTypeVar(unexpandedSubtype)) {
+                        addDiagnostic(
+                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeVarNotSubscriptable().format({
+                                type: printType(unexpandedSubtype),
+                            }),
                             node.baseExpression
                         );
+
+                        // Evaluate the index expressions as though they are type arguments for error-reporting.
+                        getTypeArgs(node, flags, /* isAnnotatedClass */ false, /* hasCustomClassGetItem */ false);
+
                         return UnknownType.create();
                     }
                 }
 
-                if (ClassType.isEnumClass(concreteSubtype)) {
-                    // Special-case Enum types.
-                    // TODO - validate that there's only one index entry
-                    // that is a str type.
-                    // TODO - validate that literal strings are referencing
-                    // a known enum member.
-                    return ObjectType.create(concreteSubtype);
+                if (isClass(concreteSubtype)) {
+                    // Setting the value of an indexed class will always result
+                    // in an exception.
+                    if (usage.method === 'set') {
+                        addError(Localizer.Diagnostic.genericClassAssigned(), node.baseExpression);
+                    } else if (usage.method === 'del') {
+                        addError(Localizer.Diagnostic.genericClassDeleted(), node.baseExpression);
+                    }
+
+                    if (ClassType.isSpecialBuiltIn(concreteSubtype, 'Literal')) {
+                        // Special-case Literal types.
+                        return createLiteralType(node, flags);
+                    }
+
+                    if (ClassType.isBuiltIn(concreteSubtype, 'InitVar')) {
+                        // Special-case InitVar, used in data classes.
+                        const typeArgs = getTypeArgs(node, flags);
+                        if (typeArgs.length === 1) {
+                            return typeArgs[0].type;
+                        } else {
+                            addError(
+                                Localizer.Diagnostic.typeArgsMismatchOne().format({ received: typeArgs.length }),
+                                node.baseExpression
+                            );
+                            return UnknownType.create();
+                        }
+                    }
+
+                    if (ClassType.isEnumClass(concreteSubtype)) {
+                        // Special-case Enum types.
+                        // TODO - validate that there's only one index entry
+                        // that is a str type.
+                        // TODO - validate that literal strings are referencing
+                        // a known enum member.
+                        return ObjectType.create(concreteSubtype);
+                    }
+
+                    const isAnnotatedClass =
+                        isClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'Annotated');
+                    const hasCustomClassGetItem =
+                        isClass(concreteSubtype) && ClassType.hasCustomClassGetItem(concreteSubtype);
+
+                    let typeArgs = getTypeArgs(node, flags, isAnnotatedClass, hasCustomClassGetItem);
+                    if (!isAnnotatedClass) {
+                        typeArgs = adjustTypeArgumentsForVariadicTypeVar(
+                            typeArgs,
+                            concreteSubtype.details.typeParameters
+                        );
+                    }
+
+                    // If this is a custom __class_getitem__, there's no need to specialize the class.
+                    // Just return it as is.
+                    if (hasCustomClassGetItem) {
+                        return concreteSubtype;
+                    }
+
+                    return createSpecializedClassType(concreteSubtype, typeArgs, flags, node);
                 }
 
-                const isAnnotatedClass = isClass(concreteSubtype) && ClassType.isBuiltIn(concreteSubtype, 'Annotated');
-                const hasCustomClassGetItem =
-                    isClass(concreteSubtype) && ClassType.hasCustomClassGetItem(concreteSubtype);
-
-                let typeArgs = getTypeArgs(node, flags, isAnnotatedClass, hasCustomClassGetItem);
-                if (!isAnnotatedClass) {
-                    typeArgs = adjustTypeArgumentsForVariadicTypeVar(typeArgs, concreteSubtype.details.typeParameters);
+                if (isObject(concreteSubtype)) {
+                    const typeResult = getTypeFromIndexedObject(node, concreteSubtype, usage);
+                    if (typeResult.isIncomplete) {
+                        isIncomplete = true;
+                    }
+                    return typeResult.type;
                 }
 
-                // If this is a custom __class_getitem__, there's no need to specialize the class.
-                // Just return it as is.
-                if (hasCustomClassGetItem) {
-                    return concreteSubtype;
+                if (isNever(concreteSubtype)) {
+                    return UnknownType.create();
                 }
 
-                return createSpecializedClassType(concreteSubtype, typeArgs, flags, node);
-            }
+                if (isNone(concreteSubtype)) {
+                    addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
+                        DiagnosticRule.reportOptionalSubscript,
+                        Localizer.Diagnostic.noneNotSubscriptable(),
+                        node.baseExpression
+                    );
 
-            if (isObject(concreteSubtype)) {
-                const typeResult = getTypeFromIndexedObject(node, concreteSubtype, usage);
-                if (typeResult.isIncomplete) {
-                    isIncomplete = true;
+                    return UnknownType.create();
                 }
-                return typeResult.type;
-            }
 
-            if (isNever(concreteSubtype)) {
+                if (!isUnbound(concreteSubtype)) {
+                    const fileInfo = getFileInfo(node);
+                    addDiagnostic(
+                        fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeNotSubscriptable().format({ type: printType(concreteSubtype) }),
+                        node.baseExpression
+                    );
+                }
+
                 return UnknownType.create();
             }
-
-            if (isNone(concreteSubtype)) {
-                addDiagnostic(
-                    getFileInfo(node).diagnosticRuleSet.reportOptionalSubscript,
-                    DiagnosticRule.reportOptionalSubscript,
-                    Localizer.Diagnostic.noneNotSubscriptable(),
-                    node.baseExpression
-                );
-
-                return UnknownType.create();
-            }
-
-            if (!isUnbound(concreteSubtype)) {
-                const fileInfo = getFileInfo(node);
-                addDiagnostic(
-                    fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
-                    DiagnosticRule.reportGeneralTypeIssues,
-                    Localizer.Diagnostic.typeNotSubscriptable().format({ type: printType(concreteSubtype) }),
-                    node.baseExpression
-                );
-            }
-
-            return UnknownType.create();
-        });
+        );
 
         // In case we didn't walk the list items above, do so now.
         // If we have, this information will be cached.
