@@ -2226,13 +2226,23 @@ export class Checker extends ParseTreeWalker {
         };
 
         let isValidType = true;
-        if (isObject(arg1Type) && ClassType.isTupleClass(arg1Type.classType) && arg1Type.classType.tupleTypeArguments) {
-            isValidType = !arg1Type.classType.tupleTypeArguments.some(
-                (typeArg) => !isSupportedTypeForIsInstance(typeArg)
-            );
-        } else {
-            isValidType = isSupportedTypeForIsInstance(arg1Type);
-        }
+        doForEachSubtype(arg1Type, (arg1Subtype) => {
+            if (
+                isObject(arg1Subtype) &&
+                ClassType.isTupleClass(arg1Subtype.classType) &&
+                arg1Subtype.classType.tupleTypeArguments
+            ) {
+                if (
+                    arg1Subtype.classType.tupleTypeArguments.some((typeArg) => !isSupportedTypeForIsInstance(typeArg))
+                ) {
+                    isValidType = false;
+                }
+            } else {
+                if (!isSupportedTypeForIsInstance(arg1Subtype)) {
+                    isValidType = false;
+                }
+            }
+        });
 
         if (!isValidType) {
             const diag = new DiagnosticAddendum();
@@ -2275,28 +2285,40 @@ export class Checker extends ParseTreeWalker {
         ];
 
         const classTypeList: ClassType[] = [];
-        if (isClass(arg1Type)) {
-            classTypeList.push(arg1Type);
-            if (ClassType.isBuiltIn(arg1Type) && nonstandardClassTypes.some((name) => name === arg1Type.details.name)) {
-                return;
+        doForEachSubtype(arg1Type, (arg1Subtype) => {
+            if (isClass(arg1Subtype)) {
+                classTypeList.push(arg1Subtype);
+                if (
+                    ClassType.isBuiltIn(arg1Subtype) &&
+                    nonstandardClassTypes.some((name) => name === arg1Subtype.details.name)
+                ) {
+                    isValidType = false;
+                }
+            } else if (isObject(arg1Subtype)) {
+                // The isinstance and issubclass call supports a variation where the second
+                // parameter is a tuple of classes.
+                const objClass = arg1Subtype.classType;
+                if (isTupleClass(objClass) && objClass.tupleTypeArguments) {
+                    objClass.tupleTypeArguments.forEach((typeArg) => {
+                        if (isClass(typeArg)) {
+                            classTypeList.push(typeArg);
+                        } else {
+                            isValidType = false;
+                        }
+                    });
+                }
+                if (
+                    ClassType.isBuiltIn(objClass) &&
+                    nonstandardClassTypes.some((name) => name === objClass.details.name)
+                ) {
+                    isValidType = false;
+                }
+            } else {
+                isValidType = false;
             }
-        } else if (isObject(arg1Type)) {
-            // The isinstance and issubclass call supports a variation where the second
-            // parameter is a tuple of classes.
-            const objClass = arg1Type.classType;
-            if (isTupleClass(objClass) && objClass.tupleTypeArguments) {
-                objClass.tupleTypeArguments.forEach((typeArg) => {
-                    if (isClass(typeArg)) {
-                        classTypeList.push(typeArg);
-                    } else {
-                        return;
-                    }
-                });
-            }
-            if (ClassType.isBuiltIn(objClass) && nonstandardClassTypes.some((name) => name === objClass.details.name)) {
-                return;
-            }
-        } else {
+        });
+
+        if (!isValidType) {
             return;
         }
 

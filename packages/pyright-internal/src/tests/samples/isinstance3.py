@@ -3,7 +3,8 @@
 # tuple of classes.
 
 
-from typing import Generic, TypeVar, Union
+from abc import abstractmethod
+from typing import Any, Generic, Tuple, Type, TypeVar, Union
 
 
 _T = TypeVar("_T")
@@ -27,3 +28,17 @@ if isinstance(a, A[str]):
 # allowed.
 if issubclass(a, Union[A, int]):
     pass
+
+
+class ClassA(Generic[_T]):
+    @property
+    @abstractmethod
+    def _elem_type_(self) -> Union[Type[_T], Tuple[Type[_T], ...]]:
+        raise NotImplementedError
+
+    def check_type(self, var: Any) -> bool:
+        return isinstance(var, self._elem_type_)
+
+    def execute(self, var: Union[_T, Tuple[_T]]) -> None:
+        if isinstance(var, self._elem_type_):
+            pass
