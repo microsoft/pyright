@@ -1301,7 +1301,11 @@ export function createTypeEvaluator(
             const resultType = transformTypeObjectToClass(typeResult.type);
 
             if (flags & EvaluatorFlags.TypeVarTupleDisallowed) {
-                if (isTypeVar(typeResult.type) && typeResult.type.details.isVariadic) {
+                if (
+                    isTypeVar(typeResult.type) &&
+                    typeResult.type.details.isVariadic &&
+                    !typeResult.type.isVariadicInUnion
+                ) {
                     addError(Localizer.Diagnostic.typeVarTupleContext(), node);
                     typeResult.type = UnknownType.create();
                 }
@@ -11012,7 +11016,7 @@ export function createTypeEvaluator(
             }
         }
 
-        if (isVariadicTypeVar(argResult.type)) {
+        if (isVariadicTypeVar(argResult.type) && !argResult.type.isVariadicInUnion) {
             if (!allowVariadicTypeVar) {
                 addError(Localizer.Diagnostic.typeVarTupleContext(), argResult.node);
                 return false;
@@ -11465,7 +11469,11 @@ export function createTypeEvaluator(
                         } else if (typeArgs!.length !== 2 || index !== 1) {
                             addError(Localizer.Diagnostic.ellipsisSecondArg(), typeArg.node);
                         } else {
-                            if (isTypeVar(typeArgs![0].type) && isVariadicTypeVar(typeArgs![0].type)) {
+                            if (
+                                isTypeVar(typeArgs![0].type) &&
+                                isVariadicTypeVar(typeArgs![0].type) &&
+                                !typeArgs![0].type.isVariadicInUnion
+                            ) {
                                 addError(Localizer.Diagnostic.typeVarTupleContext(), typeArgs![0].node);
                             }
                         }
@@ -11536,6 +11544,12 @@ export function createTypeEvaluator(
                     typeArgType = UnknownType.create();
                 } else if (!TypeBase.isInstantiable(typeArgType)) {
                     addExpectedClassDiagnostic(typeArgType, typeArg.node);
+                }
+
+                // If this is an unpacked TypeVar, note that it is in a union so we can differentiate
+                // between Unpack[Vs] and Union[Unpack[Vs]].
+                if (isTypeVar(typeArgType) && isVariadicTypeVar(typeArgType) && typeArgType.isVariadicUnpacked) {
+                    typeArgType = TypeVarType.cloneForUnpacked(typeArgType, /* isInUnion */ true);
                 }
 
                 types.push(typeArgType);

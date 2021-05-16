@@ -1677,6 +1677,13 @@ export function _transformTypeVars(
 
             recursionMap.set(typeVarName, type);
             replacementType = _transformTypeVars(replacementType, callbacks, recursionMap, recursionLevel + 1);
+
+            // If we're transforming a variadic type variable that was in a union,
+            // expand the union types.
+            if (isVariadicTypeVar(type) && type.isVariadicInUnion) {
+                replacementType = _expandVariadicUnpackedUnion(replacementType);
+            }
+
             recursionMap.delete(typeVarName);
         }
 
@@ -1692,16 +1699,7 @@ export function _transformTypeVars(
             if (isVariadicTypeVar(subtype) && !isVariadicTypeVar(transformedType)) {
                 const subtypesToCombine: Type[] = [];
                 doForEachSubtype(transformedType, (transformedSubtype) => {
-                    if (
-                        isObject(transformedSubtype) &&
-                        isTupleClass(transformedSubtype.classType) &&
-                        transformedSubtype.classType.tupleTypeArguments &&
-                        transformedSubtype.classType.isTupleForUnpackedVariadicTypeVar
-                    ) {
-                        subtypesToCombine.push(...transformedSubtype.classType.tupleTypeArguments);
-                    } else {
-                        subtypesToCombine.push(transformedSubtype);
-                    }
+                    subtypesToCombine.push(_expandVariadicUnpackedUnion(transformedSubtype));
                 });
 
                 transformedType = combineTypes(subtypesToCombine);
@@ -1816,9 +1814,19 @@ function _transformTypeVarsInClassType(
                 return transformParamSpec(oldTypeArgType);
             }
 
-            const newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);
+            let newTypeArgType = _transformTypeVars(oldTypeArgType, callbacks, recursionMap, recursionLevel + 1);
             if (newTypeArgType !== oldTypeArgType) {
                 specializationNeeded = true;
+
+                // If this was a variadic type variable that was part of a union
+                // (e.g. Union[Unpack[Vs]]), expand the subtypes into a union here.
+                if (
+                    isTypeVar(oldTypeArgType) &&
+                    isVariadicTypeVar(oldTypeArgType) &&
+                    oldTypeArgType.isVariadicInUnion
+                ) {
+                    newTypeArgType = _expandVariadicUnpackedUnion(newTypeArgType);
+                }
             }
             return newTypeArgType;
         });
@@ -2026,6 +2034,19 @@ function _transformTypeVarsInFunctionType(
     newFunctionType.details.declaredReturnType = FunctionType.getSpecializedReturnType(functionType);
 
     return newFunctionType;
+}
+
+function _expandVariadicUnpackedUnion(type: Type) {
+    if (
+        isObject(type) &&
+        isTupleClass(type.classType) &&
+        type.classType.tupleTypeArguments &&
+        type.classType.isTupleForUnpackedVariadicTypeVar
+    ) {
+        return combineTypes(type.classType.tupleTypeArguments);
+    }
+
+    return type;
 }
 
 // If the declared return type for the function is a Generator or AsyncGenerator,
