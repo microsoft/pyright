@@ -4,14 +4,14 @@
 # file. They are provided for type checking purposes.
 
 from sys import _OptExcInfo
-from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol, Text, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Protocol, Tuple
 
 class StartResponse(Protocol):
     def __call__(
         self, status: str, headers: List[Tuple[str, str]], exc_info: Optional[_OptExcInfo] = ...
     ) -> Callable[[bytes], Any]: ...
 
-WSGIEnvironment = Dict[Text, Any]
+WSGIEnvironment = Dict[str, Any]
 WSGIApplication = Callable[[WSGIEnvironment, StartResponse], Iterable[bytes]]
 
 # WSGI input streams per PEP 3333

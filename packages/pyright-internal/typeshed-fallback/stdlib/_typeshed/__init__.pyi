@@ -15,7 +15,8 @@
 import array
 import mmap
 import sys
-from typing import AbstractSet, Any, Container, Iterable, Protocol, Text, Tuple, TypeVar, Union
+from os import PathLike
+from typing import AbstractSet, Any, Container, Iterable, Protocol, Tuple, TypeVar, Union
 from typing_extensions import Literal, final
 
 _KT = TypeVar("_KT")
@@ -40,11 +41,7 @@ class SupportsRDivMod(Protocol[_T_contra, _T_co]):
 # Mapping-like protocols
 
 class SupportsItems(Protocol[_KT_co, _VT_co]):
-    if sys.version_info >= (3,):
-        def items(self) -> AbstractSet[Tuple[_KT_co, _VT_co]]: ...
-    else:
-        # We want dictionaries to support this on Python 2.
-        def items(self) -> Iterable[Tuple[_KT_co, _VT_co]]: ...
+    def items(self) -> AbstractSet[Tuple[_KT_co, _VT_co]]: ...
 
 class SupportsKeysAndGetItem(Protocol[_KT, _VT_co]):
     def keys(self) -> Iterable[_KT]: ...
@@ -59,16 +56,9 @@ class SupportsItemAccess(SupportsGetItem[_KT_contra, _VT], Protocol[_KT_contra, 
 
 # StrPath and AnyPath can be used in places where a
 # path can be used instead of a string, starting with Python 3.6.
-if sys.version_info >= (3, 6):
-    from os import PathLike
-
-    StrPath = Union[str, PathLike[str]]
-    BytesPath = Union[bytes, PathLike[bytes]]
-    AnyPath = Union[str, bytes, PathLike[str], PathLike[bytes]]
-else:
-    StrPath = Text
-    BytesPath = bytes
-    AnyPath = Union[Text, bytes]
+StrPath = Union[str, PathLike[str]]
+BytesPath = Union[bytes, PathLike[bytes]]
+AnyPath = Union[str, bytes, PathLike[str], PathLike[bytes]]
 
 OpenTextModeUpdating = Literal[
     "r+",
@@ -155,12 +145,8 @@ class SupportsNoArgReadline(Protocol[_T_co]):
 class SupportsWrite(Protocol[_T_contra]):
     def write(self, __s: _T_contra) -> Any: ...
 
-if sys.version_info >= (3,):
-    ReadableBuffer = Union[bytes, bytearray, memoryview, array.array[Any], mmap.mmap]
-    WriteableBuffer = Union[bytearray, memoryview, array.array[Any], mmap.mmap]
-else:
-    ReadableBuffer = Union[bytes, bytearray, memoryview, array.array[Any], mmap.mmap, buffer]
-    WriteableBuffer = Union[bytearray, memoryview, array.array[Any], mmap.mmap, buffer]
+ReadableBuffer = Union[bytes, bytearray, memoryview, array.array[Any], mmap.mmap]
+WriteableBuffer = Union[bytearray, memoryview, array.array[Any], mmap.mmap]
 
 if sys.version_info >= (3, 10):
     from types import NoneType as NoneType

@@ -1,6 +1,6 @@
 # The structure of this file is as follows:
 # - Blank lines and lines starting with `#` are ignored.
-# - Lines contain the name of a top-level module, followed by a colon,
+# - Lines contain the name of a module, followed by a colon,
 #   a space, and a version range (for example: `symbol: 2.7-3.9`).
 #
 # Version ranges may be of the form "X.Y-A.B" or "X.Y-". The
@@ -8,6 +8,9 @@
 # available in version A.B. The second form means that the module was
 # introduced in version X.Y and is still available in the latest
 # version of Python.
+#
+# If a submodule is not listed separately, it has the same lifetime as
+# its parent module.
 #
 # Python versions before 2.7 are ignored, so any module that was already
 # present in 2.7 will have "2.7" as its minimum version. Version ranges
@@ -82,7 +85,7 @@ collections: 2.7-
 colorsys: 2.7-
 compileall: 2.7-
 concurrent: 3.2-
-configparser: 2.7-
+configparser: 3.0-
 contextlib: 2.7-
 contextvars: 3.7-
 copy: 2.7-
@@ -132,6 +135,7 @@ imaplib: 2.7-
 imghdr: 2.7-
 imp: 2.7-
 importlib: 2.7-
+importlib.resources: 3.7-
 inspect: 2.7-
 io: 2.7-
 ipaddress: 2.7-
@@ -188,7 +192,7 @@ pyclbr: 2.7-
 pydoc: 2.7-
 pydoc_data: 2.7-
 pyexpat: 2.7-
-queue: 2.7-
+queue: 3.0-
 quopri: 2.7-
 random: 2.7-
 re: 2.7-
@@ -210,7 +214,7 @@ smtpd: 2.7-
 smtplib: 2.7-
 sndhdr: 2.7-
 socket: 2.7-
-socketserver: 2.7-
+socketserver: 3.0-
 spwd: 2.7-
 sqlite3: 2.7-
 sre_compile: 2.7-

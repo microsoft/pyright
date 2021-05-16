@@ -1,7 +1,10 @@
 # This sample tests the handling of Required and NotRequired
 # (PEP 655) in TypedDict definitions.
 
-from typing import Literal, NotRequired, Optional, Required, Type, TypedDict
+# pyright: reportMissingModuleSource=false
+
+from typing import Literal, Optional, Type, TypedDict
+from typing_extensions import NotRequired, Required
 
 
 class TD1(TypedDict, total=False):

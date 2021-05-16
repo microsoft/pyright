@@ -7,6 +7,7 @@ from _typeshed import (
     OpenBinaryModeUpdating,
     OpenBinaryModeWriting,
     OpenTextMode,
+    StrPath,
 )
 from builtins import OSError
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper as _TextIOWrapper
@@ -367,8 +368,8 @@ if sys.platform != "win32":
             f_namemax: int
 
 # ----- os function stubs -----
-def fsencode(filename: Union[str, bytes, PathLike[Any]]) -> bytes: ...
-def fsdecode(filename: Union[str, bytes, PathLike[Any]]) -> str: ...
+def fsencode(filename: AnyPath) -> bytes: ...
+def fsdecode(filename: AnyPath) -> str: ...
 @overload
 def fspath(path: str) -> str: ...
 @overload
@@ -687,7 +688,7 @@ if sys.platform != "win32":
     if sys.version_info >= (3, 7):
         @overload
         def fwalk(
-            top: Union[str, PathLike[str]] = ...,
+            top: StrPath = ...,
             topdown: bool = ...,
             onerror: Optional[_OnError] = ...,
             *,
@@ -705,7 +706,7 @@ if sys.platform != "win32":
         ) -> Iterator[Tuple[bytes, List[bytes], List[bytes], int]]: ...
     else:
         def fwalk(
-            top: Union[str, PathLike[str]] = ...,
+            top: StrPath = ...,
             topdown: bool = ...,
             onerror: Optional[_OnError] = ...,
             *,
