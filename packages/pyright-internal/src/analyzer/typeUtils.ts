@@ -2107,6 +2107,10 @@ export function requiresSpecialization(type: Type, recursionCount = 0): boolean 
                 return false;
             }
 
+            if (type.details.paramSpec) {
+                return true;
+            }
+
             for (let i = 0; i < type.details.parameters.length; i++) {
                 if (requiresSpecialization(FunctionType.getEffectiveParameterType(type, i), recursionCount + 1)) {
                     return true;
