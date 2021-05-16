@@ -8188,7 +8188,22 @@ export function createTypeEvaluator(
         // Calculate the return type. If there was a type error detected,
         // don't bother attempting to infer the return type.
         const returnType = getFunctionEffectiveReturnType(type, matchResults.argParams, !argumentErrors);
-        const specializedReturnType = applySolvedTypeVars(returnType, typeVarMap);
+        let specializedReturnType = applySolvedTypeVars(returnType, typeVarMap);
+
+        // Handle 'TypeGuard' specially. We'll transform the return type into a 'bool'
+        // object with a type argument that reflects the narrowed type.
+        if (
+            isObject(specializedReturnType) &&
+            ClassType.isBuiltIn(specializedReturnType.classType, 'TypeGuard') &&
+            specializedReturnType.classType.typeArguments &&
+            specializedReturnType.classType.typeArguments.length > 0
+        ) {
+            if (boolClassType && isClass(boolClassType)) {
+                specializedReturnType = ObjectType.create(
+                    ClassType.cloneForTypeGuard(boolClassType, specializedReturnType.classType.typeArguments[0])
+                );
+            }
+        }
 
         // If the return type includes a generic Callable type, set the type var
         // scope to a wildcard to allow these type vars to be solved. This won't
@@ -17070,16 +17085,11 @@ export function createTypeEvaluator(
                         const functionReturnType = getTypeOfExpression(testExpression).type;
                         if (
                             isObject(functionReturnType) &&
-                            ClassType.isBuiltIn(functionReturnType.classType, 'TypeGuard')
+                            ClassType.isBuiltIn(functionReturnType.classType, 'bool') &&
+                            functionReturnType.classType.typeGuardType
                         ) {
-                            const typeGuardTypeArgs = functionReturnType.classType.typeArguments;
-                            const typeGuardTypeArg =
-                                typeGuardTypeArgs && typeGuardTypeArgs.length > 0
-                                    ? typeGuardTypeArgs[0]
-                                    : UnknownType.create();
-
                             return (type: Type) => {
-                                return isPositiveTest ? typeGuardTypeArg : type;
+                                return isPositiveTest ? functionReturnType.classType.typeGuardType : type;
                             };
                         }
                     }

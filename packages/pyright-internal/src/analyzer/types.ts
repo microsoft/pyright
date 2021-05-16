@@ -374,6 +374,12 @@ export interface ClassType extends TypeBase {
     // some or all of the type parameters.
     typeArguments?: Type[];
 
+    // A bool value that has been returned by a user-defined
+    // type guard (see PEP 647) will have additional type information
+    // that indicates how a type should be narrowed. This field will
+    // be used only in a bool class.
+    typeGuardType?: Type;
+
     // If a generic container class (like a list or dict) is known
     // to contain no elements, its type arguments may be "Unknown".
     // This value allows us to elide the Unknown when it's safe to
@@ -501,6 +507,12 @@ export namespace ClassType {
         const newClassType = { ...classType };
         newClassType.details = { ...newClassType.details };
         newClassType.details.typeParameters = typeParams;
+        return newClassType;
+    }
+
+    export function cloneForTypeGuard(classType: ClassType, typeGuardType: Type): ClassType {
+        const newClassType = { ...classType };
+        newClassType.typeGuardType = typeGuardType;
         return newClassType;
     }
 
