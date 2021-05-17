@@ -2,9 +2,9 @@
 # conditions of the form "X is None", "X is not None",
 # "X == None" and "X != None".
 
-# pyright: strict
+# pyright: strict, reportUnusedVariable=false
 
-from typing import Optional, TypeVar
+from typing import Literal, Optional, TypeVar
 
 
 def func1(x: Optional[int]):
@@ -30,6 +30,8 @@ _T = TypeVar("_T", None, str)
 
 def func2(val: _T) -> _T:
     if val is not None:
+        t1: Literal["str"] = reveal_type(val)
         return val
     else:
+        t2: Literal["None"] = reveal_type(val)
         return val

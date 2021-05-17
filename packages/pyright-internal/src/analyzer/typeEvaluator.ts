@@ -16894,7 +16894,17 @@ export function createTypeEvaluator(
 
                                     // See if it's a match for None.
                                     if (isNone(subtype) === adjIsPositiveTest) {
-                                        return unexpandedSubtype;
+                                        // If this is a TypeVar that isn't constrained, use the unexpanded
+                                        // TypeVar. For all other cases (including constrained TypeVars),
+                                        // use the expanded subtype.
+                                        if (
+                                            isTypeVar(unexpandedSubtype) &&
+                                            unexpandedSubtype.details.constraints.length === 0
+                                        ) {
+                                            return unexpandedSubtype;
+                                        } else {
+                                            return subtype;
+                                        }
                                     }
 
                                     return undefined;
