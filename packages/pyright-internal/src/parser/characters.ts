@@ -88,6 +88,20 @@ export function isIdentifierChar(char: number, nextChar?: number) {
     );
 }
 
+export function isSurrogateChar(char: number) {
+    if (char < _identifierCharFastTableSize) {
+        return false;
+    }
+
+    // Lazy initialize the char map. We'll rarely get here.
+    if (!_identifierCharMapInitialized) {
+        _buildIdentifierLookupTable(false);
+        _identifierCharMapInitialized = true;
+    }
+
+    return _identifierCharMap[char] === CharCategory.SurrogateChar;
+}
+
 export function isWhiteSpace(ch: number): boolean {
     return ch === Char.Space || ch === Char.Tab || ch === Char.FormFeed;
 }

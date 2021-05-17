@@ -14,7 +14,15 @@ import Char from 'typescript-char';
 
 import { TextRange } from '../common/textRange';
 import { TextRangeCollection } from '../common/textRangeCollection';
-import { isBinary, isDecimal, isHex, isIdentifierChar, isIdentifierStartChar, isOctal } from './characters';
+import {
+    isBinary,
+    isDecimal,
+    isHex,
+    isIdentifierChar,
+    isIdentifierStartChar,
+    isOctal,
+    isSurrogateChar,
+} from './characters';
 import { CharacterStream } from './characterStream';
 import {
     Comment,
@@ -928,7 +936,13 @@ export class Tokenizer {
             ) {
                 break;
             }
-            this._cs.moveNext();
+
+            if (isSurrogateChar(this._cs.currentChar)) {
+                this._cs.moveNext();
+                this._cs.moveNext();
+            } else {
+                this._cs.moveNext();
+            }
         }
         const length = this._cs.position - start;
         if (length > 0) {
