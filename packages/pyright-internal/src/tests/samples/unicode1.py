@@ -29,4 +29,11 @@
 # characters supported by the Python standard.
 𐢭 = 0
 
+# Other surrogate characters
+𝓐 = 3
+𝙰 = 4
+𝚫 = 3
+𞡏 = 4
+𞥁 = 0
+
 

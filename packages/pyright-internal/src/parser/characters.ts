@@ -151,6 +151,14 @@ const _startIdentifierCharRanges = [
     unicode.unicodeNl,
 ];
 
+const _startCharSurrogateRanges = [
+    unicode.unicodeLuSurrogate,
+    unicode.unicodeLlSurrogate,
+    unicode.unicodeLoSurrogate,
+    unicode.unicodeLmSurrogate,
+    unicode.unicodeNlSurrogate,
+];
+
 // Characters with the Other_ID_Start property.
 const _specialIdentifierChars: unicode.UnicodeRangeTable = [
     0x00b7, 0x0387, 0x1369, 0x136a, 0x136b, 0x136c, 0x136d, 0x136e, 0x136f, 0x1370, 0x1371, 0x19da,
@@ -162,6 +170,12 @@ const _identifierCharRanges = [
     unicode.unicodeMc,
     unicode.unicodeNd,
     unicode.unicodePc,
+];
+
+const _identifierCharSurrogateRanges = [
+    unicode.unicodeMnSurrogate,
+    unicode.unicodeMcSurrogate,
+    unicode.unicodeNdSurrogate,
 ];
 
 function _buildIdentifierLookupTableFromUnicodeRangeTable(
@@ -197,6 +211,26 @@ function _buildIdentifierLookupTableFromUnicodeRangeTable(
     }
 }
 
+function _buildIdentifierLookupTableFromSurrogateRangeTable(
+    surrogateTable: unicode.UnicodeSurrogateRangeTable,
+    category: CharCategory
+) {
+    for (const surrogateChar in surrogateTable) {
+        if (!_surrogateCharMap[surrogateChar]) {
+            _surrogateCharMap[surrogateChar] = {};
+            _identifierCharMap[surrogateChar] = CharCategory.SurrogateChar;
+        }
+
+        _buildIdentifierLookupTableFromUnicodeRangeTable(
+            surrogateTable[surrogateChar],
+            category,
+            /* fastTableOnly */ false,
+            _surrogateCharMap[surrogateChar],
+            _surrogateCharMap[surrogateChar]
+        );
+    }
+}
+
 // Build a lookup table for to speed up tokenization of identifiers.
 function _buildIdentifierLookupTable(fastTableOnly: boolean) {
     _identifierCharFastTable.fill(CharCategory.NotIdentifierChar);
@@ -224,17 +258,12 @@ function _buildIdentifierLookupTable(fastTableOnly: boolean) {
     // Populate the surrogate tables for characters that require two
     // character codes.
     if (!fastTableOnly) {
-        for (const surrogateChar in unicode.unicodeLoSurrogate) {
-            _surrogateCharMap[surrogateChar] = {};
-            _identifierCharMap[surrogateChar] = CharCategory.SurrogateChar;
+        for (const surrogateTable of _identifierCharSurrogateRanges) {
+            _buildIdentifierLookupTableFromSurrogateRangeTable(surrogateTable, CharCategory.IdentifierChar);
+        }
 
-            _buildIdentifierLookupTableFromUnicodeRangeTable(
-                unicode.unicodeLoSurrogate[surrogateChar],
-                CharCategory.StartIdentifierChar,
-                fastTableOnly,
-                _surrogateCharMap[surrogateChar],
-                _surrogateCharMap[surrogateChar]
-            );
+        for (const surrogateTable of _startCharSurrogateRanges) {
+            _buildIdentifierLookupTableFromSurrogateRangeTable(surrogateTable, CharCategory.StartIdentifierChar);
         }
     }
 }
