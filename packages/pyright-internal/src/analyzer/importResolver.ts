@@ -1121,11 +1121,11 @@ export class ImportResolver {
             importFailureInfo.push('No python interpreter search path');
         }
 
-        // Special case: If the execution environment is typeshed itself, don't
-        // try and use a py.typed library from the search paths.
+        // If a library is fully py.typed, then we have found the best match,
+        // unless the execution environment is typeshed itself, in which case
+        // we don't want to favor py.typed libraries the typeshed lookup below.
         if (execEnv.root !== this._getTypeshedRoot(execEnv, importFailureInfo)) {
             if (bestResultSoFar?.pyTypedInfo && !bestResultSoFar.isPartlyResolved) {
-                // If a library is fully py.typed, then we have found the best match.
                 return bestResultSoFar;
             }
         }
@@ -1475,7 +1475,7 @@ export class ImportResolver {
     }
 
     private _getTypeshedRoot(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
-        if (this._cachedTypeshedRoot) {
+        if (this._cachedTypeshedRoot !== undefined) {
             return this._cachedTypeshedRoot;
         }
 
