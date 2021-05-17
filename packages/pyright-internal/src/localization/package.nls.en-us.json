@@ -172,7 +172,7 @@
         "internalTypeCheckingError": "An internal error occurred while type checking file \"{file}\": {message}",
         "invalidIdentifierChar": "Invalid character in identifier",
         "invalidStubStatement": "Statement is meaningless within a type stub file",
-        "invalidTokenChars": "Invalid character in token \"{text}\"",
+        "invalidTokenChars": "Invalid character \"{text}\" in token",
         "isInstanceInvalidType": "Second argument to \"isinstance\" must be a class or tuple of classes",
         "isSubclassInvalidType": "Second argument to \"issubclass\" must be a class or tuple of classes",
         "keyValueInSet": "Key/value pairs are not allowed within a set",

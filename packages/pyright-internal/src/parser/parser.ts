@@ -2456,9 +2456,13 @@ export class Parser {
                 const invalidToken = this._getNextToken();
                 const text = this._fileContents!.substr(invalidToken.start, invalidToken.length);
 
+                const firstCharCode = text.charCodeAt(0);
+
                 // Remove any non-printable characters.
-                const cleanedText = text.replace(/[\S\W]/g, '');
-                this._addError(Localizer.Diagnostic.invalidTokenChars().format({ text: cleanedText }), invalidToken);
+                this._addError(
+                    Localizer.Diagnostic.invalidTokenChars().format({ text: `\\u${firstCharCode.toString(16)}` }),
+                    invalidToken
+                );
                 this._consumeTokensUntilType([TokenType.NewLine]);
                 break;
             }
