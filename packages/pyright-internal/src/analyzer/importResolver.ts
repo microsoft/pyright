@@ -80,6 +80,7 @@ export class ImportResolver {
     private _cachedPythonSearchPaths = new Map<string, string[]>();
     private _cachedImportResults = new Map<string, CachedImportResults>();
     private _cachedModuleNameResults = new Map<string, Map<string, ModuleNameAndType>>();
+    private _cachedTypeshedRoot: string | undefined;
     private _cachedTypeshedStdLibPath: string | undefined;
     private _cachedTypeshedStdLibModuleVersions: Map<string, SupportedVersionRange> | undefined;
     private _cachedTypeshedThirdPartyPath: string | undefined;
@@ -1120,9 +1121,13 @@ export class ImportResolver {
             importFailureInfo.push('No python interpreter search path');
         }
 
-        if (bestResultSoFar?.pyTypedInfo && !bestResultSoFar.isPartlyResolved) {
-            // If a library is fully py.typed, then we have found the best match.
-            return bestResultSoFar;
+        // Special case: If the execution environment is typeshed itself, don't
+        // try and use a py.typed library from the search paths.
+        if (execEnv.root !== this._getTypeshedRoot(execEnv, importFailureInfo)) {
+            if (bestResultSoFar?.pyTypedInfo && !bestResultSoFar.isPartlyResolved) {
+                // If a library is fully py.typed, then we have found the best match.
+                return bestResultSoFar;
+            }
         }
 
         const extraResults = this.resolveImportEx(
@@ -1469,16 +1474,9 @@ export class ImportResolver {
         return this._cachedTypeshedThirdPartyPackageRoots!;
     }
 
-    private _getTypeshedSubdirectory(isStdLib: boolean, execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
-        // See if we have it cached.
-        if (isStdLib) {
-            if (this._cachedTypeshedStdLibPath !== undefined) {
-                return this._cachedTypeshedStdLibPath;
-            }
-        } else {
-            if (this._cachedTypeshedThirdPartyPath !== undefined) {
-                return this._cachedTypeshedThirdPartyPath;
-            }
+    private _getTypeshedRoot(execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
+        if (this._cachedTypeshedRoot) {
+            return this._cachedTypeshedRoot;
         }
 
         let typeshedPath = '';
@@ -1506,6 +1504,23 @@ export class ImportResolver {
             typeshedPath = PythonPathUtils.getTypeShedFallbackPath(this.fileSystem) || '';
         }
 
+        this._cachedTypeshedRoot = typeshedPath;
+        return typeshedPath;
+    }
+
+    private _getTypeshedSubdirectory(isStdLib: boolean, execEnv: ExecutionEnvironment, importFailureInfo: string[]) {
+        // See if we have it cached.
+        if (isStdLib) {
+            if (this._cachedTypeshedStdLibPath !== undefined) {
+                return this._cachedTypeshedStdLibPath;
+            }
+        } else {
+            if (this._cachedTypeshedThirdPartyPath !== undefined) {
+                return this._cachedTypeshedThirdPartyPath;
+            }
+        }
+
+        let typeshedPath = this._getTypeshedRoot(execEnv, importFailureInfo);
         typeshedPath = PythonPathUtils.getTypeshedSubdirectory(typeshedPath, isStdLib);
 
         if (!this.dirExistsCached(typeshedPath)) {
