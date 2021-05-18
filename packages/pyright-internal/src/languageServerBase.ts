@@ -695,11 +695,28 @@ export abstract class LanguageServerBase implements LanguageServerInterface {
             }
 
             if (this.client.hasActiveParameterCapability || activeSignature === null) {
-                // A value of -1 is out of bounds but is legal within the LSP (should be treated
-                // as undefined). It produces a better result in VS Code by preventing it from
-                // highlighting the first parameter when no parameter works, since the LSP client
-                // converts null into zero.
-                activeParameter = -1;
+                // If there is no active parameter, then we want the client to not highlight anything.
+                // Unfortunately, the LSP spec says that "undefined" or "out of bounds" values should be
+                // treated as 0, which is the first parameter. That's not what we want, but thankfully
+                // VS Code (and potentially other clients) choose to handle out of bounds values by
+                // not highlighting them, which is what we want.
+                //
+                // The spec defines activeParameter as uinteger, so use the maximum length of any
+                // signature's parameter list to ensure that the value is always out of range.
+                //
+                // We always set this even if some signature has an active parameter, as this
+                // value is used as the fallback for signatures that don't explicitly specify an
+                // active parameter (and we use "undefined" to mean "no active parameter").
+                //
+                // We could apply this hack to each individual signature such that they all specify
+                // activeParameter, but that would make it more difficult to determine which actually
+                // are active when comparing, and we already have to set this for clients which don't
+                // support per-signature activeParameter.
+                //
+                // See:
+                //   - https://github.com/microsoft/language-server-protocol/issues/1271
+                //   - https://github.com/microsoft/pyright/pull/1783
+                activeParameter = Math.max(...signatures.map((s) => s.parameters?.length ?? 0));
             }
 
             return { signatures, activeSignature, activeParameter };
