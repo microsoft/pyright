@@ -15,6 +15,7 @@ __all__.remove("foo")
 __all__ += ["bar"]
 __all__ += mock.__all__
 __all__.extend(mock.__all__)
+__all__ = [x for x in dir() if not x.startswith("_")]
 
 
 my_string = "foo"

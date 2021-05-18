@@ -152,6 +152,7 @@ export type ParseNodeArray = (ParseNode | undefined)[];
 export interface ModuleNode extends ParseNodeBase {
     readonly nodeType: ParseNodeType.Module;
     statements: StatementNode[];
+    dunderAllNames: string[];
 }
 
 export namespace ModuleNode {
@@ -162,6 +163,7 @@ export namespace ModuleNode {
             nodeType: ParseNodeType.Module,
             id: _nextNodeId++,
             statements: [],
+            dunderAllNames: [],
         };
 
         return node;

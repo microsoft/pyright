@@ -50,6 +50,8 @@ import {
     ImportFromNode,
     IndexNode,
     LambdaNode,
+    ListComprehensionForNode,
+    ListComprehensionIfNode,
     ListComprehensionNode,
     MatchNode,
     MemberAccessNode,
@@ -699,6 +701,98 @@ export class Binder extends ParseTreeWalker {
                             listEntryNode.strings[0].nodeType === ParseNodeType.String
                         ) {
                             this._dunderAllNames!.push(listEntryNode.strings[0].value);
+                        } else if (listEntryNode.nodeType === ParseNodeType.ListComprehension) {
+                            // dynamic evaluation of __all__
+                            let forNode: ListComprehensionForNode | undefined = undefined, ifNode: ListComprehensionIfNode | undefined = undefined;
+                            for (let comprehensionNode of listEntryNode.comprehensions) {
+                                if (comprehensionNode.nodeType === ParseNodeType.ListComprehensionFor) {
+                                    forNode = comprehensionNode;
+                                } else if (comprehensionNode.nodeType === ParseNodeType.ListComprehensionIf) {
+                                    ifNode = comprehensionNode;
+                                } else {
+                                    emitDunderAllWarning = true;
+                                }
+                            }
+
+                            if (!forNode) {
+                                emitDunderAllWarning = true;
+                                return
+                            }
+
+                            if (forNode.iterableExpression.nodeType === ParseNodeType.Call) {
+                                let call = forNode.iterableExpression;
+                                if (call.leftExpression.nodeType === ParseNodeType.Name) {
+                                    if (call.leftExpression.value === "dir") {
+                                        this._currentScope.symbolTable.forEach((value, key) => {
+                                            this._dunderAllNames!.push(key);
+                                        })
+                                    } else {
+                                        emitDunderAllWarning = true;
+                                    }
+                                } else {
+                                    emitDunderAllWarning = true;
+                                }
+                            } else {
+                                emitDunderAllWarning = true;
+                            }
+
+                            let targetName: string;
+                            if (forNode.targetExpression.nodeType === ParseNodeType.Name) {
+                                targetName = forNode.targetExpression.value;
+                            } else {
+                                emitDunderAllWarning = true;
+                                return;
+                            }
+
+                            function createFilterFunction(ex: ExpressionNode): ((name: string) => boolean) {
+                                if (ex.nodeType === ParseNodeType.UnaryOperation) {
+                                    if (ex.operator === OperatorType.Not) {
+                                        return (name: string) => !createFilterFunction(ex.expression);
+                                    } else {
+                                        emitDunderAllWarning = true;
+                                    }
+                                } else if (ex.nodeType === ParseNodeType.Call) {
+                                    if (ex.leftExpression.nodeType === ParseNodeType.MemberAccess) {
+                                        let member = ex.leftExpression;
+                                        if (member.leftExpression.nodeType === ParseNodeType.Name && member.leftExpression.value === targetName) {
+                                            let firstArg = ex.arguments[0].valueExpression;
+                                            if (firstArg.nodeType === ParseNodeType.StringList) {
+                                                if (["startswith", "endswith"].includes(member.memberName.value)) {
+                                                    let funcname = member.memberName.value;
+                                                    let prefix = firstArg.strings[0].value;
+                                                    return (name: string) => {
+                                                        const pyToJsFuncMap = new Map<string, ((name: string) => boolean)>([
+                                                            ["startswith", name.startsWith],
+                                                            ["endswith", name.endsWith],
+                                                        ]);
+                                                        return pyToJsFuncMap.get(funcname)!(prefix);
+                                                    };
+                                                } else if (member.memberName.value === "startswith") {
+                                                    let prefix = firstArg.strings[0].value
+                                                    return (name: string) => name.startsWith(prefix);
+                                                } else {
+                                                    emitDunderAllWarning = true;
+                                                }
+                                            } else {
+                                                emitDunderAllWarning = true;
+                                            }
+                                        } else {
+                                            emitDunderAllWarning = true;
+                                        }
+                                    } else {
+                                        emitDunderAllWarning = true;
+                                    }
+                                } else {
+                                    emitDunderAllWarning = true;
+                                }
+                                return (name: string) => true;
+                            }
+
+                            if (ifNode) {
+                                let filterFunc = createFilterFunction(ifNode.testExpression);
+                                this._dunderAllNames = this._dunderAllNames?.filter(filterFunc);
+                            }
+
                         } else {
                             emitDunderAllWarning = true;
                         }

@@ -191,6 +191,17 @@ test('DunderAll1', () => {
     TestUtils.validateResults(analysisResults, 0, 0);
 });
 
+test('DunderAll2', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dunderAll2.py']);
+    expect(analysisResults[0].parseResults?.parseTree.dunderAllNames).toContain("foo");
+    expect(analysisResults[0].parseResults?.parseTree.dunderAllNames).toContain("_bar");
+})
+
+test('DunderAll3', () => {
+    let analysisResults = TestUtils.typeAnalyzeSampleFiles(['dunderAll3.py']);
+    expect(analysisResults[0].parseResults?.parseTree.dunderAllNames).not.toContain("_bar");
+})
+
 test('Overload1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['overload1.py']);
     TestUtils.validateResults(analysisResults, 2);
