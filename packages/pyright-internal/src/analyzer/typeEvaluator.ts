@@ -6180,8 +6180,9 @@ export function createTypeEvaluator(
         let targetClassType: Type;
         if (node.arguments.length > 0) {
             targetClassType = getTypeOfExpression(node.arguments[0].valueExpression).type;
+            const concreteTargetClassType = makeTopLevelTypeVarsConcrete(targetClassType);
 
-            if (!isAnyOrUnknown(targetClassType) && !isClass(targetClassType)) {
+            if (!isAnyOrUnknown(concreteTargetClassType) && !isClass(concreteTargetClassType)) {
                 addDiagnostic(
                     getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                     DiagnosticRule.reportGeneralTypeIssues,
