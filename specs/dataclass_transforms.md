@@ -459,6 +459,10 @@ preserves the original order, but attrs defines a new order based on subclasses.
 Users of attrs who rely on this ordering will not see the correct order
 of parameters in the synthesized `__init__` method.
 
+The attrs library also differs from stdlib dataclasses in that it uses the
+parameter name `factory` rather than `default_factory` in its `attr.ib` and
+`attr.field` functions.
+
 
 Django
 ------
@@ -548,6 +552,8 @@ Step 2: Add the following decorator to the `ModelMetaclass` class definition:
 
 Change History
 ==============
+
+18-May-2021: Documented additional limitations for attrs (factory vs default_factory).
 
 15-May-2021: Documented additional limitations for attrs and django.
 
