@@ -1713,6 +1713,8 @@ export function createTypeEvaluator(
         }
 
         doForEachSubtype(callType, (subtype) => {
+            subtype = transformTypeObjectToClass(subtype);
+
             switch (subtype.category) {
                 case TypeCategory.Function:
                 case TypeCategory.OverloadedFunction: {
