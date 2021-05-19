@@ -9229,6 +9229,7 @@ export function createTypeEvaluator(
     ): ClassType {
         const fileInfo = getFileInfo(errorNode);
         let className = 'namedtuple';
+
         if (argList.length === 0) {
             addError(Localizer.Diagnostic.namedTupleFirstArg(), errorNode);
         } else {
@@ -9237,6 +9238,24 @@ export function createTypeEvaluator(
                 addError(Localizer.Diagnostic.namedTupleFirstArg(), argList[0].valueExpression || errorNode);
             } else if (nameArg.valueExpression && nameArg.valueExpression.nodeType === ParseNodeType.StringList) {
                 className = nameArg.valueExpression.strings.map((s) => s.value).join('');
+            }
+        }
+
+        // Is there is a default arg? If so, is it defined in a way that we
+        // can determine its length statically?
+        const defaultsArg = argList.find((arg) => arg.name?.value === 'defaults');
+        let defaultArgCount: number | undefined = 0;
+        if (defaultsArg && defaultsArg.valueExpression) {
+            const defaultsArgType = getTypeOfExpression(defaultsArg.valueExpression).type;
+            if (
+                isObject(defaultsArgType) &&
+                isTupleClass(defaultsArgType.classType) &&
+                !isOpenEndedTupleClass(defaultsArgType.classType) &&
+                defaultsArgType.classType.tupleTypeArguments
+            ) {
+                defaultArgCount = defaultsArgType.classType.tupleTypeArguments.length;
+            } else {
+                defaultArgCount = undefined;
             }
         }
 
@@ -9306,7 +9325,9 @@ export function createTypeEvaluator(
                         .map((s) => s.value)
                         .join('')
                         .split(/[,\s]+/);
-                    entries.forEach((entryName) => {
+                    const firstParamWithDefaultIndex =
+                        defaultArgCount === undefined ? 0 : Math.max(0, entries.length - defaultArgCount);
+                    entries.forEach((entryName, index) => {
                         entryName = entryName.trim();
                         if (entryName) {
                             const entryType = UnknownType.create();
@@ -9315,6 +9336,7 @@ export function createTypeEvaluator(
                                 name: entryName,
                                 type: entryType,
                                 hasDeclaredType: includesTypes,
+                                hasDefault: index >= firstParamWithDefaultIndex,
                             };
 
                             FunctionType.addParameter(constructorType, paramInfo);
@@ -9345,6 +9367,8 @@ export function createTypeEvaluator(
                 } else if (entriesArg.valueExpression && entriesArg.valueExpression.nodeType === ParseNodeType.List) {
                     const entryList = entriesArg.valueExpression;
                     const entryMap = new Map<string, string>();
+                    const firstParamWithDefaultIndex =
+                        defaultArgCount === undefined ? 0 : Math.max(0, entryList.entries.length - defaultArgCount);
 
                     entryList.entries.forEach((entry, index) => {
                         let entryTypeNode: ExpressionNode | undefined;
@@ -9395,6 +9419,7 @@ export function createTypeEvaluator(
                             name: entryName,
                             type: entryType,
                             hasDeclaredType: includesTypes,
+                            hasDefault: index >= firstParamWithDefaultIndex,
                         };
 
                         FunctionType.addParameter(constructorType, paramInfo);

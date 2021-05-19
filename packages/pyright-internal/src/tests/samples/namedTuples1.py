@@ -1,6 +1,6 @@
 # This sample tests the type checker's handling of named tuples.
 
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from typing import NamedTuple, Tuple
 
 NamedTuple1 = namedtuple("NamedTuple1", "field1 field2")
@@ -62,3 +62,20 @@ t2: Tuple[float, float] = NamedTuple3("hello", 2)
 t3: Tuple[str, float, str] = NamedTuple3("hello", 2)
 
 t4: NamedTuple = NamedTuple3("hello", 2)
+
+NamedTuple4 = namedtuple("NamedTuple4", "field1 field2 field3", defaults=(1, 2))
+
+# This should generate an error (too few params)
+NamedTuple4()
+NamedTuple4(1)
+NamedTuple4(1, 2, 3)
+# This should generate an error (too many params)
+NamedTuple4(1, 2, 3, 4)
+
+NamedTuple5 = namedtuple(
+    "NamedTuple5", "field1 field2 field3", defaults=(1, 2, 3, 4, 5)
+)
+NamedTuple5()
+
+NamedTuple6 = namedtuple("NamedTuple6", "field1 field2 field3", defaults=[1, 2])
+NamedTuple6()
