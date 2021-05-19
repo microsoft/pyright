@@ -1991,7 +1991,7 @@ export function createTypeEvaluator(
         }
 
         const iterableType = mapSubtypes(type, (subtype) => {
-            subtype = transformTypeObjectToClass(subtype);
+            subtype = makeTopLevelTypeVarsConcrete(transformTypeObjectToClass(subtype));
 
             if (isAnyOrUnknown(subtype)) {
                 return subtype;
