@@ -19666,10 +19666,20 @@ export function createTypeEvaluator(
 
         const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
         const srcErrorType = reportErrorsUsingObjType ? ObjectType.create(srcType) : srcType;
+        
+        let destErrorTypeText = printType(destErrorType);
+        let srcErrorTypeText = printType(srcErrorType);
+
+        // If the text is the same, use the fully-qualified name rather than the short name.
+        if (destErrorTypeText === srcErrorTypeText && destType.details.fullName && srcType.details.fullName) {
+            destErrorTypeText = destType.details.fullName;
+            srcErrorTypeText = srcType.details.fullName;
+        }
+
         diag.addMessage(
             Localizer.DiagnosticAddendum.typeIncompatible().format({
-                sourceType: printType(srcErrorType),
-                destType: printType(destErrorType),
+                sourceType: srcErrorTypeText,
+                destType: destErrorTypeText,
             })
         );
         return false;
