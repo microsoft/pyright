@@ -19666,7 +19666,7 @@ export function createTypeEvaluator(
 
         const destErrorType = reportErrorsUsingObjType ? ObjectType.create(destType) : destType;
         const srcErrorType = reportErrorsUsingObjType ? ObjectType.create(srcType) : srcType;
-        
+
         let destErrorTypeText = printType(destErrorType);
         let srcErrorTypeText = printType(srcErrorType);
 
