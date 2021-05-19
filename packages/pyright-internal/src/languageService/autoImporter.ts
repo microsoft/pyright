@@ -189,7 +189,6 @@ export class AutoImporter {
         private _moduleSymbolMap: ModuleSymbolMap,
         private _options: AutoImportOptions
     ) {
-        this._options.patternMatcher = this._options.patternMatcher ?? StringUtils.isPatternInSymbol;
         this._importStatements = getTopLevelImports(this._parseResults.parseTree, true);
 
         this._perfInfo.indexUsed = !!this._options.libraryMap;
@@ -641,7 +640,20 @@ export class AutoImporter {
             return word === name;
         }
 
-        return word.length > 0 && this._options.patternMatcher!(word, name);
+        if (word.length <= 0 || name.length <= 0) {
+            return false;
+        }
+
+        if (!this._options.patternMatcher) {
+            const index = word[0] !== '_' && name[0] === '_' && name.length > 1 ? 1 : 0;
+            if (word[0].toLocaleLowerCase() !== name[index].toLocaleLowerCase()) {
+                return false;
+            }
+
+            return StringUtils.isPatternInSymbol(word, name);
+        }
+
+        return this._options.patternMatcher(word, name);
     }
 
     private _containsName(name: string, source: string | undefined, results: AutoImportResultMap) {

@@ -246,7 +246,7 @@ test('typeshed fallback folder', () => {
             content: 'partial\n',
         },
         {
-            path: combinePaths(typeshedFallback, 'stubs', 'myLibPackage', 'myLib.pyi'),
+            path: combinePaths('/', typeshedFallback, 'stubs', 'myLibPackage', 'myLib.pyi'),
             content: '# empty',
         },
         {
@@ -289,6 +289,44 @@ test('py.typed file', () => {
     const importResult = getImportResult(files, ['myLib']);
     assert(importResult.isImportFound);
     assert(!importResult.isStubFile);
+});
+
+test('py.typed library', () => {
+    const files = [
+        {
+            path: combinePaths(libraryRoot, 'os', '__init__.py'),
+            content: 'def test(): ...',
+        },
+        {
+            path: combinePaths(libraryRoot, 'os', 'py.typed'),
+            content: '',
+        },
+        {
+            path: combinePaths('/', typeshedFallback, 'stubs', 'os', 'os', '__init__.pyi'),
+            content: '# empty',
+        },
+    ];
+
+    const importResult = getImportResult(files, ['os']);
+    assert(importResult.isImportFound);
+    assert.strictEqual(files[0].path, importResult.resolvedPaths[importResult.resolvedPaths.length - 1]);
+});
+
+test('non py.typed library', () => {
+    const files = [
+        {
+            path: combinePaths(libraryRoot, 'os', '__init__.py'),
+            content: 'def test(): ...',
+        },
+        {
+            path: combinePaths('/', typeshedFallback, 'stubs', 'os', 'os', '__init__.pyi'),
+            content: '# empty',
+        },
+    ];
+
+    const importResult = getImportResult(files, ['os']);
+    assert(importResult.isImportFound);
+    assert.strictEqual(files[1].path, importResult.resolvedPaths[importResult.resolvedPaths.length - 1]);
 });
 
 function getImportResult(

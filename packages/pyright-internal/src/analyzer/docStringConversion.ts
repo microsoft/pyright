@@ -52,6 +52,8 @@ const LeadingSpaceCountRegExp = /\S|$/;
 const NonWhitespaceRegExp = /\S/;
 const TildaHeaderRegExp = /^\s*~~~+$/;
 const PlusHeaderRegExp = /^\s*\+\+\++$/;
+const EqualHeaderRegExp = /^\s*===+\s+===+$/;
+const DashHeaderRegExp = /^\s*---+\s+---+$/;
 const LeadingDashListRegExp = /^(\s*)-\s/;
 const LeadingAsteriskListRegExp = /^(\s*)\*\s/;
 const LeadingNumberListRegExp = /^(\s*)\d+\.\s/;
@@ -97,6 +99,10 @@ const LiteralBlockReplacements: RegExpReplacement[] = [
 // will be run (and change the state again) until completion.
 type State = () => void;
 
+interface RestTableState {
+    header: string;
+    inHeader: boolean;
+}
 class DocStringConverter {
     private _builder = '';
     private _skipAppendEmptyLine = true;
@@ -110,6 +116,8 @@ class DocStringConverter {
     private _lineNum = 0;
 
     private _blockIndent = 0;
+
+    private _tableState: RestTableState | undefined;
 
     constructor(input: string) {
         this._state = this._parseText;
@@ -232,6 +240,10 @@ class DocStringConverter {
         }
 
         if (this._beginFieldList()) {
+            return;
+        }
+
+        if (this._beginTableBlock()) {
             return;
         }
 
@@ -578,6 +590,113 @@ class DocStringConverter {
         }
 
         return false;
+    }
+
+    private _beginTableBlock(): boolean {
+        if (this._insideInlineCode) {
+            return false;
+        }
+
+        const line = this._currentLine();
+
+        if (EqualHeaderRegExp.test(line)) {
+            this._tableState = { header: line.trimStart(), inHeader: true };
+            this._eatLine();
+            this._pushAndSetState(this._parseTableBlock);
+            return true;
+        }
+
+        return false;
+    }
+
+    // Converts ReST style tables to ones that vscode will render.
+    //
+    //    ReST:
+    //    ========= ============
+    //    Syntax    Description
+    //    --------- ------------
+    //    Header    Title
+    //    Paragraph Text
+    //    ========= ============
+    //
+    //    Markdown:
+    //    | Syntax      | Description |
+    //    | ----------- | ----------- |
+    //    | Header      | Title       |
+    //    | Paragraph   | Text        |
+    private _parseTableBlock(): void {
+        if (_isUndefinedOrWhitespace(this._currentLineOrUndefined()) || !this._tableState) {
+            this._tableState = undefined;
+            this._popState();
+            return;
+        }
+
+        let line = this._currentLine();
+
+        if (EqualHeaderRegExp.test(line)) {
+            this._eatLine();
+            this._popState();
+            this._tableState = undefined;
+            return;
+        } else {
+            let formattedLine = '|';
+            const columnParts = this._tableState.header.split(' ');
+            const headerStrings: string[] = [];
+
+            if (this._tableState.inHeader) {
+                do {
+                    // Special header parsing to handle multiline headers
+                    // for now we just append the multi header rows into a single line
+                    // using the html <br> to signify newlines, but vscode doesn't seem to support it yet
+                    // So headers will appear as a single line for now
+                    let colStart = 0;
+                    for (let i = 0; i < columnParts.length; i++) {
+                        const equalStr = columnParts[i];
+                        const len = equalStr.length + 1;
+                        const columnStr = line.slice(colStart, colStart + len);
+
+                        if (headerStrings[i] === undefined) {
+                            headerStrings[i] = `${columnStr} `;
+                        } else {
+                            headerStrings[i] = headerStrings[i].concat(`<br>${columnStr} `);
+                        }
+                        colStart += len;
+                    }
+                    this._eatLine();
+                    line = this._currentLine();
+                } while (
+                    !_isUndefinedOrWhitespace(this._currentLineOrUndefined()) &&
+                    !DashHeaderRegExp.test(line) &&
+                    !EqualHeaderRegExp.test(line)
+                );
+
+                this._tableState.inHeader = false;
+
+                // Append header
+                headerStrings.forEach((h) => {
+                    formattedLine += `${h}|`;
+                });
+                this._appendLine(formattedLine);
+
+                //Convert header end
+                const endHeaderStr = line.trimStart().replace(/=/g, '-').replace(' ', '|');
+                this._appendLine(`|${endHeaderStr}|`);
+                this._eatLine();
+            } else {
+                // Normal row parsing
+                let colStart = 0;
+                columnParts.forEach((column) => {
+                    const len = column.length + 1;
+                    const columnStr = line.slice(colStart, colStart + len);
+                    formattedLine += `${columnStr}|`;
+
+                    colStart += len;
+                });
+
+                this._appendLine(formattedLine);
+                this._eatLine();
+            }
+        }
     }
 
     private _beginList(): boolean {
