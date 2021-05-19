@@ -1,23 +1,27 @@
 # This sample tests various diagnostics related to TypeVar usage.
 
 from typing import Generic, List, Optional, TypeVar
-
+import typing
 
 _T = TypeVar("_T")
 _S = TypeVar("_S")
 
 
-class OuterClass(Generic[_T]):
+class OuterClass(Generic[_T, typing.AnyStr]):
     # This should generate an error because _S
     # isn't defined in this context.
-    my_var: _S
+    my_var1: _S
+
+    my_var2: typing.AnyStr
 
     # This should generate an error because _T
     # is already in use.
     class InnerClass1(Generic[_T]):
         ...
 
-    class InnerClass2(Generic[_S]):
+    # This should generate an error because typing.AnyStr
+    # is already in use.
+    class InnerClass2(Generic[_S, typing.AnyStr]):
         my_var1: _S
 
         # This should generate an error because _T
@@ -32,7 +36,8 @@ class OuterClass(Generic[_T]):
         def f(self, x: _T, y: _S, z: _S) -> _T:
             ...
 
-        def g(self) -> None:
+        # THis should generate an error for typing.AnyStr.
+        def g(self, x: typing.AnyStr) -> None:
             # This should generate an error.
             y: List[_T]
 
@@ -54,3 +59,6 @@ a: _S = 3
 
 # This should generate an error.
 b: List[_T] = []
+
+# This should generate an error.
+c: List[typing.AnyStr] = []

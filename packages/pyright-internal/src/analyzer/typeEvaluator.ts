@@ -3977,15 +3977,71 @@ export function createTypeEvaluator(
             }
         }
 
-        // If this is a TypeVar, try to match it against a TypeVar
-        // defined by an enclosing scope (either a class or function).
         if (isTypeVar(type)) {
-            if (TypeBase.isInstantiable(type) && !isTypeAliasPlaceholder(type)) {
-                const scopedTypeVarInfo = findScopedTypeVar(node, type);
-                type = scopedTypeVarInfo.type;
+            type = validateTypeVarUsage(node, type, flags);
+        }
 
-                if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0 && type.scopeId !== undefined) {
-                    if (!type.details.isSynthesized && !type.details.isParamSpec) {
+        return { type, node, isIncomplete };
+    }
+
+    // Validates that a TypeVar is valid in this context. If so, it clones it
+    // and provides a scope ID defined by its containing scope (class, function
+    // or type alias). If not, it emits errors indicating why the TypeVar
+    // cannot be used in this location.
+    function validateTypeVarUsage(node: ExpressionNode, type: TypeVarType, flags: EvaluatorFlags) {
+        if (TypeBase.isInstantiable(type) && !isTypeAliasPlaceholder(type)) {
+            const scopedTypeVarInfo = findScopedTypeVar(node, type);
+            type = scopedTypeVarInfo.type;
+
+            if ((flags & EvaluatorFlags.DisallowTypeVarsWithScopeId) !== 0 && type.scopeId !== undefined) {
+                if (!type.details.isSynthesized && !type.details.isParamSpec) {
+                    addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        Localizer.Diagnostic.typeVarUsedByOuterScope().format({ name: type.details.name }),
+                        node
+                    );
+                }
+            } else if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
+                if (type.scopeId === undefined) {
+                    if (!scopedTypeVarInfo.foundInterveningClass) {
+                        let enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
+
+                        // Handle P.args and P.kwargs as a special case for inner functions.
+                        if (
+                            enclosingScope &&
+                            node.parent?.nodeType === ParseNodeType.MemberAccess &&
+                            node.parent.leftExpression === node
+                        ) {
+                            const memberName = node.parent.memberName.value;
+                            if (memberName === 'args' || memberName === 'kwargs') {
+                                const outerFunctionScope = ParseTreeUtils.getEnclosingClassOrFunction(enclosingScope);
+
+                                if (outerFunctionScope?.nodeType === ParseNodeType.Function) {
+                                    enclosingScope = outerFunctionScope;
+                                } else if (!scopedTypeVarInfo.type.scopeId) {
+                                    addDiagnostic(
+                                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                                        DiagnosticRule.reportGeneralTypeIssues,
+                                        Localizer.Diagnostic.paramSpecNotUsedByOuterScope().format({
+                                            name: type.details.name,
+                                        }),
+                                        node
+                                    );
+                                }
+                            }
+                        }
+
+                        if (enclosingScope) {
+                            type = TypeVarType.cloneForScopeId(
+                                type,
+                                getScopeIdForNode(enclosingScope),
+                                enclosingScope.name.value
+                            );
+                        } else {
+                            fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
+                        }
+                    } else {
                         addDiagnostic(
                             getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
                             DiagnosticRule.reportGeneralTypeIssues,
@@ -3993,81 +4049,32 @@ export function createTypeEvaluator(
                             node
                         );
                     }
-                } else if ((flags & EvaluatorFlags.AssociateTypeVarsWithCurrentScope) !== 0) {
-                    if (type.scopeId === undefined) {
-                        if (!scopedTypeVarInfo.foundInterveningClass) {
-                            let enclosingScope = ParseTreeUtils.getEnclosingClassOrFunction(node);
-
-                            // Handle P.args and P.kwargs as a special case for inner functions.
-                            if (
-                                enclosingScope &&
-                                node.parent?.nodeType === ParseNodeType.MemberAccess &&
-                                node.parent.leftExpression === node
-                            ) {
-                                const memberName = node.parent.memberName.value;
-                                if (memberName === 'args' || memberName === 'kwargs') {
-                                    const outerFunctionScope =
-                                        ParseTreeUtils.getEnclosingClassOrFunction(enclosingScope);
-
-                                    if (outerFunctionScope?.nodeType === ParseNodeType.Function) {
-                                        enclosingScope = outerFunctionScope;
-                                    } else if (!scopedTypeVarInfo.type.scopeId) {
-                                        addDiagnostic(
-                                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                                            DiagnosticRule.reportGeneralTypeIssues,
-                                            Localizer.Diagnostic.paramSpecNotUsedByOuterScope().format({
-                                                name: type.details.name,
-                                            }),
-                                            node
-                                        );
-                                    }
-                                }
-                            }
-
-                            if (enclosingScope) {
-                                type = TypeVarType.cloneForScopeId(
-                                    type,
-                                    getScopeIdForNode(enclosingScope),
-                                    enclosingScope.name.value
-                                );
-                            } else {
-                                fail('AssociateTypeVarsWithCurrentScope flag was set but enclosing scope not found');
-                            }
-                        } else {
-                            addDiagnostic(
-                                getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                                DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.typeVarUsedByOuterScope().format({ name: type.details.name }),
-                                node
-                            );
-                        }
-                    }
-                } else if ((flags & EvaluatorFlags.DisallowTypeVarsWithoutScopeId) !== 0) {
-                    if (
-                        (type.scopeId === undefined || scopedTypeVarInfo.foundInterveningClass) &&
-                        !type.details.isSynthesized
-                    ) {
-                        const message = isParamSpec(type)
-                            ? Localizer.Diagnostic.paramSpecNotUsedByOuterScope()
-                            : Localizer.Diagnostic.typeVarNotUsedByOuterScope();
-                        addDiagnostic(
-                            getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
-                            DiagnosticRule.reportGeneralTypeIssues,
-                            message.format({ name: type.details.name }),
-                            node
-                        );
-                    }
                 }
-            }
-
-            // If this type var is variadic, the name refers to the packed form. It
-            // must be unpacked in most contexts.
-            if (type.isVariadicUnpacked) {
-                type = TypeVarType.cloneForPacked(type);
+            } else if ((flags & EvaluatorFlags.DisallowTypeVarsWithoutScopeId) !== 0) {
+                if (
+                    (type.scopeId === undefined || scopedTypeVarInfo.foundInterveningClass) &&
+                    !type.details.isSynthesized
+                ) {
+                    const message = isParamSpec(type)
+                        ? Localizer.Diagnostic.paramSpecNotUsedByOuterScope()
+                        : Localizer.Diagnostic.typeVarNotUsedByOuterScope();
+                    addDiagnostic(
+                        getFileInfo(node).diagnosticRuleSet.reportGeneralTypeIssues,
+                        DiagnosticRule.reportGeneralTypeIssues,
+                        message.format({ name: type.details.name }),
+                        node
+                    );
+                }
             }
         }
 
-        return { type, node, isIncomplete };
+        // If this type var is variadic, the name refers to the packed form. It
+        // must be unpacked in most contexts.
+        if (type.isVariadicUnpacked) {
+            type = TypeVarType.cloneForPacked(type);
+        }
+
+        return type;
     }
 
     // Creates an ID that identifies this parse node in a way that will
@@ -4100,7 +4107,7 @@ export function createTypeEvaluator(
     // Walks up the parse tree to find a function, class, or type alias
     // assignment that provides the context for a type variable.
     function findScopedTypeVar(
-        node: NameNode,
+        node: ExpressionNode,
         type: TypeVarType
     ): { type: TypeVarType; foundInterveningClass: boolean } {
         let curNode: ParseNode | undefined = node;
@@ -4425,6 +4432,10 @@ export function createTypeEvaluator(
                         /* usageNode */ undefined,
                         /* useLastDecl */ true
                     ).type;
+
+                    if (isTypeVar(type)) {
+                        type = validateTypeVarUsage(node, type, flags);
+                    }
 
                     // If the type resolved to "unbound", treat it as "unknown" in
                     // the case of a module reference because if it's truly unbound,
