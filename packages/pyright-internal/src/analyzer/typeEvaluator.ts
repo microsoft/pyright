@@ -10230,6 +10230,8 @@ export function createTypeEvaluator(
     function getTypeFromDictionary(node: DictionaryNode, expectedType: Type | undefined): TypeResult {
         // If the expected type is a union, analyze for each of the subtypes
         // to find one that matches.
+        let effectiveExpectedType = expectedType;
+
         if (expectedType && isUnion(expectedType)) {
             let matchingSubtype: Type | undefined;
 
@@ -10245,13 +10247,13 @@ export function createTypeEvaluator(
                 }
             });
 
-            expectedType = matchingSubtype;
+            effectiveExpectedType = matchingSubtype;
         }
 
         let expectedTypeDiagAddendum = undefined;
-        if (expectedType) {
+        if (effectiveExpectedType) {
             expectedTypeDiagAddendum = new DiagnosticAddendum();
-            const result = getTypeFromDictionaryExpected(node, expectedType, expectedTypeDiagAddendum);
+            const result = getTypeFromDictionaryExpected(node, effectiveExpectedType, expectedTypeDiagAddendum);
             if (result) {
                 return result;
             }

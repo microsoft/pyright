@@ -34,3 +34,11 @@ baz1: Foo = [True, ["True", False]]
 baz2: Foo = [True, [True], {True: "False"}]
 baz3: Foo = {["True"]: False}
 baz4: Foo = {True: ["False"]}
+
+Json = Union[None, int, str, float, List["Json"], Dict[str, "Json"]]
+
+# This should generate an error
+a1: Json = {"a": 1, "b": 3j}
+
+# This should generate an error
+a2: Json = [2, 3j]
