@@ -5474,7 +5474,8 @@ export function createTypeEvaluator(
         }
 
         // Handle the special case where the object is a Tuple and
-        // the index is a constant number. In such case, we can determine
+        // the index is a constant number (integer) or a slice with integer
+        // start and end values. In these cases, we can determine
         // the exact type by indexing into the tuple type array.
         if (
             node.items.length === 1 &&
@@ -5500,6 +5501,53 @@ export function createTypeEvaluator(
                             node,
                             type: tupleType.tupleTypeArguments[tupleType.tupleTypeArguments.length + indexValue],
                         };
+                    }
+                }
+            } else if (isObject(valueType) && ClassType.isBuiltIn(valueType.classType, 'slice')) {
+                const tupleType = getSpecializedTupleType(baseTypeClass);
+                if (tupleType && tupleType.tupleTypeArguments && !isOpenEndedTupleClass(tupleType)) {
+                    if (index0Expr.nodeType === ParseNodeType.Slice && !index0Expr.stepValue) {
+                        // Create a local helper function to evaluate the slice parameters.
+                        const getSliceParameter = (expression: ExpressionNode | undefined, defaultValue: number) => {
+                            let value = defaultValue;
+                            if (expression) {
+                                const valType = getTypeOfExpression(expression).type;
+                                if (
+                                    isObject(valType) &&
+                                    ClassType.isBuiltIn(valType.classType, 'int') &&
+                                    isLiteralType(valType)
+                                ) {
+                                    value = valType.classType.literalValue as number;
+                                    if (value < 0) {
+                                        value = tupleType.tupleTypeArguments!.length + value;
+                                    }
+                                } else {
+                                    value = -1;
+                                }
+                            }
+                            return value;
+                        };
+
+                        const startValue = getSliceParameter(index0Expr.startValue, 0);
+                        const endValue = getSliceParameter(index0Expr.endValue, tupleType.tupleTypeArguments.length);
+
+                        if (
+                            startValue >= 0 &&
+                            endValue > 0 &&
+                            endValue <= tupleType.tupleTypeArguments.length &&
+                            tupleClassType &&
+                            isClass(tupleClassType)
+                        ) {
+                            return {
+                                node,
+                                type: ObjectType.create(
+                                    specializeTupleClass(
+                                        tupleClassType,
+                                        tupleType.tupleTypeArguments.slice(startValue, endValue)
+                                    )
+                                ),
+                            };
+                        }
                     }
                 }
             }
