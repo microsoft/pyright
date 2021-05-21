@@ -12552,6 +12552,20 @@ export function createTypeEvaluator(
             }
         }
 
+        // If the class is a protocol class, determine if it's a "callback protocol" (i.e.
+        // it defines only a '__call__' method).
+        if (
+            ClassType.isProtocolClass(classType) &&
+            classType.details.fields.get('__call__') &&
+            classType.details.fields.size === 1 &&
+            !classType.details.baseClasses.find(
+                (base) =>
+                    isClass(base) && !ClassType.isBuiltIn(base, 'object') && !ClassType.isBuiltIn(base, 'Protocol')
+            )
+        ) {
+            classType.details.flags |= ClassTypeFlags.CallbackProtocolClass;
+        }
+
         // Now determine the decorated type of the class.
         let decoratedType: Type = classType;
         let foundUnknown = false;
@@ -21267,7 +21281,7 @@ export function createTypeEvaluator(
     }
 
     function getCallbackProtocolType(objType: ObjectType): FunctionType | OverloadedFunctionType | undefined {
-        if (!ClassType.isProtocolClass(objType.classType)) {
+        if (!ClassType.isCallbackProtocolClass(objType.classType)) {
             return undefined;
         }
 

@@ -332,6 +332,9 @@ export const enum ClassTypeFlags {
     // For dataclasses, should __init__ method always be generated
     // with keyword-only parameters?
     DataClassKeywordOnlyParams = 1 << 21,
+
+    // The class is a protocol that defines only a __call__ method.
+    CallbackProtocolClass = 1 << 22,
 }
 
 export interface DataClassBehaviors {
@@ -617,6 +620,10 @@ export namespace ClassType {
 
     export function isProtocolClass(classType: ClassType) {
         return !!(classType.details.flags & ClassTypeFlags.ProtocolClass);
+    }
+
+    export function isCallbackProtocolClass(classType: ClassType) {
+        return !!(classType.details.flags & ClassTypeFlags.CallbackProtocolClass);
     }
 
     export function isPseudoGenericClass(classType: ClassType) {
