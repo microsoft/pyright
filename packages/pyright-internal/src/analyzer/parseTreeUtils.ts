@@ -143,13 +143,14 @@ export function printExpression(node: ExpressionNode, flags = PrintExpressionFla
         }
 
         case ParseNodeType.BinaryOperation: {
-            return (
+            const exprStr =
                 printExpression(node.leftExpression, flags) +
                 ' ' +
                 printOperator(node.operator) +
                 ' ' +
-                printExpression(node.rightExpression, flags)
-            );
+                printExpression(node.rightExpression, flags);
+
+            return node.parenthesized ? `(${exprStr})` : exprStr;
         }
 
         case ParseNodeType.Number: {
