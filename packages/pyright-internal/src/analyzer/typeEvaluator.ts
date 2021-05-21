@@ -18112,7 +18112,7 @@ export function createTypeEvaluator(
             // If none of the declarations are reachable from the current node,
             // search for the symbol in outer scopes.
             if (reachableDecls.length === 0) {
-                if (!symbolWithScope.scope.isIndependentlyExecutable() && symbolWithScope.scope.parent) {
+                if (symbolWithScope.scope.type !== ScopeType.Function && symbolWithScope.scope.parent) {
                     symbolWithScope = symbolWithScope.scope.parent.lookUpSymbolRecursive(
                         name,
                         symbolWithScope.isOutsideCallerModule || symbolWithScope.scope.type === ScopeType.Module,
