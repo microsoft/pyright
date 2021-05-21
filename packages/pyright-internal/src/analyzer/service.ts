@@ -917,9 +917,23 @@ export class AnalyzerService {
 
         timingStats.findFilesTime.timeOperation(() => {
             const matchedFiles = this._matchFiles(this._configOptions.include, this._configOptions.exclude);
+            if (matchedFiles.length == 0) {
+                const envPwd = process.env.PWD;
+                if (envPwd) {
+                    var filespec : FileSpec = {
+                        wildcardRoot: envPwd,
+                        regExp: RegExp("","")
+                    }
+                    let filespecs: FileSpec[] = [filespec];
+                    for (const file of this._matchFiles(filespecs, this._configOptions.exclude)) {
+                        fileMap.set(file, file);
+                    }
 
-            for (const file of matchedFiles) {
-                fileMap.set(file, file);
+                }
+            } else {
+                for (const file of matchedFiles) {
+                    fileMap.set(file, file);
+                }
             }
         });
 
@@ -999,7 +1013,6 @@ export class AnalyzerService {
             let fileList: string[] = [];
             this._console.info(`Searching for source files`);
             fileList = this._getFileNamesFromFileSpecs();
-
             this._backgroundAnalysisProgram.setTrackedFiles(fileList);
             this._backgroundAnalysisProgram.markAllFilesDirty(markFilesDirtyUnconditionally);
 
@@ -1093,6 +1106,7 @@ export class AnalyzerService {
                 this._console.error(`File or directory "${includeSpec.wildcardRoot}" does not exist.`);
             }
         });
+
 
         return results;
     }
