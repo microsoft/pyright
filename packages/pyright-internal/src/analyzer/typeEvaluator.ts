@@ -21106,7 +21106,13 @@ export function createTypeEvaluator(
                 if (callMember) {
                     const memberType = getTypeOfMember(callMember);
                     if (isFunction(memberType) || isOverloadedFunction(memberType)) {
-                        const boundMethod = bindFunctionToClassOrObject(concreteSrcType, memberType);
+                        const boundMethod = bindFunctionToClassOrObject(
+                            concreteSrcType,
+                            memberType,
+                            /* memberClass */ undefined,
+                            /* errorNode */ undefined,
+                            recursionCount + 1
+                        );
                         if (boundMethod) {
                             concreteSrcType = boundMethod;
                         }
