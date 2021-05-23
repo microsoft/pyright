@@ -1,6 +1,6 @@
 # This sample tests the Python 3.8 "positional-only parameter" feature.
 
-from typing import Any, Dict, Protocol
+from typing import Any, Dict, Protocol, Tuple
 
 
 def f0(a: int, b: int):
@@ -60,7 +60,7 @@ f4(1, 2, c=3)
 f4(1, b=2, c=3)
 
 # This should generate an error because c is a
-# name-only parameter.
+# keyword-only parameter.
 f4(1, 2, 3)
 
 # This should generate an error because a is a
@@ -136,3 +136,11 @@ f8(**kwargs)
 
 
 f8(0, **kwargs)
+
+def f9(*, c: int):
+    pass
+
+# This should generate an error because it is missing a keyword
+# argument for keyword parameter "c".
+f9(*[1, 2, 3])
+

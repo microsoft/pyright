@@ -8092,13 +8092,9 @@ export function createTypeEvaluator(
 
             // Determine whether there are any parameters that require arguments
             // but have not yet received them. If we received a dictionary argument
-            // (i.e. an arg starting with a "**") or a list argument (i.e. an arg
-            // starting with a "*"), we will assume that all parameters are matched.
-            if (
-                !unpackedDictionaryArgType &&
-                !foundUnpackedListArg &&
-                !FunctionType.isDefaultParameterCheckDisabled(type)
-            ) {
+            // (i.e. an arg starting with a "**"), we will assume that all parameters
+            // are matched.
+            if (!unpackedDictionaryArgType && !FunctionType.isDefaultParameterCheckDisabled(type)) {
                 const unassignedParams = [...paramMap.keys()].filter((name) => {
                     const entry = paramMap.get(name)!;
                     return entry.argsReceived < entry.argsNeeded;

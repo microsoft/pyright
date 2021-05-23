@@ -1,5 +1,5 @@
 # This sample verifies that the type checker properly handles
-# lambdas with position-only and name-only markers.
+# lambdas with position-only and keyword-only markers.
 
 from typing import Callable
 

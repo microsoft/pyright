@@ -22,5 +22,5 @@ class Collection:
 
 # This should not generate an error even though the "keys" and
 # "max_time" parameters in Collection.watch are not marked as
-# name-only parameters and are not in the same order.
+# keyword-only parameters and are not in the same order.
 col: CollectionProtocol = Collection()
