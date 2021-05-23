@@ -17572,6 +17572,24 @@ export function createTypeEvaluator(
                         }
                     }
 
+                    if (
+                        isModule(subtype) ||
+                        (isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'ModuleType'))
+                    ) {
+                        // Handle type narrowing for runtime-checkable protocols
+                        // when applied to modules.
+                        if (isPositiveTest) {
+                            const filteredTypes = classTypeList.filter((classType) => {
+                                const concreteClassType = makeTopLevelTypeVarsConcrete(classType);
+                                return isClass(concreteClassType) && ClassType.isProtocolClass(concreteClassType);
+                            });
+
+                            if (filteredTypes.length > 0) {
+                                return convertToInstance(combineTypes(filteredTypes));
+                            }
+                        }
+                    }
+
                     if (isObject(subtype) && !isSubtypeTypeObject) {
                         return combineTypes(
                             filterType(
@@ -17592,21 +17610,6 @@ export function createTypeEvaluator(
                             return includesTypeType ? negativeFallback : undefined;
                         } else {
                             return includesTypeType ? undefined : negativeFallback;
-                        }
-                    }
-
-                    if (isModule(subtype)) {
-                        // Handle type narrowing for runtime-checkable protocols
-                        // when applied to modules.
-                        if (isPositiveTest) {
-                            const filteredTypes = classTypeList.filter(classType => {
-                                const concreteClassType = makeTopLevelTypeVarsConcrete(classType);
-                                return isClass(concreteClassType) && ClassType.isProtocolClass(concreteClassType);
-                            });
-
-                            if (filteredTypes.length > 0) {
-                                return convertToInstance(combineTypes(filteredTypes));
-                            }
                         }
                     }
                 } else {
