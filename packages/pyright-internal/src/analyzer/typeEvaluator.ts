@@ -11143,9 +11143,7 @@ export function createTypeEvaluator(
             // The parser should have reported an error in this case because it's not allowed.
             getTypeOfExpression(node.expression.expandExpression, expectedValueOrElementType);
         } else if (isExpressionNode(node)) {
-            type = stripLiteralValue(
-                getTypeOfExpression(node.expression as ExpressionNode, expectedValueOrElementType).type
-            );
+            type = getTypeOfExpression(node.expression as ExpressionNode, expectedValueOrElementType).type;
         }
 
         return type;

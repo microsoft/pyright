@@ -1,6 +1,6 @@
 # This sample tests type checking for list comprehensions.
 
-from typing import Any, Generator, List
+from typing import Any, Generator, Iterable, List, Literal
 
 a = [1, 2, 3, 4]
 
@@ -32,3 +32,10 @@ def generate():
 # Verify that generate returns a Generator.
 s = generate()
 s.close()
+
+# verify that literals are handled correctly.
+FooOrBar = Literal["foo", "bar"]
+
+
+def to_list(values: Iterable[FooOrBar]) -> List[FooOrBar]:
+    return [value for value in values]
