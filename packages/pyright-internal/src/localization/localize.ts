@@ -760,6 +760,7 @@ export namespace Localizer {
         export const unpackedArgWithVariadicParam = () => getRawString('Diagnostic.unpackedArgWithVariadicParam');
         export const unpackedDictArgumentNotMapping = () => getRawString('Diagnostic.unpackedDictArgumentNotMapping');
         export const unpackedSubscriptIllegal = () => getRawString('Diagnostic.unpackedSubscriptIllegal');
+        export const unpackedTypedDictArgument = () => getRawString('Diagnostic.unpackedTypedDictArgument');
         export const unpackedTypeVarTupleExpected = () =>
             new ParameterizedString<{ name1: string; name2: string }>(
                 getRawString('Diagnostic.unpackedTypeVarTupleExpected')

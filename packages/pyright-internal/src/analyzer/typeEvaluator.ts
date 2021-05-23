@@ -7840,6 +7840,71 @@ export function createTypeEvaluator(
                     const argType = getTypeForArgument(argList[argIndex]);
                     if (isAnyOrUnknown(argType)) {
                         unpackedDictionaryArgType = argType;
+                    } else if (isObject(argType) && ClassType.isTypedDictClass(argType.classType)) {
+                        // Handle the special case where it is a TypedDict and we know which
+                        // keys are present.
+                        const typedDictEntries = getTypedDictMembersForClass(argType.classType);
+                        const diag = new DiagnosticAddendum();
+
+                        typedDictEntries.forEach((entry, name) => {
+                            const paramEntry = paramMap.get(name);
+                            if (paramEntry && !paramEntry.isPositionalOnly) {
+                                if (paramEntry.argsReceived > 0) {
+                                    diag.addMessage(Localizer.Diagnostic.paramAlreadyAssigned().format({ name }));
+                                } else {
+                                    paramEntry.argsReceived++;
+
+                                    const paramInfoIndex = typeParams.findIndex((param) => param.name === name);
+                                    assert(paramInfoIndex >= 0);
+                                    const paramType = FunctionType.getEffectiveParameterType(type, paramInfoIndex);
+
+                                    validateArgTypeParams.push({
+                                        paramCategory: ParameterCategory.Simple,
+                                        paramType,
+                                        requiresTypeVarMatching: requiresSpecialization(paramType),
+                                        argument: {
+                                            argumentCategory: ArgumentCategory.Simple,
+                                            type: entry.valueType,
+                                        },
+                                        errorNode: argList[argIndex].valueExpression || errorNode,
+                                        paramName: name,
+                                    });
+                                }
+                            } else if (varArgDictParam) {
+                                assert(varArgDictParamIndex >= 0);
+                                const paramType = FunctionType.getEffectiveParameterType(type, varArgDictParamIndex);
+                                validateArgTypeParams.push({
+                                    paramCategory: ParameterCategory.VarArgDictionary,
+                                    paramType,
+                                    requiresTypeVarMatching: requiresSpecialization(varArgDictParam.type),
+                                    argument: {
+                                        argumentCategory: ArgumentCategory.Simple,
+                                        type: entry.valueType,
+                                    },
+                                    errorNode: argList[argIndex].valueExpression || errorNode,
+                                    paramName: name,
+                                });
+
+                                // Remember that this parameter has already received a value.
+                                paramMap.set(name, {
+                                    argsNeeded: 1,
+                                    argsReceived: 1,
+                                    isPositionalOnly: false,
+                                });
+                            } else {
+                                diag.addMessage(Localizer.Diagnostic.paramNameMissing().format({ name }));
+                            }
+                        });
+
+                        if (!diag.isEmpty()) {
+                            addDiagnostic(
+                                getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                                DiagnosticRule.reportGeneralTypeIssues,
+                                Localizer.Diagnostic.unpackedTypedDictArgument() + diag.getString(),
+                                argList[argIndex].valueExpression || errorNode
+                            );
+                            reportedArgError = true;
+                        }
                     } else {
                         const mappingType = getTypingType(errorNode, 'Mapping');
                         const strObjType = getBuiltInObject(errorNode, 'str');
