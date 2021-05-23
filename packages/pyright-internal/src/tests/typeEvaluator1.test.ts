@@ -474,7 +474,7 @@ test('Function3', () => {
     // Analyze with Python 3.7 settings. This will generate more errors.
     configOptions.defaultPythonVersion = PythonVersion.V3_7;
     const analysisResults37 = TestUtils.typeAnalyzeSampleFiles(['function3.py'], configOptions);
-    TestUtils.validateResults(analysisResults37, 24);
+    TestUtils.validateResults(analysisResults37, 25);
 
     // Analyze with Python 3.8 settings.
     configOptions.defaultPythonVersion = PythonVersion.V3_8;

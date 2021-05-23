@@ -7506,6 +7506,7 @@ export function createTypeEvaluator(
         // prior to the *args as positional-only according to PEP 612.
         let paramSpecArgList: FunctionArgument[] | undefined;
         let paramSpecTarget: TypeVarType | undefined;
+        let hasParamSpecArgsKwargs = false;
 
         if (varArgListParamIndex >= 0 && varArgDictParamIndex >= 0) {
             const varArgListParam = typeParams[varArgListParamIndex];
@@ -7526,6 +7527,8 @@ export function createTypeEvaluator(
                 varArgListParam.typeAnnotation.leftExpression.value ===
                     varArgDictParam.typeAnnotation.leftExpression.value
             ) {
+                hasParamSpecArgsKwargs = true;
+
                 const baseType = getTypeOfExpression(varArgListParam.typeAnnotation.leftExpression).type;
                 if (isTypeVar(baseType) && baseType.details.isParamSpec) {
                     // Does this function define the param spec, or is it an inner
@@ -7575,18 +7578,6 @@ export function createTypeEvaluator(
             positionalArgCount = argList.length;
         }
 
-        // If there weren't enough positional arguments to populate all of
-        // the positional-only parameters, force the named parameters
-        // into positional-only slots so we can report errors for them.
-        if (positionalOnlyIndex >= 0 && positionalArgCount < positionalOnlyIndex) {
-            const firstParamWithDefault = typeParams.findIndex((param) => param.hasDefault);
-            const positionOnlyWithoutDefaultsCount =
-                firstParamWithDefault >= 0 && firstParamWithDefault < positionalOnlyIndex
-                    ? firstParamWithDefault
-                    : positionalOnlyIndex;
-            positionalArgCount = Math.min(positionOnlyWithoutDefaultsCount, argList.length);
-        }
-
         let validateArgTypeParams: ValidateArgTypeParams[] = [];
 
         let activeParam: FunctionParameter | undefined;
@@ -7603,6 +7594,7 @@ export function createTypeEvaluator(
         let paramIndex = 0;
         let unpackedArgIndex = 0;
         let unpackedParamIndex = 0;
+
         while (argIndex < positionalArgCount) {
             if (paramIndex === positionalOnlyIndex) {
                 paramIndex++;
@@ -7830,10 +7822,40 @@ export function createTypeEvaluator(
             }
         }
 
+        // Check if there weren't enough positional arguments to populate all of
+        // the positional-only parameters.
+        if (
+            positionalOnlyIndex >= 0 &&
+            positionalArgCount < positionalOnlyIndex &&
+            (!foundUnpackedListArg || hasParamSpecArgsKwargs)
+        ) {
+            const firstParamWithDefault = typeParams.findIndex((param) => param.hasDefault);
+            const positionOnlyWithoutDefaultsCount =
+                firstParamWithDefault >= 0 && firstParamWithDefault < positionalOnlyIndex
+                    ? firstParamWithDefault
+                    : positionalOnlyIndex;
+            const argsRemainingCount = positionOnlyWithoutDefaultsCount - positionalArgCount;
+            if (argsRemainingCount > 0) {
+                addDiagnostic(
+                    getFileInfo(errorNode).diagnosticRuleSet.reportGeneralTypeIssues,
+                    DiagnosticRule.reportGeneralTypeIssues,
+                    argsRemainingCount === 1
+                        ? Localizer.Diagnostic.argMorePositionalExpectedOne()
+                        : Localizer.Diagnostic.argMorePositionalExpectedCount().format({
+                              expected: argsRemainingCount,
+                          }),
+                    argList.length > positionalArgCount
+                        ? argList[positionalArgCount].valueExpression || errorNode
+                        : errorNode
+                );
+                reportedArgError = true;
+            }
+        }
+
         if (!reportedArgError) {
             let unpackedDictionaryArgType: Type | undefined;
 
-            // Now consume any keyword parameters.
+            // Now consume any keyword arguments.
             while (argIndex < argList.length) {
                 if (argList[argIndex].argumentCategory === ArgumentCategory.UnpackedDictionary) {
                     // Verify that the type used in this expression is a Mapping[str, T].
