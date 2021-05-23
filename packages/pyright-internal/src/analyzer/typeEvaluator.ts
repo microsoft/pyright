@@ -17594,6 +17594,21 @@ export function createTypeEvaluator(
                             return includesTypeType ? undefined : negativeFallback;
                         }
                     }
+
+                    if (isModule(subtype)) {
+                        // Handle type narrowing for runtime-checkable protocols
+                        // when applied to modules.
+                        if (isPositiveTest) {
+                            const filteredTypes = classTypeList.filter(classType => {
+                                const concreteClassType = makeTopLevelTypeVarsConcrete(classType);
+                                return isClass(concreteClassType) && ClassType.isProtocolClass(concreteClassType);
+                            });
+
+                            if (filteredTypes.length > 0) {
+                                return convertToInstance(combineTypes(filteredTypes));
+                            }
+                        }
+                    }
                 } else {
                     if (isClass(subtype)) {
                         return combineTypes(filterType(subtype, unexpandedSubtype, constraints, negativeFallback));
