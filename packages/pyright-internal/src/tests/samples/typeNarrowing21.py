@@ -41,3 +41,25 @@ def func2(v1: List[Union[Dict[str, str], List[str]]]):
     if isinstance(v1[0], dict):
         t_v1_0: Literal["Dict[str, str]"] = reveal_type(v1[0])
         t_v1_1: Literal["Dict[str, str] | List[str]"] = reveal_type(v1[1])
+
+
+def func3():
+    v1: Dict[str, int] = {}
+
+    t_v1_0: Literal["int"] = reveal_type(v1["x1"])
+    v1["x1"] = 3
+    t_v1_1: Literal["Literal[3]"] = reveal_type(v1["x1"])
+
+    v1[f"x2"] = 5
+    t_v1_2: Literal["int"] = reveal_type(v1["x2"])
+
+    v1 = {}
+    t_v1_3: Literal["int"] = reveal_type(v1["x1"])
+
+    v2: Dict[str, Dict[str, int]] = {}
+
+    t_v2_0: Literal["int"] = reveal_type(v2["y1"]["y2"])
+    v2["y1"]["y2"] = 3
+    t_v2_1: Literal["Literal[3]"] = reveal_type(v2["y1"]["y2"])
+    v2["y1"] = {}
+    t_v2_2: Literal["int"] = reveal_type(v2["y1"]["y2"])

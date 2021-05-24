@@ -13,7 +13,7 @@
  * TypeScript compiler.
  */
 
-import { assert } from '../common/debug';
+import { assert, fail } from '../common/debug';
 import {
     ArgumentCategory,
     CallNode,
@@ -25,6 +25,7 @@ import {
     NameNode,
     NumberNode,
     ParseNodeType,
+    StringNode,
     SuiteNode,
 } from '../parser/parseNodes';
 
@@ -156,7 +157,7 @@ export function isCodeFlowSupportedForReference(reference: ExpressionNode): bool
 
     if (reference.nodeType === ParseNodeType.Index) {
         // Allow index expressions that have a single subscript that is a
-        // literal integer value.
+        // literal integer or string value.
         if (
             reference.items.length !== 1 ||
             reference.trailingComma ||
@@ -167,7 +168,14 @@ export function isCodeFlowSupportedForReference(reference: ExpressionNode): bool
         }
 
         const subscriptNode = reference.items[0].valueExpression;
-        if (subscriptNode.nodeType !== ParseNodeType.Number || subscriptNode.isImaginary || !subscriptNode.isInteger) {
+        const isIntegerIndex =
+            subscriptNode.nodeType === ParseNodeType.Number && !subscriptNode.isImaginary && subscriptNode.isInteger;
+        const isStringIndex =
+            subscriptNode.nodeType === ParseNodeType.StringList &&
+            subscriptNode.strings.length === 1 &&
+            subscriptNode.strings[0].nodeType === ParseNodeType.String;
+
+        if (!isIntegerIndex && !isStringIndex) {
             return false;
         }
 
@@ -184,10 +192,20 @@ export function createKeyForReference(reference: CodeFlowReferenceExpressionNode
     } else if (reference.nodeType === ParseNodeType.MemberAccess) {
         const leftKey = createKeyForReference(reference.leftExpression as CodeFlowReferenceExpressionNode);
         key = `${leftKey}.${reference.memberName.value}`;
-    } else {
+    } else if (reference.nodeType === ParseNodeType.Index) {
         const leftKey = createKeyForReference(reference.baseExpression as CodeFlowReferenceExpressionNode);
-        assert(reference.items.length === 1 && reference.items[0].valueExpression.nodeType === ParseNodeType.Number);
-        key = `${leftKey}[${(reference.items[0].valueExpression as NumberNode).value.toString()}]`;
+        assert(reference.items.length === 1);
+        if (reference.items[0].valueExpression.nodeType === ParseNodeType.Number) {
+            key = `${leftKey}[${(reference.items[0].valueExpression as NumberNode).value.toString()}]`;
+        } else if (reference.items[0].valueExpression.nodeType === ParseNodeType.StringList) {
+            const valExpr = reference.items[0].valueExpression;
+            assert(valExpr.strings.length === 1 && valExpr.strings[0].nodeType === ParseNodeType.String);
+            key = `${leftKey}["${(valExpr.strings[0] as StringNode).value}"]`;
+        } else {
+            fail('createKeyForReference received unexpected index type');
+        }
+    } else {
+        fail('createKeyForReference received unexpected expression type');
     }
 
     return key;

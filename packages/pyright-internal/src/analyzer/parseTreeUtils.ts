@@ -27,7 +27,6 @@ import {
     LambdaNode,
     ModuleNode,
     NameNode,
-    NumberNode,
     ParameterCategory,
     ParseNode,
     ParseNodeType,
@@ -859,13 +858,35 @@ export function isMatchingExpression(reference: ExpressionNode, expression: Expr
             return false;
         }
 
-        const referenceNumberNode = reference.items[0].valueExpression as NumberNode;
-        const subscriptNode = expression.items[0].valueExpression;
-        if (subscriptNode.nodeType !== ParseNodeType.Number || subscriptNode.isImaginary || !subscriptNode.isInteger) {
-            return false;
+        if (reference.items[0].valueExpression.nodeType === ParseNodeType.Number) {
+            const referenceNumberNode = reference.items[0].valueExpression;
+            const subscriptNode = expression.items[0].valueExpression;
+            if (
+                subscriptNode.nodeType !== ParseNodeType.Number ||
+                subscriptNode.isImaginary ||
+                !subscriptNode.isInteger
+            ) {
+                return false;
+            }
+
+            return referenceNumberNode.value === subscriptNode.value;
         }
 
-        return referenceNumberNode.value === subscriptNode.value;
+        if (reference.items[0].valueExpression.nodeType === ParseNodeType.StringList) {
+            const referenceStringListNode = reference.items[0].valueExpression;
+            const subscriptNode = expression.items[0].valueExpression;
+            if (
+                referenceStringListNode.strings.length === 1 &&
+                referenceStringListNode.strings[0].nodeType === ParseNodeType.String &&
+                subscriptNode.nodeType === ParseNodeType.StringList &&
+                subscriptNode.strings.length === 1 &&
+                subscriptNode.strings[0].nodeType === ParseNodeType.String
+            ) {
+                return referenceStringListNode.strings[0].value === subscriptNode.strings[0].value;
+            }
+        }
+
+        return false;
     }
 
     return false;

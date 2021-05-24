@@ -94,7 +94,7 @@ For more details about generic types, type parameters, and invariance, refer to 
 
 ### Type Narrowing
 
-Pyright uses a technique called “type narrowing” to track the type of a symbol based on code flow. Consider the following code:
+Pyright uses a technique called “type narrowing” to track the type of an expression based on code flow. Consider the following code:
 
 ```python
 val_str: str = "hi"
@@ -125,6 +125,23 @@ At the start of this function, the type checker knows nothing about `val` other 
 Another assignment occurs several lines further down, this time within a conditional block. The symbol `val` is assigned a value known to be of type `str`, so the narrowed type of `val` is now `str`. Once the code flow of the conditional block merges with the main body of the function, the narrowed type of `val` becomes `Union[int, str]` because the type checker cannot statically predict whether the conditional block will be executed at runtime.
 
 Another way that types can be narrowed is through the use of conditional code flow statements like `if`, `while`, and `assert`. Type narrowing applies to the block of code that is “guarded” by that condition, so type narrowing in this context is sometimes referred to as a “type guard”. For example, if you see the conditional statement `if x is None:`, the code within that `if` statement can assume that `x` contains `None`. Within the code sample above, we see an example of a type guard involving a call to `isinstance`. The type checker knows that `isinstance(val, int)` will return True only in the case where `val` contains a value of type `int`, not type `str`. So the code within the `if` block can assume that `val` contains a value of type `int`, and the code within the `else` block can assume that `val` contains a value of type `str`. This demonstrates how a type (in this case `Union[int, str]`) can be narrowed in both a positive (`if`) and negative (`else`) test.
+
+The following expression forms support type narrowing:
+
+* `<ident>` (where `<ident>` is an identifier)
+* `<expr>.<member>` (member access expression where `<expr>` is a supported expression form)
+* `<expr>[<int>]` (subscript expression where `<int>` is a non-negative integer)
+* `<expr>[<str>]` (subscript expression where `<str>` is a string literal)
+
+Examples of expressions that support type narrowing:
+
+* `my_var`
+* `employee.name`
+* `a.foo.next`
+* `args[3]`
+* `kwargs["bar"]`
+* `a.b.c[3]["x"].d`
+
 
 ### Type Guards
 
