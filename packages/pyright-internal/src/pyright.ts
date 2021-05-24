@@ -16,7 +16,6 @@ import { timingStats } from './common/timing';
 import chalk from 'chalk';
 import commandLineArgs from 'command-line-args';
 import { CommandLineOptions, OptionDefinition } from 'command-line-args';
-import * as process from 'process';
 
 import { PackageTypeVerifier } from './analyzer/packageTypeVerifier';
 import { AnalyzerService } from './analyzer/service';
@@ -30,6 +29,7 @@ import { isEmptyRange, Range } from './common/textRange';
 import { versionFromString } from './common/pythonVersion';
 import { PyrightFileSystem } from './pyrightFileSystem';
 import { PackageTypeReport, TypeKnownStatus } from './analyzer/packageTypeReport';
+import { createDeferred } from './common/deferred';
 
 const toolName = 'pyright';
 
@@ -117,7 +117,7 @@ const cancellationNone = Object.freeze({
     },
 });
 
-function processArgs() {
+async function processArgs(): Promise<ExitStatus> {
     const optionDefinitions: OptionDefinition[] = [
         { name: 'createstub', type: String },
         { name: 'dependencies', type: Boolean },
@@ -146,21 +146,21 @@ function processArgs() {
         const argErr: { name: string; optionName: string } = err;
         if (argErr && argErr.optionName) {
             console.error(`Unexpected option ${argErr.optionName}.\n${toolName} --help for usage`);
-            process.exit(ExitStatus.ParameterError);
+            return ExitStatus.ParameterError;
         }
 
         console.error(`Unexpected error\n${toolName} --help for usage`);
-        process.exit(ExitStatus.ParameterError);
+        return ExitStatus.ParameterError;
     }
 
     if (args.help !== undefined) {
         printUsage();
-        process.exit(ExitStatus.NoErrors);
+        return ExitStatus.NoErrors;
     }
 
     if (args.version !== undefined) {
         printVersion();
-        process.exit(ExitStatus.NoErrors);
+        return ExitStatus.NoErrors;
     }
 
     if (args.outputjson) {
@@ -168,7 +168,7 @@ function processArgs() {
         for (const arg of incompatibleArgs) {
             if (args[arg] !== undefined) {
                 console.error(`'outputjson' option cannot be used with '${arg}' option`);
-                process.exit(ExitStatus.ParameterError);
+                return ExitStatus.ParameterError;
             }
         }
     }
@@ -178,7 +178,7 @@ function processArgs() {
         for (const arg of incompatibleArgs) {
             if (args[arg] !== undefined) {
                 console.error(`'verifytypes' option cannot be used with '${arg}' option`);
-                process.exit(ExitStatus.ParameterError);
+                return ExitStatus.ParameterError;
             }
         }
     }
@@ -188,7 +188,7 @@ function processArgs() {
         for (const arg of incompatibleArgs) {
             if (args[arg] !== undefined) {
                 console.error(`'createstub' option cannot be used with '${arg}' option`);
-                process.exit(ExitStatus.ParameterError);
+                return ExitStatus.ParameterError;
             }
         }
     }
@@ -214,7 +214,7 @@ function processArgs() {
             console.error(
                 `'${args.pythonplatform}' is not a supported Python platform; specify Darwin, Linux, or Windows`
             );
-            process.exit(ExitStatus.ParameterError);
+            return ExitStatus.ParameterError;
         }
     }
 
@@ -224,7 +224,7 @@ function processArgs() {
             options.pythonVersion = version;
         } else {
             console.error(`'${args.pythonversion}' is not a supported Python version; specify 3.3, 3.4, etc.`);
-            process.exit(ExitStatus.ParameterError);
+            return ExitStatus.ParameterError;
         }
     }
 
@@ -253,7 +253,7 @@ function processArgs() {
 
     // The package type verification uses a different path.
     if (args['verifytypes'] !== undefined) {
-        verifyPackageTypes(
+        return verifyPackageTypes(
             fileSystem,
             args['verifytypes'] || '',
             !!args.verbose,
@@ -262,6 +262,7 @@ function processArgs() {
         );
     } else if (args['ignoreexternal'] !== undefined) {
         console.error(`'--ignoreexternal' is valid only when used with '--verifytypes'`);
+        return ExitStatus.ParameterError;
     }
 
     const watch = args.watch !== undefined;
@@ -270,13 +271,17 @@ function processArgs() {
 
     const service = new AnalyzerService('<default>', fileSystem, output);
 
+    const exitStatus = createDeferred<ExitStatus>();
+
     service.setCompletionCallback((results) => {
         if (results.fatalErrorOccurred) {
-            process.exit(ExitStatus.FatalError);
+            exitStatus.resolve(ExitStatus.FatalError);
+            return;
         }
 
         if (results.configParseErrorOccurred) {
-            process.exit(ExitStatus.ConfigFileParseError);
+            exitStatus.resolve(ExitStatus.ConfigFileParseError);
+            return;
         }
 
         let errorCount = 0;
@@ -306,9 +311,11 @@ function processArgs() {
                 }
 
                 console.error(`Error occurred when creating type stub: ` + errMessage);
-                process.exit(ExitStatus.FatalError);
+                exitStatus.resolve(ExitStatus.FatalError);
+                return;
             }
-            process.exit(ExitStatus.NoErrors);
+            exitStatus.resolve(ExitStatus.NoErrors);
+            return;
         }
 
         if (!args.outputjson) {
@@ -329,7 +336,8 @@ function processArgs() {
         }
 
         if (!watch) {
-            process.exit(errorCount > 0 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors);
+            exitStatus.resolve(errorCount > 0 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors);
+            return;
         } else if (!args.outputjson) {
             console.log('Watching for file changes...');
         }
@@ -338,11 +346,7 @@ function processArgs() {
     // This will trigger the analyzer.
     service.setOptions(options);
 
-    // Sleep indefinitely.
-    const brokenPromise = new Promise(() => {
-        // Do nothing.
-    });
-    brokenPromise.then().catch();
+    return await exitStatus.promise;
 }
 
 function verifyPackageTypes(
@@ -351,7 +355,7 @@ function verifyPackageTypes(
     verboseOutput: boolean,
     outputJson: boolean,
     ignoreUnknownTypesFromImports: boolean
-): never {
+): ExitStatus {
     try {
         const verifier = new PackageTypeVerifier(fileSystem);
 
@@ -364,9 +368,7 @@ function verifyPackageTypes(
             printTypeCompletenessReportText(jsonReport, verboseOutput);
         }
 
-        process.exit(
-            jsonReport.typeCompleteness!.completenessScore < 1 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors
-        );
+        return jsonReport.typeCompleteness!.completenessScore < 1 ? ExitStatus.ErrorsReported : ExitStatus.NoErrors;
     } catch (err) {
         let errMessage = '';
         if (err instanceof Error) {
@@ -374,7 +376,7 @@ function verifyPackageTypes(
         }
 
         console.error(`Error occurred when verifying types: ` + errMessage);
-        process.exit(ExitStatus.FatalError);
+        return ExitStatus.FatalError;
     }
 }
 
@@ -743,11 +745,16 @@ function logDiagnosticToConsole(diag: PyrightJsonDiagnostic, prefix = '  ') {
     console.log(message);
 }
 
-export function main() {
+export async function main() {
     if (process.env.NODE_ENV === 'production') {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         require('source-map-support').install();
     }
 
-    processArgs();
+    const exitCode = await processArgs();
+    process.exitCode = exitCode;
+    // Don't call process.exit; stdout may not have been flushed which can break readers.
+    // https://github.com/nodejs/node/issues/6379
+    // https://github.com/nodejs/node/issues/6456
+    // https://github.com/nodejs/node/issues/19218
 }
