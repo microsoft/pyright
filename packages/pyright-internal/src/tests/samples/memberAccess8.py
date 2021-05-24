@@ -1,9 +1,10 @@
 # This sample tests the use of a generic property class.
 
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Callable, Generic, Literal, Optional, Type, TypeVar, overload
 
 
 _T = TypeVar("_T")
+_T_co = TypeVar("_T_co", covariant=True)
 
 
 class Column(Generic[_T]):
@@ -36,3 +37,39 @@ t2: Literal["list[int]"] = reveal_type(v2)
 
 foo.baz = [1]
 del foo.baz
+
+
+class Minimal(Generic[_T, _T_co]):
+    def __init__(self, name: str, func: Callable[[_T], _T_co]):
+        ...
+
+    @overload
+    def __get__(self, instance: None, owner: Type[_T]) -> "Minimal[_T, _T_co]":
+        ...
+
+    @overload
+    def __get__(self, instance: _T, owner: Type[_T]) -> _T_co:
+        ...
+
+    def __get__(self, instance: Optional[_T], owner: Type[_T]) -> Any:
+        ...
+
+
+def minimal_property(
+    name: str,
+) -> Callable[[Callable[[_T], _T_co]], Minimal[_T, _T_co]]:
+    def decorator(func: Callable[[_T], _T_co]) -> Minimal[_T, _T_co]:
+        return Minimal(name, func)
+
+    return decorator
+
+
+class B:
+    @minimal_property("foo")
+    def foo(self) -> str:
+        return "hello"
+
+
+b = B()
+t_b1: Literal["str"] = reveal_type(b.foo)
+t_b2: Literal["Minimal[B, str]"] = reveal_type(B.foo)
