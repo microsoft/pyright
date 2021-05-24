@@ -153,13 +153,13 @@ In addition to assignment-based type narrowing, Pyright supports the following t
 * `x is E` and `x is not E` (where E is an enum value)
 * `x == L` and `x != L` (where L is a literal expression)
 * `x.y == L` and `x.y != L` (where L is a literal expression and x is a type that is distinguished by a field with a literal type)
+* `x[K] == V` and `x[K] != V` (where K and V are literal expressions and x is a type that is distinguished by a TypedDict field with a literal type)
 * `x in y` (where y is instance of list, set, frozenset, or deque)
 * `S in D` and `S not in D` (where S is a string literal and D is a TypedDict)
 * `isinstance(x, T)` (where T is a type or a tuple of types)
 * `issubclass(x, T)` (where T is a type or a tuple of types)
 * `callable(x)`
 * `f(x)` (where f is a user-defined type guard as defined in [PEP 647](https://www.python.org/dev/peps/pep-0647/))
-
 * `x` (where x is any expression that is statically verifiable to be truthy or falsy in all cases)
 
 Expressions supported for type guards include simple names, member access chains (e.g. `a.b.c.d`), the unary `not` operator, the binary `and` and `or` operators, subscripts that are constant numbers (e.g. `a[2]`), and call expressions. Other operators (such as arithmetic operators or other subscripts) are not supported.

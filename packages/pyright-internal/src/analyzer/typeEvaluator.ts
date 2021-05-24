@@ -17208,6 +17208,37 @@ export function createTypeEvaluator(
                             };
                         }
                     }
+
+                    // Look for X[<literal>] == <literal> or X[<literal>] != <literal>
+                    if (
+                        testExpression.leftExpression.nodeType === ParseNodeType.Index &&
+                        testExpression.leftExpression.items.length === 1 &&
+                        !testExpression.leftExpression.trailingComma &&
+                        testExpression.leftExpression.items[0].argumentCategory === ArgumentCategory.Simple &&
+                        ParseTreeUtils.isMatchingExpression(reference, testExpression.leftExpression.baseExpression)
+                    ) {
+                        const indexType = getTypeOfExpression(
+                            testExpression.leftExpression.items[0].valueExpression
+                        ).type;
+
+                        if (
+                            isObject(indexType) &&
+                            ClassType.isBuiltIn(indexType.classType, 'str') &&
+                            isLiteralType(indexType)
+                        ) {
+                            const rightType = getTypeOfExpression(testExpression.rightExpression).type;
+                            if (isObject(rightType) && rightType.classType.literalValue !== undefined) {
+                                return (type: Type) => {
+                                    return narrowTypeForDiscriminatedDictEntryComparison(
+                                        type,
+                                        indexType,
+                                        rightType,
+                                        adjIsPositiveTest
+                                    );
+                                };
+                            }
+                        }
+                    }
                 }
             }
 
@@ -17742,8 +17773,44 @@ export function createTypeEvaluator(
         return narrowedType;
     }
 
+    // Attempts to narrow a TypedDict type based on a comparison (equal or not
+    // equal) between a discriminating entry type that has a declared literal
+    // type to a literal value.
+    function narrowTypeForDiscriminatedDictEntryComparison(
+        referenceType: Type,
+        indexLiteralType: ObjectType,
+        literalType: ObjectType,
+        isPositiveTest: boolean
+    ): Type {
+        let canNarrow = true;
+
+        const narrowedType = mapSubtypes(referenceType, (subtype) => {
+            if (isObject(subtype) && ClassType.isTypedDictClass(subtype.classType)) {
+                const symbolMap = getTypedDictMembersForClass(subtype.classType);
+                const tdEntry = symbolMap.get(indexLiteralType.classType.literalValue as string);
+
+                if (tdEntry && isLiteralTypeOrUnion(tdEntry.valueType)) {
+                    if (isPositiveTest) {
+                        return canAssignType(tdEntry.valueType, literalType, new DiagnosticAddendum())
+                            ? subtype
+                            : undefined;
+                    } else {
+                        return canAssignType(literalType, tdEntry.valueType, new DiagnosticAddendum())
+                            ? undefined
+                            : subtype;
+                    }
+                }
+            }
+
+            canNarrow = false;
+            return subtype;
+        });
+
+        return canNarrow ? narrowedType : referenceType;
+    }
+
     // Attempts to narrow a type based on a comparison (equal or not equal)
-    // between a discriminating node that has a declared literal type to a
+    // between a discriminating field that has a declared literal type to a
     // literal value.
     function narrowTypeForDiscriminatedFieldComparison(
         referenceType: Type,
