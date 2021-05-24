@@ -2912,10 +2912,6 @@ export class Checker extends ParseTreeWalker {
 
     private _validateBaseClassOverrides(classType: ClassType) {
         classType.details.fields.forEach((symbol, name) => {
-            if (!symbol.isClassMember()) {
-                return;
-            }
-
             // Private symbols do not need to match in type since their
             // names are mangled, and subclasses can't access the value in
             // the parent class.

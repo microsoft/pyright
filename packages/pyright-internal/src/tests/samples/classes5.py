@@ -1,10 +1,12 @@
 # This sample tests the reportIncompatibleVariableOverride
 # configuration option.
 
-from typing import List, Union
+from typing import ClassVar, List, Union
 
 
 class ParentClass:
+    cv1: ClassVar[int] = 0
+
     var1: int
     var2: str
     var3: Union[int, str]
@@ -17,8 +19,16 @@ class ParentClass:
     _var1: int
     __var1: int
 
+    def __init__(self):
+        self.var10: int = 0
+        self.var11: int = 0
+        self.var12 = 0
+
 
 class Subclass(ParentClass):
+    # This should generate an error
+    cv1 = ""
+
     # This should generate an error because the type is incompatible.
     var1: str
 
@@ -51,3 +61,12 @@ class Subclass(ParentClass):
 
     # This should not generate an error because it's a private name
     __var1: str
+
+    def __init__(self):
+        # This should generate an error
+        self.var10: str = ""
+
+        # This should generate an error
+        self.var11 = ""
+
+        self.var12 = ""
