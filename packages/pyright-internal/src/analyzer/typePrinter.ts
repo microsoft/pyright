@@ -180,11 +180,11 @@ export function printType(
                     const paramTypes = type.details.parameters.map((param) =>
                         printType(param.type, printTypeFlags, returnTypeCallback)
                     );
-                    return `Callable[Concatenate[${paramTypes.join(', ')}, ${type.details.paramSpec.details.name}], ${
-                        parts[1]
-                    }]`;
+                    return `Callable[Concatenate[${paramTypes.join(', ')}, ${TypeVarType.getReadableName(
+                        type.details.paramSpec
+                    )}], ${parts[1]}]`;
                 }
-                return `Callable[${type.details.paramSpec.details.name}, ${parts[1]}]`;
+                return `Callable[${TypeVarType.getReadableName(type.details.paramSpec)}, ${parts[1]}]`;
             }
 
             const paramSignature = `(${parts[0].join(', ')})`;
