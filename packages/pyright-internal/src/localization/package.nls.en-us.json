@@ -444,7 +444,7 @@
         "incompatibleGetter": "Property getter method is incompatible",
         "incompatibleSetter": "Property setter method is incompatible",
         "incompatibleDeleter": "Property deleter method is incompatible",
-        "kwargsParamMissing": "Parameter \"*{paramName}\" has no corresponding parameter",
+        "kwargsParamMissing": "Parameter \"**{paramName}\" has no corresponding parameter",
         "literalAssignmentMismatch": "\"{sourceType}\" cannot be assigned to type \"{destType}\"",
         "memberSetClassVar": "Member \"{name}\" cannot be assigned through a class instance because it is a ClassVar",
         "memberAssignment": "Expression of type \"{type}\" cannot be assigned to member \"{name}\" of class \"{classType}\"",
