@@ -1836,6 +1836,9 @@ function _transformTypeVarsInClassType(
 
             if (typeParam.details.isParamSpec) {
                 replacementType = transformParamSpec(typeParam);
+                if (replacementType !== typeParam) {
+                    specializationNeeded = true;
+                }
             } else {
                 const typeParamName = TypeVarType.getNameWithScope(typeParam);
                 if (!recursionMap.has(typeParamName)) {
