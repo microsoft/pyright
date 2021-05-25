@@ -22023,7 +22023,7 @@ export function createTypeEvaluator(
                 // The converse situation is OK.
                 if (srcKwargsIndex < 0 && destKwargsIndex >= 0) {
                     diag.createAddendum().addMessage(
-                        Localizer.DiagnosticAddendum.argsParamMissing().format({
+                        Localizer.DiagnosticAddendum.kwargsParamMissing().format({
                             paramName: destParams[destKwargsIndex].name!,
                         })
                     );
