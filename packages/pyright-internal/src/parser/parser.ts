@@ -1637,9 +1637,9 @@ export class Parser {
         const paramList: ParameterNode[] = [];
         let sawDefaultParam = false;
         let reportedNonDefaultParamErr = false;
-        let sawKwSeparator = false;
+        let sawKeywordOnlySeparator = false;
         let sawPositionOnlySeparator = false;
-        let sawVarArgs = false;
+        let sawArgs = false;
         let sawKwArgs = false;
 
         while (true) {
@@ -1670,14 +1670,16 @@ export class Parser {
                 if (!param.name) {
                     if (sawPositionOnlySeparator) {
                         this._addError(Localizer.Diagnostic.duplicatePositionOnly(), param);
-                    } else if (sawKwSeparator) {
-                        this._addError(Localizer.Diagnostic.positionOnlyAfterNameOnly(), param);
+                    } else if (sawKeywordOnlySeparator) {
+                        this._addError(Localizer.Diagnostic.positionOnlyAfterKeywordOnly(), param);
+                    } else if (sawArgs) {
+                        this._addError(Localizer.Diagnostic.positionOnlyAfterArgs(), param);
                     }
                     sawPositionOnlySeparator = true;
                 } else {
                     if (param.defaultValue) {
                         sawDefaultParam = true;
-                    } else if (sawDefaultParam && !sawKwSeparator && !sawVarArgs) {
+                    } else if (sawDefaultParam && !sawKeywordOnlySeparator && !sawArgs) {
                         // Report this error only once.
                         if (!reportedNonDefaultParamErr) {
                             this._addError(Localizer.Diagnostic.nonDefaultAfterDefault(), param);
@@ -1691,15 +1693,17 @@ export class Parser {
 
             if (param.category === ParameterCategory.VarArgList) {
                 if (!param.name) {
-                    if (sawKwSeparator) {
-                        this._addError(Localizer.Diagnostic.duplicateNameOnly(), param);
+                    if (sawKeywordOnlySeparator) {
+                        this._addError(Localizer.Diagnostic.duplicateKeywordOnly(), param);
+                    } else if (sawArgs) {
+                        this._addError(Localizer.Diagnostic.keywordOnlyAfterArgs(), param);
                     }
-                    sawKwSeparator = true;
+                    sawKeywordOnlySeparator = true;
                 } else {
-                    if (sawVarArgs) {
+                    if (sawArgs) {
                         this._addError(Localizer.Diagnostic.duplicateArgsParam(), param);
                     }
-                    sawVarArgs = true;
+                    sawArgs = true;
                 }
             }
 

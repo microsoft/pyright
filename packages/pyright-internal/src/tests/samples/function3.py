@@ -144,3 +144,12 @@ def f9(*, c: int):
 # argument for keyword parameter "c".
 f9(*[1, 2, 3])
 
+
+# This should generate an error because "/" cannot be used after "*args"
+def f10(x, *args, /, y):
+    pass
+
+# This should generate an error because "*" cannot be used after "*args"
+def f11(x, *args, *, y):
+    pass
+
