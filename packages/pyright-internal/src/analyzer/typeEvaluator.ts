@@ -4314,10 +4314,8 @@ export function createTypeEvaluator(
             case TypeCategory.TypeVar: {
                 if (baseType.details.isParamSpec) {
                     if (memberName === 'args') {
-                        if (
-                            node.parent?.nodeType !== ParseNodeType.Parameter ||
-                            node.parent.category !== ParameterCategory.VarArgList
-                        ) {
+                        const paramNode = ParseTreeUtils.getEnclosingParameter(node);
+                        if (!paramNode || paramNode.category !== ParameterCategory.VarArgList) {
                             addError(Localizer.Diagnostic.paramSpecArgsUsage(), node);
                             return { type: UnknownType.create(), node };
                         }
@@ -4325,10 +4323,8 @@ export function createTypeEvaluator(
                     }
 
                     if (memberName === 'kwargs') {
-                        if (
-                            node.parent?.nodeType !== ParseNodeType.Parameter ||
-                            node.parent.category !== ParameterCategory.VarArgDictionary
-                        ) {
+                        const paramNode = ParseTreeUtils.getEnclosingParameter(node);
+                        if (!paramNode || paramNode.category !== ParameterCategory.VarArgDictionary) {
                             addError(Localizer.Diagnostic.paramSpecKwargsUsage(), node);
                             return { type: UnknownType.create(), node };
                         }

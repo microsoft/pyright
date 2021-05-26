@@ -7,7 +7,16 @@ R = TypeVar("R")
 
 
 def puts_p_into_scope(f: Callable[P, int]) -> None:
-    def inner(*args: P.args, **kwargs: P.kwargs) -> None:
+    def inner1(*args: P.args, **kwargs: P.kwargs) -> None:
+        pass
+
+    def inner2(*args: "P.args", **kwargs: P.kwargs) -> None:
+        pass
+
+    def inner3(*args: P.args, **kwargs: "P.kwargs") -> None:
+        pass
+
+    def inner4(*args: "P.args", **kwargs: "P.kwargs") -> None:
         pass
 
     # This should generate two errors because P.kwargs cannot be

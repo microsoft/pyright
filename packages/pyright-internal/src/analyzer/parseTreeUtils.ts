@@ -28,6 +28,7 @@ import {
     ModuleNode,
     NameNode,
     ParameterCategory,
+    ParameterNode,
     ParseNode,
     ParseNodeType,
     StatementNode,
@@ -1234,6 +1235,19 @@ export class NameNodeWalker extends ParseTreeWalker {
 
         return false;
     }
+}
+
+export function getEnclosingParameter(node: ParseNode): ParameterNode | undefined {
+    let curNode: ParseNode | undefined = node;
+
+    while (curNode) {
+        if (curNode.nodeType === ParseNodeType.Parameter) {
+            return curNode;
+        }
+        curNode = curNode.parent;
+    }
+
+    return undefined;
 }
 
 export function getCallNodeAndActiveParameterIndex(

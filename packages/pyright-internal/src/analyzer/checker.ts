@@ -349,11 +349,14 @@ export class Checker extends ParseTreeWalker {
             const paramSpecParams = node.parameters.filter((param, index) => {
                 const paramInfo = functionTypeResult.functionType.details.parameters[index];
                 if (paramInfo.typeAnnotation && isTypeVar(paramInfo.type) && isParamSpec(paramInfo.type)) {
-                    if (
-                        paramInfo.category !== ParameterCategory.Simple &&
-                        paramInfo.typeAnnotation.nodeType === ParseNodeType.MemberAccess
-                    ) {
-                        return true;
+                    if (paramInfo.category !== ParameterCategory.Simple) {
+                        const paramAnnotation =
+                            paramInfo.typeAnnotation.nodeType === ParseNodeType.StringList
+                                ? paramInfo.typeAnnotation.typeAnnotation
+                                : paramInfo.typeAnnotation;
+                        if (paramAnnotation?.nodeType === ParseNodeType.MemberAccess) {
+                            return true;
+                        }
                     }
                 }
 
