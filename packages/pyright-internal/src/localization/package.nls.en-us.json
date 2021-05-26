@@ -430,7 +430,7 @@
         "argsParamWithVariadic": "Parameter \"*{paramName}\" is incompatible with TypeVarTuple",
         "argumentType": "Argument type is \"{type}\"",
         "argumentTypes": "Argument types: ({types})",
-        "assignToNone": "Cannot assign to \"None\"",
+        "assignToNone": "Type cannot be assigned to type \"None\"",
         "asyncHelp": "Did you mean \"async with\"?",
         "dataclassFrozen": "\"{name}\" is frozen",
         "finalMethod": "Final method",
