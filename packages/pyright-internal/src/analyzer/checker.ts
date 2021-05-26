@@ -2690,7 +2690,12 @@ export class Checker extends ParseTreeWalker {
                 }
 
                 const diag = new DiagnosticAddendum();
-                if (this._containsContravariantTypeVar(declaredReturnType, diag)) {
+                if (isTypeVar(declaredReturnType) && declaredReturnType.details.variance === Variance.Contravariant) {
+                    diag.addMessage(
+                        Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
+                            name: TypeVarType.getReadableName(declaredReturnType),
+                        })
+                    );
                     this._evaluator.addDiagnostic(
                         this._fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                         DiagnosticRule.reportGeneralTypeIssues,
@@ -2767,27 +2772,6 @@ export class Checker extends ParseTreeWalker {
                 );
             }
         }
-    }
-
-    private _containsContravariantTypeVar(type: Type, diag: DiagnosticAddendum): boolean {
-        let isValid = true;
-
-        doForEachSubtype(type, (subtype) => {
-            if (
-                isTypeVar(subtype) &&
-                subtype.details.variance === Variance.Contravariant &&
-                !subtype.details.isSynthesized
-            ) {
-                diag.addMessage(
-                    Localizer.DiagnosticAddendum.typeVarIsContravariant().format({
-                        name: TypeVarType.getReadableName(subtype),
-                    })
-                );
-                isValid = false;
-            }
-        });
-
-        return !isValid;
     }
 
     // Validates that any overridden member variables are not marked

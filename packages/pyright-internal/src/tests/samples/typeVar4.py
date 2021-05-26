@@ -35,11 +35,9 @@ class Foo(Generic[_T, _T_co, _T_contra]):
 
     # This should generate an error because contravariant
     # TypeVars are not allowed for return parameters.
-    def func8(self) -> Optional[_T_contra]:
-        pass
+    def func8(self) -> _T_contra:
+        ...
 
-    # This should generate an error because contravariant
-    # TypeVars are not allowed for return parameters.
     def func9(self) -> Union[_T_contra, int]:
         return 3
 
