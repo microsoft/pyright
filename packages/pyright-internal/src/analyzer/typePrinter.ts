@@ -11,17 +11,16 @@ import { ParameterCategory } from '../parser/parseNodes';
 import * as ParseTreeUtils from './parseTreeUtils';
 import {
     ClassType,
-    combineTypes,
     EnumLiteral,
     FunctionType,
     isAnyOrUnknown,
     isClass,
+    isNever,
     isObject,
     isParamSpec,
     isUnion,
     isVariadicTypeVar,
     maxTypeRecursionCount,
-    ObjectType,
     removeNoneFromUnion,
     Type,
     TypeBase,
@@ -203,19 +202,13 @@ export function printType(
         }
 
         case TypeCategory.Union: {
-            // If the union has constraints, throw them out to avoid duplicate
-            // types (e.g. "float | float | float | int").
-            if (type.constraints) {
-                type = combineTypes(type.subtypes);
-            }
-
             if (isOptionalType(type)) {
-                const optionalType = printType(
-                    removeNoneFromUnion(type),
-                    printTypeFlags,
-                    returnTypeCallback,
-                    recursionCount + 1
-                );
+                const typeWithoutNone = removeNoneFromUnion(type);
+                if (isNever(typeWithoutNone)) {
+                    return 'None';
+                }
+
+                const optionalType = printType(typeWithoutNone, printTypeFlags, returnTypeCallback, recursionCount + 1);
 
                 if (printTypeFlags & PrintTypeFlags.PEP604) {
                     return optionalType + ' | None';
@@ -224,83 +217,33 @@ export function printType(
                 return 'Optional[' + optionalType + ']';
             }
 
-            let subtypes: Type[] = [];
+            const subtypeStrings = new Set<string>();
+            const literalObjectStrings = new Set<string>();
+            const literalClassStrings = new Set<string>();
             doForEachSubtype(type, (subtype) => {
-                subtypes.push(subtype);
-            });
-
-            // If one or more subtypes are pseudo-generic, remove any other pseudo-generics
-            // of the same type because we don't print type arguments for pseudo-generic
-            // types, and we'll end up displaying seemingly-duplicated types.
-            const isPseudoGeneric = (type: Type) =>
-                (isClass(type) && ClassType.isPseudoGenericClass(type)) ||
-                (isObject(type) && ClassType.isPseudoGenericClass(type.classType));
-            if (subtypes.some((t) => isPseudoGeneric(t))) {
-                const filteredSubtypes: Type[] = [];
-                subtypes.forEach((type) => {
-                    if (!isPseudoGeneric(type)) {
-                        filteredSubtypes.push(type);
-                    } else if (isClass(type)) {
-                        if (!filteredSubtypes.some((t) => isClass(t) && ClassType.isSameGenericClass(t, type))) {
-                            filteredSubtypes.push(type);
-                        }
-                    } else if (isObject(type)) {
-                        if (
-                            !filteredSubtypes.some(
-                                (t) => isObject(t) && ClassType.isSameGenericClass(t.classType, type.classType)
-                            )
-                        ) {
-                            filteredSubtypes.push(type);
-                        }
-                    }
-                });
-                subtypes = filteredSubtypes;
-            }
-
-            const isLiteralObject = (type: Type) => isObject(type) && type.classType.literalValue !== undefined;
-            const isLiteralClass = (type: Type) => isClass(type) && type.literalValue !== undefined;
-
-            const subtypeStrings: string[] = [];
-            while (subtypes.length > 0) {
-                const subtype = subtypes.shift()!;
-                if (isLiteralObject(subtype)) {
-                    // Combine all literal objects. Rather than printing Union[Literal[1],
-                    // Literal[2]], print Literal[1, 2].
-                    const literals = subtypes.filter((t) => isLiteralObject(t));
-                    literals.unshift(subtype);
-                    const literalValues = literals.map((t) => printLiteralValue((t as ObjectType).classType));
-                    subtypeStrings.push(`Literal[${literalValues.join(', ')}]`);
-
-                    // Remove the items we've handled.
-                    if (literals.length > 1) {
-                        subtypes = subtypes.filter((t) => !isLiteralObject(t));
-                    }
-                } else if (isLiteralClass(subtype)) {
-                    // Combine all literal classes.
-                    const literals = subtypes.filter((t) => isLiteralClass(t));
-                    literals.unshift(subtype);
-                    const literalValues = literals.map((t) => printLiteralValue(t as ClassType));
-                    subtypeStrings.push(`Type[Literal[${literalValues.join(', ')}]]`);
-
-                    // Remove the items we've handled.
-                    if (literals.length > 1) {
-                        subtypes = subtypes.filter((t) => !isLiteralClass(t));
-                    }
+                if (isObject(subtype) && subtype.classType.literalValue !== undefined) {
+                    literalObjectStrings.add(printLiteralValue(subtype.classType));
+                } else if (isClass(subtype) && subtype.literalValue !== undefined) {
+                    literalClassStrings.add(printLiteralValue(subtype));
                 } else {
-                    subtypeStrings.push(printType(subtype, printTypeFlags, returnTypeCallback, recursionCount + 1));
-                }
-            }
-
-            // Remove any duplicates, which can happen if we're replacing
-            // Unknown with Any or are hiding type arguments.
-            const redundancyMap = new Map<string, string>();
-            const dedupedSubtypeStrings: string[] = [];
-            subtypeStrings.forEach((subtype) => {
-                if (!redundancyMap.has(subtype)) {
-                    dedupedSubtypeStrings.push(subtype);
-                    redundancyMap.set(subtype, subtype);
+                    subtypeStrings.add(printType(subtype, printTypeFlags, returnTypeCallback, recursionCount + 1));
                 }
             });
+
+            const dedupedSubtypeStrings: string[] = [];
+            subtypeStrings.forEach((s) => dedupedSubtypeStrings.push(s));
+
+            if (literalObjectStrings.size > 0) {
+                const literalStrings: string[] = [];
+                literalObjectStrings.forEach((s) => literalStrings.push(s));
+                dedupedSubtypeStrings.push(`Literal[${literalStrings.join(', ')}]`);
+            }
+
+            if (literalClassStrings.size > 0) {
+                const literalStrings: string[] = [];
+                literalClassStrings.forEach((s) => literalStrings.push(s));
+                dedupedSubtypeStrings.push(`Type[Literal[${literalStrings.join(', ')}]]`);
+            }
 
             if (dedupedSubtypeStrings.length === 1) {
                 return dedupedSubtypeStrings[0];
