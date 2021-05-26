@@ -101,7 +101,7 @@ import { ParseResults } from '../parser/parser';
 import { Token } from '../parser/tokenizerTypes';
 import { AbbreviationInfo, AutoImporter, AutoImportResult, ModuleSymbolMap } from './autoImporter';
 import { IndexResults } from './documentSymbolProvider';
-import { getFunctionDocStringFromType, getOverloadedFunctionTooltip } from './tooltipUtils';
+import { getAutoImportText, getFunctionDocStringFromType, getOverloadedFunctionTooltip } from './tooltipUtils';
 
 const _keywords: string[] = [
     // Expression keywords
@@ -1936,16 +1936,7 @@ export class CompletionProvider {
     }
 
     private _getAutoImportText(importName: string, importFrom?: string, importAlias?: string) {
-        let autoImportText: string | undefined;
-        if (!importFrom) {
-            autoImportText = `import ${importName}`;
-        } else {
-            autoImportText = `from ${importFrom} import ${importName}`;
-        }
-
-        if (importAlias) {
-            autoImportText = `${autoImportText} as ${importAlias}`;
-        }
+        const autoImportText = getAutoImportText(importName, importFrom, importAlias);
 
         if (this._options.format === MarkupKind.Markdown) {
             return `\`\`\`\n${autoImportText}\n\`\`\``;

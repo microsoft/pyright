@@ -112,3 +112,18 @@ export function getDocumentationPartsForTypeAndDecl(
 
     return [];
 }
+
+export function getAutoImportText(name: string, from?: string, alias?: string): string {
+    let text: string | undefined;
+    if (!from) {
+        text = `import ${name}`;
+    } else {
+        text = `from ${from} import ${name}`;
+    }
+
+    if (alias) {
+        text = `${text} as ${alias}`;
+    }
+
+    return text;
+}
