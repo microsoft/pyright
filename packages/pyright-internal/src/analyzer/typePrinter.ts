@@ -53,6 +53,10 @@ export const enum PrintTypeFlags {
 
     // Expand type aliases to display their individual parts?
     ExpandTypeAlias = 1 << 5,
+
+    // Add "*" for types that are conditionally constrained when
+    // used with constrained TypeVars.
+    OmitConditionalConstraint = 1 << 6,
 }
 
 export type FunctionReturnTypeCallback = (type: FunctionType) => Type;
@@ -220,13 +224,24 @@ export function printType(
             const subtypeStrings = new Set<string>();
             const literalObjectStrings = new Set<string>();
             const literalClassStrings = new Set<string>();
-            doForEachSubtype(type, (subtype) => {
+            doForEachSubtype(type, (subtype, index) => {
+                const addConstrainedMarker = (typeString: string) => {
+                    if ((printTypeFlags & PrintTypeFlags.OmitConditionalConstraint) === 0) {
+                        if (type.constraints && type.constraints[index] !== undefined) {
+                            return typeString + '*';
+                        }
+                    }
+                    return typeString;
+                };
+
                 if (isObject(subtype) && subtype.classType.literalValue !== undefined) {
-                    literalObjectStrings.add(printLiteralValue(subtype.classType));
+                    literalObjectStrings.add(addConstrainedMarker(printLiteralValue(subtype.classType)));
                 } else if (isClass(subtype) && subtype.literalValue !== undefined) {
-                    literalClassStrings.add(printLiteralValue(subtype));
+                    literalClassStrings.add(addConstrainedMarker(printLiteralValue(subtype)));
                 } else {
-                    subtypeStrings.add(printType(subtype, printTypeFlags, returnTypeCallback, recursionCount + 1));
+                    subtypeStrings.add(
+                        addConstrainedMarker(printType(subtype, printTypeFlags, returnTypeCallback, recursionCount + 1))
+                    );
                 }
             });
 

@@ -50,6 +50,6 @@ def func1(p1: List[int], p2: _T):
     t_c3: Literal["Unknown"] = reveal_type(c3)
 
     d1 = p2[0]
-    t_d1: Literal["Unknown"] = reveal_type(d1)
+    t_d1: Literal["Unknown*"] = reveal_type(d1)
 
 

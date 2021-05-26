@@ -78,6 +78,10 @@ export interface DiagnosticRuleSet {
     // Should parameter type be omitted if it is not annotated?
     omitUnannotatedParamType: boolean;
 
+    // Indicate when a type is conditional based on a constrained
+    // type variable type?
+    omitConditionalConstraint: boolean;
+
     // Should Union and Optional types be printed in PEP 604 format?
     pep604Printing: boolean;
 
@@ -347,6 +351,7 @@ export function getOffDiagnosticRuleSet(): DiagnosticRuleSet {
         printUnknownAsAny: true,
         omitTypeArgsIfAny: true,
         omitUnannotatedParamType: true,
+        omitConditionalConstraint: true,
         pep604Printing: true,
         strictListInference: false,
         strictSetInference: false,
@@ -414,6 +419,7 @@ export function getBasicDiagnosticRuleSet(): DiagnosticRuleSet {
         printUnknownAsAny: false,
         omitTypeArgsIfAny: false,
         omitUnannotatedParamType: true,
+        omitConditionalConstraint: false,
         pep604Printing: true,
         strictListInference: false,
         strictSetInference: false,
@@ -481,6 +487,7 @@ export function getStrictDiagnosticRuleSet(): DiagnosticRuleSet {
         printUnknownAsAny: false,
         omitTypeArgsIfAny: false,
         omitUnannotatedParamType: false,
+        omitConditionalConstraint: false,
         pep604Printing: true,
         strictListInference: true,
         strictSetInference: true,
@@ -827,6 +834,7 @@ export class ConfigOptions {
         this.diagnosticRuleSet = {
             printUnknownAsAny: defaultSettings.printUnknownAsAny,
             omitTypeArgsIfAny: defaultSettings.omitTypeArgsIfAny,
+            omitConditionalConstraint: defaultSettings.omitConditionalConstraint,
             omitUnannotatedParamType: defaultSettings.omitUnannotatedParamType,
             pep604Printing: defaultSettings.pep604Printing,
 

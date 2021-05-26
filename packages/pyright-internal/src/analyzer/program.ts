@@ -635,6 +635,10 @@ export class Program {
             flags |= PrintTypeFlags.PrintUnknownWithAny;
         }
 
+        if (configOptions.diagnosticRuleSet.omitConditionalConstraint) {
+            flags |= PrintTypeFlags.OmitConditionalConstraint;
+        }
+
         if (configOptions.diagnosticRuleSet.omitTypeArgsIfAny) {
             flags |= PrintTypeFlags.OmitTypeArgumentsIfAny;
         }

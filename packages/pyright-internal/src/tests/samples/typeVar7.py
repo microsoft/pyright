@@ -132,7 +132,7 @@ def custom_add(a: _T3, b: _T4) -> float:
     if isinstance(a, str):
         return 0
     c = a + b
-    t1: Literal["float | int"] = reveal_type(c)
+    t1: Literal["float* | int*"] = reveal_type(c)
     return c
 
 

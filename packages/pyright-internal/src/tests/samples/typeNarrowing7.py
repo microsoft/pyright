@@ -30,7 +30,7 @@ _T = TypeVar("_T", None, str)
 
 def func2(val: _T) -> _T:
     if val is not None:
-        t1: Literal["str"] = reveal_type(val)
+        t1: Literal["str*"] = reveal_type(val)
         return val
     else:
         t2: Literal["None"] = reveal_type(val)
