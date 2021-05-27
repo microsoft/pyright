@@ -6829,6 +6829,12 @@ export function createTypeEvaluator(
 
                     if (!returnType) {
                         returnType = applyExpectedTypeForConstructor(type, expectedType, typeVarMap);
+                    } else if (
+                        isObject(returnType) &&
+                        isTupleClass(returnType.classType) &&
+                        !returnType.classType.tupleTypeArguments
+                    ) {
+                        returnType = applyExpectedTypeForTupleConstructor(returnType, expectedType);
                     }
                     validatedTypes = true;
                 }
@@ -6921,6 +6927,23 @@ export function createTypeEvaluator(
 
         const specializedType = applySolvedTypeVars(type, typeVarMap, /* unknownIfNotFound */ true) as ClassType;
         return ObjectType.create(specializedType);
+    }
+
+    // Similar to applyExpectedTypeForConstructor, this function handles the
+    // special case of the tuple class.
+    function applyExpectedTypeForTupleConstructor(type: ObjectType, expectedType: Type | undefined) {
+        let specializedType = type;
+
+        if (
+            expectedType &&
+            isObject(expectedType) &&
+            isTupleClass(expectedType.classType) &&
+            expectedType.classType.tupleTypeArguments
+        ) {
+            specializedType = ObjectType.create(specializeTupleClass(type.classType, expectedType.classType.tupleTypeArguments));
+        }
+
+        return specializedType;
     }
 
     // In cases where the expected type is a specialized base class of the
