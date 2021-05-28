@@ -421,7 +421,17 @@ export class SourceFile {
                 this._clientDocument = TextDocument.create(this._filePath, 'python', version, '');
             }
             this._clientDocument = TextDocument.update(this._clientDocument, contents, version);
-            this.markDirty();
+
+            const fileContents = this._clientDocument.getText();
+            const contentsHash = StringUtils.hashString(fileContents);
+
+            // Have the contents of the file changed?
+            if (fileContents.length !== this._lastFileContentLength || contentsHash !== this._lastFileContentHash) {
+                this.markDirty();
+            }
+
+            this._lastFileContentLength = fileContents.length;
+            this._lastFileContentHash = contentsHash;
         }
     }
 
