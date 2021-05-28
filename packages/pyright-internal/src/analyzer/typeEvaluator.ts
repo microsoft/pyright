@@ -6940,7 +6940,9 @@ export function createTypeEvaluator(
             isTupleClass(expectedType.classType) &&
             expectedType.classType.tupleTypeArguments
         ) {
-            specializedType = ObjectType.create(specializeTupleClass(type.classType, expectedType.classType.tupleTypeArguments));
+            specializedType = ObjectType.create(
+                specializeTupleClass(type.classType, expectedType.classType.tupleTypeArguments)
+            );
         }
 
         return specializedType;
