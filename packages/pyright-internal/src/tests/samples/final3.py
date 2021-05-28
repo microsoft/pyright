@@ -50,7 +50,7 @@ class Foo:
     _member7: Final = 6
     __member8: Final = 6
 
-    def __init__(self):
+    def __init__(self, a: bool):
         # This should generate an error because a Final
         # member outside of a stub file or a class body
         # must have an initializer.
@@ -60,10 +60,11 @@ class Foo:
         # already has a final declaration.
         self.member2: Final[int]
 
-        self.member4 = 5
+        if a:
+            self.member4 = 5
+        else:
+            self.member4 = 6
 
-        # This should generate an error because only one
-        # assignment is allowed.
         self.member4 = 6
 
     def another_method(self):

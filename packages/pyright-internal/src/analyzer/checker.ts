@@ -1690,7 +1690,7 @@ export class Checker extends ParseTreeWalker {
 
                     this._reportIncompatibleDeclarations(name, symbol);
 
-                    this._reportMultipleFinalDeclarations(name, symbol);
+                    this._reportMultipleFinalDeclarations(name, symbol, scope.type);
 
                     this._reportMultipleTypeAliasDeclarations(name, symbol);
 
@@ -1779,7 +1779,7 @@ export class Checker extends ParseTreeWalker {
         }
     }
 
-    private _reportMultipleFinalDeclarations(name: string, symbol: Symbol) {
+    private _reportMultipleFinalDeclarations(name: string, symbol: Symbol, scopeType: ScopeType) {
         if (!isFinalVariable(symbol)) {
             return;
         }
@@ -1798,7 +1798,13 @@ export class Checker extends ParseTreeWalker {
 
             if (decl.type === DeclarationType.Variable && decl.inferredTypeSource) {
                 if (sawAssignment) {
-                    this._evaluator.addError(Localizer.Diagnostic.finalReassigned().format({ name }), decl.node);
+                    // We check for assignment of Final instance and class variables
+                    // the type evaluator because we need to take into account whether
+                    // the assignment is within an `__init__` method, so ignore class
+                    // scopes here.
+                    if (scopeType !== ScopeType.Class) {
+                        this._evaluator.addError(Localizer.Diagnostic.finalReassigned().format({ name }), decl.node);
+                    }
                 }
                 sawAssignment = true;
             }
