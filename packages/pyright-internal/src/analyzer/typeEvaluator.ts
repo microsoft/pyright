@@ -6133,7 +6133,15 @@ export function createTypeEvaluator(
                     /* skipUnknownArgCheck */ false,
                     expectedType
                 );
+
                 returnResult.type = callResult.returnType || UnknownType.create();
+
+                // If some of the subtypes have NoReturn and others don't remove
+                // the NoReturn type from the union.
+                if (isUnion(returnResult.type)) {
+                    returnResult.type = removeNoReturnFromUnion(returnResult.type);
+                }
+
                 if (callResult.argumentErrors) {
                     returnResult.typeErrors = true;
                 }
@@ -16224,12 +16232,16 @@ export function createTypeEvaluator(
         // Initially set to false to avoid infinite recursion.
         callIsNoReturnCache.set(node.id, false);
 
-        let callIsNoReturn = false;
+        let noReturnTypeCount = 0;
+        let subtypeCount = 0;
 
         // Evaluate the call base type.
         const callType = getDeclaredCallBaseType(node.leftExpression);
         if (callType) {
             doForEachSubtype(callType, (callSubtype) => {
+                // Track the number of subtypes we've examined.
+                subtypeCount++;
+
                 // We assume here that no constructors or __call__ methods
                 // will be inferred "no return" types, so we can restrict
                 // our check to functions.
@@ -16245,7 +16257,7 @@ export function createTypeEvaluator(
                 if (functionType && !FunctionType.isAsync(functionType)) {
                     if (functionType.details.declaredReturnType) {
                         if (isNoReturnType(functionType.details.declaredReturnType)) {
-                            callIsNoReturn = true;
+                            noReturnTypeCount++;
                         }
                     } else if (functionType.details.declaration) {
                         // If the function has yield expressions, it's a generator, and
@@ -16304,13 +16316,16 @@ export function createTypeEvaluator(
                                 !foundRaiseNotImplemented &&
                                 !isAfterNodeReachable(functionType.details.declaration.node)
                             ) {
-                                callIsNoReturn = true;
+                                noReturnTypeCount++;
                             }
                         }
                     }
                 }
             });
         }
+
+        // The call is considered NoReturn if all subtypes evaluate to NoReturn.
+        const callIsNoReturn = subtypeCount > 0 && noReturnTypeCount === subtypeCount;
 
         // Cache the value for next time.
         callIsNoReturnCache.set(node.id, callIsNoReturn);

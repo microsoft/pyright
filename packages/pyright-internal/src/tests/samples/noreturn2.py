@@ -9,13 +9,19 @@ def f() -> NoReturn:
 
 
 class B(object):
-    def fb(self) -> NoReturn:
+    def always_noreturn(self) -> NoReturn:
         f()
+
+    def sometimes_noreturn(self) -> NoReturn:
+        raise TypeError
 
 
 class C(object):
-    def fb(self) -> NoReturn:
+    def always_noreturn(self) -> NoReturn:
         f()
+
+    def sometimes_noreturn(self) -> int:
+        return 0
 
 
 class A(object):
@@ -23,5 +29,9 @@ class A(object):
         # Note the union type declaration here.
         self._B_or_C: Union[B, C] = B()
 
-    def fa4(self) -> NoReturn:
-        self._B_or_C.fb()
+    def m3(self) -> NoReturn:
+        self._B_or_C.always_noreturn()
+
+    def m4(self) -> int:
+        x = self._B_or_C.sometimes_noreturn()
+        return x
