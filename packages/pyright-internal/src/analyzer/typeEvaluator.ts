@@ -669,7 +669,8 @@ interface CodeFlowAnalyzer {
         flowNode: FlowNode,
         reference: CodeFlowReferenceExpressionNode | undefined,
         targetSymbolId: number | undefined,
-        initialType: Type | undefined
+        initialType: Type | undefined,
+        isInitialTypeIncomplete: boolean
     ) => FlowNodeTypeResult;
 }
 
@@ -2747,7 +2748,8 @@ export function createTypeEvaluator(
             flowNode,
             /* reference */ undefined,
             /* targetSymbolId */ undefined,
-            /* initialType */ UnboundType.create()
+            /* initialType */ UnboundType.create(),
+            /* isInitialTypeIncomplete */ false
         );
 
         return codeFlowResult.type !== undefined;
@@ -3850,7 +3852,12 @@ export function createTypeEvaluator(
                     symbolWithScope.isBeyondExecutionScope || !symbol.isInitiallyUnbound()
                         ? effectiveType
                         : UnboundType.create();
-                const codeFlowTypeResult = getFlowTypeOfReference(node, symbol.id, typeAtStart);
+                const codeFlowTypeResult = getFlowTypeOfReference(
+                    node,
+                    symbol.id,
+                    typeAtStart,
+                    /* isInitialTypeIncomplete */ false
+                );
                 if (codeFlowTypeResult.type) {
                     type = codeFlowTypeResult.type;
                 }
@@ -4242,6 +4249,7 @@ export function createTypeEvaluator(
             // If the type is initially unbound, see if there's a parent class that
             // potentially initialized the value.
             let initialType = memberTypeResult.type;
+            let isInitialTypeIncomplete = !!memberTypeResult.isIncomplete;
             if (isUnbound(initialType)) {
                 const baseType = makeTopLevelTypeVarsConcrete(baseTypeResult.type);
 
@@ -4262,11 +4270,17 @@ export function createTypeEvaluator(
 
                 if (classMemberInfo) {
                     initialType = getTypeOfMember(classMemberInfo);
+                    isInitialTypeIncomplete = false;
                 }
             }
 
             // See if we can refine the type based on code flow analysis.
-            const codeFlowTypeResult = getFlowTypeOfReference(node, indeterminateSymbolId, initialType);
+            const codeFlowTypeResult = getFlowTypeOfReference(
+                node,
+                indeterminateSymbolId,
+                initialType,
+                isInitialTypeIncomplete
+            );
             if (codeFlowTypeResult.type) {
                 memberTypeResult.type = codeFlowTypeResult.type;
             }
@@ -4298,6 +4312,12 @@ export function createTypeEvaluator(
         const fileInfo = getFileInfo(node);
         let type: Type | undefined;
         let isIncomplete = false;
+
+        // If the base type was incomplete and unbound, don't proceed
+        // because false positive errors will be generated.
+        if (baseTypeResult.isIncomplete && isUnbound(baseTypeResult.type)) {
+            return { type: UnknownType.create(), node, isIncomplete: true };
+        }
 
         switch (baseType.category) {
             case TypeCategory.Any:
@@ -5136,7 +5156,12 @@ export function createTypeEvaluator(
             writeTypeCache(node, indexTypeResult.type, /* isIncomplete */ false);
 
             // See if we can refine the type based on code flow analysis.
-            const codeFlowTypeResult = getFlowTypeOfReference(node, indeterminateSymbolId, indexTypeResult.type);
+            const codeFlowTypeResult = getFlowTypeOfReference(
+                node,
+                indeterminateSymbolId,
+                indexTypeResult.type,
+                !!baseTypeResult.isIncomplete || !!indexTypeResult.isIncomplete
+            );
             if (codeFlowTypeResult.type) {
                 indexTypeResult.type = codeFlowTypeResult.type;
             }
@@ -16368,7 +16393,8 @@ export function createTypeEvaluator(
     function getFlowTypeOfReference(
         reference: CodeFlowReferenceExpressionNode,
         targetSymbolId: number,
-        initialType: Type | undefined
+        initialType: Type | undefined,
+        isInitialTypeIncomplete: boolean
     ): FlowNodeTypeResult {
         // See if this execution scope requires code flow for this reference expression.
         const referenceKey = createKeyForReference(reference);
@@ -16399,7 +16425,14 @@ export function createTypeEvaluator(
             return { type: undefined, isIncomplete: false };
         }
 
-        return getTypeFromCodeFlow(analyzer, flowNode!, reference, targetSymbolId, initialType);
+        return getTypeFromCodeFlow(
+            analyzer,
+            flowNode!,
+            reference,
+            targetSymbolId,
+            initialType,
+            isInitialTypeIncomplete
+        );
     }
 
     function getTypeFromCodeFlow(
@@ -16407,13 +16440,20 @@ export function createTypeEvaluator(
         flowNode: FlowNode,
         reference: CodeFlowReferenceExpressionNode | undefined,
         targetSymbolId: number | undefined,
-        initialType: Type | undefined
+        initialType: Type | undefined,
+        isInitialTypeIncomplete: boolean
     ) {
         incompleteTypeTracker.enterTrackingScope();
         let codeFlowResult: FlowNodeTypeResult;
 
         try {
-            codeFlowResult = analyzer.getTypeFromCodeFlow(flowNode!, reference, targetSymbolId, initialType);
+            codeFlowResult = analyzer.getTypeFromCodeFlow(
+                flowNode!,
+                reference,
+                targetSymbolId,
+                initialType,
+                isInitialTypeIncomplete
+            );
         } finally {
             incompleteTypeTracker.exitTrackingScope();
         }
@@ -16435,7 +16475,8 @@ export function createTypeEvaluator(
             flowNode: FlowNode,
             reference: CodeFlowReferenceExpressionNode | undefined,
             targetSymbolId: number | undefined,
-            initialType: Type | undefined
+            initialType: Type | undefined,
+            isInitialTypeIncomplete: boolean
         ): FlowNodeTypeResult {
             const referenceKey =
                 reference !== undefined && targetSymbolId !== undefined
@@ -16579,7 +16620,8 @@ export function createTypeEvaluator(
                 flowNode: FlowNode,
                 reference: CodeFlowReferenceExpressionNode | undefined,
                 targetSymbolId: number | undefined,
-                initialType: Type | undefined
+                initialType: Type | undefined,
+                isInitialTypeIncomplete: boolean
             ): FlowNodeTypeResult {
                 let curFlowNode = flowNode;
 
@@ -16664,7 +16706,7 @@ export function createTypeEvaluator(
                                 //    a = Foo()
                                 //    x = a.b
                                 // The type of "a.b" can no longer be assumed to be Literal[3].
-                                return setCacheEntry(curFlowNode, initialType, /* isIncomplete */ false);
+                                return setCacheEntry(curFlowNode, initialType, isInitialTypeIncomplete);
                             }
                         }
 
@@ -16708,7 +16750,8 @@ export function createTypeEvaluator(
                                 antecedent,
                                 reference,
                                 targetSymbolId,
-                                initialType
+                                initialType,
+                                isInitialTypeIncomplete
                             );
 
                             if (flowTypeResult.isIncomplete) {
@@ -16750,7 +16793,8 @@ export function createTypeEvaluator(
                                     antecedent,
                                     reference,
                                     targetSymbolId,
-                                    initialType
+                                    initialType,
+                                    isInitialTypeIncomplete
                                 );
 
                                 if (flowTypeResult.isIncomplete && index === 0) {
@@ -16790,7 +16834,8 @@ export function createTypeEvaluator(
                                     conditionalFlowNode.antecedent,
                                     reference,
                                     targetSymbolId,
-                                    initialType
+                                    initialType,
+                                    isInitialTypeIncomplete
                                 );
                                 let flowType = flowTypeResult.type;
                                 if (flowType) {
@@ -16877,7 +16922,8 @@ export function createTypeEvaluator(
                                     postFinallyFlowNode.antecedent,
                                     reference,
                                     targetSymbolId,
-                                    initialType
+                                    initialType,
+                                    isInitialTypeIncomplete
                                 );
                             });
 
@@ -16891,7 +16937,7 @@ export function createTypeEvaluator(
                     }
 
                     if (curFlowNode.flags & FlowFlags.Start) {
-                        return setCacheEntry(curFlowNode, initialType, /* isIncomplete */ false);
+                        return setCacheEntry(curFlowNode, initialType, isInitialTypeIncomplete);
                     }
 
                     if (curFlowNode.flags & FlowFlags.WildcardImport) {
@@ -16921,11 +16967,11 @@ export function createTypeEvaluator(
                 // referenced types).
                 return {
                     type: initialType,
-                    isIncomplete: false,
+                    isIncomplete: isInitialTypeIncomplete,
                 };
             }
 
-            return getTypeFromFlowNode(flowNode, reference, targetSymbolId, initialType);
+            return getTypeFromFlowNode(flowNode, reference, targetSymbolId, initialType, isInitialTypeIncomplete);
         }
 
         return {
