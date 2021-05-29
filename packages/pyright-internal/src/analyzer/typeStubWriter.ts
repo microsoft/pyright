@@ -9,6 +9,7 @@
  */
 
 import {
+    ArgumentCategory,
     AssignmentNode,
     AugmentedAssignmentNode,
     ClassNode,
@@ -40,6 +41,7 @@ import { SourceFile } from './sourceFile';
 import { Symbol } from './symbol';
 import * as SymbolNameUtils from './symbolNameUtils';
 import { TypeEvaluator } from './typeEvaluator';
+import { isFunction, isNever, isUnknown, removeUnknownFromUnion } from './types';
 
 class TrackedImport {
     constructor(public importName: string) {}
@@ -236,6 +238,20 @@ export class TypeStubWriter extends ParseTreeWalker {
             }
 
             line += ':';
+
+            // If there was not return type annotation, see if we can infer
+            // a type that is not unknown and add it as a comment.
+            if (!returnAnnotation) {
+                const functionType = this._evaluator.getTypeOfFunction(node);
+                if (functionType && isFunction(functionType.functionType)) {
+                    let returnType = this._evaluator.getFunctionInferredReturnType(functionType.functionType);
+                    returnType = removeUnknownFromUnion(returnType);
+                    if (!isNever(returnType) && !isUnknown(returnType)) {
+                        line += ` # -> ${this._evaluator.printType(returnType, /* expandTypeAlias */ false)}:`;
+                    }
+                }
+            }
+
             this._emitLine(line);
 
             this._emitSuite(() => {
