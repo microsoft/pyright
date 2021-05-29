@@ -17,6 +17,11 @@ class Special(Base):
     z: int
 
 
+@dataclass
+class VerySpecial(Special):
+    y: ClassVar[int] = 2
+
+
 Base(x=1, y=2)
 Special(y=2, z=3)
 Special(2, 3)
@@ -26,3 +31,8 @@ Special(x=1, y=2, z=3)
 
 # This should generate an error
 Special(1, 2, 3)
+
+VerySpecial(z=3)
+
+# This should generate an error
+VerySpecial(x=1, z=3)

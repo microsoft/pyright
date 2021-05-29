@@ -2288,6 +2288,16 @@ export function createTypeEvaluator(
                             if (index >= 0) {
                                 fullDataClassEntries.splice(index, 1);
                             }
+                            const dataClassEntry: DataClassEntry = {
+                                name: variableName,
+                                alias: aliasName,
+                                hasDefault: hasDefaultValue,
+                                defaultValueExpression,
+                                includeInInit,
+                                type: UnknownType.create(),
+                                isClassVar: true,
+                            };
+                            localDataClassEntries.push(dataClassEntry);
                         } else {
                             // Create a new data class entry, but defer evaluation of the type until
                             // we've compiled the full list of data class entries for this class. This
@@ -2299,6 +2309,7 @@ export function createTypeEvaluator(
                                 defaultValueExpression,
                                 includeInInit,
                                 type: UnknownType.create(),
+                                isClassVar: false,
                             };
                             localEntryTypeEvaluator.push({ entry: dataClassEntry, evaluator: variableTypeEvaluator });
 
@@ -3711,7 +3722,13 @@ export function createTypeEvaluator(
                     const updatedEntry = { ...entry };
                     updatedEntry.type = applySolvedTypeVars(updatedEntry.type, typeVarMap);
 
-                    if (existingIndex >= 0) {
+                    if (entry.isClassVar) {
+                        // If this entry is a class variable, it overrides an existing
+                        // instance variable, so delete it.
+                        if (existingIndex >= 0) {
+                            entries.splice(existingIndex, 1);
+                        }
+                    } else if (existingIndex >= 0) {
                         entries[existingIndex] = updatedEntry;
                     } else {
                         entries.push(updatedEntry);
