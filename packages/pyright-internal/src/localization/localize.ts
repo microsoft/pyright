@@ -634,8 +634,10 @@ export namespace Localizer {
             );
         export const typeAbstract = () =>
             new ParameterizedString<{ type: string }>(getRawString('Diagnostic.typeAbstract'));
-        export const typeAliasIsRecursive = () =>
-            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasIsRecursive'));
+        export const typeAliasIsRecursiveDirect = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasIsRecursiveDirect'));
+        export const typeAliasIsRecursiveIndirect = () =>
+            new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasIsRecursiveIndirect'));
         export const typeAliasNotInModule = () => getRawString('Diagnostic.typeAliasNotInModule');
         export const typeAliasRedeclared = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.typeAliasRedeclared'));

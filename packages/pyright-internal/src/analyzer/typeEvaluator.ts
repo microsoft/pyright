@@ -402,6 +402,10 @@ export const enum EvaluatorFlags {
 
     // Used for PEP 526-style variable type annotations
     VariableTypeAnnotation = 1 << 15,
+
+    // Emit an error if an incomplete recursive type alias is
+    // used in this context.
+    DisallowRecursiveTypeAliasPlaceholder = 1 << 16,
 }
 
 interface EvaluatorUsage {
@@ -1324,6 +1328,12 @@ export function createTypeEvaluator(
             }
         }
 
+        if (flags & EvaluatorFlags.DisallowRecursiveTypeAliasPlaceholder) {
+            if (isTypeAliasPlaceholder(typeResult.type)) {
+                typeResult.type.details.illegalRecursionDetected = true;
+            }
+        }
+
         // Don't update the type cache with an unbound type that results from
         // a resolution cycle. The cache will be updated when the stack unwinds
         // and the type is fully evaluated.
@@ -1350,10 +1360,13 @@ export function createTypeEvaluator(
 
     function getTypeOfAnnotation(
         node: ExpressionNode,
-        isVariableAnnotation: boolean,
-        allowFinal = false,
-        associateTypeVarsWithScope = false,
-        allowTypeVarTuple = false
+        options?: {
+            isVariableAnnotation?: boolean;
+            allowFinal?: boolean;
+            associateTypeVarsWithScope?: boolean;
+            allowTypeVarTuple?: boolean;
+            disallowRecursiveTypeAlias?: boolean;
+        }
     ): Type {
         const fileInfo = getFileInfo(node);
 
@@ -1373,22 +1386,30 @@ export function createTypeEvaluator(
             EvaluatorFlags.EvaluateStringLiteralAsType |
             EvaluatorFlags.ParamSpecDisallowed;
 
-        if (isVariableAnnotation) {
+        if (options?.isVariableAnnotation) {
             evaluatorFlags |= EvaluatorFlags.VariableTypeAnnotation;
         }
 
-        if (!allowTypeVarTuple) {
+        if (!options?.allowFinal) {
+            evaluatorFlags |= EvaluatorFlags.FinalDisallowed;
+        }
+
+        if (!options?.allowTypeVarTuple) {
             evaluatorFlags |= EvaluatorFlags.TypeVarTupleDisallowed;
+        }
+
+        if (options?.associateTypeVarsWithScope) {
+            evaluatorFlags |= EvaluatorFlags.AssociateTypeVarsWithCurrentScope;
+        } else {
+            evaluatorFlags |= EvaluatorFlags.DisallowTypeVarsWithoutScopeId;
+        }
+
+        if (options?.disallowRecursiveTypeAlias) {
+            evaluatorFlags |= EvaluatorFlags.DisallowRecursiveTypeAliasPlaceholder;
         }
 
         if (isAnnotationEvaluationPostponed(fileInfo)) {
             evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
-        }
-
-        if (associateTypeVarsWithScope) {
-            evaluatorFlags |= EvaluatorFlags.AssociateTypeVarsWithCurrentScope;
-        } else {
-            evaluatorFlags |= EvaluatorFlags.DisallowTypeVarsWithoutScopeId;
         }
 
         // If the annotation is part of a comment, allow forward references
@@ -1403,10 +1424,6 @@ export function createTypeEvaluator(
             if (node.parent.typeAnnotationComment === node) {
                 evaluatorFlags |= EvaluatorFlags.AllowForwardReferences;
             }
-        }
-
-        if (!allowFinal) {
-            evaluatorFlags |= EvaluatorFlags.FinalDisallowed;
         }
 
         const classType = getTypeOfExpression(node, /* expectedType */ undefined, evaluatorFlags).type;
@@ -2212,11 +2229,10 @@ export function createTypeEvaluator(
                         ) {
                             variableNameNode = statement.leftExpression.valueExpression;
                             variableTypeEvaluator = () =>
-                                getTypeOfAnnotation(
-                                    (statement.leftExpression as TypeAnnotationNode).typeAnnotation,
-                                    /* isVariableAnnotation */ true,
-                                    /* allowFinal */ true
-                                );
+                                getTypeOfAnnotation((statement.leftExpression as TypeAnnotationNode).typeAnnotation, {
+                                    isVariableAnnotation: true,
+                                    allowFinal: true,
+                                });
                         }
 
                         hasDefaultValue = true;
@@ -2268,11 +2284,10 @@ export function createTypeEvaluator(
                         if (statement.valueExpression.nodeType === ParseNodeType.Name) {
                             variableNameNode = statement.valueExpression;
                             variableTypeEvaluator = () =>
-                                getTypeOfAnnotation(
-                                    statement.typeAnnotation,
-                                    /* isVariableAnnotation */ true,
-                                    /* allowFinal */ true
-                                );
+                                getTypeOfAnnotation(statement.typeAnnotation, {
+                                    isVariableAnnotation: true,
+                                    allowFinal: true,
+                                });
                         }
                     }
 
@@ -3465,11 +3480,10 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.TypeAnnotation: {
-                const annotationType: Type | undefined = getTypeOfAnnotation(
-                    target.typeAnnotation,
-                    /* isVariableAnnotation */ true,
-                    ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.valueExpression)
-                );
+                const annotationType: Type | undefined = getTypeOfAnnotation(target.typeAnnotation, {
+                    isVariableAnnotation: true,
+                    allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(target.valueExpression),
+                });
 
                 // Handle a bare "Final" in a special manner.
                 if (!isObject(annotationType) || !ClassType.isBuiltIn(annotationType.classType, 'Final')) {
@@ -12237,7 +12251,9 @@ export function createTypeEvaluator(
                             addDiagnostic(
                                 fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
                                 DiagnosticRule.reportGeneralTypeIssues,
-                                Localizer.Diagnostic.typeAliasIsRecursive().format({ name: typeAliasNameNode.value }),
+                                Localizer.Diagnostic.typeAliasIsRecursiveDirect().format({
+                                    name: typeAliasNameNode.value,
+                                }),
                                 node.rightExpression
                             );
                         }
@@ -12249,6 +12265,17 @@ export function createTypeEvaluator(
                         // Record the type parameters within the recursive type alias so it
                         // can be specialized.
                         typeAliasTypeVar!.details.recursiveTypeParameters = rightHandType.typeAliasInfo?.typeParameters;
+                    }
+
+                    if (typeAliasTypeVar!.details.illegalRecursionDetected) {
+                        addDiagnostic(
+                            fileInfo.diagnosticRuleSet.reportGeneralTypeIssues,
+                            DiagnosticRule.reportGeneralTypeIssues,
+                            Localizer.Diagnostic.typeAliasIsRecursiveIndirect().format({
+                                name: typeAliasNameNode.value,
+                            }),
+                            node.leftExpression
+                        );
                     }
                 }
             }
@@ -13339,13 +13366,11 @@ export function createTypeEvaluator(
             }
 
             if (paramTypeNode) {
-                annotatedType = getTypeOfAnnotation(
-                    paramTypeNode,
-                    /* isVariableAnnotation */ false,
-                    /* allowFinal */ false,
-                    /* associateTypeVarsWithScope */ true,
-                    /* allowTypeVarType */ param.category === ParameterCategory.VarArgList
-                );
+                annotatedType = getTypeOfAnnotation(paramTypeNode, {
+                    associateTypeVarsWithScope: true,
+                    allowTypeVarTuple: param.category === ParameterCategory.VarArgList,
+                    disallowRecursiveTypeAlias: true,
+                });
 
                 if (isVariadicTypeVar(annotatedType) && !annotatedType.isVariadicUnpacked) {
                     addError(
@@ -13490,23 +13515,19 @@ export function createTypeEvaluator(
             // Temporarily set the return type to unknown in case of recursion.
             functionType.details.declaredReturnType = UnknownType.create();
 
-            const returnType = getTypeOfAnnotation(
-                node.returnTypeAnnotation,
-                /* isVariableAnnotation */ false,
-                /* allowFinal */ false,
-                /* associateTypeVarsWithScope */ true
-            );
+            const returnType = getTypeOfAnnotation(node.returnTypeAnnotation, {
+                associateTypeVarsWithScope: true,
+                disallowRecursiveTypeAlias: true,
+            });
             functionType.details.declaredReturnType = returnType;
         } else if (node.functionAnnotationComment) {
             // Temporarily set the return type to unknown in case of recursion.
             functionType.details.declaredReturnType = UnknownType.create();
 
-            const returnType = getTypeOfAnnotation(
-                node.functionAnnotationComment.returnTypeAnnotation,
-                /* isVariableAnnotation */ false,
-                /* allowFinal */ false,
-                /* associateTypeVarsWithScope */ true
-            );
+            const returnType = getTypeOfAnnotation(node.functionAnnotationComment.returnTypeAnnotation, {
+                associateTypeVarsWithScope: true,
+                disallowRecursiveTypeAlias: true,
+            });
             functionType.details.declaredReturnType = returnType;
         } else {
             // If there was no return type annotation and this is a type stub,
@@ -14026,7 +14047,7 @@ export function createTypeEvaluator(
                     // Verify consistency of the type.
                     const fgetType = getGetterTypeFromProperty(classType, /* inferTypeIfNeeded */ false);
                     if (fgetType && !isAnyOrUnknown(fgetType)) {
-                        const fsetType = getTypeOfAnnotation(typeAnnotation, /* isVariableAnnotation */ false);
+                        const fsetType = getTypeOfAnnotation(typeAnnotation);
 
                         // The setter type should be assignable to the getter type.
                         const diag = new DiagnosticAddendum();
@@ -15830,11 +15851,10 @@ export function createTypeEvaluator(
         const parent = lastContextualExpression.parent!;
         if (parent.nodeType === ParseNodeType.Assignment) {
             if (lastContextualExpression === parent.typeAnnotationComment) {
-                getTypeOfAnnotation(
-                    lastContextualExpression,
-                    /* isVariableAnnotation */ true,
-                    ParseTreeUtils.isFinalAllowedForAssignmentTarget(parent.leftExpression)
-                );
+                getTypeOfAnnotation(lastContextualExpression, {
+                    isVariableAnnotation: true,
+                    allowTypeVarTuple: ParseTreeUtils.isFinalAllowedForAssignmentTarget(parent.leftExpression),
+                });
             } else {
                 evaluateTypesForAssignmentStatement(parent);
             }
@@ -15863,11 +15883,10 @@ export function createTypeEvaluator(
             if (annotationParent?.nodeType === ParseNodeType.Assignment && annotationParent.leftExpression === parent) {
                 evaluateTypesForAssignmentStatement(annotationParent);
             } else {
-                const annotationType = getTypeOfAnnotation(
-                    node.typeAnnotation,
-                    /* isVariableAnnotation */ true,
-                    ParseTreeUtils.isFinalAllowedForAssignmentTarget(node.valueExpression)
-                );
+                const annotationType = getTypeOfAnnotation(node.typeAnnotation, {
+                    isVariableAnnotation: true,
+                    allowFinal: ParseTreeUtils.isFinalAllowedForAssignmentTarget(node.valueExpression),
+                });
                 if (annotationType) {
                     writeTypeCache(node.valueExpression, annotationType, /* isIncomplete */ false);
                 }
@@ -15952,14 +15971,12 @@ export function createTypeEvaluator(
                 transformVariadicParamType(
                     node,
                     node.category,
-                    getTypeOfAnnotation(
-                        typeAnnotation,
-                        /* isVariableAnnotation */ false,
-                        /* allowFinal */ false,
-                        /* associateTypeVarsWithScope */ true,
-                        /* allowTypeVarTuple */ functionNode.parameters[paramIndex].category ===
-                            ParameterCategory.VarArgList
-                    )
+                    getTypeOfAnnotation(typeAnnotation, {
+                        associateTypeVarsWithScope: true,
+                        allowTypeVarTuple:
+                            functionNode.parameters[paramIndex].category === ParameterCategory.VarArgList,
+                        disallowRecursiveTypeAlias: true,
+                    })
                 ),
                 /* isIncomplete */ false
             );
@@ -18692,7 +18709,7 @@ export function createTypeEvaluator(
             }
 
             case DeclarationType.SpecialBuiltInClass: {
-                return getTypeOfAnnotation(declaration.node.typeAnnotation, /* isVariableAnnotation */ false);
+                return getTypeOfAnnotation(declaration.node.typeAnnotation);
             }
 
             case DeclarationType.Function: {
@@ -18720,13 +18737,11 @@ export function createTypeEvaluator(
                 }
 
                 if (typeAnnotationNode) {
-                    const declaredType = getTypeOfAnnotation(
-                        typeAnnotationNode,
-                        /* isVariableAnnotation */ false,
-                        /* allowFinal */ false,
-                        /* associateTypeVarsWithScope */ true,
-                        /* allowTypeVarTuple */ declaration.node.category === ParameterCategory.VarArgList
-                    );
+                    const declaredType = getTypeOfAnnotation(typeAnnotationNode, {
+                        associateTypeVarsWithScope: true,
+                        allowTypeVarTuple: declaration.node.category === ParameterCategory.VarArgList,
+                        disallowRecursiveTypeAlias: true,
+                    });
                     return transformVariadicParamType(declaration.node, declaration.node.category, declaredType);
                 }
 
@@ -18740,7 +18755,7 @@ export function createTypeEvaluator(
                     const typeAliasNode = isDeclaredTypeAlias(typeAnnotationNode)
                         ? ParseTreeUtils.getTypeAnnotationNode(typeAnnotationNode)
                         : undefined;
-                    let declaredType = getTypeOfAnnotation(typeAnnotationNode, /* isVariableAnnotation */ true);
+                    let declaredType = getTypeOfAnnotation(typeAnnotationNode, { isVariableAnnotation: true });
 
                     if (declaredType) {
                         // Apply enum transform if appropriate.

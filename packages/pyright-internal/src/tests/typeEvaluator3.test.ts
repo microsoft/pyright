@@ -321,6 +321,12 @@ test('TypeAlias12', () => {
     TestUtils.validateResults(analysisResults, 0);
 });
 
+test('TypeAlias13', () => {
+    const analysisResults = TestUtils.typeAnalyzeSampleFiles(['typeAlias13.pyi']);
+
+    TestUtils.validateResults(analysisResults, 2);
+});
+
 test('Dictionary1', () => {
     const analysisResults = TestUtils.typeAnalyzeSampleFiles(['dictionary1.py']);
 

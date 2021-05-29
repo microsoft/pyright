@@ -1594,6 +1594,7 @@ export interface TypeVarDetails {
     // Used for recursive type aliases.
     recursiveTypeAliasName?: string;
     recursiveTypeAliasScopeId?: TypeVarScopeId;
+    illegalRecursionDetected?: boolean;
 
     // Type parameters for a recursive type alias.
     recursiveTypeParameters?: TypeVarType[];
