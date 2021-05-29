@@ -16401,8 +16401,7 @@ export function createTypeEvaluator(
         const executionScope = ParseTreeUtils.getExecutionScopeNode(reference);
         const codeFlowExpressions = AnalyzerNodeInfo.getCodeFlowExpressions(executionScope);
 
-        assert(codeFlowExpressions !== undefined);
-        if (!codeFlowExpressions!.has(referenceKey)) {
+        if (!codeFlowExpressions || !codeFlowExpressions!.has(referenceKey)) {
             return { type: undefined, isIncomplete: false };
         }
 
