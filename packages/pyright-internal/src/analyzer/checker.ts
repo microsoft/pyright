@@ -3151,32 +3151,57 @@ export class Checker extends ParseTreeWalker {
                 // This check can be expensive, so don't perform it if the corresponding
                 // rule is disabled.
                 if (this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride !== 'none') {
-                    // Verify that the override type is assignable to (same or narrower than)
-                    // the declared type of the base symbol.
-                    const diagAddendum = new DiagnosticAddendum();
-                    if (!this._evaluator.canAssignType(baseClassSymbolType, typeOfSymbol, diagAddendum)) {
-                        const decls = symbol.getDeclarations();
-                        if (decls.length > 0) {
-                            const lastDecl = decls[decls.length - 1];
-                            if (lastDecl) {
-                                const diag = this._evaluator.addDiagnostic(
-                                    this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
-                                    DiagnosticRule.reportIncompatibleVariableOverride,
-                                    Localizer.Diagnostic.symbolOverridden().format({
-                                        name,
-                                        className: baseClassAndSymbol.classType.details.name,
-                                    }) + diagAddendum.getString(),
-                                    lastDecl.node
-                                );
+                    const decls = symbol.getDeclarations();
+                    if (decls.length > 0) {
+                        const lastDecl = decls[decls.length - 1];
+                        // Verify that the override type is assignable to (same or narrower than)
+                        // the declared type of the base symbol.
+                        const diagAddendum = new DiagnosticAddendum();
+                        if (!this._evaluator.canAssignType(baseClassSymbolType, typeOfSymbol, diagAddendum)) {
+                            const diag = this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
+                                DiagnosticRule.reportIncompatibleVariableOverride,
+                                Localizer.Diagnostic.symbolOverridden().format({
+                                    name,
+                                    className: baseClassAndSymbol.classType.details.name,
+                                }) + diagAddendum.getString(),
+                                lastDecl.node
+                            );
 
-                                const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
-                                if (diag && origDecl) {
-                                    diag.addRelatedInfo(
-                                        Localizer.DiagnosticAddendum.overriddenSymbol(),
-                                        origDecl.path,
-                                        origDecl.range
-                                    );
-                                }
+                            const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+                            if (diag && origDecl) {
+                                diag.addRelatedInfo(
+                                    Localizer.DiagnosticAddendum.overriddenSymbol(),
+                                    origDecl.path,
+                                    origDecl.range
+                                );
+                            }
+                        }
+
+                        // Verify that a class variable isn't overriding an instance
+                        // variable or vice versa.
+                        if (symbol.isClassVar() !== baseClassAndSymbol.symbol.isClassVar()) {
+                            const unformattedMessage = symbol.isClassVar()
+                                ? Localizer.Diagnostic.classVarOverridesInstanceVar()
+                                : Localizer.Diagnostic.instanceVarOverridesClassVar();
+
+                            const diag = this._evaluator.addDiagnostic(
+                                this._fileInfo.diagnosticRuleSet.reportIncompatibleVariableOverride,
+                                DiagnosticRule.reportIncompatibleVariableOverride,
+                                unformattedMessage.format({
+                                    name,
+                                    className: baseClassAndSymbol.classType.details.name,
+                                }),
+                                lastDecl.node
+                            );
+
+                            const origDecl = getLastTypedDeclaredForSymbol(baseClassAndSymbol.symbol);
+                            if (diag && origDecl) {
+                                diag.addRelatedInfo(
+                                    Localizer.DiagnosticAddendum.overriddenSymbol(),
+                                    origDecl.path,
+                                    origDecl.range
+                                );
                             }
                         }
                     }

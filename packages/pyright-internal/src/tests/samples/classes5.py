@@ -6,6 +6,7 @@ from typing import ClassVar, List, Union
 
 class ParentClass:
     cv1: ClassVar[int] = 0
+    cv2: ClassVar[int] = 0
 
     var1: int
     var2: str
@@ -15,6 +16,7 @@ class ParentClass:
     var6: int
     var7: List[float]
     var8: List[int]
+    var9: int
 
     _var1: int
     __var1: int
@@ -28,6 +30,9 @@ class ParentClass:
 class Subclass(ParentClass):
     # This should generate an error
     cv1 = ""
+
+    # This should generate an error
+    cv2: int = 3
 
     # This should generate an error because the type is incompatible.
     var1: str
@@ -55,6 +60,9 @@ class Subclass(ParentClass):
     # This should generate an error because floats are not allowed
     # in a List[int].
     var8 = [3.3, 45.6, 5.9]
+
+    # This should generate an error
+    var9: ClassVar[int] = 3
 
     # This should generate an error
     _var1: str
