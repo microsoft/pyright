@@ -252,3 +252,47 @@ b = c
 reveal_type(b) # List[Any]
 ```
 
+### Constrained Type Variables and Conditional Types
+
+When a TypeVar is defined, it can be constrained to two or more types.
+
+```python
+# Example of unconstrained type variable
+_T = TypeVar("_T")
+
+# Example of constrained type variables
+_StrOrFloat = TypeVar("_StrOrFloat", str, float)
+```
+
+When a constrained TypeVar appears more than once within a function signature, the type provided for all instances of the TypeVar must be consistent.
+
+```python
+def add(a: _StrOrFloat, b: _StrOrFloat) -> _StrOrFloat:
+    return a + b
+
+# The arguments for `a` and `b` are both `str`
+v1 = add("hi", "there")
+reveal_type(v1) # int
+
+# The arguments for `a` and `b` are both `float`
+v2 = add(1.3, 2.4)
+reveal_type(v2) # float
+
+# The arguments for `a` and `b` are inconsistent types
+v3 = add(1.3, "hi") # Error
+```
+
+When checking the implementation of a function that uses constrained type variables in its signature, the type checker must verify that type consistency is guaranteed. Consider the following example, where the input parameter and return type are both annotated with a constrained type variable. The type checker must verify that if a caller passes an argument of type `str`, then all code paths must return a `str`. Likewise, if a caller passes an argument of type `float`, all code paths must return a `float`.
+
+```python
+def add_one(value: _StrOrFloat) -> _StrOrFloat:
+    if isinstance(value, str):
+        sum = value + "1"
+    else:
+        sum = value + 1
+
+    reveal_type(sum)  # str* | float*
+    return sum
+```
+
+Notice that the type of variable `sum` is reported with asterisks (`*`). This indicates that internally the type checker is tracking the type as conditional. In this particular example, it indicates that `sum` is a `str` type if the parameter `input` is a `str` but is a `float` if `input` is a `float`. By tracking these conditional types, the type checker can verify that the return type is consistent with the return type `_StrOrFloat`.
