@@ -20288,7 +20288,14 @@ export function createTypeEvaluator(
 
                 if (!destTypeParam || destTypeParam.details.variance === Variance.Covariant) {
                     if (
-                        !canAssignType(destTypeArg, srcTypeArg, assignmentDiag, typeVarMap, flags, recursionCount + 1)
+                        !canAssignType(
+                            destTypeArg,
+                            srcTypeArg,
+                            assignmentDiag,
+                            typeVarMap,
+                            flags | CanAssignFlags.RetainLiteralsForTypeVar,
+                            recursionCount + 1
+                        )
                     ) {
                         if (destTypeParam) {
                             const childDiag = diag.createAddendum();
@@ -20308,7 +20315,7 @@ export function createTypeEvaluator(
                             destTypeArg,
                             assignmentDiag,
                             typeVarMap,
-                            flags ^ CanAssignFlags.ReverseTypeVarMatching,
+                            (flags ^ CanAssignFlags.ReverseTypeVarMatching) | CanAssignFlags.RetainLiteralsForTypeVar,
                             recursionCount + 1
                         )
                     ) {
@@ -20328,7 +20335,7 @@ export function createTypeEvaluator(
                             srcTypeArg,
                             assignmentDiag,
                             typeVarMap,
-                            flags | CanAssignFlags.EnforceInvariance,
+                            flags | CanAssignFlags.EnforceInvariance | CanAssignFlags.RetainLiteralsForTypeVar,
                             recursionCount + 1
                         )
                     ) {
