@@ -142,10 +142,6 @@ export class Binder extends ParseTreeWalker {
     // The current scope in effect.
     private _currentScope!: Scope;
 
-    // Number of nested except statements at current point of analysis.
-    // Used to determine if a naked "raise" statement is allowed.
-    private _nestedExceptDepth = 0;
-
     // Current control-flow node.
     private _currentFlowNode: FlowNode | undefined;
 
@@ -1120,10 +1116,6 @@ export class Binder extends ParseTreeWalker {
             this._targetFunctionDeclaration.raiseStatements.push(node);
         }
 
-        if (!node.typeExpression && this._nestedExceptDepth === 0) {
-            this._addError(Localizer.Diagnostic.raiseParams(), node);
-        }
-
         if (node.typeExpression) {
             this.walk(node.typeExpression);
         }
@@ -1237,7 +1229,6 @@ export class Binder extends ParseTreeWalker {
         }
 
         // Handle the except blocks.
-        this._nestedExceptDepth++;
         node.exceptClauses.forEach((exceptNode, index) => {
             this._currentFlowNode = this._finishFlowLabel(curExceptTargets[index]);
             this.walk(exceptNode);
@@ -1246,7 +1237,6 @@ export class Binder extends ParseTreeWalker {
                 isAfterElseAndExceptsReachable = true;
             }
         });
-        this._nestedExceptDepth--;
 
         if (node.finallySuite) {
             this._finallyTargets.pop();
@@ -3361,7 +3351,6 @@ export class Binder extends ParseTreeWalker {
 
             // Reset the state
             this._currentScope = nextItem.scope;
-            this._nestedExceptDepth = 0;
             this._currentExecutionScopeReferenceMap = nextItem.codeFlowExpressionMap;
 
             nextItem.callback();

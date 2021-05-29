@@ -576,7 +576,6 @@ export namespace Localizer {
             new ParameterizedString<{ variable: string; class: string }>(
                 getRawString('Diagnostic.protocolVarianceInvariant')
             );
-        export const raiseParams = () => getRawString('Diagnostic.raiseParams');
         export const recursiveDefinition = () =>
             new ParameterizedString<{ name: string }>(getRawString('Diagnostic.recursiveDefinition'));
         export const relativeImportNotAllowed = () => getRawString('Diagnostic.relativeImportNotAllowed');

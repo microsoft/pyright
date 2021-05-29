@@ -11,8 +11,6 @@ def func1():
     except:
         raise
 
-    # This should generate an error because it's
-    # a "naked" raise statement.
     raise
 
 
