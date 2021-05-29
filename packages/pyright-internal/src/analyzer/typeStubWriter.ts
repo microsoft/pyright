@@ -157,8 +157,18 @@ export class TypeStubWriter extends ParseTreeWalker {
         this._emitDocString = true;
         this._emitDecorators(node.decorators);
         let line = `class ${className}`;
-        if (node.arguments.length > 0) {
-            line += `(${node.arguments
+
+        // Remove "object" from the list, since it's implied
+        const args = node.arguments.filter(
+            (arg) =>
+                arg.name !== undefined ||
+                arg.argumentCategory !== ArgumentCategory.Simple ||
+                arg.valueExpression.nodeType !== ParseNodeType.Name ||
+                arg.valueExpression.value !== 'object'
+        );
+
+        if (args.length > 0) {
+            line += `(${args
                 .map((arg) => {
                     let argString = '';
                     if (arg.name) {
