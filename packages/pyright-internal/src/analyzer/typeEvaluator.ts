@@ -1193,7 +1193,7 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.ListComprehension: {
-                typeResult = getTypeFromListComprehension(node);
+                typeResult = getTypeFromListComprehension(node, expectedTypeAlt);
                 break;
             }
 
@@ -11108,13 +11108,24 @@ export function createTypeEvaluator(
         return { type: functionType, node };
     }
 
-    function getTypeFromListComprehension(node: ListComprehensionNode): TypeResult {
+    function getTypeFromListComprehension(node: ListComprehensionNode, expectedType?: Type): TypeResult {
         const elementType = getElementTypeFromListComprehension(node);
 
-        const isAsync = node.comprehensions.some((comp) => {
+        let isAsync = node.comprehensions.some((comp) => {
             return comp.nodeType === ParseNodeType.ListComprehensionFor && comp.isAsync;
         });
         let type: Type = UnknownType.create();
+
+        // Handle the special case where a generator function (e.g. `(await x for x in y)`)
+        // is expected to be an AsyncGenerator.
+        if (
+            !isAsync &&
+            expectedType &&
+            isObject(expectedType) &&
+            ClassType.isBuiltIn(expectedType.classType, 'AsyncGenerator')
+        ) {
+            isAsync = true;
+        }
         const builtInIteratorType = getTypingType(node, isAsync ? 'AsyncGenerator' : 'Generator');
 
         if (builtInIteratorType && isClass(builtInIteratorType)) {

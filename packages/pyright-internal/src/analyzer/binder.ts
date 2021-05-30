@@ -1266,7 +1266,12 @@ export class Binder extends ParseTreeWalker {
         // Make sure this is within an async lambda or function.
         const enclosingFunction = ParseTreeUtils.getEnclosingFunction(node);
         if (enclosingFunction === undefined || !enclosingFunction.isAsync) {
-            this._addError(Localizer.Diagnostic.awaitNotInAsync(), node);
+            // Allow if it's within a generator expression. Execution of
+            // generator expressions is deferred and therefore can be
+            // run within the context of an async function later.
+            if (node.parent?.nodeType !== ParseNodeType.ListComprehension) {
+                this._addError(Localizer.Diagnostic.awaitNotInAsync(), node);
+            }
         }
 
         return true;

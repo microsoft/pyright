@@ -29,6 +29,19 @@ async def get_generator2() -> AsyncIterator[str]:
     return v1
 
 
+async def get_value(v: int) -> int:
+    await asyncio.sleep(1)
+    return v + 1
+
+
+async def get_generator3() -> AsyncGenerator[int, None]:
+    return (await get_value(v) for v in [1, 2, 3])
+
+
+def get_generator4() -> AsyncGenerator[int, None]:
+    return (await get_value(v) for v in [1, 2, 3])
+
+
 async def demo_bug1() -> None:
     v1 = get_generator1()
     t_v1: Literal["Coroutine[Any, Any, AsyncGenerator[str, None]]"] = reveal_type(v1)
