@@ -33,5 +33,5 @@ def func2(val: _T) -> _T:
         t1: Literal["str*"] = reveal_type(val)
         return val
     else:
-        t2: Literal["None"] = reveal_type(val)
+        t2: Literal["None*"] = reveal_type(val)
         return val

@@ -27,9 +27,9 @@ export const enum TypeCategory {
     // Special "None" type defined in Python.
     None,
 
-    // Used in type constraints to indicate that all possible
-    // union types have been filtered, and execution should never
-    // get to this point.
+    // Used in type narrowing to indicate that all possible
+    // subtypes in a union have been eliminated, and execution
+    // should never get to this point.
     Never,
 
     // Callable type with typed input parameters and return parameter.
@@ -109,7 +109,12 @@ interface TypeAliasInfo {
 interface TypeBase {
     category: TypeCategory;
     flags: TypeFlags;
+
+    // Used only for type aliases
     typeAliasInfo?: TypeAliasInfo;
+
+    // Used only for conditional (constrained) types
+    condition?: TypeCondition[];
 }
 
 export namespace TypeBase {
@@ -149,6 +154,18 @@ export namespace TypeBase {
     export function cloneForAnnotated(type: Type) {
         const typeClone = { ...type };
         typeClone.flags |= TypeFlags.Annotated;
+        return typeClone;
+    }
+
+    export function cloneForCondition(type: Type, condition: TypeCondition[] | undefined) {
+        // Handle the common case where there are no conditions. In this case,
+        // cloning isn't necessary.
+        if (type.condition === undefined && condition === undefined) {
+            return type;
+        }
+
+        const typeClone = { ...type };
+        typeClone.condition = condition;
         return typeClone;
     }
 }
@@ -1390,35 +1407,38 @@ export namespace AnyType {
     }
 }
 
-// References a single constraint within a constrained TypeVar.
-export interface SubtypeConstraint {
+// References a single condition associated with a constrained TypeVar.
+export interface TypeCondition {
     typeVarName: string;
     constraintIndex: number;
 }
 
-export namespace SubtypeConstraint {
-    export function combine(constraints1: SubtypeConstraints, constraints2: SubtypeConstraints): SubtypeConstraints {
-        if (!constraints1) {
-            return constraints2;
+export namespace TypeCondition {
+    export function combine(
+        conditions1: TypeCondition[] | undefined,
+        conditions2: TypeCondition[] | undefined
+    ): TypeCondition[] | undefined {
+        if (!conditions1) {
+            return conditions2;
         }
 
-        if (!constraints2) {
-            return constraints1;
+        if (!conditions2) {
+            return conditions1;
         }
 
         // Deduplicate the lists.
-        const combined = [...constraints1];
-        constraints2.forEach((c1) => {
+        const combined = [...conditions1];
+        conditions2.forEach((c1) => {
             if (!combined.some((c2) => _compare(c1, c2) === 0)) {
                 combined.push(c1);
             }
         });
 
-        // Always keep the constraints sorted for easier comparison.
+        // Always keep the conditions sorted for easier comparison.
         return combined.sort(_compare);
     }
 
-    function _compare(c1: SubtypeConstraint, c2: SubtypeConstraint) {
+    function _compare(c1: TypeCondition, c2: TypeCondition) {
         if (c1.typeVarName < c2.typeVarName) {
             return -1;
         } else if (c1.typeVarName > c2.typeVarName) {
@@ -1432,36 +1452,42 @@ export namespace SubtypeConstraint {
         return 0;
     }
 
-    export function isSame(constraints1: SubtypeConstraints, constraints2: SubtypeConstraints): boolean {
-        if (!constraints1) {
-            return !constraints2;
+    export function isSame(
+        conditions1: TypeCondition[] | undefined,
+        conditions2: TypeCondition[] | undefined
+    ): boolean {
+        if (!conditions1) {
+            return !conditions2;
         }
 
-        if (!constraints2 || constraints1.length !== constraints2.length) {
+        if (!conditions2 || conditions1.length !== conditions2.length) {
             return false;
         }
 
         return (
-            constraints1.find(
+            conditions1.find(
                 (c1, index) =>
-                    c1.typeVarName !== constraints2[index].typeVarName ||
-                    c1.constraintIndex !== constraints2[index].constraintIndex
+                    c1.typeVarName !== conditions2[index].typeVarName ||
+                    c1.constraintIndex !== conditions2[index].constraintIndex
             ) === undefined
         );
     }
 
-    // Determines if the two constraints can be used at the same time. If
+    // Determines if the two conditions can be used at the same time. If
     // one constraint list contains a constraint for a type variable, and the
     // same constraint is not in the other constraint list, the two are considered
     // incompatible.
-    export function isCompatible(constraints1: SubtypeConstraints, constraints2: SubtypeConstraints): boolean {
-        if (!constraints1 || !constraints2) {
+    export function isCompatible(
+        conditions1: TypeCondition[] | undefined,
+        conditions2: TypeCondition[] | undefined
+    ): boolean {
+        if (!conditions1 || !conditions2) {
             return true;
         }
 
-        for (const c1 of constraints1) {
+        for (const c1 of conditions1) {
             let foundTypeVarMatch = false;
-            const exactMatch = constraints2.find((c2) => {
+            const exactMatch = conditions2.find((c2) => {
                 if (c1.typeVarName === c2.typeVarName) {
                     foundTypeVarMatch = true;
                     return c1.constraintIndex === c2.constraintIndex;
@@ -1478,16 +1504,9 @@ export namespace SubtypeConstraint {
     }
 }
 
-export type SubtypeConstraints = SubtypeConstraint[] | undefined;
-export interface ConstrainedSubtype {
-    type: Type;
-    constraints: SubtypeConstraints;
-}
-
 export interface UnionType extends TypeBase {
     category: TypeCategory.Union;
     subtypes: UnionableType[];
-    constraints?: SubtypeConstraints[];
     literalStrMap?: Map<string, UnionableType>;
     literalIntMap?: Map<number, UnionableType>;
 }
@@ -1503,7 +1522,7 @@ export namespace UnionType {
         return newUnionType;
     }
 
-    export function addType(unionType: UnionType, newType: UnionableType, constraints: SubtypeConstraints) {
+    export function addType(unionType: UnionType, newType: UnionableType) {
         // If we're adding a string literal type, add it to the
         // literal string map to speed up some operations. It's not
         // uncommon for unions to contain hundreds of string literals.
@@ -1511,7 +1530,7 @@ export namespace UnionType {
             isObject(newType) &&
             ClassType.isBuiltIn(newType.classType, 'str') &&
             newType.classType.literalValue !== undefined &&
-            !constraints
+            newType.classType.condition === undefined
         ) {
             if (unionType.literalStrMap === undefined) {
                 unionType.literalStrMap = new Map<string, UnionableType>();
@@ -1521,7 +1540,7 @@ export namespace UnionType {
             isObject(newType) &&
             ClassType.isBuiltIn(newType.classType, 'int') &&
             newType.classType.literalValue !== undefined &&
-            !constraints
+            newType.classType.condition === undefined
         ) {
             if (unionType.literalIntMap === undefined) {
                 unionType.literalIntMap = new Map<number, UnionableType>();
@@ -1529,26 +1548,14 @@ export namespace UnionType {
             unionType.literalIntMap.set(newType.classType.literalValue as number, newType);
         }
 
-        if (constraints) {
-            if (!unionType.constraints) {
-                unionType.constraints = Array.from({ length: unionType.subtypes.length });
-            }
-            unionType.constraints.push(constraints);
-        }
-
         unionType.flags &= newType.flags;
         unionType.subtypes.push(newType);
     }
 
-    export function containsType(
-        unionType: UnionType,
-        subtype: Type,
-        constraints: SubtypeConstraints,
-        recursionCount = 0
-    ): boolean {
+    export function containsType(unionType: UnionType, subtype: Type, recursionCount = 0): boolean {
         // Handle string literals as a special case because unions can sometimes
         // contain hundreds of string literal types.
-        if (isObject(subtype)) {
+        if (isObject(subtype) && subtype.classType.condition === undefined) {
             if (
                 ClassType.isBuiltIn(subtype.classType, 'str') &&
                 subtype.classType.literalValue !== undefined &&
@@ -1856,6 +1863,10 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
                 return false;
             }
 
+            if (!TypeCondition.isSame(type1.condition, type2.condition)) {
+                return false;
+            }
+
             if (!ignorePseudoGeneric || !ClassType.isPseudoGenericClass(type1)) {
                 // Make sure the type args match.
                 if (type1.tupleTypeArguments && classType2.tupleTypeArguments) {
@@ -1995,11 +2006,8 @@ export function isTypeSame(type1: Type, type2: Type, ignorePseudoGeneric = false
             // The types do not have a particular order, so we need to
             // do the comparison in an order-independent manner.
             return (
-                findSubtype(
-                    type1,
-                    (subtype, constraints) =>
-                        !UnionType.containsType(unionType2, subtype, constraints, recursionCount + 1)
-                ) === undefined
+                findSubtype(type1, (subtype) => !UnionType.containsType(unionType2, subtype, recursionCount + 1)) ===
+                undefined
             );
         }
 
@@ -2105,34 +2113,25 @@ export function removeNoneFromUnion(type: Type): Type {
     return removeFromUnion(type, (t: Type) => isNone(t));
 }
 
-export function removeFromUnion(type: Type, removeFilter: (type: Type, constraints: SubtypeConstraints) => boolean) {
+export function removeFromUnion(type: Type, removeFilter: (type: Type) => boolean) {
     if (isUnion(type)) {
-        const remainingTypes: ConstrainedSubtype[] = [];
-        type.subtypes.forEach((subtype, index) => {
-            const constraints = type.constraints ? type.constraints[index] : undefined;
-            if (!removeFilter(subtype, constraints)) {
-                remainingTypes.push({ type: subtype, constraints });
-            }
-        });
+        const remainingTypes = type.subtypes.filter((t) => !removeFilter(t));
         if (remainingTypes.length < type.subtypes.length) {
-            return combineConstrainedTypes(remainingTypes);
+            return combineTypes(remainingTypes);
         }
     }
 
     return type;
 }
 
-export function findSubtype(
-    type: Type,
-    filter: (type: UnionableType | NeverType, constraints: SubtypeConstraints) => boolean
-) {
+export function findSubtype(type: Type, filter: (type: UnionableType | NeverType) => boolean) {
     if (isUnion(type)) {
         return type.subtypes.find((subtype, index) => {
-            return filter(subtype, type.constraints ? type.constraints[index] : undefined);
+            return filter(subtype);
         });
     }
 
-    return filter(type, undefined) ? type : undefined;
+    return filter(type) ? type : undefined;
 }
 
 // Determines whether the specified type is a type that can be
@@ -2151,54 +2150,34 @@ export function isUnionableType(subtypes: Type[]): boolean {
     return (typeFlags & TypeFlags.Instantiable) !== 0 && (typeFlags & TypeFlags.Instance) === 0;
 }
 
-export function combineTypes(types: Type[], maxSubtypeCount?: number): Type {
-    return combineConstrainedTypes(
-        types.map((type) => {
-            return { type, constraints: undefined };
-        }),
-        maxSubtypeCount
-    );
-}
-
 // Combines multiple types into a single type. If the types are
 // the same, only one is returned. If they differ, they
 // are combined into a UnionType. NeverTypes are filtered out.
 // If no types remain in the end, a NeverType is returned.
-export function combineConstrainedTypes(subtypes: ConstrainedSubtype[], maxSubtypeCount?: number): Type {
+export function combineTypes(subtypes: Type[], maxSubtypeCount?: number): Type {
     // Filter out any "Never" types.
-    subtypes = subtypes.filter((subtype) => subtype.type.category !== TypeCategory.Never);
+    subtypes = subtypes.filter((subtype) => subtype.category !== TypeCategory.Never);
     if (subtypes.length === 0) {
         return NeverType.create();
     }
 
     // Handle the common case where there is only one type.
-    if (subtypes.length === 1 && !subtypes[0].constraints) {
-        return subtypes[0].type;
+    if (subtypes.length === 1) {
+        return subtypes[0];
     }
 
     // Expand all union types.
-    let expandedTypes: ConstrainedSubtype[] = [];
-    for (const constrainedType of subtypes) {
-        if (isUnion(constrainedType.type)) {
-            const unionType = constrainedType.type;
-            unionType.subtypes.forEach((subtype, index) => {
-                expandedTypes.push({
-                    type: subtype,
-                    constraints: SubtypeConstraint.combine(
-                        unionType.constraints ? unionType.constraints[index] : undefined,
-                        constrainedType.constraints
-                    ),
-                });
-            });
+    let expandedTypes: Type[] = [];
+    for (const subtype of subtypes) {
+        if (isUnion(subtype)) {
+            expandedTypes.push(...subtype.subtypes);
         } else {
-            expandedTypes.push({ type: constrainedType.type, constraints: constrainedType.constraints });
+            expandedTypes.push(subtype);
         }
     }
 
     // Sort all of the literal and empty types to the end.
-    expandedTypes = expandedTypes.sort((constrainedType1, constrainedType2) => {
-        const type1 = constrainedType1.type;
-        const type2 = constrainedType2.type;
+    expandedTypes = expandedTypes.sort((type1, type2) => {
         if (
             (isObject(type1) && type1.classType.literalValue !== undefined) ||
             (isClass(type1) && type1.literalValue !== undefined)
@@ -2229,12 +2208,12 @@ export function combineConstrainedTypes(subtypes: ConstrainedSubtype[], maxSubty
     const newUnionType = UnionType.create();
     let hitMaxSubtypeCount = false;
 
-    expandedTypes.forEach((constrainedType, index) => {
+    expandedTypes.forEach((subtype, index) => {
         if (index === 0) {
-            UnionType.addType(newUnionType, constrainedType.type as UnionableType, constrainedType.constraints);
+            UnionType.addType(newUnionType, subtype as UnionableType);
         } else {
             if (maxSubtypeCount === undefined || newUnionType.subtypes.length < maxSubtypeCount) {
-                _addTypeIfUnique(newUnionType, constrainedType.type as UnionableType, constrainedType.constraints);
+                _addTypeIfUnique(newUnionType, subtype as UnionableType);
             } else {
                 hitMaxSubtypeCount = true;
             }
@@ -2245,9 +2224,8 @@ export function combineConstrainedTypes(subtypes: ConstrainedSubtype[], maxSubty
         return AnyType.create();
     }
 
-    // If only one type remains and there are no constraints, convert it from
-    // a union to a simple type.
-    if (newUnionType.subtypes.length === 1 && !newUnionType.constraints) {
+    // If only one type remains, convert it from a union to a simple type.
+    if (newUnionType.subtypes.length === 1) {
         return newUnionType.subtypes[0];
     }
 
@@ -2278,18 +2256,18 @@ export function isSameWithoutLiteralValue(destType: Type, srcType: Type): boolea
     return false;
 }
 
-function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, constraintsToAdd: SubtypeConstraints) {
+function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType) {
     // Handle the addition of a string literal in a special manner to
     // avoid n^2 behavior in unions that contain hundreds of string
     // literal types. Skip this for constrained types.
-    if (!constraintsToAdd && isObject(typeToAdd)) {
+    if (isObject(typeToAdd) && typeToAdd.classType.condition === undefined) {
         if (
             ClassType.isBuiltIn(typeToAdd.classType, 'str') &&
             typeToAdd.classType.literalValue !== undefined &&
             unionType.literalStrMap !== undefined
         ) {
             if (!unionType.literalStrMap.has(typeToAdd.classType.literalValue as string)) {
-                UnionType.addType(unionType, typeToAdd, constraintsToAdd);
+                UnionType.addType(unionType, typeToAdd);
             }
             return;
         } else if (
@@ -2298,7 +2276,7 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, constr
             unionType.literalIntMap !== undefined
         ) {
             if (!unionType.literalIntMap.has(typeToAdd.classType.literalValue as number)) {
-                UnionType.addType(unionType, typeToAdd, constraintsToAdd);
+                UnionType.addType(unionType, typeToAdd);
             }
             return;
         }
@@ -2306,11 +2284,6 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, constr
 
     for (let i = 0; i < unionType.subtypes.length; i++) {
         const type = unionType.subtypes[i];
-        const constraints = unionType.constraints ? unionType.constraints[i] : undefined;
-
-        if (!SubtypeConstraint.isSame(constraints, constraintsToAdd)) {
-            continue;
-        }
 
         // Does this type already exist in the types array?
         if (isTypeSame(type, typeToAdd)) {
@@ -2348,5 +2321,5 @@ function _addTypeIfUnique(unionType: UnionType, typeToAdd: UnionableType, constr
         }
     }
 
-    UnionType.addType(unionType, typeToAdd, constraintsToAdd);
+    UnionType.addType(unionType, typeToAdd);
 }

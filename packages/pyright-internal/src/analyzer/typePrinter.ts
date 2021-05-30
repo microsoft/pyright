@@ -144,6 +144,11 @@ export function printType(
         }
     }
 
+    const includeConditionalIndicator = (printTypeFlags & PrintTypeFlags.OmitConditionalConstraint) === 0;
+    const getConditionalIndicator = (subtype: Type) => {
+        return subtype.condition !== undefined && includeConditionalIndicator ? '*' : '';
+    };
+
     switch (type.category) {
         case TypeCategory.Unbound: {
             return 'Unbound';
@@ -159,10 +164,15 @@ export function printType(
 
         case TypeCategory.Class: {
             if (type.literalValue !== undefined) {
-                return `Type[Literal[${printLiteralValue(type)}]]`;
+                return `Type[Literal[${printLiteralValue(type)}]]${getConditionalIndicator(type)}`;
             }
 
-            return `Type[${printObjectTypeForClass(type, printTypeFlags, returnTypeCallback, recursionCount + 1)}]`;
+            return `Type[${printObjectTypeForClass(
+                type,
+                printTypeFlags,
+                returnTypeCallback,
+                recursionCount + 1
+            )}]${getConditionalIndicator(type)}`;
         }
 
         case TypeCategory.Object: {
@@ -170,7 +180,12 @@ export function printType(
                 return `Literal[${printLiteralValue(type.classType)}]`;
             }
 
-            return printObjectTypeForClass(type.classType, printTypeFlags, returnTypeCallback, recursionCount + 1);
+            return `${printObjectTypeForClass(
+                type.classType,
+                printTypeFlags,
+                returnTypeCallback,
+                recursionCount + 1
+            )}${getConditionalIndicator(type.classType)}`;
         }
 
         case TypeCategory.Function: {
@@ -224,24 +239,13 @@ export function printType(
             const subtypeStrings = new Set<string>();
             const literalObjectStrings = new Set<string>();
             const literalClassStrings = new Set<string>();
-            doForEachSubtype(type, (subtype, index) => {
-                const addConstrainedMarker = (typeString: string) => {
-                    if ((printTypeFlags & PrintTypeFlags.OmitConditionalConstraint) === 0) {
-                        if (type.constraints && type.constraints[index] !== undefined) {
-                            return typeString + '*';
-                        }
-                    }
-                    return typeString;
-                };
-
+            doForEachSubtype(type, (subtype) => {
                 if (isObject(subtype) && subtype.classType.literalValue !== undefined) {
-                    literalObjectStrings.add(addConstrainedMarker(printLiteralValue(subtype.classType)));
+                    literalObjectStrings.add(printLiteralValue(subtype.classType));
                 } else if (isClass(subtype) && subtype.literalValue !== undefined) {
-                    literalClassStrings.add(addConstrainedMarker(printLiteralValue(subtype)));
+                    literalClassStrings.add(printLiteralValue(subtype));
                 } else {
-                    subtypeStrings.add(
-                        addConstrainedMarker(printType(subtype, printTypeFlags, returnTypeCallback, recursionCount + 1))
-                    );
+                    subtypeStrings.add(printType(subtype, printTypeFlags, returnTypeCallback, recursionCount + 1));
                 }
             });
 
@@ -331,7 +335,7 @@ export function printType(
         }
 
         case TypeCategory.None: {
-            return TypeBase.isInstantiable(type) ? 'NoneType' : 'None';
+            return `${TypeBase.isInstantiable(type) ? 'NoneType' : 'None'}${getConditionalIndicator(type)}`;
         }
 
         case TypeCategory.Never: {

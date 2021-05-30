@@ -16,9 +16,7 @@ import { isTypedDictMemberAccessedThroughIndex } from './symbolUtils';
 import {
     AnyType,
     ClassType,
-    combineConstrainedTypes,
     combineTypes,
-    ConstrainedSubtype,
     findSubtype,
     FunctionType,
     FunctionTypeFlags,
@@ -47,10 +45,10 @@ import {
     ParamSpecValue,
     removeFromUnion,
     SpecializedFunctionTypes,
-    SubtypeConstraints,
     Type,
     TypeBase,
     TypeCategory,
+    TypeCondition,
     TypeVarScopeId,
     TypeVarType,
     UnknownType,
@@ -170,24 +168,24 @@ export function isOptionalType(type: Type): boolean {
 // into a final type.
 export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefined): Type {
     if (isUnion(type)) {
-        const newSubtypes: ConstrainedSubtype[] = [];
+        const newSubtypes: Type[] = [];
         let typeChanged = false;
 
-        type.subtypes.forEach((subtype, index) => {
-            const subtypeConstraints = type.constraints ? type.constraints[index] : undefined;
-
+        type.subtypes.forEach((subtype) => {
             const transformedType = callback(subtype);
             if (transformedType) {
-                newSubtypes.push({ type: transformedType, constraints: subtypeConstraints });
                 if (transformedType !== subtype) {
+                    newSubtypes.push(addConditionToType(transformedType, getTypeCondition(type)));
                     typeChanged = true;
+                } else {
+                    newSubtypes.push(subtype);
                 }
             } else {
                 typeChanged = true;
             }
         });
 
-        return typeChanged ? combineConstrainedTypes(newSubtypes) : type;
+        return typeChanged ? combineTypes(newSubtypes) : type;
     }
 
     const transformedSubtype = callback(type);
@@ -197,22 +195,13 @@ export function mapSubtypes(type: Type, callback: (type: Type) => Type | undefin
     return transformedSubtype;
 }
 
-export function doForEachSubtype(
-    type: Type,
-    callback: (type: Type, index: number, constraints: SubtypeConstraints) => void
-): void {
+export function doForEachSubtype(type: Type, callback: (type: Type, index: number) => void): void {
     if (isUnion(type)) {
-        if (type.constraints) {
-            type.subtypes.forEach((subtype, index) => {
-                callback(subtype, index, type.constraints![index]);
-            });
-        } else {
-            type.subtypes.forEach((subtype, index) => {
-                callback(subtype, index, undefined);
-            });
-        }
+        type.subtypes.forEach((subtype, index) => {
+            callback(subtype, index);
+        });
     } else {
-        callback(type, 0, undefined);
+        callback(type, 0);
     }
 }
 
@@ -307,6 +296,60 @@ export function stripLiteralValue(type: Type): Type {
     }
 
     return type;
+}
+
+export function addConditionToType(type: Type, condition: TypeCondition[] | undefined): Type {
+    if (!condition) {
+        return type;
+    }
+
+    switch (type.category) {
+        case TypeCategory.Unbound:
+        case TypeCategory.Unknown:
+        case TypeCategory.Any:
+        case TypeCategory.Never:
+        case TypeCategory.Module:
+        case TypeCategory.TypeVar:
+            return type;
+
+        case TypeCategory.None:
+        case TypeCategory.Class:
+        case TypeCategory.Function:
+            return TypeBase.cloneForCondition(type, TypeCondition.combine(type.condition, condition));
+
+        case TypeCategory.OverloadedFunction:
+            return OverloadedFunctionType.create(
+                type.overloads.map((t) => addConditionToType(t, condition) as FunctionType)
+            );
+
+        case TypeCategory.Object:
+            return ObjectType.create(addConditionToType(type.classType, condition) as ClassType);
+
+        case TypeCategory.Union:
+            return combineTypes(type.subtypes.map((t) => addConditionToType(t, condition)));
+    }
+}
+
+export function getTypeCondition(type: Type): TypeCondition[] | undefined {
+    switch (type.category) {
+        case TypeCategory.Unbound:
+        case TypeCategory.Unknown:
+        case TypeCategory.Any:
+        case TypeCategory.Never:
+        case TypeCategory.Module:
+        case TypeCategory.TypeVar:
+        case TypeCategory.OverloadedFunction:
+        case TypeCategory.Union:
+            return undefined;
+
+        case TypeCategory.None:
+        case TypeCategory.Class:
+        case TypeCategory.Function:
+            return type.condition;
+
+        case TypeCategory.Object:
+            return getTypeCondition(type.classType);
+    }
 }
 
 // If the type is a concrete class X described by the object Type[X],

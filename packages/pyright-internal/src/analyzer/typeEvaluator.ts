@@ -136,9 +136,7 @@ import {
     AnyType,
     ClassType,
     ClassTypeFlags,
-    combineConstrainedTypes,
     combineTypes,
-    ConstrainedSubtype,
     DataClassBehaviors,
     DataClassEntry,
     EnumLiteral,
@@ -175,11 +173,10 @@ import {
     ParamSpecEntry,
     removeNoneFromUnion,
     removeUnbound,
-    SubtypeConstraint,
-    SubtypeConstraints,
     Type,
     TypeBase,
     TypeCategory,
+    TypeCondition,
     TypedDictEntry,
     TypeSourceId,
     TypeVarScopeId,
@@ -191,6 +188,7 @@ import {
     WildcardTypeVarScopeId,
 } from './types';
 import {
+    addConditionToType,
     addTypeVarsToListIfUnique,
     applySolvedTypeVars,
     areTypesSame,
@@ -212,6 +210,7 @@ import {
     getDeclaredGeneratorSendType,
     getGeneratorTypeArgs,
     getSpecializedTupleType,
+    getTypeCondition,
     getTypeVarArgumentsRecursive,
     getTypeVarScopeId,
     isEllipsisType,
@@ -3162,7 +3161,7 @@ export function createTypeEvaluator(
 
     function assignTypeToTupleNode(target: TupleNode, type: Type, isTypeIncomplete: boolean, srcExpr: ExpressionNode) {
         // Initialize the array of target types, one for each target.
-        const targetTypes: ConstrainedSubtype[][] = new Array(target.expressions.length);
+        const targetTypes: Type[][] = new Array(target.expressions.length);
         for (let i = 0; i < target.expressions.length; i++) {
             targetTypes[i] = [];
         }
@@ -3171,7 +3170,7 @@ export function createTypeEvaluator(
         // entries at that location.
         const unpackIndex = target.expressions.findIndex((expr) => expr.nodeType === ParseNodeType.Unpack);
 
-        doForEachSubtype(type, (subtype, index, constraints) => {
+        doForEachSubtype(type, (subtype) => {
             // Is this subtype a tuple?
             const tupleType = getSpecializedTupleType(subtype);
             if (tupleType && tupleType.tupleTypeArguments) {
@@ -3181,7 +3180,7 @@ export function createTypeEvaluator(
                 // Is this a homogenous tuple of indeterminate length?
                 if (isOpenEndedTupleClass(tupleType)) {
                     for (let index = 0; index < target.expressions.length; index++) {
-                        targetTypes[index].push({ type: sourceEntryTypes[0], constraints });
+                        targetTypes[index].push(addConditionToType(sourceEntryTypes[0], getTypeCondition(subtype)));
                     }
                 } else {
                     let sourceIndex = 0;
@@ -3194,7 +3193,9 @@ export function createTypeEvaluator(
                             const remainingSourceEntries = sourceEntryCount - sourceIndex;
                             let entriesToPack = Math.max(remainingSourceEntries - remainingTargetEntries, 0);
                             while (entriesToPack > 0) {
-                                targetTypes[targetIndex].push({ type: sourceEntryTypes[sourceIndex], constraints });
+                                targetTypes[targetIndex].push(
+                                    addConditionToType(sourceEntryTypes[sourceIndex], getTypeCondition(subtype))
+                                );
                                 sourceIndex++;
                                 entriesToPack--;
                             }
@@ -3204,7 +3205,9 @@ export function createTypeEvaluator(
                                 break;
                             }
 
-                            targetTypes[targetIndex].push({ type: sourceEntryTypes[sourceIndex], constraints });
+                            targetTypes[targetIndex].push(
+                                addConditionToType(sourceEntryTypes[sourceIndex], getTypeCondition(subtype))
+                            );
                             sourceIndex++;
                         }
                     }
@@ -3230,7 +3233,7 @@ export function createTypeEvaluator(
                 // be some iterable type.
                 const iterableType = getTypeFromIterator(subtype, /* isAsync */ false, srcExpr) || UnknownType.create();
                 for (let index = 0; index < target.expressions.length; index++) {
-                    targetTypes[index].push({ type: iterableType, constraints });
+                    targetTypes[index].push(addConditionToType(iterableType, getTypeCondition(subtype)));
                 }
             }
         });
@@ -3238,7 +3241,7 @@ export function createTypeEvaluator(
         // Assign the resulting types to the individual names in the tuple target expression.
         target.expressions.forEach((expr, index) => {
             const typeList = targetTypes[index];
-            let targetType = typeList.length === 0 ? UnknownType.create() : combineConstrainedTypes(typeList);
+            let targetType = typeList.length === 0 ? UnknownType.create() : combineTypes(typeList);
             targetType = removeNoReturnFromUnion(targetType);
 
             // If the target uses an unpack operator, wrap the target type in a list.
@@ -3259,7 +3262,9 @@ export function createTypeEvaluator(
 
     // Replaces all of the top-level TypeVars (as opposed to TypeVars
     // used as type arguments in other types) with their concrete form.
-    function makeTopLevelTypeVarsConcrete(type: Type, constraintFilter?: SubtypeConstraints): Type {
+    // If conditionFilter is specified and the TypeVar is a constrained
+    // TypeVar, only the conditions that match the filter will be included.
+    function makeTopLevelTypeVarsConcrete(type: Type, conditionFilter?: TypeCondition[]): Type {
         return mapSubtypes(type, (subtype) => {
             if (isTypeVar(subtype) && !subtype.details.recursiveTypeAliasName) {
                 if (subtype.details.boundType) {
@@ -3275,14 +3280,14 @@ export function createTypeEvaluator(
                 }
 
                 if (subtype.details.constraints.length > 0) {
-                    const constrainedTypes: ConstrainedSubtype[] = [];
+                    const typesToCombine: Type[] = [];
 
                     // Expand the list of constrained subtypes, filtering out any that are
-                    // disallowed by the constraintFilter.
+                    // disallowed by the conditionFilter.
                     subtype.details.constraints.forEach((constraintType, constraintIndex) => {
-                        if (constraintFilter) {
+                        if (conditionFilter) {
                             const typeVarName = TypeVarType.getNameWithScope(subtype);
-                            const applicableConstraint = constraintFilter.find(
+                            const applicableConstraint = conditionFilter.find(
                                 (filter) => filter.typeVarName === typeVarName
                             );
 
@@ -3293,18 +3298,17 @@ export function createTypeEvaluator(
                             }
                         }
 
-                        constrainedTypes.push({
-                            type: constraintType,
-                            constraints: [
+                        typesToCombine.push(
+                            addConditionToType(constraintType, [
                                 {
                                     typeVarName: TypeVarType.getNameWithScope(subtype),
                                     constraintIndex,
                                 },
-                            ],
-                        });
+                            ])
+                        );
                     });
 
-                    return combineConstrainedTypes(constrainedTypes);
+                    return combineTypes(typesToCombine);
                 }
 
                 // Convert to an "object" or "type" instance depending on whether
@@ -3322,58 +3326,52 @@ export function createTypeEvaluator(
         });
     }
 
+    // Creates a new type by mapping an existing type (which could be a union)
+    // to another type or types. The callback is called for each subtype.
+    // Top-level TypeVars are expanded (e.g. a bound TypeVar is expanded to
+    // its bound type and a constrained TypeVar is expanded to its individual
+    // constrained types). If conditionFilter is specified, conditions that
+    // do not match will be ignored.
     function mapSubtypesExpandTypeVars(
         type: Type,
-        constraintFilter: SubtypeConstraints | undefined,
-        callback: (expandedSubtype: Type, unexpandedSubtype: Type, constraints: SubtypeConstraints) => Type | undefined
+        conditionFilter: TypeCondition[] | undefined,
+        callback: (expandedSubtype: Type, unexpandedSubtype: Type) => Type | undefined
     ): Type {
-        const newSubtypes: ConstrainedSubtype[] = [];
+        const newSubtypes: Type[] = [];
         let typeChanged = false;
 
-        const expandSubtype = (unexpandedType: Type, constraints: SubtypeConstraints) => {
+        const expandSubtype = (unexpandedType: Type) => {
             const expandedType = isUnion(unexpandedType)
                 ? unexpandedType
                 : makeTopLevelTypeVarsConcrete(unexpandedType);
 
-            if (isUnion(expandedType)) {
-                expandedType.subtypes.forEach((subtype, index) => {
-                    const subtypeConstraints = expandedType.constraints ? expandedType.constraints[index] : constraints;
-                    if (constraintFilter) {
-                        if (!SubtypeConstraint.isCompatible(subtypeConstraints, constraintFilter)) {
-                            return undefined;
-                        }
+            doForEachSubtype(expandedType, (subtype) => {
+                if (conditionFilter) {
+                    if (!TypeCondition.isCompatible(getTypeCondition(subtype), conditionFilter)) {
+                        return undefined;
                     }
+                }
 
-                    const transformedType = callback(subtype, unexpandedType, subtypeConstraints);
-                    if (transformedType !== unexpandedType) {
-                        typeChanged = true;
-                    }
-                    if (transformedType) {
-                        newSubtypes.push({ type: transformedType, constraints: subtypeConstraints });
-                    }
-                    return undefined;
-                });
-            } else {
-                const transformedType = callback(expandedType, unexpandedType, constraints);
+                const transformedType = callback(subtype, unexpandedType);
                 if (transformedType !== unexpandedType) {
                     typeChanged = true;
                 }
-
                 if (transformedType) {
-                    newSubtypes.push({ type: transformedType, constraints: constraints });
+                    newSubtypes.push(addConditionToType(transformedType, getTypeCondition(subtype)));
                 }
-            }
+                return undefined;
+            });
         };
 
         if (isUnion(type)) {
-            type.subtypes.forEach((subtype, index) => {
-                expandSubtype(subtype, type.constraints ? type.constraints[index] : undefined);
+            type.subtypes.forEach((subtype) => {
+                expandSubtype(subtype);
             });
         } else {
-            expandSubtype(type, /* constraints */ undefined);
+            expandSubtype(type);
         }
 
-        return typeChanged ? combineConstrainedTypes(newSubtypes) : type;
+        return typeChanged ? combineTypes(newSubtypes) : type;
     }
 
     function markNamesAccessed(node: ParseNode, names: string[]) {
@@ -4460,7 +4458,9 @@ export function createTypeEvaluator(
                     /* memberAccessFlags */ undefined,
                     baseTypeResult.bindToType
                 );
-                type = typeResult?.type;
+                if (typeResult) {
+                    type = addConditionToType(typeResult.type, getTypeCondition(baseType));
+                }
                 if (typeResult?.isIncomplete) {
                     isIncomplete = true;
                 }
@@ -5339,7 +5339,7 @@ export function createTypeEvaluator(
 
         const type = mapSubtypesExpandTypeVars(
             baseType,
-            /* constraintFilter */ undefined,
+            /* conditionFilter */ undefined,
             (concreteSubtype, unexpandedSubtype) => {
                 concreteSubtype = transformTypeObjectToClass(concreteSubtype);
 
@@ -6425,8 +6425,7 @@ export function createTypeEvaluator(
         argParamMatches: MatchArgsToParamsResult[],
         typeVarMap: TypeVarMap | undefined,
         skipUnknownArgCheck: boolean,
-        expectedType: Type | undefined,
-        constraintFilter: SubtypeConstraints | undefined
+        expectedType: Type | undefined
     ) {
         const returnTypes: Type[] = [];
         const matchedOverloads: {
@@ -6471,8 +6470,7 @@ export function createTypeEvaluator(
                         overload,
                         effectiveTypeVarMap,
                         /* skipUnknownArgCheck */ true,
-                        expectedType,
-                        constraintFilter
+                        expectedType
                     );
                 });
 
@@ -6505,8 +6503,7 @@ export function createTypeEvaluator(
                         overload,
                         typeVarMap,
                         /* skipUnknownArgCheck */ true,
-                        expectedType,
-                        constraintFilter
+                        expectedType
                     );
                 });
             }
@@ -6522,8 +6519,7 @@ export function createTypeEvaluator(
             firstExpansionOverload,
             matchedOverloads[0].typeVarMap,
             skipUnknownArgCheck,
-            expectedType,
-            constraintFilter
+            expectedType
         );
 
         return { argumentErrors: false, returnType: combineTypes(returnTypes) };
@@ -6535,8 +6531,7 @@ export function createTypeEvaluator(
         type: OverloadedFunctionType,
         typeVarMap: TypeVarMap | undefined,
         skipUnknownArgCheck: boolean,
-        expectedType: Type | undefined,
-        constraintFilter: SubtypeConstraints | undefined
+        expectedType: Type | undefined
     ): CallResult {
         const filteredOverloads: FunctionType[] = [];
         const filteredMatchResults: MatchArgsToParamsResult[] = [];
@@ -6578,8 +6573,7 @@ export function createTypeEvaluator(
                 filteredMatchResults,
                 typeVarMap,
                 skipUnknownArgCheck,
-                expectedType,
-                constraintFilter
+                expectedType
             );
 
             if (callResult) {
@@ -7136,8 +7130,8 @@ export function createTypeEvaluator(
 
         const returnType = mapSubtypesExpandTypeVars(
             callType,
-            /* constraintFilter */ undefined,
-            (expandedSubtype, unexpandedSubtype, constraints) => {
+            /* conditionFilter */ undefined,
+            (expandedSubtype, unexpandedSubtype) => {
                 let isTypeObject = false;
                 unexpandedSubtype = transformTypeObjectToClass(unexpandedSubtype);
                 if (isObject(expandedSubtype) && ClassType.isBuiltIn(expandedSubtype.classType, 'Type')) {
@@ -7179,8 +7173,7 @@ export function createTypeEvaluator(
                             concreteSubtype,
                             typeVarMap || new TypeVarMap(getTypeVarScopeId(concreteSubtype)),
                             skipUnknownArgCheck,
-                            expectedType,
-                            constraints
+                            expectedType
                         );
                         if (functionResult.argumentErrors) {
                             argumentErrors = true;
@@ -7222,8 +7215,7 @@ export function createTypeEvaluator(
                             concreteSubtype,
                             typeVarMap,
                             skipUnknownArgCheck,
-                            expectedType,
-                            constraints
+                            expectedType
                         );
 
                         if (functionResult.argumentErrors) {
@@ -8299,11 +8291,12 @@ export function createTypeEvaluator(
         type: FunctionType,
         typeVarMap: TypeVarMap,
         skipUnknownArgCheck = false,
-        expectedType?: Type,
-        constraintFilter?: SubtypeConstraints
+        expectedType?: Type
     ): CallResult {
         let isTypeIncomplete = false;
         let argumentErrors = false;
+
+        const typeCondition = getTypeCondition(type);
 
         // If the function was bound to a class or object, it's possible that
         // some of that class's type variables have not yet been solved. Add
@@ -8385,7 +8378,7 @@ export function createTypeEvaluator(
                                 typeVarMap,
                                 type.details.name,
                                 skipUnknownArgCheck,
-                                constraintFilter
+                                typeCondition
                             );
                             if (argResult.isTypeIncomplete) {
                                 isTypeIncomplete = true;
@@ -8406,7 +8399,7 @@ export function createTypeEvaluator(
                 typeVarMap,
                 type.details.name,
                 skipUnknownArgCheck,
-                constraintFilter
+                typeCondition
             );
             if (!argResult.isCompatible) {
                 argumentErrors = true;
@@ -8423,7 +8416,7 @@ export function createTypeEvaluator(
                     matchResults.paramSpecArgList,
                     matchResults.paramSpecTarget,
                     typeVarMap,
-                    constraintFilter
+                    typeCondition
                 )
             ) {
                 argumentErrors = true;
@@ -8433,7 +8426,7 @@ export function createTypeEvaluator(
         // Calculate the return type. If there was a type error detected,
         // don't bother attempting to infer the return type.
         const returnType = getFunctionEffectiveReturnType(type, matchResults.argParams, !argumentErrors);
-        let specializedReturnType = applySolvedTypeVars(returnType, typeVarMap);
+        let specializedReturnType = addConditionToType(applySolvedTypeVars(returnType, typeVarMap), typeCondition);
 
         // Handle 'TypeGuard' specially. We'll transform the return type into a 'bool'
         // object with a type argument that reflects the narrowed type.
@@ -8479,8 +8472,7 @@ export function createTypeEvaluator(
         type: FunctionType,
         typeVarMap: TypeVarMap,
         skipUnknownArgCheck = false,
-        expectedType?: Type,
-        constraintFilter?: SubtypeConstraints
+        expectedType?: Type
     ): CallResult {
         const matchResults = matchFunctionArgumentsToParameters(errorNode, argList, type);
 
@@ -8507,8 +8499,7 @@ export function createTypeEvaluator(
             type,
             typeVarMap,
             skipUnknownArgCheck,
-            expectedType,
-            constraintFilter
+            expectedType
         );
     }
 
@@ -8519,7 +8510,7 @@ export function createTypeEvaluator(
         argList: FunctionArgument[],
         paramSpec: TypeVarType,
         typeVarMap: TypeVarMap,
-        constraintFilter: SubtypeConstraints | undefined
+        conditionFilter: TypeCondition[] | undefined
     ): boolean {
         const paramSpecValue = typeVarMap.getParamSpec(paramSpec);
 
@@ -8600,7 +8591,7 @@ export function createTypeEvaluator(
                             typeVarMap,
                             /* functionName */ '',
                             /* skipUnknownArgCheck */ false,
-                            constraintFilter
+                            conditionFilter
                         )
                     ) {
                         reportedArgError = true;
@@ -8637,7 +8628,7 @@ export function createTypeEvaluator(
         typeVarMap: TypeVarMap,
         functionName: string,
         skipUnknownCheck: boolean,
-        constraintFilter: SubtypeConstraints | undefined
+        conditionFilter: TypeCondition[] | undefined
     ): ArgResult {
         let argType: Type | undefined;
         let expectedTypeDiag: DiagnosticAddendum | undefined;
@@ -8702,8 +8693,8 @@ export function createTypeEvaluator(
         // If there's a constraint filter, apply it to top-level type variables
         // if appropriate. This doesn't properly handle non-top-level constrained
         // type variables.
-        if (constraintFilter) {
-            argType = mapSubtypesExpandTypeVars(argType, constraintFilter, (expandedSubtype) => {
+        if (conditionFilter) {
+            argType = mapSubtypesExpandTypeVars(argType, conditionFilter, (expandedSubtype) => {
                 return expandedSubtype;
             });
         }
@@ -10044,11 +10035,11 @@ export function createTypeEvaluator(
 
         type = mapSubtypesExpandTypeVars(
             leftType,
-            /* constraintFilter */ undefined,
-            (leftSubtypeExpanded, leftSubtypeUnexpanded, leftConstraints) => {
+            /* conditionFilter */ undefined,
+            (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
                 return mapSubtypesExpandTypeVars(
                     rightType,
-                    leftConstraints,
+                    getTypeCondition(leftSubtypeExpanded),
                     (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                         if (isAnyOrUnknown(leftSubtypeUnexpanded) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
                             // If either type is "Unknown" (versus Any), propagate the Unknown.
@@ -10156,55 +10147,59 @@ export function createTypeEvaluator(
             if (operator === OperatorType.In || operator === OperatorType.NotIn) {
                 type = mapSubtypesExpandTypeVars(
                     rightType,
-                    /* constraintFilter */ undefined,
-                    (rightSubtypeExpanded, rightSubtypeUnexpanded, rightConstraints) => {
-                        return mapSubtypesExpandTypeVars(concreteLeftType, rightConstraints, (leftSubtype) => {
-                            if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
-                                // If either type is "Unknown" (versus Any), propagate the Unknown.
-                                if (isUnknown(leftSubtype) || isUnknown(rightSubtypeUnexpanded)) {
-                                    return UnknownType.create();
-                                } else {
-                                    return AnyType.create();
+                    /* conditionFilter */ undefined,
+                    (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
+                        return mapSubtypesExpandTypeVars(
+                            concreteLeftType,
+                            getTypeCondition(rightSubtypeExpanded),
+                            (leftSubtype) => {
+                                if (isAnyOrUnknown(leftSubtype) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
+                                    // If either type is "Unknown" (versus Any), propagate the Unknown.
+                                    if (isUnknown(leftSubtype) || isUnknown(rightSubtypeUnexpanded)) {
+                                        return UnknownType.create();
+                                    } else {
+                                        return AnyType.create();
+                                    }
                                 }
-                            }
 
-                            let returnType = getTypeFromMagicMethodReturn(
-                                rightSubtypeExpanded,
-                                [leftSubtype],
-                                '__contains__',
-                                errorNode,
-                                /* expectedType */ undefined
-                            );
-
-                            if (!returnType) {
-                                // If __contains__ was not supported, fall back
-                                // on an iterable.
-                                const iteratorType = getTypeFromIterator(
+                                let returnType = getTypeFromMagicMethodReturn(
                                     rightSubtypeExpanded,
-                                    /* isAsync */ false,
-                                    /* errorNode */ undefined
+                                    [leftSubtype],
+                                    '__contains__',
+                                    errorNode,
+                                    /* expectedType */ undefined
                                 );
 
-                                if (
-                                    iteratorType &&
-                                    canAssignType(iteratorType, leftSubtype, new DiagnosticAddendum())
-                                ) {
-                                    returnType = getBuiltInObject(errorNode, 'bool');
+                                if (!returnType) {
+                                    // If __contains__ was not supported, fall back
+                                    // on an iterable.
+                                    const iteratorType = getTypeFromIterator(
+                                        rightSubtypeExpanded,
+                                        /* isAsync */ false,
+                                        /* errorNode */ undefined
+                                    );
+
+                                    if (
+                                        iteratorType &&
+                                        canAssignType(iteratorType, leftSubtype, new DiagnosticAddendum())
+                                    ) {
+                                        returnType = getBuiltInObject(errorNode, 'bool');
+                                    }
                                 }
-                            }
 
-                            if (!returnType) {
-                                diag.addMessage(
-                                    Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
-                                        operator: ParseTreeUtils.printOperator(operator),
-                                        leftType: printType(leftType),
-                                        rightType: printType(rightType),
-                                    })
-                                );
-                            }
+                                if (!returnType) {
+                                    diag.addMessage(
+                                        Localizer.Diagnostic.typeNotSupportBinaryOperator().format({
+                                            operator: ParseTreeUtils.printOperator(operator),
+                                            leftType: printType(leftType),
+                                            rightType: printType(rightType),
+                                        })
+                                    );
+                                }
 
-                            return returnType;
-                        });
+                                return returnType;
+                            }
+                        );
                     }
                 );
 
@@ -10215,11 +10210,11 @@ export function createTypeEvaluator(
             } else {
                 type = mapSubtypesExpandTypeVars(
                     concreteLeftType,
-                    /* constraintFilter */ undefined,
-                    (leftSubtypeExpanded, leftSubtypeUnexpanded, leftConstraints) => {
+                    /* conditionFilter */ undefined,
+                    (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
                         return mapSubtypesExpandTypeVars(
                             rightType,
-                            leftConstraints,
+                            getTypeCondition(leftSubtypeExpanded),
                             (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                                 // If the operator is an AND or OR, we need to combine the two types.
                                 if (operator === OperatorType.And || operator === OperatorType.Or) {
@@ -10235,11 +10230,11 @@ export function createTypeEvaluator(
         } else if (binaryOperatorMap[operator]) {
             type = mapSubtypesExpandTypeVars(
                 leftType,
-                /* constraintFilter */ undefined,
-                (leftSubtypeExpanded, leftSubtypeUnexpanded, leftConstraints) => {
+                /* conditionFilter */ undefined,
+                (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
                     return mapSubtypesExpandTypeVars(
                         rightType,
-                        leftConstraints,
+                        getTypeCondition(leftSubtypeExpanded),
                         (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                             if (isAnyOrUnknown(leftSubtypeUnexpanded) || isAnyOrUnknown(rightSubtypeUnexpanded)) {
                                 // If either type is "Unknown" (versus Any), propagate the Unknown.
@@ -15162,7 +15157,7 @@ export function createTypeEvaluator(
 
         return mapSubtypesExpandTypeVars(
             classType,
-            /* constraintFilter */ undefined,
+            /* conditionFilter */ undefined,
             (expandedSubtype, unexpandedSubtype) => {
                 if (isAnyOrUnknown(expandedSubtype)) {
                     return unexpandedSubtype;
@@ -15272,12 +15267,12 @@ export function createTypeEvaluator(
 
         mapSubtypesExpandTypeVars(
             valueType,
-            /* constraintFilter */ undefined,
-            (leftSubtypeExpanded, leftSubtypeUnexpanded, leftSubtypeConstraints) => {
+            /* conditionFilter */ undefined,
+            (leftSubtypeExpanded, leftSubtypeUnexpanded) => {
                 narrowedSubtypes.push(
                     mapSubtypesExpandTypeVars(
                         type,
-                        leftSubtypeConstraints,
+                        getTypeCondition(leftSubtypeExpanded),
                         (rightSubtypeExpanded, rightSubtypeUnexpanded) => {
                             if (isNever(leftSubtypeExpanded) || isNever(rightSubtypeUnexpanded)) {
                                 return NeverType.create();
@@ -15637,7 +15632,7 @@ export function createTypeEvaluator(
             case ParseNodeType.PatternClass: {
                 const argTypes: Type[][] = pattern.arguments.map((arg) => []);
 
-                mapSubtypesExpandTypeVars(type, /* constraintFilter */ undefined, (expandedSubtype) => {
+                mapSubtypesExpandTypeVars(type, /* conditionFilter */ undefined, (expandedSubtype) => {
                     if (isObject(expandedSubtype)) {
                         doForEachSubtype(type, (matchSubtype) => {
                             const concreteSubtype = makeTopLevelTypeVarsConcrete(matchSubtype);
@@ -17194,7 +17189,7 @@ export function createTypeEvaluator(
                             });
                             return mapSubtypesExpandTypeVars(
                                 expandedType,
-                                /* constraintFilter */ undefined,
+                                /* conditionFilter */ undefined,
                                 (subtype, unexpandedSubtype) => {
                                     if (isAnyOrUnknown(subtype)) {
                                         // We need to assume that "Any" is always both None and not None,
@@ -17566,7 +17561,7 @@ export function createTypeEvaluator(
         const filterType = (
             varType: ClassType,
             unexpandedType: Type,
-            constraints: SubtypeConstraints,
+            constraints: TypeCondition[] | undefined,
             negativeFallbackType: Type
         ): Type[] => {
             const filteredTypes: Type[] = [];
@@ -17616,7 +17611,7 @@ export function createTypeEvaluator(
                             if (isTypeVar(unexpandedType) && unexpandedType.details.constraints.length === 0) {
                                 filteredTypes.push(unexpandedType);
                             } else {
-                                filteredTypes.push(combineConstrainedTypes([{ type: varType, constraints }]));
+                                filteredTypes.push(combineTypes([addConditionToType(varType, constraints)]));
                             }
                         } else if (filterIsSubclass) {
                             // If the variable type is a superclass of the isinstance
@@ -17693,14 +17688,14 @@ export function createTypeEvaluator(
 
         const filteredType = mapSubtypesExpandTypeVars(
             effectiveType,
-            /* constraintFilter */ undefined,
-            (subtype, unexpandedSubtype, constraints) => {
+            /* conditionFilter */ undefined,
+            (subtype, unexpandedSubtype) => {
                 // If we fail to filter anything in the negative case, we need to decide
                 // whether to retain the original TypeVar or replace it with its specialized
                 // type(s). We'll assume that if someone is using isinstance or issubclass
                 // on a constrained TypeVar that they want to filter based on its constrained
                 // parts.
-                const negativeFallback = constraints ? subtype : unexpandedSubtype;
+                const negativeFallback = getTypeCondition(subtype) ? subtype : unexpandedSubtype;
                 const isSubtypeTypeObject = isObject(subtype) && ClassType.isBuiltIn(subtype.classType, 'type');
 
                 if (isPositiveTest && isAnyOrUnknown(subtype)) {
@@ -17752,7 +17747,7 @@ export function createTypeEvaluator(
                             filterType(
                                 subtype.classType,
                                 convertToInstance(unexpandedSubtype),
-                                constraints,
+                                getTypeCondition(subtype),
                                 negativeFallback
                             )
                         );
@@ -17771,7 +17766,9 @@ export function createTypeEvaluator(
                     }
                 } else {
                     if (isClass(subtype)) {
-                        return combineTypes(filterType(subtype, unexpandedSubtype, constraints, negativeFallback));
+                        return combineTypes(
+                            filterType(subtype, unexpandedSubtype, getTypeCondition(subtype), negativeFallback)
+                        );
                     }
 
                     if (isSubtypeTypeObject) {
@@ -17780,7 +17777,7 @@ export function createTypeEvaluator(
                                 filterType(
                                     objectType.classType,
                                     convertToInstantiable(unexpandedSubtype),
-                                    constraints,
+                                    getTypeCondition(subtype),
                                     negativeFallback
                                 )
                             );
@@ -20550,7 +20547,7 @@ export function createTypeEvaluator(
                     destType.details.constraints.forEach((t) => {
                         if (canAssignType(t, srcSubtype, new DiagnosticAddendum())) {
                             if (!constrainedSubtype || canAssignType(constrainedSubtype, t, new DiagnosticAddendum())) {
-                                constrainedSubtype = t;
+                                constrainedSubtype = addConditionToType(t, getTypeCondition(srcSubtype));
                             }
                         }
                     });
@@ -20573,9 +20570,14 @@ export function createTypeEvaluator(
             }
 
             // If there was no constrained type that was assignable
-            // or there were multiple constrained types that were assignable,
-            // it's an error.
-            if (!constrainedType || (isUnion(constrainedType) && !constrainedType.constraints)) {
+            // or there were multiple types that were assignable and they
+            // are not conditional, it's an error.
+            if (
+                !constrainedType ||
+                (isUnion(constrainedType) &&
+                    constrainedType.subtypes.length > 1 &&
+                    constrainedType.subtypes.find((subtype) => !getTypeCondition(subtype)))
+            ) {
                 diag.addMessage(
                     Localizer.DiagnosticAddendum.typeConstrainedTypeVar().format({
                         type: printType(srcType),
@@ -20870,13 +20872,13 @@ export function createTypeEvaluator(
             const destTypeVar = destType;
             if (destTypeVar.details.constraints.length > 0) {
                 if (
-                    findSubtype(srcType, (srcSubtype, constraints) => {
+                    findSubtype(srcType, (srcSubtype) => {
                         if (isTypeSame(destTypeVar, srcSubtype, /* ignorePseudoGeneric */ true)) {
                             return false;
                         }
 
                         if (
-                            constraints?.find(
+                            getTypeCondition(srcSubtype)?.find(
                                 (constraint) => constraint.typeVarName === TypeVarType.getNameWithScope(destTypeVar)
                             )
                         ) {
